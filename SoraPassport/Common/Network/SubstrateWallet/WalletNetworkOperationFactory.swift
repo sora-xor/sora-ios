@@ -35,14 +35,14 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import SSFModels
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 final class WalletNetworkOperationFactory {
     let accountSettings: WalletAccountSettingsProtocol
     let engine: JSONRPCEngine
     let requestFactory: StorageRequestFactoryProtocol
     let runtimeService: RuntimeCodingServiceProtocol
-    let accountSigner: IRSignatureCreatorProtocol
+    let accountSigner: SigningWrapperProtocol
     let dummySigner: IRSignatureCreatorProtocol
     let cryptoType: CryptoType
     let chainStorage: AnyDataProviderRepository<ChainStorageItem>
@@ -54,7 +54,7 @@ final class WalletNetworkOperationFactory {
          runtimeService: RuntimeCodingServiceProtocol,
          accountSettings: WalletAccountSettingsProtocol,
          cryptoType: CryptoType,
-         accountSigner: IRSignatureCreatorProtocol,
+         accountSigner: SigningWrapperProtocol,
          extrinsicService: ExtrinsicServiceProtocol,
          dummySigner: IRSignatureCreatorProtocol,
          chainStorage: AnyDataProviderRepository<ChainStorageItem>,
@@ -100,7 +100,7 @@ final class WalletNetworkOperationFactory {
                 parameters: [
                     try StorageKeyFactory().accountsKey(
                         account: address.accountId!,
-                        asset: Data(hex: assetId)
+                        asset: Data.sora(hex: assetId)
                     ).toHex(includePrefix: true)
                 ]
             )
@@ -190,33 +190,21 @@ final class WalletNetworkOperationFactory {
     }
 
     func createExtrinsicServiceOperation(closure: @escaping ExtrinsicBuilderClosure) -> BaseOperation<String> {
+        let signer = accountSigner
+        let service = extrinsicService
 
-        // swiftlint:disable force_cast
-        let signer = accountSigner as! SigningWrapperProtocol
-        // swiftlint:enable force_cast
-
-        let operation = BaseOperation<String>()
-        operation.configurationBlock = { [weak self] in
-            let semaphore = DispatchSemaphore(value: 0)
-
-            self?.extrinsicService.submit(closure, signer: signer, watch: false, runningIn: .main) { [operation] result, _, _ in
-                semaphore.signal()
-                switch result {
-                case let .success(hash):
-                    operation.result = .success(hash)
-                case let .failure(error):
-                    operation.result = .failure(error)
+        return AwaitOperation<String> {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                service.submit(
+                    closure,
+                    signer: signer,
+                    runningIn: .main
+                ) { result, _, _ in
+                    continuation.resume(with: result)
                 }
             }
-            let status = semaphore.wait(timeout: .now() + .seconds(60))
-
-            if status == .timedOut {
-                operation.result = .failure(JSONRPCOperationError.timeout)
-                return
-            }
         }
-
-        return operation
     }
 
     func createExtrinsicFeeServiceOperation(asset: String,
@@ -234,29 +222,16 @@ final class WalletNetworkOperationFactory {
             return try builder.adding(call: transferCall)
         }
         
-        let operation = BaseOperation<String>()
-        
-        operation.configurationBlock = {
-            let semaphore = DispatchSemaphore(value: 0)
-            
-            self.extrinsicService.estimateFee(closure, runningIn: .main) { [operation] result in
-                semaphore.signal()
-                switch result {
-                case let .success(info):
-                    operation.result = .success(info)
-                case let .failure(error):
-                    operation.result = .failure(error)
+        let service = extrinsicService
+
+        return AwaitOperation<String> {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                service.estimateFee(closure, runningIn: .main) { result in
+                    continuation.resume(with: result)
                 }
             }
-            let status = semaphore.wait(timeout: .now() + .seconds(60))
-            
-            if status == .timedOut {
-                operation.result = .failure(JSONRPCOperationError.timeout)
-                return
-            }
         }
-        
-        return operation
     }
 
     func createCompoundOperation<T>(result: Result<T, Error>) -> CompoundOperationWrapper<T> {

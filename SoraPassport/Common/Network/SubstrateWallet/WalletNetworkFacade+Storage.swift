@@ -67,18 +67,19 @@ extension WalletNetworkFacade {
         //swiftlint:enable force_cast
         do {
 
-            guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
-                return CompoundOperationWrapper<[BalanceData]?>.createWithResult(.none)
-            }
-            let selectedConnectionType = selectedAccount.addressType
             let accountId = try SS58AddressFactory().accountId(
-                fromAddress: selectedAccount.address,
-                type: selectedConnectionType
+                fromAddress: address,
+                type: networkType
             )
 
             let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> = createAccountInfoFetchOperation(accountId)
 
-            let dependencies = assets.map({ factory.createUsableBalanceOperation(accountId: selectedAccount.address, assetId: $0.identifier) })
+            let dependencies = assets.map {
+                factory.createUsableBalanceOperation(
+                    accountId: address,
+                    assetId: $0.identifier
+                )
+            }
             
             let eraOperation = factory.createActiveEraOperation()
             let stackingInfoOperation = factory.createStackingIngoOperation(accountId: accountId)

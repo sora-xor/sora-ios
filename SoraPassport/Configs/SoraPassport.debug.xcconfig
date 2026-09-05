@@ -1,8 +1,8 @@
-#include "../../Pods/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"
-
 OTHER_SWIFT_FLAGS = $(inherited) "-DENABLE_UITUNNEL" "-DF_DEV"
+MARKETING_VERSION = 3.8.7
 
 SORA_APPLICATION_CONFIG = Dev
+SORA_MINAMOTO_NETWORK_ID =
 FIREBASE_CONFIG = GoogleService-Info-Dev.plist
 SORA_NAME = SORA Dev
 SORA_GOOGLE_TOKEN = 

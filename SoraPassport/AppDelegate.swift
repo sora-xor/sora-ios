@@ -29,14 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
-import Firebase
-import SCard
+#if !NO_FIREBASE
+import FirebaseCore
+#endif
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
-#if F_DEV
-import FLEX
-#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -49,10 +47,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        if !isUnitTesting {
-            FirebaseApp.configure()
+        let migrationEvidenceDecision =
+            RetainedMigrationEvidenceHarness.shared.bootstrap()
+        if migrationEvidenceDecision == .evidenceOnly {
+            let evidenceWindow = UIWindow(frame: UIScreen.main.bounds)
+            evidenceWindow.backgroundColor = .systemBackground
+            evidenceWindow.rootViewController =
+                RetainedMigrationEvidenceHarness.shared
+                    .makeEvidenceOnlyViewController()
+            window = evidenceWindow
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: evidenceWindow)
+            evidenceWindow.makeKeyAndVisible()
+            return true
+        }
 
-            initFlex()
+        if !isUnitTesting {
+            #if !NO_FIREBASE
+            FirebaseApp.configure()
+            #endif
+
             setupLanguage()
             
             let rootWindow = SoraWindow()
@@ -61,16 +75,52 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
             SplashPresenterFactory.createSplashPresenter(with: rootWindow)
 
+            if migrationEvidenceDecision == .authorized {
+                RetainedMigrationEvidenceHarness.shared
+                    .installStatusSurface(in: rootWindow)
+            }
+
             rootWindow.makeKeyAndVisible()
+
+            if let connectURL = launchOptions?[.url] as? URL,
+               IrohaConnectCoordinator.shared.canHandle(connectURL) {
+                IrohaConnectCoordinator.shared.handle(connectURL, in: rootWindow)
+            }
         }
 
         return true
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        guard !isUnitTesting else {
+            return
+        }
+        resumePendingNexusTransactions()
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        IrohaConnectCoordinator.shared.applicationDidEnterBackground()
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        if IrohaConnectCoordinator.shared.handle(url, in: window) {
+            return true
+        }
+        return GIDSignIn.sharedInstance.handle(url)
     }
 
     func application(_ application: UIApplication,
                      continue userActivity: NSUserActivity,
                      restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+
+            if IrohaConnectCoordinator.shared.handle(url, in: window) {
+                return true
+            }
 
             let isHandled = DeepLinkService.shared.handle(url: url)
 
@@ -84,101 +134,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    private func initFlex() {
-        #if F_DEV
-
-        FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
-            let isUserSignIn = SCard.shared?.isUserSignIn ?? false
-            let message = "User is signed in: \(isUserSignIn)"
-            let title = "Reset SORA Card Token"
-            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = message
-            }
-            let removeAction = UIAlertAction(title: "Logout",  style: .destructive) { _ in
-                SCard.shared?.logout()
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-            alertController.addAction(removeAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        guard let url = Bundle.main.url(forResource: "/Podfile", withExtension: "lock") else { return }
-        let data = try? String(contentsOf: url, encoding: .utf8)
-
-        let scardInfo = data?.groups(for: "SCard:\n\\s*:[a-z]*:.*\n\\s*:[a-z]*:.*")
-        let commit = scardInfo?[safe: 1]?[safe: 0]?.groups(for: ":commit: (.*)")[safe: 0]?[safe: 1]?.prefix(10) ?? "-"
-        let scardInfoMessage = scardInfo?.flatMap{ $0 }.joined()
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard commit:\(commit)") { tableViewController in
-
-            let title = "SCard pod version"
-            let alertController = UIAlertController(title: title, message: scardInfoMessage, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
-
-            let title = "SCard Config"
-
-            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard update version") { tableViewController in
-
-            let title = "SCard update version"
-
-            let alertController = UIAlertController(title: title, message: SCard.currentSDKVersion, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        #endif
-    }
-    
     func setupLanguage() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
+    }
+
+    private func resumePendingNexusTransactions() {
+        Task { @MainActor in
+            // Reconcile every network journal entry regardless of selected
+            // wallet or Taira visibility. This path performs status lookups
+            // only and never retries, signs, or submits a transaction.
+            NexusTransactionRuntime.shared.resumePendingAfterProcessStart()
+            // Ordinary SORA2 ambiguity recovery is also status-only. Its
+            // runtime independently requires both verified wallet storage and
+            // a ready canonical SORA2 chain before doing any RPC work.
+            Sora2PendingSubmissionRecoveryRuntime.shared
+                .resumePendingAfterProcessStart()
+        }
     }
 }
 
@@ -198,8 +170,8 @@ fileprivate extension String {
                     return String(text[range])
                 }
             }
-        } catch let error {
-            print("invalid regex: \(error.localizedDescription)")
+        } catch {
+            print("Invalid application URL regex")
             return []
         }
     }
@@ -211,23 +183,5 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
-    }
-}
-
-
-extension SCard.Config: CustomDebugStringConvertible {
-    public var debugDescription: String {
-
-        """
-        SCard.Config
-        backendUrl: \(backendUrl)
-        pwAuthDomain: \(pwAuthDomain)
-        pwApiKey: \(pwApiKey)
-        kycUrl: \(kycUrl)
-        kycUsername: \(kycUsername)
-        kycPassword: \(kycPassword)
-        environmentType: \(environmentType)
-        themeMode: \(themeMode)
-        """
     }
 }

@@ -69,6 +69,26 @@ final class RuntimeHotBootSnapshotFactory {
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> { [weak self] in
             guard let self else { throw RuntimeHotBootSnapshotFactoryError.unexpectedError }
             let chainTypes = try chainTypesFetchOperation.targetOperation.extractNoCancellableResultData()
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: self.chainId,
+                    typesUsage: .both
+                )
+            guard let chainTypes = chainTypes else {
+                throw RuntimeHotBootSnapshotFactoryError.unexpectedError
+            }
+            try ReviewedSoraRuntimeSnapshotAdmission.validateCommonTypes(
+                chainId: self.chainId,
+                data: self.commonTypes
+            )
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: self.chainId,
+                data: chainTypes
+            )
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: self.chainId,
+                item: self.runtimeItem
+            )
 
             let decoder = try ScaleDecoder(data: self.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
@@ -76,10 +96,6 @@ final class RuntimeHotBootSnapshotFactory {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             } else {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-            }
-
-            guard let chainTypes = chainTypes else {
-                throw RuntimeHotBootSnapshotFactoryError.unexpectedError
             }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
@@ -111,6 +127,19 @@ final class RuntimeHotBootSnapshotFactory {
     ) -> CompoundOperationWrapper<RuntimeSnapshot?> {
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> { [weak self] in
             guard let strongSelf = self else { throw RuntimeHotBootSnapshotFactoryError.unexpectedError }
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: strongSelf.chainId,
+                    typesUsage: .onlyCommon
+                )
+            try ReviewedSoraRuntimeSnapshotAdmission.validateCommonTypes(
+                chainId: strongSelf.chainId,
+                data: strongSelf.commonTypes
+            )
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: strongSelf.chainId,
+                item: strongSelf.runtimeItem
+            )
 
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
@@ -145,8 +174,26 @@ final class RuntimeHotBootSnapshotFactory {
         let chainTypesFetchOperation = filesOperationFactory.fetchChainTypesOperation(for: chainId)
 
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> { [weak self] in
-            guard let strongSelf = self else { return nil }
+            guard let strongSelf = self else {
+                throw RuntimeHotBootSnapshotFactoryError.unexpectedError
+            }
             let ownTypes = try chainTypesFetchOperation.targetOperation.extractNoCancellableResultData()
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: strongSelf.chainId,
+                    typesUsage: .onlyOwn
+                )
+            guard let ownTypes = ownTypes else {
+                throw RuntimeHotBootSnapshotFactoryError.unexpectedError
+            }
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: strongSelf.chainId,
+                data: ownTypes
+            )
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: strongSelf.chainId,
+                item: strongSelf.runtimeItem
+            )
 
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
@@ -154,10 +201,6 @@ final class RuntimeHotBootSnapshotFactory {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             } else {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-            }
-
-            guard let ownTypes = ownTypes else {
-                return nil
             }
 
             // TODO: think about it

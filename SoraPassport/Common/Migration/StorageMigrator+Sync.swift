@@ -32,12 +32,11 @@ import Foundation
 
 extension UserStorageMigrator: Migrating {
     func migrate() throws {
-        guard requiresMigration() else {
-            return
-        }
+        // performMigration() owns the fail-closed journal/backup checks and all safe no-op exits.
+        // Calling requiresMigration() first repeats the same retained-backup verification, which
+        // is especially expensive on the first launch after an app update.
+        try performMigration()
 
-        performMigration()
-
-        Logger.shared.info("Db migration completed")
+        Logger.shared.info("Db migration check completed")
     }
 }

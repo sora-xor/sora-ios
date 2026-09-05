@@ -29,76 +29,49 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import RobinHood
-import sorawallet
 
-protocol FiatServiceObserverProtocol: AnyObject {
-    func processFiat(data: [FiatData])
+/// Native exact PI price model. This deliberately does not expose a KMM
+/// `KotlinDouble`; the decimal wire value stays intact until a UI formatter
+/// requests `PIQuantity.decimalValue`.
+struct PIExactFiatData: Equatable, Sendable {
+    let id: String
+    let priceUsd: PIQuantity?
 }
 
-protocol FiatServiceProtocol: AnyObject {
-    func getFiat() async -> [FiatData]
+protocol FiatServiceObserverProtocol: AnyObject {
+    func processFiat(data: [PIExactFiatData])
+}
+
+protocol FiatServiceProtocol: Actor {
+    func getFiat() async -> [PIExactFiatData]
 }
 
 struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
-final class FiatService {
+actor FiatService: FiatServiceProtocol {
     static let shared = FiatService()
-    private let operationManager: OperationManager = OperationManager()
-    private var expiredDate: Date = Date()
-    private var fiatData: [FiatData] = []
-    private var observers: [FiatServiceObserver] = []
-    private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.fiat.service")
+    private let client = PIIndexerClient()
+    private var expiredDate = Date.distantPast
+    private var fiatData: [PIExactFiatData] = []
 
-    private func updateFiatData() {
-        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        queryOperation.completionBlock = { [weak self] in
-            guard let self, let response = try? queryOperation.extractNoCancellableResultData() else {
-                return
-            }
-            self.fiatData = response
-            self.expiredDate = Date().addingTimeInterval(20)
-        }
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
-    }
-    
-    private func updateFiatDataAwait() async -> [FiatData] {
-        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
-
-        return await withCheckedContinuation { continuation in
-            queryOperation.completionBlock = {
-                guard let response = try? queryOperation.extractNoCancellableResultData() else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                continuation.resume(returning: response)
-            }
-        }
-    }
-    
-    private func updateFiatData(with data: [FiatData]) async {
-        fiatData = data
-        expiredDate = Date().addingTimeInterval(600)
-    }
-}
-
-extension FiatService: FiatServiceProtocol {
-    
-    func getFiat() async -> [FiatData] {
-        if expiredDate < Date() {
-            updateFiatData()
-        }
-        
-        if !fiatData.isEmpty {
+    func getFiat() async -> [PIExactFiatData] {
+        if !fiatData.isEmpty, Date() < expiredDate {
             return fiatData
         }
-        
-        let response = await updateFiatDataAwait()
-        await updateFiatData(with: response)
-        
-        return response
+
+        do {
+            let response = try await client.allAssets().map {
+                PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
+            }
+            fiatData = response
+            expiredDate = Date().addingTimeInterval(600)
+            return response
+        } catch {
+            // Preserve the last fully validated PI snapshot. An unavailable
+            // price must never affect balances or authorize a transaction.
+            return fiatData
+        }
     }
 }

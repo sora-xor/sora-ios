@@ -74,6 +74,17 @@ extension AssetTransactionData {
             )
         }
 
+        if item.callPath.isUtilityBatch,
+           depositLiquidityCall(from: item) != nil {
+            return createTransactionForDepositLiquidity(
+                from: item,
+                address: address,
+                networkType: networkType,
+                asset: asset,
+                addressFactory: addressFactory
+            )
+        }
+
         if item.callPath.isWithdrawLiquidity {
             return createTransactionForWithdrawLiquidity(
                 from: item,
@@ -112,7 +123,7 @@ extension AssetTransactionData {
         addressFactory: SS58AddressFactoryProtocol
     ) -> AssetTransactionData {
 
-        let deposit = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<DepositLiquidityCall>.self, from: item.call).args
+        let deposit = depositLiquidityCall(from: item)
 
         let desiredA = deposit?.desiredA ?? 0
         let desiredB = deposit?.desiredB ?? 0
@@ -149,6 +160,36 @@ extension AssetTransactionData {
             reason: nil,
             context: nil
         )
+    }
+
+    static func depositLiquidityCall(
+        from item: TransactionHistoryItem
+    ) -> DepositLiquidityCall? {
+        if let directCall = try? JSONDecoder.scaleCompatible().decode(
+            RuntimeCall<DepositLiquidityCall>.self,
+            from: item.call
+        ), directCall.moduleName == CallCodingPath.depositLiquidity.moduleName,
+           directCall.callName == CallCodingPath.depositLiquidity.callName {
+            return directCall.args
+        }
+
+        guard let batchCall = try? JSONDecoder.scaleCompatible().decode(
+            RuntimeCall<BatchArgs>.self,
+            from: item.call
+        ), batchCall.moduleName == KnowRuntimeModule.Utitlity.name,
+           (
+               batchCall.callName == KnowRuntimeModule.Utitlity.batch
+                   || batchCall.callName == KnowRuntimeModule.Utitlity.batchAll
+           ) else {
+            return nil
+        }
+
+        return batchCall.args.calls.lazy.compactMap { encodedCall in
+            try? encodedCall.map(to: RuntimeCall<DepositLiquidityCall>.self)
+        }.first(where: { call in
+            call.moduleName == CallCodingPath.depositLiquidity.moduleName
+                && call.callName == CallCodingPath.depositLiquidity.callName
+        })?.args
     }
 
     private static func createTransactionForWithdrawLiquidity(

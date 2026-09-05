@@ -146,7 +146,8 @@ final class TransactionHistoryMergeManager {
 
     func merge(
         remoteItems: [WalletRemoteHistoryItemProtocol],
-        localItems: [TransactionHistoryItem]
+        localItems: [TransactionHistoryItem],
+        pendingSubmissions: [Sora2PendingSubmission] = []
     ) -> TransactionHistoryMergeResult {
         let remoteHashes: [Data] = remoteItems.compactMap { remoteItem in
             guard let extrinsicHash = remoteItem.extrinsicHash else {
@@ -157,32 +158,30 @@ final class TransactionHistoryMergeManager {
         }
 
         let existingHashes = Set(remoteHashes)
-        let minRemoteItem = remoteItems.last
-
-        let hashesToRemove: [String] = localItems.compactMap { item in
-            if let localHash = try? Data(hexStringSSF: item.txHash), existingHashes.contains(localHash) {
-                return item.txHash
-            }
-
-            guard let remoteItem = minRemoteItem else {
-                return nil
-            }
-
-            if item.timestamp < remoteItem.itemTimestamp {
-                return item.txHash
-            }
-
-            return nil
-        }
+        let hashesToRemove = Self.identifiersToRemove(
+            remoteHashes: existingHashes,
+            oldestRemoteTimestamp: remoteItems.last?.itemTimestamp,
+            localItems: localItems
+        )
 
         let filterSet = Set(hashesToRemove)
-        let localMergeItems: [TransactionHistoryMergeItem] = localItems.compactMap { item in
+        let visibleLocalItems: [TransactionHistoryItem] = localItems.compactMap { item in
             guard !filterSet.contains(item.txHash) else {
                 return nil
             }
 
-            return TransactionHistoryMergeItem.local(item: item)
+            return item
         }
+        let journalOverlayItems = Self.pendingJournalOverlay(
+            address: address,
+            submissions: pendingSubmissions,
+            visibleLocalItems: visibleLocalItems,
+            remoteHashes: existingHashes
+        )
+        let localMergeItems: [TransactionHistoryMergeItem] =
+            (visibleLocalItems + journalOverlayItems).map {
+                TransactionHistoryMergeItem.local(item: $0)
+            }
 
         let remoteMergeItems: [TransactionHistoryMergeItem] = remoteItems.map {
             TransactionHistoryMergeItem.remote(remote: $0)
@@ -205,5 +204,139 @@ final class TransactionHistoryMergeManager {
         )
 
         return results
+    }
+
+    /// Projects the durable signed-submission journal into the normal SORA2
+    /// history without reconstructing a call, amount, or fee. A richer Core
+    /// Data overlay for the same exact hash wins; an exact PI hash suppresses
+    /// the journal row. Indexer age alone never suppresses a journal witness.
+    static func pendingJournalOverlay(
+        address: String,
+        submissions: [Sora2PendingSubmission],
+        visibleLocalItems: [TransactionHistoryItem],
+        remoteHashes: Set<Data>
+    ) -> [TransactionHistoryItem] {
+        guard !address.isEmpty else {
+            return []
+        }
+
+        var occupiedHashes = remoteHashes
+        visibleLocalItems.forEach { item in
+            if let hash = normalizedHashData(item.txHash) {
+                occupiedHashes.insert(hash)
+            }
+        }
+
+        var overlay: [TransactionHistoryItem] = []
+        for submission in submissions where submission.account == address {
+            guard
+                let canonicalHash = Sora2PendingSubmissionStore
+                    .normalizedHash(submission.extrinsicHash),
+                let hashData = normalizedHashData(canonicalHash),
+                !occupiedHashes.contains(hashData),
+                submission.recoveryContext?.isValid(
+                    account: submission.account,
+                    hash: canonicalHash
+                ) != false,
+                isValidTerminalResolution(submission),
+                let timestamp = exactTimestamp(submission.createdAt)
+            else {
+                continue
+            }
+
+            let status: TransactionHistoryItem.Status
+            switch submission.terminalResolution?.kind {
+            case .finalizedSuccess:
+                status = .success
+            case .finalizedFailure, .expiredNotIncluded:
+                status = .failed
+            case .none:
+                status = .pending
+            }
+
+            let blockNumber = submission.terminalResolution?.blockNumber
+                .flatMap { UInt64(exactly: $0) }
+            overlay.append(
+                TransactionHistoryItem(
+                    sender: address,
+                    receiver: nil,
+                    status: status,
+                    txHash: "0x\(canonicalHash)",
+                    timestamp: timestamp,
+                    fee: "0",
+                    blockNumber: blockNumber,
+                    txIndex: nil,
+                    callPath: CallCodingPath(
+                        moduleName: "SORA2",
+                        callName: "pending_submission"
+                    ),
+                    call: Data()
+                )
+            )
+            occupiedHashes.insert(hashData)
+        }
+        return overlay
+    }
+
+    private static func normalizedHashData(_ value: String) -> Data? {
+        guard
+            let canonical = Sora2PendingSubmissionStore.normalizedHash(value)
+        else {
+            return nil
+        }
+        return try? Data(hexStringSSF: canonical)
+    }
+
+    private static func isValidTerminalResolution(
+        _ submission: Sora2PendingSubmission
+    ) -> Bool {
+        guard let resolution = submission.terminalResolution else {
+            return true
+        }
+        guard
+            submission.state == .submitted,
+            let context = submission.recoveryContext
+        else {
+            return false
+        }
+        return resolution.isValid(for: context)
+    }
+
+    private static func exactTimestamp(_ date: Date) -> Int64? {
+        let value = date.timeIntervalSince1970
+        guard
+            value.isFinite,
+            value > Double(Int64.min),
+            value < Double(Int64.max)
+        else {
+            return nil
+        }
+        return Int64(value)
+    }
+
+    /// Pending submissions are removed only by an exact remote hash match.
+    /// Their age relative to a paginated indexer response cannot prove that
+    /// transport did not happen or that PI has caught up yet.
+    static func identifiersToRemove(
+        remoteHashes: Set<Data>,
+        oldestRemoteTimestamp: Int64?,
+        localItems: [TransactionHistoryItem]
+    ) -> [String] {
+        localItems.compactMap { item in
+            if let localHash = try? Data(hexStringSSF: item.txHash), remoteHashes.contains(localHash) {
+                return item.txHash
+            }
+
+            guard item.status != .pending,
+                  let oldestRemoteTimestamp else {
+                return nil
+            }
+
+            if item.timestamp < oldestRemoteTimestamp {
+                return item.txHash
+            }
+
+            return nil
+        }
     }
 }

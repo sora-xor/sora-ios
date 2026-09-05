@@ -65,6 +65,7 @@ protocol AccountOptionsInteractorInputProtocol: AnyObject {
 protocol AccountOptionsInteractorOutputProtocol: AnyObject {
     func restart()
     func close()
+    func accountDeletionBlocked(message: String)
 }
 
 protocol AccountOptionsWireframeProtocol: Loadable {
@@ -73,10 +74,17 @@ protocol AccountOptionsWireframeProtocol: Loadable {
     func showJson(account: AccountItem, from view: AccountOptionsViewProtocol?)
     func showRoot()
     func back(from view: AccountOptionsViewProtocol?)
+    func dismissAfterDeletion(from view: AccountOptionsViewProtocol?)
     func showLogout(from view: AccountOptionsViewProtocol?, isNeedCustomNodeText: Bool, completionBlock: (() -> Void)?)
     func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
                                     account: OpenBackupAccount,
                                     completion: @escaping () -> Void)
+}
+
+extension AccountOptionsWireframeProtocol {
+    func dismissAfterDeletion(from view: AccountOptionsViewProtocol?) {
+        back(from: view)
+    }
 }
 
 protocol AccountOptionsViewFactoryProtocol: AnyObject {

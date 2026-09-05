@@ -29,11 +29,180 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import CryptoKit
 import SSFUtils
 import RobinHood
 
 enum RuntimeSnapshotFactoryError: Error {
     case unexpectedError
+    case unreviewedSoraRuntime
+}
+
+enum ReviewedSoraRuntimeSnapshotAdmission {
+    static let maximumMetadataBytes = 4 * 1024 * 1024
+    static let maximumTypeRegistryBytes = 512 * 1024
+    static let reviewedCommonTypesBytes = 122_551
+    static let reviewedChainTypesBytes = 136_939
+    static let reviewedCommonTypesSHA256 =
+        "2bd6d5a58ceaecb5a1ac05f089e1269288d884ae8b768527d58ae217434bf580"
+    static let reviewedChainTypesSHA256 =
+        "9ced79bb14808bd5e56145e834807e54cc5c623023b768bb415773035388ae92"
+
+    static func isReviewedSoraChain(_ chainId: ChainModel.Id) -> Bool {
+        guard
+            let normalizedChainId =
+                PolkamarktTransactionHash.normalized(chainId),
+            let reviewedChainId =
+                PolkamarktTransactionHash.normalized(
+                    PIIndexerClient.soraMainnetGenesis
+                )
+        else {
+            return false
+        }
+        return normalizedChainId == reviewedChainId
+    }
+
+    static func validate(
+        chainId: ChainModel.Id,
+        item: RuntimeMetadataItem
+    ) throws {
+        guard isReviewedSoraChain(chainId) else { return }
+        guard
+            let normalizedItemChain =
+                PolkamarktTransactionHash.normalized(item.chain),
+            let normalizedRequestedChain =
+                PolkamarktTransactionHash.normalized(chainId),
+            normalizedItemChain == normalizedRequestedChain,
+            item.version == PolkamarktRuntimeContract.specVersion,
+            item.txVersion ==
+                PolkamarktRuntimeContract.transactionVersion,
+            !item.metadata.isEmpty,
+            item.metadata.count <= maximumMetadataBytes,
+            PolkamarktRuntimeContract.rawMetadataSHA256(item.metadata) ==
+                PolkamarktRuntimeContract.metadataFileSHA256
+        else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+    }
+
+    /// SORA2 runtime-130 is admitted with the exact checked-in SORA override
+    /// registry. A remotely supplied chain model cannot switch the reviewed
+    /// signer to common-only or mixed type resolution.
+    static func validateTypeRegistryUsage(
+        chainId: ChainModel.Id,
+        typesUsage: ChainModel.TypesUsage
+    ) throws {
+        guard isReviewedSoraChain(chainId) else { return }
+        guard case .onlyOwn = typesUsage else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+    }
+
+    static func validateCommonTypes(
+        chainId: ChainModel.Id,
+        data: Data
+    ) throws {
+        guard isReviewedSoraChain(chainId) else { return }
+        try validateReviewedCommonTypes(data)
+    }
+
+    static func validateChainTypes(
+        chainId: ChainModel.Id,
+        data: Data
+    ) throws {
+        guard isReviewedSoraChain(chainId) else { return }
+        try validateTypeRegistry(
+            data,
+            expectedBytes: reviewedChainTypesBytes,
+            expectedSHA256: reviewedChainTypesSHA256
+        )
+    }
+
+    static func validateReviewedCommonTypes(_ data: Data) throws {
+        try validateTypeRegistry(
+            data,
+            expectedBytes: reviewedCommonTypesBytes,
+            expectedSHA256: reviewedCommonTypesSHA256
+        )
+    }
+
+    static func loadReviewedCommonTypes() throws -> Data {
+        let resourcePath: String? = R.file.runtimeDefaultJson.path()
+        guard let path = resourcePath else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+        let data = try loadBoundedResource(
+            at: URL(fileURLWithPath: path),
+            expectedBytes: reviewedCommonTypesBytes
+        )
+        try validateReviewedCommonTypes(data)
+        return data
+    }
+
+    static func loadReviewedChainTypes() throws -> Data {
+        let resourcePath: String? = R.file.runtimeSoraJson.path()
+        guard let path = resourcePath else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+        let data = try loadBoundedResource(
+            at: URL(fileURLWithPath: path),
+            expectedBytes: reviewedChainTypesBytes
+        )
+        try validateTypeRegistry(
+            data,
+            expectedBytes: reviewedChainTypesBytes,
+            expectedSHA256: reviewedChainTypesSHA256
+        )
+        return data
+    }
+
+    static func typeRegistrySHA256(_ data: Data) -> String {
+        Data(SHA256.hash(data: data))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private static func validateTypeRegistry(
+        _ data: Data,
+        expectedBytes: Int,
+        expectedSHA256: String
+    ) throws {
+        guard
+            expectedBytes > 0,
+            expectedBytes <= maximumTypeRegistryBytes,
+            data.count == expectedBytes,
+            data.count <= maximumTypeRegistryBytes,
+            typeRegistrySHA256(data) == expectedSHA256
+        else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+    }
+
+    private static func loadBoundedResource(
+        at url: URL,
+        expectedBytes: Int
+    ) throws -> Data {
+        let values = try url.resourceValues(
+            forKeys: [
+                .fileSizeKey,
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+            ]
+        )
+        guard
+            values.isRegularFile == true,
+            values.isSymbolicLink != true,
+            values.fileSize == expectedBytes,
+            expectedBytes <= maximumTypeRegistryBytes
+        else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+        guard data.count == expectedBytes else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+        return data
+    }
 }
 
 protocol RuntimeSnapshotFactoryProtocol {
@@ -73,17 +242,34 @@ final class RuntimeSnapshotFactory {
             let commonTypes = try baseTypesFetchOperation.targetOperation.extractNoCancellableResultData()
             let chainTypes = try chainTypesFetchOperation.targetOperation.extractNoCancellableResultData()
 
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: self.chainId,
+                    typesUsage: .both
+                )
+            guard let commonTypes = commonTypes, let chainTypes = chainTypes else {
+                throw RuntimeSnapshotFactoryError.unexpectedError
+            }
+            try ReviewedSoraRuntimeSnapshotAdmission.validateCommonTypes(
+                chainId: self.chainId,
+                data: commonTypes
+            )
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: self.chainId,
+                data: chainTypes
+            )
+
             guard let runtimeMetadataItem = try runtimeMetadataOperation
                 .extractNoCancellableResultData() else {
                 throw RuntimeSnapshotFactoryError.unexpectedError
             }
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: self.chainId,
+                item: runtimeMetadataItem
+            )
 
             let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
             let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-
-            guard let commonTypes = commonTypes, let chainTypes = chainTypes else {
-                throw RuntimeSnapshotFactoryError.unexpectedError
-            }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 commonTypes,
@@ -123,16 +309,29 @@ final class RuntimeSnapshotFactory {
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> {
             let commonTypes = try commonTypesFetchOperation.targetOperation.extractNoCancellableResultData()
 
-            guard let runtimeMetadataItem = try runtimeMetadataOperation.extractNoCancellableResultData() else {
-                throw RuntimeSnapshotFactoryError.unexpectedError
-            }
-
-            let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
-            let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: self.chainId,
+                    typesUsage: .onlyCommon
+                )
             guard let commonTypes = commonTypes else {
                 throw RuntimeSnapshotFactoryError.unexpectedError
             }
+            try ReviewedSoraRuntimeSnapshotAdmission.validateCommonTypes(
+                chainId: self.chainId,
+                data: commonTypes
+            )
+
+            guard let runtimeMetadataItem = try runtimeMetadataOperation.extractNoCancellableResultData() else {
+                throw RuntimeSnapshotFactoryError.unexpectedError
+            }
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: self.chainId,
+                item: runtimeMetadataItem
+            )
+
+            let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
+            let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 commonTypes,
@@ -170,17 +369,30 @@ final class RuntimeSnapshotFactory {
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> {
             let ownTypes = try chainTypesFetchOperation.targetOperation.extractNoCancellableResultData()
 
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: self.chainId,
+                    typesUsage: .onlyOwn
+                )
+            guard let ownTypes = ownTypes else {
+                throw RuntimeSnapshotFactoryError.unexpectedError
+            }
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: self.chainId,
+                data: ownTypes
+            )
+
             guard let runtimeMetadataItem = try runtimeMetadataOperation
                 .extractNoCancellableResultData() else {
                 throw RuntimeSnapshotFactoryError.unexpectedError
             }
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: self.chainId,
+                item: runtimeMetadataItem
+            )
 
             let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
             let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-
-            guard let ownTypes = ownTypes else {
-                throw RuntimeSnapshotFactoryError.unexpectedError
-            }
 
             // TODO: think about it
             let json: JSON = .dictionaryValue(["types": .dictionaryValue([:])])

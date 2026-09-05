@@ -49,6 +49,14 @@ extension RootPresenter: RootInteractorOutputProtocol {
         wireframe.showOnboarding(on: view)
     }
 
+    func didDecideLegacyWalletUpgrade() {
+        wireframe.showLegacyWalletUpgrade(
+            on: view
+        ) { [weak self] in
+            self?.interactor.performLegacyWalletUpgrade()
+        }
+    }
+
     func didDecideLocalAuthentication() {
         wireframe.showLocalAuthentication(on: view)
     }

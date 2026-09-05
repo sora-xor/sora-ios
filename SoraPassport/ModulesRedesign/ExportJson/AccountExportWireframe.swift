@@ -31,7 +31,6 @@
 import Foundation
 import IrohaCrypto
 import SoraKeystore
-import SCard
 import SoraFoundation
 import SoraUIKit
 

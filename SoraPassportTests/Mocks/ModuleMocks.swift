@@ -2120,6 +2120,17 @@ import Foundation
             defaultCall: __defaultImplStub!.notify(with: event))
         
     }
+
+     func notify(
+        with event: EventProtocol,
+        completionOnMain: @escaping () -> Void
+    ) {
+        // Generated test doubles have no observer scheduler to await. Preserve
+        // legacy notification recording, then make the fallback explicitly
+        // asynchronous on main. Production uses EventCenter's grouped witness.
+        notify(with: event)
+        DispatchQueue.main.async(execute: completionOnMain)
+    }
     
     
     
@@ -2271,6 +2282,14 @@ import Foundation
     
      func notify(with event: EventProtocol)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+
+     func notify(
+        with event: EventProtocol,
+        completionOnMain: @escaping () -> Void
+    ) {
+        notify(with: event)
+        DispatchQueue.main.async(execute: completionOnMain)
     }
     
     
@@ -5442,7 +5461,6 @@ import UIKit
     
     
 }
-
 
 
 

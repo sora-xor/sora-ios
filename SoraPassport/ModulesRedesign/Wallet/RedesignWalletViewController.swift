@@ -89,6 +89,12 @@ final class RedesignWalletViewController: SoramitsuViewController {
         }
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        tableView.reloadData()
+    }
+
     private func setupView() {
         soramitsuView.sora.backgroundColor = .bgPage
         view.addSubview(tableView)

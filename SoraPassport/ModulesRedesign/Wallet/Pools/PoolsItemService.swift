@@ -37,7 +37,7 @@ final class PoolsItemService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let poolViewModelsFactory: PoolViewModelFactory
-    var fiatData: [FiatData] = []
+    var fiatData: [PIExactFiatData] = []
     var updateHandler: (() -> Void)?
     
     @Published var poolViewModels: [PoolViewModel] = [

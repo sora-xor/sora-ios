@@ -67,7 +67,10 @@ extension InputLinkInteractor: InputLinkInteractorInputProtocol {
         let operation = operationFactory.createExtrinsicSetReferrerOperation(with: referrerAddress)
 
         operation.completionBlock = { [weak self] in
-            guard let result = operation.result else { return }
+            guard let result = operation.result else {
+                self?.presenter?.setReferralRequestReceived(with: .failure(BaseOperationError.parentOperationCancelled))
+                return
+            }
             self?.presenter?.setReferralRequestReceived(with: result)
         }
 

@@ -29,10 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import IrohaCrypto
 import SoraKeystore
+import SSFUtils
 
 enum KeystoreTag: String, CaseIterable {
-    case pincode
+    case pincode = "pincode"
     case legacyEntropy = "seedEntropy"
     case legacyUsername = "userName"
 
@@ -43,9 +45,42 @@ enum KeystoreTag: String, CaseIterable {
 }
 
 extension KeystoreProtocol {
+    func hasRetainedWalletMaterial() throws -> Bool {
+        let scopedWalletSuffixes = [
+            "-secretKey",
+            "-entropy",
+            "-deriv",
+            "-seed",
+        ]
+        return try allKeyIdentifiers().contains { identifier in
+                identifier == KeystoreTag.pincode.rawValue ||
+                identifier == KeystoreTag.legacyEntropy.rawValue ||
+                // The pre-account-model username is wallet-installation evidence even
+                // when its paired entropy is missing or unreadable. Treating this known
+                // retained tag as a pristine namespace could route an upgrade to
+                // onboarding and let the user create a replacement wallet.
+                identifier == KeystoreTag.legacyUsername.rawValue ||
+                identifier == "privateKey" ||
+                scopedWalletSuffixes.contains { identifier.hasSuffix($0) }
+        }
+    }
+
     func deleteAll(for address: String) throws {
-        try deleteKeysIfExist(for: KeystoreTag.allCases.map({ $0.rawValue }))
-        try deleteKeyIfExists(for: KeystoreTag.entropyTagForAddress(address))
+        try deleteWalletMaterial(for: address)
+        try deleteKeysIfExist(
+            for: KeystoreTag.allCases.map(\.rawValue)
+        )
+    }
+
+    func deleteWalletMaterial(for address: String) throws {
+        try deleteKeysIfExist(
+            for: [
+                KeystoreTag.secretKeyTagForAddress(address),
+                KeystoreTag.entropyTagForAddress(address),
+                KeystoreTag.deriviationTagForAddress(address),
+                KeystoreTag.seedTagForAddress(address)
+            ]
+        )
     }
 
     func deleteEntropy(for address: String) throws {
@@ -58,6 +93,31 @@ extension KeystoreProtocol {
         }
 
         return try fetchKey(for: tag)
+    }
+
+    /// Version 1.x retained this Iroha signing key beside seedEntropy. Prove
+    /// ownership using the released SORA/iroha-keypair scrypt derivation before
+    /// allowing the entropy to back a SORA2 wallet. Neither record is rewritten.
+    func verifyLegacyIrohaKeyIfPresent(entropy: Data) throws {
+        guard var retained = try loadIfKeyExists("privateKey") else { return }
+        defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+        guard retained.count == 32 else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+        var phrase = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy).toString()
+        defer { phrase.removeAll(keepingCapacity: false) }
+        var derived = try IRKeypairFacade()
+            .deriveKeypair(from: phrase, password: "").privateKey().rawData()
+        defer { derived.resetBytes(in: derived.startIndex ..< derived.endIndex) }
+        guard derived.count == retained.count else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+        var difference: UInt8 = 0
+        for (expected, actual) in zip(derived, retained) { difference |= expected ^ actual }
+        guard difference == 0 else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
     }
 
     func saveSecretKey(_ secretKey: Data, address: String) throws {
@@ -85,13 +145,120 @@ extension KeystoreProtocol {
 
     func fetchEntropyForAddress(_ address: String) throws -> Data? {
         let tag = KeystoreTag.entropyTagForAddress(address)
+        if let scoped = try loadIfKeyExists(tag) {
+            return scoped
+        }
 
-        return try loadIfKeyExists(tag)
+        return try fetchRetainedLegacyEntropyForAddress(
+            address,
+            activeSnapshot: try WalletNetworkStore().load(),
+            recoveryGate: .shared
+        )
+    }
+
+    /// Testable/in-transaction form used when the caller has already pinned
+    /// the exact active snapshot under a wallet lifecycle lease.
+    func fetchEntropyForAddress(
+        _ address: String,
+        activeSnapshot: WalletNetworkSnapshot,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws -> Data? {
+        let tag = KeystoreTag.entropyTagForAddress(address)
+        if let scoped = try loadIfKeyExists(tag) {
+            return scoped
+        }
+
+        return try fetchRetainedLegacyEntropyForAddress(
+            address,
+            activeSnapshot: activeSnapshot,
+            recoveryGate: recoveryGate
+        )
+    }
+
+    private func fetchRetainedLegacyEntropyForAddress(
+        _ address: String,
+        activeSnapshot snapshot: WalletNetworkSnapshot?,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws -> Data? {
+
+        // The oldest installations retained one unsuffixed entropy record.
+        // Resolve it only through an already activated, exact SORA2 identity;
+        // never copy it into a new Keychain tag or guess its owner.
+        guard let snapshot else {
+            return nil
+        }
+        let matchingWallets = snapshot.wallets.filter {
+            $0.id == address && $0.existingSoraAddress == address
+        }
+        let matchingSoraAccounts = snapshot.accounts.filter {
+            $0.walletId == address &&
+                $0.networkId == .sora2 &&
+                $0.derivationVersion == 0 &&
+                $0.address == address
+        }
+        guard
+            try !checkKey(
+                for: KeystoreTag.secretKeyTagForAddress(address)
+            ),
+            try !checkKey(for: KeystoreTag.seedTagForAddress(address)),
+            try !checkKey(
+                for: KeystoreTag.deriviationTagForAddress(address)
+            ),
+            matchingWallets.count == 1,
+            let wallet = matchingWallets.first,
+            wallet.secretSource == .mnemonicEntropy ||
+                wallet.secretSource == .legacyMnemonicEntropy,
+            matchingSoraAccounts.count == 1,
+            let soraAccount = matchingSoraAccounts.first,
+            try checkKey(for: KeystoreTag.legacyEntropy.rawValue)
+        else {
+            return nil
+        }
+
+        var legacyEntropy = try fetchKey(
+            for: KeystoreTag.legacyEntropy.rawValue
+        )
+        do {
+            try verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy)
+            let mnemonic = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: legacyEntropy)
+            guard
+                WalletMnemonicWordPolicy.retainedSecretSource(
+                    forWordCount: mnemonic.allWords().count
+                ) == wallet.secretSource
+            else {
+                throw WalletNetworkMigrationError
+                    .legacyIdentityMismatch(address)
+            }
+            try LegacySoraIdentityValidator.validate(
+                address: address,
+                publicKey: soraAccount.publicKey,
+                cryptoType: .sr25519,
+                networkType: SNAddressType(chain: .sora),
+                derivationPath: nil,
+                entropy: legacyEntropy,
+                rawSeed: nil,
+                secret: nil,
+                recoveryGate: recoveryGate
+            )
+            return legacyEntropy
+        } catch {
+            legacyEntropy.resetBytes(
+                in: legacyEntropy.startIndex ..< legacyEntropy.endIndex
+            )
+            throw error
+        }
     }
 
     func checkEntropyForAddress(_ address: String) throws -> Bool {
-        let tag = KeystoreTag.entropyTagForAddress(address)
-        return try checkKey(for: tag)
+        var entropy = try fetchEntropyForAddress(address)
+        defer {
+            if let count = entropy?.count {
+                entropy?.resetBytes(in: 0 ..< count)
+            }
+            entropy = nil
+        }
+        return entropy != nil
     }
 
     func saveDeriviation(_ path: String, address: String) throws {
@@ -134,5 +301,47 @@ extension KeystoreProtocol {
     func checkSeedForAddress(_ address: String) throws -> Bool {
         let tag = KeystoreTag.seedTagForAddress(address)
         return try checkKey(for: tag)
+    }
+}
+
+extension SettingsManagerProtocol {
+    func hasRetainedWalletSettings() -> Bool {
+        let retainedKeys = Set([
+            SettingsKey.selectedAccount.rawValue,
+            // Legacy identity registration was produced only for an installed
+            // wallet. A surviving DID or public-key identifier with a missing
+            // selected-account payload is an inconsistent upgrade, not a
+            // pristine namespace that may create a replacement wallet.
+            SettingsKey.decentralizedId.rawValue,
+            SettingsKey.publicKeyId.rawValue,
+            // A completed legacy migration proves that wallet-backed identity
+            // state existed even if its account record is now unreadable.
+            SettingsKey.hasMigrated.rawValue,
+            SettingsKey.migratedAccountsV1.rawValue,
+            // Written only after a wallet-network snapshot is verified or
+            // atomically activated. If the snapshot later disappears, this
+            // marker is evidence of a damaged installation, not first run.
+            SettingsKey.walletNetworkStoreVersion.rawValue,
+            // Pre-account-model releases retained the display name under this
+            // raw key. Its presence is installation evidence even if the
+            // selected-account payload or paired entropy can no longer be read.
+            KeystoreTag.legacyUsername.rawValue,
+        ])
+        return allKeys().contains { retainedKeys.contains($0) }
+    }
+
+    func hasRetainedWatchOnlyWallet() -> Bool {
+        let prefix = "wallet.watchOnly."
+        return allKeys().contains { key in
+            guard key.hasPrefix(prefix), key.count > prefix.count else {
+                return false
+            }
+            guard let marker = anyValue(for: key) as? Bool else {
+                // A malformed marker still names a retained wallet. Preserve
+                // it as recovery evidence instead of treating it as `false`.
+                return true
+            }
+            return marker
+        }
     }
 }

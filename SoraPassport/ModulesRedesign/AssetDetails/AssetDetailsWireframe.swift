@@ -29,7 +29,6 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import SCard
 import UIKit
 import SoraUIKit
 
@@ -49,8 +48,6 @@ protocol AssetDetailsWireframeProtocol {
     
     func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel])
 
-    func showXOne(service: SCard)
-    
     func showPoolDetails(poolInfo: PoolInfo,
                          poolsService: PoolsServiceInputProtocol)
 }
@@ -248,11 +245,6 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
 
-    func showXOne(service: SCard) {
-        let viewController = service.xOneViewController(address: address)
-        controller?.present(viewController, animated: true)
-    }
-    
     @MainActor func showPoolDetails(poolInfo: PoolInfo,
                          poolsService: PoolsServiceInputProtocol) {
         guard let operationFactory = networkFacade,

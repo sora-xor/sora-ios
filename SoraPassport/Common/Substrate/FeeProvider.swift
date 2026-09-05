@@ -43,21 +43,31 @@ protocol FeeProviderProtocol {
 
 final class FeeProvider: FeeProviderProtocol {
 
-    private var feeStore: [String: Decimal] = [:]
+    private let boundAccount: AccountItem?
 
     private var selectedAccount: AccountItem? {
-        SelectedWalletSettings.shared.currentAccount
+        boundAccount
     }
 
-    private var extrinsicService: ExtrinsicService {
-        let selectedAccount = selectedAccount!
-        let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())!
-        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
+    private var extrinsicService: ExtrinsicService? {
+        guard let selectedAccount,
+              let engine = ChainRegistryFacade.sharedRegistry.getConnection(
+                for: Chain.sora.genesisHash()
+              ),
+              let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(
+                for: Chain.sora.genesisHash()
+              ) else {
+            return nil
+        }
         return ExtrinsicService(address: selectedAccount.address,
-                                                                                  cryptoType: selectedAccount.cryptoType,
-                                                                                  runtimeRegistry: runtime,
-                                                                                  engine: engine,
-                                                                                  operationManager: OperationManagerFacade.sharedManager)
+                                cryptoType: selectedAccount.cryptoType,
+                                runtimeRegistry: runtime,
+                                engine: engine,
+                                operationManager: OperationManagerFacade.sharedManager)
+    }
+
+    init(account: AccountItem? = SelectedWalletSettings.shared.currentAccount) {
+        boundAccount = account
     }
 
     @available(*, renamed: "getFee(for:)")
@@ -73,9 +83,6 @@ final class FeeProvider: FeeProviderProtocol {
         
         let dexId = "0"
         
-        if let cached =  feeStore[type.rawValue] {
-            return cached
-        }
         var builderClosure: ExtrinsicBuilderClosure?
         switch type {
             
@@ -146,7 +153,7 @@ final class FeeProvider: FeeProviderProtocol {
                 
                 return try builder
                     .with(shouldUseAtomicBatch: true)
-                // .adding(call: initializeCall) // TODO: fix fee calculations for AtomicBatch
+                    .adding(call: initializeCall)
                     .adding(call: depositCall)
             }
         case .liquidityAddNewPool:
@@ -211,25 +218,23 @@ final class FeeProvider: FeeProviderProtocol {
         }
         
         guard let builderClosure else { return Decimal(0) }
-        return await estimateFee(for: type.rawValue, builderClosure: builderClosure, runningIn: .main)
+        return await estimateFee(builderClosure: builderClosure, runningIn: .main)
     }
 
     func getFee(for type: InputRewardAmountType, completion: @escaping (Decimal) -> Void) {
-        if let cached = feeStore[type.rawValue] {
-            completion(cached)
-            return
-        }
-
         let builderClosure: ExtrinsicBuilderClosure = { builder in
             let callFactory = SubstrateCallFactory()
             let call = try type == .bond ? callFactory.reserveReferralBalance(balance: 0) : callFactory.unreserveReferralBalance(balance: 0)
             return try builder.adding(call: call)
         }
         
-        estimateFee(for: type.rawValue, builderClosure: builderClosure, runningIn: .main, completion: completion)
+        estimateFee(builderClosure: builderClosure, runningIn: .main, completion: completion)
     }
     
     func getFee(for call: any RuntimeCallable) async -> Decimal {
+        guard let extrinsicService else {
+            return .zero
+        }
         let builderClosure: ExtrinsicBuilderClosure = { builder in
             return try builder.adding(call: call)
         }
@@ -238,41 +243,49 @@ final class FeeProvider: FeeProviderProtocol {
             extrinsicService.estimateFee(builderClosure, runningIn: .main, completion: { result in
                 switch result {
                 case let .success(info):
-                    guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else { return }
+                    guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else {
+                        continuation.resume(returning: .zero)
+                        return
+                    }
                     continuation.resume(returning: decimalFee)
-                case let .failure(error):
-                    print("fee error: \(error)")
+                case .failure:
+                    print("Fee calculation failed")
+                    continuation.resume(returning: .zero)
                 }
             })
         }
     }
     
-    @available(*, renamed: "estimateFee(for:builderClosure:runningIn:)")
+    @available(*, renamed: "estimateFee(builderClosure:runningIn:)")
     private func estimateFee(
-        for type: String,
         builderClosure: @escaping ExtrinsicBuilderClosure,
         runningIn queue: DispatchQueue,
         completion completionClosure: @escaping (Decimal) -> Void
     ) {
         Task {
-            let result = await estimateFee(for: type, builderClosure: builderClosure, runningIn: queue)
+            let result = await estimateFee(builderClosure: builderClosure, runningIn: queue)
             completionClosure(result)
         }
     }
 
     private func estimateFee(
-        for type: String,
         builderClosure: @escaping ExtrinsicBuilderClosure,
         runningIn queue: DispatchQueue) async -> Decimal {
+            guard let extrinsicService else {
+                return .zero
+            }
             return await withCheckedContinuation { continuation in
-                extrinsicService.estimateFee(builderClosure, runningIn: queue, completion: { [weak self] result in
+                extrinsicService.estimateFee(builderClosure, runningIn: queue, completion: { result in
                     switch result {
                     case let .success(info):
-                        guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else { return }
-                        self?.feeStore[type] = decimalFee
+                        guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else {
+                            continuation.resume(returning: .zero)
+                            return
+                        }
                         continuation.resume(returning: decimalFee)
-                    case let .failure(error):
-                        print("fee error: \(error)")
+                    case .failure:
+                        print("Fee calculation failed")
+                        continuation.resume(returning: .zero)
                     }
                 })
             }

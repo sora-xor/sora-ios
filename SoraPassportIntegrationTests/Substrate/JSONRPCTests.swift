@@ -1,12 +1,54 @@
 import XCTest
 @testable import SoraPassport
-import SSFUtils
+@testable import SSFUtils
 import RobinHood
 import IrohaCrypto
 import BigInt
 import xxHash_Swift
 import SoraKeystore
 import SoraFoundation
+
+private final class ReachabilityConcurrencyFailureCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var failures: [String] = []
+
+    func append(_ error: Error) {
+        lock.lock()
+        failures.append(String(describing: error))
+        lock.unlock()
+    }
+
+    var values: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return failures
+    }
+}
+
+private final class ReachabilityConcurrencyListener: SSFUtils.ReachabilityListenerDelegate {
+    private let lock = NSLock()
+    private var notificationCount = 0
+    private let removesItself: Bool
+
+    init(removesItself: Bool = false) {
+        self.removesItself = removesItself
+    }
+
+    func didChangeReachability(by manager: SSFUtils.ReachabilityManagerProtocol) {
+        lock.lock()
+        notificationCount += 1
+        lock.unlock()
+        if removesItself {
+            manager.remove(listener: self)
+        }
+    }
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return notificationCount
+    }
+}
 //
 class JSONRPCTests: NetworkBaseTests {
 //    struct RpcInterface: Decodable {
@@ -17,11 +59,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testGetMethods() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -45,14 +87,14 @@ class JSONRPCTests: NetworkBaseTests {
 //
 //        var block: UInt32 = 10000
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //
 //        let data = Data(Data(bytes: &block, count: MemoryLayout<UInt32>.size).reversed())
 //
 //        // when
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        let operation = JSONRPCListOperation<String?>(engine: engine,
 //                                                      method: RPCMethod.getBlockHash,
@@ -73,12 +115,12 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testFinalizedHead() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //
 //        // when
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        let operation = JSONRPCListOperation<String?>(engine: engine,
 //                                                      method: "chain_getFinalizedHead",
@@ -103,11 +145,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testNetworkType() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -129,11 +171,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testHelthCheck() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -155,11 +197,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func doNottestAssetList() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -264,6 +306,44 @@ class JSONRPCTests: NetworkBaseTests {
         "garlic job language carbon soul boost evidence pizza exit velvet solar coach clerk journey front",
         "gospel render later wing orbit sheriff home leisure garlic crowd print fever quick tiny amused"
     ]
+
+    func testReachabilityListenersAreSynchronizedAndCallbacksAreReentrant() throws {
+        let manager = try XCTUnwrap(SSFUtils.ReachabilityManager())
+        let listeners = (0..<64).map { _ in ReachabilityConcurrencyListener() }
+        let failures = ReachabilityConcurrencyFailureCollector()
+        let workerQueue = DispatchQueue(
+            label: "co.jp.soramitsu.tests.reachability-listeners",
+            attributes: .concurrent
+        )
+        let workers = DispatchGroup()
+
+        for listener in listeners {
+            workers.enter()
+            workerQueue.async {
+                defer { workers.leave() }
+                do {
+                    try manager.add(listener: listener)
+                    manager.notifyListeners()
+                    manager.remove(listener: listener)
+                } catch {
+                    failures.append(error)
+                }
+            }
+        }
+
+        XCTAssertEqual(workers.wait(timeout: .now() + 10), .success)
+        XCTAssertTrue(failures.values.isEmpty, failures.values.joined(separator: ", "))
+
+        let selfRemovingListener = ReachabilityConcurrencyListener(removesItself: true)
+        try manager.add(listener: selfRemovingListener)
+        manager.notifyListeners()
+        let countAfterSelfRemoval = selfRemovingListener.count
+        manager.notifyListeners()
+        XCTAssertGreaterThanOrEqual(countAfterSelfRemoval, 1)
+        XCTAssertEqual(selfRemovingListener.count, countAfterSelfRemoval)
+        manager.remove(listener: selfRemovingListener)
+    }
+
     func testNeedsMigration() throws{
         for mnem in mlem {
           try performMigrationTest(mnemonic: mnem)
@@ -271,12 +351,12 @@ class JSONRPCTests: NetworkBaseTests {
     }
 
     func performMigrationTest(mnemonic: String) throws {
-        let devUrl = "wss://ws.framenode-2.r0.dev.sora2.soramitsu.co.jp"
+        let devUrl = "wss://mof2.sora.org"
         let url = URL(string: devUrl)!
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let keystore = InMemoryKeychain()
         let settings = InMemorySettingsManager()
@@ -307,23 +387,31 @@ class JSONRPCTests: NetworkBaseTests {
 
         do {
             let result = try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            logger.debug("\(mnemonic) Received response: \(result)")
+            // Recovery phrases are never diagnostic material, including in CI
+            // and integration-test logs. Record only the operation outcome
+            // class; the test assertions already retain the Boolean result.
+            logger.debug(
+                message: "Migration eligibility response received",
+                file: #file,
+                function: #function,
+                line: #line
+            )
             if(result == true) {
 //                try testMigrationService(mnemonic)
             }
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Migration eligibility request failed")
         }
     }
 //
 //    func NotestBalance() {
-//        let devUrl = "wss://ws.framenode-1.s1.dev.sora2.soramitsu.co.jp/"
+//        let devUrl = "wss://mof2.sora.org"
 //
-//        let url = URL(string: devUrl)!//URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: devUrl)!//URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        let keystore = InMemoryKeychain()
 //        let settings = InMemorySettingsManager()
@@ -349,11 +437,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testNonceFetch() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -377,7 +465,7 @@ class JSONRPCTests: NetworkBaseTests {
 //    func DoNotTestHeader() {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
@@ -403,7 +491,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        webSocketService.setup()
 //
 //
-////        let engine = WebSocketEngine(url: url, logger: logger)
+////        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -430,11 +518,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testBlockExtraction() throws {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -467,7 +555,7 @@ class JSONRPCTests: NetworkBaseTests {
 //    }
 //
 //    func doNottestAccountInfoPolkadot() throws {
-//        try performAccountInfoTest(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!,
+//        try performAccountInfoTest(url: URL(string: "wss://mof2.sora.org")!,
 //                                   address: "5DfCSrkgzUAsCtsugSbQRgAqbRk2p3L39oxRRvhLsywHPR37",
 //                                   type: UInt16(42),
 //                                   precision: 10)
@@ -479,7 +567,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -515,7 +603,7 @@ class JSONRPCTests: NetworkBaseTests {
 //    }
 //
 //    func DoNotTestStakingLedgerPolkadot() throws {
-//        try performStakingInfoTest(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!,
+//        try performStakingInfoTest(url: URL(string: "wss://mof2.sora.org")!,
 //                                   address: "5DfCSrkgzUAsCtsugSbQRgAqbRk2p3L39oxRRvhLsywHPR37",
 //                                   type: SNAddressType(42),
 //                                   precision: 10)
@@ -527,7 +615,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -565,7 +653,7 @@ class JSONRPCTests: NetworkBaseTests {
 //    }
 //
 //    func doNottestPolkadotActiveEra() {
-//        performGetActiveEra(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!)
+//        performGetActiveEra(url: URL(string: "wss://mof2.sora.org")!)
 //    }
 //
 //    func performGetActiveEra(url: URL) {
@@ -574,7 +662,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -609,7 +697,7 @@ class JSONRPCTests: NetworkBaseTests {
 //    func doNottestGetMetaData() {
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
-//        let engine = WebSocketEngine(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: URL(string: "wss://mof2.sora.org")!, logger: logger)
 //        let method = RPCMethod.getRuntimeMetadata
 //
 //        let metaOperation = JSONRPCListOperation<JSONScaleDecodable<RuntimeMetadata>>(engine: engine,
@@ -641,7 +729,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -663,7 +751,7 @@ class JSONRPCTests: NetworkBaseTests {
 //
 //    func testMigrationService(_ passphrase: String = "spoil sing silver slam skate identify now weird happy oven build erase ostrich problem tuna") throws{
 //        // given
-//        let url = URL(string: "wss://ws.framenode-1.s1.dev.sora2.soramitsu.co.jp/")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let keystore = InMemoryKeychain()
 //        var settings = InMemorySettingsManager()
@@ -739,7 +827,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        let keystore = InMemoryKeychain()
 //        let settings = InMemorySettingsManager()
 //        let passphrase = "keep private jewel raven party outer trim gloom excess trend fossil heart clay shell tennis"
-//        let url = URL(string: "wss://ws.framenode-1.s1.dev.sora2.soramitsu.co.jp/")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //
 //        try AccountCreationHelper.createAccountFromMnemonic(passphrase,
 //                                                            cryptoType: .sr25519,
@@ -921,7 +1009,7 @@ class JSONRPCTests: NetworkBaseTests {
 //        let keystore = InMemoryKeychain()
 //        let settings = InMemorySettingsManager()
 //        let passphrase = "keep private jewel raven party outer trim gloom excess trend fossil heart clay shell tennis"
-//        let url = URL(string: "wss://ws.framenode-1.s1.dev.sora2.soramitsu.co.jp/")!//URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!//
+//        let url = URL(string: "wss://mof2.sora.org")!//URL(string: "wss://mof2.sora.org")!//
 //
 //        try AccountCreationHelper.createAccountFromMnemonic(passphrase,
 //                                                            cryptoType: .sr25519,
@@ -1065,11 +1153,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testIsSwapAvailable() throws {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -1100,11 +1188,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testObtainingAvailableMarketAlgorithms() throws {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -1143,11 +1231,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testRecalculationOfSwapValuesWithDesiredInput() throws {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //
@@ -1188,11 +1276,11 @@ class JSONRPCTests: NetworkBaseTests {
 //    func testRecalculationOfSwapValuesWithDesiredOutput() throws {
 //        // given
 //
-//        let url = URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        // when
 //

@@ -38,23 +38,22 @@ import sorawallet
 enum ConfirmationState: Equatable {
     case notEnoughtBalance(String)
     case readyToSubmit
-    
+
     var title: String {
         switch self {
         case .readyToSubmit:
             return R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
-        case .notEnoughtBalance(let assetSymbol):
-            return R.string.localizable.polkaswapInsufficientBalance(assetSymbol, preferredLanguages: .currentLocale)
+        case .notEnoughtBalance:
+            return R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
         }
     }
-    
+
     var textColor: SoramitsuColor {
         switch self {
         case .readyToSubmit:
             return .bgSurface
         case .notEnoughtBalance:
-            let disableColor = SoramitsuUI.shared.theme.palette.color(.fgPrimary).withAlphaComponent(0.04)
-            return .custom(uiColor: disableColor)
+            return .fgSecondary
         }
     }
 }
@@ -63,11 +62,58 @@ protocol ConfirmSendingViewModelProtocol: AnyObject {
     func networkFeeInfoButtonTapped()
 }
 
+/// Revoked by navigation before a queued ordinary transfer can reach secret
+/// use. The network layer also binds the signer to the same selected account.
+final class Sora2TransferSigningAuthorization: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isAuthorized = true
+
+    func requireAuthorized() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard isAuthorized else {
+            throw CancellationError()
+        }
+    }
+
+    func revoke() {
+        lock.lock()
+        isAuthorized = false
+        lock.unlock()
+    }
+}
+
+struct Sora2ConfirmSendingResultProjection {
+    let status: TransactionBase.Status
+    let transactionHash: String
+
+    static func make(
+        from result: Result<Data, Swift.Error>
+    ) -> Sora2ConfirmSendingResultProjection {
+        do {
+            // A typed post-handoff ambiguity opens the exact staged hash as
+            // pending. Every pre-transport or unrelated failure still opens as
+            // failed and cannot borrow a hash from another submission.
+            let hash = try Sora2LegacySubmissionProjection
+                .transactionHash(from: result)
+            return Sora2ConfirmSendingResultProjection(
+                status: .pending,
+                transactionHash: hash.toHex(includePrefix: true)
+            )
+        } catch {
+            return Sora2ConfirmSendingResultProjection(
+                status: .failed,
+                transactionHash: ""
+            )
+        }
+    }
+}
+
 
 final class ConfirmSendingViewModel {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    
+
     weak var fiatService: FiatServiceProtocol?
     weak var view: ConfirmViewProtocol?
     var wireframe: ConfirmWireframeProtocol?
@@ -75,7 +121,7 @@ final class ConfirmSendingViewModel {
     let detailsFactory: DetailViewModelFactoryProtocol
     let debouncer = Debouncer(interval: 0.8)
     var items: [SoramitsuTableViewItemProtocol] = []
-    
+
     private var confirmationState: ConfirmationState = .readyToSubmit {
         didSet {
             updateContent()
@@ -85,7 +131,7 @@ final class ConfirmSendingViewModel {
             }
         }
     }
-    
+
     var firstAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
         didSet {
             // check if balance is enough
@@ -110,11 +156,11 @@ final class ConfirmSendingViewModel {
                 confirmationState = .notEnoughtBalance(feeAssetSymbol)
                 return
             }
-            
+
             confirmationState = .readyToSubmit
         }
     }
-    
+
     let assetId: String
     let recipientAddress: String
     var firstAssetAmount: Decimal
@@ -123,15 +169,18 @@ final class ConfirmSendingViewModel {
     let fee: Decimal
     let walletService: WalletServiceProtocol
     private weak var assetsProvider: AssetProviderProtocol?
-    
+    private var isSubmitting = false
+    private var preflightTask: Task<Void, Never>?
+    private let signingAuthorization = Sora2TransferSigningAuthorization()
+
     var title: String? {
         return R.string.localizable.confirmSending(preferredLanguages: .currentLocale)
     }
-    
+
     var imageName: String? {
         return nil
     }
-    
+
     init(
         wireframe: ConfirmWireframeProtocol?,
         fiatService: FiatServiceProtocol,
@@ -158,19 +207,25 @@ final class ConfirmSendingViewModel {
         self.walletService = walletService
         self.assetsProvider = assetsProvider
     }
-    
+
     private func updateBalanceData() {
         if !assetId.isEmpty, let balance = assetsProvider?.getBalances(with: [assetId]).first {
             firstAssetBalance = balance
         }
     }
-    
+
 }
 
 extension ConfirmSendingViewModel: ConfirmViewModelProtocol {
     func viewDidLoad() {
         updateBalanceData()
         assetsProvider?.add(observer: self)
+    }
+
+    func viewWillDisappear() {
+        signingAuthorization.revoke()
+        preflightTask?.cancel()
+        preflightTask = nil
     }
 }
 
@@ -192,23 +247,23 @@ extension ConfirmSendingViewModel: AssetProviderObserverProtocol {
 }
 
 extension ConfirmSendingViewModel {
-    func updateContent(with fiatData: [FiatData] = []) {
-        
+    func updateContent(with fiatData: [PIExactFiatData] = []) {
+
         let addressItem = RecipientAddressItem(address: self.recipientAddress)
-        
+
         let firstAsset = self.assetManager.assetInfo(for: self.assetId)
         let firstAssetPrecision = firstAsset?.precision ?? 0
         let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAssetPrecision)
-        
+
         let sendAssetItem = SendAssetItem(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset?.icon ?? ""),
                                           symbol: firstAsset?.symbol ?? "",
                                           amount: firstAssetFormatter.stringFromDecimal(self.firstAssetAmount) ?? "",
                                           balance: self.setupFullBalanceText(from: self.firstAssetBalance, fiatData: fiatData),
                                           fiat: self.setupFiatText(from: self.firstAssetAmount, assetId: self.assetId, fiatData: fiatData))
-        
+
         let details = self.detailsFactory.createSendingAssetViewModels(fee: self.fee, fiatData: fiatData, viewModel: self)
         let detailItem = ConfirmDetailsItem(detailViewModels: details)
-        
+
         let buttonText = SoramitsuTextItem(text: self.confirmationState.title,
                                            fontData: FontType.buttonM,
                                            textColor: self.confirmationState.textColor,
@@ -216,7 +271,7 @@ extension ConfirmSendingViewModel {
         let buttonItem = SoramitsuButtonItem(title: buttonText, isEnable: self.confirmationState == .readyToSubmit) { [weak self] in
             self?.submit()
         }
-        
+
         self.items = [addressItem,
                       SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
                       sendAssetItem,
@@ -224,58 +279,269 @@ extension ConfirmSendingViewModel {
                       detailItem,
                       SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
                       buttonItem]
+        if case let .notEnoughtBalance(symbol) = confirmationState {
+            let asset = assetManager.assetInfo(for: assetId)
+            let payingFee = asset?.isFeeAsset == true
+            let required = firstAssetAmount + (payingFee ? fee : 0)
+            let missingAsset = max(0, required - firstAssetBalance.balance.decimalValue)
+            let feeBalance = assetsProvider?.getBalances(with: [.xor]).first?.balance.decimalValue ?? 0
+            let shortfall = missingAsset > 0 ? missingAsset : max(0, fee - feeBalance)
+            let precision = missingAsset > 0 ? (asset?.precision ?? 18) : (assetManager.assetInfo(for: .xor)?.precision ?? 18)
+            let formatter = NumberFormatter.inputedAmoutFormatter(with: precision)
+            let missing = formatter.stringFromDecimal(shortfall) ?? NSDecimalNumber(decimal: shortfall).stringValue
+            let message = String(format: WalletUX.text("You need %@ more %@ to cover this send and its network fee. Reduce the amount or receive more funds."), missing, symbol)
+            self.items.insert(WalletInlineNoticeItem(message), at: self.items.count - 1)
+        }
         self.setupItems?(self.items)
     }
-    
+
     func submit() {
-        let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
-                                                   assetId: WalletAssetId.xor.rawValue,
-                                                   type: "fee",
-                                                   parameters: [],
-                                                   accountId: nil,
-                                                   minValue: nil,
-                                                   maxValue: nil,
-                                                   context: nil)
-        let networkFee = Fee(
-            value: AmountDecimal(value: fee),
-            feeDescription: networkFeeDescription
-        )
-        
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return }
-        let accountId = try? SS58AddressFactory().accountId(fromAddress: selectedAccount.address, type: selectedAccount.addressType).toHex()
-        let destinationAccountId = try? SS58AddressFactory().accountId(fromAddress: recipientAddress, type: selectedAccount.addressType).toHex()
-        
-        let info = TransferInfo(source: accountId ?? "",
-                                destination: destinationAccountId ?? "",
-                                amount: AmountDecimal(value: firstAssetAmount),
-                                asset: assetId,
-                                details: "",
-                                fees: [networkFee],
-                                context: [:])
-        
+        guard !isSubmitting,
+              confirmationState == .readyToSubmit,
+              fee > 0 else {
+            return
+        }
+        isSubmitting = true
         wireframe?.showActivityIndicator()
-        walletService.transfer(info: info, runCompletionIn: .main) { [weak self] (optionalResult) in
-            self?.wireframe?.hideActivityIndicator()
-            
-            if let result = optionalResult {
-                self?.handleTransfer(result: result)
+        preflightTask = Task { @MainActor [weak self] in
+            await self?.runExactTransferPreflight()
+        }
+    }
+
+    @MainActor
+    private func runExactTransferPreflight() async {
+        do {
+            guard let selectedAccount =
+                SelectedWalletSettings.shared.currentAccount else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
+            let reviewInfo = try makeTransferInfo(
+                fee: fee,
+                selectedAccount: selectedAccount
+            )
+
+            // Obtain a live balance snapshot adjacent to the queued signer and
+            // reject the reviewed transfer before secret use when it is already
+            // unaffordable.
+            let reviewedBalances = try await fetchLiveTransferBalances()
+            try Sora2TransferFeeQualification.requireSufficientBalances(
+                amount: firstAssetAmount,
+                assetId: assetId,
+                exactFee: fee,
+                balances: reviewedBalances
+            )
+            try Task.checkCancellation()
+            try signingAuthorization.requireAuthorized()
+            try requireSelectedAccount(selectedAccount)
+
+            let prepared = try await walletService.prepareTransferSubmission(
+                for: reviewInfo,
+                preSigningValidation: { [signingAuthorization] in
+                    try signingAuthorization.requireAuthorized()
+                    try Self.requireSelectedAccountSnapshot(selectedAccount)
+                }
+            )
+            defer { prepared.discard() }
+            let exactFee = try Sora2TransferFeeQualification.requireExact(
+                reviewedFee: fee,
+                signedBytesFee: prepared.fee
+            )
+
+            // Re-read both balances after exact-byte fee qualification. This is
+            // the final asynchronous affordability check before the transport
+            // helper re-queries the exact same signed bytes and hands them off.
+            let exactBalances = try await fetchLiveTransferBalances()
+            try Sora2TransferFeeQualification.requireSufficientBalances(
+                amount: firstAssetAmount,
+                assetId: assetId,
+                exactFee: exactFee,
+                balances: exactBalances
+            )
+            let submissionInfo = try makeTransferInfo(
+                fee: exactFee,
+                selectedAccount: selectedAccount
+            )
+            try Task.checkCancellation()
+            try signingAuthorization.requireAuthorized()
+            try requireSelectedAccount(selectedAccount)
+
+            do {
+                let hash = try await walletService.submitPreparedTransfer(
+                    prepared,
+                    info: submissionInfo,
+                    preTransportValidation: { [signingAuthorization] in
+                        try signingAuthorization.requireAuthorized()
+                        try Self.requireSelectedAccountSnapshot(
+                            selectedAccount
+                        )
+                    }
+                )
+                finishExactTransfer(with: .success(hash))
+            } catch let transportError as PreparedExtrinsicTransportError {
+                switch transportError {
+                case .submissionUnknown:
+                    finishExactTransfer(with: .failure(transportError))
+                case .failedBeforeTransport:
+                    throw transportError
+                }
+            }
+        } catch is CancellationError {
+            isSubmitting = false
+            preflightTask = nil
+            wireframe?.hideActivityIndicator()
+        } catch {
+            finishExactTransferPreflight(with: error)
+        }
+    }
+
+    @MainActor
+    private func fetchLiveTransferBalances() async throws -> [BalanceData] {
+        let assetIds = Array(Set([
+            assetId,
+            WalletAssetId.xor.rawValue
+        ])).sorted()
+        return try await withCheckedThrowingContinuation { continuation in
+            walletService.fetchBalance(
+                for: assetIds,
+                runCompletionIn: .main
+            ) { result in
+                guard let result else {
+                    continuation.resume(
+                        throwing: WalletNetworkOperationFactoryError
+                            .invalidContext
+                    )
+                    return
+                }
+                switch result {
+                case let .success(balances):
+                    guard let balances else {
+                        continuation.resume(
+                            throwing: WalletNetworkOperationFactoryError
+                                .invalidContext
+                        )
+                        return
+                    }
+                    continuation.resume(returning: balances)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
-    
+
+    private func makeTransferInfo(
+        fee exactFee: Decimal,
+        selectedAccount: AccountItem
+    ) throws -> TransferInfo {
+        guard exactFee > 0,
+              firstAssetAmount > 0 else {
+            throw WalletNetworkOperationFactoryError.invalidAmount
+        }
+        let addressFactory = SS58AddressFactory()
+        let accountId = try addressFactory.accountId(
+            fromAddress: selectedAccount.address,
+            type: selectedAccount.addressType
+        ).toHex()
+        let destinationAccountId = try addressFactory.accountId(
+            fromAddress: recipientAddress,
+            type: selectedAccount.addressType
+        ).toHex()
+        let networkFeeDescription = FeeDescription(
+            identifier: WalletAssetId.xor.rawValue,
+            assetId: WalletAssetId.xor.rawValue,
+            type: "fee",
+            parameters: [],
+            accountId: nil,
+            minValue: nil,
+            maxValue: nil,
+            context: nil
+        )
+        return TransferInfo(
+            source: accountId,
+            destination: destinationAccountId,
+            amount: AmountDecimal(value: firstAssetAmount),
+            asset: assetId,
+            details: "",
+            fees: [
+                Fee(
+                    value: AmountDecimal(value: exactFee),
+                    feeDescription: networkFeeDescription
+                )
+            ],
+            context: [
+                TransactionContextKeys.transactionType:
+                    TransactionType.outgoing.rawValue
+            ]
+        )
+    }
+
+    private func requireSelectedAccount(_ expected: AccountItem) throws {
+        try Self.requireSelectedAccountSnapshot(expected)
+    }
+
+    private static func requireSelectedAccountSnapshot(
+        _ expected: AccountItem
+    ) throws {
+        guard let current = SelectedWalletSettings.shared.currentAccount,
+              current.isSelected,
+              current.address == expected.address,
+              current.publicKeyData == expected.publicKeyData,
+              current.cryptoType == expected.cryptoType,
+              current.networkType == expected.networkType else {
+            throw SigningWrapperError.missingSelectedAccount
+        }
+    }
+
+    @MainActor
+    private func finishExactTransfer(with result: Result<Data, Swift.Error>) {
+        isSubmitting = false
+        preflightTask = nil
+        wireframe?.hideActivityIndicator()
+        handleTransfer(result: result)
+    }
+
+    @MainActor
+    private func finishExactTransferPreflight(with error: Swift.Error) {
+        isSubmitting = false
+        preflightTask = nil
+        wireframe?.hideActivityIndicator()
+        let message: String
+        if let walletError = error as? WalletNetworkOperationFactoryError {
+            switch walletError {
+            case .insufficientBalance:
+                message = R.string.localizable.commonNotEnoughBalance(
+                    preferredLanguages: .currentLocale
+                )
+            case .invalidFee:
+                message = NexusToriiError.quoteChanged.localizedDescription
+            default:
+                message = R.string.localizable.commonErrorRetry(
+                    preferredLanguages: .currentLocale
+                )
+            }
+        } else {
+            message = R.string.localizable.commonErrorRetry(
+                preferredLanguages: .currentLocale
+            )
+        }
+        wireframe?.present(
+            message: message,
+            title: nil,
+            closeAction: R.string.localizable.commonOk(
+                preferredLanguages: .currentLocale
+            ),
+            from: view
+        )
+    }
+
     private func handleTransfer(result: Result<Data, Swift.Error>) {
-        var status: TransactionBase.Status = .pending
-        var txHash = ""
-        if case .failure = result {
-            status = .failed
-        }
-        if case let .success(hex) = result {
-            txHash = hex.toHex(includePrefix: true)
-        }
-        let base = TransactionBase(txHash: txHash,
+        let projection = Sora2ConfirmSendingResultProjection.make(
+            from: result
+        )
+        let base = TransactionBase(txHash: projection.transactionHash,
                                    blockHash: "",
                                    fee: Amount(value: fee * pow(10, 18)),
-                                   status: status,
+                                   status: projection.status,
                                    timestamp: "\(Date().timeIntervalSince1970)")
         let transaction = TransferTransaction(base: base,
                                                   amount: Amount(value: firstAssetAmount),
@@ -287,11 +553,11 @@ extension ConfirmSendingViewModel {
             self?.view?.dismiss(competion: {})
         }
     }
-    
-    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [FiatData]) -> String {
+
+    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [PIExactFiatData]) -> String {
         let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
         var fiatBalanceText = ""
-        
+
         if let usdPrice = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
             let fiatDecimal = balanceData.balance.decimalValue * usdPrice
             fiatBalanceText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
@@ -299,17 +565,17 @@ extension ConfirmSendingViewModel {
 
         return fiatBalanceText.isEmpty ? "\(balance)" : "\(balance) (\(fiatBalanceText))"
     }
-    
-    func setupFiatText(from amount: Decimal, assetId: String, fiatData: [FiatData]) -> String {
+
+    func setupFiatText(from amount: Decimal, assetId: String, fiatData: [PIExactFiatData]) -> String {
         guard let asset = assetManager.assetInfo(for: assetId) else { return "" }
-        
+
         var fiatText = ""
-        
+
         if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
             let fiatDecimal = amount * usdPrice
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
-        
+
         return fiatText
     }
 }

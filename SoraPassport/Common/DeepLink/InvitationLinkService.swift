@@ -100,7 +100,7 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
 
             return true
         } catch {
-            logger?.error("Unexpected error \(error)")
+            logger?.error("Invitation link handling failed")
             return false
         }
     }

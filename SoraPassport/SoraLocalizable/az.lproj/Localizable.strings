@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Parol keçidi";
 "common.passphrase.save.or.send" = "Saxlayın və ya göndərin";
 "common.passphrase.header" = "Parol keçidi bir şifrə növüdür";
-"common.passphrase.body" = "Hesaba girişi bərpa etmək üçün istifadə olunur. Qeyd edin, bu məlumatsız hesabınızı bərpa edə bilməyəcəyik!";
+"common.passphrase.body" = "SORA-da yeni hesab yaradarkən indi 24 sözdən ibarət parol ifadəsi əldə edirsiniz. Mövcud 12 və ya 24 sözlük SORA parol ifadələri idxal edilə bilər və işləməyə davam edəcək.";
 "common.passphrase.your.passphrase" = "Sizin parol keçidiniz";
 "network.unavailable" = "Şəbəkə bağlantısı alınmadı";
 "common.save" = "Yadda saxla";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Xahiş edirəm internet bağlantısını yoxlayın və sonra yenidən cəhd edin.";
 "common.error.general.message" = "Problemi həll etmək üçün çox çalışırıq. Zəhmət olmasa bir az sonra yenə cəhd edin.";
 "result.ambiguous.error.title" = "Birmənalı nəticə";
-"access.restore.words.error.message" = "Parol keçidi 15 sözdən ibarət olmalıdır";
-"access.restore.phrase.error.message" = "Parol keçidiniz yanlışdır. Xahiş edirik başqa birini sınayın.";
+"access.restore.words.error.message" = "Parol keçidi 12 və ya 24 sözdən ibarət olmalıdır";
+"access.restore.phrase.error.message" = "Parol ifadənizin 12 və ya 24 sözdən ibarət olduğunu və bütün sözlərin düzgün olduğunu yoxlayın.";
 "wallet.search.query.error.message" = "Axtarış ölçüsü 3 ilə 64 simvol arasında olmalıdır";
 "user.create.phone.registered.error.message" = "Bu və ya digər istifadəçi qeydiyyat zamanı bu telefon nömrəsini istifadə etmişdir";
 "common.error.invalid.parameters" = "Yanlış Parametrlər";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "JSON ixrac edin";
 "export.protection.passphrase.title" = "Parolu söz";
 "export.protection.json.description" = "Növbəti addımda siz hesablarınızı bərpa etməyə imkan verən JSON faylını endirə biləcəksiniz.";
-"export.protection.passphrase.description" = "Növbəti addımda siz hesabı bərpa etməyə imkan verən Parolu (12 söz) görəcəksiniz.";
+"export.protection.passphrase.description" = "Növbəti addımda siz hesabı bərpa etməyə imkan verən Parolu (24 söz) görəcəksiniz.";
 "export.protection.seed.description" = "Növbəti addımda siz hesabı bərpa etməyə imkan verən Raw Seed (uzun hash) görəcəksiniz.";
 "export.protection.json.1" = "JSON-umu itirsəm, vəsaitim həmişəlik itiriləcək.";
 "export.protection.json.2" = "JSON-umu kiməsə ifşa etsəm və ya paylaşsam, vəsaitim oğurlana bilər.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Hovuzda iştirak payınız olacaq";
 "common.farms" = "Təsərrüfatlar";
 "common.nothing.found" = "Heç nə tapılmadı";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

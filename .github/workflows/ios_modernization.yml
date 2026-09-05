@@ -1,0 +1,110 @@
+name: iOS Modernization
+
+on:
+  pull_request:
+  push:
+    branches:
+      - modernize
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-modernization-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-contract:
+    name: Modernization Source Contract
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=normal)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Run fail-closed modernization source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          /bin/sh SoraPassport/Scripts/verify-modernization-dependencies.sh \
+            --lint-ios-migration-release-source-gate
+
+  release-tests:
+    name: Full Release XCTest Closure
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=normal)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Initialize private Release-test paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:-}"
+          test -n "${GITHUB_ENV:-}"
+          test ! -L "${RUNNER_TEMP}"
+          test ! -L "${GITHUB_ENV}"
+          release_parent="$(mktemp -d "${RUNNER_TEMP}/sora-ios-release-tests.XXXXXX")"
+          chmod 700 "${release_parent}"
+          test "$(stat -f '%Lp' "${release_parent}")" = 700
+          {
+            printf 'SORA_RELEASE_TEST_PARENT=%s\n' "${release_parent}"
+            printf 'SORA_RELEASE_TEST_DERIVED_DATA=%s\n' "${release_parent}/DerivedData"
+            printf 'SORA_RELEASE_TEST_RESULT=%s\n' "${release_parent}/SoraPassport-Release.xcresult"
+          } >> "${GITHUB_ENV}"
+
+      - name: Run every simulator-eligible Release test
+        shell: bash
+        run: |
+          set -euo pipefail
+          /bin/sh SoraPassport/Scripts/run-ios-release-tests.sh \
+            --test \
+            --destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest,arch=arm64' \
+            --derived-data-path "${SORA_RELEASE_TEST_DERIVED_DATA}" \
+            --result-bundle-path "${SORA_RELEASE_TEST_RESULT}"
+
+      - name: Archive Release xcresult
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoraPassport-Release-${{ github.sha }}
+          path: ${{ env.SORA_RELEASE_TEST_RESULT }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove private Release-test products
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${SORA_RELEASE_TEST_PARENT:-}/" in
+            "${RUNNER_TEMP}/sora-ios-release-tests."*/)
+              test -d "${SORA_RELEASE_TEST_PARENT}"
+              test ! -L "${SORA_RELEASE_TEST_PARENT}"
+              find "${SORA_RELEASE_TEST_PARENT}" -depth -delete
+              ;;
+            *)
+              printf 'Refusing unsafe Release-test cleanup path\n' >&2
+              exit 1
+              ;;
+          esac

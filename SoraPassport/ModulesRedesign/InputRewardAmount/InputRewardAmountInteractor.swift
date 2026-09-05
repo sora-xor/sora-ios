@@ -31,6 +31,7 @@
 import Foundation
 
 import BigInt
+import RobinHood
 
 protocol InputRewardAmountInteractorInputProtocol: AnyObject {
     func getBalance()
@@ -72,7 +73,14 @@ extension InputRewardAmountInteractor: InputRewardAmountInteractorInputProtocol 
     }
 
     func sendReferralBalanceRequest(with type: InputRewardAmountType, decimalBalance: Decimal) {
-        let balance = decimalBalance.toSubstrateAmount(precision: 18) ?? 0
+        guard decimalBalance > 0,
+              let balance = decimalBalance.toSubstrateAmount(precision: 18),
+              balance > 0 else {
+            presenter?.referralBalanceOperationReceived(
+                with: .failure(WalletNetworkOperationFactoryError.invalidAmount)
+            )
+            return
+        }
 
         var operation = operationFactory.createExtrinsicReserveReferralBalanceOperation(with: balance)
 
@@ -81,7 +89,10 @@ extension InputRewardAmountInteractor: InputRewardAmountInteractorInputProtocol 
         }
 
         operation.completionBlock = { [weak self] in
-            guard let result = operation.result else { return }
+            guard let result = operation.result else {
+                self?.presenter?.referralBalanceOperationReceived(with: .failure(BaseOperationError.parentOperationCancelled))
+                return
+            }
             self?.presenter?.referralBalanceOperationReceived(with: result)
         }
 

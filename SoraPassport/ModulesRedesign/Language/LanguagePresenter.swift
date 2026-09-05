@@ -30,9 +30,15 @@
 
 import SoraUIKit
 import SoraFoundation
-import SCard
 
 final class LanguagePresenter {
+    private static let oldAkkadianCode = "akk"
+    private static let oldAkkadianTitle = "Old Akkadian"
+    private static let oldAkkadianNativeTitle = "lišānum akkadītum labīrtum"
+    private static let middleEgyptianCode = "egy-Egyp"
+    private static let middleEgyptianTitle = "Middle Egyptian (Hieroglyphic)"
+    private static let middleEgyptianNativeTitle = "𓌃𓂧𓅱𓀁 𓈖 𓆎𓅓𓏏𓊖"
+
     weak var view: LanguageViewProtocol?
     let eventCenter: EventCenterProtocol
     private var selectedLanguage: Language?
@@ -65,9 +71,21 @@ final class LanguagePresenter {
             let code = $0.code
 
             let targetLocale = Locale(identifier: $0.code)
-            let subtitle: String = $0.title(in: targetLocale)?.capitalized ?? ""
+            let subtitle: String
+            switch code {
+            case Self.oldAkkadianCode:
+                subtitle = Self.oldAkkadianNativeTitle
+            case Self.middleEgyptianCode:
+                subtitle = Self.middleEgyptianNativeTitle
+            default:
+                subtitle = $0.title(in: targetLocale)?.capitalized ?? ""
+            }
 
-            if let localizationManager = localizationManager {
+            if code == Self.oldAkkadianCode {
+                title = Self.oldAkkadianTitle
+            } else if code == Self.middleEgyptianCode {
+                title = Self.middleEgyptianTitle
+            } else if let localizationManager = localizationManager {
                 let language = $0.title(in: localizationManager.selectedLocale)?.capitalized ?? ""
 
                 if let regionTitle = $0.region(in: localizationManager.selectedLocale) {

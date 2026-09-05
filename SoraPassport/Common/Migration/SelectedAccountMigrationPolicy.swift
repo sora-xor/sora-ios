@@ -37,9 +37,7 @@ import IrohaCrypto
 class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
     var isSelected: Bool = false
     var order: Int32 = 0
-    private var privateKeysUsed: [Data] = []
-
-    private lazy var addressFactory = SS58AddressFactory()
+    private var migratedAddresses: Set<String> = []
 
     override func createDestinationInstances(
         forSource accountItem: NSManagedObject,
@@ -48,13 +46,13 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
     ) throws {
 
         guard let sourceAddress = accountItem.value(forKey: "identifier") as? AccountAddress else {
-            fatalError("Unexpected empty source address")
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
-        let accountId = try addressFactory.accountId(from: sourceAddress)
-
-        if privateKeysUsed.contains(accountId) {
-            return
+        // Distinct network addresses can share one public key. Every retained
+        // account is an independent inventory row and must survive migration.
+        guard migratedAddresses.insert(sourceAddress).inserted else {
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
         try super.createDestinationInstances(forSource: accountItem, in: mapping, manager: manager)
@@ -63,34 +61,35 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
             forEntityMappingName: mapping.name,
             sourceInstances: [accountItem]
         ).first else {
-            return
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
-        privateKeysUsed.append(accountId)
-
-        if let lookup = SettingsManager.shared.value(of: [String: Int].self, for: SettingsKey.assetList.rawValue) {
-            let newOrder = lookup.keys.sorted(by: { key0, key1 in
-                return lookup[key0]! < lookup[key1]!
-            })
-
+        if let orderedAssetIds =
+            manager.userInfo?[UserStorageMigratorKeys.orderedAssetIds] as? [String] {
             let context = manager.destinationContext
             let settings = CDAccountSettings(entity: NSEntityDescription.entity(forEntityName: "CDAccountSettings", in: context)!, insertInto: context)
-            settings.orderedAssets = newOrder as NSArray
+            settings.orderedAssets = orderedAssetIds as NSArray
             metaAccount.setValue(settings, forKey: "settings")
         }
 
-        if let selectedAccount = SettingsManager.shared.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) {
-            let isSelected = selectedAccount.identifier == sourceAddress
+        if let selectedAddress =
+            manager.userInfo?[UserStorageMigratorKeys.selectedAddress] as? String {
+            let isSelected = selectedAddress == sourceAddress
             metaAccount.setValue(isSelected, forKey: "isSelected")
         }
 
-        metaAccount.setValue(order, forKey: "order")
+        let retainedOrder =
+            (accountItem.value(forKey: "order") as? NSNumber)?.int32Value
+                ?? order
+        metaAccount.setValue(retainedOrder, forKey: "order")
         order += 1
 
     }
 
     override func end(_ mapping: NSEntityMapping, manager: NSMigrationManager) throws {
-        SettingsManager.shared.removeValue(for: SettingsKey.assetList.rawValue)
+        // This policy runs against a staging store. Mutating live preferences
+        // here would violate copy-on-write migration if a later validation
+        // fails, so the legacy preference remains for dual-read compatibility.
         try super.end(mapping, manager: manager)
     }
 }

@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -27,31 +27,78 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>$(SORA_GOOGLE_URL_SCHEME_DEV)</string>
+				<string>$(SORA_GOOGLE_URL_SCHEME)</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>org.sora.irohaconnect</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>iroha</string>
+				<string>irohaconnect</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>GIDClientID</key>
-	<string>$(SORA_GOOGLE_TOKEN_DEV)</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>soracard.wallet.test</string>
-		<string>soracard.wallet</string>
-	</array>
+	<string>$(SORA_GOOGLE_TOKEN)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to capture QR code</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID authenticates IrohaConnect wallet connections and signatures.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app require the access to Microphone to pass KYC</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Load photos from library</string>
+	<key>SoraMigrationEvidenceAuthorizationKeyId</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID)</string>
+	<key>SoraMigrationEvidenceAuthorizationPublicKeyX963Base64</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64)</string>
+	<key>SoraMigrationEvidenceQualificationContractSha256</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256)</string>
+	<key>SoraMigrationEvidenceSourceRevision</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_SOURCE_REVISION)</string>
+	<key>SoraMinamotoNetworkId</key>
+	<string>$(SORA_MINAMOTO_NETWORK_ID)</string>
+	<key>SoraTairaCanonicalToriiBaseUrl</key>
+	<string>$(SORA_TAIRA_CANONICAL_TORII_BASE_URL)</string>
+	<key>SoraTairaCurrentChainId</key>
+	<string>$(SORA_TAIRA_CURRENT_CHAIN_ID)</string>
+	<key>SoraTairaCurrentDeploymentEpoch</key>
+	<string>$(SORA_TAIRA_CURRENT_DEPLOYMENT_EPOCH)</string>
+	<key>SoraTairaCurrentGenesisHash</key>
+	<string>$(SORA_TAIRA_CURRENT_GENESIS_HASH)</string>
+	<key>SoraTairaDeploymentAdmissionContractId</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID)</string>
+	<key>SoraTairaDeploymentAdmissionSha256</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256)</string>
+	<key>SoraTairaDeploymentManifestSha256</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256)</string>
+	<key>SoraTairaDeploymentManifestSequenceNumber</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SEQUENCE_NUMBER)</string>
+	<key>SoraTairaExplorerBaseUrl</key>
+	<string>$(SORA_TAIRA_EXPLORER_BASE_URL)</string>
+	<key>SoraTairaPendingRowPolicy</key>
+	<string>$(SORA_TAIRA_PENDING_ROW_POLICY)</string>
+	<key>SoraTairaPublicMcpEndpoint</key>
+	<string>$(SORA_TAIRA_PUBLIC_MCP_ENDPOINT)</string>
+	<key>SoraTairaRetiredChainId</key>
+	<string>$(SORA_TAIRA_RETIRED_CHAIN_ID)</string>
+	<key>SoraTairaRetiredDeploymentEpoch</key>
+	<string>$(SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH)</string>
+	<key>SoraTairaRetiredGenesisHash</key>
+	<string>$(SORA_TAIRA_RETIRED_GENESIS_HASH)</string>
 	<key>UIAppFonts</key>
 	<array>
+		<string>NotoSansEgyptianHieroglyphs-Regular.ttf</string>
 		<string>sora-Bold.otf</string>
 		<string>sora-ExtraBold.otf</string>
 		<string>sora-Regular.otf</string>

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 4,
+  "contractId": "sora-ios-wallet-migration-evidence-v4",
+  "platform": "ios",
+  "status": "blocked-template",
+  "runId": null,
+  "runChallengeSha256": null,
+  "rawInputSetSha256": null,
+  "qualificationSequenceNumber": 0,
+  "sourceRevision": null,
+  "producedAtEpochSeconds": 0,
+  "qualificationContractSha256": null,
+  "trustRootSha256": null,
+  "deviceEvidenceProducerKeyId": null,
+  "independentReviewerKeyId": null,
+  "identity": {
+    "productionIpaSha256": null,
+    "installedAppRawTreeSha256": null,
+    "installedAppRawTreeRecordByteCount": 0,
+    "installedExecutableSha256": null,
+    "installedExecutableByteCount": 0,
+    "productionCanonicalProjectionSha256": null,
+    "installedCanonicalProjectionSha256": null,
+    "canonicalProjectionReceiptSha256": null,
+    "canonicalProjectorSourceSha256": null,
+    "deviceClasses": [],
+    "operatingSystemBuilds": []
+  },
+  "chronology": {
+    "runStartedAtEpochSeconds": 0,
+    "runFinishedAtEpochSeconds": 0,
+    "snapshotManifestProducedAtEpochSeconds": 0,
+    "testResultProducedAtEpochSeconds": 0,
+    "keychainEvidenceProducedAtEpochSeconds": 0,
+    "deviceExecutionEvidenceProducedAtEpochSeconds": 0,
+    "collectionReceiptProducedAtEpochSeconds": 0
+  },
+  "artifacts": {
+    "collectionReceipt": {
+      "relativePath": "Fixtures/Modernization/ios-migration-collection-receipt.json",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "retainedReleaseSnapshotManifest": {
+      "relativePath": "Fixtures/Modernization/ios-migration-retained-snapshot-manifest.json",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "testResultBundle": {
+      "relativePath": "Fixtures/Modernization/ios-migration-tests.xcresult.zip",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "keychainEvidence": {
+      "relativePath": "Fixtures/Modernization/ios-migration-keychain-evidence.json",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "deviceExecutionEvidence": {
+      "relativePath": "Fixtures/Modernization/ios-migration-device-execution-evidence.json",
+      "sha256": null,
+      "byteCount": 0
+    }
+  },
+  "privacy": {
+    "aggregateOnly": true,
+    "accountIdentifiersIncluded": false,
+    "addressesIncluded": false,
+    "deviceIdentifiersIncluded": false,
+    "phrasesOrSeedsIncluded": false,
+    "privateKeysIncluded": false,
+    "publicKeysIncluded": false,
+    "rawKeychainValuesIncluded": false,
+    "rawSignedPayloadsIncluded": false,
+    "perWalletRecordsIncluded": false
+  },
+  "blockingReasons": [
+      "Template only: publish no evidence manifest until the complete retained-device run, observed collection receipt, and all four fixed-path aggregate artifacts exist and independently reproduce."
+  ]
+}

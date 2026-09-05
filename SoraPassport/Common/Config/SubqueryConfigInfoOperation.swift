@@ -28,56 +28,80 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import RobinHood
 import sorawallet
 import Foundation
+import SoraKeystore
 
-public final class SubqueryConfigInfoOperation<ResultType>: BaseOperation<ResultType> {
-
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let configBuilder: SoraRemoteConfigBuilder
+public final class SubqueryConfigInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
+    private let client = PIIndexerClient()
 
     public override init() {
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        configBuilder = provider.provide()
-
         super.init()
     }
 
-    override public func main() {
-        super.main()
-
-        if isCancelled {
-            return
+    override public func execute() async throws -> ResultType {
+        let capabilitySession = ProductionRemoteCapabilitySession.shared
+        // A request in flight is not fresh mutation authority. Read-only
+        // cached configuration remains available through its separate paths.
+        let refreshToken = capabilitySession.beginLiveRefresh()
+        let checkedHealth: PIHealth
+        let config: PIMobileConfig
+        do {
+            // Bind the legacy projection and mutation publication to the
+            // exact live health preflight that qualified this config. An
+            // independent cached health read could describe another
+            // checkpoint and must not be combined with live capabilities.
+            let qualified = try await client.qualifiedMobileConfig(
+                requireLive: true
+            )
+            guard
+                let qualification = qualified.qualification,
+                qualification.source == .live
+            else {
+                throw PIIndexerError.invalidResponse
+            }
+            checkedHealth = qualification.health
+            config = qualified.value
+        } catch {
+            // Cached visibility can remain available, but mutation kill
+            // switches require a fresh qualified response.
+            capabilitySession.invalidate(refreshToken)
+            throw error
         }
 
-        if result != nil {
-            return
+        let legacy = SoraConfig(
+            remote: true,
+            blockExplorerUrl: config.blockExplorerUrl.absoluteString,
+            blockExplorerType: ConfigExplorerType(
+                fiat: "pi",
+                reward: "pi",
+                sbapy: "pi",
+                assets: "pi"
+            ),
+            nodes: config.nodes.map {
+                SoraConfigNode(
+                    chain: checkedHealth.chainId,
+                    name: $0.name,
+                    address: $0.address.absoluteString
+                )
+            },
+            genesis: checkedHealth.genesisHash ?? PIIndexerClient.soraMainnetGenesis,
+            joinUrl: "",
+            substrateTypesUrl: config.substrateTypesUrl?.absoluteString ?? "",
+            soracard: config.soracard,
+            currencies: []
+        )
+        guard let result = legacy as? ResultType else {
+            throw PIIndexerError.invalidResponse
         }
-
-        let semaphore = DispatchSemaphore(value: 0)
-
-        var optionalCallResult: Result<ResultType, Swift.Error>?
-
-        DispatchQueue.main.async {
-
-            self.configBuilder.getConfig(completionHandler: { [self] config, error in
-
-                if let data = config as? ResultType {
-                    optionalCallResult = .success(data)
-                }
-
-                semaphore.signal()
-
-                result = optionalCallResult
-            })
+        // This publishes session-local mutation authority only after the full
+        // live response and its legacy projection are accepted.
+        guard SettingsManager.shared.applyPIMobileConfig(
+            config,
+            refreshToken: refreshToken
+        ) else {
+            throw PIIndexerError.invalidResponse
         }
-
-        semaphore.wait()
+        return result
     }
 }

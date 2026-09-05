@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "contractId": "sora-ios-vendored-binary-qualification-v1",
+  "platform": "ios",
+  "status": "blocked",
+  "runId": null,
+  "qualificationSequenceNumber": 0,
+  "sourceRevision": null,
+  "reviewedAtEpochSeconds": 0,
+  "qualifiedAtEpochSeconds": 0,
+  "qualificationContractSha256": null,
+  "trustRootSha256": null,
+  "evidenceManifestSha256": null,
+  "artifactEvidenceProducerKeyId": null,
+  "independentReviewerKeyId": null,
+  "artifactCount": 6,
+  "completeInventory": false,
+  "wholeTreeContentQualified": false,
+  "sourceOrVendorIdentityQualified": false,
+  "licenseAndNoticeQualified": false,
+  "sbomQualified": false,
+  "buildProvenanceQualified": false,
+  "artifactAttestationsQualified": false,
+  "duplicateSorawalletByteIdentityProven": false,
+  "blockingReasons": [
+    "No externally authenticated producer and independent-reviewer qualification has been supplied for the six production-reachable XCFramework trees."
+  ]
+}

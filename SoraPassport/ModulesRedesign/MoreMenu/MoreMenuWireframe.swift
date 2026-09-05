@@ -34,7 +34,6 @@ import SoraFoundation
 
 import SoraUIKit
 import RobinHood
-import SCard
 
 final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentable, CustomPresentable {
 
@@ -80,11 +79,6 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         present(blurred: changeAccountView.controller, on: presentingVC)
     }
     
-    func showSoraCard(from view: MoreMenuViewProtocol?) {
-        guard let view = view else { return }
-        SCard.shared?.start(in: view.controller)
-    }
-    
     @MainActor
     func showInformation(from view: MoreMenuViewProtocol?) {
         let informationView = SettingsInformationFactory.createInformation()
@@ -116,6 +110,42 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
     }
 
     func showPersonalDetailsView(from view: MoreMenuViewProtocol?, completion: @escaping () -> Void) {
+    }
+
+    @MainActor
+    func showNexusPortfolio(from view: MoreMenuViewProtocol?) {
+        guard let navigationController = view?.controller.navigationController else {
+            return
+        }
+        let controller = NexusPortfolioViewController(
+            assetsProvider: assetsProvider,
+            openSora2Experience: { [weak source = view?.controller] in
+                guard
+                    let tabBarController = source?.tabBarController,
+                    tabBarController.viewControllers?.isEmpty == false
+                else {
+                    return false
+                }
+                // Wallet is the first tab in the retained SORA navigation.
+                // Selecting it preserves the production SORA2 send/history
+                // flow and its existing signing behavior.
+                tabBarController.selectedIndex = 0
+                return true
+            }
+        )
+        controller.hidesBottomBarWhenPushed = true
+        navigationController.pushViewController(controller, animated: true)
+    }
+
+    @MainActor
+    func showPolkamarkt(from view: MoreMenuViewProtocol?) {
+        guard let navigationController = view?.controller.navigationController else {
+            return
+        }
+        let controller = PolkamarktViewController(walletContext: walletContext)
+        controller.localizationManager = localizationManager
+        controller.hidesBottomBarWhenPushed = true
+        navigationController.pushViewController(controller, animated: true)
     }
 
     @MainActor

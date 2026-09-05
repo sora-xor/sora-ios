@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SSFUtils
 
 enum CallCodingPath: Equatable, Codable, CaseIterable {
     static var allCases: [CallCodingPath] {
@@ -39,6 +40,8 @@ enum CallCodingPath: Equatable, Codable, CaseIterable {
             .migration,
             .depositLiquidity,
             .withdrawLiquidity,
+            .utilityBatch,
+            .utilityBatchAll,
             .setReferral,
             .bondReferralBalance,
             .unbondReferralBalance
@@ -46,27 +49,31 @@ enum CallCodingPath: Equatable, Codable, CaseIterable {
     }
 
     var isTransfer: Bool {
-        [.transfer, .transferKeepAlive].contains(self)
+        matchesAny(of: [.transfer, .transferKeepAlive])
     }
 
     var isSwap: Bool {
-        [.swap].contains(self)
+        matchesAny(of: [.swap])
     }
 
     var isMigration: Bool {
-        [.migration].contains(self)
+        matchesAny(of: [.migration])
     }
 
     var isDepositLiquidity: Bool {
-        [.depositLiquidity].contains(self)
+        matchesAny(of: [.depositLiquidity])
     }
 
     var isWithdrawLiquidity: Bool {
-        [.withdrawLiquidity].contains(self)
+        matchesAny(of: [.withdrawLiquidity])
+    }
+
+    var isUtilityBatch: Bool {
+        matchesAny(of: [.utilityBatch, .utilityBatchAll])
     }
 
     var isReferral: Bool {
-        [.setReferral, .bondReferralBalance, .unbondReferralBalance].contains(self)
+        matchesAny(of: [.setReferral, .bondReferralBalance, .unbondReferralBalance])
     }
 
     var moduleName: String {
@@ -91,6 +98,10 @@ enum CallCodingPath: Equatable, Codable, CaseIterable {
             return (moduleName: "PoolXYK", callName: "deposit_liquidity")
         case .withdrawLiquidity:
             return (moduleName: "PoolXYK", callName: "withdraw_liquidity")
+        case .utilityBatch:
+            return (moduleName: KnowRuntimeModule.Utitlity.name, callName: KnowRuntimeModule.Utitlity.batch)
+        case .utilityBatchAll:
+            return (moduleName: KnowRuntimeModule.Utitlity.name, callName: KnowRuntimeModule.Utitlity.batchAll)
         case .setReferral:
             return (moduleName: "Referrals", callName: "set_referrer")
         case .bondReferralBalance:
@@ -105,6 +116,15 @@ enum CallCodingPath: Equatable, Codable, CaseIterable {
     init(moduleName: String, callName: String) {
         self = .fromInit(moduleName: moduleName, callName: callName)
     }
+
+    private func matchesAny(of candidates: [CallCodingPath]) -> Bool {
+        let currentPath = path
+        return candidates.contains { candidate in
+            let candidatePath = candidate.path
+            return candidatePath.moduleName == currentPath.moduleName
+                && candidatePath.callName == currentPath.callName
+        }
+    }
     
     case fromInit(moduleName: String, callName: String)
     case transfer
@@ -113,6 +133,8 @@ enum CallCodingPath: Equatable, Codable, CaseIterable {
     case migration
     case depositLiquidity
     case withdrawLiquidity
+    case utilityBatch
+    case utilityBatchAll
     case setReferral
     case bondReferralBalance
     case unbondReferralBalance

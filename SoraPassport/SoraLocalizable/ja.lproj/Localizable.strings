@@ -131,7 +131,7 @@
 "common.passphrase.title" = "パスフレーズ";
 "common.passphrase.save.or.send" = "保存または送信";
 "common.passphrase.header" = "パスフレーズはパスワードの一種です";
-"common.passphrase.body" = "SORAで新しいアカウントを作成すると、12単語のパスフレーズが提供されます。もし15単語のSORAパスフレーズを既にお持ちの場合は、それを使用してアカウントをインポートできます。－ 15単語も引き続き機能します";
+"common.passphrase.body" = "SORAで新しいアカウントを作成すると、24単語のパスフレーズが提供されます。既存の12単語または24単語のSORAパスフレーズはインポートでき、引き続き機能します。";
 "common.passphrase.your.passphrase" = "あなたのパスフレーズ";
 "network.unavailable" = "ネットワークに接続できません";
 "common.save" = "保存";
@@ -145,8 +145,8 @@
 "connection.error.message" = "インターネット接続を確認し、後でもう一度やり直してください";
 "common.error.general.message" = "問題解決に向け鋭意対応中です。後でもう一度やり直してください";
 "result.ambiguous.error.title" = "あいまいな結果";
-"access.restore.words.error.message" = "パスフレーズは15個の単語を含めてください";
-"access.restore.phrase.error.message" = "お手数ですが、パスフレーズの12単語なり15単語が全て正しいか確認してください";
+"access.restore.words.error.message" = "パスフレーズは12個または24個の単語を含めてください";
+"access.restore.phrase.error.message" = "お手数ですが、パスフレーズが12単語または24単語で、全て正しいか確認してください。";
 "wallet.search.query.error.message" = "検索できる文字数は3から64字です";
 "user.create.phone.registered.error.message" = "この電話番号は既にあなたか他のユーザーによって登録されています";
 "common.error.invalid.parameters" = "無効なパラメーター";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "JSONファイルのエクスポート";
 "export.protection.passphrase.title" = "パスフレーズ";
 "export.protection.json.description" = "次のステップで、アカウントを復元できるJSONファイルをダウンロードします";
-"export.protection.passphrase.description" = "次のステップで、アカウントを復元できるパスフレーズ(12単語)が表示されます";
+"export.protection.passphrase.description" = "次のステップで、アカウントを復元できるパスフレーズ(24単語)が表示されます";
 "export.protection.seed.description" = "次のステップで、アカウントを復元できるシード(長いハッシュ値)が表示されます";
 "export.protection.json.1" = "JSONファイルを紛失すると、資金は永久に失われます";
 "export.protection.json.2" = "JSONファイルを誰かに公開または共有すると、資金が盗まれる可能性があります";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

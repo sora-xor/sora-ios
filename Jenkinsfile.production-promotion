@@ -1,0 +1,237 @@
+// The only checked-in iOS production promotion pipeline.
+//
+// Protected Jenkins credentials/environment supply the three controller paths
+// and independent SHA-256 pins plus all existing qualification/rollout inputs.
+// This file never creates evidence keys, signatures, qualification receipts, or
+// controller trust. The legacy Jenkinsfile remains explicitly non-authorizing.
+
+def releaseRoot() {
+    return "${env.IOS_PRODUCTION_WORK_ROOT}/${params.SOURCE_REVISION}-${params.IOS_CANDIDATE_BUILD_NUMBER}"
+}
+
+def statePath() {
+    return "${releaseRoot()}/controller-state.json"
+}
+
+def primaryCheckout() {
+    return "${releaseRoot()}/primary-checkout"
+}
+
+def reproductionCheckout() {
+    return "${releaseRoot()}/reproduction-checkout"
+}
+
+def exactCheckout(String destination) {
+    ws(destination) {
+        checkout([
+            $class: 'GitSCM',
+            branches: [[name: params.SOURCE_REVISION]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [
+                [$class: 'CloneOption', honorRefspec: true, noTags: false, shallow: false],
+                [$class: 'SubmoduleOption', recursiveSubmodules: true, trackingSubmodules: false]
+            ],
+            userRemoteConfigs: scm.userRemoteConfigs
+        ])
+        sh '''
+            set -eu
+            test "$(/usr/bin/git rev-parse --show-toplevel)" = "$PWD"
+            test "$(/usr/bin/git rev-parse --verify 'HEAD^{commit}')" = "${IOS_PROMOTION_SOURCE_REVISION}"
+            test -z "$(/usr/bin/git status --porcelain=v1 --untracked-files=normal)"
+        '''
+    }
+}
+
+pipeline {
+    agent { label 'mac-sora-production-controller' }
+
+    options {
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+        timestamps()
+        timeout(time: 12, unit: 'HOURS')
+    }
+
+    parameters {
+        choice(
+            name: 'PROMOTION_PHASE',
+            choices: ['candidate', 'qualify', 'upload', 'rollout-1', 'rollout-5', 'rollout-25', 'rollout-100'],
+            description: 'One fail-closed phase; later phases can never rebuild the candidate.'
+        )
+        string(
+            name: 'SOURCE_REVISION',
+            defaultValue: '',
+            description: 'Exact nonzero lowercase 40-character production commit.'
+        )
+        string(
+            name: 'IOS_CANDIDATE_BUILD_NUMBER',
+            defaultValue: '',
+            description: 'Explicit positive App Store build number; must exceed the controller query.'
+        )
+        string(
+            name: 'IOS_RELEASE_TEST_DESTINATION',
+            defaultValue: 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.4,arch=arm64',
+            description: 'Fixed arm64 iOS Simulator destination for the complete Release closure.'
+        )
+    }
+
+    environment {
+        IOS_PROMOTION_SOURCE_REVISION = "${params.SOURCE_REVISION}"
+        IOS_PROMOTION_BUILD_NUMBER = "${params.IOS_CANDIDATE_BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Fail-closed protected-root preflight') {
+            steps {
+                sh '''
+                    set -eu
+                    umask 077
+                    : "${IOS_PRODUCTION_WORK_ROOT:?protected owner-only production work root is required}"
+                    case "${IOS_PRODUCTION_WORK_ROOT}" in /*) ;; *) exit 1 ;; esac
+                    case "${IOS_PROMOTION_SOURCE_REVISION}" in
+                        [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+                        *) exit 1 ;;
+                    esac
+                    case "${IOS_PROMOTION_BUILD_NUMBER}" in ''|0|0*|*[!0-9]*) exit 1 ;; esac
+                    test -d "${IOS_PRODUCTION_WORK_ROOT}"
+                    test ! -L "${IOS_PRODUCTION_WORK_ROOT}"
+                    test "$(/usr/bin/stat -f '%u:%Lp' "${IOS_PRODUCTION_WORK_ROOT}")" = "$(/usr/bin/id -u):700"
+
+                    release_root="${IOS_PRODUCTION_WORK_ROOT}/${IOS_PROMOTION_SOURCE_REVISION}-${IOS_PROMOTION_BUILD_NUMBER}"
+                    if [ "${PROMOTION_PHASE}" = candidate ]; then
+                        test ! -e "${release_root}"
+                        /bin/mkdir -m 700 "${release_root}"
+                    else
+                        test -d "${release_root}"
+                        test ! -L "${release_root}"
+                        test "$(/usr/bin/stat -f '%u:%Lp' "${release_root}")" = "$(/usr/bin/id -u):700"
+                        test -f "${release_root}/controller-state.json"
+                        test ! -L "${release_root}/controller-state.json"
+                    fi
+                '''
+            }
+        }
+
+        stage('Dual physically distinct exact checkouts') {
+            when { expression { params.PROMOTION_PHASE == 'candidate' } }
+            steps {
+                script {
+                    exactCheckout(primaryCheckout())
+                    exactCheckout(reproductionCheckout())
+                }
+            }
+        }
+
+        stage('Authenticate controllers and query ASC lower bound') {
+            when { expression { params.PROMOTION_PHASE == 'candidate' } }
+            steps {
+                sh """
+                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                        --phase initialize \\
+                        --state '${statePath()}' \\
+                        --primary-checkout '${primaryCheckout()}' \\
+                        --reproduction-checkout '${reproductionCheckout()}' \\
+                        --source-revision '${params.SOURCE_REVISION}' \\
+                        --build-number '${params.IOS_CANDIDATE_BUILD_NUMBER}'
+                """
+            }
+        }
+
+        stage('Source gate and complete Release tests') {
+            when { expression { params.PROMOTION_PHASE == 'candidate' } }
+            steps {
+                sh """
+                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                        --phase release-tests --state '${statePath()}' --role primary \\
+                        --destination \"\${IOS_RELEASE_TEST_DESTINATION}\"
+                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                        --phase release-tests --state '${statePath()}' --role reproduction \\
+                        --destination \"\${IOS_RELEASE_TEST_DESTINATION}\"
+                """
+            }
+        }
+
+        stage('One primary and one independent reproduction archive') {
+            when { expression { params.PROMOTION_PHASE == 'candidate' } }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'ios-keychain-credentials',
+                        usernameVariable: 'IOS_SIGNING_KEYCHAIN_PATH',
+                        passwordVariable: 'IOS_SIGNING_KEYCHAIN_PASSWORD'
+                    )
+                ]) {
+                    sh """
+                        set -eu
+                        case "\${IOS_SIGNING_KEYCHAIN_PATH}" in /*) ;; *) exit 1 ;; esac
+                        test -f "\${IOS_SIGNING_KEYCHAIN_PATH}"
+                        test ! -L "\${IOS_SIGNING_KEYCHAIN_PATH}"
+                        test "$(/usr/bin/stat -f '%u' "\${IOS_SIGNING_KEYCHAIN_PATH}")" = "$(/usr/bin/id -u)"
+                        /usr/bin/security unlock-keychain \\
+                            -p "\${IOS_SIGNING_KEYCHAIN_PASSWORD}" \\
+                            "\${IOS_SIGNING_KEYCHAIN_PATH}"
+                        lock_signing_keychain() {
+                            /usr/bin/security lock-keychain "\${IOS_SIGNING_KEYCHAIN_PATH}" >/dev/null 2>&1 || true
+                        }
+                        trap lock_signing_keychain EXIT HUP INT TERM
+                        /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                            --phase archive --state '${statePath()}' --role primary
+                        /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                            --phase archive --state '${statePath()}' --role reproduction
+                    """
+                }
+            }
+        }
+
+        stage('Reproducibility comparison') {
+            when { expression { params.PROMOTION_PHASE == 'candidate' } }
+            steps {
+                sh """
+                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                        --phase compare --state '${statePath()}'
+                """
+            }
+        }
+
+        stage('Exact-IPA physical evidence and protected v8 qualification') {
+            when { expression { params.PROMOTION_PHASE == 'qualify' } }
+            steps {
+                sh """
+                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                        --phase qualify --state '${statePath()}'
+                """
+            }
+        }
+
+        stage('Upload exact admitted IPA and authenticate artifact receipt') {
+            when { expression { params.PROMOTION_PHASE == 'upload' } }
+            steps {
+                sh """
+                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                        --phase upload --state '${statePath()}'
+                """
+            }
+        }
+
+        stage('Strict gate then immutable cohort mutation') {
+            when { expression { params.PROMOTION_PHASE.startsWith('rollout-') } }
+            steps {
+                script {
+                    def exactTarget = [
+                        'rollout-1': '1',
+                        'rollout-5': '5',
+                        'rollout-25': '25',
+                        'rollout-100': '100'
+                    ][params.PROMOTION_PHASE]
+                    if (exactTarget == null) {
+                        error('unknown rollout phase')
+                    }
+                    sh """
+                        /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                            --phase rollout --state '${statePath()}' --target '${exactTarget}'
+                    """
+                }
+            }
+        }
+    }
+}

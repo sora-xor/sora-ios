@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import RobinHood
 import SoraKeystore
 import SSFUtils
 
@@ -40,6 +41,15 @@ final class SplashInteractor: SplashInteractorProtocol {
     let socketService: WebSocketServiceProtocol
     let configService: ConfigServiceProtocol
     let reachabilityManager: ReachabilityManagerProtocol? = ReachabilityManager.shared
+    private let migrationStateLock = NSLock()
+    private var didStartStorageMigration = false
+    private let storageMigrationQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "co.jp.soramitsu.sora.storage-migration"
+        queue.maxConcurrentOperationCount = 1
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
 
     init(settings: SettingsManagerProtocol,
          socketService: WebSocketServiceProtocol,
@@ -92,52 +102,216 @@ final class SplashInteractor: SplashInteractorProtocol {
         Task {
             AssetManager.networkAssets = assetsInfo
 
-            let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
-            await PriceInfoService.shared.setup(for: assetsIds)
+            // Fiat prices and market-cap data are display-only and every consumer already loads
+            // them lazily through getPriceInfo(for:). A slow PI request must not hold wallet
+            // storage migration, recovery checks, or navigation on the splash screen.
 
             socketService.throttle()
 
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.startChain()
             }
         }
     }
 
+    @MainActor
     private func startChain() {
+        migrationStateLock.lock()
+        guard !didStartStorageMigration else {
+            migrationStateLock.unlock()
+            return
+        }
+        didStartStorageMigration = true
+        migrationStateLock.unlock()
+
+        NexusTransactionRuntime.shared.prepareForWalletStorageMigration()
+        Sora2PendingSubmissionRecoveryRuntime.shared
+            .prepareForWalletStorageMigration()
+
+        storageMigrationQueue.addOperation { [weak self] in
+            self?.performStorageMigration()
+        }
+    }
+
+    private func performStorageMigration() {
+        let keychain = Keychain()
         let dbMigrator = UserStorageMigrator(
             targetVersion: UserStorageParams.modelVersion,
             storeURL: UserStorageParams.storageURL,
             modelDirectory: UserStorageParams.modelDirectory,
-            keystore: Keychain(),
+            keystore: keychain,
             settings: settings,
             fileManager: FileManager.default
         )
         let logger = Logger.shared
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
-        do {
-            try dbMigrator.migrate()
-        } catch {
-            logger.error(error.localizedDescription)
+        // A retained recovery marker means an earlier migration did not reach
+        // a fully verified terminal state. Do not open or retry the installed
+        // store before presenting the recovery-safe route.
+        guard !settings.walletMigrationRecoveryRequired else {
+            completeSplashOnMain()
+            return
         }
 
-        let settings = SelectedWalletSettings.shared
-        let chainRegistry = ChainRegistryFacade.sharedRegistry
+        do {
+            let unresolvedCommits =
+                try WalletAccountCommitJournalStore().unresolved()
+            guard unresolvedCommits.isEmpty else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: FileManager.default.fileExists(
+                    atPath: UserStorageParams.storageURL.path
+                ),
+                keystore: keychain,
+                hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: try WalletNetworkStore().load()
+            ) {
+                // This pre-account-model state has retained legacy entropy
+                // and, in 1.x, its verified Iroha key. Do not create an
+                // empty replacement store; Root presents the explicit,
+                // journaled upgrade confirmation and verifies the resulting
+                // SORA identity while retaining the original Keychain entry.
+                completeSplashOnMain()
+                return
+            }
+            try WalletLifecycleCoordinator.shared.withExclusiveAccess {
+                try dbMigrator.migrate()
+            }
+        } catch {
+            let outcome = UserStorageMigrationError
+                .privacySafeOutcomeCode(for: error)
+            logger.error(
+                "Wallet startup outcome: \(outcome)"
+            )
+            settings.walletMigrationRecoveryRequired = true
+            settings.walletMigrationRecoveryReason = UserStorageMigrationError
+                .privacySafeRecoveryDescription(for: error)
+            completeSplashOnMain()
+            return
+        }
 
-        settings.setup(runningCompletionIn: .main) { result in
+        guard !settings.walletMigrationRecoveryRequired else {
+            completeSplashOnMain()
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.setupSelectedWalletAfterMigration()
+        }
+    }
+
+    private func setupSelectedWalletAfterMigration() {
+        let logger = Logger.shared
+        let selectedSettings = SelectedWalletSettings.shared
+        selectedSettings.setup(runningCompletionIn: .main) { [weak self] result in
             switch result {
             case let .success(maybeAccount):
-                if let metaAccount = maybeAccount {
-                    chainRegistry.performHotBoot()
-                    logger.debug("Selected account: \(metaAccount.address)")
-                } else {
-                    chainRegistry.performColdBoot()
-                    logger.debug("No selected account")
-                }
+                self?.bootstrapWalletNetworks(selectedAccount: maybeAccount)
             case let .failure(error):
-                logger.error("Selected account setup failed: \(error)")
+                let outcome = UserStorageMigrationError
+                    .privacySafeOutcomeCode(for: error)
+                logger.error(
+                    "Selected account setup outcome: \(outcome)"
+                )
+                self?.settings.walletMigrationRecoveryRequired = true
+                self?.settings.walletMigrationRecoveryReason =
+                    UserStorageMigrationError
+                        .privacySafeRecoveryDescription(for: error)
+                self?.presenter.setupComplete()
+            }
+        }
+    }
+
+    private func completeSplashOnMain() {
+        DispatchQueue.main.async { [weak self] in
+            self?.presenter.setupComplete()
+        }
+    }
+
+    private func bootstrapWalletNetworks(selectedAccount: AccountItem?) {
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> =
+            UserDataStorageFacade.shared.createRepository(
+                filter: nil,
+                sortDescriptors: [NSSortDescriptor.accountsByOrder],
+                mapper: AnyCoreDataMapper(AccountItemMapper())
+            )
+        let operation = repository.fetchAllOperation(
+            with: RepositoryFetchOptions(
+                includesProperties: true,
+                includesSubentities: true
+            )
+        )
+
+        operation.completionBlock = { [weak self] in
+            guard let self else {
+                return
+            }
+            do {
+                let accounts = try operation.extractNoCancellableResultData()
+                let store = try WalletNetworkStore()
+                try Self.initializeWalletNetworksIfNeeded(
+                    accounts: accounts,
+                    selectedAddress: selectedAccount?.address,
+                    store: store,
+                    keystore: Keychain(),
+                    settings: settings
+                )
+
+                DispatchQueue.main.async {
+                    // The lossless Core Data and wallet-network migrations are
+                    // now verified and active. Only now may restart recovery
+                    // inspect pending Nexus or SORA2 transactions.
+                    NexusTransactionRuntime.shared
+                        .markWalletStorageReadyAndResume()
+                    Sora2PendingSubmissionRecoveryRuntime.shared
+                        .markWalletStorageReadyAndResume()
+                    if selectedAccount != nil {
+                        ChainRegistryFacade.sharedRegistry.performHotBoot()
+                        Logger.shared.debug("Selected wallet restored")
+                    } else {
+                        ChainRegistryFacade.sharedRegistry.performColdBoot()
+                        Logger.shared.debug("No selected account")
+                    }
+                    self.presenter.setupComplete()
+                }
+            } catch {
+                settings.walletMigrationRecoveryRequired = true
+                settings.walletMigrationRecoveryReason = UserStorageMigrationError
+                    .privacySafeRecoveryDescription(for: error)
+                let outcome = UserStorageMigrationError
+                    .privacySafeOutcomeCode(for: error)
+                Logger.shared.error(
+                    "Wallet network bootstrap outcome: \(outcome)"
+                )
+                DispatchQueue.main.async {
+                    self.presenter.setupComplete()
+                }
             }
         }
 
-        self.presenter.setupComplete()
+        OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+    }
+
+    static func initializeWalletNetworksIfNeeded(
+        accounts: [AccountItem],
+        selectedAddress: String?,
+        store: WalletNetworkStore,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol
+    ) throws {
+        // On a clean install there is no wallet to activate. Creating an empty
+        // snapshot here writes a retained-wallet marker before onboarding and
+        // makes Root correctly reject the missing selected account. Existing
+        // snapshots still receive every migration check; Root independently
+        // rejects retained keys/settings when the snapshot is absent.
+        if accounts.isEmpty, selectedAddress == nil, try store.load() == nil {
+            return
+        }
+        try WalletNetworkModelMigrator(
+            keystore: keystore,
+            store: store,
+            settings: settings
+        ).migrate(accounts: accounts, selectedAddress: selectedAddress)
     }
 }

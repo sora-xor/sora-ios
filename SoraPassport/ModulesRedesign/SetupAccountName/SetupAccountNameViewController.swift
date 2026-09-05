@@ -35,6 +35,8 @@ import SoraFoundation
 final class SetupAccountNameViewController: SoramitsuViewController {
     var presenter: UsernameSetupPresenterProtocol?
     
+    private let scrollView = UIScrollView()
+
     private var viewModel: InputViewModelProtocol?
     
     let containerView: SoramitsuView = {
@@ -50,6 +52,7 @@ final class SetupAccountNameViewController: SoramitsuViewController {
         let label = SoramitsuLabel()
         label.sora.numberOfLines = 0
         label.sora.font = FontType.paragraphM
+        label.sora.dynamicTextStyle = .body
         label.sora.textColor = .fgPrimary
         label.sora.text = R.string.localizable.onboardingCreateAccountDescription(preferredLanguages: .currentLocale)
         label.sora.alignment = .left
@@ -58,6 +61,10 @@ final class SetupAccountNameViewController: SoramitsuViewController {
     
     private lazy var usernameField: InputField = {
         let view = InputField()
+        view.textField.sora.dynamicTextStyle = .body
+        view.textField.accessibilityLabel = R.string.localizable.personalInfoUsernameV1(preferredLanguages: .currentLocale)
+        view.titleLabel.sora.dynamicTextStyle = .caption1
+        view.descriptionLabel.sora.dynamicTextStyle = .caption1
         view.textField.textContentType = .nickname
         view.textField.autocapitalizationType = .none
         view.textField.autocorrectionType = .no
@@ -78,21 +85,17 @@ final class SetupAccountNameViewController: SoramitsuViewController {
         return view
     }()
 
-    private lazy var createAccountButton: SoramitsuButton = {
-        let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .accentPrimary
-        button.sora.title = R.string.localizable.transactionContinue(preferredLanguages: .currentLocale)
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            guard let self = self else { return }
+    private lazy var createAccountButton: UIButton = {
+        let button = WalletUX.button(R.string.localizable.transactionContinue(preferredLanguages: .currentLocale), primary: true) { [weak self] in
+            guard let self else { return }
             self.usernameField.textField.resignFirstResponder()
             self.presenter?.userName = self.usernameField.textField.text
             self.presenter?.proceed()
         }
+        button.isEnabled = true
         return button
     }()
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         navigationItem.backButtonTitle = ""
@@ -106,15 +109,31 @@ final class SetupAccountNameViewController: SoramitsuViewController {
     }
     
     func setupView() {
-        view.addSubview(containerView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.keyboardDismissMode = .interactive
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
+        createAccountButton.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubviews(subtitleLabel, usernameField, createAccountButton)
+        for child in usernameField.subviews {
+            for constraint in child.constraints where constraint.firstAttribute == .height && constraint.secondItem == nil && constraint.constant == 56 {
+                constraint.isActive = false
+                child.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
+            }
+        }
     }
     
     func setupConstraints() {
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             subtitleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),

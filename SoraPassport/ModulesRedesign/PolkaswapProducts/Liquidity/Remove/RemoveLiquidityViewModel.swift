@@ -74,7 +74,6 @@ final class RemoveLiquidityViewModel {
     
     var poolInfo: PoolInfo? {
         didSet {
-            updatePairInfo()
             updateDetails()
             updateButtonState()
         }
@@ -110,31 +109,25 @@ final class RemoveLiquidityViewModel {
     
     var firstAssetId: String = "" {
         didSet {
-            Task {
-                guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
+            if let asset = assetManager?.assetInfo(for: firstAssetId) {
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
                 view?.updateFirstAsset(symbol: asset.symbol, image: image)
-                updateBalanceData()
-                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
-                }
-                recalculate(field: .one)
             }
+            updateBalanceData()
+            updatePairInfo()
+            recalculate(field: .one)
         }
     }
     
     var secondAssetId: String = "" {
         didSet {
-            Task {
-                guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
+            if let asset = assetManager?.assetInfo(for: secondAssetId) {
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
                 view?.updateSecondAsset(symbol: asset.symbol, image: image)
-                updateBalanceData()
-                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
-                }
-                recalculate(field: .two)
             }
+            updateBalanceData()
+            updatePairInfo()
+            recalculate(field: .two)
         }
     }
     
@@ -182,10 +175,15 @@ final class RemoveLiquidityViewModel {
         }
     }
     
-    var slippageTolerance: Float = 0.5 {
+    var slippageTolerance: PolkaswapSlippage = .defaultValue {
         didSet {
-            let slippageToleranceText = "\(slippageTolerance)%"
-            view?.update(slippageTolerance: slippageToleranceText)
+            view?.update(slippageTolerance: slippageTolerance.displayValue)
+            detailsTask?.cancel()
+            detailsRequestId = nil
+            fee = .zero
+            debouncer.perform { [weak self] in
+                self?.updateDetails()
+            }
         }
     }
     
@@ -198,17 +196,25 @@ final class RemoveLiquidityViewModel {
         }
     }
     
-    private let feeProvider: FeeProviderProtocol
-    private var fiatData: [FiatData] = [] {
+    private var fiatData: [PIExactFiatData] = [] {
         didSet {
             updateBalanceData()
         }
     }
     private var apy: Decimal?
-    private var fee: Decimal = 0
+    private var fee: Decimal = 0 {
+        didSet {
+            updateButtonState()
+        }
+    }
     
-    private var isPairEnabled: Bool = true
-    private var isPairPresented: Bool = true
+    private var isPairEnabled = false
+    private var isPairPresented = false
+    private var isPairStateValid = false
+    private var pairStateTask: Task<Void, Never>?
+    private var pairStateRequestId: UUID?
+    private var detailsTask: Task<Void, Never>?
+    private var detailsRequestId: UUID?
     
     private weak var assetsProvider: AssetProviderProtocol?
     private let farmingService: DemeterFarmingServiceProtocol
@@ -225,12 +231,34 @@ final class RemoveLiquidityViewModel {
     
     private var availableBaseAssetPooledByAccount: Decimal {
         guard let poolInfo = poolInfo, let baseAssetPooledByAccount = poolInfo.baseAssetPooledByAccount else { return .zero }
-        return baseAssetPooledByAccount - baseAssetPooledByAccount * stackedPercentage
+        return max(
+            .zero,
+            baseAssetPooledByAccount - baseAssetPooledByAccount * stackedPercentage
+        )
     }
     
     private var availableTargetAssetPooledByAccount: Decimal {
         guard let poolInfo = poolInfo, let targetAssetPooledByAccount = poolInfo.targetAssetPooledByAccount else { return .zero }
-        return targetAssetPooledByAccount - targetAssetPooledByAccount * stackedPercentage
+        return max(
+            .zero,
+            targetAssetPooledByAccount - targetAssetPooledByAccount * stackedPercentage
+        )
+    }
+
+    private var isEnoughtFeeAssetLiquidity: Bool {
+        guard fee > 0 else { return false }
+        if firstAssetId == WalletAssetId.xor.rawValue {
+            return firstAssetBalance.balance.decimalValue >= fee
+        }
+        if secondAssetId == WalletAssetId.xor.rawValue {
+            return secondAssetBalance.balance.decimalValue >= fee
+        }
+        guard let xorBalance = assetsProvider?.getBalances(
+            with: [WalletAssetId.xor.rawValue]
+        ).first(where: { $0.identifier == WalletAssetId.xor.rawValue }) else {
+            return false
+        }
+        return xorBalance.balance.decimalValue >= fee
     }
     
     init(
@@ -257,7 +285,6 @@ final class RemoveLiquidityViewModel {
         self.assetManager = assetManager
         self.detailsFactory = detailsFactory
         self.providerFactory = providerFactory
-        self.feeProvider = FeeProvider()
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.farmingService = farmingService
@@ -265,13 +292,18 @@ final class RemoveLiquidityViewModel {
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
     }
+
+    deinit {
+        pairStateTask?.cancel()
+        detailsTask?.cancel()
+    }
 }
 
 extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
-    func didSelect(variant: Float) {
+    func didSelect(variant: Decimal) {
         if focusedField == .one {
             guard poolInfo != nil else { return }
-            let value = availableBaseAssetPooledByAccount * (Decimal(string: "\(variant)") ?? 0)
+            let value = availableBaseAssetPooledByAccount * variant
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(value) ?? "")
             inputedFirstAmount = value
@@ -279,7 +311,7 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
         
         if focusedField == .two {
             guard poolInfo != nil else { return }
-            let value = availableTargetAssetPooledByAccount * (Decimal(string: "\(variant)") ?? 0)
+            let value = availableTargetAssetPooledByAccount * variant
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(value) ?? "")
             inputedSecondAmount = value
@@ -298,7 +330,7 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
         }
 
         updateBalanceData()
-        slippageTolerance = 0.5
+        slippageTolerance = .defaultValue
         assetsProvider?.add(observer: self)
         view?.focus(field: .one)
     }
@@ -375,9 +407,21 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
-        guard let poolInfo = poolInfo, let assetManager = assetManager else { return }
+        guard isPairStateValid,
+              isPairPresented,
+              isPairEnabled,
+              fee > 0,
+              isEnoughtFeeAssetLiquidity,
+              inputedFirstAmount > 0,
+              inputedSecondAmount > 0,
+              let poolInfo = poolInfo,
+              poolInfo.baseAssetId == firstAssetId,
+              poolInfo.targetAssetId == secondAssetId,
+              let poolsService = poolsService,
+              let assetManager = assetManager else { return }
         wireframe?.showRemoveLiquidityConfirmation(on: view?.controller.navigationController,
                                                    poolInfo: poolInfo,
+                                                   poolsService: poolsService,
                                                    assetManager: assetManager,
                                                    firstAssetAmount: inputedFirstAmount,
                                                    secondAssetAmount: inputedSecondAmount,
@@ -385,15 +429,32 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
                                                    details: details,
                                                    fee: fee,
                                                    operationFactory: operationFactory,
+                                                   feeChangeHandler: { [weak self] in
+                                                       self?.updateDetails()
+                                                   },
                                                    completionHandler: completionHandler)
     }
     
     func recalculate(field: FocusedField) {
-        guard let poolInfo = poolInfo else { return }
+        detailsTask?.cancel()
+        detailsRequestId = nil
+        fee = .zero
+        updateButtonState()
+
+        guard let poolInfo = poolInfo,
+              let basePooledTotal = poolInfo.baseAssetPooledTotal,
+              basePooledTotal > 0,
+              let targetPooledTotal = poolInfo.targetAssetPooledTotal,
+              targetPooledTotal > 0 else {
+            inputedFirstAmount = .zero
+            inputedSecondAmount = .zero
+            updateButtonState()
+            return
+        }
 
         if focusedField == .one {
-            let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
-            let scale = (poolInfo.targetAssetPooledTotal ?? 0) / (poolInfo.baseAssetPooledTotal ?? 0)
+            let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
+            let scale = targetPooledTotal / basePooledTotal
             inputedSecondAmount = inputedFirstAmount * scale
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
             updateButtonState()
@@ -401,8 +462,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
                 self?.updateDetails()
             }
         } else {
-            let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
-            let scale = (poolInfo.baseAssetPooledTotal ?? 0) / (poolInfo.targetAssetPooledTotal ?? 0)
+            let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
+            let scale = basePooledTotal / targetPooledTotal
             inputedFirstAmount = inputedSecondAmount * scale
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
             updateButtonState()
@@ -422,13 +483,26 @@ extension RemoveLiquidityViewModel: AssetProviderObserverProtocol {
 extension RemoveLiquidityViewModel {
     
     func updateBalanceData() {
-        if !firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first {
-            self.firstAssetBalance = firstAssetBalance
+        if !firstAssetId.isEmpty {
+            firstAssetBalance = assetsProvider?.getBalances(
+                with: [firstAssetId]
+            ).first(where: { $0.identifier == firstAssetId })
+                ?? BalanceData(
+                    identifier: firstAssetId,
+                    balance: AmountDecimal(value: .zero)
+                )
         }
         
-        if !secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [secondAssetId]).first {
-            self.secondAssetBalance = secondAssetBalance
+        if !secondAssetId.isEmpty {
+            secondAssetBalance = assetsProvider?.getBalances(
+                with: [secondAssetId]
+            ).first(where: { $0.identifier == secondAssetId })
+                ?? BalanceData(
+                    identifier: secondAssetId,
+                    balance: AmountDecimal(value: .zero)
+                )
         }
+        updateButtonState()
     }
     
     func setupFullBalanceText(from balanceData: BalanceData, complention: @escaping (String) -> Void) {
@@ -458,66 +532,204 @@ extension RemoveLiquidityViewModel {
     }
     
     func updatePairInfo() {
-        guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else {
+        pairStateTask?.cancel()
+        pairStateRequestId = nil
+        detailsTask?.cancel()
+        detailsRequestId = nil
+        fee = .zero
+
+        let baseAssetId = firstAssetId
+        let targetAssetId = secondAssetId
+        guard !baseAssetId.isEmpty,
+              !targetAssetId.isEmpty,
+              baseAssetId != targetAssetId,
+              let poolsService else {
+            isPairPresented = false
+            isPairEnabled = false
+            isPairStateValid = false
+            updateButtonState()
             return
         }
 
-        poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
-                                               targetAssetId: secondAssetId,
-                                               accountId: "",
-                                               completion: { [weak self] isPresented in
-            self?.isPairPresented = isPresented
-        })
-        
-        poolsService?.isPairEnabled(baseAssetId: firstAssetId,
-                                    targetAssetId: secondAssetId,
-                                    accountId: "",
-                                    completion: { [weak self] isEnabled in
-            self?.isPairEnabled = isEnabled
-        })
+        isPairPresented = false
+        isPairEnabled = false
+        isPairStateValid = false
+        poolInfo = nil
+        updateButtonState()
+
+        let requestId = UUID()
+        pairStateRequestId = requestId
+        pairStateTask = Task { @MainActor [weak self, weak poolsService] in
+            guard let poolsService else { return }
+            do {
+                let state = try await poolsService.loadPairState(
+                    baseAssetId: baseAssetId,
+                    targetAssetId: targetAssetId
+                )
+                guard state.isPresented,
+                      state.isEnabled,
+                      let livePool = await poolsService.loadPool(
+                          by: baseAssetId,
+                          targetAssetId: targetAssetId
+                      ), livePool.baseAssetId == baseAssetId,
+                      livePool.targetAssetId == targetAssetId else {
+                    throw LiquidityConfirmationPreflightError.unavailable
+                }
+
+                try Task.checkCancellation()
+                guard let self else { return }
+                guard self.pairStateRequestId == requestId,
+                      self.firstAssetId == baseAssetId,
+                      self.secondAssetId == targetAssetId else {
+                    return
+                }
+
+                self.pairStateRequestId = nil
+                self.isPairPresented = true
+                self.isPairEnabled = true
+                self.isPairStateValid = true
+                self.poolInfo = livePool
+                self.farms = livePool.farms
+                if self.inputedFirstAmount > 0 || self.inputedSecondAmount > 0 {
+                    self.recalculate(field: self.focusedField)
+                }
+                self.updateButtonState()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self else { return }
+                guard !Task.isCancelled,
+                      self.pairStateRequestId == requestId,
+                      self.firstAssetId == baseAssetId,
+                      self.secondAssetId == targetAssetId else {
+                    return
+                }
+                self.pairStateRequestId = nil
+                self.isPairPresented = false
+                self.isPairEnabled = false
+                self.isPairStateValid = false
+                self.updateButtonState()
+            }
+        }
     }
     
     func updateDetails() {
-        Task { [weak self] in
-            guard let self else { return }
-            
-            async let fiatData = self.fiatService?.getFiat()
-            
-            async let apy = self.apyService?.getApy(for: firstAssetId, targetAssetId: secondAssetId)
-            async let fee = self.feeProvider.getFee(for: .liquidityRemoval)
-            
-            async let farms = self.farmingService.getUserFarmInfos(
-                baseAssetId: self.poolInfo?.baseAssetId,
-                targetAssetId: poolInfo?.targetAssetId
+        detailsTask?.cancel()
+        detailsRequestId = nil
+        fee = .zero
+        guard isPairStateValid,
+              isPairPresented,
+              isPairEnabled,
+              inputedFirstAmount > 0,
+              inputedSecondAmount > 0,
+              let poolSnapshot = poolInfo,
+              poolSnapshot.baseAssetId == firstAssetId,
+              poolSnapshot.targetAssetId == secondAssetId,
+              let assetManager else {
+            return
+        }
+        let baseAssetId = firstAssetId
+        let targetAssetId = secondAssetId
+        let firstAmount = inputedFirstAmount
+        let secondAmount = inputedSecondAmount
+        let focusedField = focusedField
+        let slippageTolerance = slippageTolerance
+        let transferInfo: TransferInfo
+        do {
+            transferInfo = try LiquidityTransferInfoFactory.removal(
+                poolInfo: poolSnapshot,
+                firstAssetAmount: firstAmount,
+                secondAssetAmount: secondAmount,
+                slippageTolerance: slippageTolerance,
+                fee: .zero,
+                assetManager: assetManager
             )
-            
-            let results = await (fiatData: fiatData, apy: apy, fee: fee, farms: farms)
+        } catch {
+            return
+        }
+        let requestId = UUID()
+        detailsRequestId = requestId
 
-            self.fiatData = results.fiatData ?? []
-            self.apy = results.apy
-            self.fee = results.fee
-            self.farms = results.farms
-            
-            guard let poolInfo = self.poolInfo else { return }
-            
-            self.warningViewModel = self.warningViewModelFactory.poolShareStackedViewModel(isHidden: self.farms.isEmpty)
+        detailsTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                async let fiatData = self.fiatService?.getFiat()
+                async let apy = self.apyService?.getApy(
+                    for: baseAssetId,
+                    targetAssetId: targetAssetId
+                )
+                async let exactFee = self.operationFactory.estimateLiquidityFee(for: transferInfo)
+                let results = try await (fiatData: fiatData, apy: apy, fee: exactFee)
 
-            self.details = self.detailsFactory.createRemoveLiquidityViewModels(with: self.inputedFirstAmount,
-                                                                               targetAssetAmount: self.inputedSecondAmount,
-                                                                               pool: poolInfo,
-                                                                               apy: self.apy,
-                                                                               fiatData: self.fiatData,
-                                                                               focusedField: self.focusedField,
-                                                                               slippageTolerance: self.slippageTolerance,
-                                                                               isPresented: self.isPairPresented,
-                                                                               isEnabled: self.isPairEnabled,
-                                                                               fee: self.fee,
-                                                                               viewModel: self)
+                guard !Task.isCancelled,
+                      results.fee > 0,
+                      self.detailsRequestId == requestId,
+                      self.isPairStateValid,
+                      self.isPairPresented,
+                      self.isPairEnabled,
+                      self.firstAssetId == baseAssetId,
+                      self.secondAssetId == targetAssetId,
+                      self.inputedFirstAmount == firstAmount,
+                      self.inputedSecondAmount == secondAmount,
+                      self.focusedField == focusedField,
+                      self.slippageTolerance == slippageTolerance,
+                      self.poolInfo?.baseAssetId == baseAssetId,
+                      self.poolInfo?.targetAssetId == targetAssetId,
+                      self.poolInfo?.baseAssetReserves == poolSnapshot.baseAssetReserves,
+                      self.poolInfo?.targetAssetReserves == poolSnapshot.targetAssetReserves,
+                      self.poolInfo?.totalIssuances == poolSnapshot.totalIssuances else {
+                    return
+                }
+
+                self.fiatData = results.fiatData ?? []
+                self.apy = results.apy
+                self.fee = results.fee
+                self.farms = poolSnapshot.farms
+                self.warningViewModel = self.warningViewModelFactory
+                    .poolShareStackedViewModel(isHidden: self.farms.isEmpty)
+
+                self.details = self.detailsFactory.createRemoveLiquidityViewModels(
+                    with: firstAmount,
+                    targetAssetAmount: secondAmount,
+                    pool: poolSnapshot,
+                    apy: self.apy,
+                    fiatData: self.fiatData,
+                    focusedField: focusedField,
+                    slippageTolerance: slippageTolerance,
+                    isPresented: true,
+                    isEnabled: true,
+                    fee: results.fee,
+                    viewModel: self
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.detailsRequestId == requestId,
+                      self.firstAssetId == baseAssetId,
+                      self.secondAssetId == targetAssetId,
+                      self.inputedFirstAmount == firstAmount,
+                      self.inputedSecondAmount == secondAmount,
+                      self.slippageTolerance == slippageTolerance else {
+                    return
+                }
+                self.fee = .zero
+            }
         }
     }
     
     private func updateButtonState() {
-        if inputedFirstAmount == .zero || inputedSecondAmount == .zero {
+        guard isPairStateValid,
+              isPairPresented,
+              isPairEnabled,
+              fee > 0,
+              isEnoughtFeeAssetLiquidity,
+              let poolInfo,
+              poolInfo.baseAssetId == firstAssetId,
+              poolInfo.targetAssetId == secondAssetId,
+              inputedFirstAmount > .zero,
+              inputedSecondAmount > .zero,
+              inputedFirstAmount <= availableBaseAssetPooledByAccount,
+              inputedSecondAmount <= availableTargetAssetPooledByAccount else {
             view?.setupButton(isEnabled: false)
             return
         }
@@ -525,4 +737,3 @@ extension RemoveLiquidityViewModel {
         view?.setupButton(isEnabled: true)
     }
 }
-

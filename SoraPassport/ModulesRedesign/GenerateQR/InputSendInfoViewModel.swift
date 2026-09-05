@@ -74,7 +74,7 @@ final class InputSendInfoViewModel {
         }
     }
     
-    var fiatData: [FiatData] = [] {
+    var fiatData: [PIExactFiatData] = [] {
         didSet {
             guard let asset = asset else { return }
             balanceFiatText = setupFullBalanceText(from: assetBalance)
@@ -197,7 +197,7 @@ extension InputSendInfoViewModel: AssetProviderObserverProtocol {
 }
 
 extension InputSendInfoViewModel: FiatServiceObserverProtocol {
-    func processFiat(data: [FiatData]) {
+    func processFiat(data: [PIExactFiatData]) {
         fiatData = data
     }
 }

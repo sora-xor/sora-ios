@@ -1,6 +1,9 @@
 ## Build generate
 build/
 DerivedData/
+# Local temporary files and generated review/export artifacts
+/tmp/
+/output/
 ## Various settings
 *.pbxuser
 !default.pbxuser
@@ -52,6 +55,9 @@ iOSInjectionProject/
 # Custom scripts
 SoraPassport/env-vars.sh
 *.generated.swift
+# Python qualification tooling
+__pycache__/
+*.py[cod]
 #
 # Generamba
 Templates/

@@ -17,7 +17,7 @@
 		<key>didResolverUrl</key>
 		<string>https://s1.sora.soramitsu.co.jp/didresolver/v1/did</string>
 		<key>soranetExplorer</key>
-		<string>https://explorer.s1.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
+		<string>https://sorametrics.org/sorav2?tab=extrinsics&amp;q={transaction}</string>
 		<key>ethereumExplorer</key>
 		<string>https://etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>
@@ -772,7 +772,7 @@
 		<key>didResolverUrl</key>
 		<string>https://s1.tst.sora.soramitsu.co.jp/didresolver/v1/did</string>
 		<key>soranetExplorer</key>
-		<string>https://explorer.s1.tst.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
+		<string>https://sorametrics.org/sorav2?tab=extrinsics&amp;q={transaction}</string>
 		<key>ethereumExplorer</key>
 		<string>https://rinkeby.etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>
@@ -1527,7 +1527,7 @@
 		<key>didResolverUrl</key>
 		<string>https://s4.stg1.sora.soramitsu.co.jp/didresolver/v1/did</string>
 		<key>soranetExplorer</key>
-		<string>https://explorer.s1.stg1.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
+		<string>https://sorametrics.org/sorav2?tab=extrinsics&amp;q={transaction}</string>
 		<key>ethereumExplorer</key>
 		<string>https://rinkeby.etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>
@@ -2282,7 +2282,7 @@
 		<key>didResolverUrl</key>
 		<string>https://s1.dev.sora.soramitsu.co.jp/didresolver/v1/did</string>
 		<key>soranetExplorer</key>
-		<string>https://explorer.s1.dev.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
+		<string>https://sorametrics.org/sorav2?tab=extrinsics&amp;q={transaction}</string>
 		<key>ethereumExplorer</key>
 		<string>https://rinkeby.etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>

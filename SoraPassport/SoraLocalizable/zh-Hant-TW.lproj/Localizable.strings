@@ -131,7 +131,7 @@
 "common.passphrase.title" = "密碼短語";
 "common.passphrase.save.or.send" = "保存或發送";
 "common.passphrase.header" = "密碼短語為\n一種密碼。";
-"common.passphrase.body" = "在 SORA 中創建新賬戶時，您現在會獲得一個 12 字的密碼短語。如果您已經有一個 15 字的 SORA 密碼短語，您可以使用它導入您的賬戶 -- 這些密碼短語也是兼容，并可以繼續使用。";
+"common.passphrase.body" = "在 SORA 中創建新帳戶時，您現在會獲得一個 24 個單詞的密碼短語。現有的 12 或 24 個單詞的 SORA 密碼短語都可以導入並繼續使用。";
 "common.passphrase.your.passphrase" = "您的密碼短語";
 "network.unavailable" = "網絡連接不可用";
 "common.save" = "保存";
@@ -145,8 +145,8 @@
 "connection.error.message" = "請檢查網絡連接，稍後再試。";
 "common.error.general.message" = "我們正在努力解決該問題。請稍後再試。";
 "result.ambiguous.error.title" = "結果不明確";
-"access.restore.words.error.message" = "密碼短語必須包含15個單詞";
-"access.restore.phrase.error.message" = "請確保您的密碼由 12 或 15 個單詞組成，並且它們都是正確的。";
+"access.restore.words.error.message" = "密碼短語必須包含 12 或 24 個單詞";
+"access.restore.phrase.error.message" = "請確保您的密碼由 12 或 24 個單詞組成，並且它們都是正確的。";
 "wallet.search.query.error.message" = "搜索字數必須在3到64之間";
 "user.create.phone.registered.error.message" = "此電話號碼已被使用。請嘗試另一個。";
 "common.error.invalid.parameters" = "無效的參數";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "導出 JSON";
 "export.protection.passphrase.title" = "密碼短語";
 "export.protection.json.description" = "在下一步中，您將能夠下載允許您恢復賬戶的 JSON 文件。";
-"export.protection.passphrase.description" = "在下一步中，您將看到允許您恢復賬戶的密碼（12 個字）。";
+"export.protection.passphrase.description" = "在下一步中，您將看到允許您恢復賬戶的密碼（24 個字）。";
 "export.protection.seed.description" = "在下一步中，您將看到允許您恢復帳戶的 Raw Seed（長哈希）。";
 "export.protection.json.1" = "如果我丟失了 JSON，我的資金將永遠丟失。";
 "export.protection.json.2" = "如果我向任何人公開或分享我的 JSON，我的資金可能會被盜。";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

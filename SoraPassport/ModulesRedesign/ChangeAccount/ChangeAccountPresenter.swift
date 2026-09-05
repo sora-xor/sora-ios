@@ -151,10 +151,32 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
             view?.update(with: accountViewModels)
 
             let accountItem = accounts[index]
-
-            settingsManager.save(value: accountItem)
-            eventCenter.notify(with: SelectedAccountChanged())
-            view?.controller.dismiss(animated: true)
+            let selectionEventCenter = eventCenter
+            settingsManager.performSave(
+                value: accountItem
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        // Keep the account picker over the old controller
+                        // graph until MainTabBar has consumed the durable
+                        // selection and atomically rebound every account-
+                        // scoped provider/context (or installed recovery).
+                        selectionEventCenter.notify(
+                            with: SelectedAccountChanged(),
+                            completionOnMain: { [weak self] in
+                                self?.view?.controller.dismiss(animated: true)
+                            }
+                        )
+                    case .failure:
+                        // The lifecycle coordinator and network-model
+                        // migration failed closed. Restore the durable
+                        // selection instead of leaving the optimistic
+                        // checkmark visible.
+                        self?.getAccounts()
+                    }
+                }
+            }
 
         case .edit:
             guard accountViewModels.indices.contains(index) else { return }

@@ -36,23 +36,164 @@ import SoraKeystore
 import SSFCrypto
 
 protocol AccountOperationFactoryProtocol {
-    func newAccountOperation(request: AccountCreationRequest,
-                             mnemonic: IRMnemonicProtocol) -> BaseOperation<AccountItem>
+    func prepareAccountOperation(
+        request: AccountCreationRequest,
+        mnemonic: IRMnemonicProtocol
+    ) -> BaseOperation<PreparedAccount>
 
-    func newAccountOperation(request: AccountImportSeedRequest) -> BaseOperation<AccountItem>
+    func prepareAccountOperation(
+        request: AccountImportSeedRequest
+    ) -> BaseOperation<PreparedAccount>
 
-    func newAccountOperation(request: AccountImportKeystoreRequest) -> BaseOperation<AccountItem>
+    func prepareAccountOperation(
+        request: AccountImportKeystoreRequest
+    ) -> BaseOperation<PreparedAccount>
+
+    func persistPreparedAccount(_ prepared: PreparedAccount) throws
+}
+
+/// Secret material derived for an import stays in memory until duplicate and
+/// lifecycle checks pass. Validation returns only `account` and never calls
+/// `persist`, so typing/scanning a candidate cannot mutate Keychain.
+final class PreparedAccount {
+    let account: AccountItem
+
+    private let stateLock = NSLock()
+    private var secretKey: Data
+    private var entropy: Data?
+    private var seed: Data?
+    private var derivation: Data?
+    private var isConsumed = false
+
+    init(
+        account: AccountItem,
+        secretKey: Data,
+        entropy: Data?,
+        seed: Data?,
+        derivationPath: String?,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws {
+        try LegacySoraIdentityValidator.validate(
+            address: account.address,
+            publicKey: account.publicKeyData,
+            cryptoType: account.cryptoType,
+            networkType: account.networkType,
+            derivationPath: derivationPath,
+            entropy: entropy,
+            rawSeed: seed,
+            secret: secretKey,
+            recoveryGate: recoveryGate
+        )
+        self.account = account
+        self.secretKey = secretKey
+        self.entropy = entropy
+        self.seed = seed
+        derivation = derivationPath?.data(using: .utf8)
+    }
+
+    func persist(to keystore: KeystoreProtocol) throws {
+        stateLock.lock()
+        guard !isConsumed else {
+            stateLock.unlock()
+            throw AccountCreateError.duplicated
+        }
+        let optionalMaterial: [(String, Data)?] = [
+            Optional((
+                KeystoreTag.secretKeyTagForAddress(account.address),
+                secretKey
+            )),
+            entropy.map {
+                (KeystoreTag.entropyTagForAddress(account.address), $0)
+            },
+            derivation.map {
+                (
+                    KeystoreTag.deriviationTagForAddress(account.address),
+                    $0
+                )
+            },
+            seed.map {
+                (KeystoreTag.seedTagForAddress(account.address), $0)
+            },
+        ]
+        let material = optionalMaterial.compactMap { $0 }
+        do {
+            guard try material.allSatisfy({
+                try !keystore.checkKey(for: $0.0)
+            }) else {
+                throw AccountCreateError.duplicated
+            }
+            var written: [String] = []
+            do {
+                for (tag, value) in material {
+                    try keystore.addKey(value, with: tag)
+                    written.append(tag)
+                }
+            } catch {
+                // Every tag was proven absent under the lifecycle lease, so
+                // removing only tags written by this failed attempt cannot
+                // delete an installed wallet.
+                for tag in written.reversed() {
+                    try? keystore.deleteKey(for: tag)
+                }
+                throw error
+            }
+            isConsumed = true
+            wipeLocked()
+            stateLock.unlock()
+        } catch {
+            stateLock.unlock()
+            throw error
+        }
+    }
+
+    func discard() {
+        stateLock.lock()
+        wipeLocked()
+        isConsumed = true
+        stateLock.unlock()
+    }
+
+    deinit {
+        stateLock.lock()
+        wipeLocked()
+        stateLock.unlock()
+    }
+
+    private func wipeLocked() {
+        secretKey.resetBytes(
+            in: secretKey.startIndex ..< secretKey.endIndex
+        )
+        if let entropyCount = entropy?.count {
+            entropy?.resetBytes(in: 0 ..< entropyCount)
+        }
+        if let seedCount = seed?.count {
+            seed?.resetBytes(in: 0 ..< seedCount)
+        }
+        if let derivationCount = derivation?.count {
+            derivation?.resetBytes(in: 0 ..< derivationCount)
+        }
+        entropy = nil
+        seed = nil
+        derivation = nil
+    }
 }
 
 final class AccountOperationFactory: AccountOperationFactoryProtocol {
     private(set) var keystore: KeystoreProtocol
+    private let recoveryGate: WalletRecoveryCapabilityGate
 
-    init(keystore: KeystoreProtocol) {
+    init(
+        keystore: KeystoreProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) {
         self.keystore = keystore
+        self.recoveryGate = recoveryGate
     }
 
-    func newAccountOperation(request: AccountCreationRequest,
-                             mnemonic: IRMnemonicProtocol) -> BaseOperation<AccountItem> {
+    func prepareAccountOperation(
+        request: AccountCreationRequest,
+        mnemonic: IRMnemonicProtocol
+    ) -> BaseOperation<PreparedAccount> {
         ClosureOperation {
             let junctionResult: JunctionResult?
 
@@ -94,29 +235,34 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                                                                                chaincodeList: chaincodes)
             }
 
-            try self.keystore.saveSecretKey(secretKey, address: address)
-            try self.keystore.saveEntropy(result.mnemonic.entropy(), address: address)
-
-            if !request.derivationPath.isEmpty {
-                try self.keystore.saveDeriviation(request.derivationPath, address: address)
-            }
-
-            try self.keystore.saveSeed(result.seed.miniSeed, address: address)
-
             let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
 
-            return AccountItem(address: address,
-                               cryptoType: request.cryptoType,
-                               networkType: SNAddressType(chain: request.type),
-                               username: request.username,
-                               publicKeyData: keypair.publicKey().rawData(),
-                               settings: settings,
-                               order: 0,
-                               isSelected: true)
+            let account = AccountItem(
+                address: address,
+                cryptoType: request.cryptoType,
+                networkType: SNAddressType(chain: request.type),
+                username: request.username,
+                publicKeyData: keypair.publicKey().rawData(),
+                settings: settings,
+                order: 0,
+                isSelected: true
+            )
+            return try PreparedAccount(
+                account: account,
+                secretKey: secretKey,
+                entropy: result.mnemonic.entropy(),
+                seed: result.seed.miniSeed,
+                derivationPath: request.derivationPath.isEmpty
+                    ? nil
+                    : request.derivationPath,
+                recoveryGate: self.recoveryGate
+            )
         }
     }
 
-    func newAccountOperation(request: AccountImportSeedRequest) -> BaseOperation<AccountItem> {
+    func prepareAccountOperation(
+        request: AccountImportSeedRequest
+    ) -> BaseOperation<PreparedAccount> {
         ClosureOperation {
             let seed = try Data(hexStringSSF: request.seed)
 
@@ -154,28 +300,34 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                                                                                chaincodeList: chaincodes)
             }
 
-            try self.keystore.saveSecretKey(secretKey, address: address)
-
-            if !request.derivationPath.isEmpty {
-                try self.keystore.saveDeriviation(request.derivationPath, address: address)
-            }
-
-            try self.keystore.saveSeed(seed, address: address)
-
             let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
 
-            return AccountItem(address: address,
-                               cryptoType: request.cryptoType,
-                               networkType: request.networkType.addressType(),
-                               username: request.username,
-                               publicKeyData: keypair.publicKey().rawData(),
-                               settings:settings,
-                               order: 0,
-                               isSelected: true)
+            let account = AccountItem(
+                address: address,
+                cryptoType: request.cryptoType,
+                networkType: request.networkType.addressType(),
+                username: request.username,
+                publicKeyData: keypair.publicKey().rawData(),
+                settings: settings,
+                order: 0,
+                isSelected: true
+            )
+            return try PreparedAccount(
+                account: account,
+                secretKey: secretKey,
+                entropy: nil,
+                seed: seed,
+                derivationPath: request.derivationPath.isEmpty
+                    ? nil
+                    : request.derivationPath,
+                recoveryGate: self.recoveryGate
+            )
         }
     }
 
-    func newAccountOperation(request: AccountImportKeystoreRequest) -> BaseOperation<AccountItem> {
+    func prepareAccountOperation(
+        request: AccountImportKeystoreRequest
+    ) -> BaseOperation<PreparedAccount> {
         ClosureOperation {
 
             let keystoreExtractor = KeystoreExtractor()
@@ -207,19 +359,35 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
             let address = try addressFactory.address(fromAccountId: publicKey.rawData(),
                                                      type: SNAddressType(chain: request.networkType))
 
-            try self.keystore.saveSecretKey(keystore.secretKeyData, address: address)
-
             let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
 
-            return AccountItem(address: address,
-                               cryptoType: request.cryptoType,
-                               networkType: request.networkType.addressType(),
-                               username: request.username,
-                               publicKeyData: keystore.publicKeyData,
-                               settings: settings,
-                               order: 0,
-                               isSelected: true)
+            let account = AccountItem(
+                address: address,
+                cryptoType: request.cryptoType,
+                networkType: request.networkType.addressType(),
+                username: request.username,
+                publicKeyData: keystore.publicKeyData,
+                settings: settings,
+                order: 0,
+                isSelected: true
+            )
+            return try PreparedAccount(
+                account: account,
+                secretKey: keystore.secretKeyData,
+                entropy: nil,
+                seed: nil,
+                derivationPath: nil,
+                recoveryGate: self.recoveryGate
+            )
         }
+    }
+
+    func persistPreparedAccount(_ prepared: PreparedAccount) throws {
+        // The lifecycle lease was recovery-gated before preparation. Recheck
+        // the sticky marker immediately before the first Keychain write.
+        try recoveryGate
+            .requireAuthorizedLifecycleContinuation()
+        try prepared.persist(to: keystore)
     }
 
     private func createKeypairFactory(_ cryptoType: CryptoType) -> KeypairFactoryProtocol {

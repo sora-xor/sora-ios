@@ -47,7 +47,7 @@ final class AssetViewModelFactory {
 }
 
 extension AssetViewModelFactory {
-    func createAssetViewModel(with balanceData: BalanceData, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
+    func createAssetViewModel(with balanceData: BalanceData, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         guard let asset = walletAssets.first(where: { $0.identifier == balanceData.identifier }),
               let assetInfo = assetManager.assetInfo(for: asset.identifier) else {
             return nil
@@ -74,7 +74,7 @@ extension AssetViewModelFactory {
                               deltaPriceText: deltaArributedText)
     }
     
-    func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
+    func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let balance = (NumberFormatter.cryptoAmounts.stringFromDecimal(balanceData.balance.decimalValue) ?? "") + " " + assetInfo.symbol
@@ -98,7 +98,7 @@ extension AssetViewModelFactory {
                               deltaPriceText: deltaArributedText)
     }
     
-    func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
+    func createAssetViewModel(with asset: AssetInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         

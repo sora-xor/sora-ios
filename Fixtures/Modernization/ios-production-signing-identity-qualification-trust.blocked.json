@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 2,
+  "contractId": "sora-ios-production-signing-identity-trust-v2",
+  "platform": "ios",
+  "status": "blocked",
+  "signatureAlgorithm": "ecdsa-p256-sha256",
+  "authorities": {
+    "releaseEvidenceProducer": {
+      "role": "release-evidence-producer",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    },
+    "independentReviewer": {
+      "role": "independent-reviewer",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    }
+  },
+  "replayPolicy": {
+    "maximumQualificationAgeSeconds": 2592000,
+    "maximumReviewDelaySeconds": 86400
+  },
+  "blockingReasons": [
+    "protected signing-continuity trust roots are absent"
+  ]
+}

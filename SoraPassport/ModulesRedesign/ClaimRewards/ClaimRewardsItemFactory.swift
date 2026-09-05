@@ -41,7 +41,7 @@ final class ClaimRewardsItemFactory {
                                 poolInfo: PoolInfo,
                                 userBalance: Decimal,
                                 fee: Decimal,
-                                fiatData: [FiatData]?,
+                                fiatData: [PIExactFiatData]?,
                                 detailsFactory: DetailViewModelFactoryProtocol,
                                 viewModel: ClaimRewardsViewModelProtocol) -> ClaimRewardsItem {
         let detailsViewModel = detailsFactory.createClaimViewModels(with: farm,

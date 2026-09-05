@@ -100,6 +100,21 @@ final class ServiceCoordinator {
             subscriptions = nil
         }
     }
+
+    @MainActor
+    private func updateSora2PendingRecoveryReadiness() {
+        let registry = ChainRegistryFacade.sharedRegistry
+        guard
+            registry.getConnection(for: Chain.sora.genesisHash()) != nil,
+            registry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil
+        else {
+            Sora2PendingSubmissionRecoveryRuntime.shared
+                .markChainUnavailable()
+            return
+        }
+        Sora2PendingSubmissionRecoveryRuntime.shared
+            .markChainReadyAndResume()
+    }
 }
 
 extension ServiceCoordinator: ServiceCoordinatorProtocol {
@@ -107,6 +122,9 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
         self.subscriptions = nil
         let chainRegistry = ChainRegistryFacade.sharedRegistry
         self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
+        Task { @MainActor in
+            self.updateSora2PendingRecoveryReadiness()
+        }
 //        updateWebSocketSettings()
 //        updateRuntimeService()
 //        updateValidatorService()
@@ -125,13 +143,21 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
         setup(chainRegistry: chainRegistry)
 
         self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
+        Task { @MainActor in
+            self.updateSora2PendingRecoveryReadiness()
+        }
     }
 
     func throttle() {
         ChainRegistryFacade.sharedRegistry.chainsUnsubscribe(self)
+        Task { @MainActor in
+            Sora2PendingSubmissionRecoveryRuntime.shared
+                .markChainUnavailable()
+        }
     }
 
     func checkMigration() {
+        migrationService.checkMigration()
     }
 }
 

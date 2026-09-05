@@ -31,7 +31,7 @@
 import Foundation
 import RobinHood
 import SSFUtils
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 struct StorageResponse<T: Decodable> {
     let key: Data

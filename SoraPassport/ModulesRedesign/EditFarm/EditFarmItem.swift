@@ -33,7 +33,7 @@ import Foundation
 final class EditFarmItem: ItemProtocol {
     
     let sharePercentage: Decimal
-    let stakedValue: Float
+    let stakedSelection: FarmShareSelection
     
     let stakeFeeAmount: Decimal
     
@@ -43,9 +43,14 @@ final class EditFarmItem: ItemProtocol {
     var feeInfoHandler: (() -> Void)?
     var networkFeeHandler: (() -> Void)?
 
-    init(sharePercentage: Decimal, stakedValue: Float, stakeFeeAmount: Decimal, service: EditFarmItemService?) {
+    init(
+        sharePercentage: Decimal,
+        stakedSelection: FarmShareSelection,
+        stakeFeeAmount: Decimal,
+        service: EditFarmItemService?
+    ) {
         self.sharePercentage = sharePercentage
-        self.stakedValue = stakedValue
+        self.stakedSelection = stakedSelection
         self.stakeFeeAmount = stakeFeeAmount
         self.service = service
     }
@@ -53,11 +58,10 @@ final class EditFarmItem: ItemProtocol {
 
 extension EditFarmItem: Hashable {
     static func == (lhs: EditFarmItem, rhs: EditFarmItem) -> Bool {
-        lhs.stakedValue == rhs.stakedValue
+        lhs.stakedSelection == rhs.stakedSelection
     }
     
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(stakedValue)
+        hasher.combine(stakedSelection)
     }
 }
-

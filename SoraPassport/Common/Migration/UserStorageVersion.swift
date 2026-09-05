@@ -39,13 +39,10 @@ enum UserStorageVersion: String, CaseIterable {
 //    case version6 = "MultiassetUserDataModel_v5"
 //    case version7 = "MultiassetUserDataModel_v6"
 
-    static var current: UserStorageVersion {
-        guard let currentVersion = allCases.last else {
-            fatalError("Unable to find current storage version")
-        }
-
-        return currentVersion
-    }
+    // Pin the production destination explicitly. Enumeration order is a source-code detail and
+    // must never decide which schema receives an installed wallet or turn an upgrade into a
+    // process-terminating path.
+    static let current: UserStorageVersion = .version2
 
     func nextVersion() -> UserStorageVersion? {
         switch self {

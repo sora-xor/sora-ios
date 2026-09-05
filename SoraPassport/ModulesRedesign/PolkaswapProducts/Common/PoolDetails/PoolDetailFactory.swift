@@ -47,9 +47,9 @@ protocol DetailViewModelFactoryProtocol {
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
                                          apy: Decimal?,
-                                         fiatData: [FiatData],
+                                         fiatData: [PIExactFiatData],
                                          focusedField: FocusedField,
-                                         slippageTolerance: Float,
+                                         slippageTolerance: PolkaswapSlippage,
                                          isPresented: Bool,
                                          isEnabled: Bool,
                                          fee: Decimal,
@@ -59,9 +59,9 @@ protocol DetailViewModelFactoryProtocol {
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo,
                                          apy: Decimal?,
-                                         fiatData: [FiatData],
+                                         fiatData: [PIExactFiatData],
                                          focusedField: FocusedField,
-                                         slippageTolerance: Float,
+                                         slippageTolerance: PolkaswapSlippage,
                                          isPresented: Bool,
                                          isEnabled: Bool,
                                          fee: Decimal,
@@ -69,23 +69,23 @@ protocol DetailViewModelFactoryProtocol {
     
     func createSwapViewModels(fromAsset: AssetInfo,
                               toAsset: AssetInfo,
-                              slippage: Decimal,
+                              slippage: PolkaswapSlippage,
                               amount: Decimal,
                               quote: SwapQuoteAmounts,
                               direction: SwapVariant,
-                              fiatData: [FiatData],
+                              fiatData: [PIExactFiatData],
                               swapFee: Decimal,
                               route: String,
                               viewModel: DetailViewModelDelegate) -> [DetailViewModel]
     
     func createSendingAssetViewModels(fee: Decimal,
-                                      fiatData: [FiatData],
+                                      fiatData: [PIExactFiatData],
                                       viewModel: ConfirmSendingViewModelProtocol) -> [DetailViewModel]
     
     func createFarmDetailViewModels(with farm: Farm,
                                     userFarmInfo: UserFarm?,
                                     poolInfo: PoolInfo?,
-                                    fiatData: [FiatData],
+                                    fiatData: [PIExactFiatData],
                                     viewModel: FarmDetailsViewModelProtocol) -> [DetailViewModel]
     
     func createClaimViewModels(with farm: Farm,
@@ -181,7 +181,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
     func createFarmDetailViewModels(with farm: Farm,
                                     userFarmInfo: UserFarm?,
                                     poolInfo: PoolInfo?,
-                                    fiatData: [FiatData],
+                                    fiatData: [PIExactFiatData],
                                     viewModel: FarmDetailsViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
@@ -249,7 +249,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                textColor: .fgPrimary,
                                                alignment: .right)
             
-            let usdPrice = (fiatData.first { $0.id == farm.rewardAsset?.assetId }?.priceUsd ?? 0).decimalValue
+            let usdPrice = fiatData.first {
+                $0.id == farm.rewardAsset?.assetId
+            }?.priceUsd?.decimalValue ?? .zero
             let fiatRewardAmountText = (rewards * usdPrice).priceText()
             let fiatRewardText = SoramitsuTextItem(text: fiatRewardAmountText ,
                                                    fontData: FontType.textBoldXS,
@@ -294,9 +296,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
                                          apy: Decimal?,
-                                         fiatData: [FiatData],
+                                         fiatData: [PIExactFiatData],
                                          focusedField: FocusedField,
-                                         slippageTolerance: Float,
+                                         slippageTolerance: PolkaswapSlippage,
                                          isPresented: Bool,
                                          isEnabled: Bool,
                                          fee: Decimal,
@@ -353,7 +355,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                         textColor: .fgPrimary,
                                         alignment: .right)
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
-        let usdPrice = (fiatData.first { $0.id == feeAssetId }?.priceUsd ?? 0).decimalValue
+        let usdPrice = fiatData.first {
+            $0.id == feeAssetId
+        }?.priceUsd?.decimalValue ?? .zero
         let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * fee) ?? "")" ,
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
@@ -370,9 +374,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo,
                                          apy: Decimal?,
-                                         fiatData: [FiatData],
+                                         fiatData: [PIExactFiatData],
                                          focusedField: FocusedField,
-                                         slippageTolerance: Float,
+                                         slippageTolerance: PolkaswapSlippage,
                                          isPresented: Bool,
                                          isEnabled: Bool,
                                          fee: Decimal,
@@ -406,7 +410,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                         textColor: .fgPrimary,
                                         alignment: .right)
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
-        let usdPrice = (fiatData.first { $0.id == feeAssetId }?.priceUsd ?? 0).decimalValue
+        let usdPrice = fiatData.first {
+            $0.id == feeAssetId
+        }?.priceUsd?.decimalValue ?? .zero
         let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * fee) ?? "")" ,
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
@@ -422,19 +428,21 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
     
     func createSwapViewModels(fromAsset: AssetInfo,
                               toAsset: AssetInfo,
-                              slippage: Decimal,
+                              slippage: PolkaswapSlippage,
                               amount: Decimal,
                               quote: SwapQuoteAmounts,
                               direction: SwapVariant,
-                              fiatData: [FiatData],
+                              fiatData: [PIExactFiatData],
                               swapFee: Decimal,
                               route: String,
                               viewModel: DetailViewModelDelegate) -> [DetailViewModel] {
-        let minMaxValue = direction == .desiredInput ? quote.toAmount * (1 - slippage / 100.0) : quote.toAmount * (1 + slippage / 100.0)
+        let minMaxValue = direction == .desiredInput
+            ? slippage.minimumAmount(for: quote.toAmount)
+            : slippage.maximumAmount(for: quote.toAmount)
         let minMaxReceivedViewModel = minMaxReceivedViewModel(asset: direction == .desiredInput ? toAsset : fromAsset,
                                                               title: direction.title,
                                                               minBuyValue: minMaxValue,
-                                                              slippage: slippage,
+                                                              slippage: slippage.percent,
                                                               fiatData: fiatData,
                                                               viewModel: viewModel)
         
@@ -468,7 +476,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                         textColor: .fgPrimary,
                                         alignment: .right)
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
-        let usdPrice = (fiatData.first { $0.id == feeAssetId }?.priceUsd ?? 0).decimalValue
+        let usdPrice = fiatData.first {
+            $0.id == feeAssetId
+        }?.priceUsd?.decimalValue ?? .zero
         let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * swapFee) ?? "")" ,
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
@@ -485,14 +495,16 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
     }
     
     func createSendingAssetViewModels(fee: Decimal,
-                                      fiatData: [FiatData],
+                                      fiatData: [PIExactFiatData],
                                       viewModel: ConfirmSendingViewModelProtocol) -> [DetailViewModel] {
         let feeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR",
                                         fontData: FontType.textS,
                                         textColor: .fgPrimary,
                                         alignment: .right)
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
-        let usdPrice = (fiatData.first { $0.id == feeAssetId }?.priceUsd ?? 0).decimalValue
+        let usdPrice = fiatData.first {
+            $0.id == feeAssetId
+        }?.priceUsd?.decimalValue ?? .zero
         let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * fee) ?? "")" ,
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
@@ -537,7 +549,7 @@ private extension DetailViewModelFactory {
                                  title: String,
                                  minBuyValue: Decimal,
                                  slippage: Decimal,
-                                 fiatData: [FiatData],
+                                 fiatData: [PIExactFiatData],
                                  viewModel: DetailViewModelDelegate) -> DetailViewModel {
         let minBuyToken = asset.symbol
         let minBuyText = NumberFormatter.cryptoAssets.stringFromDecimal(minBuyValue) ?? ""
@@ -546,7 +558,9 @@ private extension DetailViewModelFactory {
                                                 textColor: .fgPrimary,
                                                 alignment: .right)
         
-        let minBuyUsdPrice = (fiatData.first { $0.id == asset.identifier }?.priceUsd ?? 0).decimalValue
+        let minBuyUsdPrice = fiatData.first {
+            $0.id == asset.identifier
+        }?.priceUsd?.decimalValue ?? .zero
         let minBuyFiatText = SoramitsuTextItem(text: "~$\(NumberFormatter.fiat.stringFromDecimal(minBuyUsdPrice * minBuyValue) ?? "")" ,
                                                fontData: FontType.textBoldXS,
                                                textColor: .fgSecondary,
@@ -563,4 +577,3 @@ private extension DetailViewModelFactory {
         return minMaxReceivedViewModel
     }
 }
-

@@ -47,13 +47,17 @@ extension Data {
         return "0x\(hexString)"
     }
 
-    init(hex: String) throws {
+    static func sora(hex: String) throws -> Data {
         let prefix = "0x"
         if hex.hasPrefix(prefix) {
             let filtered = String(hex.suffix(hex.count - prefix.count))
-            self = (try NSData(hexString: filtered)) as Data
+            return (try NSData(hexString: filtered)) as Data
         } else {
-            self = (try NSData(hexString: hex)) as Data
+            return (try NSData(hexString: hex)) as Data
         }
+    }
+
+    init(hex: String) throws {
+        self = try Self.sora(hex: hex)
     }
 }

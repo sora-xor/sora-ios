@@ -31,7 +31,7 @@
 import Foundation
 import SSFUtils
 import RobinHood
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 final class StakingInfoSubscription: WebSocketSubscribing {
     let engine: JSONRPCEngine
@@ -90,8 +90,8 @@ final class StakingInfoSubscription: WebSocketSubscribing {
                 self?.handleUpdate(update.params.result)
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] (error, unsubscribed) in
-                self?.logger.error("Did receive subscription error: \(error) \(unsubscribed)")
+            let failureClosure: (Error, Bool) -> Void = { [weak self] _, _ in
+                self?.logger.error("Staking subscription failed")
             }
 
             subscriptionId = try engine.subscribe(RPCMethod.storageSubscribe,
@@ -99,7 +99,7 @@ final class StakingInfoSubscription: WebSocketSubscribing {
                                                   updateClosure: updateClosure,
                                                   failureClosure: failureClosure)
         } catch {
-            logger.error("Can't subscribe to storage: \(error)")
+            logger.error("Staking storage subscription failed")
         }
     }
 
@@ -183,7 +183,7 @@ final class StakingInfoSubscription: WebSocketSubscribing {
 
             logger.debug("Did receive staking ledger update")
         } catch {
-            logger.error("Did receive staking updates error: \(error)")
+            logger.error("Staking update processing failed")
         }
     }
 

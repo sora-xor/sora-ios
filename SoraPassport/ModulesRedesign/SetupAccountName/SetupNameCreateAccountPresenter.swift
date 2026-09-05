@@ -69,11 +69,16 @@ extension SetupNameCreateAccountPresenter: UsernameSetupPresenterProtocol {
     }
     
     func proceed() {
-        guard let updatedUsername = settingsManager.currentAccount?.replacingUsername(userName ?? "") else { return }
+        guard let account = settingsManager.currentAccount else { return }
         
-        settingsManager.save(value: updatedUsername, runningCompletionIn: .main) { [weak self] result in
-            if case .success = result {
-                self?.eventCenter.notify(with: SelectedUsernameChanged())
+        settingsManager.performUpdateName(
+            account: account,
+            displayName: userName ?? ""
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                if case .success = result {
+                    self?.eventCenter.notify(with: SelectedUsernameChanged())
+                }
             }
         }
         
@@ -94,4 +99,3 @@ extension SetupNameCreateAccountPresenter: UsernameSetupPresenterProtocol {
 extension SetupNameCreateAccountPresenter: Localizable {
     func applyLocalization() {}
 }
-
