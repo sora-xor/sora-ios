@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>project.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li ūmum ittar</string>
+        <key>other</key>
+        <string>%li ūmū ittarū</string>
+      </dict>
+    </dict>
+    <key>project.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li bērum ittar</string>
+        <key>other</key>
+        <string>%li bērū ittarū</string>
+      </dict>
+    </dict>
+    <key>project.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li pirsat bērtim ittar</string>
+        <key>other</key>
+        <string>%li pirsāt bērtim ittarū</string>
+      </dict>
+    </dict>
+    <key>project.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li pirsat pirsim ittar</string>
+        <key>other</key>
+        <string>%li pirsāt pirsim ittarū</string>
+      </dict>
+    </dict>
+    <key>received.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>Tamtaḫar %#@invitation@</string>
+      <key>invitation</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li qerītam</string>
+        <key>other</key>
+        <string>%li qerītātim</string>
+      </dict>
+    </dict>
+    <key>favorite.users</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@favorite@</string>
+      <key>favorite</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li naramum</string>
+        <key>other</key>
+        <string>%li naramū</string>
+      </dict>
+    </dict>
+    <key>voted.friends</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@voted@</string>
+      <key>voted</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li ibrum qātam išši</string>
+        <key>other</key>
+        <string>%li ibrū qātam iššû</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li bērum</string>
+        <key>other</key>
+        <string>%li bērū</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li pirsat bērtim</string>
+        <key>other</key>
+        <string>%li pirsāt bērtim</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string></string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li pirsat pirsim</string>
+        <key>other</key>
+        <string>%li pirsāt pirsim</string>
+      </dict>
+    </dict>
+    <key>referral.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@format@</string>
+      <key>format</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>qerītum</string>
+        <key>other</key>
+        <string>qerītātum</string>
+      </dict>
+    </dict>
+  </dict>
+</plist>

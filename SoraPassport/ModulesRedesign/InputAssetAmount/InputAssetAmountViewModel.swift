@@ -81,9 +81,15 @@ final class InputAssetAmountViewModel {
             self.updateButtonState()
         }
     }
+
+    private var isApplyingPresetAmount = false
+    private var isMaximumPresetSelected = false
     
     var inputedFirstAmount: Decimal = 0 {
         didSet {
+            if !isApplyingPresetAmount {
+                isMaximumPresetSelected = false
+            }
             if let fromAsset = assetManager?.assetInfo(for: firstAssetId), fromAsset.isFeeAsset {
                 warningViewModel?.isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
             }
@@ -173,7 +179,10 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
         guard firstAssetBalance.balance.decimalValue > fee  else { return }
         let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
         let value = firstAssetBalance.balance.decimalValue * variant
+        isMaximumPresetSelected = variant == 1
+        isApplyingPresetAmount = true
         inputedFirstAmount = isFeeAsset ? value - fee : value
+        isApplyingPresetAmount = false
         let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
         view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
     }
@@ -242,13 +251,18 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                 }
                 let reviewedAssetId = self.firstAssetId
                 let reviewedAmount = self.inputedFirstAmount
+                let reviewedBalance = self.firstAssetBalance
+                let reviewedMaximumPreset = self.isMaximumPresetSelected
+                guard reviewedBalance.identifier == reviewedAssetId else {
+                    throw WalletNetworkOperationFactoryError.invalidContext
+                }
                 let info = try self.makeExactTransferFeeInfo(
                     selectedAccount: reviewedAccount,
                     recipientAddress: reviewedRecipient,
                     assetId: reviewedAssetId,
                     amount: reviewedAmount
                 )
-                let exactFee = try await networkFacade.estimateTransferFee(
+                var exactFee = try await networkFacade.estimateTransferFee(
                     for: info
                 )
                 try Task.checkCancellation()
@@ -259,6 +273,8 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                     self.firstAssetId == reviewedAssetId,
                     self.selectedAddress == reviewedRecipient,
                     self.inputedFirstAmount == reviewedAmount,
+                    self.firstAssetBalance == reviewedBalance,
+                    self.isMaximumPresetSelected == reviewedMaximumPreset,
                     let currentAccount = SelectedWalletSettings.shared
                         .currentAccount,
                     currentAccount.isSelected,
@@ -270,6 +286,82 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                 else {
                     throw WalletNetworkOperationFactoryError.invalidContext
                 }
+
+                var transferAmount = reviewedAmount
+                let isFeeAsset = assetManager.assetInfo(
+                    for: reviewedAssetId
+                )?.isFeeAsset ?? false
+                if reviewedMaximumPreset, isFeeAsset {
+                    for _ in 0..<3 {
+                        transferAmount = try Sora2TransferFeeQualification
+                            .maximumTransferAmount(
+                                assetBalance: reviewedBalance.balance
+                                    .decimalValue,
+                                exactFee: exactFee
+                            )
+                        let adjustedInfo = try self.makeExactTransferFeeInfo(
+                            selectedAccount: reviewedAccount,
+                            recipientAddress: reviewedRecipient,
+                            assetId: reviewedAssetId,
+                            amount: transferAmount
+                        )
+                        let adjustedFee = try await networkFacade
+                            .estimateTransferFee(for: adjustedInfo)
+                        try Task.checkCancellation()
+                        guard adjustedFee > 0 else {
+                            throw WalletNetworkOperationFactoryError.invalidFee
+                        }
+                        if adjustedFee == exactFee {
+                            break
+                        }
+                        exactFee = adjustedFee
+                    }
+                    try Sora2TransferFeeQualification
+                        .requireMaximumTransferAmount(
+                            amount: transferAmount,
+                            assetBalance: reviewedBalance.balance.decimalValue,
+                            exactFee: exactFee
+                        )
+                }
+
+                guard
+                    self.firstAssetId == reviewedAssetId,
+                    self.selectedAddress == reviewedRecipient,
+                    self.inputedFirstAmount == reviewedAmount,
+                    self.firstAssetBalance == reviewedBalance,
+                    self.isMaximumPresetSelected == reviewedMaximumPreset,
+                    let currentAccount = SelectedWalletSettings.shared
+                        .currentAccount,
+                    currentAccount.isSelected,
+                    currentAccount.address == reviewedAccount.address,
+                    currentAccount.publicKeyData ==
+                        reviewedAccount.publicKeyData,
+                    currentAccount.cryptoType == reviewedAccount.cryptoType,
+                    currentAccount.networkType == reviewedAccount.networkType
+                else {
+                    throw WalletNetworkOperationFactoryError.invalidContext
+                }
+                try Sora2TransferFeeQualification.requireSufficientBalances(
+                    amount: transferAmount,
+                    assetId: reviewedAssetId,
+                    exactFee: exactFee,
+                    balances: self.transferBalances(for: reviewedAssetId)
+                )
+                if transferAmount != reviewedAmount {
+                    self.isApplyingPresetAmount = true
+                    self.inputedFirstAmount = transferAmount
+                    self.isApplyingPresetAmount = false
+                    let formatter = NumberFormatter.inputedAmoutFormatter(
+                        with: assetManager.assetInfo(
+                            for: reviewedAssetId
+                        )?.precision ?? 0
+                    )
+                    self.view?.set(
+                        firstAmountText: formatter.stringFromDecimal(
+                            transferAmount
+                        ) ?? ""
+                    )
+                }
                 self.fee = exactFee
                 self.wireframe.showConfirmSendingAsset(
                     on: self.view?.controller.navigationController,
@@ -280,15 +372,24 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                     assetManager: assetManager,
                     fiatService: fiatService,
                     recipientAddress: reviewedRecipient,
-                    firstAssetAmount: reviewedAmount,
+                    firstAssetAmount: transferAmount,
                     fee: exactFee,
                     assetsProvider: self.assetsProvider
                 )
             } catch {
-                self.wireframe.present(
-                    message: R.string.localizable.commonErrorRetry(
+                let message: String
+                if let walletError = error as? WalletNetworkOperationFactoryError,
+                   case .insufficientBalance = walletError {
+                    message = R.string.localizable.commonNotEnoughBalance(
                         preferredLanguages: .currentLocale
-                    ),
+                    )
+                } else {
+                    message = R.string.localizable.commonErrorRetry(
+                        preferredLanguages: .currentLocale
+                    )
+                }
+                self.wireframe.present(
+                    message: message,
                     title: nil,
                     closeAction: R.string.localizable.commonOk(
                         preferredLanguages: .currentLocale
@@ -345,6 +446,20 @@ extension InputAssetAmountViewModel {
                     TransactionType.outgoing.rawValue
             ]
         )
+    }
+
+    private func transferBalances(for assetId: String) -> [BalanceData] {
+        var assetIds = [assetId]
+        if assetId != WalletAssetId.xor.rawValue {
+            assetIds.append(WalletAssetId.xor.rawValue)
+        }
+        return assetIds.compactMap { currentAssetId in
+            if firstAssetBalance.identifier == currentAssetId {
+                return firstAssetBalance
+            }
+            return assetsProvider?.getBalances(with: [currentAssetId])
+                .first(where: { $0.identifier == currentAssetId })
+        }
     }
 
     func updateBalanceData() {

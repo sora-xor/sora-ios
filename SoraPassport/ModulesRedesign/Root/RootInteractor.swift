@@ -37,7 +37,8 @@ enum LegacyWalletUpgradePolicy {
     static func isCandidate(
         keyIdentifiers: Set<String>,
         hasWatchOnlyWallet: Bool,
-        snapshot: WalletNetworkSnapshot?
+        snapshot: WalletNetworkSnapshot?,
+        legacyIrohaKeyVerified: Bool = false
     ) -> Bool {
         let scopedSuffixes = [
             "-secretKey",
@@ -52,19 +53,48 @@ enum LegacyWalletUpgradePolicy {
             }
         }
         // Some pre-account-model releases stored signing material under the
-        // unscoped `privateKey` tag. Its presence alongside `seedEntropy` is
-        // ambiguous: the two records are not proven to describe the same
-        // identity. Never import the entropy as a fresh account in that state.
+        // unscoped `privateKey` tag. Admit that pair only after the production
+        // overload proves that it belongs to this exact retained entropy.
         let hasUnscopedPrivateKey = keyIdentifiers.contains("privateKey")
         return keyIdentifiers.contains(
             KeystoreTag.legacyEntropy.rawValue
         ) &&
             !hasScopedWallet &&
-            !hasUnscopedPrivateKey &&
+            (!hasUnscopedPrivateKey || legacyIrohaKeyVerified) &&
             !hasWatchOnlyWallet &&
             (snapshot?.selectedWalletId == nil) &&
             (snapshot?.wallets.isEmpty ?? true) &&
             (snapshot?.accounts.isEmpty ?? true)
+    }
+
+    static func isCandidate(
+        keystore: KeystoreProtocol,
+        hasWatchOnlyWallet: Bool,
+        snapshot: WalletNetworkSnapshot?
+    ) throws -> Bool {
+        guard isCandidate(
+            keyIdentifiers: Set(try keystore.allKeyIdentifiers()),
+            hasWatchOnlyWallet: hasWatchOnlyWallet,
+            snapshot: snapshot,
+            legacyIrohaKeyVerified: true
+        ) else { return false }
+        var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        try keystore.verifyLegacyIrohaKeyIfPresent(entropy: entropy)
+        return true
+    }
+
+    static func shouldDeferStorageMigration(
+        storeExists: Bool,
+        keystore: KeystoreProtocol,
+        hasWatchOnlyWallet: Bool,
+        snapshot: WalletNetworkSnapshot?
+    ) throws -> Bool {
+        try !storeExists && isCandidate(
+            keystore: keystore,
+            hasWatchOnlyWallet: hasWatchOnlyWallet,
+            snapshot: snapshot
+        )
     }
 
     static func shouldDeferStorageMigration(
@@ -184,7 +214,6 @@ enum LegacyWalletUpgradeSecretRetention {
         ]
         let identifiers = Set(try keystore.allKeyIdentifiers())
         guard
-            !identifiers.contains("privateKey"),
             scopedTags.allSatisfy({ !identifiers.contains($0) })
         else {
             throw WalletIntegrityError
@@ -201,6 +230,7 @@ enum LegacyWalletUpgradeSecretRetention {
         }
         let mnemonic = try IRMnemonicCreator(language: .english)
             .mnemonic(fromEntropy: retainedEntropy)
+        try keystore.verifyLegacyIrohaKeyIfPresent(entropy: retainedEntropy)
         guard
             !retainedEntropy.isEmpty,
             Data(SHA256.hash(data: retainedEntropy)) ==
@@ -236,6 +266,7 @@ enum LegacyWalletUpgradeSecretRetention {
             )
         }
         let postIdentifiers = Set(try keystore.allKeyIdentifiers())
+        try keystore.verifyLegacyIrohaKeyIfPresent(entropy: verifiedRetainedEntropy)
         guard
             Data(SHA256.hash(data: verifiedRetainedEntropy)) ==
                 expectedEntropyDigest,
@@ -243,7 +274,7 @@ enum LegacyWalletUpgradeSecretRetention {
                 settings: settings,
                 keystore: keystore
             ) == expectedDisplayName,
-            !postIdentifiers.contains("privateKey"),
+            postIdentifiers.contains("privateKey") == identifiers.contains("privateKey"),
             scopedTags.allSatisfy({ !postIdentifiers.contains($0) })
         else {
             throw WalletIntegrityError
@@ -353,10 +384,8 @@ final class RootInteractor {
     private func isLegacyWalletUpgradeCandidate(
         snapshot: WalletNetworkSnapshot?
     ) throws -> Bool {
-        LegacyWalletUpgradePolicy.isCandidate(
-            keyIdentifiers: Set(
-                try keystore.allKeyIdentifiers()
-            ),
+        try LegacyWalletUpgradePolicy.isCandidate(
+            keystore: keystore,
             hasWatchOnlyWallet:
                 settings.hasRetainedWatchOnlyWallet(),
             snapshot: snapshot
@@ -395,6 +424,7 @@ final class RootInteractor {
         }
         let mnemonic = try IRMnemonicCreator(language: .english)
             .mnemonic(fromEntropy: retainedEntropy)
+        try keystore.verifyLegacyIrohaKeyIfPresent(entropy: retainedEntropy)
         let wordCount = mnemonic.allWords().count
         guard
             let expectedSource = WalletMnemonicWordPolicy
@@ -411,7 +441,6 @@ final class RootInteractor {
             !retainedEntropy.isEmpty,
             Data(SHA256.hash(data: retainedEntropy)) ==
                 expectedEntropyDigest,
-            !identifiers.contains("privateKey"),
             scopedTags.allSatisfy({ !identifiers.contains($0) }),
             let snapshot = try legacyUpgradeSnapshotLoader(),
             snapshot.wallets.count == 1,

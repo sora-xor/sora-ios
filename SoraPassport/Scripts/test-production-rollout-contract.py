@@ -278,6 +278,36 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     path.write_bytes(encoded)
 
 
+def write_taira_manifest(path: Path, value: dict[str, Any]) -> None:
+    """Write the cross-platform Taira manifest's signed canonical form."""
+
+    encoded = (json.dumps(
+        value,
+        ensure_ascii=False,
+        indent=2,
+        separators=(",", ": "),
+    ) + "\n").encode("utf-8")
+    path.write_bytes(encoded)
+
+
+def public_key_spki_sha256(path: Path) -> str:
+    try:
+        result = subprocess.run(
+            [str(OPENSSL), "pkey", "-pubin", "-in", str(path), "-outform", "DER"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=bounded_timeout(30),
+            env=SAFE_TOOL_ENV,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise HarnessFailure(f"timed out deriving SPKI for {path}") from error
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        raise HarnessFailure(f"failed to derive SPKI for {path}: {detail}")
+    return sha256_bytes(result.stdout)
+
+
 def load_validator(path: Path, label: str) -> Any:
     module_name = f"sora_{label.replace('-', '_')}_{synthetic_sha256(str(path))[:12]}"
     specification = importlib.util.spec_from_file_location(module_name, path)
@@ -302,15 +332,24 @@ def require_taira_epoch_order_rejection(
     write_json(output, mutated)
     os.chmod(output, 0o600)
     module = load_validator(validator, label)
+    environment_name = "IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256"
+    previous_digest = os.environ.get(environment_name)
+    os.environ[environment_name] = sha256_file(output)
     try:
-        module.configure_authenticated_taira(str(output))
-    except Exception as error:
-        if "current Taira deployment epoch is not newer than retired" not in str(error):
-            raise HarnessFailure(
-                f"{label} rejected regressed Taira epochs for the wrong reason: {error}"
-            ) from error
-    else:
-        raise HarnessFailure(f"{label} admitted a non-newer current Taira epoch")
+        try:
+            module.configure_authenticated_taira(str(output))
+        except Exception as error:
+            if "current Taira deployment epoch is not newer than retired" not in str(error):
+                raise HarnessFailure(
+                    f"{label} rejected regressed Taira epochs for the wrong reason: {error}"
+                ) from error
+        else:
+            raise HarnessFailure(f"{label} admitted a non-newer current Taira epoch")
+    finally:
+        if previous_digest is None:
+            os.environ.pop(environment_name, None)
+        else:
+            os.environ[environment_name] = previous_digest
 
 
 def bounded_timeout(maximum_seconds: int) -> float:
@@ -432,11 +471,15 @@ def build_tiny_ipa(path: Path) -> dict[str, Any]:
             "CFBundleVersion": BUILD_NUMBER,
             "MinimumOSVersion": "16.0",
             "SoraTairaDeploymentManifestSha256": taira["manifestSha256"],
+            "SoraTairaDeploymentManifestSequenceNumber": taira[
+                "manifestSequenceNumber"
+            ],
             "SoraTairaDeploymentAdmissionSha256": taira["admissionSha256"],
             "SoraTairaCurrentChainId": taira["currentChainId"],
             "SoraTairaCurrentGenesisHash": taira["currentGenesisHash"],
             "SoraTairaCanonicalToriiBaseUrl": taira["canonicalToriiBaseUrl"],
             "SoraTairaPublicMcpEndpoint": taira["publicMcpEndpoint"],
+            "SoraTairaExplorerBaseUrl": taira["explorerBaseUrl"],
         },
         fmt=plistlib.FMT_XML,
         sort_keys=True,
@@ -559,11 +602,13 @@ def build_common_evidence(
             key: admitted_taira()[key]
             for key in (
                 "manifestSha256",
+                "manifestSequenceNumber",
                 "admissionSha256",
                 "currentChainId",
                 "currentGenesisHash",
                 "canonicalToriiBaseUrl",
                 "publicMcpEndpoint",
+                "explorerBaseUrl",
             )
         },
         "privacy": privacy_contract(),
@@ -978,6 +1023,7 @@ def build_funded_evidence(
         if network_id == "taira":
             receipt["network"]["chainId"] = taira["currentChainId"]
             receipt["network"]["toriiBaseUrl"] = taira["canonicalToriiBaseUrl"]
+            receipt["network"]["explorerBaseUrl"] = taira["explorerBaseUrl"]
         pi_sha256 = sha256_file(pi_receipts[network_id].payload)
         receipt["featureFlags"] = {
             "snapshotObservedAtEpochSeconds": started_at - 20,
@@ -2045,17 +2091,29 @@ def generate_taira_deployment(
         f"taira-retired-genesis:{retired_chain_id}"
     )
     current_base = "https://taira-public.synthetic.invalid"
-    write_json(
+    explorer_base = "https://taira-explorer.synthetic.invalid"
+    operator_pin = public_key_spki_sha256(operator_public)
+    reviewer_pin = public_key_spki_sha256(reviewer_public)
+    write_taira_manifest(
         manifest,
         {
             "schemaVersion": 1,
-            "contractId": "sora-taira-deployment-manifest-v1",
-            "manifestId": "synthetic-ios-rollout-regression",
+            "contractId": "sora-taira-deployment-epoch-manifest-v1",
+            "status": "qualified",
+            "networkId": "taira",
+            "manifestSequenceNumber": 17,
             "issuedAtEpochSeconds": evaluated_at - 60,
-            "expiresAtEpochSeconds": evaluated_at + 3600,
+            "reviewedAtEpochSeconds": evaluated_at - 30,
+            "currentEpoch": 2026081002,
             "authorities": {
-                "operatorKeyId": "synthetic-taira-operator",
-                "reviewerKeyId": "synthetic-taira-independent-reviewer",
+                "operator": {
+                    "keyId": "synthetic-taira-operator",
+                    "publicKeySha256": operator_pin,
+                },
+                "independentReviewer": {
+                    "keyId": "synthetic-taira-independent-reviewer",
+                    "publicKeySha256": reviewer_pin,
+                },
             },
             "pendingRowPolicy": {
                 "schemaVersion": 77,
@@ -2065,22 +2123,31 @@ def generate_taira_deployment(
             },
             "epochs": [
                 {
+                    "epoch": 2026081002,
                     "chainId": current_chain_id,
-                    "role": "current",
-                    "deploymentEpoch": 2026081002,
-                    "genesisHash": current_genesis,
-                    "canonicalToriiBaseUrl": current_base,
-                    "publicMcpEndpoint": f"{current_base}/v1/mcp",
+                    "genesisSha256": current_genesis,
+                    "i105Discriminant": 369,
+                    "status": "current",
+                    "toriiBaseUrl": current_base,
+                    "publicNodeMcpEndpoint": f"{current_base}/v1/mcp",
+                    "explorerBaseUrl": explorer_base,
                 },
                 {
+                    "epoch": 2026081001,
                     "chainId": retired_chain_id,
-                    "role": "retired",
-                    "deploymentEpoch": 2026081001,
-                    "genesisHash": retired_genesis,
-                    "canonicalToriiBaseUrl": None,
-                    "publicMcpEndpoint": None,
+                    "genesisSha256": retired_genesis,
+                    "i105Discriminant": 369,
+                    "status": "retired",
+                    "toriiBaseUrl": None,
+                    "publicNodeMcpEndpoint": None,
+                    "explorerBaseUrl": None,
                 },
             ],
+            "authorization": {
+                "authorizesDeploymentIdentity": True,
+                "authorizesFundedCanary": False,
+                "authorizesRelease": False,
+            },
         },
     )
     os.chmod(manifest, 0o600)
@@ -2095,8 +2162,9 @@ def generate_taira_deployment(
         "IOS_TAIRA_DEPLOYMENT_REVIEWER_SIGNATURE_PATH": str(reviewer_signature),
         "IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_PATH": str(operator_public),
         "IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_PATH": str(reviewer_public),
-        "IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256": sha256_file(operator_public),
-        "IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256": sha256_file(reviewer_public),
+        "IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256": operator_pin,
+        "IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256": reviewer_pin,
+        "IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER": "17",
         "IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS": str(evaluated_at),
     }
     command = [
@@ -2120,6 +2188,8 @@ def generate_taira_deployment(
         environment["IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256"],
         "--reviewer-key-sha256",
         environment["IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256"],
+        "--expected-manifest-sequence-number",
+        environment["IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER"],
         "--evaluated-at-epoch-seconds",
         str(evaluated_at),
         "--output",
@@ -2130,12 +2200,17 @@ def generate_taira_deployment(
     current = admitted["current"]
     projection = {
         "manifestSha256": admitted["manifestSha256"],
+        "manifestSequenceNumber": str(admitted["manifestSequenceNumber"]),
         "admissionSha256": sha256_file(admission),
         "currentChainId": current["chainId"],
         "currentGenesisHash": current["genesisHash"],
         "canonicalToriiBaseUrl": current["canonicalToriiBaseUrl"],
         "publicMcpEndpoint": current["publicMcpEndpoint"],
+        "explorerBaseUrl": current["explorerBaseUrl"],
     }
+    environment["IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256"] = projection[
+        "admissionSha256"
+    ]
     return projection, environment
 
 
@@ -2302,6 +2377,30 @@ def main() -> int:
                 should_succeed=True,
                 expected_fragment=f"production rollout v3 gate to {target}% qualified",
             )
+
+        stale_taira_admission = make_environment(success_chains[1])
+        stale_taira_admission[
+            "IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS"
+        ] = str(now - 7 * 24 * 60 * 60 - 1)
+        run_gate(
+            name="stale-taira-deployment-admission",
+            shell_path=shell_path,
+            environment=stale_taira_admission,
+            should_succeed=False,
+            expected_fragment="Taira deployment admission must be no more than seven days old",
+        )
+
+        future_taira_admission = make_environment(success_chains[1])
+        future_taira_admission[
+            "IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS"
+        ] = str(now + 1)
+        run_gate(
+            name="future-taira-deployment-admission",
+            shell_path=shell_path,
+            environment=future_taira_admission,
+            should_succeed=False,
+            expected_fragment="not future-dated at every rollout gate",
+        )
 
         wrong_migration_ipa = make_environment(success_chains[1])
         wrong_migration_ipa["SORA_ROLLOUT_REGRESSION_MIGRATION_IPA_SHA256"] = synthetic_sha256(
@@ -2776,7 +2875,7 @@ def main() -> int:
             expected_fragment="production rollout v3 gate to 1% qualified",
         )
 
-    print("production rollout hermetic regression: 5 success paths and 35 fail-closed mutations passed")
+    print("production rollout hermetic regression: 5 success paths and 37 fail-closed mutations passed")
     return 0
 
 

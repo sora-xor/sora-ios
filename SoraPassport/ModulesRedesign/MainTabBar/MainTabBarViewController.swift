@@ -68,6 +68,27 @@ final class MainTabBarViewController: UITabBarController {
         }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let custom = tabBar as? TabBar, let items = tabBar.items else { return }
+        let nativeButtons = tabBar.subviews.compactMap { $0 as? UIControl }
+            .filter { $0 !== custom.coverButton && $0 !== custom.middleButton }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        guard nativeButtons.count == items.count, items.count == 5 else { return }
+        var elements: [UIView] = []
+        for (index, button) in nativeButtons.enumerated() {
+            let accessibleButton: UIControl = index == 2 ? custom.middleButton : button
+            accessibleButton.isAccessibilityElement = true
+            accessibleButton.accessibilityLabel = index == 2
+                ? custom.middleButtonTitleLabel.sora.text : items[index].title
+            accessibleButton.accessibilityTraits = index == selectedIndex ? [.button, .selected] : .button
+            elements.append(accessibleButton)
+        }
+        custom.coverButton.isAccessibilityElement = false
+        custom.middleButtonTitleLabel.isAccessibilityElement = false
+        tabBar.accessibilityElements = elements
+    }
+
     private func configureTabBar() {
         let palette = SoramitsuUI.shared.theme.palette
         

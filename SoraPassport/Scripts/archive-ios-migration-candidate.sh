@@ -21,6 +21,18 @@ signing_identity_tool="${root}/SoraPassport/Scripts/verify-ios-production-signin
 vendored_binary_tool="${root}/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh"
 taira_deployment_tool="${root}/SoraPassport/Scripts/verify-ios-taira-deployment-manifest.py"
 mode="sora-ios-migration-observed-only-candidate-archive-v1"
+maximum_taira_deployment_candidate_age_seconds=21600
+production_bundle_identifier="co.jp.soramitsu.sora"
+production_development_team="YLWWUD25VZ"
+production_application_identifier="YLWWUD25VZ.co.jp.soramitsu.sora"
+production_distribution_certificate_name="Apple Distribution: Soramitsu Co., Ltd. (YLWWUD25VZ)"
+production_distribution_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"
+production_distribution_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"
+production_distribution_certificate_sha256_upper="D830D54BCE8E583089F2ED8CF927FC12B60C9D591E560FFE6F5D2A71C91317FB"
+production_provisioning_profile_uuid="7ae520bc-599b-48ae-abfa-627eef530f0c"
+production_provisioning_profile_name="iOS Team Store Provisioning Profile: co.jp.soramitsu.sora"
+production_provisioning_profile_raw_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"
+production_provisioning_profile_path="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${production_provisioning_profile_uuid}.mobileprovision"
 
 fail() {
     /usr/bin/printf 'error: %s\n' "$1" >&2
@@ -55,6 +67,17 @@ canonical_build_number() {
     /usr/bin/printf '%s\n' "${raw_value}"
 }
 
+canonical_epoch_seconds() {
+    raw_value="$1"
+    value_label="$2"
+    case "${raw_value}" in
+        ''|0|0*|*[!0-9]*) fail "${value_label} must be one positive canonical epoch" ;;
+    esac
+    [ "${#raw_value}" -le 10 ] && [ "${raw_value}" -le 9999999999 ] 2>/dev/null ||
+        fail "${value_label} exceeds the canonical epoch bound"
+    /usr/bin/printf '%s\n' "${raw_value}"
+}
+
 canonical_fresh_private_path() {
     raw_path="$1"
     required_suffix="$2"
@@ -76,6 +99,111 @@ canonical_fresh_private_path() {
     [ ! -e "${canonical_path}" ] && [ ! -L "${canonical_path}" ] ||
         fail "${path_label} must be fresh"
     /usr/bin/printf '%s\n' "${canonical_path}"
+}
+
+require_exact_codesigning_identity() {
+    identity_listing="$({
+        /usr/bin/security find-identity -v -p codesigning
+    })" || fail "installed code-signing identities cannot be enumerated"
+    identity_count="$({
+        /usr/bin/printf '%s\n' "${identity_listing}" | /usr/bin/awk \
+            -v fingerprint="${production_distribution_certificate_sha1}" \
+            -v common_name="${production_distribution_certificate_name}" '
+                $2 == fingerprint && index($0, "\"" common_name "\"") > 0 {
+                    count += 1
+                }
+                END { print count + 0 }
+            '
+    })"
+    [ "${identity_count}" = "1" ] ||
+        fail "exact retained Apple Distribution identity and private key are not installed"
+
+    certificate_listing="$({
+        /usr/bin/security find-certificate -a -Z \
+            -c "${production_distribution_certificate_name}"
+    })" || fail "retained Apple Distribution certificate cannot be enumerated"
+    certificate_pair_count="$({
+        /usr/bin/printf '%s\n' "${certificate_listing}" | /usr/bin/awk \
+            -v expected_sha1="${production_distribution_certificate_sha1}" \
+            -v expected_sha256="${production_distribution_certificate_sha256_upper}" '
+                $0 == "SHA-256 hash: " expected_sha256 { pending = 1; next }
+                pending == 1 && $0 == "SHA-1 hash: " expected_sha1 {
+                    count += 1
+                    pending = 0
+                    next
+                }
+                { pending = 0 }
+                END { print count + 0 }
+            '
+    })"
+    [ "${certificate_pair_count}" = "1" ] ||
+        fail "retained Apple Distribution certificate fingerprints are not exact"
+}
+
+validate_installed_production_profile() {
+    [ -f "${production_provisioning_profile_path}" ] &&
+        [ ! -L "${production_provisioning_profile_path}" ] ||
+        fail "retained App Store provisioning profile is not installed at its pinned Xcode path"
+    installed_profile_sha="$({
+        /usr/bin/shasum -a 256 "${production_provisioning_profile_path}" |
+            /usr/bin/awk '{print $1}'
+    })" || fail "installed App Store provisioning profile cannot be hashed"
+    [ "${installed_profile_sha}" = "${production_provisioning_profile_raw_sha256}" ] ||
+        fail "installed App Store provisioning profile differs from the retained profile"
+    /usr/bin/security cms -D \
+        -i "${production_provisioning_profile_path}" \
+        -o "${production_profile_plist_snapshot}" >/dev/null 2>&1 ||
+        fail "installed App Store provisioning profile does not have a valid CMS envelope"
+    /bin/chmod 600 "${production_profile_plist_snapshot}" ||
+        fail "decoded provisioning-profile snapshot cannot be made owner-only"
+
+    [ "$({ /usr/bin/plutil -extract UUID raw -expect string "${production_profile_plist_snapshot}" 2>/dev/null; })" = "${production_provisioning_profile_uuid}" ] ||
+        fail "installed App Store provisioning profile UUID drifted"
+    [ "$({ /usr/bin/plutil -extract Name raw -expect string "${production_profile_plist_snapshot}" 2>/dev/null; })" = "${production_provisioning_profile_name}" ] ||
+        fail "installed App Store provisioning profile name drifted"
+    [ "$({ /usr/bin/plutil -extract TeamIdentifier.0 raw -expect string "${production_profile_plist_snapshot}" 2>/dev/null; })" = "${production_development_team}" ] ||
+        fail "installed App Store provisioning profile team drifted"
+    [ "$({ /usr/bin/plutil -extract ApplicationIdentifierPrefix.0 raw -expect string "${production_profile_plist_snapshot}" 2>/dev/null; })" = "${production_development_team}" ] ||
+        fail "installed App Store provisioning profile application prefix drifted"
+    [ "$({ /usr/bin/plutil -extract Entitlements.application-identifier raw -expect string "${production_profile_plist_snapshot}" 2>/dev/null; })" = "${production_application_identifier}" ] ||
+        fail "installed App Store provisioning profile application identifier drifted"
+
+    profile_certificate_count="$({
+        /usr/bin/plutil -extract DeveloperCertificates raw \
+            "${production_profile_plist_snapshot}" 2>/dev/null
+    })" || fail "installed App Store provisioning profile lacks its certificate inventory"
+    case "${profile_certificate_count}" in
+        ''|0|*[!0-9]*) fail "installed App Store provisioning profile certificate count is invalid" ;;
+    esac
+    [ "${profile_certificate_count}" -le 16 ] ||
+        fail "installed App Store provisioning profile certificate inventory is excessive"
+    profile_certificate_index=0
+    profile_certificate_match_count=0
+    while [ "${profile_certificate_index}" -lt "${profile_certificate_count}" ]; do
+        profile_certificate_base64="$({
+            /usr/bin/plutil -extract "DeveloperCertificates.${profile_certificate_index}" raw \
+                "${production_profile_plist_snapshot}" 2>/dev/null
+        })" || fail "installed App Store provisioning profile certificate cannot be decoded"
+        profile_certificate_sha1="$({
+            /usr/bin/printf '%s' "${profile_certificate_base64}" |
+                /usr/bin/base64 -D |
+                /usr/bin/shasum |
+                /usr/bin/awk '{print toupper($1)}'
+        })" || fail "installed App Store provisioning profile certificate SHA-1 cannot be computed"
+        profile_certificate_sha256="$({
+            /usr/bin/printf '%s' "${profile_certificate_base64}" |
+                /usr/bin/base64 -D |
+                /usr/bin/shasum -a 256 |
+                /usr/bin/awk '{print $1}'
+        })" || fail "installed App Store provisioning profile certificate SHA-256 cannot be computed"
+        if [ "${profile_certificate_sha1}" = "${production_distribution_certificate_sha1}" ] &&
+           [ "${profile_certificate_sha256}" = "${production_distribution_certificate_sha256}" ]; then
+            profile_certificate_match_count=$((profile_certificate_match_count + 1))
+        fi
+        profile_certificate_index=$((profile_certificate_index + 1))
+    done
+    [ "${profile_certificate_match_count}" = "1" ] ||
+        fail "installed App Store provisioning profile does not contain the exact retained distribution certificate"
 }
 
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-contract" ]; then
@@ -137,6 +265,7 @@ fi
 : "${IOS_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID:?protected evidence authorization key ID is required}"
 : "${IOS_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64:?protected evidence authorization public point is required}"
 : "${IOS_MIGRATION_EVIDENCE_SOURCE_REVISION:?protected evidence source revision is required}"
+: "${IOS_SIGNING_IDENTITY_RECEIPT_PATH:?protected external signing-identity receipt path is required}"
 : "${IOS_TAIRA_DEPLOYMENT_MANIFEST_PATH:?protected Taira deployment manifest path is required}"
 : "${IOS_TAIRA_DEPLOYMENT_OPERATOR_SIGNATURE_PATH:?protected Taira operator signature path is required}"
 : "${IOS_TAIRA_DEPLOYMENT_REVIEWER_SIGNATURE_PATH:?protected Taira reviewer signature path is required}"
@@ -144,7 +273,14 @@ fi
 : "${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_PATH:?protected Taira reviewer public-key path is required}"
 : "${IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256:?protected Taira operator public-key pin is required}"
 : "${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256:?protected Taira reviewer public-key pin is required}"
+: "${IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER:?protected exact Taira manifest sequence is required}"
 : "${IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS:?protected Taira deployment evaluation epoch is required}"
+taira_deployment_evaluation_epoch="$(canonical_epoch_seconds "${IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS}" "Taira deployment evaluation epoch")"
+current_epoch="$(/bin/date +%s)"
+minimum_taira_deployment_epoch=$((current_epoch - maximum_taira_deployment_candidate_age_seconds))
+[ "${taira_deployment_evaluation_epoch}" -ge "${minimum_taira_deployment_epoch}" ] &&
+    [ "${taira_deployment_evaluation_epoch}" -le "${current_epoch}" ] ||
+    fail "Taira deployment admission must be no more than six hours old and not future-dated for candidate archive"
 authority_binding="$({
     /usr/bin/python3 -I -S "${exact_ipa_controller}" \
         --validate-authority-binding \
@@ -167,6 +303,11 @@ export_options_snapshot="${control_path}/export-options.plist"
 archive_log="${control_path}/archive.log"
 export_log="${control_path}/export.log"
 taira_admission="${control_path}/taira-deployment-admission.json"
+signing_receipt_snapshot="${control_path}/signing-identity-receipt.json"
+production_profile_plist_snapshot="${control_path}/production-provisioning-profile.plist"
+
+require_exact_codesigning_identity
+validate_installed_production_profile
 
 taira_admission_result="$({
     /usr/bin/python3 -B -I -S "${taira_deployment_tool}" --verify-protected \
@@ -177,11 +318,12 @@ taira_admission_result="$({
         --reviewer-public-key "${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_PATH}" \
         --operator-key-sha256 "${IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256}" \
         --reviewer-key-sha256 "${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256}" \
-        --evaluated-at-epoch-seconds "${IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS}" \
+        --expected-manifest-sequence-number "${IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER}" \
+        --evaluated-at-epoch-seconds "${taira_deployment_evaluation_epoch}" \
         --output "${taira_admission}"
 })" || fail "protected Taira deployment manifest was not admitted"
 case "${taira_admission_result}" in
-    manifestSha256=????????????????????????????????????????????????????????????????\ admissionSha256=????????????????????????????????????????????????????????????????\ currentChainId=????????-????-????-????-????????????\ currentGenesisHash=????????????????????????????????????????????????????????????????\ currentDeploymentEpoch=*\ currentToriiBaseUrl=https://*\ currentMcpEndpoint=https://*/v1/mcp\ retiredChainId=????????-????-????-????-????????????) ;;
+    manifestSha256=????????????????????????????????????????????????????????????????\ admissionSha256=????????????????????????????????????????????????????????????????\ manifestSequenceNumber=*\ currentChainId=????????-????-????-????-????????????\ currentGenesisHash=????????????????????????????????????????????????????????????????\ currentDeploymentEpoch=*\ currentToriiBaseUrl=https://*\ currentMcpEndpoint=https://*/v1/mcp\ currentExplorerBaseUrl=https://*\ retiredChainId=????????-????-????-????-????????????\ retiredGenesisHash=????????????????????????????????????????????????????????????????\ retiredDeploymentEpoch=*) ;;
     *) fail "protected Taira deployment admission returned an invalid projection" ;;
 esac
 [ "$({ /usr/bin/printf '%s\n' "${taira_admission_result}" | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })" = "1" ] ||
@@ -198,6 +340,19 @@ case "${signing_identity_result}" in
 esac
 [ "$({ /usr/bin/printf '%s\n' "${signing_identity_result}" | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })" = "1" ] ||
     fail "protected production signing-continuity admission returned multiple records"
+/usr/bin/install -m 600 \
+    "${IOS_SIGNING_IDENTITY_RECEIPT_PATH}" \
+    "${signing_receipt_snapshot}" ||
+    fail "admitted signing-identity receipt cannot be snapshotted owner-only"
+[ -f "${signing_receipt_snapshot}" ] && [ ! -L "${signing_receipt_snapshot}" ] &&
+    [ "$({ /usr/bin/stat -f '%u:%Sp:%l' "${signing_receipt_snapshot}"; })" = "$({ /usr/bin/id -u; }):-rw-------:1" ] ||
+    fail "signing-identity receipt snapshot is not one owner-only regular inode"
+signing_receipt_snapshot_sha="$({
+    /usr/bin/shasum -a 256 "${signing_receipt_snapshot}" |
+        /usr/bin/awk '{print $1}'
+})" || fail "signing-identity receipt snapshot cannot be hashed"
+[ "${signing_receipt_snapshot_sha}" = "${signing_identity_sha}" ] ||
+    fail "signing-identity receipt changed while it was snapshotted"
 
 vendored_binary_result="$({
     /bin/sh "${vendored_binary_tool}" --verify-qualified
@@ -211,21 +366,38 @@ esac
 [ "$({ /usr/bin/printf '%s\n' "${vendored_binary_result}" | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })" = "1" ] ||
     fail "protected vendored-binary admission returned multiple records"
 
-json_raw() {
-    /usr/bin/plutil -extract "$1" raw -expect "$2" "${taira_admission}" 2>/dev/null
+admission_projection_value() {
+    projection_key="$1"
+    /usr/bin/printf '%s\n' "${taira_admission_result}" | /usr/bin/awk -v key="${projection_key}" '
+        {
+            prefix = key "="
+            for (field_index = 1; field_index <= NF; field_index += 1) {
+                if (substr($field_index, 1, length(prefix)) == prefix) {
+                    count += 1
+                    value = substr($field_index, length(prefix) + 1)
+                }
+            }
+        }
+        END {
+            if (count != 1 || value == "") exit 1
+            print value
+        }
+    '
 }
-taira_manifest_sha="$(json_raw manifestSha256 string)" || fail "Taira manifest digest is absent"
-taira_admission_sha="$({ /usr/bin/shasum -a 256 "${taira_admission}" | /usr/bin/awk '{print $1}'; })"
-taira_current_chain="$(json_raw current.chainId string)" || fail "Taira current UUID is absent"
-taira_retired_chain="$(json_raw retired.chainId string)" || fail "Taira retired UUID is absent"
-taira_current_genesis="$(json_raw current.genesisHash string)" || fail "Taira current genesis is absent"
-taira_retired_genesis="$(json_raw retired.genesisHash string)" || fail "Taira retired genesis is absent"
-taira_current_epoch="$(json_raw current.deploymentEpoch integer)" || fail "Taira current deployment epoch is absent"
-taira_retired_epoch="$(json_raw retired.deploymentEpoch integer)" || fail "Taira retired deployment epoch is absent"
-taira_base_url="$(json_raw current.canonicalToriiBaseUrl string)" || fail "Taira canonical Torii origin is absent"
-taira_mcp_endpoint="$(json_raw current.publicMcpEndpoint string)" || fail "Taira explicit MCP endpoint is absent"
-[ "${taira_admission_sha}" = "$({ /usr/bin/printf '%s\n' "${taira_admission_result}" | /usr/bin/sed -E 's/^.* admissionSha256=([0-9a-f]{64}) .*$/\1/'; })" ] ||
-    fail "Taira admission receipt digest changed after verification"
+taira_manifest_sha="$(admission_projection_value manifestSha256)" || fail "Taira manifest digest is absent"
+taira_admission_sha="$(admission_projection_value admissionSha256)" || fail "Taira admission digest is absent"
+taira_manifest_sequence="$(admission_projection_value manifestSequenceNumber)" || fail "Taira manifest sequence is absent"
+taira_current_chain="$(admission_projection_value currentChainId)" || fail "Taira current UUID is absent"
+taira_retired_chain="$(admission_projection_value retiredChainId)" || fail "Taira retired UUID is absent"
+taira_current_genesis="$(admission_projection_value currentGenesisHash)" || fail "Taira current genesis is absent"
+taira_retired_genesis="$(admission_projection_value retiredGenesisHash)" || fail "Taira retired genesis is absent"
+taira_current_epoch="$(admission_projection_value currentDeploymentEpoch)" || fail "Taira current deployment epoch is absent"
+taira_retired_epoch="$(admission_projection_value retiredDeploymentEpoch)" || fail "Taira retired deployment epoch is absent"
+taira_base_url="$(admission_projection_value currentToriiBaseUrl)" || fail "Taira canonical Torii origin is absent"
+taira_mcp_endpoint="$(admission_projection_value currentMcpEndpoint)" || fail "Taira explicit MCP endpoint is absent"
+taira_explorer_base_url="$(admission_projection_value currentExplorerBaseUrl)" || fail "Taira explorer origin is absent"
+[ "${taira_manifest_sequence}" = "${IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER}" ] ||
+    fail "Taira admission sequence differs from protected release sequence"
 
 qualification_contract_sha="$({
     /usr/bin/python3 -I -S "${contract_tool}" \
@@ -264,6 +436,10 @@ if [ "${reproducible_build}" = true ]; then
         -destination 'generic/platform=iOS' \
         -derivedDataPath "${derived_data_path}" \
         -archivePath "${archive_path}" \
+        CODE_SIGN_STYLE=Manual \
+        "CODE_SIGN_IDENTITY=${production_distribution_certificate_sha1}" \
+        "DEVELOPMENT_TEAM=${production_development_team}" \
+        "PROVISIONING_PROFILE_SPECIFIER=${production_provisioning_profile_uuid}" \
         "CURRENT_PROJECT_VERSION=${build_number}" \
         "SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE=${mode}" \
         SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_ACTION=archive \
@@ -271,8 +447,9 @@ if [ "${reproducible_build}" = true ]; then
         "SORA_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64=${IOS_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64}" \
         "SORA_MIGRATION_EVIDENCE_SOURCE_REVISION=${IOS_MIGRATION_EVIDENCE_SOURCE_REVISION}" \
         "SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256=${qualification_contract_sha}" \
-        "SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID=sora-ios-taira-deployment-admission-v1" \
+        "SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID=sora-ios-taira-deployment-admission-v2" \
         "SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256=${taira_manifest_sha}" \
+        "SORA_TAIRA_DEPLOYMENT_MANIFEST_SEQUENCE_NUMBER=${taira_manifest_sequence}" \
         "SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256=${taira_admission_sha}" \
         "SORA_TAIRA_CURRENT_CHAIN_ID=${taira_current_chain}" \
         "SORA_TAIRA_RETIRED_CHAIN_ID=${taira_retired_chain}" \
@@ -282,6 +459,7 @@ if [ "${reproducible_build}" = true ]; then
         "SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH=${taira_retired_epoch}" \
         "SORA_TAIRA_CANONICAL_TORII_BASE_URL=${taira_base_url}" \
         "SORA_TAIRA_PUBLIC_MCP_ENDPOINT=${taira_mcp_endpoint}" \
+        "SORA_TAIRA_EXPLORER_BASE_URL=${taira_explorer_base_url}" \
         "SORA_TAIRA_PENDING_ROW_POLICY=schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation" \
         archive >"${archive_log}" 2>&1; then
         fail "reproducible candidate archive failed; protected archive log retained"
@@ -293,6 +471,10 @@ else
         -configuration Release \
         -destination 'generic/platform=iOS' \
         -archivePath "${archive_path}" \
+        CODE_SIGN_STYLE=Manual \
+        "CODE_SIGN_IDENTITY=${production_distribution_certificate_sha1}" \
+        "DEVELOPMENT_TEAM=${production_development_team}" \
+        "PROVISIONING_PROFILE_SPECIFIER=${production_provisioning_profile_uuid}" \
         "CURRENT_PROJECT_VERSION=${build_number}" \
         "SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE=${mode}" \
         SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_ACTION=archive \
@@ -300,8 +482,9 @@ else
         "SORA_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64=${IOS_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64}" \
         "SORA_MIGRATION_EVIDENCE_SOURCE_REVISION=${IOS_MIGRATION_EVIDENCE_SOURCE_REVISION}" \
         "SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256=${qualification_contract_sha}" \
-        "SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID=sora-ios-taira-deployment-admission-v1" \
+        "SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID=sora-ios-taira-deployment-admission-v2" \
         "SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256=${taira_manifest_sha}" \
+        "SORA_TAIRA_DEPLOYMENT_MANIFEST_SEQUENCE_NUMBER=${taira_manifest_sequence}" \
         "SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256=${taira_admission_sha}" \
         "SORA_TAIRA_CURRENT_CHAIN_ID=${taira_current_chain}" \
         "SORA_TAIRA_RETIRED_CHAIN_ID=${taira_retired_chain}" \
@@ -311,6 +494,7 @@ else
         "SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH=${taira_retired_epoch}" \
         "SORA_TAIRA_CANONICAL_TORII_BASE_URL=${taira_base_url}" \
         "SORA_TAIRA_PUBLIC_MCP_ENDPOINT=${taira_mcp_endpoint}" \
+        "SORA_TAIRA_EXPLORER_BASE_URL=${taira_explorer_base_url}" \
         "SORA_TAIRA_PENDING_ROW_POLICY=schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation" \
         archive >"${archive_log}" 2>&1; then
         fail "candidate archive failed; protected archive log retained"
@@ -347,6 +531,19 @@ signing_identity_recheck="$({
 })" || fail "protected production signing-continuity receipt failed its post-export recheck"
 [ "${signing_identity_recheck}" = "receiptSha256=${signing_identity_sha}" ] ||
     fail "protected production signing-continuity receipt changed during archive/export"
+signing_receipt_snapshot_recheck="$({
+    /usr/bin/shasum -a 256 "${signing_receipt_snapshot}" |
+        /usr/bin/awk '{print $1}'
+})" || fail "signing-identity receipt snapshot cannot be rechecked"
+[ "${signing_receipt_snapshot_recheck}" = "${signing_identity_sha}" ] ||
+    fail "snapshotted signing-identity receipt changed during archive/export"
+installed_profile_recheck="$({
+    /usr/bin/shasum -a 256 "${production_provisioning_profile_path}" |
+        /usr/bin/awk '{print $1}'
+})" || fail "installed App Store provisioning profile cannot be rechecked"
+[ "${installed_profile_recheck}" = "${production_provisioning_profile_raw_sha256}" ] ||
+    fail "installed App Store provisioning profile changed during archive/export"
+require_exact_codesigning_identity
 vendored_binary_recheck="$({
     /bin/sh "${vendored_binary_tool}" --verify-qualified
 })" || fail "protected vendored-binary receipt failed its post-export recheck"
@@ -401,6 +598,7 @@ if [ "${reproducible_build}" = true ]; then
             --archive-log "${archive_log}" \
             --export-log "${export_log}" \
             --qualification-contract-sha "${qualification_contract_sha}" \
+            --signing-receipt "${signing_receipt_snapshot}" \
             --signing-receipt-sha "${signing_identity_sha}" \
             --vendored-receipt-sha "${vendored_binary_sha}" \
             --build-number "${build_number}" \

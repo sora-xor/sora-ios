@@ -95,6 +95,31 @@ extension KeystoreProtocol {
         return try fetchKey(for: tag)
     }
 
+    /// Version 1.x retained this Iroha signing key beside seedEntropy. Prove
+    /// ownership using the released SORA/iroha-keypair scrypt derivation before
+    /// allowing the entropy to back a SORA2 wallet. Neither record is rewritten.
+    func verifyLegacyIrohaKeyIfPresent(entropy: Data) throws {
+        guard var retained = try loadIfKeyExists("privateKey") else { return }
+        defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+        guard retained.count == 32 else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+        var phrase = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy).toString()
+        defer { phrase.removeAll(keepingCapacity: false) }
+        var derived = try IRKeypairFacade()
+            .deriveKeypair(from: phrase, password: "").privateKey().rawData()
+        defer { derived.resetBytes(in: derived.startIndex ..< derived.endIndex) }
+        guard derived.count == retained.count else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+        var difference: UInt8 = 0
+        for (expected, actual) in zip(derived, retained) { difference |= expected ^ actual }
+        guard difference == 0 else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+    }
+
     func saveSecretKey(_ secretKey: Data, address: String) throws {
         let tag = KeystoreTag.secretKeyTagForAddress(address)
 
@@ -179,7 +204,6 @@ extension KeystoreProtocol {
             try !checkKey(
                 for: KeystoreTag.deriviationTagForAddress(address)
             ),
-            try !checkKey(for: "privateKey"),
             matchingWallets.count == 1,
             let wallet = matchingWallets.first,
             wallet.secretSource == .mnemonicEntropy ||
@@ -195,6 +219,7 @@ extension KeystoreProtocol {
             for: KeystoreTag.legacyEntropy.rawValue
         )
         do {
+            try verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy)
             let mnemonic = try IRMnemonicCreator(language: .english)
                 .mnemonic(fromEntropy: legacyEntropy)
             guard

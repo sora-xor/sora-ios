@@ -473,6 +473,9 @@ private extension RetainedMigrationEvidenceHarness {
     enum EvidenceCase: String, CaseIterable {
         case mnemonic12 = "mnemonic-12"
         case mnemonic15Retained = "mnemonic-15-retained"
+        case mnemonic18Retained = "mnemonic-18-retained"
+        case mnemonic21Retained = "mnemonic-21-retained"
+        case irohaV1PairedKeys = "iroha-v1-paired-keys"
         case mnemonic24 = "mnemonic-24"
         case rawSeed = "raw-seed"
         case legacySecret = "legacy-secret"
@@ -497,7 +500,8 @@ private extension RetainedMigrationEvidenceHarness {
 
         var kind: EvidenceCaseKind {
             switch self {
-            case .mnemonic12, .mnemonic15Retained, .mnemonic24,
+            case .mnemonic12, .mnemonic15Retained, .mnemonic18Retained,
+                 .mnemonic21Retained, .irohaV1PairedKeys, .mnemonic24,
                  .rawSeed, .legacySecret, .watchOnly, .missingSecret,
                  .corruptSecret:
                 return .keychain
@@ -527,7 +531,8 @@ private extension RetainedMigrationEvidenceHarness {
 
         var signingExpected: Bool? {
             switch self {
-            case .mnemonic12, .mnemonic15Retained, .mnemonic24,
+            case .mnemonic12, .mnemonic15Retained, .mnemonic18Retained,
+                 .mnemonic21Retained, .irohaV1PairedKeys, .mnemonic24,
                  .rawSeed, .legacySecret:
                 return true
             case .watchOnly, .missingSecret, .corruptSecret:
@@ -542,7 +547,8 @@ private extension RetainedMigrationEvidenceHarness {
             case .missingSecret, .corruptSecret, .rollback,
                  .lowStorage, .recoveryArchiveExport:
                 return true
-            case .mnemonic12, .mnemonic15Retained, .mnemonic24,
+            case .mnemonic12, .mnemonic15Retained, .mnemonic18Retained,
+                 .mnemonic21Retained, .irohaV1PairedKeys, .mnemonic24,
                  .rawSeed, .legacySecret, .watchOnly,
                  .reinstallUpgrade:
                 return false

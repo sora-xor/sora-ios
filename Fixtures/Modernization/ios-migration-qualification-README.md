@@ -41,8 +41,9 @@ Required identity and aggregate fields:
   `UserDataModel 2`.
 - `retainedCoreDataModelCount`: 2; `retainedCoreDataCohortCount`: 4;
   `singleAccountCohortCount`: 2; `multiAccountCohortCount`: 2.
-- `successfulSecretSourceCohortCount`: 6 (12-word, retained 15-word SORA2-only,
-  24-word, raw seed, retained keystore-import/secret-only, watch-only). The
+- `successfulSecretSourceCohortCount`: 9 (12-word, retained 15-, 18-, and 21-word
+  SORA2-only, 24-word, iOS 1.x paired Iroha private key and entropy, raw seed,
+  retained keystore-import/secret-only, watch-only). The
   secret-only cohort must prove the exact retained private/public key and SORA2
   address/signing result remain unchanged, no Minamoto or Taira child is created,
   explicit deletion revalidates the protected identity, and corrupt material is
@@ -51,11 +52,18 @@ Required identity and aggregate fields:
   created, the original SORA2 public key/address/signing result is unchanged,
   Nexus derivation remains unavailable, explicit deletion revalidates the exact
   protected identity before removal, and corrupt material is retained in the
-  recovery route;
+  recovery route. Separate `mnemonic-18-retained`, `mnemonic-21-retained`, and
+  `iroha-v1-paired-keys` observations are mandatory. The 18/21-word cases require
+  the same exact preservation and SORA2-only behavior as the retained-15 case.
+  The iOS 1.x case must start with both original global records, authenticate their
+  released derivation relationship, retain their exact bytes and accessibility,
+  and prove the original SORA2 signing identity after activation. These cases
+  cannot be inferred from a different mnemonic length or an entropy-only source;
   `secretFailureCohortCount`: 2; `currentSchemaSafetySnapshotCohortCount`: 2;
   `interruptionPointCohortCount`: 5.
 - The focused source suite must exercise the actual asynchronous unsuffixed-entropy
-  activation route for 12-, retained 15-, and 24-word wallets:
+  activation route for 12-, retained 15-, 18-, 21-, and 24-word wallets,
+  including the authenticated iOS 1.x `privateKey`/`seedEntropy` pair:
   `RootInteractor` -> `AccountImportInteractor` -> in-memory Core Data insert ->
   ordered `WalletAccountCommitJournalStore` activation -> copy-on-write
   `WalletNetworkStore`. Each case must compare the complete Keychain identifier
@@ -73,6 +81,7 @@ Required identity and aggregate fields:
   every active snapshot byte-for-byte unchanged. These isolated unit cases are
   source qualification only; they cannot set `status: qualified` or produce this
   receipt.
+
 - Durable wallet records must preserve a concrete, reviewed `FileProtectionType`
   across staged replacement and atomic rename. Both the retained source class and
   destination class are re-read as typed Foundation metadata; a missing, malformed,
@@ -121,12 +130,12 @@ Required identity and aggregate fields:
   exporter, which continues to export only independently verified database and
   settings artifacts for support. Existing-target rollback and absent-target
   withdrawal are both exercised by weakening the actual published inode to `.none`
-  inside the existing 200-method source suite.
+  inside the existing 202-method source suite.
 - A positive `retainedReleaseSnapshotCount`, the reviewed
   `retainedReleaseSnapshotManifestSha256`, both checked-in Core Data model SHA-256 values, the
   exact executed `WalletModernizationTests`, `WalletRecoveryCapabilityGateTests`, and
   `WalletRecoveryExporterTests` method counts, zero failure counts, and a reviewed
-  `testResultBundleSha256` covering all four suite inventories (200 + 11 + 12 + 3 = 226).
+  `testResultBundleSha256` covering all four suite inventories (202 + 11 + 12 + 3 = 228).
 - True parity for account count, selected wallet, preferences, Keychain identity and accessibility,
   legacy dual-read retention, existing SORA2 identity/signatures, and zero lost accounts.
 - Missing-store qualification must separately retain and exercise raw selected-account settings,
@@ -246,8 +255,15 @@ bound file changes. Never copy a prior receipt forward.
 
 ## Raw-bound observed collection (non-authorizing)
 
+The aggregate JSON object shapes remain unchanged. The mandatory success count is
+now nine, and the collector, retained-device producer, exact-IPA runner, and app
+harness all require the three additional distinct cohort IDs. Existing evidence
+with six success cohorts fails admission. All affected sources are bound by
+`qualificationContractSha256`, so evidence from the previous source contract must
+be recollected and independently reviewed for the current candidate.
+
 `SoraPassportMigrationEvidence.xcscheme` is the dedicated Release/physical-device evidence
-scheme. Its exact test inventory is 200 `WalletModernizationTests`, 11
+scheme. Its exact test inventory is 202 `WalletModernizationTests`, 11
 `WalletRecoveryCapabilityGateTests`, 12 `WalletRecoveryExporterTests`, and three
 `WalletMigrationRetainedDeviceEvidenceTests`. The last three tests bind their schema-v3 attachments
 to the installed production bundle identifier, the exact production IPA, the canonical projection
@@ -529,7 +545,7 @@ the repository with this fixed layout:
 - `application/SoraPassport.app`, the exact archive-derived installable clone;
 - `application/canonical-projection-receipt-v2.json`, the canonical observed projection receipt;
 - `application/installable-clone-receipt-v1.json`, the protected non-authorizing clone receipt;
-- `tests/Migration.xcresult`, containing the exact 226 passing test identifiers and three
+- `tests/Migration.xcresult`, containing the exact 228 passing test identifiers and three
   test-associated reserved JSON attachments;
 - `snapshots/index.json` and `snapshots/data/<snapshotId>/{source,migrated}`, containing the
   retained Core Data/settings bundles.
@@ -677,7 +693,7 @@ Keychain aggregate must exactly match successful/failing source counts and the r
 identity/accessibility assertions, with no credential rewrite or raw values. The device aggregate
 must exactly match Core Data and interruption counts plus reinstall/upgrade, rollback, low-storage,
 recovery-export, and process-death/restart assertions. The ZIP summary must exactly match all four
-declared suite counts (200 + 11 + 12 + 3 = 226) and zero failure, unexpected-failure, skipped, and
+declared suite counts (202 + 11 + 12 + 3 = 228) and zero failure, unexpected-failure, skipped, and
 expected-failure counters. Independent byte reproduction proves that these public aggregates are
 the collector's derivation from the pinned raw namespace; producer and reviewer signatures remain
 necessary authentication and do not replace review of the restricted scenario material.

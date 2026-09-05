@@ -382,6 +382,14 @@ run_ios_migration_release_source_gate() {
         echo "error: Google Sign-In Info.plist build-order dependency drifted" >&2
         return 1
     fi
+    if ! /usr/bin/grep -Fq "credentialsId: 'ios-keychain-credentials'" "${ios_gate_production_promotion_pipeline}" ||
+       ! /usr/bin/grep -Fq "usernameVariable: 'IOS_SIGNING_KEYCHAIN_PATH'" "${ios_gate_production_promotion_pipeline}" ||
+       ! /usr/bin/grep -Fq "passwordVariable: 'IOS_SIGNING_KEYCHAIN_PASSWORD'" "${ios_gate_production_promotion_pipeline}" ||
+       ! /usr/bin/grep -Fq '/usr/bin/security unlock-keychain' "${ios_gate_production_promotion_pipeline}" ||
+       ! /usr/bin/grep -Fq '/usr/bin/security lock-keychain' "${ios_gate_production_promotion_pipeline}"; then
+        echo "error: protected iOS production signing keychain binding drifted" >&2
+        return 1
+    fi
     if ! verify_reachability_listener_synchronization "${ios_gate_reachability_manager}"; then
         echo "error: ReachabilityManager weak listener synchronization drifted" >&2
         return 1
@@ -415,20 +423,20 @@ run_ios_migration_release_source_gate() {
     ios_gate_test_total=$((ios_gate_test_total + 24))
     run_exact_ios_migration_suite "${ios_gate_sanitizer_suite}" 6 xctestrun-sanitizer || return 1
     ios_gate_test_total=$((ios_gate_test_total + 6))
-    run_exact_ios_migration_suite "${ios_gate_collector_suite}" 15 collector || return 1
-    ios_gate_test_total=$((ios_gate_test_total + 15))
+    run_exact_ios_migration_suite "${ios_gate_collector_suite}" 16 collector || return 1
+    ios_gate_test_total=$((ios_gate_test_total + 16))
     run_exact_ios_migration_suite "${ios_gate_boundary_suite}" 15 release-boundary || return 1
     ios_gate_test_total=$((ios_gate_test_total + 15))
-    [ "${ios_gate_test_total}" -eq 93 ] || {
-        echo "error: iOS migration Release source suite inventory is not exactly 93 tests" >&2
+    [ "${ios_gate_test_total}" -eq 94 ] || {
+        echo "error: iOS migration Release source suite inventory is not exactly 94 tests" >&2
         return 1
     }
     run_exact_ios_migration_suite "${ios_gate_internal_testflight_suite}" 7 internal-testflight-upload || return 1
     run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 17 release-reproducibility-package || return 1
-    run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 13 taira-deployment-admission || return 1
+    run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 15 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
     run_exact_ios_migration_suite "${ios_gate_signing_identity_suite}" 10 production-signing-identity || return 1
-    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 17 production-promotion-controller || return 1
+    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 20 production-promotion-controller || return 1
 
     for ios_gate_shell in \
         "${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh" \
@@ -535,7 +543,7 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'Task { [weak self] in' "${ios_gate_websocket_engine}" ||
        ! /usr/bin/grep -Fq 'let previousState = oldValue' "${ios_gate_websocket_engine}" ||
        ! /usr/bin/grep -Fq 'let currentState = state' "${ios_gate_websocket_engine}" ||
-       [ "$(/usr/bin/grep -Fc 'COMPILER_FLAGS = "-warnings-as-errors";' "${ios_gate_project}")" -ne 3 ] ||
+       [ "$(/usr/bin/grep -Fc 'COMPILER_FLAGS = "-warnings-as-errors";' "${ios_gate_project}")" -ne 4 ] ||
        /usr/bin/grep -Fq 'SWIFT_TREAT_WARNINGS_AS_ERRORS=YES' "${ios_gate_builder}" ||
        /usr/bin/grep -Fq 'GCC_TREAT_WARNINGS_AS_ERRORS=YES' "${ios_gate_builder}" ||
        /usr/bin/grep -Fq 'SWIFT_TREAT_WARNINGS_AS_ERRORS=YES' "${ios_gate_archiver}" ||
@@ -549,6 +557,11 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq '["/usr/bin/security", "cms", "-D", "-i", str(profile_path)]' "${ios_gate_collector}" ||
        ! /usr/bin/grep -Fq -- '--verify-qualified-ipa' "${ios_gate_promotion}" ||
        ! /usr/bin/grep -Fq '/bin/sh "${migration_promotion_admission}" --verify-qualified-ipa "${candidate_ipa}"' "${ios_gate_rollout}" ||
+       ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_RECEIPT_PATH' "${ios_gate_archiver}" ||
+       ! /usr/bin/grep -Fq '/usr/bin/install -m 600' "${ios_gate_archiver}" ||
+       [ "$(/usr/bin/grep -Fc 'CODE_SIGN_STYLE=Manual' "${ios_gate_archiver}")" -ne 2 ] ||
+       [ "$(/usr/bin/grep -Fc '"CODE_SIGN_IDENTITY=${production_distribution_certificate_sha1}"' "${ios_gate_archiver}")" -ne 2 ] ||
+       [ "$(/usr/bin/grep -Fc '"PROVISIONING_PROFILE_SPECIFIER=${production_provisioning_profile_uuid}"' "${ios_gate_archiver}")" -ne 2 ] ||
        ! /usr/bin/grep -Fq 'IOS_TAIRA_DEPLOYMENT_MANIFEST_PATH' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq 'SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq 'sora-ios-nonpromoting-release-simulator-test-v1' "${ios_gate_release_test_runner}" ||
@@ -581,6 +594,7 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'sora-ios-release-reproducibility-equivalence-v4' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'application_signing_certificate_sha256' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'require_retained_signing_identity' "${ios_gate_release_package}" ||
+       ! /usr/bin/grep -Fq 'authenticated signing receipt must remain outside the clean checkout' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'signing-identity-receipt.json' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'vendored-binary-qualification-receipt.json' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'vendoredBinaryReceiptSha256' "${ios_gate_release_package}" ||
@@ -589,6 +603,7 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'epochs[0] <= epochs[1]' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'int(raw) > MAX_SAFE_INTEGER' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq -- '--capture-build-manifest' "${ios_gate_archiver}" ||
+       ! /usr/bin/grep -Fq -- '--signing-receipt "${signing_receipt_snapshot}"' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq -- '--signing-receipt-sha "${signing_identity_sha}"' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq -- '--vendored-receipt-sha "${vendored_binary_sha}"' "${ios_gate_archiver}" ||
        [ "$(/usr/bin/grep -Fc '"CURRENT_PROJECT_VERSION=${build_number}"' "${ios_gate_archiver}")" -ne 2 ] ||
@@ -631,7 +646,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (93 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 13 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (94 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 20 production-promotion tests, 13 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
@@ -1032,8 +1047,8 @@ vendored_binary_qualification_validator="${root}/SoraPassport/Scripts/verify-ios
 vendored_binary_qualification_json_validator="${root}/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py"
 vendored_binary_qualification_harness="${root}/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py"
 ios_signing_identity="${root}/Fixtures/Modernization/ios-production-signing-identity.json"
-ios_signing_qualification="${root}/Fixtures/Modernization/ios-production-signing-identity-qualification.json"
-ios_signing_qualification_trust="${root}/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.json"
+ios_signing_qualification="${IOS_SIGNING_IDENTITY_RECEIPT_PATH:-}"
+ios_signing_qualification_trust="${IOS_SIGNING_IDENTITY_TRUST_PATH:-}"
 ios_signing_qualification_blocked="${root}/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json"
 ios_signing_qualification_trust_blocked="${root}/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json"
 ios_signing_qualification_documentation="${root}/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md"
@@ -2348,6 +2363,8 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    ! /usr/bin/grep -Fq 'build-for-testing' "${migration_evidence_builder}" ||
    /usr/bin/grep -Fq -- '-exportArchive' "${migration_evidence_builder}" ||
    ! /usr/bin/grep -Fq 'SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_ACTION=archive' "${migration_candidate_archiver}" ||
+   ! /usr/bin/grep -Fq 'maximum_taira_deployment_candidate_age_seconds=21600' "${migration_candidate_archiver}" ||
+   ! /usr/bin/grep -Fq 'Taira deployment admission must be no more than six hours old and not future-dated for candidate archive' "${migration_candidate_archiver}" ||
    ! /usr/bin/grep -Fq -- '-scheme SoraPassport' "${migration_candidate_archiver}" ||
    ! /usr/bin/grep -Fq -- '-configuration Release' "${migration_candidate_archiver}" ||
    ! /usr/bin/grep -Fq -- '-exportArchive' "${migration_candidate_archiver}" ||
@@ -2438,6 +2455,8 @@ if [ ! -f "${ios_signing_identity}" ] ||
 fi
 if ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_CONTRACT_SHA256' "${ios_signing_qualification_json_validator}" ||
    ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_TRUST_SHA256' "${ios_signing_qualification_json_validator}" ||
+   ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_RECEIPT_PATH' "${ios_signing_qualification_json_validator}" ||
+   ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_TRUST_PATH' "${ios_signing_qualification_json_validator}" ||
    ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_PRODUCER_PUBLIC_KEY_SHA256' "${ios_signing_qualification_json_validator}" ||
    ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_REVIEWER_PUBLIC_KEY_SHA256' "${ios_signing_qualification_json_validator}" ||
    ! /usr/bin/grep -Fq 'duplicate_rejecting_object' "${ios_signing_qualification_json_validator}" ||
@@ -3562,12 +3581,13 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq 'CONVENIENCE_HOST = "taira.sora.org"' "${taira_deployment_validator}" ||
    ! /usr/bin/grep -Fq 'operator and reviewer signature/key identities must be distinct' "${taira_deployment_validator}" ||
    ! /usr/bin/grep -Fq 'schema-77 pending rows must preserve UUID' "${taira_deployment_validator}" ||
-   ! /usr/bin/grep -Fq 'current["deploymentEpoch"] <= retired["deploymentEpoch"]' "${taira_deployment_validator}" ||
+   ! /usr/bin/grep -Fq 'current["epoch"] != positive_integer(manifest["currentEpoch"], "currentEpoch")' "${taira_deployment_validator}" ||
+   ! /usr/bin/grep -Fq 'current["epoch"] <= retired["epoch"]' "${taira_deployment_validator}" ||
    ! /usr/bin/grep -Fq 'TairaDeploymentBinding' "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq 'currentDeploymentEpoch > retiredDeploymentEpoch' "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq 'parsed <= 9_007_199_254_740_991' "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq 'NexusPendingTairaDeploymentIdentity' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'testSameUUIDLegacyTairaPendingRowRemainsRecoveryOnlyAcrossBothMappings' "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq 'testTairaPendingRowRequiresExactDeploymentIdentityAcrossBothMappings' "${modernization_tests}" ||
    ! /usr/bin/grep -Fq 'sora-pi-production-capability-probe-v3' "${rollout_json_validator}" ||
    /usr/bin/grep -Fq 'sora-pi-production-capability-probe-v2' "${rollout_json_validator}" ||
    ! /usr/bin/grep -Fq '"mobileConfigHealthBound"' "${rollout_json_validator}" ||
@@ -3626,13 +3646,19 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq 'minimum_dwell_seconds=172800' "${rollout_validator}" ||
    ! /usr/bin/grep -Fq 'maximum_freshness_seconds=300' "${rollout_validator}" ||
    ! /usr/bin/grep -Fq 'maximum_authorization_delay_seconds=30' "${rollout_validator}" ||
+   ! /usr/bin/grep -Fq 'maximum_taira_deployment_rollout_age_seconds=604800' "${rollout_validator}" ||
+   ! /usr/bin/grep -Fq 'Taira deployment admission must be no more than seven days old and not future-dated at every rollout gate' "${rollout_validator}" ||
+   ! /usr/bin/grep -Fq 'maximum_taira_deployment_rollout_age_seconds=604800' "${funded_canary_validator}" ||
+   ! /usr/bin/grep -Fq 'Taira deployment admission must be no more than seven days old and not future-dated for funded-canary admission' "${funded_canary_validator}" ||
    ! /usr/bin/grep -Fq 'worker_last_success' "${rollout_validator}" ||
    [ "$(/usr/bin/grep -Fc 'schemaVersion=3\nconfigRevision=%s\nendpoint=https://pi.soramitsu.io/graphql' "${rollout_validator}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'workerReady=true\nmobileConfigHealthBound=true\nhistoryBlockHeightContractDeployed=true\nnexusAvailable=true' "${rollout_validator}")" -lt 2 ] ||
    /usr/bin/grep -Fq 'schemaVersion=2\nconfigRevision=%s\nendpoint=https://pi.soramitsu.io/graphql' "${rollout_validator}" ||
    ! /usr/bin/grep -Fq 'network genesis changed or a finalized checkpoint regressed' "${rollout_validator}" ||
    ! /usr/bin/grep -Fq 'same height across rollout gates' "${rollout_validator}" ||
-   ! /usr/bin/grep -Fq 'YLWWUD25VZ.co.jp.soramitsu.sora' "${rollout_json_validator}" ||
+   ! /usr/bin/grep -Fq 'BUNDLE_IDENTIFIER = "co.jp.soramitsu.sora"' "${rollout_json_validator}" ||
+   ! /usr/bin/grep -Fq 'DEVELOPMENT_TEAM = "YLWWUD25VZ"' "${rollout_json_validator}" ||
+   ! /usr/bin/grep -Fq 'APPLICATION_IDENTIFIER = f"{DEVELOPMENT_TEAM}.{BUNDLE_IDENTIFIER}"' "${rollout_json_validator}" ||
    ! /usr/bin/grep -Fq 'all-zero placeholder' "${rollout_json_validator}" ||
    ! /usr/bin/grep -Fq 'ASN1 OID: prime256v1|NIST CURVE: P-256' "${rollout_validator}" ||
    ! /usr/bin/grep -Fq 'secure_openssl()' "${rollout_validator}" ||
@@ -3643,7 +3669,9 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq 'secure_openssl dgst -sha256' "${funded_canary_validator}" ||
    [ "$(/usr/bin/grep -Fc '/usr/bin/python3' "${rollout_validator}")" -ne "$(/usr/bin/grep -Fc '/usr/bin/python3 -I -S' "${rollout_validator}")" ] ||
    [ "$(/usr/bin/grep -Fc '/usr/bin/python3' "${funded_canary_validator}")" -ne "$(/usr/bin/grep -Fc '/usr/bin/python3 -I -S' "${funded_canary_validator}")" ] ||
-   ! /usr/bin/grep -Fq '5 success paths and 35 fail-closed mutations passed' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq '5 success paths and 37 fail-closed mutations passed' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'stale-taira-deployment-admission' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'future-taira-deployment-admission' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'sora-pi-production-capability-probe-v3' "${rollout_regression_harness}" ||
    [ "$(/usr/bin/grep -Fc 'sora-pi-production-capability-probe-v2' "${rollout_regression_harness}")" -ne 1 ] ||
    ! /usr/bin/grep -Fq 'LEGACY_PI_V2_CONTRACT_ID_NEGATIVE_TEST_ONLY' "${rollout_regression_harness}" ||
@@ -4649,7 +4677,8 @@ fi
 
 if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "static let userImportWordCounts: Set<Int> = [12, 24]" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "static let retainedSoraWordCounts: Set<Int> = [12, 15, 24]" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "case 15, 18, 21:" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "case legacyMnemonicEntropy" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "source == .mnemonicEntropy" "${wallet_network_model}" ||
    [ "$(/usr/bin/grep -Fc "allowedMnemonicWordCounts.contains(mnemonic.allWords().count)" "${account_import}")" -lt 2 ] ||
@@ -4659,6 +4688,8 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.userImportWordCounts" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq ".legacyMnemonicEntropy" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testExplicitWatchOnlyMigrationNeverSynthesizesNexusChildren" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testReleasedMnemonicFormatsSurviveDatabaseAndNetworkUpgrade" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testVersionOneMigrationPreservesSamePublicKeyOnDifferentNetworks" "${modernization_tests}" ||
    ! /usr/bin/awk '
        /private func migrateLocked\(/ { in_migrate = 1 }
        in_migrate && /let isExplicitWatchOnly =/ && stage == 0 { stage = 1 }
@@ -4668,7 +4699,7 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
        in_migrate && /private static func wipeSensitive\(/ { in_migrate = 0 }
        END { exit(stage == 4 ? 0 : 1) }
    ' "${wallet_network_model}"; then
-    echo "error: new-wallet 24-word policy, public 12/24 import, or retained 15-word SORA2-only compatibility is not enforced"
+    echo "error: new-wallet 24-word policy, public 12/24 import, or retained 15/18/21-word SORA2-only compatibility is not enforced"
     exit 1
 fi
 
@@ -5106,7 +5137,7 @@ do
     polkamarkt_locale_count=$((polkamarkt_locale_count + 1))
 done
 
-if [ "${polkamarkt_locale_count}" != "31" ] ||
+if [ "${polkamarkt_locale_count}" != "33" ] ||
    ! /usr/bin/grep -Fq "private enum PolkamarktL10n" "${polkamarkt_ui}" ||
    ! /usr/bin/grep -Fq "R.string.localizable.pageTitlePolkamarkt(" "${polkamarkt_ui}" ||
    ! /usr/bin/grep -Fq "R.string.localizable.polkamarktActionsClaimTraderPayout(" "${polkamarkt_ui}" ||
@@ -5744,11 +5775,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "200" ] ||
+    if [ "${modernization_test_count}" != "202" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 226 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 228 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -5941,15 +5972,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "200" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 200 test methods"
+if [ "${modernization_test_count}" != "202" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 202 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 226 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 226-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 228 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 228-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(
@@ -5989,7 +6020,7 @@ if ! is_unsigned_integer "${qualified_at_epoch_seconds}" ||
    [ "$(json_raw retainedCoreDataCohortCount "${migration_qualification}")" != "4" ] ||
    [ "$(json_raw singleAccountCohortCount "${migration_qualification}")" != "2" ] ||
    [ "$(json_raw multiAccountCohortCount "${migration_qualification}")" != "2" ] ||
-   [ "$(json_raw successfulSecretSourceCohortCount "${migration_qualification}")" != "6" ] ||
+   [ "$(json_raw successfulSecretSourceCohortCount "${migration_qualification}")" != "9" ] ||
    [ "$(json_raw secretFailureCohortCount "${migration_qualification}")" != "2" ] ||
    [ "$(json_raw currentSchemaSafetySnapshotCohortCount "${migration_qualification}")" != "2" ] ||
    [ "$(json_raw interruptionPointCohortCount "${migration_qualification}")" != "5" ] ||
@@ -6429,10 +6460,16 @@ fi
 
 if ! /usr/bin/grep -Fq "enum NexusSendAvailabilityPolicy" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "networkId != .taira || tairaEnabled" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "networkAdmitted" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "signerQualified" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "finalityQualified" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "TairaDeploymentBinding.admittedFromBundle != nil" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "signer.isQualified(for: configuration)" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "finalityReader.isQualified(for: configuration)" "${nexus_service}" ||
    [ "$(/usr/bin/grep -Fc 'validateLiveFeatureFlags(for: request.networkId)' "${nexus_service}")" -lt 5 ] ||
    [ "$(/usr/bin/grep -Fc 'sendAvailabilityAllows(request.networkId)' "${nexus_service}")" -lt 4 ] ||
-   ! /usr/bin/grep -Fq "testTairaSendAvailabilityRequiresVisibleTestNetworks" "${modernization_tests}"; then
-    echo "error: Taira sends are not bound to the explicit test-network visibility choice"
+   ! /usr/bin/grep -Fq "testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline" "${modernization_tests}"; then
+    echo "error: Taira sends are not bound to admission, visibility, signing, and finality qualification"
     exit 1
 fi
 
@@ -6484,7 +6521,7 @@ if ! /usr/bin/grep -Fq "committedPendingReconciliation" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "if !wasLegacyUnreconciledCommit" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "legacyUnreconciled.requiresCommittedHistoryReconciliation" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "history: page.items + page.items" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq "A conflicting XOR instruction under the signed hash was ignored" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "A conflicting XOR projection under the signed hash was ignored" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "A new pending commit accepted a zero block height" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "A reconciled commit omitted its exact asset identity" "${modernization_tests}"; then
     echo "error: Nexus finality lacks exact committed-history reconciliation"
@@ -6496,7 +6533,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq 'walletStorageReady' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'func prepareForWalletStorageMigration()' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'try Task.checkCancellation()' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'activeSubmissionIds.contains(transaction.id)' "${nexus_service}" ||
+   ! /usr/bin/grep -Fq 'let ownedByLiveSubmission = activeSubmissionIds.contains(' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'let lifecycleLease = await WalletLifecycleCoordinator.shared' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'let chainId: UUID?' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'chainId: configuration.chainId' "${nexus_service}" ||
@@ -6509,8 +6546,8 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq 'unboundHashScopes.allSatisfy' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'let isCurrentChain = retainedConfiguration.map' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'return isCurrentChain &&' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'transaction.chainId == journalConfiguration.chainId' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'transaction.chainId == configuration.chainId' "${nexus_service}" ||
+   [ "$(/usr/bin/grep -Fc 'transaction.hasCurrentDeploymentIdentity(' "${nexus_service}")" -lt 4 ] ||
+   ! /usr/bin/grep -Fq 'for: journalConfiguration' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'struct NexusFinalityCheckpoint: Equatable {' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'networkId == configuration.networkId' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'chainId == configuration.chainId' "${nexus_service}" ||
@@ -6536,19 +6573,32 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq 'resumePendingNexusTransactions()' "${app_delegate}" ||
    ! /usr/bin/grep -Fq 'func applicationWillEnterForeground' "${app_delegate}" ||
    ! /usr/bin/grep -Fq 'URLQueryItem(name: "scope", value: "global")' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'status.hasAuthoritativeGlobalResolution' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'for page in 1 ... maximumPages' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'private static func parseBatchTransfer' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq '"asset_definition", "assetDefinition"' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq '!candidate.isEmpty, !candidate.contains("#")' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'canonicalExplicitSource != canonicalEmbeddedSource' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'status.hasAuthoritativeGlobalResolution' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'for page in 1 ... maximumPages' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'enum NexusMCPAccountHistoryContract' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'static let toolName = "iroha.accounts.history"' "${nexus_service}" ||
+	   /usr/bin/grep -Fq 'iroha.instructions.list' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'method: "initialize"' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'method: "tools/list"' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'validateToolList' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq '"account_history_index", "account_history_fanout"' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'sourceItemIDs.insert(id).inserted' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'timestamp > 0,' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'expectedIndexedBlockHash' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'NexusToriiError.deploymentUnavailable' "${nexus_service}" ||
+	   /usr/bin/grep -Fq 'taira-recovery.invalid' "${wallet_network_model}" ||
 	   /usr/bin/grep -Fq 'container.decode(Decimal.self)' "${nexus_service}" ||
 	   /usr/bin/grep -Fq 'container.decode(Decimal.self)' "${pi_client}" ||
 	   /usr/bin/grep -Fq 'container.decode(Double.self)' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq 'container.decode(Int64.self)' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq 'container.decode(UInt64.self)' "${pi_client}" ||
-   ! /usr/bin/grep -Fq 'testNexusCommittedHistoryRejectsMalformedOrConflictingSourceIdentity' "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq 'testNexusBatchHistoryRequiresExactXorDefinitionPerLeg' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'testNexusCommittedHistoryUsesIndexedAccountProjection' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'XCTAssertNil(complete.indexedBlockHash)' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'testNexusCommittedHistoryRejectsMalformedProjectionRows' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'timestamp: 0' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'testNexusCommittedHistoryValidatesRawOnChainAndFailedRowsBeforeFiltering' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'testNexusMCPAccountHistoryContractNegotiatesExactToolSchema' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'An unbound Taira pending row was accepted' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusPipelineStatusRequiresGlobalAuthoritativeResolution' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusAppliedStatusRequiresStateAndPositiveBlock' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusTerminalFailureRequiresStateResolution' "${modernization_tests}" ||
@@ -6607,6 +6657,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'guard firstFailure == nil, !requiresFanout else' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'firstFailure == nil' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'rawCounts.allSatisfy({ $0 != nil })' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'guard routeLaneID == nil else' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'counts[1] == counts[0]' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'counts[0] > 0' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'counts.dropFirst(2).allSatisfy({ $0 == 0 })' "${nexus_service}" ||
@@ -6652,7 +6703,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'structured["items"] == nil' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'embeddedMCPResult(body: .null)' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'embeddedMCPResult(includesStructuredShadowItems: true)' "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq 'caller consuming global instruction history opts into the stricter' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'account-history projection opts into the stricter contract' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'static func accountTransactionsURL(' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'URLQueryItem(name: "asset_id", value: assetDefinitionID)' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'struct NexusAccountTransactionProof {' "${nexus_service}" ||
@@ -6727,7 +6778,16 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'legacyRows[0].removeValue(forKey: "assetDefinitionID")' "${modernization_tests}" ||
 	   /usr/bin/grep -Fq 'assetDefinitionID: "xor#universal"' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusSubmissionReceiptBindsEveryHashAndPosition' "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq 'testGenericWireJSONRejectsLossyNumericTokens' "${modernization_tests}"; then
+	   ! /usr/bin/grep -Fq 'testGenericWireJSONRejectsLossyNumericTokens' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'enum NexusStrictJSONAdmission {' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'String(data: data, encoding: .utf8) != nil' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'guard names.insert(name).inserted' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'let value = Int64(token), String(value) == token' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'let value = UInt64(token), String(value) == token' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'private func decodeResponse<Value: Decodable>(' "${nexus_service}" ||
+	   [ "$(/usr/bin/grep -Fc 'decodeResponse(' "${nexus_service}")" -lt 7 ] ||
+	   ! /usr/bin/grep -Fq '#"{"total":1,"\u0074otal":2}"#' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq '#"{"total":1.0000000000000000001}"#' "${modernization_tests}"; then
     echo "error: Nexus restart recovery, routing provenance, history identity, or exact numeric parsing is incomplete"
     exit 1
 fi
@@ -7044,7 +7104,11 @@ if /usr/bin/grep -Fq "createSilentImportInteractor" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "performLegacyWalletUpgrade" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "shouldDeferStorageMigration" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "LegacyWalletUpgradePolicy.shouldDeferStorageMigration" "${splash_interactor}" ||
-   ! /usr/bin/grep -Fq "Set(try keychain.allKeyIdentifiers())" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "keystore: keychain" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "legacyIrohaKeyVerified: Bool = false" "${root_interactor}" ||
+   ! /usr/bin/grep -Fq "verifyLegacyIrohaKeyIfPresent(entropy: entropy)" "${root_interactor}" ||
+   ! /usr/bin/grep -Fq "verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy)" "${keystore_extensions}" ||
+   ! /usr/bin/grep -Fq "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq 'keyIdentifiers.contains("privateKey")' "${root_interactor}" ||
    ! /usr/bin/grep -Fq "expectedEntropyDigest" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "LegacyWalletUpgradeDisplayNameResolver" "${root_interactor}" ||

@@ -43,8 +43,8 @@ enum ConfirmationState: Equatable {
         switch self {
         case .readyToSubmit:
             return R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
-        case .notEnoughtBalance(let assetSymbol):
-            return R.string.localizable.polkaswapInsufficientBalance(assetSymbol, preferredLanguages: .currentLocale)
+        case .notEnoughtBalance:
+            return R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
         }
     }
 
@@ -53,8 +53,7 @@ enum ConfirmationState: Equatable {
         case .readyToSubmit:
             return .bgSurface
         case .notEnoughtBalance:
-            let disableColor = SoramitsuUI.shared.theme.palette.color(.fgPrimary).withAlphaComponent(0.04)
-            return .custom(uiColor: disableColor)
+            return .fgSecondary
         }
     }
 }
@@ -280,6 +279,19 @@ extension ConfirmSendingViewModel {
                       detailItem,
                       SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
                       buttonItem]
+        if case let .notEnoughtBalance(symbol) = confirmationState {
+            let asset = assetManager.assetInfo(for: assetId)
+            let payingFee = asset?.isFeeAsset == true
+            let required = firstAssetAmount + (payingFee ? fee : 0)
+            let missingAsset = max(0, required - firstAssetBalance.balance.decimalValue)
+            let feeBalance = assetsProvider?.getBalances(with: [.xor]).first?.balance.decimalValue ?? 0
+            let shortfall = missingAsset > 0 ? missingAsset : max(0, fee - feeBalance)
+            let precision = missingAsset > 0 ? (asset?.precision ?? 18) : (assetManager.assetInfo(for: .xor)?.precision ?? 18)
+            let formatter = NumberFormatter.inputedAmoutFormatter(with: precision)
+            let missing = formatter.stringFromDecimal(shortfall) ?? NSDecimalNumber(decimal: shortfall).stringValue
+            let message = String(format: WalletUX.text("You need %@ more %@ to cover this send and its network fee. Reduce the amount or receive more funds."), missing, symbol)
+            self.items.insert(WalletInlineNoticeItem(message), at: self.items.count - 1)
+        }
         self.setupItems?(self.items)
     }
 

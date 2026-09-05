@@ -3,6 +3,14 @@ import UIKit
 public final class SoramitsuLabel: UILabel, Atom {
 	public let sora: SoramitsuLabelConfiguration<SoramitsuLabel>
 
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+            sora.updateAttributedText()
+            invalidateIntrinsicContentSize()
+        }
+    }
+
 	public override var intrinsicContentSize: CGSize {
 		let labelSize = super.intrinsicContentSize
 		let width = sora.contentInsets.horizontal + labelSize.width

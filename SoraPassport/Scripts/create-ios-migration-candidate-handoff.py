@@ -31,7 +31,11 @@ EXPECTED_EXPORT_OPTIONS = {
     "destination": "export",
     "manageAppVersionAndBuildNumber": False,
     "method": "app-store-connect",
-    "signingStyle": "automatic",
+    "provisioningProfiles": {
+        "co.jp.soramitsu.sora": "7ae520bc-599b-48ae-abfa-627eef530f0c",
+    },
+    "signingCertificate": "84AB95335BE14CAE9B050A353910F86FF2F9539B",
+    "signingStyle": "manual",
     "stripSwiftSymbols": True,
     "teamID": "YLWWUD25VZ",
     "uploadSymbols": False,

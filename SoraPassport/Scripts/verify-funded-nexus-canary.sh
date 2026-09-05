@@ -20,6 +20,7 @@ maximum_signature_bytes=4096
 maximum_public_key_bytes=65536
 maximum_ipa_bytes=4294967296
 maximum_path_characters=4096
+maximum_taira_deployment_rollout_age_seconds=604800
 
 fail() {
     /usr/bin/printf 'error: %s\n' "$1" >&2
@@ -48,6 +49,35 @@ is_epoch() {
     value="$1"
     case "${value}" in ""|*[!0-9]*) return 1 ;; esac
     [ "${#value}" -le 10 ] && [ "${value}" -gt 0 ] 2>/dev/null && [ "${value}" -le 9999999999 ] 2>/dev/null
+}
+
+is_exact_sequence() {
+    value="$1"
+    case "${value}" in
+        ""|0|0*|*[!0-9]*) return 1 ;;
+    esac
+    [ "${#value}" -le 16 ] &&
+        [ "${value}" -le 9007199254740991 ] 2>/dev/null
+}
+
+admission_projection_value() {
+    projection="$1"
+    projection_key="$2"
+    /usr/bin/printf '%s\n' "${projection}" | /usr/bin/awk -v key="${projection_key}" '
+        {
+            prefix = key "="
+            for (field_index = 1; field_index <= NF; field_index += 1) {
+                if (substr($field_index, 1, length(prefix)) == prefix) {
+                    count += 1
+                    value = substr($field_index, length(prefix) + 1)
+                }
+            }
+        }
+        END {
+            if (count != 1 || value == "") exit 1
+            print value
+        }
+    '
 }
 
 require_absolute_path() {
@@ -134,6 +164,7 @@ taira_deployment_operator_key="${IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_PATH:-
 taira_deployment_reviewer_key="${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_PATH:-}"
 taira_deployment_operator_key_sha="${IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256:-}"
 taira_deployment_reviewer_key_sha="${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256:-}"
+taira_deployment_expected_sequence="${IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER:-}"
 taira_deployment_evaluation_epoch="${IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS:-}"
 
 for path_and_label in \
@@ -162,7 +193,13 @@ is_lower_hex_40 "${source_revision}" || fail "candidate source revision must be 
 is_epoch "${evaluation_epoch}" || fail "explicit production release evaluation epoch is required"
 is_lower_hex_64 "${taira_deployment_operator_key_sha}" || fail "Taira deployment operator key requires an independent SHA-256 pin"
 is_lower_hex_64 "${taira_deployment_reviewer_key_sha}" || fail "Taira deployment reviewer key requires an independent SHA-256 pin"
+is_exact_sequence "${taira_deployment_expected_sequence}" || fail "protected exact Taira deployment manifest sequence is required"
 is_epoch "${taira_deployment_evaluation_epoch}" || fail "explicit Taira deployment evaluation epoch is required"
+current_epoch="$(/bin/date +%s)"
+minimum_taira_deployment_epoch=$((current_epoch - maximum_taira_deployment_rollout_age_seconds))
+[ "${taira_deployment_evaluation_epoch}" -ge "${minimum_taira_deployment_epoch}" ] &&
+    [ "${taira_deployment_evaluation_epoch}" -le "${current_epoch}" ] ||
+    fail "Taira deployment admission must be no more than seven days old and not future-dated for funded-canary admission"
 
 snapshot_directory="$(/usr/bin/mktemp -d /private/tmp/sora-ios-funded-canary.XXXXXX)" ||
     fail "cannot create private funded-canary evidence directory"
@@ -171,7 +208,7 @@ trap cleanup_snapshots EXIT
 trap 'exit 1' HUP INT TERM
 
 taira_deployment_admission="${snapshot_directory}/taira-deployment-admission.json"
-/usr/bin/python3 -B -I -S "${taira_deployment_validator}" --verify-protected \
+taira_deployment_result="$(/usr/bin/python3 -B -I -S "${taira_deployment_validator}" --verify-protected \
     --manifest "${taira_deployment_manifest}" \
     --operator-signature "${taira_deployment_operator_signature}" \
     --reviewer-signature "${taira_deployment_reviewer_signature}" \
@@ -179,9 +216,23 @@ taira_deployment_admission="${snapshot_directory}/taira-deployment-admission.jso
     --reviewer-public-key "${taira_deployment_reviewer_key}" \
     --operator-key-sha256 "${taira_deployment_operator_key_sha}" \
     --reviewer-key-sha256 "${taira_deployment_reviewer_key_sha}" \
+    --expected-manifest-sequence-number "${taira_deployment_expected_sequence}" \
     --evaluated-at-epoch-seconds "${taira_deployment_evaluation_epoch}" \
-    --output "${taira_deployment_admission}" >/dev/null ||
+    --output "${taira_deployment_admission}")" ||
     fail "Taira deployment manifest did not pass protected dual-signature admission"
+case "${taira_deployment_result}" in
+    manifestSha256=????????????????????????????????????????????????????????????????\ admissionSha256=????????????????????????????????????????????????????????????????\ manifestSequenceNumber=*\ currentChainId=????????-????-????-????-????????????\ currentGenesisHash=????????????????????????????????????????????????????????????????\ currentDeploymentEpoch=*\ currentToriiBaseUrl=https://*\ currentMcpEndpoint=https://*/v1/mcp\ currentExplorerBaseUrl=https://*\ retiredChainId=????????-????-????-????-????????????\ retiredGenesisHash=????????????????????????????????????????????????????????????????\ retiredDeploymentEpoch=*) ;;
+    *) fail "Taira deployment admission returned an invalid projection" ;;
+esac
+[ "$({ /usr/bin/printf '%s\n' "${taira_deployment_result}" | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })" = "1" ] ||
+    fail "Taira deployment admission returned multiple projections"
+taira_deployment_admission_sha="$(admission_projection_value "${taira_deployment_result}" admissionSha256)"
+taira_deployment_manifest_sequence="$(admission_projection_value "${taira_deployment_result}" manifestSequenceNumber)"
+is_lower_hex_64 "${taira_deployment_admission_sha}" || fail "Taira deployment admission digest is invalid"
+[ "${taira_deployment_manifest_sequence}" = "${taira_deployment_expected_sequence}" ] ||
+    fail "Taira deployment admission sequence differs from protected release sequence"
+IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256="${taira_deployment_admission_sha}"
+export IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256
 
 snapshot_input() {
     source_path="$1"
@@ -211,10 +262,13 @@ taira_signature_snapshot="$(snapshot_input "${taira_receipt_signature}" "${maxim
 minamoto_snapshot="$(snapshot_input "${minamoto_receipt}" "${maximum_receipt_bytes}" "funded Minamoto receipt" minamoto.json)"
 minamoto_signature_snapshot="$(snapshot_input "${minamoto_receipt_signature}" "${maximum_signature_bytes}" "funded Minamoto signature" minamoto.sig)"
 
-[ "$(secure_sha256 "${rollout_trust_snapshot}" "${maximum_receipt_bytes}" "rollout trust root")" = "${rollout_trust_sha}" ] ||
+rollout_trust_snapshot_sha="$(secure_sha256 "${rollout_trust_snapshot}" "${maximum_receipt_bytes}" "rollout trust root")"
+[ "${rollout_trust_snapshot_sha}" = "${rollout_trust_sha}" ] ||
     fail "rollout trust root differs from its independent pin"
 [ "$(secure_sha256 "${funded_trust_snapshot}" "${maximum_receipt_bytes}" "funded trust root")" = "${funded_trust_sha}" ] ||
     fail "funded canary trust root differs from its independent pin"
+IOS_PRODUCTION_ROLLOUT_TRUST_VERIFIED_SHA256="${rollout_trust_snapshot_sha}"
+export IOS_PRODUCTION_ROLLOUT_TRUST_VERIFIED_SHA256
 /usr/bin/python3 -I -S "${rollout_json_validator}" trust "${rollout_trust_snapshot}" ||
     fail "rollout controller trust root remains blocked"
 /usr/bin/python3 -I -S "${json_validator}" trust "${funded_trust_snapshot}" ||
@@ -253,11 +307,15 @@ verify_signature() {
         fail "${label} changed during signature verification"
 }
 
-/usr/bin/python3 -I -S "${rollout_json_validator}" artifact "${artifact_snapshot}" "${candidate_ipa}" "${taira_deployment_admission}" ||
-    fail "artifact identity does not bind the actual signed IPA"
 [ "$(json_raw controllerId "${artifact_snapshot}")" = "$(json_raw controllerId "${rollout_trust_snapshot}")" ] ||
     fail "artifact identity names a different rollout controller"
 verify_signature "${artifact_snapshot}" "${artifact_signature_snapshot}" "${controller_key_snapshot}" "artifact identity receipt"
+IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256="$(
+    secure_sha256 "${artifact_snapshot}" "${maximum_json_bytes}" "artifact identity receipt"
+)"
+export IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256
+/usr/bin/python3 -I -S "${rollout_json_validator}" artifact "${artifact_snapshot}" "${candidate_ipa}" "${taira_deployment_admission}" ||
+    fail "artifact identity does not bind the actual signed IPA"
 verify_signature "${taira_snapshot}" "${taira_signature_snapshot}" "${reviewer_key_snapshot}" "funded Taira canary receipt"
 verify_signature "${minamoto_snapshot}" "${minamoto_signature_snapshot}" "${reviewer_key_snapshot}" "funded Minamoto canary receipt"
 verify_signature "${admission_snapshot}" "${admission_signature_snapshot}" "${reviewer_key_snapshot}" "funded canary admission receipt"

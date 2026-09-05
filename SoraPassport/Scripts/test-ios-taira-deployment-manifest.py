@@ -24,7 +24,9 @@ SAFE_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"}
 
 
 def canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+    return json.dumps(
+        value, indent=2, ensure_ascii=False, separators=(",", ": ")
+    ).encode() + b"\n"
 
 
 def synthetic(label: str) -> str:
@@ -43,22 +45,41 @@ class Workspace:
         self.operator_signature = self.root / "operator.sig"
         self.reviewer_signature = self.root / "reviewer.sig"
         self.output = self.root / "admission.json"
-        self.manifest = self.value(current)
         self._keypair(self.operator_private, self.operator_public)
         self._keypair(self.reviewer_private, self.reviewer_public)
+        self.operator_pin = self._spki_pin(self.operator_public)
+        self.reviewer_pin = self._spki_pin(self.reviewer_public)
+        self.manifest = self.value(
+            current,
+            self.operator_pin,
+            self.reviewer_pin,
+        )
 
     @staticmethod
-    def value(current: str) -> dict[str, Any]:
+    def value(
+        current: str,
+        operator_pin: str,
+        reviewer_pin: str,
+    ) -> dict[str, Any]:
         retired = OLD if current == NEW else NEW
         return {
             "schemaVersion": 1,
-            "contractId": "sora-taira-deployment-manifest-v1",
-            "manifestId": f"taira-deployment-{current[:8]}",
+            "contractId": "sora-taira-deployment-epoch-manifest-v1",
+            "status": "qualified",
+            "networkId": "taira",
+            "manifestSequenceNumber": 17,
             "issuedAtEpochSeconds": EVALUATED_AT - 60,
-            "expiresAtEpochSeconds": EVALUATED_AT + 3_600,
+            "reviewedAtEpochSeconds": EVALUATED_AT - 30,
+            "currentEpoch": 200,
             "authorities": {
-                "operatorKeyId": "release-operator-2026",
-                "reviewerKeyId": "deployment-reviewer-2026",
+                "operator": {
+                    "keyId": "release-operator-2026",
+                    "publicKeySha256": operator_pin,
+                },
+                "independentReviewer": {
+                    "keyId": "deployment-reviewer-2026",
+                    "publicKeySha256": reviewer_pin,
+                },
             },
             "pendingRowPolicy": {
                 "schemaVersion": 77,
@@ -68,22 +89,31 @@ class Workspace:
             },
             "epochs": [
                 {
+                    "epoch": 200,
                     "chainId": current,
-                    "role": "current",
-                    "deploymentEpoch": 200,
-                    "genesisHash": synthetic(f"current-{current}"),
-                    "canonicalToriiBaseUrl": "https://public-01.taira.example.org",
-                    "publicMcpEndpoint": "https://public-01.taira.example.org/v1/mcp",
+                    "genesisSha256": synthetic(f"current-{current}"),
+                    "i105Discriminant": 369,
+                    "status": "current",
+                    "toriiBaseUrl": "https://public-01.taira.example.org",
+                    "publicNodeMcpEndpoint": "https://public-01.taira.example.org/v1/mcp",
+                    "explorerBaseUrl": "https://explorer.taira.example.org",
                 },
                 {
+                    "epoch": 100,
                     "chainId": retired,
-                    "role": "retired",
-                    "deploymentEpoch": 100,
-                    "genesisHash": synthetic(f"retired-{retired}"),
-                    "canonicalToriiBaseUrl": None,
-                    "publicMcpEndpoint": None,
+                    "genesisSha256": synthetic(f"retired-{retired}"),
+                    "i105Discriminant": 369,
+                    "status": "retired",
+                    "toriiBaseUrl": None,
+                    "publicNodeMcpEndpoint": None,
+                    "explorerBaseUrl": None,
                 },
             ],
+            "authorization": {
+                "authorizesDeploymentIdentity": True,
+                "authorizesFundedCanary": False,
+                "authorizesRelease": False,
+            },
         }
 
     def _run(self, arguments: list[str], *, check: bool = True) -> subprocess.CompletedProcess[bytes]:
@@ -103,6 +133,13 @@ class Workspace:
         os.chmod(private, 0o600)
         os.chmod(public, 0o600)
 
+    def _spki_pin(self, public: Path) -> str:
+        result = self._run([
+            "/usr/bin/openssl", "pkey", "-pubin", "-in", str(public),
+            "-outform", "DER",
+        ])
+        return hashlib.sha256(result.stdout).hexdigest()
+
     def write_and_sign(self, *, sign_before_mutation: dict[str, Any] | None = None) -> None:
         signed_value = self.manifest if sign_before_mutation is None else sign_before_mutation
         self.manifest_path.write_bytes(canonical(signed_value))
@@ -120,7 +157,13 @@ class Workspace:
             self.manifest_path.write_bytes(canonical(self.manifest))
             os.chmod(self.manifest_path, 0o600)
 
-    def command(self, *, operator_pin: str | None = None, reviewer_pin: str | None = None) -> list[str]:
+    def command(
+        self,
+        *,
+        operator_pin: str | None = None,
+        reviewer_pin: str | None = None,
+        expected_sequence: str = "17",
+    ) -> list[str]:
         return [
             "/usr/bin/python3", "-B", "-I", "-S", str(TOOL), "--verify-protected",
             "--manifest", str(self.manifest_path),
@@ -128,8 +171,9 @@ class Workspace:
             "--reviewer-signature", str(self.reviewer_signature),
             "--operator-public-key", str(self.operator_public),
             "--reviewer-public-key", str(self.reviewer_public),
-            "--operator-key-sha256", operator_pin or hashlib.sha256(self.operator_public.read_bytes()).hexdigest(),
-            "--reviewer-key-sha256", reviewer_pin or hashlib.sha256(self.reviewer_public.read_bytes()).hexdigest(),
+            "--operator-key-sha256", operator_pin or self.operator_pin,
+            "--reviewer-key-sha256", reviewer_pin or self.reviewer_pin,
+            "--expected-manifest-sequence-number", expected_sequence,
             "--evaluated-at-epoch-seconds", str(EVALUATED_AT),
             "--output", str(self.output),
         ]
@@ -152,6 +196,7 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
         receipt = json.loads(workspace.output.read_text())
         self.assertEqual(receipt["current"]["chainId"], current)
         self.assertEqual(receipt["retired"]["chainId"], OLD if current == NEW else NEW)
+        self.assertEqual(receipt["manifestSequenceNumber"], 17)
         self.assertEqual(stat.S_IMODE(workspace.output.stat().st_mode), 0o600)
         return receipt
 
@@ -176,18 +221,29 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
 
     def test_rejects_convenience_route(self) -> None:
         error = self.mutation(lambda value: value["epochs"][0].update({
-            "canonicalToriiBaseUrl": "https://taira.sora.org",
-            "publicMcpEndpoint": "https://taira.sora.org/v1/mcp",
+            "toriiBaseUrl": "https://taira.sora.org",
+            "publicNodeMcpEndpoint": "https://taira.sora.org/v1/mcp",
         }))
         self.assertIn("must not use taira.sora.org", error)
+        self.assertIn("must not use taira.sora.org", self.mutation(
+            lambda value: value["epochs"][0].update({
+                "explorerBaseUrl": "https://taira.sora.org",
+            })
+        ))
+        self.assertIn("canonical explicit public HTTPS origin", self.mutation(
+            lambda value: value["epochs"][0].update({
+                "toriiBaseUrl": "https://public-01.taira.example.org:443",
+                "publicNodeMcpEndpoint": "https://public-01.taira.example.org:443/v1/mcp",
+            })
+        ))
 
     def test_rejects_non_https_and_non_exact_mcp_routes(self) -> None:
         self.assertIn("HTTPS", self.mutation(lambda value: value["epochs"][0].update({
-            "canonicalToriiBaseUrl": "http://public-01.taira.example.org",
-            "publicMcpEndpoint": "http://public-01.taira.example.org/v1/mcp",
+            "toriiBaseUrl": "http://public-01.taira.example.org",
+            "publicNodeMcpEndpoint": "http://public-01.taira.example.org/v1/mcp",
         })))
         self.assertIn("explicit canonical /v1/mcp", self.mutation(
-            lambda value: value["epochs"][0].update({"publicMcpEndpoint": "https://public-01.taira.example.org/mcp"})
+            lambda value: value["epochs"][0].update({"publicNodeMcpEndpoint": "https://public-01.taira.example.org/mcp"})
         ))
 
     def test_rejects_missing_or_duplicate_known_uuid(self) -> None:
@@ -195,41 +251,42 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
         self.assertIn("known UUIDs", self.mutation(lambda value: value["epochs"][1].update({"chainId": "00000000-0000-4000-8000-000000000001"})))
 
     def test_rejects_duplicate_genesis_or_epoch(self) -> None:
-        self.assertIn("distinct", self.mutation(lambda value: value["epochs"][1].update({"genesisHash": value["epochs"][0]["genesisHash"]})))
-        self.assertIn("distinct", self.mutation(lambda value: value["epochs"][1].update({"deploymentEpoch": value["epochs"][0]["deploymentEpoch"]})))
-        self.assertIn("newer", self.mutation(lambda value: value["epochs"][0].update({"deploymentEpoch": 50})))
+        self.assertIn("distinct", self.mutation(lambda value: value["epochs"][1].update({"genesisSha256": value["epochs"][0]["genesisSha256"]})))
+        self.assertIn("distinct", self.mutation(lambda value: value["epochs"][1].update({"epoch": value["epochs"][0]["epoch"]})))
+        self.assertIn("newer", self.mutation(lambda value: value["epochs"][0].update({"epoch": 50})))
 
     def test_rejects_transport_on_retired_identity(self) -> None:
-        self.assertIn("must not authorize transport", self.mutation(lambda value: value["epochs"][1].update({
-            "canonicalToriiBaseUrl": "https://retired.taira.example.org",
-            "publicMcpEndpoint": "https://retired.taira.example.org/v1/mcp",
+        self.assertIn("must not authorize routes", self.mutation(lambda value: value["epochs"][1].update({
+            "toriiBaseUrl": "https://retired.taira.example.org",
+            "publicNodeMcpEndpoint": "https://retired.taira.example.org/v1/mcp",
         })))
 
     def test_rejects_schema77_reinterpretation_or_policy_drift(self) -> None:
         self.assertIn("schema-77", self.mutation(lambda value: value["pendingRowPolicy"].update({"reinterpretationAllowed": True})))
         self.assertIn("schema-77", self.mutation(lambda value: value["pendingRowPolicy"].update({"mismatchedCurrentDisposition": "rewrite-current"})))
 
-    def test_rejects_stale_expired_and_future_manifests(self) -> None:
-        self.assertIn("older than seven days", self.mutation(lambda value: value.update({
-            "issuedAtEpochSeconds": EVALUATED_AT - 8 * 24 * 60 * 60,
-            "expiresAtEpochSeconds": EVALUATED_AT + 1,
+    def test_rejects_stale_and_future_reviews(self) -> None:
+        self.assertIn("stale", self.mutation(lambda value: value.update({
+            "issuedAtEpochSeconds": EVALUATED_AT - 8 * 24 * 60 * 60 - 60,
+            "reviewedAtEpochSeconds": EVALUATED_AT - 8 * 24 * 60 * 60,
         })))
-        self.assertIn("issued too far", self.mutation(lambda value: value.update({
-            "issuedAtEpochSeconds": EVALUATED_AT + 61,
-            "expiresAtEpochSeconds": EVALUATED_AT + 3600,
+        self.assertIn("future-dated", self.mutation(lambda value: value.update({
+            "issuedAtEpochSeconds": EVALUATED_AT,
+            "reviewedAtEpochSeconds": EVALUATED_AT + 61,
         })))
 
     def test_rejects_stale_mixed_and_noncanonical_shapes(self) -> None:
         self.assertIn("stale, mixed", self.mutation(lambda value: value.update({"repositorySelectedCurrent": NEW})))
         workspace = Workspace()
         workspace.write_and_sign()
-        workspace.manifest_path.write_bytes(json.dumps(workspace.manifest, indent=2).encode())
+        workspace.manifest_path.write_bytes(json.dumps(workspace.manifest, separators=(",", ":")).encode())
         os.chmod(workspace.manifest_path, 0o600)
         self.assertIn("not canonical JSON", workspace.invoke(False).stderr.decode())
 
     def test_rejects_bad_signature_and_key_pin(self) -> None:
         self.assertIn("signature verification failed", self.mutation(
-            lambda value: value.update({"manifestId": "changed-after-signing"}), stale_signature=True
+            lambda value: value.update({"reviewedAtEpochSeconds": EVALUATED_AT - 29}),
+            stale_signature=True,
         ))
         workspace = Workspace()
         workspace.write_and_sign()
@@ -238,7 +295,28 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=SAFE_ENV, timeout=30,
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("protected SHA-256 pin", result.stderr.decode())
+        self.assertIn("protected key pins differ", result.stderr.decode())
+
+    def test_rejects_manifest_sequence_different_from_protected_release_sequence(self) -> None:
+        workspace = Workspace()
+        workspace.write_and_sign()
+        result = subprocess.run(
+            workspace.command(expected_sequence="16"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=SAFE_ENV,
+            timeout=30,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("protected exact release sequence", result.stderr.decode())
+
+    def test_signature_verification_consumes_only_protected_in_memory_bytes(self) -> None:
+        source = TOOL.read_text()
+        self.assertNotIn("validate_public_key(operator_key_path", source)
+        self.assertNotIn("validate_public_key(reviewer_key_path", source)
+        self.assertNotIn("verify_signature(manifest_path", source)
+        self.assertIn("input_bytes=manifest_raw", source)
+        self.assertIn("pass_fds=(key_descriptor, signature_descriptor)", source)
 
     def test_rejects_symlink_hardlink_permissions_and_existing_output(self) -> None:
         workspace = Workspace()
@@ -267,9 +345,10 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
 
     def test_rejects_same_operator_and_reviewer_authority(self) -> None:
         workspace = Workspace()
-        workspace.manifest["authorities"]["reviewerKeyId"] = workspace.manifest["authorities"]["operatorKeyId"]
+        workspace.manifest["authorities"]["independentReviewer"]["keyId"] = \
+            workspace.manifest["authorities"]["operator"]["keyId"]
         workspace.write_and_sign()
-        self.assertIn("distinct canonical identifiers", workspace.invoke(False).stderr.decode())
+        self.assertIn("authorities or protected key pins differ", workspace.invoke(False).stderr.decode())
 
 
 if __name__ == "__main__":

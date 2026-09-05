@@ -406,11 +406,21 @@ def scalar(value: Any) -> str:
 def configure_authenticated_taira(admission_path: str) -> None:
     global TAIRA_DEPLOYMENT
     admission, raw = load_json_record(admission_path, 128 * 1024, string_limit=2_048)
+    admission_sha256 = sha256_bytes(raw)
+    expected_admission_sha256 = os.environ.get(
+        "IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256", ""
+    )
+    if (
+        HEX_64.fullmatch(expected_admission_sha256) is None
+        or expected_admission_sha256 == "0" * 64
+        or admission_sha256 != expected_admission_sha256
+    ):
+        fail("Taira deployment admission bytes differ from the verifier-pinned snapshot")
     root = exact_keys(
         admission,
         {
             "schemaVersion", "contractId", "status",
-            "evaluatedAtEpochSeconds", "manifestSha256",
+            "evaluatedAtEpochSeconds", "manifestSequenceNumber", "manifestSha256",
             "operatorSignatureSha256", "reviewerSignatureSha256",
             "operatorPublicKeySpkiSha256", "reviewerPublicKeySpkiSha256",
             "current", "retired", "pendingRowPolicy",
@@ -421,10 +431,11 @@ def configure_authenticated_taira(admission_path: str) -> None:
     require_string(
         root["contractId"],
         "Taira admission contractId",
-        "sora-ios-taira-deployment-admission-v1",
+        "sora-ios-taira-deployment-admission-v2",
     )
     require_string(root["status"], "Taira admission status", "admitted")
     require_int(root["evaluatedAtEpochSeconds"], "Taira admission evaluation", 1)
+    require_int(root["manifestSequenceNumber"], "Taira admission manifest sequence", 1, MAX_SAFE_INTEGER)
     for key in (
         "manifestSha256", "operatorSignatureSha256",
         "reviewerSignatureSha256", "operatorPublicKeySpkiSha256",
@@ -435,7 +446,7 @@ def configure_authenticated_taira(admission_path: str) -> None:
         fail("Taira deployment operator and reviewer keys are not distinct")
     epoch_keys = {
         "chainId", "role", "deploymentEpoch", "genesisHash",
-        "canonicalToriiBaseUrl", "publicMcpEndpoint",
+        "canonicalToriiBaseUrl", "publicMcpEndpoint", "explorerBaseUrl",
     }
     current = exact_keys(root["current"], epoch_keys, "Taira admission current")
     retired = exact_keys(root["retired"], epoch_keys, "Taira admission retired")
@@ -451,11 +462,15 @@ def configure_authenticated_taira(admission_path: str) -> None:
     require_hex64(retired["genesisHash"], "Taira retired genesis")
     if current["genesisHash"] == retired["genesisHash"]:
         fail("Taira deployment genesis identities are not distinct")
-    if retired["canonicalToriiBaseUrl"] is not None or retired["publicMcpEndpoint"] is not None:
+    if any(retired[key] is not None for key in (
+        "canonicalToriiBaseUrl", "publicMcpEndpoint", "explorerBaseUrl",
+    )):
         fail("retired Taira deployment identity authorizes transport")
     base = require_string(current["canonicalToriiBaseUrl"], "Taira canonical Torii origin")
     endpoint = require_string(current["publicMcpEndpoint"], "Taira public MCP endpoint")
+    explorer = require_string(current["explorerBaseUrl"], "Taira explorer origin")
     parsed = urlsplit(base)
+    parsed_explorer = urlsplit(explorer)
     if (
         parsed.scheme != "https"
         or parsed.hostname is None
@@ -469,6 +484,17 @@ def configure_authenticated_taira(admission_path: str) -> None:
         or parsed.query
         or parsed.fragment
         or endpoint != f"{base}/v1/mcp"
+        or parsed_explorer.scheme != "https"
+        or parsed_explorer.hostname is None
+        or parsed_explorer.hostname != parsed_explorer.hostname.lower()
+        or parsed_explorer.hostname == "taira.sora.org"
+        or "." not in parsed_explorer.hostname
+        or parsed_explorer.username is not None
+        or parsed_explorer.password is not None
+        or parsed_explorer.port not in (None, 443)
+        or parsed_explorer.path
+        or parsed_explorer.query
+        or parsed_explorer.fragment
     ):
         fail("Taira admission does not designate one explicit canonical public HTTPS /v1/mcp route")
     policy = exact_keys(
@@ -488,17 +514,19 @@ def configure_authenticated_taira(admission_path: str) -> None:
         fail("Taira admission permits schema-77 pending-row reinterpretation")
     TAIRA_DEPLOYMENT = {
         "manifestSha256": root["manifestSha256"],
-        "admissionSha256": sha256_bytes(raw),
+        "manifestSequenceNumber": str(root["manifestSequenceNumber"]),
+        "admissionSha256": admission_sha256,
         "currentChainId": current["chainId"],
         "currentGenesisHash": current["genesisHash"],
         "canonicalToriiBaseUrl": base,
         "publicMcpEndpoint": endpoint,
+        "explorerBaseUrl": explorer,
     }
     NETWORKS["taira"] = {
         "chainId": current["chainId"],
         "i105Discriminant": 369,
         "toriiBaseUrl": base,
-        "explorerBaseUrl": "https://taira-explorer.sora.org",
+        "explorerBaseUrl": explorer,
         "isTestnet": True,
     }
 

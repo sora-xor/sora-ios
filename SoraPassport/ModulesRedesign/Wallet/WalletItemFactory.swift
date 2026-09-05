@@ -101,6 +101,12 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         let accountItem: AccountTableViewItem = AccountTableViewItem(accountName: accountName)
+        accountItem.sendHandler = { [weak walletViewModel] in
+            Task { @MainActor in walletViewModel?.sendFromWallet() }
+        }
+        accountItem.networkHandler = { [weak walletViewModel] in
+            Task { @MainActor in walletViewModel?.showNetworks() }
+        }
         accountItem.scanQRHandler = {
             guard let view = view?.controller else { return }
             
