@@ -199,7 +199,6 @@
 		03DA114BB22C43223D92D137 /* AssetTransactionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FAE2BA05B57005A44BC /* AssetTransactionData.swift */; };
 		03DB674E559E8FFC6201A706 /* userVerifiedResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 84639D1222CA3615009D847C /* userVerifiedResponse.json */; };
 		040029919C5E9C6946748F27 /* ApplicationSettingsPresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84476208224C1479009ADC0E /* ApplicationSettingsPresentable.swift */; };
-		044C3A62A45E13AFCF8E0584 /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = D7E614EC2909103ED5F9FAEF /* JOSESwift */; };
 		0469434EC855F2A7DBFB019C /* runtime-default.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DB294888090052C740 /* runtime-default.json */; };
 		0497482523BBF03C812D645D /* PoolViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3902917E1FD00DF6EFE /* PoolViewModel.swift */; };
 		04986BEFB824A5BFA5F801A6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 075DBB0B51793C1BBB7B9922 /* PrivacyInfo.xcprivacy */; };
@@ -330,7 +329,6 @@
 		15878BB268C73F0DD9516F6D /* ExtrinsicBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A0CE222B1D86A900187E3C /* ExtrinsicBuilder.swift */; };
 		158A1A82C4426A7779CF8A40 /* NetworkDataError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E3199821D2AE2A00B33B66 /* NetworkDataError.swift */; };
 		15969AB5D74F78EF931B5F72 /* SSFSingleValueCache in Frameworks */ = {isa = PBXBuildFile; productRef = B062A800EA32DDAB3AD58C38 /* SSFSingleValueCache */; };
-		15BA46C1ABF34DDE094A2C63 /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1C038DC302A0C6A802F75CDA /* JOSESwift */; };
 		15C93FDF0D8A7CCB1050A471 /* MessageViewWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 024B002A2194704E00671679 /* MessageViewWireframe.swift */; };
 		160CD2F2EAC6CAC59501E466 /* ContactCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53BF29527A4C0094CE36 /* ContactCell.swift */; };
 		163FF05A58F472DE1DE17CAD /* ConfirmSwapViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3635B7262937080200B2B728 /* ConfirmSwapViewModel.swift */; };
@@ -4377,7 +4375,6 @@
 				724689528E0854696FB6663B /* SSFSingleValueCache in Frameworks */,
 				C7706105D9D415BF3229944F /* GoogleSignIn in Frameworks */,
 				2750F667A67AF4284BEAD468 /* GoogleAPIClientForREST_Drive in Frameworks */,
-				044C3A62A45E13AFCF8E0584 /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4461,7 +4458,6 @@
 				811FB7F259864D7506111FF3 /* SSFSingleValueCache in Frameworks */,
 				0F8D8152410B90CFAB8DB27F /* GoogleSignIn in Frameworks */,
 				E523748B1701C2EFEEF057CA /* GoogleAPIClientForREST_Drive in Frameworks */,
-				15BA46C1ABF34DDE094A2C63 /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8271,7 +8267,6 @@
 				73701839B8A34ED80921D042 /* SSFSingleValueCache */,
 				99181BC773FED5D7FC25B230 /* GoogleSignIn */,
 				41F2E75D83DEC879AFEC5981 /* GoogleAPIClientForREST_Drive */,
-				D7E614EC2909103ED5F9FAEF /* JOSESwift */,
 			);
 			productName = SoraPassportTests;
 			productReference = 02623EC92178C0930011250E /* SoraPassportTests.xctest */;
@@ -8341,7 +8336,6 @@
 				AB544FAA04689F7C535B04D0 /* SSFSingleValueCache */,
 				89B9475E781BC5404652C2CB /* GoogleSignIn */,
 				D566C8B00A9C50C0383121F7 /* GoogleAPIClientForREST_Drive */,
-				1C038DC302A0C6A802F75CDA /* JOSESwift */,
 			);
 			productName = SoraPassportIntegrationTests;
 			productReference = 84324BCB2411446000CA339A /* SoraPassportIntegrationTests.xctest */;
@@ -12866,11 +12860,6 @@
 			package = A1F02371B1A71698FE615DC3 /* XCRemoteSwiftPackageReference "R.swift.Library" */;
 			productName = Rswift;
 		};
-		1C038DC302A0C6A802F75CDA /* JOSESwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */;
-			productName = JOSESwift;
-		};
 		1C4B75C1220BC523E3598FC1 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
@@ -13340,11 +13329,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */;
 			productName = SoraUIKit;
-		};
-		D7E614EC2909103ED5F9FAEF /* JOSESwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */;
-			productName = JOSESwift;
 		};
 		DB2E54768CEB5CD794CA198C /* SwiftyBeaver */ = {
 			isa = XCSwiftPackageProductDependency;

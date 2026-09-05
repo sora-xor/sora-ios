@@ -16,10 +16,10 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="3176b2557e105d7640c09cbb98f8f49fa71040cf"
+reviewed_base_revision="5156a709280f52b60237baf13ee7cf80bf7621eb"
 reviewed_upstream="origin/modernize"
-reviewed_build_number="2026081101"
-reviewed_lower_bound="2026081002"
+reviewed_build_number="2026083101"
+reviewed_lower_bound="2026081802"
 reviewed_marketing_version="3.8.7"
 reviewed_bundle_identifier="co.jp.soramitsu.sora"
 reviewed_team_id="YLWWUD25VZ"
@@ -353,6 +353,9 @@ PY
 app_executable="$(plist_raw CFBundleExecutable "${info_plist}")"
 case "${app_executable}" in ''|*/*) fail "archived executable name is invalid" ;; esac
 [ -f "${archived_app}/${app_executable}" ] && [ ! -L "${archived_app}/${app_executable}" ] || fail "archived executable is missing"
+/usr/bin/python3 -I -S "${delivery_verifier}" \
+    --verify-app-runtime-closure "${archived_app}" >/dev/null ||
+    fail "archived application runtime dependency closure is incomplete"
 executable_sha="$(sha256_file "${archived_app}/${app_executable}")"
 profile_sha="$(sha256_file "${profile_path}")"
 [ "$(sha256_file "${export_options}")" = "${export_options_sha}" ] &&

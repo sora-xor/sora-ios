@@ -11,13 +11,15 @@ import os
 import plistlib
 import re
 import stat
+import subprocess
 import sys
 import uuid
 from pathlib import Path
+from typing import Callable, NamedTuple
 
 
 SCOPE = "sora-ios-xcode-apple-upload-receipt-v1"
-BUILD_NUMBER = "2026081101"
+BUILD_NUMBER = "2026083101"
 MARKETING_VERSION = "3.8.7"
 BUNDLE_IDENTIFIER = "co.jp.soramitsu.sora"
 TEAM_ID = "YLWWUD25VZ"
@@ -44,6 +46,20 @@ EXPECTED_EXPORT_OPTIONS = {
     "uploadSymbols": False,
 }
 
+SYSTEM_DYLIB_PREFIXES = ("/System/Library/", "/usr/lib/")
+REQUIRED_DYLIB_COMMANDS = {
+    "LC_LAZY_LOAD_DYLIB",
+    "LC_LOAD_DYLIB",
+    "LC_LOAD_UPWARD_DYLIB",
+    "LC_REEXPORT_DYLIB",
+}
+WEAK_DYLIB_COMMAND = "LC_LOAD_WEAK_DYLIB"
+DYLIB_COMMANDS = REQUIRED_DYLIB_COMMANDS | {WEAK_DYLIB_COMMAND}
+MAXIMUM_MACHO_INSPECTION_BYTES = 32 * 1024 * 1024
+MAXIMUM_MACHO_IMAGES = 512
+MAXIMUM_MACHO_STATES = 4096
+MAXIMUM_LOAD_COMMANDS = 16_384
+
 
 def fail(message: str) -> "None":
     raise SystemExit(f"error: {message}")
@@ -63,6 +79,362 @@ def require_regular(path: Path, label: str, *, maximum_bytes: int = 1024 * 1024)
     if not value or len(value) > maximum_bytes:
         fail(f"{label} is empty or exceeds its byte bound")
     return value
+
+
+class MachODependency(NamedTuple):
+    command: str
+    install_name: str
+
+    @property
+    def is_weak(self) -> bool:
+        return self.command == WEAK_DYLIB_COMMAND
+
+
+class MachOLoadCommands(NamedTuple):
+    dependencies: tuple[MachODependency, ...]
+    runpaths: tuple[str, ...]
+
+
+def _load_command_value(line: str, field: str, label: str) -> str:
+    prefix = f"{field} "
+    if not line.startswith(prefix) or not line.endswith(")") or " (offset " not in line:
+        fail(f"{label} contains malformed {field} load-command output")
+    value, offset = line[len(prefix) :].rsplit(" (offset ", 1)
+    if not value or not offset[:-1].isdigit() or "\x00" in value:
+        fail(f"{label} contains malformed {field} load-command output")
+    return value
+
+
+def parse_macho_load_commands(raw: bytes, label: str) -> MachOLoadCommands:
+    if not raw or len(raw) > MAXIMUM_MACHO_INSPECTION_BYTES:
+        fail(f"{label} otool output is empty or exceeds its byte bound")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        fail(f"{label} otool output is not UTF-8: {error}")
+
+    dependencies: set[MachODependency] = set()
+    runpaths: set[str] = set()
+    command_count = 0
+    in_command = False
+    command: str | None = None
+    value: str | None = None
+
+    def finish_command() -> None:
+        nonlocal command, value
+        if command in DYLIB_COMMANDS:
+            if value is None:
+                fail(f"{label} contains a {command} without one install name")
+            dependencies.add(MachODependency(command, value))
+        elif command == "LC_RPATH":
+            if value is None:
+                fail(f"{label} contains an LC_RPATH without one path")
+            runpaths.add(value)
+        command = None
+        value = None
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if re.fullmatch(r"Load command [0-9]+", line):
+            if in_command:
+                finish_command()
+            command_count += 1
+            if command_count > MAXIMUM_LOAD_COMMANDS:
+                fail(f"{label} exceeds the load-command count bound")
+            in_command = True
+            continue
+        if not in_command:
+            continue
+        if line.startswith("cmd "):
+            if command is not None:
+                fail(f"{label} contains duplicate cmd fields in one load command")
+            command = line[4:]
+            continue
+        if command in DYLIB_COMMANDS and line.startswith("name "):
+            if value is not None:
+                fail(f"{label} contains duplicate install names in one load command")
+            value = _load_command_value(line, "name", label)
+        elif command == "LC_RPATH" and line.startswith("path "):
+            if value is not None:
+                fail(f"{label} contains duplicate paths in one LC_RPATH")
+            value = _load_command_value(line, "path", label)
+
+    if in_command:
+        finish_command()
+    if command_count == 0:
+        fail(f"{label} contains no readable Mach-O load commands")
+    return MachOLoadCommands(
+        dependencies=tuple(
+            sorted(dependencies, key=lambda item: (item.install_name, item.command))
+        ),
+        runpaths=tuple(sorted(runpaths)),
+    )
+
+
+def inspect_macho_load_commands(path: Path) -> MachOLoadCommands:
+    label = f"Mach-O image {path}"
+    try:
+        result = subprocess.run(
+            ["/usr/bin/otool", "-l", str(path)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=30,
+            env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        fail(f"{label} cannot be inspected: {error}")
+    if result.returncode != 0:
+        try:
+            detail = result.stderr.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            detail = "non-UTF-8 otool error"
+        if len(detail) > 512:
+            detail = detail[:512] + "..."
+        fail(f"{label} is not a readable Mach-O image: {detail or 'otool failed'}")
+    return parse_macho_load_commands(result.stdout, label)
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _lexical_dependency_path(base: Path, suffix: str, app_root: Path, label: str) -> Path:
+    if not suffix or suffix.startswith("/") or "\x00" in suffix:
+        fail(f"{label} has an invalid relative path")
+    try:
+        candidate = (base / suffix).resolve(strict=False)
+    except (OSError, RuntimeError) as error:
+        fail(f"{label} cannot be resolved safely: {error}")
+    if not _is_within(candidate, app_root):
+        fail(f"{label} escapes the application bundle")
+    return candidate
+
+
+def _existing_embedded_image(candidate: Path, app_root: Path, label: str) -> Path | None:
+    try:
+        resolved = candidate.resolve(strict=True)
+        metadata = resolved.lstat()
+    except FileNotFoundError:
+        return None
+    except (OSError, RuntimeError) as error:
+        fail(f"{label} cannot be resolved safely: {error}")
+    if not _is_within(resolved, app_root):
+        fail(f"{label} resolves outside the application bundle")
+    if not stat.S_ISREG(metadata.st_mode) or not metadata.st_mode & 0o111:
+        fail(f"{label} is not one executable regular file")
+    return resolved
+
+
+def _expand_runpaths(
+    raw_runpaths: tuple[str, ...],
+    *,
+    loader: Path,
+    executable_root: Path,
+    app_root: Path,
+) -> tuple[Path, ...]:
+    expanded: list[Path] = []
+    for runpath in raw_runpaths:
+        if runpath == "@executable_path":
+            candidate = executable_root
+        elif runpath.startswith("@executable_path/"):
+            candidate = _lexical_dependency_path(
+                executable_root,
+                runpath[len("@executable_path/") :],
+                app_root,
+                f"LC_RPATH {runpath}",
+            )
+        elif runpath == "@loader_path":
+            candidate = loader.parent
+        elif runpath.startswith("@loader_path/"):
+            candidate = _lexical_dependency_path(
+                loader.parent,
+                runpath[len("@loader_path/") :],
+                app_root,
+                f"LC_RPATH {runpath}",
+            )
+        elif runpath.startswith(SYSTEM_DYLIB_PREFIXES):
+            continue
+        elif runpath.startswith("/"):
+            fail(f"Mach-O image {loader} contains an unreviewed absolute LC_RPATH: {runpath}")
+        else:
+            fail(f"Mach-O image {loader} contains an unsupported LC_RPATH: {runpath}")
+        if candidate not in expanded:
+            expanded.append(candidate)
+    return tuple(expanded)
+
+
+def _resolve_dependency(
+    dependency: MachODependency,
+    *,
+    loader: Path,
+    executable_root: Path,
+    runpaths: tuple[Path, ...],
+    app_root: Path,
+) -> Path | None:
+    install_name = dependency.install_name
+    if install_name.startswith(SYSTEM_DYLIB_PREFIXES):
+        return None
+
+    candidates: tuple[Path, ...]
+    if install_name.startswith("@rpath/"):
+        suffix = install_name[len("@rpath/") :]
+        candidates = tuple(
+            _lexical_dependency_path(
+                runpath,
+                suffix,
+                app_root,
+                f"dependency {install_name} loaded by {loader}",
+            )
+            for runpath in runpaths
+        )
+    elif install_name.startswith("@executable_path/"):
+        candidates = (
+            _lexical_dependency_path(
+                executable_root,
+                install_name[len("@executable_path/") :],
+                app_root,
+                f"dependency {install_name} loaded by {loader}",
+            ),
+        )
+    elif install_name.startswith("@loader_path/"):
+        candidates = (
+            _lexical_dependency_path(
+                loader.parent,
+                install_name[len("@loader_path/") :],
+                app_root,
+                f"dependency {install_name} loaded by {loader}",
+            ),
+        )
+    elif install_name.startswith("@"):
+        fail(f"Mach-O image {loader} contains an unsupported dependency: {install_name}")
+    elif install_name.startswith("/"):
+        fail(f"Mach-O image {loader} contains an unreviewed absolute dependency: {install_name}")
+    else:
+        fail(f"Mach-O image {loader} contains a relative dependency: {install_name}")
+
+    for candidate in candidates:
+        resolved = _existing_embedded_image(
+            candidate,
+            app_root,
+            f"dependency {install_name} loaded by {loader}",
+        )
+        if resolved is not None:
+            return resolved
+    if dependency.is_weak:
+        return None
+    if install_name.startswith("@rpath/") and not candidates:
+        fail(f"Mach-O image {loader} has no in-bundle runpath for dependency: {install_name}")
+    fail(f"Mach-O image {loader} has an unresolved required dependency: {install_name}")
+
+
+def _bundle_executable(bundle: Path, app_root: Path) -> Path:
+    label = f"bundle {bundle}"
+    try:
+        info = plistlib.loads(require_regular(bundle / "Info.plist", f"{label} Info.plist"))
+    except plistlib.InvalidFileException as error:
+        fail(f"{label} Info.plist is invalid: {error}")
+    executable = info.get("CFBundleExecutable") if isinstance(info, dict) else None
+    if (
+        not isinstance(executable, str)
+        or not executable
+        or executable in {".", ".."}
+        or "/" in executable
+        or "\x00" in executable
+    ):
+        fail(f"{label} has an invalid CFBundleExecutable")
+    candidate = _lexical_dependency_path(bundle, executable, app_root, f"{label} executable")
+    resolved = _existing_embedded_image(candidate, app_root, f"{label} executable")
+    if resolved is None:
+        fail(f"{label} executable is missing")
+    return resolved
+
+
+def verify_app_runtime_dependency_closure(
+    app_path: Path,
+    *,
+    inspector: Callable[[Path], MachOLoadCommands] = inspect_macho_load_commands,
+) -> tuple[Path, ...]:
+    try:
+        raw_metadata = app_path.lstat()
+    except OSError as error:
+        fail(f"application bundle is unavailable: {error}")
+    if not stat.S_ISDIR(raw_metadata.st_mode) or stat.S_ISLNK(raw_metadata.st_mode):
+        fail("application bundle must be one non-symbolic directory")
+    try:
+        app_root = app_path.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        fail(f"application bundle cannot be resolved: {error}")
+    if app_root.suffix != ".app":
+        fail("application bundle must have the .app suffix")
+
+    executable_bundles = [app_root]
+    try:
+        extension_candidates = sorted(app_root.rglob("*.appex"))
+    except (OSError, RuntimeError) as error:
+        fail(f"application extensions cannot be enumerated safely: {error}")
+    for candidate in extension_candidates:
+        try:
+            metadata = candidate.lstat()
+        except OSError as error:
+            fail(f"application extension cannot be inspected: {error}")
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+            fail(f"application extension is not one non-symbolic directory: {candidate}")
+        try:
+            resolved = candidate.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            fail(f"application extension cannot be resolved safely: {error}")
+        if not _is_within(resolved, app_root):
+            fail(f"application extension resolves outside the application bundle: {candidate}")
+        if resolved not in executable_bundles:
+            executable_bundles.append(resolved)
+
+    pending: list[tuple[Path, Path, tuple[Path, ...]]] = []
+    for bundle in executable_bundles:
+        executable = _bundle_executable(bundle, app_root)
+        pending.append((executable, bundle, ()))
+
+    inspected: set[tuple[Path, Path, tuple[Path, ...]]] = set()
+    inspected_images: set[Path] = set()
+    while pending:
+        image, executable_root, inherited_runpaths = pending.pop()
+        state = (image, executable_root, inherited_runpaths)
+        if state in inspected:
+            continue
+        inspected.add(state)
+        if len(inspected) > MAXIMUM_MACHO_STATES:
+            fail("application runtime dependency closure exceeds the traversal-state bound")
+        inspected_images.add(image)
+        if len(inspected_images) > MAXIMUM_MACHO_IMAGES:
+            fail("application runtime dependency closure exceeds the Mach-O image bound")
+
+        load_commands = inspector(image)
+        own_runpaths = _expand_runpaths(
+            load_commands.runpaths,
+            loader=image,
+            executable_root=executable_root,
+            app_root=app_root,
+        )
+        active_runpaths = tuple(
+            dict.fromkeys((*own_runpaths, *inherited_runpaths))
+        )
+        for dependency in load_commands.dependencies:
+            resolved = _resolve_dependency(
+                dependency,
+                loader=image,
+                executable_root=executable_root,
+                runpaths=active_runpaths,
+                app_root=app_root,
+            )
+            if resolved is not None:
+                pending.append((resolved, executable_root, active_runpaths))
+
+    return tuple(sorted(inspected_images))
 
 
 def require_distribution_logs(xcodebuild_log_path: Path) -> tuple[Path, bytes, bytes]:
@@ -378,7 +750,9 @@ def verify(
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lint-contract", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--lint-contract", action="store_true")
+    mode.add_argument("--verify-app-runtime-closure", type=Path)
     parser.add_argument("--archive-info", type=Path)
     parser.add_argument("--xcodebuild-log", type=Path)
     parser.add_argument("--reviewed-profile", type=Path)
@@ -397,6 +771,20 @@ def parse_arguments() -> argparse.Namespace:
             )
         ):
             parser.error("--lint-contract cannot be combined with delivery inputs")
+    elif arguments.verify_app_runtime_closure is not None:
+        if any(
+            value is not None
+            for value in (
+                arguments.archive_info,
+                arguments.xcodebuild_log,
+                arguments.reviewed_profile,
+                arguments.receipt,
+                arguments.build_number,
+            )
+        ):
+            parser.error(
+                "--verify-app-runtime-closure cannot be combined with delivery inputs"
+            )
     elif None in (
         arguments.archive_info,
         arguments.xcodebuild_log,
@@ -414,6 +802,15 @@ def main() -> None:
     arguments = parse_arguments()
     if arguments.lint_contract:
         print("iOS internal TestFlight delivery verifier: OK")
+        return
+    if arguments.verify_app_runtime_closure is not None:
+        inspected = verify_app_runtime_dependency_closure(
+            arguments.verify_app_runtime_closure
+        )
+        print(
+            "iOS app runtime dependency closure: OK "
+            f"(Mach-O images inspected: {len(inspected)})"
+        )
         return
     delivery_id, uploaded_at = verify(
         arguments.archive_info,
