@@ -3366,9 +3366,9 @@
 		A66A00012F5A000000000001 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A66A00012F5A000000000002 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = akk; path = akk.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		A66A00012F5A000000000003 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		A66E00012F5C000000000001 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		A66E00012F5C000000000002 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
-		A66E00012F5C000000000003 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		A66E00012F5C000000000001 /* egy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy"; path = "egy.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		A66E00012F5C000000000002 /* egy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy"; path = "egy.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
+		A66E00012F5C000000000003 /* egy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy"; path = "egy.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoSansEgyptianHieroglyphs-Regular.ttf"; sourceTree = "<group>"; };
 		A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoSansEgyptianHieroglyphs-OFL.txt"; sourceTree = "<group>"; };
 		3688A43C280F591900C1D16F /* SourceType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceType.swift; sourceTree = "<group>"; };
@@ -8485,7 +8485,7 @@
 				ja,
 				pt,
 				akk,
-				"egy-Egyp",
+				"egy",
 			);
 			mainGroup = 02623EAC2178C0910011250E;
 			packageReferences = (
@@ -11507,7 +11507,7 @@
 				368463A92A40725D00B1F203 /* ja */,
 				368463AC2A40728300B1F203 /* pt */,
 				A66A00012F5A000000000001 /* akk */,
-				A66E00012F5C000000000001 /* egy-Egyp */,
+				A66E00012F5C000000000001 /* egy */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -11544,7 +11544,7 @@
 				368463AA2A40725D00B1F203 /* ja */,
 				368463AD2A40728300B1F203 /* pt */,
 				A66A00012F5A000000000002 /* akk */,
-				A66E00012F5C000000000002 /* egy-Egyp */,
+				A66E00012F5C000000000002 /* egy */,
 			);
 			name = Localizable.stringsdict;
 			sourceTree = "<group>";
@@ -11581,7 +11581,7 @@
 				368463A82A40725D00B1F203 /* ja */,
 				368463AB2A40728300B1F203 /* pt */,
 				A66A00012F5A000000000003 /* akk */,
-				A66E00012F5C000000000003 /* egy-Egyp */,
+				A66E00012F5C000000000003 /* egy */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import unicodedata
 from collections import Counter
@@ -19,7 +20,8 @@ from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 SOURCE = APP_ROOT / "SoraLocalizable/en.lproj/Localizable.strings"
-TARGET = APP_ROOT / "SoraLocalizable/egy-Egyp.lproj/Localizable.strings"
+TARGET = APP_ROOT / "SoraLocalizable/egy.lproj/Localizable.strings"
+FALLBACK_SECTION = "/* Wallet and connected-app UX: English fallback for untranslated locales. */"
 FONT = APP_ROOT / "Fonts/NotoSansEgyptianHieroglyphs-Regular.ttf"
 FONT_LICENSE = APP_ROOT / "Fonts/NotoSansEgyptianHieroglyphs-OFL.txt"
 FONT_SHA256 = "38a33a230624671eebedce95bd4237f7b3b2bb1fa25688ff959bed4070a1ea95"
@@ -438,7 +440,17 @@ PHRASES = {
 # Security-critical and meaning-dense messages get clause-level translations.
 # Each is intentionally concise, but preserves the operative condition and
 # consequence of its English source.
+# These two UX messages changed after the original catalog was generated.
+# Bind reviewed clauses to exact source text so later copy edits need review.
+REVIEWED_SOURCE_VALUES = {
+    'import.account.message': 'Choose Recovery phrase for your saved words, or Raw seed for a private seed you exported. Choose Google only if you previously saved a cloud backup.',
+    'onboarding.description': 'Send, receive, and swap assets on SORA. Create an account for a new recovery phrase, or import an account using a phrase you already have.',
+}
+
 KEY_TRANSLATIONS = {
+    'import.account.message': 'stp ṯs mdw n sꜥnḫ n mdw.k sꜣw, r-pw prt štꜣ n prt štꜣ hꜣb.n.k r rwty. stp Google jr sꜣw.n.k šꜥt snnw Google m-bꜣḥ. jr nn šꜥt snnw Google, m stp Google',
+    'onboarding.description': 'hꜣb jḫt, šsp jḫt, dbꜣ jḫt ḥr SORA. ḳmꜣ ḥsb n ṯs mdw n sꜥnḫ mꜣw, r-pw jnj ḥsb r ẖnw m ṯs mdw wn n.k m-bꜣḥ',
+
     "common.error.general.message": "jr.n ḥr smn btꜣ pn m pḥty nb. jr m wḥm m-ḫt",
     "common.error.internal.error.body": "jr.n ḥr smn btꜣ pn m pḥty nb. jr m wḥm m-ḫt",
     "connection.error.message": "mꜣꜣ dmḏ wꜣwt pt. jr m wḥm m-ḫt",
@@ -568,6 +580,8 @@ def word_translation(word: str) -> str:
 
 
 def translate_value(key: str, value: str, unknowns: Counter[str]) -> str:
+    if key in REVIEWED_SOURCE_VALUES and value != REVIEWED_SOURCE_VALUES[key]:
+        raise ValueError(f"English source changed for reviewed translation: {key}")
     if key in KEY_TRANSLATIONS:
         result = KEY_TRANSLATIONS[key]
         # Clause-level translations include their format tokens explicitly.
@@ -614,14 +628,53 @@ def translate_value(key: str, value: str, unknowns: Counter[str]) -> str:
 
 
 def parse_catalog(path: Path) -> list[tuple[str, str]]:
+    return parse_catalog_text(path.read_text(encoding="utf-8"))
+
+
+def decoded_catalog_key(key: str) -> str:
+    # Compare escaped spellings as the same key; reject ambiguous escape forms.
+    try:
+        return json.loads('"' + key + '"')
+    except ValueError as error:
+        raise ValueError("unsupported catalog key escape") from error
+
+
+def parse_catalog_text(content: str) -> list[tuple[str, str]]:
     entries: list[tuple[str, str]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    seen: set[str] = set()
+    for line_number, line in enumerate(content.splitlines(), 1):
         match = STRING_RE.match(line)
         if match:
-            entries.append((match.group("key"), match.group("value")))
+            key, value = match.group("key"), match.group("value")
+            decoded_key = decoded_catalog_key(key)
+            if not decoded_key or decoded_key in seen:
+                raise ValueError(f"empty or duplicate catalog key on line {line_number}")
+            seen.add(decoded_key)
+            entries.append((key, value))
         elif line.strip() and not line.lstrip().startswith(("//", "/*", "*", "*/")):
             raise ValueError(f"unparsed source line {line_number}: {line}")
     return entries
+
+
+def parse_source_catalog() -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    content = SOURCE.read_text(encoding="utf-8")
+    # Check duplicates across the boundary before parsing its two sections.
+    parse_catalog_text(content)
+    if content.splitlines().count(FALLBACK_SECTION) != 1:
+        raise ValueError("expected one explicit English fallback section")
+    core, fallback = content.split(FALLBACK_SECTION)
+    translated_entries = parse_catalog_text(core)
+    fallback_entries = parse_catalog_text(fallback)
+    if not translated_entries or not fallback_entries:
+        raise ValueError("empty translated or English fallback section")
+    for key, value in fallback_entries:
+        if key != value:
+            raise ValueError(f"English fallback must preserve its literal key: {key}")
+    if TARGET.exists():
+        retained_keys = {decoded_catalog_key(key) for key, _ in parse_catalog(TARGET)}
+        if retained_keys.intersection(decoded_catalog_key(key) for key, _ in fallback_entries):
+            raise ValueError("an existing Egyptian translation cannot become English fallback")
+    return translated_entries, fallback_entries
 
 
 def placeholders(value: str) -> list[str]:
@@ -642,7 +695,7 @@ def validate_bundled_font() -> None:
 
 def generate(check: bool) -> None:
     validate_bundled_font()
-    entries = parse_catalog(SOURCE)
+    entries, fallback_entries = parse_source_catalog()
     unknowns: Counter[str] = Counter()
     rendered: list[str] = [
         "/* Generated by generate-middle-egyptian-localization.py.",
@@ -687,6 +740,7 @@ def generate(check: bool) -> None:
         TARGET.write_text(content, encoding="utf-8")
 
     print(f"validated {len(entries)} keys; {len(unknowns)} generic modern words")
+    print(f"validated {len(fallback_entries)} explicit English fallback keys")
     if unknowns:
         summary = ", ".join(f"{word}({count})" for word, count in unknowns.most_common())
         print(f"review queue: {summary}")

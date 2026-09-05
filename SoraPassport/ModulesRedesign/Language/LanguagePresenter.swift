@@ -35,7 +35,7 @@ final class LanguagePresenter {
     private static let oldAkkadianCode = "akk"
     private static let oldAkkadianTitle = "Old Akkadian"
     private static let oldAkkadianNativeTitle = "lišānum akkadītum labīrtum"
-    private static let middleEgyptianCode = "egy-Egyp"
+    private static let middleEgyptianCode = "egy"
     private static let middleEgyptianTitle = "Middle Egyptian (Hieroglyphic)"
     private static let middleEgyptianNativeTitle = "𓌃𓂧𓅱𓀁 𓈖 𓆎𓅓𓏏𓊖"
 

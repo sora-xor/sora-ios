@@ -1,8 +1,42 @@
 # Middle Egyptian hieroglyphic localization policy
 
-The `egy-Egyp` locale uses Classical Middle Egyptian written with Unicode
+The `egy` locale uses Classical Middle Egyptian written with Unicode
 Egyptian Hieroglyphs. It is a product localization, not a claim that modern
 wallet terminology occurs in an ancient inscription.
+
+## Bundle identifier and retained selections
+
+The bundle uses `egy.lproj`, the ISO 639-2 identifier for Ancient Egyptian.
+Apple's language-ID guidance permits this three-letter code, and Foundation
+recognizes `egy` with the inferred `Egyp` script. The previous `egy-Egyp.lproj`
+name produced an App Store localization warning. The shorter identifier keeps
+the hieroglyphic writing system, fonts, and “Middle Egyptian (Hieroglyphic)” picker
+option. The two copy updates described below separately synchronize earlier
+English changes.
+
+The app's shared localization manager converts a saved `egy-Egyp` selection to
+`egy` before any UI consumer reads it, and persists the normalized selection
+through the existing settings manager. Other saved languages are unchanged.
+The alias is retained in code for upgrades; do not ship a duplicate
+`egy-Egyp.lproj` directory. If `egy` resources are absent, the normalization
+leaves the existing preference untouched.
+
+Run the focused packaging and actual Foundation/localization-manager regression
+checks with `python3 SoraPassport/Scripts/test-egyptian-localization.py`.
+These local checks do not substitute for Apple's validation of a future archive.
+The packaging repair preserves the existing plural and InfoPlist resources.
+Two translation values are updated to match earlier English copy changes; the
+other 950 Egyptian entries remain unchanged. The generator
+fully validates the translated catalog and separately checks the English
+catalog's explicitly declared UX fallback section. Every fallback key must be
+its own literal English value; empty keys, duplicates, and moving an existing
+Egyptian translation into fallback are rejected. New UX text continues to use
+the existing English fallback without generating unreviewed Egyptian prose.
+
+References:
+
+- [Apple: Language and Locale IDs](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPInternational/LanguageandLocaleIDs/LanguageandLocaleIDs.html)
+- [Library of Congress: ISO 639-2 `egy`](https://www.loc.gov/standards/iso639-2/php/langcodes_name.php?code_ID=127)
 
 ## Language and writing
 
@@ -63,18 +97,36 @@ Substrate, Polkadot, Kusama, Ethereum, Google, Telegram, and `x*y=k`.
 ## Implementation safeguards
 
 - `SoraPassport/Scripts/generate-middle-egyptian-localization.py` derives the
-  catalog from the English key set and fails on missing keys, format-token
-  drift, unknown modern words, or unprotected Latin prose.
+  catalog from the translated section of the English key set and fails on
+  missing keys, format-token drift, or unprotected Latin prose. Unrecognized
+  modern terms remain in its explicit review queue.
 - Noto Sans Egyptian Hieroglyphs 2.002 is bundled as the fallback behind the
   normal Sora UI typeface. The generator pins the font and its shipped SIL Open
   Font License by SHA-256.
 - Date-pattern syntax, format placeholders, protocol identifiers, and recovery
   material are display data rather than Egyptian prose and are kept intact.
 
+## Reviewed import and onboarding copy
+
+`import.account.message` distinguishes retained recovery words from an exported
+private seed, and limits the Google choice to a previously saved Google backup.
+Its final negative instruction makes that restriction explicit: without a Google
+backup, do not choose Google. `onboarding.description` describes sending,
+receiving, and swapping, and distinguishes creating a new recovery phrase from
+importing an existing one. The generator binds both clauses to exact English
+source values; later English edits require their translations to be reviewed.
+
+These use the existing product glossary, including its modern Google-backup
+compound. The negative imperative `m` and “choose” `stp` are documented by the
+[Thesaurus Linguae Aegyptiae, lemma 64410](https://thesaurus-linguae-aegyptiae.de/lemma/64410)
+and [lemma 148070](https://thesaurus-linguae-aegyptiae.de/lemma/148070).
+These lexical references do not certify the modern product phrasing.
+
 ## Review boundary
 
-“Complete” means every shipped localization key has an Egyptian value and every
-format token matches the English source. It does not make unattested modern
+“Complete” means every key in the translated catalog has an Egyptian value and
+every format token matches the English source. The explicitly declared UX
+fallback section remains English. This does not make unattested modern
 compounds into attested ancient expressions. A publishing release should still
 receive review by an Egyptologist who works directly with Middle Egyptian.
 

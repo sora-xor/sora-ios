@@ -57,4 +57,15 @@ extension LocalizationManagerProtocol {
 extension LocalizationManager {
     static let shared = LocalizationManager(settings: SettingsManager.shared,
                                             key: SettingsKey.selectedLocalization.rawValue)
+        .preservingLegacyEgyptianSelection()
+
+    /// The old script-qualified bundle name was flagged by App Store validation.
+    /// Normalize only that saved choice before the shared manager reaches the UI.
+    @discardableResult
+    func preservingLegacyEgyptianSelection() -> LocalizationManager {
+        if selectedLocalization == "egy-Egyp", availableLocalizations.contains("egy") {
+            selectedLocalization = "egy"
+        }
+        return self
+    }
 }

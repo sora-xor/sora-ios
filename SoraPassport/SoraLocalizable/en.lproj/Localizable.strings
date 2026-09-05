@@ -963,7 +963,6 @@
 "Time unavailable" = "Time unavailable";
 "From %@ at %@ to %@ at %@. Vertical scale: 0%% to 100%%. Snapshots run from oldest to newest at equal spacing." = "From %@ at %@ to %@ at %@. Vertical scale: 0%% to 100%%. Snapshots run from oldest to newest at equal spacing.";
 "Probability history will appear after at least two snapshots are indexed." = "Probability history will appear after at least two snapshots are indexed.";
-"" = "";
 "%@ units · Pending asset recovery" = "%@ units · Pending asset recovery";
 "A signature can authorize an action in the requesting app. Sign only if you understand and agree to the complete message above." = "A signature can authorize an action in the requesting app. Sign only if you understand and agree to the complete message above.";
 "Account" = "Account";
