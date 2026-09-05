@@ -1,8 +1,0 @@
-{
-  "SoraPassport/Common/Extensions/KeystoreExtensions.swift": "9e8c40c069a489a2f10f222f9bb0481a22ef78ebdee61f88822de0e383369a46",
-  "SoraPassport/ModulesRedesign/Root/RootInteractor.swift": "1963466f170b58a8e36537e4b3cc3e2889aa432e6b5799727f928541faec97f6",
-  "SoraPassport/ModulesRedesign/SplashScreen/SplashInteractor.swift": "c89389420dede59961d69198caaeb8512972f4c6fb9796ac890c91e7b6b18c5c",
-  "SoraPassport/Common/Model/WalletNetworkModel.swift": "99a7f59fde217707ac0e22f10c578d0ec3a6c03baf0207a2cf100a08af2b273a",
-  "SoraPassport/Common/Migration/SelectedAccountMigrationPolicy.swift": "dc9ab8cfd00769a945c316d2246be146ae958a9b2d638ab81cd0047f35491829",
-  "SoraPassportTests/Common/Modernization/WalletModernizationTests.swift": "77685258b6f20d9dc2d3bcb2b0e75a8d72ca1900e5163ef8a236feafc40a80ac"
-}
