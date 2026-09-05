@@ -22,11 +22,19 @@ PIPELINE = ROOT / "Jenkinsfile.production-promotion"
 LEGACY = ROOT / "Jenkinsfile"
 SOURCE_GATE = ROOT / "SoraPassport/Scripts/verify-modernization-dependencies.sh"
 ROLLOUT_HARNESS = ROOT / "SoraPassport/Scripts/test-production-rollout-contract.py"
+ROLLOUT_VALIDATOR = ROOT / "SoraPassport/Scripts/verify-production-rollout-json.py"
 SPEC = importlib.util.spec_from_file_location("ios_production_promotion", SCRIPT)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("production promotion controller cannot be loaded")
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+ROLLOUT_SPEC = importlib.util.spec_from_file_location(
+    "ios_production_rollout_validator", ROLLOUT_VALIDATOR
+)
+if ROLLOUT_SPEC is None or ROLLOUT_SPEC.loader is None:
+    raise RuntimeError("production rollout validator cannot be loaded")
+ROLLOUT_MODULE = importlib.util.module_from_spec(ROLLOUT_SPEC)
+ROLLOUT_SPEC.loader.exec_module(ROLLOUT_MODULE)
 
 
 def canonical(value: object) -> bytes:
@@ -93,6 +101,11 @@ class ProductionPromotionTests(unittest.TestCase):
         self.assertEqual(source.count("--phase archive --state"), 2)
         self.assertIn("disableConcurrentBuilds()", source)
         self.assertIn("skipDefaultCheckout(true)", source)
+        self.assertIn("credentialsId: 'ios-keychain-credentials'", source)
+        self.assertIn("usernameVariable: 'IOS_SIGNING_KEYCHAIN_PATH'", source)
+        self.assertIn("passwordVariable: 'IOS_SIGNING_KEYCHAIN_PASSWORD'", source)
+        self.assertIn("/usr/bin/security unlock-keychain", source)
+        self.assertIn("/usr/bin/security lock-keychain", source)
 
     def test_advance_phases_have_no_build_or_test_entry_point(self) -> None:
         for function in (
@@ -120,6 +133,88 @@ class ProductionPromotionTests(unittest.TestCase):
             ).encode()
         ).hexdigest()
         self.assertEqual(MODULE.upload_idempotency_key("43", "2" * 64), expected)
+
+    def test_post_upload_authentication_uses_only_stable_signature_inputs(self) -> None:
+        source = inspect.getsource(MODULE.authenticate_post_upload_artifact)
+        self.assertIn("receipt_bytes, _ = stable_read", source)
+        self.assertIn("signature_bytes, _ = stable_read", source)
+        self.assertIn("public_key_bytes, _ = stable_read", source)
+        self.assertIn("verify_p256_signature_bytes(", source)
+        self.assertIn('"IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256"', source)
+        self.assertIn('"IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256"', source)
+        upload_source = inspect.getsource(MODULE.phase_upload)
+        freshness_call = "require_fresh_taira_admission_for_live_release(state)"
+        self.assertEqual(upload_source.count(freshness_call), 2)
+        controller_call = upload_source.index("run_external_controller(")
+        self.assertLess(upload_source.index(freshness_call), controller_call)
+        self.assertGreater(upload_source.rindex(freshness_call), controller_call)
+
+    def test_live_release_rejects_stale_or_future_taira_admission(self) -> None:
+        current_epoch = 2_000_000_000
+
+        def state_for(root: Path, evaluated_at: int) -> dict[str, object]:
+            admission = root / f"admission-{evaluated_at}.json"
+            admission.write_bytes(
+                canonical({"evaluatedAtEpochSeconds": evaluated_at})
+            )
+            return {
+                "builds": {
+                    "primary": {
+                        "tairaAdmission": MODULE.file_record(
+                            admission,
+                            MODULE.MAX_JSON_BYTES,
+                            "primary Taira admission",
+                        )
+                    }
+                }
+            }
+
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as raw:
+            root = Path(raw)
+            MODULE.require_fresh_taira_admission_for_live_release(
+                state_for(
+                    root,
+                    current_epoch - MODULE.MAX_TAIRA_DEPLOYMENT_ROLLOUT_AGE_SECONDS,
+                ),
+                now=current_epoch,
+            )
+            for invalid in (
+                current_epoch - MODULE.MAX_TAIRA_DEPLOYMENT_ROLLOUT_AGE_SECONDS - 1,
+                current_epoch + 1,
+            ):
+                with self.subTest(evaluated_at=invalid):
+                    with self.assertRaisesRegex(
+                        MODULE.PromotionError,
+                        "stale or future-dated",
+                    ):
+                        MODULE.require_fresh_taira_admission_for_live_release(
+                            state_for(root, invalid),
+                            now=current_epoch,
+                        )
+
+    def test_equal_size_artifact_path_swap_breaks_snapshot_binding(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as raw:
+            receipt = Path(raw) / "artifact.json"
+            authenticated = canonical({"a": 1})
+            swapped = canonical({"b": 1})
+            self.assertEqual(len(authenticated), len(swapped))
+            receipt.write_bytes(authenticated)
+            authenticated_sha = hashlib.sha256(authenticated).hexdigest()
+            receipt.write_bytes(swapped)
+            with mock.patch.dict(
+                os.environ,
+                {"IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256": authenticated_sha},
+                clear=False,
+            ):
+                with self.assertRaisesRegex(
+                    ROLLOUT_MODULE.ValidationError,
+                    "bytes differ from the verifier-pinned snapshot",
+                ):
+                    ROLLOUT_MODULE.load_verifier_pinned_json(
+                        str(receipt),
+                        "IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256",
+                        "artifact identity receipt",
+                    )
 
     def test_fresh_controller_lower_bound_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory(dir="/private/tmp") as raw:

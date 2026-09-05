@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import UIKit
 import SoraUIKit
 import Combine
 import SoraFoundation
@@ -49,6 +50,9 @@ public final class MainScreenAssetView: SoramitsuControl {
     public let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textM
+        label.sora.dynamicTextStyle = .body
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byWordWrapping
         label.sora.textColor = .fgPrimary
         label.sora.isUserInteractionEnabled = false
         label.sora.loadingPlaceholder.type = .shimmer
@@ -61,7 +65,10 @@ public final class MainScreenAssetView: SoramitsuControl {
     public let subtitleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
-        label.sora.textColor = .fgSecondary
+        label.sora.dynamicTextStyle = .caption1
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
+        label.sora.textColor = .fgPrimary
         label.sora.isUserInteractionEnabled = false
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
@@ -73,6 +80,9 @@ public final class MainScreenAssetView: SoramitsuControl {
     public let amountUpLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textM
+        label.sora.dynamicTextStyle = .body
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
         label.sora.textColor = .fgPrimary
         label.sora.alignment = .right
         label.setContentHuggingPriority(.required, for: .horizontal)
@@ -85,6 +95,9 @@ public final class MainScreenAssetView: SoramitsuControl {
     public let amountDownLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
+        label.sora.dynamicTextStyle = .caption1
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
         label.sora.textColor = .statusSuccess
         label.sora.alignment = .right
         label.sora.text = " "
@@ -95,6 +108,9 @@ public final class MainScreenAssetView: SoramitsuControl {
         return label
     }()
     
+    private let columns = UIStackView()
+    private let names = UIStackView()
+    private let amounts = UIStackView()
     private let localizationManager = LocalizationManager.shared
     
     override init(frame: CGRect = .zero) {
@@ -103,6 +119,22 @@ public final class MainScreenAssetView: SoramitsuControl {
         setupSemantics()
     }
     
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        let stacked = traitCollection.preferredContentSizeCategory.isAccessibilityCategory || bounds.width < 300
+        let axis: NSLayoutConstraint.Axis = stacked ? .vertical : .horizontal
+        if columns.axis != axis { columns.axis = axis }
+        let alignment: UIStackView.Alignment = stacked ? .fill : .top
+        if columns.alignment != alignment { columns.alignment = alignment }
+        let amountAlignment: NSTextAlignment = stacked
+            ? (localizationManager.isRightToLeft ? .right : .left)
+            : (localizationManager.isRightToLeft ? .left : .right)
+        if amountUpLabel.sora.alignment != amountAlignment { amountUpLabel.sora.alignment = amountAlignment }
+        if amountDownLabel.sora.alignment != amountAlignment { amountDownLabel.sora.alignment = amountAlignment }
+        accessibilityLabel = [titleLabel.text, subtitleLabel.text, amountUpLabel.text, amountDownLabel.text]
+            .compactMap { $0 }.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: ", ")
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -111,46 +143,37 @@ public final class MainScreenAssetView: SoramitsuControl {
 private extension MainScreenAssetView {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+        names.axis = .vertical
+        names.spacing = 4
+        names.addArrangedSubview(titleLabel)
+        names.addArrangedSubview(subtitleLabel)
+        amounts.axis = .vertical
+        amounts.spacing = 4
+        amounts.addArrangedSubview(amountUpLabel)
+        amounts.addArrangedSubview(amountDownLabel)
+        columns.spacing = 12
+        columns.alignment = .top
+        columns.translatesAutoresizingMaskIntoConstraints = false
+        columns.addArrangedSubview(names)
+        columns.addArrangedSubview(amounts)
         addSubview(assetImageView)
-        addSubview(titleLabel)
-        addSubview(subtitleLabel)
-        addSubview(amountUpLabel)
-        addSubview(amountDownLabel)
-
+        addSubview(columns)
         NSLayoutConstraint.activate([
             assetImageView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            assetImageView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            assetImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            assetImageView.heightAnchor.constraint(equalToConstant: 40),
+            assetImageView.topAnchor.constraint(equalTo: topAnchor, constant: 12),
             assetImageView.widthAnchor.constraint(equalToConstant: 40),
-            
-            titleLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
-            titleLabel.topAnchor.constraint(equalTo: assetImageView.topAnchor),
-            titleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            titleLabel.heightAnchor.constraint(equalToConstant: 20),
-            
-            amountUpLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
-            amountUpLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            amountUpLabel.topAnchor.constraint(equalTo: assetImageView.topAnchor),
-            amountUpLabel.heightAnchor.constraint(equalToConstant: 20),
-            amountUpLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            
-            subtitleLabel.topAnchor.constraint(greaterThanOrEqualTo: titleLabel.bottomAnchor, constant: 2),
-            subtitleLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
-            subtitleLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
-            subtitleLabel.heightAnchor.constraint(equalToConstant: 14),
-            subtitleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            
-            amountDownLabel.topAnchor.constraint(greaterThanOrEqualTo: amountUpLabel.bottomAnchor, constant: 1),
-            amountDownLabel.leadingAnchor.constraint(equalTo: subtitleLabel.trailingAnchor, constant: 8),
-            amountDownLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            amountDownLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
-            amountDownLabel.heightAnchor.constraint(equalToConstant: 14),
-            amountDownLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            assetImageView.heightAnchor.constraint(equalToConstant: 40),
+            assetImageView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -12),
+            columns.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 12),
+            columns.trailingAnchor.constraint(equalTo: trailingAnchor),
+            columns.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            columns.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 64)
         ])
     }
-    
+
     func setupSemantics() {
         let defaultAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         let reversedAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .left : .right

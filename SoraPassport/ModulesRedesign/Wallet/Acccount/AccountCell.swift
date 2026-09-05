@@ -28,114 +28,57 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import UIKit
 import SoraUIKit
+import SoraKeystore
 import SoraFoundation
 
-final class AccountCell: SoramitsuTableViewCell {
-    
+final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol {
     private var accountItem: AccountTableViewItem?
-    private let localizationManager = LocalizationManager.shared
-    
-    private let containerView: SoramitsuView = {
-        var view = SoramitsuView()
-        view.sora.backgroundColor = .custom(uiColor: .clear)
-        return view
-    }()
-    
-    private let accountLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.sora.font = FontType.displayS
-        label.sora.textColor = .fgPrimary
-        label.sora.lineBreakMode = .byTruncatingMiddle
-        label.setContentHuggingPriority(.required, for: .horizontal)
-        return label
-    }()
-
-    private let arrowImageView: SoramitsuImageView = {
-        let view = SoramitsuImageView()
-        view.image = R.image.wallet.rightArrow()?.imageFlippedForRightToLeftLayoutDirection()
-        view.sora.tintColor = .fgPrimary
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.setContentCompressionResistancePriority(.required, for: .horizontal)
-        
-        return view
-    }()
-    
-    private lazy var button: SoramitsuControl = {
-        let view = SoramitsuControl()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.sora.backgroundColor = .custom(uiColor: .clear)
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            guard let item = self?.accountItem else { return }
-            self?.accountItem?.accountHandler?(item)
-        }
-        return view
-    }()
-    
-    private lazy var scanQrButton: ImageButton = {
-        let view = ImageButton(size: CGSize(width: 40, height: 40))
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.sora.tintColor = .accentTertiary
-        view.sora.backgroundColor = .bgSurface
-        view.sora.image = R.image.wallet.qrScan()
-        view.sora.cornerRadius = .circle
-        view.sora.clipsToBounds = false
-        view.setContentCompressionResistancePriority(.required, for: .horizontal)
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.accountItem?.scanQRHandler?()
-        }
-        return view
-    }()
+    private lazy var accountButton = WalletUX.button("") { [weak self] in
+        guard let self, let item = self.accountItem else { return }
+        item.accountHandler?(item)
+    }
+    private lazy var networkButton = WalletUX.button("SORA2 · Change network") { [weak self] in self?.accountItem?.networkHandler?() }
+    private lazy var sendButton = WalletUX.button("Send", primary: true) { [weak self] in self?.accountItem?.sendHandler?() }
+    private lazy var receiveButton = WalletUX.button("Receive") { [weak self] in self?.accountItem?.scanQRHandler?() }
+    private let actions = UIStackView()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        setupView()
-        setupConstraints()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    private func setupView() {
-        clipsToBounds = false
-        contentView.clipsToBounds = false
-        contentView.addSubview(containerView)
-        containerView.addSubviews(accountLabel, arrowImageView, scanQrButton)
-    }
-
-    private func setupConstraints() {
+        let stack = UIStackView(arrangedSubviews: [accountButton, networkButton, actions])
+        stack.axis = .vertical
+        stack.spacing = 4
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stack)
+        accountButton.contentHorizontalAlignment = .leading
+        accountButton.configuration?.image = UIImage(systemName: "chevron.down")
+        accountButton.configuration?.imagePlacement = .trailing
+        accountButton.configuration?.imagePadding = 8
+        networkButton.contentHorizontalAlignment = .leading
+        actions.distribution = .fillEqually
+        actions.spacing = 12
+        actions.addArrangedSubview(sendButton)
+        actions.addArrangedSubview(receiveButton)
         NSLayoutConstraint.activate([
-            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
-            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            
-            accountLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            accountLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-
-            arrowImageView.leadingAnchor.constraint(equalTo: accountLabel.trailingAnchor, constant: 12),
-            arrowImageView.centerYAnchor.constraint(equalTo: accountLabel.centerYAnchor),
-            arrowImageView.heightAnchor.constraint(equalToConstant: 16),
-            arrowImageView.widthAnchor.constraint(equalToConstant: 16),
-            arrowImageView.trailingAnchor.constraint(lessThanOrEqualTo: scanQrButton.leadingAnchor, constant: -12),
-
-            scanQrButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            scanQrButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            scanQrButton.topAnchor.constraint(equalTo: containerView.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8)
         ])
     }
-}
-
-extension AccountCell: SoramitsuTableViewCellProtocol {
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let axis: NSLayoutConstraint.Axis = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
+        if actions.axis != axis { actions.axis = axis }
+    }
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
-        guard let item = item as? AccountTableViewItem else {
-            assertionFailure("Incorect type of item")
-            return
-        }
-
+        guard let item = item as? AccountTableViewItem else { return }
         accountItem = item
-        accountLabel.sora.text = item.accountName
+        accountButton.configuration?.title = item.accountName
+        accountButton.accessibilityLabel = item.accountName
+        accountButton.accessibilityHint = WalletUX.text("Change account")
+        networkButton.isHidden = !SettingsManager.shared.nexusEnabled
     }
 }
-

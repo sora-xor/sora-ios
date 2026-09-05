@@ -30,6 +30,17 @@
 				<string>$(SORA_GOOGLE_URL_SCHEME)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>org.sora.irohaconnect</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>iroha</string>
+				<string>irohaconnect</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -41,6 +52,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to capture QR code</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID authenticates IrohaConnect wallet connections and signatures.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app require the access to Microphone to pass KYC</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -53,6 +66,8 @@
 	<string>$(SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256)</string>
 	<key>SoraMigrationEvidenceSourceRevision</key>
 	<string>$(SORA_MIGRATION_EVIDENCE_SOURCE_REVISION)</string>
+	<key>SoraMinamotoNetworkId</key>
+	<string>$(SORA_MINAMOTO_NETWORK_ID)</string>
 	<key>SoraTairaCanonicalToriiBaseUrl</key>
 	<string>$(SORA_TAIRA_CANONICAL_TORII_BASE_URL)</string>
 	<key>SoraTairaCurrentChainId</key>
@@ -67,6 +82,10 @@
 	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256)</string>
 	<key>SoraTairaDeploymentManifestSha256</key>
 	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256)</string>
+	<key>SoraTairaDeploymentManifestSequenceNumber</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SEQUENCE_NUMBER)</string>
+	<key>SoraTairaExplorerBaseUrl</key>
+	<string>$(SORA_TAIRA_EXPLORER_BASE_URL)</string>
 	<key>SoraTairaPendingRowPolicy</key>
 	<string>$(SORA_TAIRA_PENDING_ROW_POLICY)</string>
 	<key>SoraTairaPublicMcpEndpoint</key>
@@ -79,6 +98,7 @@
 	<string>$(SORA_TAIRA_RETIRED_GENESIS_HASH)</string>
 	<key>UIAppFonts</key>
 	<array>
+		<string>NotoSansEgyptianHieroglyphs-Regular.ttf</string>
 		<string>sora-Bold.otf</string>
 		<string>sora-ExtraBold.otf</string>
 		<string>sora-Regular.otf</string>

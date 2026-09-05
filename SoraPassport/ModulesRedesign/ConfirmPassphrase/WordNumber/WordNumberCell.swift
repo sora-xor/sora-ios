@@ -46,6 +46,8 @@ final class WordNumberCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.mnemonicConfirmationSelectWordNumber(preferredLanguages: .currentLocale)
         label.sora.font = FontType.paragraphM
+        label.sora.dynamicTextStyle = .body
+        label.numberOfLines = 0
         label.sora.textColor = .fgPrimary
         label.sora.alignment = .center
         return label
@@ -64,6 +66,8 @@ final class WordNumberCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.mnemonicConfirmationSelectWord2(preferredLanguages: .currentLocale)
         label.sora.font = FontType.paragraphM
+        label.sora.dynamicTextStyle = .body
+        label.numberOfLines = 0
         label.sora.textColor = .fgPrimary
         label.sora.alignment = .center
         return label
@@ -157,24 +161,17 @@ extension WordNumberCell: SoramitsuTableViewCellProtocol {
         
         buttonsStackView.removeArrangedSubviews()
         for variant in item.variants {
-            let variantText = SoramitsuTextItem(text: variant,
-                                                fontData: FontType.buttonM,
-                                                textColor: .accentPrimary,
-                                                alignment: .center)
-            
-            let view = SoramitsuButton()
-            view.sora.backgroundColor = .bgSurface
-            view.sora.cornerRadius = .large
-            view.sora.attributedText = variantText
-            view.heightAnchor.constraint(equalToConstant: 56).isActive = true
-            view.sora.addHandler(for: .touchUpInside) { [weak self] in
-                guard let self = self else { return }
-                self.wordNumberItem?.tryHandler?(variant)
+            let view = WalletUX.button(variant) { [weak self] in
+                self?.wordNumberItem?.tryHandler?(variant)
             }
+            view.configuration?.baseBackgroundColor = WalletUX.surface
+            view.configuration?.background.backgroundColor = WalletUX.surface
             buttonsStackView.addArrangedSubview(view)
         }
 
         numberLabel.text = "\(item.index)"
+        accessibilityElements = [titleLabel, numberLabel, descriptionLabel] + buttonsStackView.arrangedSubviews
+
     }
 }
 

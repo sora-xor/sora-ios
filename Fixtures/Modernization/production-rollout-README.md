@@ -12,7 +12,7 @@ non-promoting template mode:
 The modernization build verifier also runs
 `SoraPassport/Scripts/test-production-rollout-contract.py`. That hermetic regression uses an
 ephemeral synthetic controller and tiny synthetic IPA in `/private/tmp` to execute all four
-qualified target paths and 35 fail-closed mutations. The success paths traverse the full dual-controlled
+qualified target paths and 37 fail-closed mutations. The success paths traverse the full dual-controlled
 Taira and Minamoto validator; mutations cover missing full funded evidence, preclaimed readiness,
 finality below the committed transaction height, a trusted first height above the attested finality,
 missing live bounded sequential/stateful successor verification, invalid challenge/finality binding, an invalid
@@ -291,6 +291,12 @@ recovery evidence. The admitted current epoch supplies the exact nonzero genesis
 public HTTPS origin, and only its explicit `/v1/mcp` route is accepted. `taira.sora.org` is a
 convenience route and is rejected. The manifest and admission digests are embedded in the signed IPA
 and transitively bound above; omission or disagreement blocks rollout.
+
+The immutable admission must be no more than six hours old when each primary or reproduction
+candidate is archived. Live App Store upload, funded-canary admission, and every 1% -> 5% -> 25% ->
+100% rollout gate reject an admission more than seven days old or dated after the gate's wall clock.
+This longer staged window accommodates the three mandatory 48-hour dwells without allowing a signed
+deployment epoch to authorize a later release indefinitely.
 
 iOS pending Taira journals add an exact manifest-digest/deployment-epoch/genesis tuple to the chain
 UUID. Rows without that tuple—including legacy schema-77 rows—or with another admitted epoch remain

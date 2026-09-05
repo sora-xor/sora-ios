@@ -677,10 +677,14 @@ class ExactIpaControllerTests(unittest.TestCase):
             )
         return result, events, root / "execution", clone_app
 
-    def test_exact_eight_keychain_and_ten_device_cases(self):
+    def test_exact_eleven_keychain_and_ten_device_cases(self):
         self.assertEqual(len(MODULE.REQUEST_KEYS), 26)
         self.assertEqual(set(self.request()), MODULE.REQUEST_KEYS)
-        self.assertEqual(len(MODULE.KEYCHAIN_CASES), 8)
+        self.assertEqual(MODULE.KEYCHAIN_CASES, {
+            "mnemonic-12", "mnemonic-15-retained", "mnemonic-18-retained",
+            "mnemonic-21-retained", "mnemonic-24", "iroha-v1-paired-keys",
+            "raw-seed", "legacy-secret", "watch-only", "missing-secret", "corrupt-secret",
+        })
         self.assertEqual(len(MODULE.DEVICE_CASES), 10)
         for case_id in MODULE.KEYCHAIN_CASES:
             raw = MODULE.canonical_json(self.request(case_id=case_id))
@@ -779,7 +783,7 @@ class ExactIpaControllerTests(unittest.TestCase):
                     receipt_sha,
                 )
 
-    def test_application_receipt_enforces_all_eight_and_ten_case_contracts(self):
+    def test_application_receipt_enforces_all_eleven_and_ten_case_contracts(self):
         for case_kind, cases in (
             ("keychain", MODULE.KEYCHAIN_CASES),
             ("device", MODULE.DEVICE_CASES),

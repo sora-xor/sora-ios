@@ -1572,7 +1572,7 @@ enum WalletSecretSource: String, Codable {
 
 enum WalletMnemonicWordPolicy {
     static let userImportWordCounts: Set<Int> = [12, 24]
-    static let retainedSoraWordCounts: Set<Int> = [12, 15, 24]
+    static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]
 
     static func isUserImportWordCount(_ count: Int) -> Bool {
         userImportWordCounts.contains(count)
@@ -1584,9 +1584,10 @@ enum WalletMnemonicWordPolicy {
         switch count {
         case 12, 24:
             return .mnemonicEntropy
-        case 15:
-            // Historic installed SORA wallets remain SORA2-capable, but a
-            // 15-word phrase is not silently promoted into a Nexus master.
+        case 15, 18, 21:
+            // Released importers accepted every valid BIP39 phrase length.
+            // Preserve those SORA2 identities even when their phrase length
+            // is outside the Nexus derivation contract.
             return .legacyMnemonicEntropy
         default:
             return nil
@@ -2053,18 +2054,26 @@ final class WalletAccountCommitJournalStore {
     }
 }
 
-/// Runtime projection of the externally operator/reviewer-signed deployment
-/// admission. The bundle projection is intentionally insufficient to create an
-/// admission: Release tooling must authenticate the protected manifest and
-/// detached signatures before these values are embedded in the candidate.
+/// Legacy deployment-manifest projection retained for migration decoding and
+/// focused compatibility tests. The first-release runtime contract below is
+/// fixed independently of these bundle fields.
 struct TairaDeploymentBinding: Equatable {
-    static let knownChainIds: Set<UUID> = [
-        UUID(uuidString: "809574f5-fee7-5e69-bfcf-52451e42d50f")!,
-        UUID(uuidString: "fc56984b-2be7-431d-840e-21514d1883f0")!,
-    ]
-    static let convenienceHost = "taira.sora.org"
+    static let canonicalChainId = UUID(
+        uuidString: "fc56984b-2be7-431d-840e-21514d1883f0"
+    )!
+    static let canonicalToriiBaseURL = URL(
+        string: "https://taira.sora.org"
+    )!
+    static let canonicalPublicMcpEndpoint = URL(
+        string: "https://taira.sora.org/v1/mcp"
+    )!
+    static let canonicalExplorerBaseURL = URL(
+        string: "https://taira.sora.org"
+    )!
+    static let knownChainIds: Set<UUID> = [canonicalChainId]
 
     let manifestSha256: String
+    let manifestSequenceNumber: UInt64
     let admissionSha256: String
     let currentChainId: UUID
     let retiredChainId: UUID
@@ -2074,6 +2083,7 @@ struct TairaDeploymentBinding: Equatable {
     let retiredDeploymentEpoch: UInt64
     let canonicalToriiBaseURL: URL
     let publicMcpEndpoint: URL
+    let explorerBaseURL: URL
 
     static func admitted(
         infoDictionary: [String: Any]?
@@ -2124,11 +2134,14 @@ struct TairaDeploymentBinding: Equatable {
         }
         guard
             exactString("SoraTairaDeploymentAdmissionContractId") ==
-                "sora-ios-taira-deployment-admission-v1",
+                "sora-ios-taira-deployment-admission-v2",
             exactString("SoraTairaPendingRowPolicy") ==
                 "schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation",
             let manifestSha256 = digest(
                 "SoraTairaDeploymentManifestSha256"
+            ),
+            let manifestSequenceNumber = epoch(
+                "SoraTairaDeploymentManifestSequenceNumber"
             ),
             let admissionSha256 = digest(
                 "SoraTairaDeploymentAdmissionSha256"
@@ -2144,8 +2157,8 @@ struct TairaDeploymentBinding: Equatable {
             let retiredChainId = UUID(uuidString: retiredChainText),
             currentChainText == currentChainText.lowercased(),
             retiredChainText == retiredChainText.lowercased(),
+            currentChainId == canonicalChainId,
             currentChainId != retiredChainId,
-            Set([currentChainId, retiredChainId]) == knownChainIds,
             let currentGenesisHash = digest(
                 "SoraTairaCurrentGenesisHash"
             ),
@@ -2166,14 +2179,19 @@ struct TairaDeploymentBinding: Equatable {
             let endpointText = exactString(
                 "SoraTairaPublicMcpEndpoint"
             ),
-            let canonicalToriiBaseURL = canonicalPublicOrigin(baseText),
-            endpointText == "\(baseText)/v1/mcp",
-            let publicMcpEndpoint = URL(string: endpointText)
+            baseText == Self.canonicalToriiBaseURL.absoluteString,
+            endpointText == Self.canonicalPublicMcpEndpoint.absoluteString,
+            let explorerText = exactString(
+                "SoraTairaExplorerBaseUrl"
+            ),
+            explorerText == Self.canonicalExplorerBaseURL.absoluteString,
+            canonicalPublicOrigin(explorerText) != nil
         else {
             return nil
         }
         return TairaDeploymentBinding(
             manifestSha256: manifestSha256,
+            manifestSequenceNumber: manifestSequenceNumber,
             admissionSha256: admissionSha256,
             currentChainId: currentChainId,
             retiredChainId: retiredChainId,
@@ -2181,8 +2199,9 @@ struct TairaDeploymentBinding: Equatable {
             retiredGenesisHash: retiredGenesisHash,
             currentDeploymentEpoch: currentDeploymentEpoch,
             retiredDeploymentEpoch: retiredDeploymentEpoch,
-            canonicalToriiBaseURL: canonicalToriiBaseURL,
-            publicMcpEndpoint: publicMcpEndpoint
+            canonicalToriiBaseURL: Self.canonicalToriiBaseURL,
+            publicMcpEndpoint: Self.canonicalPublicMcpEndpoint,
+            explorerBaseURL: Self.canonicalExplorerBaseURL
         )
     }
 
@@ -2197,28 +2216,28 @@ struct TairaDeploymentBinding: Equatable {
                 resolvingAgainstBaseURL: false
             ),
             let admitted = URLComponents(
-                url: canonicalToriiBaseURL,
+                url: Self.canonicalToriiBaseURL,
                 resolvingAgainstBaseURL: false
             ),
             requested.scheme == "https",
             requested.user == nil,
             requested.password == nil,
-            requested.host?.lowercased() != Self.convenienceHost,
             requested.host?.lowercased() == admitted.host?.lowercased(),
-            (requested.port ?? 443) == (admitted.port ?? 443),
+            requested.port == nil,
             requested.fragment == nil,
             url.path.hasPrefix("/")
         else {
             return false
         }
         if url.path.hasSuffix("/v1/mcp") {
-            return url == publicMcpEndpoint
+            return url == Self.canonicalPublicMcpEndpoint
         }
         return true
     }
 
     private static func canonicalPublicOrigin(_ value: String) -> URL? {
         guard
+            value.utf8.count <= 512,
             let components = URLComponents(string: value),
             components.scheme == "https",
             components.user == nil,
@@ -2228,13 +2247,12 @@ struct TairaDeploymentBinding: Equatable {
             components.path.isEmpty,
             let host = components.host,
             host == host.lowercased(),
-            host != convenienceHost,
             host.contains("."),
             host.range(
                 of: "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
                 options: .regularExpression
             ) != nil,
-            components.port == nil || components.port == 443,
+            components.port == nil,
             let url = components.url,
             url.absoluteString == value
         else {
@@ -2273,21 +2291,29 @@ struct NexusDerivationProfile: Equatable {
     }
 }
 
-/// Immutable, bundle-captured authority for creating new deterministic Nexus
-/// children and exposing their runtime surfaces. Durable snapshots may retain
-/// a previously admitted Taira child as recovery evidence, but this policy
-/// never treats that retained row as current transport admission.
+/// Runtime topology policy. The first Taira release is part of the canonical
+/// product topology and no longer depends on an operator-selected bundle epoch.
+/// The injectable binding remains only for focused migration compatibility tests.
 struct NexusNetworkAdmissionPolicy: Equatable {
     let tairaDeployment: TairaDeploymentBinding?
+    private let admitsCanonicalTaira: Bool
+
+    init(tairaDeployment: TairaDeploymentBinding?) {
+        self.tairaDeployment = tairaDeployment
+        admitsCanonicalTaira = tairaDeployment != nil
+    }
+
+    private init(admitsCanonicalTaira: Bool) {
+        tairaDeployment = nil
+        self.admitsCanonicalTaira = admitsCanonicalTaira
+    }
 
     static var current: NexusNetworkAdmissionPolicy {
-        NexusNetworkAdmissionPolicy(
-            tairaDeployment: TairaDeploymentBinding.admittedFromBundle
-        )
+        NexusNetworkAdmissionPolicy(admitsCanonicalTaira: true)
     }
 
     var admittedDerivationProfiles: [NexusDerivationProfile] {
-        [.minamoto] + (tairaDeployment == nil ? [] : [.taira])
+        [.minamoto] + (admitsCanonicalTaira ? [.taira] : [])
     }
 
     var admittedWalletNetworkIds: Set<NetworkId> {
@@ -2297,7 +2323,7 @@ struct NexusNetworkAdmissionPolicy: Equatable {
     }
 
     var isTairaAdmitted: Bool {
-        tairaDeployment != nil
+        admitsCanonicalTaira
     }
 
     static func persistedMnemonicNetworkIdsAreValid(
@@ -2338,17 +2364,21 @@ struct NexusNetworkConfiguration: Codable, Equatable {
         isTestnet: false
     )
 
-    static var taira: NexusNetworkConfiguration? {
-        guard let deployment = TairaDeploymentBinding.admittedFromBundle else {
-            return nil
-        }
-        return taira(deployment: deployment)
-    }
+    private static let canonicalTaira = NexusNetworkConfiguration(
+        networkId: .taira,
+        displayName: "Taira Testnet",
+        chainId: TairaDeploymentBinding.canonicalChainId,
+        i105Discriminant: NexusDerivationProfile.taira.i105Discriminant,
+        toriiURL: TairaDeploymentBinding.canonicalToriiBaseURL,
+        explorerURL: TairaDeploymentBinding.canonicalExplorerBaseURL,
+        derivationPath: NexusDerivationProfile.taira.derivationPath,
+        isTestnet: true
+    )
+
+    static var taira: NexusNetworkConfiguration? { canonicalTaira }
 
     static var admittedWalletNetworkIds: Set<NetworkId> {
-        admittedWalletNetworkIds(
-            deployment: TairaDeploymentBinding.admittedFromBundle
-        )
+        NexusNetworkAdmissionPolicy.current.admittedWalletNetworkIds
     }
 
     static func admittedWalletNetworkIds(
@@ -2362,36 +2392,15 @@ struct NexusNetworkConfiguration: Codable, Equatable {
     static func taira(
         deployment: TairaDeploymentBinding
     ) -> NexusNetworkConfiguration {
-        NexusNetworkConfiguration(
-            networkId: .taira,
-            displayName: "Taira Testnet",
-            chainId: deployment.currentChainId,
-            i105Discriminant: NexusDerivationProfile.taira.i105Discriminant,
-            toriiURL: deployment.canonicalToriiBaseURL,
-            explorerURL: URL(string: "https://taira-explorer.sora.org")!,
-            derivationPath: NexusDerivationProfile.taira.derivationPath,
-            isTestnet: true
+        precondition(
+            deployment.currentChainId == TairaDeploymentBinding.canonicalChainId &&
+                deployment.canonicalToriiBaseURL ==
+                    TairaDeploymentBinding.canonicalToriiBaseURL &&
+                deployment.publicMcpEndpoint ==
+                    TairaDeploymentBinding.canonicalPublicMcpEndpoint,
+            "TAIRA_FIRST_RELEASE_CONTRACT_MISMATCH"
         )
-    }
-
-    /// Historical schema-77 rows remain readable under their exact UUID. This
-    /// configuration has no admitted endpoint and must never reach transport.
-    static func tairaRecovery(
-        chainId: UUID
-    ) -> NexusNetworkConfiguration? {
-        guard TairaDeploymentBinding.knownChainIds.contains(chainId) else {
-            return nil
-        }
-        return NexusNetworkConfiguration(
-            networkId: .taira,
-            displayName: "Taira Recovery",
-            chainId: chainId,
-            i105Discriminant: NexusDerivationProfile.taira.i105Discriminant,
-            toriiURL: URL(string: "https://taira-recovery.invalid")!,
-            explorerURL: URL(string: "https://taira-recovery.invalid")!,
-            derivationPath: NexusDerivationProfile.taira.derivationPath,
-            isTestnet: true
-        )
+        return canonicalTaira
     }
 
     static func configuration(for networkId: NetworkId) -> NexusNetworkConfiguration? {
@@ -2402,6 +2411,24 @@ struct NexusNetworkConfiguration: Codable, Equatable {
             return .minamoto
         case .taira:
             return taira
+        }
+    }
+
+    var satisfiesCurrentTairaContract: Bool {
+        switch networkId {
+        case .taira:
+            return chainId == TairaDeploymentBinding.canonicalChainId &&
+                toriiURL == TairaDeploymentBinding.canonicalToriiBaseURL &&
+                explorerURL ==
+                    TairaDeploymentBinding.canonicalExplorerBaseURL &&
+                derivationPath == NexusDerivationProfile.taira.derivationPath &&
+                i105Discriminant ==
+                    NexusDerivationProfile.taira.i105Discriminant &&
+                isTestnet
+        case .minamoto:
+            return self == .minamoto
+        case .sora2:
+            return false
         }
     }
 
@@ -2422,8 +2449,24 @@ struct NexusNetworkConfiguration: Codable, Equatable {
            requested.fragment == nil {
             return true
         }
-        return TairaDeploymentBinding.admittedFromBundle?
-            .authorizesTransport(to: url) == true
+        guard
+            let tairaOrigin = URLComponents(
+                url: TairaDeploymentBinding.canonicalToriiBaseURL,
+                resolvingAgainstBaseURL: false
+            ),
+            let requested = URLComponents(
+                url: url,
+                resolvingAgainstBaseURL: false
+            )
+        else {
+            return false
+        }
+        return requested.scheme == "https" &&
+            requested.host?.lowercased() == tairaOrigin.host?.lowercased() &&
+            requested.port == nil &&
+            requested.user == nil &&
+            requested.password == nil &&
+            requested.fragment == nil
     }
 
     func validate(address: String) throws {
@@ -4655,7 +4698,7 @@ final class WalletNetworkStore {
 
 /// Validates the installed SORA2 identity against its retained secret source.
 /// Nexus migration separately admits only eligible 12- or 24-word master
-/// phrases; retained 15-word, raw-seed, secret-only, and watch-only wallets stay SORA2-only.
+/// phrases; retained 15/18/21-word, raw-seed, secret-only, and watch-only wallets stay SORA2-only.
 enum LegacySoraIdentityValidator {
     static func validate(
         address: String,
@@ -4976,7 +5019,6 @@ final class WalletNetworkModelMigrator {
                     identifiers.contains(
                         KeystoreTag.legacyEntropy.rawValue
                     ),
-                    !identifiers.contains("privateKey"),
                     !identifiers.contains(where: { identifier in
                         scopedSuffixes.contains(where: {
                             identifier.hasSuffix($0)
@@ -4993,6 +5035,9 @@ final class WalletNetworkModelMigrator {
                 entropy = try keystore.fetchKey(
                     for: KeystoreTag.legacyEntropy.rawValue
                 )
+                if let entropy {
+                    try keystore.verifyLegacyIrohaKeyIfPresent(entropy: entropy)
+                }
             }
             defer {
                 Self.wipeSensitive(&entropy)

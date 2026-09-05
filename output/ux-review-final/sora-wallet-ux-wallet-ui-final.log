@@ -1,0 +1,163 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SoraPassport.xcodeproj -scheme SoraPassportUITests -configuration Debug -destination "platform=iOS Simulator,id=4E30B1DD-22B2-40CC-8595-1980E5EE17DF" -derivedDataPath /tmp/sora-wallet-ux-derived -disableAutomaticPackageResolution -parallel-testing-enabled NO "-only-testing:SoraPassportUITests/WalletUXVisualAcceptanceTests/testPreparedSampleWalletScrollingAndNavigation" -resultBundlePath /tmp/sora-wallet-ux-wallet-ui-final.xcresult CODE_SIGNING_ALLOWED=NO test-without-building
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-numerics: https://github.com/apple/swift-numerics.git @ 1.1.1
+  GTMAppAuth: https://github.com/google/GTMAppAuth.git @ 4.1.1
+  gRPC: https://github.com/google/grpc-binary.git @ 1.69.1
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.0
+  leveldb: https://github.com/firebase/leveldb.git @ 1.22.5
+  swift-nio-http2: https://github.com/apple/swift-nio-http2.git @ 1.44.0
+  GTMSessionFetcher: https://github.com/google/gtm-session-fetcher.git @ 3.5.0
+  Starscream: https://github.com/soramitsu/fearless-starscream.git @ 4.0.12
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.5.1
+  Reachability: https://github.com/ashleymills/Reachability.swift.git @ 5.2.3
+  swift-certificates: https://github.com/apple/swift-certificates.git @ 1.19.1
+  swift-nio-transport-services: https://github.com/apple/swift-nio-transport-services.git @ 1.28.0
+  AppAuth: https://github.com/openid/AppAuth-iOS.git @ 1.7.6
+  FireMock: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/FireMock @ local
+  JOSESwift: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/JOSESwift @ local
+  websocket-kit: https://github.com/vapor/websocket-kit @ 2.16.2
+  R.swift.Library: https://github.com/mac-cain13/R.swift.Library.git @ 5.3.0
+  SoraDocuments: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraDocuments @ local
+  secp256k1: https://github.com/Boilertalk/secp256k1.swift.git @ 0.1.7
+  swift-system: https://github.com/apple/swift-system.git @ 1.6.4
+  AppCheck: https://github.com/google/app-check.git @ 11.2.0
+  swift-collections: https://github.com/apple/swift-collections.git @ 1.5.1
+  Kingfisher: https://github.com/onevcat/Kingfisher.git @ 6.3.1
+  SoraFoundation: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraFoundation @ local
+  CocoaLumberjack: https://github.com/CocoaLumberjack/CocoaLumberjack.git @ 3.9.1
+  nanopb: https://github.com/firebase/nanopb.git @ 2.30910.0
+  GoogleAdsOnDeviceConversion: https://github.com/googleads/google-ads-on-device-conversion-ios-sdk @ 3.5.0
+  TweetNacl: https://github.com/bitmark-inc/tweetnacl-swiftwrap @ 1.1.0
+  swift-http-structured-headers: https://github.com/apple/swift-http-structured-headers.git @ 1.7.0
+  Firebase: https://github.com/firebase/firebase-ios-sdk.git @ 12.13.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.0
+  xxHash-Swift: https://github.com/daisuke-t-jp/xxHash-Swift @ 1.1.1
+  SwiftyBeaver: https://github.com/SwiftyBeaver/SwiftyBeaver.git @ 2.1.1
+  Lottie: https://github.com/airbnb/lottie-ios.git @ 4.4.3
+  swift-async-algorithms: https://github.com/apple/swift-async-algorithms.git @ 1.1.4
+  swift-nio: https://github.com/apple/swift-nio.git @ 2.100.0
+  InteropForGoogle: https://github.com/google/interop-ios-for-google-sdks.git @ 101.0.0
+  SoraUIKit: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraUIKit @ local
+  Modules: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/shared-features-spm @ local
+  GoogleSignIn: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/GoogleSignIn-iOS @ local
+  GoogleAppMeasurement: https://github.com/google/GoogleAppMeasurement.git @ 12.13.0
+  Cuckoo: https://github.com/Brightify/Cuckoo.git @ 1.9.1
+  SoraUI: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraUI @ local
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.0
+  GoogleDataTransport: https://github.com/google/GoogleDataTransport.git @ 10.1.0
+  PromiseKit: https://github.com/mxcl/PromiseKit.git @ 6.22.1
+  swift-algorithms: https://github.com/apple/swift-algorithms.git @ 1.2.1
+  SnapKit: https://github.com/SnapKit/SnapKit.git @ 5.7.1
+  swift-log: https://github.com/apple/swift-log @ 1.12.1
+  BigInt: https://github.com/attaswift/BigInt.git @ 5.7.0
+  swift-service-lifecycle: https://github.com/swift-server/swift-service-lifecycle.git @ 2.11.0
+  GoogleAPIClientForREST: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/google-api-objectivec-client-for-rest @ local
+  GoogleUtilities: https://github.com/google/GoogleUtilities.git @ 8.1.0
+  FLEX: https://github.com/FLEXTool/FLEX.git @ 5.22.10
+  Anchorage: https://github.com/Rightpoint/Anchorage.git @ 4.5.0
+  SoraWalletBinary: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraWalletBinary @ local
+  CryptoSwift: https://github.com/krzyzanowskim/CryptoSwift.git @ 1.10.0
+  swift-nio-ssl: https://github.com/apple/swift-nio-ssl.git @ 2.37.0
+  Then: https://github.com/devxoul/Then.git @ 3.0.0
+  Web3: https://github.com/soramitsu/web3-swift @ 7.7.7
+  swift-nio-extras: https://github.com/apple/swift-nio-extras.git @ 1.34.1
+  SVGKit: https://github.com/SVGKit/SVGKit.git @ 3.0.0
+  SSFStorageQueryKit: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SSFStorageQueryKit @ local
+  Nantes: https://github.com/instacart/Nantes.git @ 0.1.2
+  Promises: https://github.com/google/promises.git @ 2.4.0
+  abseil: https://github.com/google/abseil-cpp-binary.git @ 1.2024072200.0
+
+Writing result bundle at path:
+	/tmp/sora-wallet-ux-wallet-ui-final.xcresult
+
+2026-09-05 22:14:54.514775+1000 SoraPassportUITests-Runner[21246:16499411] [Default] Running tests...
+Test Suite 'Selected tests' started at 0008-09-05 22:14:54.865.
+Test Suite 'SoraPassportUITests.xctest' started at 0008-09-05 22:14:54.865.
+Test Suite 'WalletUXVisualAcceptanceTests' started at 0008-09-05 22:14:54.866.
+Test Case '-[SoraPassportUITests.WalletUXVisualAcceptanceTests testPreparedSampleWalletScrollingAndNavigation]' started.
+    t =     0.00s Start Test at 0008-09-05 22:14:54.866
+    t =     0.02s Set Up
+    t =     0.02s Open co.jp.soramitsu.sora.dev.flex
+    t =     0.02s     Activate co.jp.soramitsu.sora.dev.flex
+    t =     0.03s         Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =     0.05s Waiting 5.0s for "Enter Pin Code" StaticText to exist
+    t =     1.06s     Checking `Expect predicate `existsNoRetry == 1` for object "Enter Pin Code" StaticText`
+    t =     1.06s         Checking existence of `"Enter Pin Code" StaticText`
+    t =     1.12s         Capturing element debug description
+    t =     2.08s     Checking `Expect predicate `existsNoRetry == 1` for object "Enter Pin Code" StaticText`
+    t =     2.08s         Checking existence of `"Enter Pin Code" StaticText`
+    t =     2.10s         Capturing element debug description
+    t =     3.08s     Checking `Expect predicate `existsNoRetry == 1` for object "Enter Pin Code" StaticText`
+    t =     3.08s         Checking existence of `"Enter Pin Code" StaticText`
+    t =     3.10s         Capturing element debug description
+    t =     4.07s     Checking `Expect predicate `existsNoRetry == 1` for object "Enter Pin Code" StaticText`
+    t =     4.07s         Checking existence of `"Enter Pin Code" StaticText`
+    t =     4.09s         Capturing element debug description
+    t =     5.06s     Checking `Expect predicate `existsNoRetry == 1` for object "Enter Pin Code" StaticText`
+    t =     5.06s         Checking existence of `"Enter Pin Code" StaticText`
+    t =     5.07s         Capturing element debug description
+    t =     5.07s     Checking existence of `"Enter Pin Code" StaticText`
+    t =     5.09s Collecting debug information to assist test failure triage
+    t =     5.09s     Requesting snapshot of accessibility hierarchy for app with pid 64720
+    t =     5.11s Waiting 25.0s for "UX Sample" Button to exist
+    t =     6.19s     Checking `Expect predicate `existsNoRetry == 1` for object "UX Sample" Button`
+    t =     6.19s         Checking existence of `"UX Sample" Button`
+    t =     6.21s Checking existence of `Table (First Match)`
+    t =     6.22s Swipe up Table (First Match)
+    t =     6.22s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =     6.22s     Find the Table (First Match)
+    t =     6.23s     Check for interrupting elements affecting Table
+    t =     6.24s     Synthesize event
+    t =     6.79s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =     8.88s Find the Button (First Match)
+    t =     8.90s Find the Application 'co.jp.soramitsu.sora.dev.flex'
+    t =     8.98s Added attachment named 'Sample wallet scrolled holdings'
+    t =     8.98s Swipe down Table at {{0.0, 97.7}, {393.0, 711.3}}
+    t =     8.98s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =     8.99s     Find the Table at {{0.0, 97.7}, {393.0, 711.3}}
+    t =     9.00s     Check for interrupting elements affecting Table
+    t =     9.01s     Synthesize event
+    t =     9.46s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =    11.55s Checking existence of `"Activity" Button`
+    t =    11.57s Tap "Activity" Button
+    t =    11.57s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =    11.57s     Find the "Activity" Button
+    t =    11.58s     Check for interrupting elements affecting "Activity" Button
+    t =    11.60s     Synthesize event
+    t =    11.89s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =    12.01s Find the Application 'co.jp.soramitsu.sora.dev.flex'
+    t =    12.29s Added attachment named 'Sample wallet Activity'
+    t =    12.29s Checking existence of `"Wallet" Button`
+    t =    12.34s Tap "Wallet" Button
+    t =    12.34s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =    12.34s     Find the "Wallet" Button
+    t =    12.38s     Check for interrupting elements affecting "Wallet" Button
+    t =    12.43s     Synthesize event
+    t =    12.72s     Wait for co.jp.soramitsu.sora.dev.flex to idle
+    t =    12.85s Find the "Wallet" Button
+    t =    12.87s Tear Down
+Test Case '-[SoraPassportUITests.WalletUXVisualAcceptanceTests testPreparedSampleWalletScrollingAndNavigation]' passed (12.946 seconds).
+Test Suite 'WalletUXVisualAcceptanceTests' passed at 0008-09-05 22:15:07.812.
+	 Executed 1 test, with 0 failures (0 unexpected) in 12.946 (12.946) seconds
+Test Suite 'SoraPassportUITests.xctest' passed at 0008-09-05 22:15:07.812.
+	 Executed 1 test, with 0 failures (0 unexpected) in 12.946 (12.947) seconds
+Test Suite 'Selected tests' passed at 0008-09-05 22:15:07.812.
+	 Executed 1 test, with 0 failures (0 unexpected) in 12.946 (12.948) seconds
+2026-09-05 22:15:08.103 xcodebuild[19633:16489196] [MT] IDETestOperationsObserverDebug: 14.586 elapsed -- Testing started completed.
+2026-09-05 22:15:08.103 xcodebuild[19633:16489196] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-09-05 22:15:08.103 xcodebuild[19633:16489196] [MT] IDETestOperationsObserverDebug: 14.586 sec, +14.586 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/sora-wallet-ux-wallet-ui-final.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

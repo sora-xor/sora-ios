@@ -184,7 +184,7 @@ def read_stable_regular_file(path_text: str, maximum_bytes: int) -> bytes:
         os.close(descriptor)
 
 
-def load_json(path_text: str) -> dict[str, Any]:
+def load_json_record(path_text: str) -> tuple[dict[str, Any], bytes]:
     path = Path(path_text)
     raw = read_stable_regular_file(path_text, MAX_JSON_BYTES)
     try:
@@ -203,6 +203,27 @@ def load_json(path_text: str) -> dict[str, Any]:
         fail(f"JSON receipt {path} is invalid: {error}")
     if type(value) is not dict:
         fail(f"JSON receipt {path} must contain one top-level object")
+    return value, raw
+
+
+def load_json(path_text: str) -> dict[str, Any]:
+    return load_json_record(path_text)[0]
+
+
+def load_verifier_pinned_json(
+    path_text: str,
+    environment_name: str,
+    label: str,
+) -> dict[str, Any]:
+    value, raw = load_json_record(path_text)
+    expected_sha256 = os.environ.get(environment_name, "")
+    if (
+        HEX_64.fullmatch(expected_sha256) is None
+        or expected_sha256 == "0" * 64
+    ):
+        fail(f"{label} lacks a verifier-pinned snapshot SHA-256")
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        fail(f"{label} bytes differ from the verifier-pinned snapshot")
     return value
 
 
@@ -277,12 +298,22 @@ def require_hex40(value: Any, path: str) -> str:
 
 def configure_authenticated_taira(path: str) -> None:
     global TAIRA_DEPLOYMENT
-    value = load_json(path)
+    value, raw = load_json_record(path)
+    admission_sha256 = hashlib.sha256(raw).hexdigest()
+    expected_admission_sha256 = os.environ.get(
+        "IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256", ""
+    )
+    if (
+        HEX_64.fullmatch(expected_admission_sha256) is None
+        or expected_admission_sha256 == "0" * 64
+        or admission_sha256 != expected_admission_sha256
+    ):
+        fail("Taira deployment admission bytes differ from the verifier-pinned snapshot")
     root = exact_keys(
         value,
         {
             "schemaVersion", "contractId", "status",
-            "evaluatedAtEpochSeconds", "manifestSha256",
+            "evaluatedAtEpochSeconds", "manifestSequenceNumber", "manifestSha256",
             "operatorSignatureSha256", "reviewerSignatureSha256",
             "operatorPublicKeySpkiSha256", "reviewerPublicKeySpkiSha256",
             "current", "retired", "pendingRowPolicy",
@@ -290,9 +321,10 @@ def configure_authenticated_taira(path: str) -> None:
         "Taira deployment admission",
     )
     require_int(root["schemaVersion"], "Taira admission schemaVersion", 1, 1)
-    require_string(root["contractId"], "Taira admission contractId", "sora-ios-taira-deployment-admission-v1")
+    require_string(root["contractId"], "Taira admission contractId", "sora-ios-taira-deployment-admission-v2")
     require_string(root["status"], "Taira admission status", "admitted")
     require_int(root["evaluatedAtEpochSeconds"], "Taira admission evaluation", 1)
+    require_int(root["manifestSequenceNumber"], "Taira admission manifest sequence", 1, MAX_SAFE_INTEGER)
     for key in (
         "manifestSha256", "operatorSignatureSha256",
         "reviewerSignatureSha256", "operatorPublicKeySpkiSha256",
@@ -303,7 +335,7 @@ def configure_authenticated_taira(path: str) -> None:
         fail("Taira deployment authorities are not distinct")
     epoch_keys = {
         "chainId", "role", "deploymentEpoch", "genesisHash",
-        "canonicalToriiBaseUrl", "publicMcpEndpoint",
+        "canonicalToriiBaseUrl", "publicMcpEndpoint", "explorerBaseUrl",
     }
     current = exact_keys(root["current"], epoch_keys, "Taira current deployment")
     retired = exact_keys(root["retired"], epoch_keys, "Taira retired deployment")
@@ -329,11 +361,15 @@ def configure_authenticated_taira(path: str) -> None:
     require_hex64(retired["genesisHash"], "Taira retired genesis")
     if current["genesisHash"] == retired["genesisHash"]:
         fail("Taira deployment genesis identities are not distinct")
-    if retired["canonicalToriiBaseUrl"] is not None or retired["publicMcpEndpoint"] is not None:
+    if any(retired[key] is not None for key in (
+        "canonicalToriiBaseUrl", "publicMcpEndpoint", "explorerBaseUrl",
+    )):
         fail("retired Taira identity authorizes transport")
     base = require_string(current["canonicalToriiBaseUrl"], "Taira canonical Torii origin", maximum=2_048)
     endpoint = require_string(current["publicMcpEndpoint"], "Taira MCP endpoint", maximum=2_060)
+    explorer = require_string(current["explorerBaseUrl"], "Taira explorer origin", maximum=2_048)
     parsed = urlsplit(base)
+    parsed_explorer = urlsplit(explorer)
     if (
         parsed.scheme != "https"
         or parsed.hostname is None
@@ -347,6 +383,17 @@ def configure_authenticated_taira(path: str) -> None:
         or parsed.query
         or parsed.fragment
         or endpoint != f"{base}/v1/mcp"
+        or parsed_explorer.scheme != "https"
+        or parsed_explorer.hostname is None
+        or parsed_explorer.hostname != parsed_explorer.hostname.lower()
+        or parsed_explorer.hostname == "taira.sora.org"
+        or "." not in parsed_explorer.hostname
+        or parsed_explorer.username is not None
+        or parsed_explorer.password is not None
+        or parsed_explorer.port not in (None, 443)
+        or parsed_explorer.path
+        or parsed_explorer.query
+        or parsed_explorer.fragment
     ):
         fail("Taira deployment lacks one explicit canonical public HTTPS /v1/mcp route")
     policy = exact_keys(
@@ -366,11 +413,13 @@ def configure_authenticated_taira(path: str) -> None:
         fail("Taira deployment permits schema-77 pending-row reinterpretation")
     TAIRA_DEPLOYMENT = {
         "manifestSha256": root["manifestSha256"],
-        "admissionSha256": secure_file_sha256(path, MAX_JSON_BYTES),
+        "manifestSequenceNumber": str(root["manifestSequenceNumber"]),
+        "admissionSha256": admission_sha256,
         "currentChainId": current["chainId"],
         "currentGenesisHash": current["genesisHash"],
         "canonicalToriiBaseUrl": base,
         "publicMcpEndpoint": endpoint,
+        "explorerBaseUrl": explorer,
     }
 
 
@@ -593,9 +642,9 @@ def validate_artifact(value: dict[str, Any], ipa_path: Path) -> None:
     taira_deployment = exact_keys(
         value["tairaDeployment"],
         {
-            "manifestSha256", "admissionSha256", "currentChainId",
+            "manifestSha256", "manifestSequenceNumber", "admissionSha256", "currentChainId",
             "currentGenesisHash", "canonicalToriiBaseUrl",
-            "publicMcpEndpoint",
+            "publicMcpEndpoint", "explorerBaseUrl",
         },
         "artifact Taira deployment",
     )
@@ -835,6 +884,9 @@ def validate_artifact(value: dict[str, Any], ipa_path: Path) -> None:
                     "manifestSha256": info_plist.get(
                         "SoraTairaDeploymentManifestSha256"
                     ),
+                    "manifestSequenceNumber": info_plist.get(
+                        "SoraTairaDeploymentManifestSequenceNumber"
+                    ),
                     "admissionSha256": info_plist.get(
                         "SoraTairaDeploymentAdmissionSha256"
                     ),
@@ -849,6 +901,9 @@ def validate_artifact(value: dict[str, Any], ipa_path: Path) -> None:
                     ),
                     "publicMcpEndpoint": info_plist.get(
                         "SoraTairaPublicMcpEndpoint"
+                    ),
+                    "explorerBaseUrl": info_plist.get(
+                        "SoraTairaExplorerBaseUrl"
                     ),
                 }
                 if embedded_taira != taira_deployment:
@@ -1557,10 +1612,24 @@ def main(argv: list[str]) -> int:
             else:
                 fail("controller trust root status must be blocked or qualified")
         elif mode == "trust" and len(argv) == 3:
-            validate_trust(load_json(argv[2]), qualified=True)
+            validate_trust(
+                load_verifier_pinned_json(
+                    argv[2],
+                    "IOS_PRODUCTION_ROLLOUT_TRUST_VERIFIED_SHA256",
+                    "controller trust root",
+                ),
+                qualified=True,
+            )
         elif mode == "artifact" and len(argv) == 5:
             configure_authenticated_taira(argv[4])
-            validate_artifact(load_json(argv[2]), Path(argv[3]))
+            validate_artifact(
+                load_verifier_pinned_json(
+                    argv[2],
+                    "IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256",
+                    "artifact identity receipt",
+                ),
+                Path(argv[3]),
+            )
         elif mode == "qualification" and len(argv) == 3:
             validate_qualification(load_json(argv[2]))
         elif mode == "pi" and len(argv) == 4:

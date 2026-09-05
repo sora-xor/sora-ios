@@ -7,6 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
+		A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
+		A66B00012F5B000000000003 /* IrohaConnectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000102 /* IrohaConnectSession.swift */; };
+		A66B00012F5B000000000004 /* IrohaConnectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000102 /* IrohaConnectSession.swift */; };
+		A66B00012F5B000000000005 /* IrohaConnectUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000103 /* IrohaConnectUI.swift */; };
+		B66B00012F5B000000000005 /* WalletUX.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000103 /* WalletUX.swift */; };
+		A66B00012F5B000000000006 /* IrohaConnectUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000103 /* IrohaConnectUI.swift */; };
+		B66B00012F5B000000000006 /* WalletUX.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000103 /* WalletUX.swift */; };
+		A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000110 /* IrohaConnectTests.swift */; };
+		B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000110 /* WalletUXTests.swift */; };
+		A66F00012F5D000000000001 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */; };
+		A66F00012F5D000000000002 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */; };
+		A66F00012F5D000000000003 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
+		A66F00012F5D000000000004 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
 		A10000E00000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		A10000090000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
 		A100000A0000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
@@ -79,6 +93,7 @@
 		02623EC02178C0930011250E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02623EBF2178C0930011250E /* Assets.xcassets */; };
 		02623ED92178C0930011250E /* SoraPassportUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623ED82178C0930011250E /* SoraPassportUITests.swift */; };
 		E71D0A010000000000000003 /* RetainedMigrationEvidenceHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D0A010000000000000002 /* RetainedMigrationEvidenceHarness.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
+		B66B00012F5B000000000020 /* RetainedMigrationEvidenceHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D0A010000000000000002 /* RetainedMigrationEvidenceHarness.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		E71D0A010000000000000005 /* RetainedMigrationEvidenceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D0A010000000000000004 /* RetainedMigrationEvidenceUITests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		02623EE92179AD390011250E /* RootInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EE82179AD390011250E /* RootInteractor.swift */; };
 		02623EEB2179AD440011250E /* RootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEA2179AD440011250E /* RootPresenter.swift */; };
@@ -2792,6 +2807,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectProtocol.swift; sourceTree = "<group>"; };
+		A66B00012F5B000000000102 /* IrohaConnectSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectSession.swift; sourceTree = "<group>"; };
+		A66B00012F5B000000000103 /* IrohaConnectUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectUI.swift; sourceTree = "<group>"; };
+		B66B00012F5B000000000103 /* WalletUX.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUX.swift; sourceTree = "<group>"; };
+		A66B00012F5B000000000110 /* IrohaConnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectTests.swift; sourceTree = "<group>"; };
+		B66B00012F5B000000000110 /* WalletUXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUXTests.swift; sourceTree = "<group>"; };
 		A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletMigrationRetainedDeviceEvidenceTests.swift; sourceTree = "<group>"; };
 		A10000150000000000000001 /* NexusWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWalletService.swift; sourceTree = "<group>"; };
 		A10000160000000000000001 /* PolkamarktRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktRuntime.swift; sourceTree = "<group>"; };
@@ -3344,6 +3365,14 @@
 		368463AB2A40728300B1F203 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		368463AC2A40728300B1F203 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/Localizable.strings; sourceTree = "<group>"; };
 		368463AD2A40728300B1F203 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = pt; path = pt.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
+		A66A00012F5A000000000001 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A66A00012F5A000000000002 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = akk; path = akk.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
+		A66A00012F5A000000000003 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A66E00012F5C000000000001 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		A66E00012F5C000000000002 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
+		A66E00012F5C000000000003 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoSansEgyptianHieroglyphs-Regular.ttf"; sourceTree = "<group>"; };
+		A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoSansEgyptianHieroglyphs-OFL.txt"; sourceTree = "<group>"; };
 		3688A43C280F591900C1D16F /* SourceType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceType.swift; sourceTree = "<group>"; };
 		368CCC572BDFCEB4003C354F /* CDCWSingleValue+CoreDataCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDCWSingleValue+CoreDataCodable.swift"; sourceTree = "<group>"; };
 		368E2CA428F2FCA00071A324 /* BalanceProviderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceProviderFactory.swift; sourceTree = "<group>"; };
@@ -4467,6 +4496,8 @@
 		A10000220000000000000001 /* Modernization */ = {
 			isa = PBXGroup;
 			children = (
+				A66B00012F5B000000000110 /* IrohaConnectTests.swift */,
+				B66B00012F5B000000000110 /* WalletUXTests.swift */,
 				A10000210000000000000001 /* WalletModernizationTests.swift */,
 				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
 				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
@@ -4833,6 +4864,10 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */,
+				A66B00012F5B000000000102 /* IrohaConnectSession.swift */,
+				A66B00012F5B000000000103 /* IrohaConnectUI.swift */,
+				B66B00012F5B000000000103 /* WalletUX.swift */,
 				E71D0A010000000000000001 /* MigrationEvidence */,
 				36E34F832BA05489005A44BC /* Legacy */,
 				369E10C12B91DF230097DB61 /* IconGenerator */,
@@ -4992,6 +5027,8 @@
 		02787BED2182FC8B009D3ED6 /* Fonts */ = {
 			isa = PBXGroup;
 			children = (
+				A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */,
+				A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */,
 				55A85FEB27628BD300A6C6AC /* Sora-Light.otf */,
 				84FA009F226A1D57005DA950 /* sora-Bold.otf */,
 				84FA009D226A1D57005DA950 /* sora-ExtraBold.otf */,
@@ -8453,6 +8490,8 @@
 				"fi-FI",
 				ja,
 				pt,
+				akk,
+				"egy-Egyp",
 			);
 			mainGroup = 02623EAC2178C0910011250E;
 			packageReferences = (
@@ -8500,6 +8539,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A66F00012F5D000000000001 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */,
+				A66F00012F5D000000000003 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */,
 				84F622BE23102C5300D5D6BA /* smsCodeInvalid.json in Resources */,
 				84DD4DED22E7B12900626CA0 /* walletBalanceZeroResponse.json in Resources */,
 				84FA00A4226A1D57005DA950 /* sora-Regular.otf in Resources */,
@@ -8604,6 +8645,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A66F00012F5D000000000002 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */,
+				A66F00012F5D000000000004 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */,
 				D82B309E0EDED34B43E4F0DD /* smsCodeInvalid.json in Resources */,
 				6A027E906D0BB280BF3BEF57 /* walletBalanceZeroResponse.json in Resources */,
 				B4A820F3C18704BBBA58D27D /* sora-Regular.otf in Resources */,
@@ -8891,6 +8934,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */,
+				A66B00012F5B000000000003 /* IrohaConnectSession.swift in Sources */,
+				A66B00012F5B000000000005 /* IrohaConnectUI.swift in Sources */,
+				B66B00012F5B000000000005 /* WalletUX.swift in Sources */,
 				E71D0A010000000000000003 /* RetainedMigrationEvidenceHarness.swift in Sources */,
 				A10000090000000000000001 /* NexusWalletService.swift in Sources */,
 				A100000B0000000000000001 /* PolkamarktRuntime.swift in Sources */,
@@ -10076,6 +10123,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
+				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
 				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
 				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
@@ -10176,6 +10225,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */,
+				A66B00012F5B000000000004 /* IrohaConnectSession.swift in Sources */,
+				A66B00012F5B000000000006 /* IrohaConnectUI.swift in Sources */,
+				B66B00012F5B000000000006 /* WalletUX.swift in Sources */,
+				B66B00012F5B000000000020 /* RetainedMigrationEvidenceHarness.swift in Sources */,
 				A100000A0000000000000001 /* NexusWalletService.swift in Sources */,
 				A100000C0000000000000001 /* PolkamarktRuntime.swift in Sources */,
 				A100000E0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
@@ -11458,6 +11512,8 @@
 				368463A62A40723E00B1F203 /* fi-FI */,
 				368463A92A40725D00B1F203 /* ja */,
 				368463AC2A40728300B1F203 /* pt */,
+				A66A00012F5A000000000001 /* akk */,
+				A66E00012F5C000000000001 /* egy-Egyp */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -11493,6 +11549,8 @@
 				368463A72A40723E00B1F203 /* fi-FI */,
 				368463AA2A40725D00B1F203 /* ja */,
 				368463AD2A40728300B1F203 /* pt */,
+				A66A00012F5A000000000002 /* akk */,
+				A66E00012F5C000000000002 /* egy-Egyp */,
 			);
 			name = Localizable.stringsdict;
 			sourceTree = "<group>";
@@ -11528,6 +11586,8 @@
 				368463A52A40723E00B1F203 /* fi-FI */,
 				368463A82A40725D00B1F203 /* ja */,
 				368463AB2A40728300B1F203 /* pt */,
+				A66A00012F5A000000000003 /* akk */,
+				A66E00012F5C000000000003 /* egy-Egyp */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";

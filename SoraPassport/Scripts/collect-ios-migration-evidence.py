@@ -133,6 +133,9 @@ CORE_DATA_V2_SETTINGS_SCHEMA = {
 EXPECTED_KEYCHAIN_COHORTS = {
     "mnemonic-12": "success",
     "mnemonic-15-retained": "success",
+    "mnemonic-18-retained": "success",
+    "mnemonic-21-retained": "success",
+    "iroha-v1-paired-keys": "success",
     "mnemonic-24": "success",
     "raw-seed": "success",
     "legacy-secret": "success",
@@ -2323,7 +2326,7 @@ def inspect_keychain(record: dict[str, Any]) -> dict[str, Any]:
     if seen != set(EXPECTED_KEYCHAIN_COHORTS):
         fail("Keychain observations omit a required cohort")
     return {
-        "successfulSecretSourceCohortCount": 6,
+        "successfulSecretSourceCohortCount": 9,
         "secretFailureCohortCount": 2,
         "identityUnchanged": True,
         "accessibilityUnchanged": True,
@@ -2601,8 +2604,8 @@ def expected_test_identifiers(
         if not methods or len(methods) != len(set(methods)):
             fail(f"{suite} source has an invalid test-method inventory")
         result.update(f"{suite}/{method}()" for method in methods)
-    if len(result) != 226:
-        fail("migration test source inventory must contain exactly 226 identifiers")
+    if len(result) != 228:
+        fail("migration test source inventory must contain exactly 228 identifiers")
     return result
 
 
@@ -2687,7 +2690,7 @@ def inspect_xcresult(
     exact_keys(tests, {"testPlanConfigurations", "devices", "testNodes"}, "xcresult tests")
     suite_counts, enumerated_total, observed_tests = count_test_cases(tests["testNodes"])
     required_counts = {
-        "WalletModernizationTests": 200,
+        "WalletModernizationTests": 202,
         "WalletRecoveryCapabilityGateTests": 11,
         "WalletRecoveryExporterTests": 12,
         "WalletMigrationRetainedDeviceEvidenceTests": 3,

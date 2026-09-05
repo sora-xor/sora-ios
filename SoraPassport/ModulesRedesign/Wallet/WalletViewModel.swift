@@ -30,6 +30,7 @@
 
 import UIKit
 import SoraUIKit
+import SoraKeystore
 
 import RobinHood
 import SoraFoundation
@@ -195,16 +196,12 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(accountItem)
         }
 
-        if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
-            items.append(backupItem)
-        }
-        
-        if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
-            items.append(friendsItem)
-        }
-        
         if enabledIds.contains(Cards.liquidAssets.id), let assetsItem = walletItems.first(where: { $0 is AssetsItem }) {
             items.append(assetsItem)
+        }
+
+        if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
+            items.append(backupItem)
         }
         
         if let poolsItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
@@ -215,6 +212,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             }
         }
         
+        if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
+            items.append(friendsItem)
+        }
+
         if let editViewItem = walletItems.first(where: { $0 is EditViewItem }) {
             items.append(editViewItem)
         }
@@ -405,6 +406,28 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                 completion: completion)
     }
     
+    @MainActor
+    func sendFromWallet() {
+        wireframe?.showSend(on: view?.controller, selectedTokenId: nil, selectedAddress: "",
+                            fiatService: fiatService, assetManager: assetManager,
+                            providerFactory: providerFactory, networkFacade: networkFacade,
+                            assetsProvider: assetsProvider, qrEncoder: qrEncoder,
+                            sharingFactory: sharingFactory, marketCapService: marketCapService)
+    }
+
+    @MainActor
+    func showNetworks() {
+        guard SettingsManager.shared.nexusEnabled,
+              let source = view?.controller, let navigation = source.navigationController else { return }
+        let picker = NexusPortfolioViewController(assetsProvider: assetsProvider, openSora2Experience: { [weak navigation] in
+            navigation?.popToRootViewController(animated: true)
+            return navigation != nil
+        })
+        navigation.setNavigationBarHidden(false, animated: false)
+        picker.hidesBottomBarWhenPushed = true
+        navigation.pushViewController(picker, animated: true)
+    }
+
     func showBackupAccount() {
         wireframe?.showAccountOptions(from: view,
                                       account: SelectedWalletSettings.shared.currentAccount)

@@ -102,8 +102,9 @@ final class SplashInteractor: SplashInteractorProtocol {
         Task {
             AssetManager.networkAssets = assetsInfo
 
-            let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
-            await PriceInfoService.shared.setup(for: assetsIds)
+            // Fiat prices and market-cap data are display-only and every consumer already loads
+            // them lazily through getPriceInfo(for:). A slow PI request must not hold wallet
+            // storage migration, recovery checks, or navigation on the splash screen.
 
             socketService.throttle()
 
@@ -158,16 +159,16 @@ final class SplashInteractor: SplashInteractorProtocol {
             guard unresolvedCommits.isEmpty else {
                 throw UserStorageMigrationError.interruptedMigration
             }
-            if LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+            if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
                 storeExists: FileManager.default.fileExists(
                     atPath: UserStorageParams.storageURL.path
                 ),
-                keyIdentifiers: Set(try keychain.allKeyIdentifiers()),
+                keystore: keychain,
                 hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
                 snapshot: try WalletNetworkStore().load()
             ) {
-                // This exact pre-account-model state has only the retained
-                // legacy entropy source. Do not ask Core Data to create an
+                // This pre-account-model state has retained legacy entropy
+                // and, in 1.x, its verified Iroha key. Do not create an
                 // empty replacement store; Root presents the explicit,
                 // journaled upgrade confirmation and verifies the resulting
                 // SORA identity while retaining the original Keychain entry.
@@ -249,13 +250,12 @@ final class SplashInteractor: SplashInteractorProtocol {
             do {
                 let accounts = try operation.extractNoCancellableResultData()
                 let store = try WalletNetworkStore()
-                try WalletNetworkModelMigrator(
-                    keystore: Keychain(),
-                    store: store,
-                    settings: settings
-                ).migrate(
+                try Self.initializeWalletNetworksIfNeeded(
                     accounts: accounts,
-                    selectedAddress: selectedAccount?.address
+                    selectedAddress: selectedAccount?.address,
+                    store: store,
+                    keystore: Keychain(),
+                    settings: settings
                 )
 
                 DispatchQueue.main.async {
@@ -291,5 +291,27 @@ final class SplashInteractor: SplashInteractorProtocol {
         }
 
         OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+    }
+
+    static func initializeWalletNetworksIfNeeded(
+        accounts: [AccountItem],
+        selectedAddress: String?,
+        store: WalletNetworkStore,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol
+    ) throws {
+        // On a clean install there is no wallet to activate. Creating an empty
+        // snapshot here writes a retained-wallet marker before onboarding and
+        // makes Root correctly reject the missing selected account. Existing
+        // snapshots still receive every migration check; Root independently
+        // rejects retained keys/settings when the snapshot is absent.
+        if accounts.isEmpty, selectedAddress == nil, try store.load() == nil {
+            return
+        }
+        try WalletNetworkModelMigrator(
+            keystore: keystore,
+            store: store,
+            settings: settings
+        ).migrate(accounts: accounts, selectedAddress: selectedAddress)
     }
 }

@@ -1,0 +1,11 @@
+{
+  "SoraPassport/Common/MigrationEvidence/RetainedMigrationEvidenceHarness.swift": "cec69d2a8e6398dbd3f0fee4799bb7d185e3f2dce46d5bf34ad563aa1814a217",
+  "SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests.swift": "f1982d20a48b87c0a3f8a3412fdf6124778a0d427e4bac84396fb174fd52b973",
+  "SoraPassport/Scripts/collect-ios-migration-evidence.py": "f7216406982db5ef97c05407a50647c99b0105025cc8a8a83bf8c9b7599a146f",
+  "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py": "f50f796790567d28c14ef668aa9132a5ab3af0ba504249b4948154408ced8cf5",
+  "SoraPassport/Scripts/test-ios-migration-evidence-collector.py": "d152f7f68dcef29473e4286d2945f313dd21b5e9c277943805355cef03e83431",
+  "SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py": "fb0cffca4644869368292263f70a276fe6ee1cf0854c85790ea16d922e85cf43",
+  "SoraPassport/Scripts/verify-ios-migration-qualification.py": "20d90ae13f53be12d13a21e8b7b032d3e6955ffa8a8922c575f0e6f96c3d15fa",
+  "SoraPassport/Scripts/verify-modernization-dependencies.sh": "e0caea0121d8ed9e38c345baaf8f8219f93753dec8ac9fe72a036c067ec328ce",
+  "Fixtures/Modernization/ios-migration-qualification-README.md": "8b13e599f25bfa570a989f175efc122748ac72a253070e501f95ecc0037aa016"
+}

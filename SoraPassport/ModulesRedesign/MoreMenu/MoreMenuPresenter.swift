@@ -94,35 +94,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     private func secondSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
-        if SettingsManager.shared.nexusEnabled {
-            let tairaAdmitted = NexusNetworkAdmissionPolicy
-                .current.isTairaAdmitted
-            let portfolio = MoreMenuItem(
-                title: "SORA Portfolio",
-                subtitle: NexusPortfolioPresentationPolicy
-                    .portfolioSubtitle(tairaAdmitted: tairaAdmitted),
-                picture: .icon(
-                    image: R.image.iconStar2()!,
-                    color: .accentTertiary
-                ),
-                onTap: { self.showNexusPortfolio() }
-            )
-            items.append(portfolio)
-        }
-        if SettingsManager.shared.polkamarktEnabled {
-            let polkamarkt = MoreMenuItem(
-                title: R.string.localizable.pageTitlePolkamarkt(
-                    preferredLanguages: languages
-                ),
-                subtitle: "Prediction markets on SORA2",
-                picture: .icon(
-                    image: R.image.iconNode()!,
-                    color: .accentTertiary
-                ),
-                onTap: { self.showPolkamarkt() }
-            )
-            items.append(polkamarkt)
-        }
         let nodes = MoreMenuItem(title: R.string.localizable.settingsNodes(preferredLanguages: languages),
                                  subtitle: nodeName(), //TODO: node address/description here
                                  picture: .icon(image: R.image.iconNode()!,

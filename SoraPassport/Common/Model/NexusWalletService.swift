@@ -74,16 +74,25 @@ struct NexusExactDecimal: Comparable {
 }
 
 enum NexusAmountPolicy {
-    /// Iroha numeric scale is encoded as an unsigned byte in the reviewed
-    /// Norito contract. Keep UI, quote, balance and pending validation aligned
-    /// with Torii history parsing on both mobile platforms.
+    /// The generic Norito quantity parser retains its unsigned-byte ceiling for
+    /// Minamoto compatibility. Taira's native XOR contract is fixed at scale 9.
     static let maximumScale = 255
+    static let tairaMaximumScale = 9
+
+    static func maximumScale(for networkId: NetworkId) -> Int {
+        networkId == .taira ? tairaMaximumScale : maximumScale
+    }
 
     static func accepts(
         _ quantity: PIQuantity,
+        networkId: NetworkId? = nil,
         allowingZero: Bool = false
     ) -> Bool {
         guard let value = NexusExactDecimal(quantity.rawValue) else {
+            return false
+        }
+        let scaleLimit = networkId.map { maximumScale(for: $0) } ?? maximumScale
+        guard value.scale <= scaleLimit else {
             return false
         }
         return allowingZero ? value.unscaled >= 0 : value.unscaled > 0
@@ -95,10 +104,16 @@ enum NexusSendAvailabilityPolicy {
         networkId: NetworkId,
         nexusEnabled: Bool,
         sendsEnabled: Bool,
-        tairaEnabled: Bool
+        tairaEnabled: Bool,
+        networkAdmitted: Bool,
+        signerQualified: Bool,
+        finalityQualified: Bool
     ) -> Bool {
         nexusEnabled &&
             sendsEnabled &&
+            networkAdmitted &&
+            signerQualified &&
+            finalityQualified &&
             (networkId != .taira || tairaEnabled)
     }
 }
@@ -106,6 +121,9 @@ enum NexusSendAvailabilityPolicy {
 enum NexusToriiError: LocalizedError {
     case invalidRoute
     case invalidResponse
+    case mcpContractMismatch
+    case mcpNotEnabled
+    case deploymentUnavailable
     case responseTooLarge
     case httpStatus(Int)
     case server
@@ -126,6 +144,12 @@ enum NexusToriiError: LocalizedError {
             return "The selected Nexus network route is invalid."
         case .invalidResponse:
             return "Torii returned an invalid response."
+        case .mcpContractMismatch:
+            return "Torii does not expose the reviewed wallet MCP contract."
+        case .mcpNotEnabled:
+            return "The public Taira endpoint does not have Torii MCP enabled."
+        case .deploymentUnavailable:
+            return "The public Torii endpoint cannot reach an authoritative network route."
         case .responseTooLarge:
             return "Torii returned more data than the mobile response limit."
         case let .httpStatus(code):
@@ -244,6 +268,286 @@ enum NexusJSONValue: Codable, Equatable {
     }
 }
 
+/// Bounded RFC JSON admission performed before Foundation can normalize number
+/// tokens or collapse duplicate object names. Nexus wire contracts use numeric
+/// JSON tokens only for exact 64-bit integer control fields; quantities remain
+/// strings.
+enum NexusStrictJSONAdmission {
+    private static let maximumBytes = 2 * 1_024 * 1_024
+    private static let maximumDepth = 64
+    private static let maximumTokens = 500_000
+
+    static func validate(_ data: Data) throws {
+        guard
+            !data.isEmpty,
+            data.count <= maximumBytes,
+            String(data: data, encoding: .utf8) != nil
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        var parser = Parser(
+            bytes: Array(data),
+            maximumDepth: maximumDepth,
+            maximumTokens: maximumTokens
+        )
+        try parser.parseDocument()
+    }
+
+    static func decode<Value: Decodable>(
+        _ type: Value.Type,
+        from data: Data,
+        using decoder: JSONDecoder
+    ) throws -> Value {
+        try validate(data)
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            throw NexusToriiError.invalidResponse
+        }
+    }
+
+    private struct Parser {
+        let bytes: [UInt8]
+        let maximumDepth: Int
+        let maximumTokens: Int
+        var index = 0
+        var tokenCount = 0
+
+        mutating func parseDocument() throws {
+            skipWhitespace()
+            try parseValue(depth: 1)
+            skipWhitespace()
+            guard index == bytes.count else { try invalid() }
+        }
+
+        private mutating func parseValue(depth: Int) throws {
+            guard depth <= maximumDepth else { try invalid() }
+            try admitToken()
+            guard let byte = current else { try invalid() }
+            switch byte {
+            case 0x7B:
+                try parseObject(depth: depth)
+            case 0x5B:
+                try parseArray(depth: depth)
+            case 0x22:
+                _ = try parseString()
+            case 0x74:
+                try consumeLiteral([0x74, 0x72, 0x75, 0x65])
+            case 0x66:
+                try consumeLiteral([0x66, 0x61, 0x6C, 0x73, 0x65])
+            case 0x6E:
+                try consumeLiteral([0x6E, 0x75, 0x6C, 0x6C])
+            case 0x2D, 0x30 ... 0x39:
+                try parseInteger()
+            default:
+                try invalid()
+            }
+        }
+
+        private mutating func parseObject(depth: Int) throws {
+            try consume(0x7B)
+            skipWhitespace()
+            if consumeIfPresent(0x7D) { return }
+            var names = Set<String>()
+            while true {
+                try admitToken()
+                let name = try parseString()
+                guard names.insert(name).inserted else { try invalid() }
+                skipWhitespace()
+                try consume(0x3A)
+                skipWhitespace()
+                try parseValue(depth: depth + 1)
+                skipWhitespace()
+                if consumeIfPresent(0x7D) { return }
+                try consume(0x2C)
+                skipWhitespace()
+            }
+        }
+
+        private mutating func parseArray(depth: Int) throws {
+            try consume(0x5B)
+            skipWhitespace()
+            if consumeIfPresent(0x5D) { return }
+            while true {
+                try parseValue(depth: depth + 1)
+                skipWhitespace()
+                if consumeIfPresent(0x5D) { return }
+                try consume(0x2C)
+                skipWhitespace()
+            }
+        }
+
+        private mutating func parseString() throws -> String {
+            try consume(0x22)
+            var value = ""
+            var segmentStart = index
+            while let byte = current {
+                if byte == 0x22 {
+                    try appendUTF8Segment(segmentStart ..< index, to: &value)
+                    index += 1
+                    return value
+                }
+                if byte == 0x5C {
+                    try appendUTF8Segment(segmentStart ..< index, to: &value)
+                    index += 1
+                    guard let escape = current else { try invalid() }
+                    index += 1
+                    switch escape {
+                    case 0x22: value.append("\"")
+                    case 0x5C: value.append("\\")
+                    case 0x2F: value.append("/")
+                    case 0x62: value.append("\u{08}")
+                    case 0x66: value.append("\u{0C}")
+                    case 0x6E: value.append("\n")
+                    case 0x72: value.append("\r")
+                    case 0x74: value.append("\t")
+                    case 0x75:
+                        let first = try parseHexCodeUnit()
+                        let scalar: UInt32
+                        if (0xD800 ... 0xDBFF).contains(first) {
+                            guard
+                                consumeIfPresent(0x5C),
+                                consumeIfPresent(0x75)
+                            else {
+                                try invalid()
+                            }
+                            let second = try parseHexCodeUnit()
+                            guard (0xDC00 ... 0xDFFF).contains(second) else {
+                                try invalid()
+                            }
+                            scalar = 0x1_0000 +
+                                (UInt32(first - 0xD800) << 10) +
+                                UInt32(second - 0xDC00)
+                        } else {
+                            guard !(0xDC00 ... 0xDFFF).contains(first) else {
+                                try invalid()
+                            }
+                            scalar = UInt32(first)
+                        }
+                        guard let unicode = UnicodeScalar(scalar) else {
+                            try invalid()
+                        }
+                        value.unicodeScalars.append(unicode)
+                    default:
+                        try invalid()
+                    }
+                    segmentStart = index
+                    continue
+                }
+                guard byte >= 0x20 else { try invalid() }
+                index += 1
+            }
+            try invalid()
+        }
+
+        private mutating func parseHexCodeUnit() throws -> UInt16 {
+            guard index + 4 <= bytes.count else { try invalid() }
+            var value: UInt16 = 0
+            for _ in 0 ..< 4 {
+                let digit = bytes[index]
+                index += 1
+                let nibble: UInt16
+                switch digit {
+                case 0x30 ... 0x39: nibble = UInt16(digit - 0x30)
+                case 0x41 ... 0x46: nibble = UInt16(digit - 0x41 + 10)
+                case 0x61 ... 0x66: nibble = UInt16(digit - 0x61 + 10)
+                default: try invalid()
+                }
+                value = (value << 4) | nibble
+            }
+            return value
+        }
+
+        private mutating func parseInteger() throws {
+            let start = index
+            let negative = consumeIfPresent(0x2D)
+            guard let first = current else { try invalid() }
+            if first == 0x30 {
+                index += 1
+                guard current.map({ !(0x30 ... 0x39).contains($0) }) ?? true
+                else {
+                    try invalid()
+                }
+            } else if (0x31 ... 0x39).contains(first) {
+                repeat { index += 1 } while current.map {
+                    (0x30 ... 0x39).contains($0)
+                } ?? false
+            } else {
+                try invalid()
+            }
+            guard let token = String(
+                bytes: bytes[start ..< index],
+                encoding: .utf8
+            ) else {
+                try invalid()
+            }
+            if negative {
+                guard let value = Int64(token), String(value) == token else {
+                    try invalid()
+                }
+            } else {
+                guard let value = UInt64(token), String(value) == token else {
+                    try invalid()
+                }
+            }
+        }
+
+        private mutating func consumeLiteral(_ literal: [UInt8]) throws {
+            guard
+                index + literal.count <= bytes.count,
+                Array(bytes[index ..< index + literal.count]) == literal
+            else {
+                try invalid()
+            }
+            index += literal.count
+        }
+
+        private mutating func appendUTF8Segment(
+            _ range: Range<Int>,
+            to value: inout String
+        ) throws {
+            guard let segment = String(
+                bytes: bytes[range],
+                encoding: .utf8
+            ) else {
+                try invalid()
+            }
+            value.append(segment)
+        }
+
+        private mutating func admitToken() throws {
+            tokenCount += 1
+            guard tokenCount <= maximumTokens else { try invalid() }
+        }
+
+        private mutating func skipWhitespace() {
+            while let byte = current,
+                  byte == 0x20 || byte == 0x09 ||
+                  byte == 0x0A || byte == 0x0D {
+                index += 1
+            }
+        }
+
+        private mutating func consume(_ expected: UInt8) throws {
+            guard consumeIfPresent(expected) else { try invalid() }
+        }
+
+        private mutating func consumeIfPresent(_ expected: UInt8) -> Bool {
+            guard current == expected else { return false }
+            index += 1
+            return true
+        }
+
+        private var current: UInt8? {
+            index < bytes.count ? bytes[index] : nil
+        }
+
+        private func invalid() throws -> Never {
+            throw NexusToriiError.invalidResponse
+        }
+    }
+}
+
 private extension NexusJSONValue {
     var objectValue: [String: NexusJSONValue]? {
         guard case let .object(value) = self else {
@@ -259,20 +563,11 @@ private extension NexusJSONValue {
         return value
     }
 
-    var stringValue: String? {
-        switch self {
-        case let .string(value), let .number(value):
-            return value.trimmingCharacters(in: .whitespacesAndNewlines)
-        default:
-            return nil
-        }
-    }
-
     var exactWireStringValue: String? {
         guard case let .string(value) = self else {
             return nil
         }
-        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value
     }
 
     var boolValue: Bool? {
@@ -301,21 +596,42 @@ struct NexusAssetDefinition: Decodable, Equatable {
     }
 
     let id: String
-    let name: String
-    let alias: String
-    let aliasBinding: AliasBinding
+    let name: String?
+    let alias: String?
+    let aliasBinding: AliasBinding?
+    let ownedBy: String?
+    let metadata: NexusJSONValue?
 
     private enum CodingKeys: String, CodingKey {
         case id
         case name
         case alias
         case aliasBinding = "alias_binding"
+        case ownedBy = "owned_by"
+        case metadata
+    }
+
+    init(
+        id: String,
+        name: String? = nil,
+        alias: String? = nil,
+        aliasBinding: AliasBinding? = nil,
+        ownedBy: String? = nil,
+        metadata: NexusJSONValue? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.alias = alias
+        self.aliasBinding = aliasBinding
+        self.ownedBy = ownedBy
+        self.metadata = metadata
     }
 }
 
 enum NexusAssetDefinitionIdentity {
     static let xorAlias = "xor#universal"
     static let xorName = "xor"
+    static let tairaXorDefinitionID = "6TEAJqbb8oEPmLncoNiMRbLEK6tw"
 
     private static let base58Alphabet = Array(
         "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".utf8
@@ -357,15 +673,52 @@ enum NexusAssetDefinitionIdentity {
         return true
     }
 
-    static func validateXor(_ definition: NexusAssetDefinition) throws {
+    static func isQualifiedXorDefinitionID(
+        _ value: String,
+        configuration: NexusNetworkConfiguration
+    ) -> Bool {
+        guard hasCanonicalWireShape(value) else {
+            return false
+        }
+        return configuration.networkId != .taira ||
+            value == tairaXorDefinitionID
+    }
+
+    static func validateXor(
+        _ definition: NexusAssetDefinition,
+        configuration: NexusNetworkConfiguration? = nil
+    ) throws {
+        guard hasCanonicalWireShape(definition.id) else {
+            throw NexusToriiError.invalidResponse
+        }
+        let bindingIsValid = definition.aliasBinding.map {
+            $0.alias == xorAlias &&
+                ["permanent", "leased_active"].contains($0.status)
+        }
+        if let configuration, configuration.networkId == .taira {
+            // The current explorer projection intentionally omits mutable alias
+            // metadata. Taira's first release binds the immutable native ID;
+            // optional descriptive witnesses are still checked when present.
+            guard
+                definition.id == tairaXorDefinitionID,
+                definition.name.map({ $0 == xorName }) ?? true,
+                definition.alias.map({ $0 == xorAlias }) ?? true,
+                bindingIsValid ?? true
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            return
+        }
         guard
-            hasCanonicalWireShape(definition.id),
+            configuration.map({
+                isQualifiedXorDefinitionID(
+                    definition.id,
+                    configuration: $0
+                )
+            }) ?? true,
             definition.name == xorName,
             definition.alias == xorAlias,
-            definition.aliasBinding.alias == xorAlias,
-            ["permanent", "leased_active"].contains(
-                definition.aliasBinding.status
-            )
+            bindingIsValid == true
         else {
             throw NexusToriiError.invalidResponse
         }
@@ -424,6 +777,18 @@ struct NexusAccountAssetList: Decodable, Equatable {
         case total
     }
 
+    init(
+        items: [Item],
+        hasMore: Bool,
+        countMode: String,
+        total: Int64
+    ) {
+        self.items = items
+        self.hasMore = hasMore
+        self.countMode = countMode
+        self.total = total
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         items = try container.decode([Item].self, forKey: .items)
@@ -433,6 +798,12 @@ struct NexusAccountAssetList: Decodable, Equatable {
     }
 }
 
+/// Current `/v1/accounts/{account}/assets` body exposed by curated Torii MCP.
+private struct NexusTairaAccountAssetPage: Decodable {
+    let items: [NexusAccountAssetList.Item]
+    let total: Int64
+}
+
 enum NexusBalanceValidator {
     static func xorBalance(
         in response: NexusAccountAssetList,
@@ -440,7 +811,13 @@ enum NexusBalanceValidator {
         configuration: NexusNetworkConfiguration,
         assetDefinitionID: String
     ) throws -> PIQuantity {
-        try exactAssetBalance(
+        guard NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+            assetDefinitionID,
+            configuration: configuration
+        ) else {
+            throw NexusToriiError.invalidResponse
+        }
+        return try exactAssetBalance(
             in: response,
             account: account,
             configuration: configuration,
@@ -460,8 +837,9 @@ enum NexusBalanceValidator {
         expectedAssetName: String? = nil,
         expectedAssetAlias: String? = nil
     ) throws -> PIQuantity {
-        guard NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-            assetDefinitionID
+        guard NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+            assetDefinitionID,
+            configuration: configuration
         ) else {
             throw NexusToriiError.invalidResponse
         }
@@ -488,6 +866,7 @@ enum NexusBalanceValidator {
                 item.scope == "global",
                 NexusAmountPolicy.accepts(
                     item.quantity,
+                    networkId: configuration.networkId,
                     allowingZero: true
                 ),
                 let accountID = item.accountID,
@@ -558,6 +937,7 @@ struct NexusAccountTransactionProof {
     private var seenHashes = Set<String>()
     private var pageFingerprints = Set<String>()
     private var pagesAccepted = 0
+    private var matchedExpectedHash = false
 
     private(set) var nextOffset = 0
 
@@ -640,12 +1020,12 @@ struct NexusAccountTransactionProof {
             else {
                 throw NexusToriiError.invalidResponse
             }
-            return .found
+            matchedExpectedHash = true
         }
 
         nextOffset += page.items.count
         if UInt64(nextOffset) == page.total {
-            return .absent
+            return matchedExpectedHash ? .found : .absent
         }
         guard !page.items.isEmpty, pagesAccepted < maximumPages else {
             throw NexusToriiError.invalidResponse
@@ -706,11 +1086,21 @@ enum NexusCommittedHistoryReconciliation {
     }
 }
 
-private struct NexusMCPRequest: Encodable {
+struct NexusMCPRequest: Encodable {
     let jsonrpc = "2.0"
     let id: String
-    let method = "tools/call"
+    let method: String
     let params: NexusJSONValue
+
+    init(
+        id: String,
+        method: String = "tools/call",
+        params: NexusJSONValue
+    ) {
+        self.id = id
+        self.method = method
+        self.params = params
+    }
 }
 
 private struct NexusMCPResponse: Decodable {
@@ -737,6 +1127,748 @@ enum NexusMCPEnvelopeContract {
         guard !hasError else {
             throw NexusToriiError.server
         }
+    }
+}
+
+/// Recognizes only the bounded canonical deployment-health markers emitted by
+/// Torii. Descriptive substrings are deliberately not authoritative: a body
+/// such as "not route_unavailable" must remain a generic server failure.
+enum NexusToriiDeploymentHealthContract {
+    private static let knownMarkers: Set<String> = [
+        "route_unavailable", "permission_denied", "not_found", "error",
+    ]
+
+    static func isRouteUnavailable(
+        rejectCode: String?,
+        body: NexusJSONValue?
+    ) throws -> Bool {
+        var markers: [String] = []
+        if let rejectCode, knownMarkers.contains(rejectCode) {
+            markers.append(rejectCode)
+        }
+        if let object = body?.objectValue,
+           [
+               Set(["code", "message"]),
+               Set(["code", "details", "message"]),
+           ].contains(Set(object.keys)),
+           let code = boundedExactString(object["code"], maximumBytes: 128),
+           let message = boundedExactString(
+               object["message"],
+               maximumBytes: 4_096
+           )
+        {
+            if knownMarkers.contains(code) {
+                markers.append(code)
+            }
+            if knownMarkers.contains(message) {
+                markers.append(message)
+            }
+        }
+        let distinct = Set(markers)
+        guard distinct.count <= 1 else {
+            throw NexusToriiError.invalidResponse
+        }
+        return distinct == ["route_unavailable"]
+    }
+
+    static func isRouteUnavailable(
+        rejectCode: String?,
+        data: Data,
+        decoder: JSONDecoder
+    ) throws -> Bool {
+        let body = try? NexusStrictJSONAdmission.decode(
+            NexusJSONValue.self,
+            from: data,
+            using: decoder
+        )
+        if try isRouteUnavailable(rejectCode: rejectCode, body: body) {
+            return true
+        }
+        return rejectCode == nil && data == Data("route_unavailable".utf8)
+    }
+
+    private static func boundedExactString(
+        _ value: NexusJSONValue?,
+        maximumBytes: Int
+    ) -> String? {
+        guard
+            let text = value?.exactWireStringValue,
+            !text.isEmpty,
+            text == text.trimmingCharacters(in: .whitespacesAndNewlines),
+            text.utf8.count <= maximumBytes
+        else {
+            return nil
+        }
+        return text
+    }
+}
+
+/// Current curated Torii MCP contract used exclusively by public Taira.
+/// Discovery is additive: unrelated tools and future optional schema fields do
+/// not invalidate the wallet, while every field the wallet sends remains typed
+/// and pinned to the advertised tool-set version.
+enum NexusTairaMCPToolContract {
+    static let protocolVersion = "2025-06-18"
+    static let serverName = "iroha-torii-mcp"
+
+    enum Tool: String, CaseIterable, Hashable {
+        case health = "iroha.health"
+        case accountAssets = "iroha.accounts.assets"
+        case assetDefinition = "iroha.assets.definitions.get"
+        case transactionStatus = "iroha.transactions.status"
+        case instructions = "iroha.instructions.list"
+        case submitAndWait = "iroha.transactions.submit_and_wait"
+
+        fileprivate var requestProperties: [String: SchemaType] {
+            switch self {
+            case .health:
+                return [:]
+            case .accountAssets:
+                return [
+                    "account_id": .scalar("string"),
+                    "asset": .scalar("string"),
+                    "limit": .scalar("integer"),
+                    "offset": .scalar("integer"),
+                    "scope": .scalar("string"),
+                    "accept": .scalar("string"),
+                ]
+            case .assetDefinition:
+                return [
+                    "definition_id": .scalar("string"),
+                    "accept": .scalar("string"),
+                ]
+            case .transactionStatus:
+                return [
+                    "hash": .scalar("string"),
+                    "scope": .scalar("string"),
+                    "accept": .scalar("string"),
+                ]
+            case .instructions:
+                return [
+                    "account": .scalar("string"),
+                    "asset_definition_id": .scalar("string"),
+                    "kind": .scalar("string"),
+                    "page": .scalar("integer"),
+                    "per_page": .scalar("integer"),
+                    "transaction_hash": .scalar("string"),
+                    "transaction_status": .scalar("string"),
+                    "accept": .scalar("string"),
+                ]
+            case .submitAndWait:
+                return [
+                    "body_base64": .scalar("string"),
+                    "hash": .scalar("string"),
+                    "status_accept": .scalar("string"),
+                    "terminal_statuses": .stringArray,
+                    "timeout_ms": .scalar("integer"),
+                ]
+            }
+        }
+
+        fileprivate var alwaysProvidedProperties: Set<String> {
+            let names = Set(requestProperties.keys)
+            return self == .instructions
+                ? names.subtracting(["transaction_hash"])
+                : names
+        }
+
+        fileprivate func permitsUndeclaredRequestProperty(
+            _ name: String
+        ) -> Bool {
+            switch self {
+            case .accountAssets:
+                return name == "asset" || name == "scope"
+            case .transactionStatus:
+                return name == "scope"
+            default:
+                return false
+            }
+        }
+    }
+
+    struct ToolDiscoveryPage: Equatable {
+        let matched: Set<Tool>
+        let advertisedNames: Set<String>
+        let nextCursor: String?
+    }
+
+    fileprivate enum SchemaType {
+        case scalar(String)
+        case stringArray
+    }
+
+    static func initializeRequest(id: String) -> NexusMCPRequest {
+        NexusMCPRequest(
+            id: id,
+            method: "initialize",
+            params: .object([
+                "protocolVersion": .string(protocolVersion),
+                "capabilities": .object([:]),
+                "clientInfo": .object([
+                    "name": .string("sora-wallet-ios"),
+                    "version": .string("1"),
+                ]),
+            ])
+        )
+    }
+
+    static func discoveryRequest(
+        id: String,
+        toolsetVersion: String,
+        cursor: String?
+    ) throws -> NexusMCPRequest {
+        guard NexusTransactionHash.normalized(toolsetVersion) == toolsetVersion
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        var params: [String: NexusJSONValue] = [
+            "toolset_version": .string(toolsetVersion),
+        ]
+        if let cursor {
+            guard isCanonicalCursor(cursor) else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            params["cursor"] = .string(cursor)
+        }
+        return NexusMCPRequest(
+            id: id,
+            method: "tools/list",
+            params: .object(params)
+        )
+    }
+
+    static func callRequest(
+        id: String,
+        tool: Tool,
+        arguments: [String: NexusJSONValue]
+    ) -> NexusMCPRequest {
+        NexusMCPRequest(
+            id: id,
+            params: .object([
+                "name": .string(tool.rawValue),
+                "arguments": .object(arguments),
+            ])
+        )
+    }
+
+    static func healthRequest(id: String) -> NexusMCPRequest {
+        callRequest(id: id, tool: .health, arguments: [:])
+    }
+
+    static func assetDefinitionRequest(id: String) -> NexusMCPRequest {
+        callRequest(
+            id: id,
+            tool: .assetDefinition,
+            arguments: [
+                "definition_id": .string(
+                    NexusAssetDefinitionIdentity.tairaXorDefinitionID
+                ),
+                "accept": .string("application/json"),
+            ]
+        )
+    }
+
+    static func accountAssetsRequest(
+        id: String,
+        account: String,
+        assetDefinitionID: String,
+        limit: Int,
+        offset: Int
+    ) -> NexusMCPRequest {
+        callRequest(
+            id: id,
+            tool: .accountAssets,
+            arguments: [
+                "account_id": .string(account),
+                // Unpatched Torii advertises `asset_id`, but its GET handler
+                // consumes `asset`. Discovery admits only that known drift.
+                "asset": .string(assetDefinitionID),
+                "limit": .number(String(limit)),
+                "offset": .number(String(offset)),
+                "scope": .string("global"),
+                "accept": .string("application/json"),
+            ]
+        )
+    }
+
+    static func transactionStatusRequest(
+        id: String,
+        hash: String
+    ) throws -> NexusMCPRequest {
+        guard NexusTransactionHash.normalized(hash) == hash else {
+            throw NexusToriiError.invalidRoute
+        }
+        return callRequest(
+            id: id,
+            tool: .transactionStatus,
+            arguments: [
+                "hash": .string(hash),
+                "scope": .string("global"),
+                "accept": .string("application/json"),
+            ]
+        )
+    }
+
+    static func instructionsRequest(
+        id: String,
+        account: String,
+        assetDefinitionID: String,
+        page: Int,
+        perPage: Int,
+        transactionHash: String? = nil
+    ) throws -> NexusMCPRequest {
+        guard page > 0, perPage > 0 else {
+            throw NexusToriiError.invalidRoute
+        }
+        var arguments: [String: NexusJSONValue] = [
+            "account": .string(account),
+            // `asset_id` is a source-owned balance bucket and would exclude
+            // incoming transfers. Use the explicit definition selector.
+            "asset_definition_id": .string(assetDefinitionID),
+            "kind": .string("Transfer"),
+            "transaction_status": .string("committed"),
+            "page": .number(String(page)),
+            "per_page": .number(String(perPage)),
+            "accept": .string("application/json"),
+        ]
+        if let transactionHash {
+            guard NexusTransactionHash.normalized(transactionHash) ==
+                transactionHash
+            else {
+                throw NexusToriiError.invalidRoute
+            }
+            arguments["transaction_hash"] = .string(transactionHash)
+        }
+        return callRequest(
+            id: id,
+            tool: .instructions,
+            arguments: arguments
+        )
+    }
+
+    static func toolsetVersion(initialize result: NexusJSONValue) throws
+        -> String
+    {
+        guard
+            let root = result.objectValue,
+            root["protocolVersion"]?.exactWireStringValue == protocolVersion,
+            let capabilities = root["capabilities"]?.objectValue,
+            let tools = capabilities["tools"]?.objectValue,
+            let version = tools["toolsetVersion"]?.exactWireStringValue,
+            NexusTransactionHash.normalized(version) == version
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        if let server = root["serverInfo"]?.objectValue,
+           let name = server["name"]?.exactWireStringValue,
+           name != serverName
+        {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        return version
+    }
+
+    static func validateToolPage(
+        _ result: NexusJSONValue,
+        tools requiredTools: Set<Tool>,
+        expectedToolsetVersion: String
+    ) throws -> ToolDiscoveryPage {
+        guard
+            !requiredTools.isEmpty,
+            let root = result.objectValue,
+            root["listChanged"]?.boolValue == false,
+            root["toolsetVersion"]?.exactWireStringValue ==
+                expectedToolsetVersion,
+            let advertised = root["tools"]?.arrayValue
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        var advertisedNames = Set<String>()
+        var matched = Set<Tool>()
+        for value in advertised {
+            guard
+                let descriptor = value.objectValue,
+                let name = descriptor["name"]?.exactWireStringValue,
+                !name.isEmpty,
+                name == name.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ),
+                name.utf8.count <= 256,
+                advertisedNames.insert(name).inserted
+            else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            guard
+                let tool = Tool(rawValue: name),
+                requiredTools.contains(tool)
+            else {
+                continue
+            }
+            try validateDescriptor(descriptor, for: tool)
+            matched.insert(tool)
+        }
+        let nextCursor: String?
+        switch root["nextCursor"] {
+        case .some(.null):
+            nextCursor = nil
+        case let .some(.string(cursor)) where isCanonicalCursor(cursor):
+            nextCursor = cursor
+        default:
+            throw NexusToriiError.mcpContractMismatch
+        }
+        return ToolDiscoveryPage(
+            matched: matched,
+            advertisedNames: advertisedNames,
+            nextCursor: nextCursor
+        )
+    }
+
+    private static func validateDescriptor(
+        _ descriptor: [String: NexusJSONValue],
+        for tool: Tool
+    ) throws {
+        guard
+            let input = descriptor["inputSchema"]?.objectValue,
+            input["type"]?.exactWireStringValue == "object",
+            let properties = input["properties"]?.objectValue,
+            let output = descriptor["outputSchema"]?.objectValue,
+            output["type"]?.exactWireStringValue == "object"
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        let admitsAdditionalProperties =
+            input["additionalProperties"]?.boolValue == true
+        for (name, expectedType) in tool.requestProperties {
+            guard let property = properties[name] else {
+                guard
+                    admitsAdditionalProperties,
+                    tool.permitsUndeclaredRequestProperty(name)
+                else {
+                    throw NexusToriiError.mcpContractMismatch
+                }
+                continue
+            }
+            guard validates(property, as: expectedType) else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+        }
+        let requiredNames = try schemaRequiredNames(input["required"])
+        guard requiredNames.isSubset(of: tool.alwaysProvidedProperties)
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        if tool == .submitAndWait,
+           !requiredNames.contains("body_base64")
+        {
+            throw NexusToriiError.mcpContractMismatch
+        }
+    }
+
+    private static func validates(
+        _ value: NexusJSONValue?,
+        as expected: SchemaType
+    ) -> Bool {
+        guard let schema = value?.objectValue else {
+            return false
+        }
+        switch expected {
+        case let .scalar(type):
+            return schema["type"]?.exactWireStringValue == type
+        case .stringArray:
+            return schema["type"]?.exactWireStringValue == "array" &&
+                schema["items"]?.objectValue?["type"]?
+                    .exactWireStringValue == "string"
+        }
+    }
+
+    private static func schemaRequiredNames(
+        _ value: NexusJSONValue?
+    ) throws -> Set<String> {
+        guard let value else {
+            return []
+        }
+        guard let array = value.arrayValue else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        var names = Set<String>()
+        for item in array {
+            guard
+                let name = item.exactWireStringValue,
+                !name.isEmpty,
+                names.insert(name).inserted
+            else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+        }
+        return names
+    }
+
+    private static func isCanonicalCursor(_ value: String) -> Bool {
+        value.range(
+            of: #"^[1-9][0-9]{0,5}$"#,
+            options: .regularExpression
+        ) != nil
+    }
+}
+
+/// Minamoto compatibility contract for its legacy indexed account-history
+/// projection. Public Taira never discovers or calls this tool.
+enum NexusMCPAccountHistoryContract {
+    static let protocolVersion = "2025-06-18"
+    static let serverName = "iroha-torii-mcp"
+    static let toolName = "iroha.accounts.history"
+
+    struct ToolsetSnapshot: Equatable {
+        let version: String
+        let count: Int
+    }
+
+    static func toolsetSnapshot(
+        initialize result: NexusJSONValue
+    ) throws -> ToolsetSnapshot {
+        guard
+            let root = result.objectValue,
+            Set(root.keys) == ["capabilities", "protocolVersion", "serverInfo"],
+            root["protocolVersion"]?.exactWireStringValue == protocolVersion,
+            let server = root["serverInfo"]?.objectValue,
+            Set(server.keys) == ["name", "version"],
+            server["name"]?.exactWireStringValue == serverName,
+            let serverVersion = server["version"]?.exactWireStringValue,
+            !serverVersion.isEmpty,
+            serverVersion.utf8.count <= 128,
+            let capabilities = root["capabilities"]?.objectValue,
+            Set(capabilities.keys) == ["tools"],
+            let tools = capabilities["tools"]?.objectValue,
+            Set(tools.keys) == ["count", "listChanged", "toolsetVersion"],
+            let count = canonicalPositiveInteger(tools["count"]),
+            count <= 1_024,
+            tools["listChanged"]?.boolValue == false,
+            let version = tools["toolsetVersion"]?.exactWireStringValue,
+            NexusTransactionHash.normalized(version) == version
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        return ToolsetSnapshot(version: version, count: Int(count))
+    }
+
+    static func validateToolList(_ result: NexusJSONValue) throws -> Int {
+        guard
+            let root = result.objectValue,
+            Set(root.keys) == ["listChanged", "nextCursor", "tools"],
+            root["listChanged"]?.boolValue == false,
+            root["nextCursor"] == .null,
+            let listed = root["tools"]?.arrayValue,
+            (1 ... 1_024).contains(listed.count)
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        let matches = listed.compactMap { value -> [String: NexusJSONValue]? in
+            guard
+                let object = value.objectValue,
+                object["name"]?.exactWireStringValue == toolName
+            else {
+                return nil
+            }
+            return object
+        }
+        guard matches.count == 1 else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        try validateTool(matches[0])
+        return listed.count
+    }
+
+    private static func validateTool(
+        _ tool: [String: NexusJSONValue]
+    ) throws {
+        guard
+            Set(tool.keys) == [
+                "description", "inputSchema", "name", "outputSchema",
+            ],
+            let description = tool["description"]?.exactWireStringValue,
+            !description.isEmpty,
+            description.utf8.count <= 2_048,
+            let input = tool["inputSchema"]?.objectValue,
+            input["type"]?.exactWireStringValue == "object",
+            input["additionalProperties"]?.boolValue == false,
+            hasSemanticKeys(
+                input,
+                exactly: ["additionalProperties", "properties", "type"]
+            ),
+            let properties = input["properties"]?.objectValue,
+            Set(properties.keys) == [
+                "accept", "account_id", "asset_id", "headers", "limit",
+                "offset", "path", "query",
+            ],
+            hasScalarType("string", properties["accept"]),
+            hasScalarType("string", properties["account_id"]),
+            hasScalarType("string", properties["asset_id"]),
+            hasClosedEmptyObjectType(properties["headers"]),
+            hasScalarType("integer", properties["limit"]),
+            hasScalarType("integer", properties["offset"]),
+            hasClosedEmptyObjectType(properties["query"]),
+            validatePathSchema(properties["path"]),
+            let output = tool["outputSchema"]?.objectValue,
+            output["type"]?.exactWireStringValue == "object",
+            output["additionalProperties"]?.boolValue == true,
+            hasSemanticKeys(
+                output,
+                exactly: ["additionalProperties", "properties", "type"]
+            ),
+            let outputProperties = output["properties"]?.objectValue,
+            Set(outputProperties.keys) == [
+                "body", "content_type", "headers", "status",
+            ],
+            isUnconstrainedSchema(outputProperties["body"]),
+            validatesNullableString(outputProperties["content_type"]),
+            validatesStringMap(outputProperties["headers"]),
+            let status = outputProperties["status"]?.objectValue,
+            status["type"]?.exactWireStringValue == "integer",
+            hasSemanticKeys(
+                status,
+                exactly: ["maximum", "minimum", "type"]
+            ),
+            canonicalPositiveInteger(status["minimum"]) == 100,
+            canonicalPositiveInteger(status["maximum"]) == 599
+        else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+    }
+
+    /// Descriptions are documentation-only. All validation-bearing JSON Schema
+    /// keywords are pinned so a server cannot silently narrow or widen the
+    /// wallet's reviewed route while retaining the same tool name.
+    private static func hasSemanticKeys(
+        _ object: [String: NexusJSONValue],
+        exactly expected: Set<String>
+    ) -> Bool {
+        var keys = Set(object.keys)
+        if let description = object["description"] {
+            guard
+                let text = description.exactWireStringValue,
+                !text.isEmpty,
+                text.utf8.count <= 2_048
+            else {
+                return false
+            }
+            keys.remove("description")
+        }
+        return keys == expected
+    }
+
+    private static func hasScalarType(
+        _ expected: String,
+        _ value: NexusJSONValue?
+    ) -> Bool {
+        guard let object = value?.objectValue else {
+            return false
+        }
+        return object["type"]?.exactWireStringValue == expected &&
+            hasSemanticKeys(object, exactly: ["type"])
+    }
+
+    private static func hasClosedEmptyObjectType(
+        _ value: NexusJSONValue?
+    ) -> Bool {
+        guard let object = value?.objectValue else {
+            return false
+        }
+        return object["type"]?.exactWireStringValue == "object" &&
+            object["additionalProperties"]?.boolValue == false &&
+            hasSemanticKeys(
+                object,
+                exactly: ["additionalProperties", "type"]
+            )
+    }
+
+    private static func isUnconstrainedSchema(
+        _ value: NexusJSONValue?
+    ) -> Bool {
+        guard let object = value?.objectValue else {
+            return false
+        }
+        return hasSemanticKeys(object, exactly: [])
+    }
+
+    private static func validatesNullableString(
+        _ value: NexusJSONValue?
+    ) -> Bool {
+        guard
+            let object = value?.objectValue,
+            hasSemanticKeys(object, exactly: ["oneOf"]),
+            let choices = object["oneOf"]?.arrayValue,
+            choices.count == 2
+        else {
+            return false
+        }
+        let types = choices.compactMap { choice -> String? in
+            guard
+                let schema = choice.objectValue,
+                hasSemanticKeys(schema, exactly: ["type"])
+            else {
+                return nil
+            }
+            return schema["type"]?.exactWireStringValue
+        }
+        return types.count == 2 && Set(types) == ["null", "string"]
+    }
+
+    private static func validatesStringMap(
+        _ value: NexusJSONValue?
+    ) -> Bool {
+        guard
+            let object = value?.objectValue,
+            object["type"]?.exactWireStringValue == "object",
+            hasSemanticKeys(
+                object,
+                exactly: ["additionalProperties", "type"]
+            ),
+            hasScalarType("string", object["additionalProperties"])
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func validatePathSchema(
+        _ value: NexusJSONValue?
+    ) -> Bool {
+        guard
+            let object = value?.objectValue,
+            object["type"]?.exactWireStringValue == "object",
+            object["additionalProperties"]?.boolValue == false,
+            hasSemanticKeys(
+                object,
+                exactly: [
+                    "additionalProperties", "properties", "required", "type",
+                ]
+            ),
+            let required = object["required"]?.arrayValue,
+            required == [.string("account_id")],
+            let properties = object["properties"]?.objectValue,
+            Set(properties.keys) == ["account_id"],
+            hasScalarType("string", properties["account_id"])
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func canonicalPositiveInteger(
+        _ value: NexusJSONValue?
+    ) -> UInt64? {
+        guard
+            let value,
+            case let .number(raw) = value,
+            raw.range(
+                of: #"^[1-9][0-9]{0,19}$"#,
+                options: .regularExpression
+            ) != nil,
+            let parsed = UInt64(raw)
+        else {
+            return nil
+        }
+        return parsed
     }
 }
 
@@ -768,38 +1900,38 @@ enum NexusToriiMediaTypeContract {
 enum NexusMCPResultContract {
     static func validateEmbeddedRoute(
         _ result: NexusJSONValue,
-        requiresFanout: Bool = false
+        requiresFanout: Bool = false,
+        expectedContentType: String = "application/json",
+        requiresObjectBody: Bool = true
     ) throws -> NexusJSONValue {
         guard
             let direct = result.objectValue,
-            direct["isError"]?.boolValue == false,
             direct["body"] == nil,
             direct["items"] == nil,
             let structured = direct["structuredContent"]?.objectValue,
+            let rawHeaders = structured["headers"]?.objectValue,
             let statusValue = structured["status"],
             case let .number(statusRaw) = statusValue,
             let status = Int(statusRaw),
-            String(status) == statusRaw,
-            (200 ... 299).contains(status),
-            let contentTypeValue = structured["content_type"],
-            case let .string(contentType) = contentTypeValue,
-            NexusToriiMediaTypeContract.matches(
-                contentType,
-                expected: "application/json"
-            ),
-            structured["body"]?.objectValue != nil,
-            structured["items"] == nil,
-            let rawHeaders = structured["headers"]?.objectValue
+            String(status) == statusRaw
         else {
             throw NexusToriiError.invalidResponse
         }
-
         var headers: [String: String] = [:]
         for (name, value) in rawHeaders {
             guard
                 !name.isEmpty,
+                name == name.trimmingCharacters(in: .whitespacesAndNewlines),
+                name.utf8.count <= 128,
+                name.unicodeScalars.allSatisfy({
+                    (48 ... 57).contains($0.value) ||
+                        (65 ... 90).contains($0.value) ||
+                        (97 ... 122).contains($0.value) ||
+                        $0 == "-"
+                }),
                 case let .string(raw) = value,
-                raw == raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                raw == raw.trimmingCharacters(in: .whitespacesAndNewlines),
+                raw.utf8.count <= 4_096
             else {
                 throw NexusToriiError.invalidResponse
             }
@@ -808,10 +1940,46 @@ enum NexusMCPResultContract {
                 throw NexusToriiError.invalidResponse
             }
         }
-        // Some curated MCP routes legitimately emit no fanout family. A
-        // caller consuming global instruction history opts into the stricter
-        // contract: every fanout count must be present and all attempted
-        // routes must have succeeded before the embedded body is trusted.
+        // Error responses can carry their deployment diagnosis only in the
+        // embedded routed-read headers.
+        try NexusToriiClient.validateFanoutHeaderValues(
+            { headers[$0] },
+            requiresFanout: false
+        )
+        if !(200 ... 299).contains(status) {
+            if try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: headers["x-iroha-reject-code"],
+                body: structured["body"]
+            ) {
+                throw NexusToriiError.deploymentUnavailable
+            }
+            throw NexusToriiError.server
+        }
+        guard
+            direct["isError"]?.boolValue == false,
+            let contentTypeValue = structured["content_type"],
+            case let .string(contentType) = contentTypeValue,
+            NexusToriiMediaTypeContract.matches(
+                contentType,
+                expected: expectedContentType
+            ),
+            structured["items"] == nil
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        if requiresObjectBody {
+            guard structured["body"]?.objectValue != nil else {
+                throw NexusToriiError.invalidResponse
+            }
+        } else {
+            guard structured["body"]?.exactWireStringValue != nil else {
+                throw NexusToriiError.invalidResponse
+            }
+        }
+        // Some curated MCP routes legitimately emit no fanout family. An
+        // account-history projection opts into the stricter contract: every
+        // fanout count must be present and all attempted routes must have
+        // succeeded before the embedded body is trusted.
         try NexusToriiClient.validateFanoutHeaderValues(
             { headers[$0] },
             requiresFanout: requiresFanout
@@ -823,10 +1991,471 @@ enum NexusMCPResultContract {
 struct NexusTransferHistoryPage {
     let items: [NexusTransferHistoryItem]
     let sourceItemCount: Int
+    let sourceItemIDs: [String]
+    let total: UInt64
+    let hasMore: Bool
+    let querySource: String
+    let indexedHeight: UInt64?
+    let indexedBlockHash: String?
+}
+
+struct NexusTairaTransferHistoryPage {
+    let items: [NexusTransferHistoryItem]
+    let sourceItemCount: Int
+    let sourceItemIDs: [String]
+    let page: UInt64
+    let perPage: UInt64
+    let totalPages: UInt64
+    let totalItems: UInt64
+
+    func validate(expectedPage: Int, maximumPageSize: Int) throws {
+        guard
+            expectedPage > 0,
+            maximumPageSize > 0,
+            page == UInt64(expectedPage),
+            perPage == UInt64(maximumPageSize),
+            sourceItemIDs.count == sourceItemCount,
+            Set(sourceItemIDs).count == sourceItemIDs.count,
+            (totalPages == 0) == (totalItems == 0),
+            page <= max(totalPages, 1),
+            totalPages == totalItems.dividedRoundingUp(by: perPage)
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        let (precedingItemCount, overflow) = (page - 1)
+            .multipliedReportingOverflow(by: perPage)
+        guard !overflow, precedingItemCount <= totalItems else {
+            throw NexusToriiError.invalidResponse
+        }
+        let expectedItemCount = min(
+            perPage,
+            totalItems - precedingItemCount
+        )
+        guard
+            let canonicalSourceItemCount = UInt64(exactly: sourceItemCount),
+            canonicalSourceItemCount == expectedItemCount
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+    }
+}
+
+private extension UInt64 {
+    func dividedRoundingUp(by divisor: UInt64) -> UInt64 {
+        guard self > 0 else { return 0 }
+        return 1 + (self - 1) / divisor
+    }
+}
+
+/// Parser for the current `iroha.instructions.list` explorer projection.
+enum NexusTairaTransferHistoryParser {
+    static func page(
+        result: NexusJSONValue,
+        configuration: NexusNetworkConfiguration,
+        account: String,
+        assetDefinitionID: String
+    ) throws -> NexusTairaTransferHistoryPage {
+        let canonicalAccount = try IrohaAddressCodec.parse(
+            account,
+            expectedDiscriminant: configuration.i105Discriminant
+        ).i105
+        guard
+            let structured = result.objectValue,
+            let body = structured["body"]?.objectValue,
+            let sourceItems = body["items"]?.arrayValue,
+            let pagination = body["pagination"]?.objectValue,
+            let page = canonicalUInt64(pagination["page"]),
+            let perPage = canonicalUInt64(pagination["per_page"]),
+            perPage > 0,
+            let totalPages = canonicalUInt64(pagination["total_pages"]),
+            let totalItems = canonicalUInt64(pagination["total_items"]),
+            UInt64(sourceItems.count) <= totalItems
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+
+        var items: [NexusTransferHistoryItem] = []
+        var sourceItemIDs: [String] = []
+        for value in sourceItems {
+            guard let instruction = value.objectValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            let parsed = try parseInstruction(
+                instruction,
+                configuration: configuration,
+                account: canonicalAccount,
+                assetDefinitionID: assetDefinitionID
+            )
+            guard
+                let rawHash = instruction["transaction_hash"]?
+                    .exactWireStringValue,
+                let hash = NexusTransactionHash.normalized(rawHash),
+                hash == rawHash,
+                let index = canonicalUInt64(instruction["index"]),
+                index <= UInt64(UInt32.max)
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            sourceItemIDs.append("\(hash):\(index)")
+            items.append(contentsOf: parsed)
+        }
+        guard Set(sourceItemIDs).count == sourceItemIDs.count else {
+            throw NexusToriiError.invalidResponse
+        }
+        return NexusTairaTransferHistoryPage(
+            items: items,
+            sourceItemCount: sourceItems.count,
+            sourceItemIDs: sourceItemIDs,
+            page: page,
+            perPage: perPage,
+            totalPages: totalPages,
+            totalItems: totalItems
+        )
+    }
+
+    private static func parseInstruction(
+        _ instruction: [String: NexusJSONValue],
+        configuration: NexusNetworkConfiguration,
+        account: String,
+        assetDefinitionID: String
+    ) throws -> [NexusTransferHistoryItem] {
+        guard
+            let status = exactString(
+                instruction["transaction_status"],
+                maximumBytes: 32
+            ),
+            status.lowercased() == "committed",
+            let kind = exactString(instruction["kind"], maximumBytes: 64),
+            let rawHash = exactString(
+                instruction["transaction_hash"],
+                maximumBytes: 64
+            ),
+            let hash = NexusTransactionHash.normalized(rawHash),
+            hash == rawHash,
+            let timestamp = parseTimestamp(
+                instruction["created_at"]?.exactWireStringValue
+            ),
+            timestamp > 0,
+            let block = canonicalUInt64(instruction["block"]),
+            block > 0,
+            let authority = instruction["authority"]?.exactWireStringValue,
+            (try? IrohaAddressCodec.parse(
+                authority,
+                expectedDiscriminant: configuration.i105Discriminant
+            )) != nil
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        guard kind == "Transfer" else {
+            throw NexusToriiError.invalidResponse
+        }
+        guard
+            let box = instruction["box"]?.objectValue,
+            let json = box["json"]?.objectValue,
+            json["kind"]?.exactWireStringValue == "Transfer",
+            let payload = json["payload"]?.objectValue,
+            let variant = payload["variant"]?.exactWireStringValue
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+
+        let transfers: [ParsedTransfer]
+        switch variant {
+        case "Asset":
+            guard let value = payload["value"]?.objectValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            transfers = try parseTransfer(
+                value,
+                configuration: configuration,
+                account: account,
+                assetDefinitionID: assetDefinitionID
+            ).map { [$0] } ?? []
+        case "AssetBatch":
+            guard let value = payload["value"]?.objectValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            let entries = ["entries", "transfers", "items"].lazy
+                .compactMap { value[$0]?.arrayValue }
+                .first
+            guard let entries else {
+                throw NexusToriiError.invalidResponse
+            }
+            transfers = try entries.compactMap { entry in
+                guard let object = entry.objectValue else {
+                    throw NexusToriiError.invalidResponse
+                }
+                guard
+                    firstExactString(
+                        in: object,
+                        keys: [
+                            "asset_definition", "assetDefinition",
+                            "asset_definition_id",
+                        ]
+                    ) == assetDefinitionID
+                else {
+                    return nil
+                }
+                return try parseTransfer(
+                    object,
+                    configuration: configuration,
+                    account: account,
+                    assetDefinitionID: assetDefinitionID
+                )
+            }
+        default:
+            throw NexusToriiError.invalidResponse
+        }
+        guard !transfers.isEmpty else {
+            throw NexusToriiError.invalidResponse
+        }
+        return transfers.map {
+            NexusTransferHistoryItem(
+                transactionHash: hash,
+                timestampMilliseconds: timestamp,
+                amount: $0.amount,
+                sender: $0.sender,
+                receiver: $0.receiver
+            )
+        }
+    }
+
+    private struct ParsedTransfer {
+        let amount: PIQuantity
+        let sender: String
+        let receiver: String
+    }
+
+    private static func parseTransfer(
+        _ value: [String: NexusJSONValue],
+        configuration: NexusNetworkConfiguration,
+        account: String,
+        assetDefinitionID: String
+    ) throws -> ParsedTransfer? {
+        let source = firstExactString(
+            in: value,
+            keys: [
+                "source", "source_id", "asset", "asset_id",
+                "asset_definition", "assetDefinition",
+                "asset_definition_id",
+            ]
+        )
+        let embeddedSourceAccount: String?
+        if source == nil || source == assetDefinitionID {
+            embeddedSourceAccount = nil
+        } else if let source,
+                  source.hasPrefix("\(assetDefinitionID)#")
+        {
+            let suffix = String(source.dropFirst(assetDefinitionID.count + 1))
+            guard !suffix.isEmpty, !suffix.contains("#") else {
+                throw NexusToriiError.invalidResponse
+            }
+            embeddedSourceAccount = suffix
+        } else {
+            return nil
+        }
+        guard
+            let destination = firstExactString(
+                in: value,
+                keys: [
+                    "destination", "destination_id", "to", "account_id",
+                ]
+            ),
+            let rawAmount = ["object", "amount", "quantity", "value"].lazy
+                .compactMap({ value[$0] }).first
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        let explicitSource = firstExactString(
+            in: value,
+            keys: ["source_account", "from", "account"]
+        )
+        let canonicalDestination = try IrohaAddressCodec.parse(
+            destination,
+            expectedDiscriminant: configuration.i105Discriminant
+        ).i105
+        let canonicalExplicitSource = try explicitSource.map {
+            try IrohaAddressCodec.parse(
+                $0,
+                expectedDiscriminant: configuration.i105Discriminant
+            ).i105
+        }
+        let canonicalEmbeddedSource = try embeddedSourceAccount.map {
+            try IrohaAddressCodec.parse(
+                $0,
+                expectedDiscriminant: configuration.i105Discriminant
+            ).i105
+        }
+        if let canonicalExplicitSource, let canonicalEmbeddedSource,
+           canonicalExplicitSource != canonicalEmbeddedSource
+        {
+            throw NexusToriiError.invalidResponse
+        }
+        let canonicalSource = canonicalExplicitSource ?? canonicalEmbeddedSource
+        let incoming = canonicalDestination == account
+        let outgoing = canonicalSource == account
+        guard incoming || outgoing else {
+            return nil
+        }
+        let amount = try parseAmount(
+            rawAmount,
+            maximumScale: NexusAmountPolicy.maximumScale(
+                for: configuration.networkId
+            )
+        )
+        guard let sender = outgoing ? account : canonicalSource else {
+            throw NexusToriiError.invalidResponse
+        }
+        return ParsedTransfer(
+            amount: amount,
+            sender: sender,
+            receiver: incoming ? account : canonicalDestination
+        )
+    }
+
+    private static func parseAmount(
+        _ value: NexusJSONValue,
+        maximumScale: Int
+    ) throws -> PIQuantity {
+        let raw: String?
+        if let string = value.exactWireStringValue {
+            raw = string
+        } else if let object = value.objectValue {
+            let scaleText = object["scale"]?.exactWireStringValue ??
+                canonicalUInt64(object["scale"]).map(String.init)
+            let mantissa = ["value", "amount", "mantissa"].lazy
+                .compactMap { object[$0]?.exactWireStringValue }.first
+            if
+                let scaleText,
+                let scale = Int(scaleText),
+                (0 ... maximumScale).contains(scale),
+                let mantissa,
+                mantissa.range(
+                    of: #"^[0-9]+$"#,
+                    options: .regularExpression
+                ) != nil
+            {
+                raw = decimalString(mantissa: mantissa, scale: scale)
+            } else {
+                raw = nil
+            }
+        } else {
+            raw = nil
+        }
+        guard
+            let raw,
+            raw.utf8.count <= PIQuantity.maximumWireBytes,
+            let exact = NexusExactDecimal(raw),
+            exact.unscaled > 0,
+            exact.scale <= maximumScale
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        return try PIQuantity(raw)
+    }
+
+    private static func decimalString(
+        mantissa: String,
+        scale: Int
+    ) -> String {
+        guard scale > 0 else { return mantissa }
+        if mantissa.count <= scale {
+            return "0." + String(repeating: "0", count: scale - mantissa.count) +
+                mantissa
+        }
+        let split = mantissa.index(mantissa.endIndex, offsetBy: -scale)
+        return "\(mantissa[..<split]).\(mantissa[split...])"
+    }
+
+    private static func parseTimestamp(_ value: String?) -> Int64? {
+        guard let value, !value.isEmpty, value.utf8.count <= 64 else {
+            return nil
+        }
+        if value.unicodeScalars.allSatisfy({ (48 ... 57).contains($0.value) }),
+           let integer = Int64(value)
+        {
+            guard integer < 10_000_000_000 else {
+                return integer
+            }
+            let multiplied = integer.multipliedReportingOverflow(by: 1_000)
+            return multiplied.overflow ? nil : multiplied.partialValue
+        }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [
+            .withInternetDateTime, .withFractionalSeconds,
+        ]
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        guard let date = fractional.date(from: value) ?? plain.date(from: value)
+        else {
+            return nil
+        }
+        let milliseconds = date.timeIntervalSince1970 * 1_000
+        guard milliseconds.isFinite,
+              milliseconds > 0,
+              milliseconds <= Double(Int64.max)
+        else {
+            return nil
+        }
+        return Int64(milliseconds.rounded())
+    }
+
+    private static func firstExactString(
+        in object: [String: NexusJSONValue],
+        keys: [String]
+    ) -> String? {
+        keys.lazy.compactMap {
+            exactString(object[$0], maximumBytes: 8_192)
+        }.first
+    }
+
+    private static func exactString(
+        _ value: NexusJSONValue?,
+        maximumBytes: Int
+    ) -> String? {
+        guard
+            let string = value?.exactWireStringValue,
+            !string.isEmpty,
+            string == string.trimmingCharacters(in: .whitespacesAndNewlines),
+            string.utf8.count <= maximumBytes
+        else {
+            return nil
+        }
+        return string
+    }
+
+    private static func canonicalUInt64(
+        _ value: NexusJSONValue?
+    ) -> UInt64? {
+        guard let value, case let .number(raw) = value else {
+            return nil
+        }
+        guard
+            raw == "0" || raw.range(
+                of: #"^[1-9][0-9]{0,19}$"#,
+                options: .regularExpression
+            ) != nil
+        else {
+            return nil
+        }
+        return UInt64(raw)
+    }
 }
 
 enum NexusTransferHistoryParser {
-    private static let millisecondThreshold: Int64 = 10_000_000_000
+    private static let allowedItemKeys: Set<String> = [
+        "id", "source", "type", "timestamp_ms", "status", "result_ok",
+        "direction", "account_id", "counterparty_account_id", "asset_id",
+        "asset_definition_id", "amount", "tx_hash", "operation_id",
+        "expires_at_ms", "finalized_at_ms", "requesting_fi_id",
+    ]
+    private static let requiredItemKeys: Set<String> = [
+        "id", "source", "type", "status", "direction", "account_id",
+    ]
+    private static let transferForbiddenKeys: Set<String> = [
+        "operation_id", "expires_at_ms", "finalized_at_ms",
+        "requesting_fi_id",
+    ]
 
     static func page(
         result: NexusJSONValue,
@@ -840,24 +2469,77 @@ enum NexusTransferHistoryParser {
         ).i105
         let root = try unwrap(result)
         let body = root["body"]?.objectValue ?? root
-        guard let sourceItems = body["items"]?.arrayValue else {
+        let baseKeys: Set<String> = [
+            "items", "total", "has_more", "count_mode", "query_source",
+        ]
+        guard
+            let sourceItems = body["items"]?.arrayValue,
+            let total = canonicalUInt64(body["total"]),
+            let hasMore = body["has_more"]?.boolValue,
+            body["count_mode"]?.exactWireStringValue == "exact",
+            let querySource = body["query_source"]?.exactWireStringValue,
+            ["account_history_index", "account_history_fanout"].contains(
+                querySource
+            ),
+            UInt64(sourceItems.count) <= total
+        else {
             throw NexusToriiError.invalidResponse
         }
+        let indexedHeight: UInt64?
+        let indexedBlockHash: String?
+        if querySource == "account_history_index" {
+            guard
+                Set(body.keys) == baseKeys.union([
+                    "indexed_height", "indexed_block_hash",
+                ]),
+                let height = canonicalUInt64(body["indexed_height"]),
+                height > 0,
+                let rawHash = body["indexed_block_hash"]?
+                    .exactWireStringValue,
+                NexusTransactionHash.normalized(rawHash) == rawHash
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            indexedHeight = height
+            indexedBlockHash = rawHash
+        } else {
+            guard
+                Set(body.keys) == baseKeys,
+                !hasMore,
+                UInt64(sourceItems.count) == total
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            indexedHeight = nil
+            indexedBlockHash = nil
+        }
 
-        let items = try sourceItems.flatMap { value -> [NexusTransferHistoryItem] in
+        var sourceItemIDs: [String] = []
+        let items = try sourceItems.compactMap { value -> NexusTransferHistoryItem? in
             guard let object = value.objectValue else {
                 throw NexusToriiError.invalidResponse
             }
-            return try parseInstruction(
+            let parsed = try parseItem(
                 object,
                 configuration: configuration,
                 account: canonicalAccount,
                 assetDefinitionID: assetDefinitionID
             )
+            guard let id = object["id"]?.exactWireStringValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            sourceItemIDs.append(id)
+            return parsed
         }
         return NexusTransferHistoryPage(
             items: items,
-            sourceItemCount: sourceItems.count
+            sourceItemCount: sourceItems.count,
+            sourceItemIDs: sourceItemIDs,
+            total: total,
+            hasMore: hasMore,
+            querySource: querySource,
+            indexedHeight: indexedHeight,
+            indexedBlockHash: indexedBlockHash
         )
     }
 
@@ -881,15 +2563,16 @@ enum NexusTransferHistoryParser {
             let text = content.lazy.compactMap({ item -> String? in
                 guard
                     let object = item.objectValue,
-                    object["type"]?.stringValue == "text"
+                    object["type"]?.exactWireStringValue == "text"
                 else {
                     return nil
                 }
-                return object["text"]?.stringValue
+                return object["text"]?.exactWireStringValue
             }).first,
-            let decoded = try? JSONDecoder().decode(
+            let decoded = try? NexusStrictJSONAdmission.decode(
                 NexusJSONValue.self,
-                from: Data(text.utf8)
+                from: Data(text.utf8),
+                using: JSONDecoder()
             ),
             let object = decoded.objectValue
         else {
@@ -898,244 +2581,141 @@ enum NexusTransferHistoryParser {
         return object
     }
 
-    private static func parseInstruction(
+    private static func parseItem(
         _ object: [String: NexusJSONValue],
         configuration: NexusNetworkConfiguration,
         account: String,
         assetDefinitionID: String
-    ) throws -> [NexusTransferHistoryItem] {
+    ) throws -> NexusTransferHistoryItem? {
         guard
-            let status = firstString(
-                in: object,
-                keys: ["transaction_status", "transactionStatus", "status"]
-            )
+            requiredItemKeys.isSubset(of: Set(object.keys)),
+            Set(object.keys).isSubset(of: allowedItemKeys),
+            let id = boundedString(object["id"], maximumBytes: 4_096),
+            !id.isEmpty,
+            object["source"]?.exactWireStringValue == "transaction",
+            let type = boundedString(object["type"], maximumBytes: 64),
+            let status = boundedString(object["status"], maximumBytes: 32),
+            let direction = boundedString(
+                object["direction"],
+                maximumBytes: 16
+            ),
+            ["incoming", "outgoing", "self", "affected"].contains(
+                direction
+            ),
+            let rawAccount = boundedString(
+                object["account_id"],
+                maximumBytes: 4_096
+            ),
+            let itemAccount = try? IrohaAddressCodec.parse(
+                rawAccount,
+                expectedDiscriminant: configuration.i105Discriminant
+            ).i105,
+            itemAccount == account
         else {
             throw NexusToriiError.invalidResponse
         }
-        guard status.caseInsensitiveCompare("committed") == .orderedSame else {
-            return []
-        }
         guard
-            let rawHash = firstString(
-                in: object,
-                keys: ["transaction_hash", "transactionHash", "hash"]
-            ),
-            let hash = normalizedHash(rawHash),
-            let rawTimestamp = firstString(
-                in: object,
-                keys: ["created_at", "createdAt", "timestamp"]
-            ),
-            let timestamp = timestampMilliseconds(rawTimestamp),
-            let payload = object["box"]?.objectValue?["json"]?
-                .objectValue?["payload"]?.objectValue,
-            let variant = payload["variant"]?.stringValue
+            ["TRANSFER", "RAW_ON_CHAIN"].contains(type),
+            transferForbiddenKeys.isDisjoint(with: Set(object.keys)),
+            let resultOK = object["result_ok"]?.boolValue,
+            (status == "SUCCESS" && resultOK) ||
+                (status == "FAILED" && !resultOK)
         else {
             throw NexusToriiError.invalidResponse
         }
-
-        let transfers: [(amount: PIQuantity, sender: String, receiver: String)]
-        switch variant {
-        case "Asset":
-            guard let value = payload["value"]?.objectValue else {
-                throw NexusToriiError.invalidResponse
-            }
-            transfers = try parseTransfer(
-                value,
-                configuration: configuration,
-                account: account,
-                assetDefinitionID: assetDefinitionID
-            ).map { [$0] } ?? []
-        case "AssetBatch":
+        guard
+            let timestamp = canonicalInt64(object["timestamp_ms"]),
+            timestamp > 0,
+            let rawHash = boundedString(object["tx_hash"], maximumBytes: 66),
+            let hash = NexusTransactionHash.normalized(rawHash),
+            hash == rawHash,
+            id.hasPrefix("\(rawHash):\(account):"),
+            let sequence = id.split(
+                separator: ":",
+                maxSplits: 2,
+                omittingEmptySubsequences: false
+            ).last.map(String.init),
+            sequence.range(
+                of: #"^(?:0|[1-9][0-9]{0,19})$"#,
+                options: .regularExpression
+            ) != nil,
+            UInt64(sequence) != nil,
+            object["asset_definition_id"]?.exactWireStringValue ==
+                assetDefinitionID,
+            let rawAssetID = boundedString(
+                object["asset_id"],
+                maximumBytes: 8_192
+            ),
+            rawAssetID == "\(assetDefinitionID)#\(account)",
+            let amountValue = object["amount"]
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        let amount = try parseAmount(amountValue)
+        let counterparty = try object["counterparty_account_id"].map {
             guard
-                let value = payload["value"]?.objectValue,
-                let entries = ["entries", "transfers", "items"]
-                    .lazy
-                    .compactMap({ value[$0]?.arrayValue })
-                    .first
+                let raw = boundedString($0, maximumBytes: 4_096)
             else {
                 throw NexusToriiError.invalidResponse
             }
-            transfers = try entries.compactMap {
-                guard let entry = $0.objectValue else {
-                    throw NexusToriiError.invalidResponse
-                }
-                return try parseBatchTransfer(
-                    entry,
-                    configuration: configuration,
-                    account: account,
-                    assetDefinitionID: assetDefinitionID
-                )
+            return try IrohaAddressCodec.parse(
+                raw,
+                expectedDiscriminant: configuration.i105Discriminant
+            ).i105
+        }
+        if type == "RAW_ON_CHAIN" {
+            guard
+                counterparty == nil,
+                ["incoming", "outgoing"].contains(direction)
+            else {
+                throw NexusToriiError.invalidResponse
             }
+            return nil
+        }
+        let sender: String
+        let receiver: String
+        switch direction {
+        case "incoming":
+            guard let counterparty, counterparty != account else {
+                throw NexusToriiError.invalidResponse
+            }
+            sender = counterparty
+            receiver = account
+        case "outgoing":
+            guard let counterparty, counterparty != account else {
+                throw NexusToriiError.invalidResponse
+            }
+            sender = account
+            receiver = counterparty
+        case "self":
+            guard counterparty == nil else {
+                throw NexusToriiError.invalidResponse
+            }
+            sender = account
+            receiver = account
         default:
-            transfers = []
-        }
-
-        return transfers.map {
-            NexusTransferHistoryItem(
-                transactionHash: hash,
-                timestampMilliseconds: timestamp,
-                amount: $0.amount,
-                sender: $0.sender,
-                receiver: $0.receiver
-            )
-        }
-    }
-
-    private static func parseBatchTransfer(
-        _ object: [String: NexusJSONValue],
-        configuration: NexusNetworkConfiguration,
-        account: String,
-        assetDefinitionID: String
-    ) throws -> (amount: PIQuantity, sender: String, receiver: String)? {
-        guard let definition = firstString(
-            in: object,
-            keys: [
-                "asset_definition", "assetDefinition",
-                "asset_definition_id",
-            ]
-        ) else {
             throw NexusToriiError.invalidResponse
         }
-        guard definition == assetDefinitionID else {
+        // Failed transactions are useful pagination evidence but never proof
+        // of a committed transfer. Validate their complete projection first so
+        // malformed failed rows cannot hide behind the filter.
+        guard resultOK else {
             return nil
         }
-        return try parseTransfer(
-            object,
-            configuration: configuration,
-            account: account,
-            assetDefinitionID: assetDefinitionID
+        return NexusTransferHistoryItem(
+            transactionHash: hash,
+            timestampMilliseconds: timestamp,
+            amount: amount,
+            sender: sender,
+            receiver: receiver
         )
-    }
-
-    private static func parseTransfer(
-        _ object: [String: NexusJSONValue],
-        configuration: NexusNetworkConfiguration,
-        account: String,
-        assetDefinitionID: String
-    ) throws -> (amount: PIQuantity, sender: String, receiver: String)? {
-        let source = firstString(
-            in: object,
-            keys: [
-                "source", "source_id", "asset", "asset_id",
-                "asset_definition", "assetDefinition",
-                "asset_definition_id",
-            ]
-        )
-        let embeddedSourceAccount: String?
-        if let source {
-            if source == assetDefinitionID {
-                embeddedSourceAccount = nil
-            } else if source.hasPrefix("\(assetDefinitionID)#") {
-                let candidate = String(
-                    source.dropFirst(assetDefinitionID.count + 1)
-                )
-                guard !candidate.isEmpty, !candidate.contains("#") else {
-                    throw NexusToriiError.invalidResponse
-                }
-                embeddedSourceAccount = candidate
-            } else {
-                return nil
-            }
-        } else {
-            embeddedSourceAccount = nil
-        }
-        guard
-            let destination = firstString(
-                in: object,
-                keys: ["destination", "destination_id", "to", "account_id"]
-            ),
-            let amountValue = ["object", "amount", "quantity", "value"]
-                .lazy
-                .compactMap({ object[$0] })
-                .first,
-            let amount = try parseAmount(amountValue)
-        else {
-            throw NexusToriiError.invalidResponse
-        }
-        let explicitSourceAccount = firstString(
-            in: object,
-            keys: ["source_account", "from", "account"]
-        )
-
-        let canonicalDestination = try IrohaAddressCodec.parse(
-            destination,
-            expectedDiscriminant: configuration.i105Discriminant
-        ).i105
-        let canonicalExplicitSource = try explicitSourceAccount.map {
-            try IrohaAddressCodec.parse(
-                $0,
-                expectedDiscriminant: configuration.i105Discriminant
-            ).i105
-        }
-        let canonicalEmbeddedSource = try embeddedSourceAccount.map {
-            try IrohaAddressCodec.parse(
-                $0,
-                expectedDiscriminant: configuration.i105Discriminant
-            ).i105
-        }
-        if let canonicalExplicitSource,
-           let canonicalEmbeddedSource,
-           canonicalExplicitSource != canonicalEmbeddedSource {
-            throw NexusToriiError.invalidResponse
-        }
-        let canonicalSource = canonicalExplicitSource ??
-            canonicalEmbeddedSource
-        let incoming = canonicalDestination == account
-        let outgoing = canonicalSource == account
-        guard incoming || outgoing else {
-            return nil
-        }
-        guard let sender = outgoing ? account : canonicalSource else {
-            throw NexusToriiError.invalidResponse
-        }
-        let receiver = incoming ? account : canonicalDestination
-        return (amount, sender, receiver)
     }
 
     private static func parseAmount(
         _ value: NexusJSONValue
-    ) throws -> PIQuantity? {
-        let raw: String?
-        if let string = value.exactWireStringValue {
-            guard
-                string.utf8.count <= PIQuantity.maximumWireBytes
-            else {
-                throw NexusToriiError.invalidResponse
-            }
-            raw = string
-        } else if let object = value.objectValue {
-            if let rawScale = object["scale"]?.stringValue {
-                guard
-                    rawScale.utf8.count <= 3,
-                    let scale = Int(rawScale),
-                    (0 ... NexusAmountPolicy.maximumScale).contains(scale),
-                    let mantissa = ["value", "amount", "mantissa"]
-                        .lazy
-                        .compactMap({ object[$0]?.exactWireStringValue })
-                        .first,
-                    mantissa.utf8.count <=
-                        PIQuantity.maximumWireBytes,
-                    mantissa.range(
-                        of: #"^[0-9]+$"#,
-                        options: .regularExpression
-                    ) != nil
-                else {
-                    throw NexusToriiError.invalidResponse
-                }
-                raw = decimalString(mantissa: mantissa, scale: scale)
-            } else if let nested = ["value", "amount", "mantissa"]
-                .lazy
-                .compactMap({ object[$0] })
-                .first {
-                return try parseAmount(nested)
-            } else {
-                raw = nil
-            }
-        } else {
-            raw = nil
-        }
+    ) throws -> PIQuantity {
         guard
-            let raw,
+            let raw = value.exactWireStringValue,
             raw.utf8.count <= PIQuantity.maximumWireBytes,
             raw.range(
                 of: #"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$"#,
@@ -1149,62 +2729,54 @@ enum NexusTransferHistoryParser {
         return try PIQuantity(raw)
     }
 
-    private static func decimalString(mantissa: String, scale: Int) -> String {
-        let trimmed = String(mantissa.drop { $0 == "0" })
-        let digits = trimmed.isEmpty ? "0" : trimmed
-        guard scale > 0 else {
-            return digits
-        }
-        let padded = String(repeating: "0", count: max(0, scale - digits.count + 1)) +
-            digits
-        let split = padded.index(padded.endIndex, offsetBy: -scale)
-        let integer = String(padded[..<split])
-        var fraction = String(padded[split...])
-        while fraction.last == "0" {
-            fraction.removeLast()
-        }
-        return fraction.isEmpty ? integer : "\(integer).\(fraction)"
-    }
-
-    private static func firstString(
-        in object: [String: NexusJSONValue],
-        keys: [String]
+    private static func boundedString(
+        _ value: NexusJSONValue?,
+        maximumBytes: Int
     ) -> String? {
-        keys.lazy.compactMap { object[$0]?.stringValue }
-            .first(where: { !$0.isEmpty })
-    }
-
-    private static func normalizedHash(_ value: String) -> String? {
-        NexusTransactionHash.normalized(value)
-    }
-
-    private static func timestampMilliseconds(_ value: String) -> Int64? {
-        if value.allSatisfy(\.isNumber), let raw = Int64(value) {
-            guard raw >= 0 else {
-                return nil
-            }
-            if raw < millisecondThreshold {
-                return raw.multipliedReportingOverflow(by: 1_000).overflow
-                    ? nil
-                    : raw * 1_000
-            }
-            return raw
-        }
-        let withFractions = ISO8601DateFormatter()
-        withFractions.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let withoutFractions = ISO8601DateFormatter()
-        withoutFractions.formatOptions = [.withInternetDateTime]
-        guard let date = withFractions.date(from: value) ?? withoutFractions.date(from: value) else {
+        guard
+            let value = value?.exactWireStringValue,
+            !value.isEmpty,
+            value.utf8.count <= maximumBytes,
+            !value.unicodeScalars.contains(where: {
+                $0.value < 0x20 || (0x7F ... 0x9F).contains($0.value)
+            })
+        else {
             return nil
         }
-        let milliseconds = date.timeIntervalSince1970 * 1_000
-        guard milliseconds >= 0, milliseconds <= Double(Int64.max) else {
+        return value
+    }
+
+    private static func canonicalUInt64(
+        _ value: NexusJSONValue?
+    ) -> UInt64? {
+        guard
+            let value,
+            case let .number(raw) = value,
+            raw == "0" || (
+                raw.range(
+                    of: #"^[1-9][0-9]{0,19}$"#,
+                    options: .regularExpression
+                ) != nil && !raw.hasPrefix("0")
+            ),
+            let parsed = UInt64(raw)
+        else {
             return nil
         }
-        return Int64(milliseconds)
+        return parsed
+    }
+
+    private static func canonicalInt64(
+        _ value: NexusJSONValue?
+    ) -> Int64? {
+        guard let raw = canonicalUInt64(value), raw <= UInt64(Int64.max) else {
+            return nil
+        }
+        return Int64(raw)
     }
 }
 
+/// Minamoto's existing raw-pipeline receipt. Taira never decodes this shape;
+/// its current receipt/hash contract is admitted by the MCP parser below.
 struct NexusTransactionReceipt: Decodable, Equatable {
     struct Payload: Decodable, Equatable {
         let txHash: String
@@ -1252,6 +2824,285 @@ struct NexusTransactionReceipt: Decodable, Equatable {
         else {
             throw NexusToriiError.invalidResponse
         }
+    }
+}
+
+struct NexusTairaAppliedSubmission: Equatable {
+    let hash: String
+    let blockHeight: Int64
+}
+
+enum NexusToriiSubmissionResult: Equatable {
+    case submitted(NexusTransactionReceipt)
+    case applied(NexusTairaAppliedSubmission)
+
+    func validate(
+        expectedHash: String,
+        configuration: NexusNetworkConfiguration
+    ) throws -> Int64? {
+        switch (configuration.networkId, self) {
+        case let (.minamoto, .submitted(receipt)):
+            try receipt.validate(expectedHash: expectedHash)
+            return nil
+        case let (.taira, .applied(submission)):
+            guard
+                let expectedHash = NexusTransactionHash.normalized(
+                    expectedHash
+                ),
+                let returnedHash = NexusTransactionHash.normalized(
+                    submission.hash
+                ),
+                returnedHash == expectedHash,
+                submission.blockHeight > 0
+            else {
+                throw NexusToriiError.transactionHashMismatch
+            }
+            return submission.blockHeight
+        default:
+            throw NexusToriiError.invalidResponse
+        }
+    }
+}
+
+/// Exact first-release Taira write contract exposed by Torii's MCP server.
+/// Keeping the request and result admission here makes it impossible for the
+/// Taira branch to silently fall back to the raw pipeline submission route.
+enum NexusTairaTransactionSubmissionContract {
+    static let toolName = "iroha.transactions.submit_and_wait"
+    static let timeoutMilliseconds: UInt64 = 120_000
+    static let requestTimeoutInterval: TimeInterval = 135
+
+    static func request(
+        id: String,
+        signedNorito: Data,
+        expectedHash: String
+    ) throws -> NexusMCPRequest {
+        NexusMCPRequest(
+            id: id,
+            params: try callParameters(
+                signedNorito: signedNorito,
+                expectedHash: expectedHash
+            )
+        )
+    }
+
+    static func callParameters(
+        signedNorito: Data,
+        expectedHash: String
+    ) throws -> NexusJSONValue {
+        guard
+            !signedNorito.isEmpty,
+            let hash = NexusTransactionHash.normalized(expectedHash),
+            hash == expectedHash
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        return .object([
+            "name": .string(toolName),
+            "arguments": .object([
+                "body_base64": .string(signedNorito.base64EncodedString()),
+                "hash": .string(hash),
+                "status_accept": .string("application/json"),
+                "terminal_statuses": .array([.string("Applied")]),
+                "timeout_ms": .number(String(timeoutMilliseconds))
+            ])
+        ])
+    }
+
+    static func appliedSubmission(
+        from result: NexusJSONValue,
+        expectedHash: String
+    ) throws -> NexusTairaAppliedSubmission {
+        guard
+            let expectedHash = NexusTransactionHash.normalized(expectedHash),
+            let wrapper = result.objectValue,
+            Set(wrapper.keys) == ["content", "isError", "structuredContent"],
+            let isError = wrapper["isError"]?.boolValue
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        guard !isError else {
+            throw NexusToriiError.server
+        }
+        if
+            let structured = wrapper["structuredContent"]?.objectValue,
+            let terminalKind = structured["terminal_kind"]?
+                .exactWireStringValue,
+            ["Rejected", "Expired"].contains(terminalKind)
+        {
+            throw NexusToriiError.server
+        }
+        guard
+            let content = wrapper["content"]?.arrayValue,
+            content.count == 1,
+            let contentItem = content.first?.objectValue,
+            Set(contentItem.keys) == ["type", "text"],
+            contentItem["type"]?.exactWireStringValue == "text",
+            let structured = wrapper["structuredContent"]?.objectValue,
+            Set(structured.keys) == [
+                "attempts", "elapsed_ms", "final", "hash", "status",
+                "submit", "terminal_kind", "terminal_statuses"
+            ],
+            let status = canonicalUInt64(structured["status"]),
+            (200 ... 299).contains(status),
+            contentItem["text"]?.exactWireStringValue == "http \(status)",
+            let attempts = canonicalUInt64(structured["attempts"]),
+            attempts > 0,
+            canonicalUInt64(structured["elapsed_ms"]) != nil,
+            structured["terminal_kind"]?.exactWireStringValue == "Applied",
+            structured["terminal_statuses"]?.arrayValue == [
+                .string("Applied")
+            ],
+            let returnedHash = structured["hash"]?.exactWireStringValue
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        try requireHash(returnedHash, equals: expectedHash)
+
+        guard
+            let submit = structured["submit"]?.objectValue,
+            Set(submit.keys) == ["body", "content_type", "headers", "status"],
+            let submitStatus = canonicalUInt64(submit["status"]),
+            (200 ... 299).contains(submitStatus),
+            let submitHeaders = submit["headers"]?.objectValue,
+            let submitHeaderContentType = submitHeaders["content-type"]?
+                .exactWireStringValue,
+            NexusToriiMediaTypeContract.matches(
+                submitHeaderContentType,
+                expected: "application/json"
+            ),
+            let submitHeaderHash = submitHeaders[
+                "x-iroha-transaction-hash"
+            ]?.exactWireStringValue,
+            let submitContentType = submit["content_type"]?
+                .exactWireStringValue,
+            NexusToriiMediaTypeContract.matches(
+                submitContentType,
+                expected: "application/json"
+            ),
+            let submitBody = submit["body"]?.objectValue,
+            let receiptPayload = submitBody["payload"]?.objectValue,
+            let receiptHash = receiptPayload["tx_hash"]?
+                .exactWireStringValue
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        try requireHash(submitHeaderHash, equals: expectedHash)
+        try requireHash(receiptHash, equals: expectedHash)
+        let submitHashes = try transactionHashes(in: .object(submitBody))
+        for hash in submitHashes {
+            try requireHash(hash, equals: expectedHash)
+        }
+
+        guard
+            let final = structured["final"]?.objectValue,
+            Set(final.keys) == ["body", "content_type", "headers", "status"],
+            let finalStatus = canonicalUInt64(final["status"]),
+            finalStatus == status,
+            final["headers"]?.objectValue != nil,
+            let finalContentType = final["content_type"]?.exactWireStringValue,
+            NexusToriiMediaTypeContract.matches(
+                finalContentType,
+                expected: "application/json"
+            ),
+            let finalBody = final["body"]?.objectValue,
+            let finalHash = finalBody["hash"]?.exactWireStringValue,
+            finalBody["scope"]?.exactWireStringValue == "global",
+            finalBody["resolved_from"]?.exactWireStringValue == "state",
+            let finalStatusBody = finalBody["status"]?.objectValue,
+            finalStatusBody["kind"]?.exactWireStringValue == "Applied",
+            finalStatusBody["rejection_reason"] == nil ||
+                finalStatusBody["rejection_reason"] == .null,
+            let blockHeight = canonicalInt64(
+                finalStatusBody["block_height"]
+            ),
+            blockHeight > 0
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        try requireHash(finalHash, equals: expectedHash)
+        let finalHashes = try transactionHashes(in: .object(finalBody))
+        guard !finalHashes.isEmpty else {
+            throw NexusToriiError.invalidResponse
+        }
+        for hash in finalHashes {
+            try requireHash(hash, equals: expectedHash)
+        }
+        return NexusTairaAppliedSubmission(
+            hash: expectedHash,
+            blockHeight: blockHeight
+        )
+    }
+
+    private static func transactionHashes(
+        in body: NexusJSONValue
+    ) throws -> [String] {
+        guard let object = body.objectValue else {
+            throw NexusToriiError.invalidResponse
+        }
+        let hashKeys = [
+            "hash", "tx_hash", "tx_hash_hex", "transaction_hash",
+            "entrypoint_hash", "signed_transaction_hash"
+        ]
+        var values: [String] = []
+        for key in hashKeys where object[key] != nil {
+            guard let value = object[key]?.exactWireStringValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            values.append(value)
+        }
+        if let payload = object["payload"] {
+            guard let payloadObject = payload.objectValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            for key in hashKeys where payloadObject[key] != nil {
+                guard
+                    let value = payloadObject[key]?.exactWireStringValue
+                else {
+                    throw NexusToriiError.invalidResponse
+                }
+                values.append(value)
+            }
+        }
+        return values
+    }
+
+    private static func requireHash(
+        _ value: String,
+        equals expectedHash: String
+    ) throws {
+        guard NexusTransactionHash.normalized(value) == expectedHash else {
+            throw NexusToriiError.transactionHashMismatch
+        }
+    }
+
+    private static func canonicalUInt64(
+        _ value: NexusJSONValue?
+    ) -> UInt64? {
+        guard let value, case let .number(raw) = value else {
+            return nil
+        }
+        guard
+            raw == "0" || raw.range(
+                of: #"^[1-9][0-9]{0,19}$"#,
+                options: .regularExpression
+            ) != nil
+        else {
+            return nil
+        }
+        return UInt64(raw)
+    }
+
+    private static func canonicalInt64(
+        _ value: NexusJSONValue?
+    ) -> Int64? {
+        guard
+            let value = canonicalUInt64(value),
+            value <= UInt64(Int64.max)
+        else {
+            return nil
+        }
+        return Int64(value)
     }
 }
 
@@ -1328,10 +3179,6 @@ private final class NexusRedirectRejectingDelegate: NSObject,
 }
 
 final class NexusToriiClient {
-    private struct ErrorEnvelope: Decodable {
-        let message: String
-    }
-
     private let session: URLSession
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
@@ -1357,17 +3204,31 @@ final class NexusToriiClient {
         method: String,
         for url: URL
     ) throws -> String? {
+        let isTairaOrigin = isCanonicalTairaOrigin(url)
         switch (method, url.path) {
-        case ("GET", _):
+        case ("GET", _) where !isTairaOrigin:
             return nil
         case ("POST", let path) where path.hasSuffix("/v1/mcp"):
+            if isTairaOrigin,
+               url != TairaDeploymentBinding.canonicalPublicMcpEndpoint
+            {
+                throw NexusToriiError.invalidRoute
+            }
             return "application/json"
         case ("POST", let path)
-            where path.hasSuffix("/v1/pipeline/transactions"):
+            where !isTairaOrigin &&
+            path.hasSuffix("/v1/pipeline/transactions"):
             return "application/x-norito"
         default:
             throw NexusToriiError.invalidRoute
         }
+    }
+
+    private static func isCanonicalTairaOrigin(_ url: URL) -> Bool {
+        let canonical = TairaDeploymentBinding.canonicalToriiBaseURL
+        return url.scheme?.lowercased() == canonical.scheme?.lowercased() &&
+            url.host?.lowercased() == canonical.host?.lowercased() &&
+            url.port == canonical.port
     }
 
     /// A successful Torii response must honor the representation requested for its exact route.
@@ -1385,8 +3246,11 @@ final class NexusToriiClient {
 
     static func xorAssetDefinitionURL(
         configuration: NexusNetworkConfiguration
-    ) -> URL {
-        configuration.toriiURL
+    ) throws -> URL {
+        guard configuration.networkId != .taira else {
+            throw NexusToriiError.invalidRoute
+        }
+        return configuration.toriiURL
             .appendingPathComponent("v1/assets/definitions")
             .appendingPathComponent(NexusAssetDefinitionIdentity.xorAlias)
     }
@@ -1407,6 +3271,20 @@ final class NexusToriiClient {
                 expectedContentLength <= Int64(maximumBytes)
         else {
             throw NexusToriiError.responseTooLarge
+        }
+    }
+
+    static func validateOuterAvailabilityStatus(
+        _ statusCode: Int,
+        for url: URL? = nil
+    ) throws {
+        if statusCode == 404,
+           url == TairaDeploymentBinding.canonicalPublicMcpEndpoint
+        {
+            throw NexusToriiError.mcpNotEnabled
+        }
+        if statusCode == 502 || statusCode == 503 {
+            throw NexusToriiError.deploymentUnavailable
         }
     }
 
@@ -1443,7 +3321,7 @@ final class NexusToriiClient {
         guard
             routedBy.map({ ["local", "proxy"].contains($0) }) ?? true,
             (routeLaneID == nil) == (routeDataspaceID == nil),
-            routeLaneID == nil || routedBy != nil,
+            routeLaneID == nil || routedBy == "local",
             routeLaneID.map({
                 isCanonicalRouteID($0, maximum: UInt64(UInt32.max))
             }) ?? true,
@@ -1457,17 +3335,24 @@ final class NexusToriiClient {
             headerValue($0)
         }
         if rawCounts.allSatisfy({ $0 == nil }) {
+            // Lane/dataspace provenance is meaningful only together with the
+            // complete single-route fanout counters validated below. Never
+            // accept an otherwise plausible local route identity as partial
+            // evidence on a response that did not declare its fanout result.
+            guard routeLaneID == nil else {
+                throw NexusToriiError.invalidResponse
+            }
+            if firstFailure == "route_unavailable" {
+                throw NexusToriiError.deploymentUnavailable
+            }
             guard firstFailure == nil, !requiresFanout else {
                 throw NexusToriiError.invalidResponse
             }
             return
         }
         guard
-            firstFailure == nil,
             rawCounts.allSatisfy({ $0 != nil }),
-            routedBy != nil,
-            routeLaneID == nil,
-            routeDataspaceID == nil
+            routedBy != nil
         else {
             throw NexusToriiError.invalidResponse
         }
@@ -1487,11 +3372,38 @@ final class NexusToriiClient {
         }
         guard
             counts[0] > 0,
-            counts[1] == counts[0],
-            counts.dropFirst(2).allSatisfy({ $0 == 0 })
+            counts[1] <= counts[0],
+            counts[2] <= counts[0],
+            counts[1] + counts[2] == counts[0],
+            counts[3] + counts[4] + counts[5] <= counts[2]
         else {
             throw NexusToriiError.invalidResponse
         }
+        if routeLaneID != nil {
+            guard
+                routedBy == "local",
+                counts == [1, 1, 0, 0, 0, 0],
+                firstFailure == nil
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            return
+        }
+        let isComplete = counts[1] == counts[0] &&
+            counts.dropFirst(2).allSatisfy({ $0 == 0 })
+        if isComplete {
+            guard firstFailure == nil else {
+                throw NexusToriiError.invalidResponse
+            }
+            return
+        }
+        if counts[3] > 0 {
+            guard firstFailure == nil || firstFailure == "route_unavailable" else {
+                throw NexusToriiError.invalidResponse
+            }
+            throw NexusToriiError.deploymentUnavailable
+        }
+        throw NexusToriiError.invalidResponse
     }
 
     private static func isCanonicalRouteID(
@@ -1516,7 +3428,7 @@ final class NexusToriiClient {
         } else {
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 20
-            configuration.timeoutIntervalForResource = 30
+            configuration.timeoutIntervalForResource = 130
             configuration.waitsForConnectivity = true
             configuration.httpMaximumConnectionsPerHost = 2
             self.session = URLSession(
@@ -1527,7 +3439,58 @@ final class NexusToriiClient {
         }
     }
 
+    private func decodeResponse<Value: Decodable>(
+        _ type: Value.Type,
+        from data: Data
+    ) throws -> Value {
+        try NexusStrictJSONAdmission.decode(
+            type,
+            from: data,
+            using: decoder
+        )
+    }
+
+    private func decodeMCPBody<Value: Decodable>(
+        _ type: Value.Type,
+        from structuredResult: NexusJSONValue
+    ) throws -> Value {
+        guard
+            let structured = structuredResult.objectValue,
+            let body = structured["body"]
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        return try decodeResponse(type, from: encoder.encode(body))
+    }
+
     func health(configuration: NexusNetworkConfiguration) async throws {
+        guard configuration.satisfiesCurrentTairaContract else {
+            throw NexusToriiError.invalidRoute
+        }
+        if configuration.networkId == .taira {
+            try await ensureTairaTool(.health, configuration: configuration)
+            let response = try await mcp(
+                NexusTairaMCPToolContract.healthRequest(id: "taira-health"),
+                configuration: configuration
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let structured = try NexusMCPResultContract
+                .validateEmbeddedRoute(
+                    result,
+                    expectedContentType: "text/plain",
+                    requiresObjectBody: false
+                )
+            guard
+                let body = structured.objectValue?["body"]?
+                    .exactWireStringValue
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            try Self.validateHealthPayload(Data(body.utf8))
+            return
+        }
         let payload = try await data(
             request: request(
                 url: configuration.toriiURL.appendingPathComponent("health"),
@@ -1540,19 +3503,48 @@ final class NexusToriiClient {
     func xorAssetDefinition(
         configuration: NexusNetworkConfiguration
     ) async throws -> NexusAssetDefinition {
-        let definition = try decoder.decode(
-            NexusAssetDefinition.self,
-            from: await data(
-                request: request(
-                    url: Self.xorAssetDefinitionURL(
-                        configuration: configuration
-                    ),
-                    method: "GET"
-                ),
-                requiresFanout: true
+        guard configuration.satisfiesCurrentTairaContract else {
+            throw NexusToriiError.invalidRoute
+        }
+        let definition: NexusAssetDefinition
+        if configuration.networkId == .taira {
+            try await ensureTairaTool(
+                .assetDefinition,
+                configuration: configuration
             )
+            let response = try await mcp(
+                NexusTairaMCPToolContract.assetDefinitionRequest(
+                    id: "taira-xor-definition"
+                ),
+                configuration: configuration
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let structured = try NexusMCPResultContract
+                .validateEmbeddedRoute(result)
+            definition = try decodeMCPBody(
+                NexusAssetDefinition.self,
+                from: structured
+            )
+        } else {
+            definition = try decodeResponse(
+                NexusAssetDefinition.self,
+                from: await data(
+                    request: request(
+                        url: try Self.xorAssetDefinitionURL(
+                            configuration: configuration
+                        ),
+                        method: "GET"
+                    ),
+                    requiresFanout: true
+                )
+            )
+        }
+        try NexusAssetDefinitionIdentity.validateXor(
+            definition,
+            configuration: configuration
         )
-        try NexusAssetDefinitionIdentity.validateXor(definition)
         return definition
     }
 
@@ -1563,15 +3555,69 @@ final class NexusToriiClient {
         limit: Int = 100,
         offset: Int = 0
     ) async throws -> NexusAccountAssetList {
-        try configuration.validate(address: account)
-        guard (1 ... 500).contains(limit), offset >= 0 else {
+        guard configuration.satisfiesCurrentTairaContract else {
             throw NexusToriiError.invalidRoute
+        }
+        let canonicalAccount = try IrohaAddressCodec.parse(
+            account,
+            expectedDiscriminant: configuration.i105Discriminant
+        ).i105
+        guard
+            (1 ... 500).contains(limit),
+            offset >= 0,
+            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                asset,
+                configuration: configuration
+            )
+        else {
+            throw NexusToriiError.invalidRoute
+        }
+        if configuration.networkId == .taira {
+            try await ensureTairaTool(
+                .accountAssets,
+                configuration: configuration
+            )
+            let response = try await mcp(
+                NexusTairaMCPToolContract.accountAssetsRequest(
+                    id: "taira-assets-\(offset)",
+                    account: canonicalAccount,
+                    assetDefinitionID: asset,
+                    limit: limit,
+                    offset: offset
+                ),
+                configuration: configuration
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let structured = try NexusMCPResultContract
+                .validateEmbeddedRoute(result, requiresFanout: true)
+            let current = try decodeMCPBody(
+                NexusTairaAccountAssetPage.self,
+                from: structured
+            )
+            let consumed = Int64(offset) + Int64(current.items.count)
+            guard
+                current.total >= 0,
+                current.total <= 10_000,
+                consumed >= Int64(offset),
+                consumed <= current.total,
+                current.items.count <= limit
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            return NexusAccountAssetList(
+                items: current.items,
+                hasMore: consumed < current.total,
+                countMode: "exact",
+                total: current.total
+            )
         }
 
         var components = URLComponents(
             url: configuration.toriiURL
                 .appendingPathComponent("v1/accounts")
-                .appendingPathComponent(account)
+                .appendingPathComponent(canonicalAccount)
                 .appendingPathComponent("assets"),
             resolvingAgainstBaseURL: false
         )
@@ -1585,7 +3631,7 @@ final class NexusToriiClient {
         guard let url = components?.url else {
             throw NexusToriiError.invalidRoute
         }
-        return try decoder.decode(
+        return try decodeResponse(
             NexusAccountAssetList.self,
             from: await data(
                 request: request(url: url, method: "GET"),
@@ -1608,7 +3654,7 @@ final class NexusToriiClient {
             limit: limit,
             offset: offset
         )
-        return try decoder.decode(
+        return try decodeResponse(
             NexusAccountTransactionList.self,
             from: await data(
                 request: request(url: url, method: "GET"),
@@ -1624,12 +3670,19 @@ final class NexusToriiClient {
         limit: Int = 50,
         offset: Int = 0
     ) throws -> URL {
+        guard
+            configuration.satisfiesCurrentTairaContract,
+            configuration.networkId != .taira
+        else {
+            throw NexusToriiError.invalidRoute
+        }
         try configuration.validate(address: account)
         guard
             (1 ... 100).contains(limit),
             offset >= 0,
-            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-                assetDefinitionID
+            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                assetDefinitionID,
+                configuration: configuration
             )
         else {
             throw NexusToriiError.invalidRoute
@@ -1669,14 +3722,54 @@ final class NexusToriiClient {
             expectedDiscriminant: configuration.i105Discriminant
         ).i105
         guard
-            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-                assetDefinitionID
+            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                assetDefinitionID,
+                configuration: configuration
             ),
             let expectedHash = NexusTransactionHash.normalized(
                 transactionHash
             )
         else {
             throw NexusToriiError.invalidRoute
+        }
+
+        if configuration.networkId == .taira {
+            try await ensureTairaTool(
+                .instructions,
+                configuration: configuration
+            )
+            let response = try await mcp(
+                NexusTairaMCPToolContract.instructionsRequest(
+                    id: "taira-committed-\(expectedHash.prefix(12))",
+                    account: canonicalAccount,
+                    assetDefinitionID: assetDefinitionID,
+                    page: 1,
+                    perPage: 100,
+                    transactionHash: expectedHash
+                ),
+                configuration: configuration
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let structured = try NexusMCPResultContract
+                .validateEmbeddedRoute(result)
+            let page = try NexusTairaTransferHistoryParser.page(
+                result: structured,
+                configuration: configuration,
+                account: canonicalAccount,
+                assetDefinitionID: assetDefinitionID
+            )
+            try page.validate(expectedPage: 1, maximumPageSize: 100)
+            guard
+                page.totalPages <= 1,
+                page.items.allSatisfy({
+                    $0.transactionHash == expectedHash
+                })
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            return !page.items.isEmpty
         }
 
         var proof = try NexusAccountTransactionProof(
@@ -1703,9 +3796,8 @@ final class NexusToriiClient {
         }
     }
 
-    /// Reads committed transfer instructions through Torii's curated MCP
-    /// surface. Pagination is bounded and repeated pages are rejected so a
-    /// malformed server cannot keep a wallet refresh alive indefinitely.
+    /// Reads committed XOR transfers. Taira uses the current explorer
+    /// instruction projection; Minamoto retains its legacy indexed history.
     func committedXorTransfers(
         account: String,
         configuration: NexusNetworkConfiguration
@@ -1730,30 +3822,46 @@ final class NexusToriiClient {
             expectedDiscriminant: configuration.i105Discriminant
         ).i105
         guard
-            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-                assetDefinitionID
+            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                assetDefinitionID,
+                configuration: configuration
             )
         else {
             throw NexusToriiError.invalidRoute
         }
+        if configuration.networkId == .taira {
+            return try await tairaCommittedXorTransfers(
+                account: canonicalAccount,
+                configuration: configuration,
+                assetDefinitionID: assetDefinitionID
+            )
+        }
+        // Minamoto compatibility only. Public Taira never discovers or calls
+        // `iroha.accounts.history`.
+        try await validateAccountHistoryMCPContract(
+            configuration: configuration
+        )
 
-        let pageSize = 50
+        let pageSize = 100
         let maximumPages = 20
         var history: [NexusTransferHistoryItem] = []
-        var fingerprints = Set<String>()
+        var sourceItemIDs = Set<String>()
+        var expectedTotal: UInt64?
+        var expectedIndexedHeight: UInt64?
+        var expectedIndexedBlockHash: String?
+        var expectedQuerySource: String?
+        var offset = 0
         for page in 1 ... maximumPages {
             let response = try await mcp(
                 NexusMCPRequest(
                     id: "history-\(page)",
                     params: .object([
-                        "name": .string("iroha.instructions.list"),
+                        "name": .string("iroha.accounts.history"),
                         "arguments": .object([
-                            "account": .string(canonicalAccount),
+                            "account_id": .string(canonicalAccount),
                             "asset_id": .string(assetDefinitionID),
-                            "kind": .string("Transfer"),
-                            "page": .number(String(page)),
-                            "per_page": .number(String(pageSize)),
-                            "transaction_status": .string("committed"),
+                            "limit": .number(String(pageSize)),
+                            "offset": .number(String(offset)),
                             "accept": .string("application/json")
                         ])
                     ])
@@ -1777,27 +3885,288 @@ final class NexusToriiClient {
             guard parsed.sourceItemCount <= pageSize else {
                 throw NexusToriiError.invalidResponse
             }
-            if parsed.sourceItemCount > 0 {
-                let fingerprint = parsed.items.map {
-                    "\($0.transactionHash):\($0.amount.rawValue):\($0.sender):\($0.receiver)"
-                }.joined(separator: "|")
-                guard fingerprints.insert(fingerprint).inserted else {
+            guard
+                expectedTotal.map({ $0 == parsed.total }) ?? true,
+                expectedQuerySource.map({ $0 == parsed.querySource }) ?? true,
+                expectedIndexedHeight.map({ $0 == parsed.indexedHeight }) ?? true,
+                expectedIndexedBlockHash.map({
+                    $0 == parsed.indexedBlockHash
+                }) ?? true,
+                UInt64(offset) <= parsed.total,
+                UInt64(parsed.sourceItemCount) <= parsed.total - UInt64(offset),
+                parsed.hasMore == (
+                    UInt64(offset + parsed.sourceItemCount) < parsed.total
+                )
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            expectedTotal = parsed.total
+            expectedQuerySource = parsed.querySource
+            expectedIndexedHeight = parsed.indexedHeight
+            expectedIndexedBlockHash = parsed.indexedBlockHash
+            for id in parsed.sourceItemIDs {
+                guard sourceItemIDs.insert(id).inserted else {
                     throw NexusToriiError.invalidResponse
                 }
             }
             history.append(contentsOf: parsed.items)
-            if parsed.sourceItemCount < pageSize {
+            offset += parsed.sourceItemCount
+            if parsed.querySource == "account_history_fanout" {
+                guard UInt64(offset) == parsed.total else {
+                    throw NexusToriiError.invalidResponse
+                }
                 return history
+            }
+            if !parsed.hasMore {
+                return history
+            }
+            guard parsed.sourceItemCount > 0 else {
+                throw NexusToriiError.invalidResponse
             }
         }
         throw NexusToriiError.invalidResponse
     }
 
+    private func tairaCommittedXorTransfers(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String
+    ) async throws -> [NexusTransferHistoryItem] {
+        try await ensureTairaTool(.instructions, configuration: configuration)
+        let pageSize = 100
+        let maximumPages = 20
+        let maximumItems = pageSize * maximumPages
+        var history: [NexusTransferHistoryItem] = []
+        var sourceItemIDs = Set<String>()
+        var expectedTotalPages: UInt64?
+        var expectedTotalItems: UInt64?
+        var consumedSourceItems: UInt64 = 0
+
+        for pageNumber in 1 ... maximumPages {
+            let response = try await mcp(
+                NexusTairaMCPToolContract.instructionsRequest(
+                    id: "history-\(pageNumber)",
+                    account: account,
+                    assetDefinitionID: assetDefinitionID,
+                    page: pageNumber,
+                    perPage: pageSize
+                ),
+                configuration: configuration
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let structured = try NexusMCPResultContract
+                .validateEmbeddedRoute(result)
+            let parsed = try NexusTairaTransferHistoryParser.page(
+                result: structured,
+                configuration: configuration,
+                account: account,
+                assetDefinitionID: assetDefinitionID
+            )
+            try parsed.validate(
+                expectedPage: pageNumber,
+                maximumPageSize: pageSize
+            )
+            guard
+                parsed.perPage == UInt64(pageSize),
+                parsed.totalPages <= UInt64(maximumPages),
+                parsed.totalItems <= UInt64(maximumItems),
+                expectedTotalPages.map({ $0 == parsed.totalPages }) ?? true,
+                expectedTotalItems.map({ $0 == parsed.totalItems }) ?? true,
+                consumedSourceItems <= parsed.totalItems,
+                UInt64(parsed.sourceItemCount) <=
+                    parsed.totalItems - consumedSourceItems
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            expectedTotalPages = parsed.totalPages
+            expectedTotalItems = parsed.totalItems
+            for id in parsed.sourceItemIDs {
+                guard sourceItemIDs.insert(id).inserted else {
+                    throw NexusToriiError.invalidResponse
+                }
+            }
+            consumedSourceItems += UInt64(parsed.sourceItemCount)
+            history.append(contentsOf: parsed.items)
+            guard history.count <= maximumItems else {
+                throw NexusToriiError.invalidResponse
+            }
+            if UInt64(pageNumber) >= parsed.totalPages {
+                guard consumedSourceItems == parsed.totalItems else {
+                    throw NexusToriiError.invalidResponse
+                }
+                return history
+            }
+            guard parsed.sourceItemCount > 0 else {
+                throw NexusToriiError.invalidResponse
+            }
+        }
+        throw NexusToriiError.invalidResponse
+    }
+
+    private func ensureTairaTool(
+        _ tool: NexusTairaMCPToolContract.Tool,
+        configuration: NexusNetworkConfiguration
+    ) async throws {
+        guard
+            configuration.networkId == .taira,
+            configuration.satisfiesCurrentTairaContract
+        else {
+            throw NexusToriiError.invalidRoute
+        }
+        let initialize = try await mcp(
+            NexusTairaMCPToolContract.initializeRequest(
+                id: "taira-tools-initialize"
+            ),
+            configuration: configuration
+        )
+        guard let initializeResult = initialize.result else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        let version = try NexusTairaMCPToolContract.toolsetVersion(
+            initialize: initializeResult
+        )
+        var cursor: String?
+        var seenCursors = Set<String>()
+        var advertisedNames = Set<String>()
+        for pageIndex in 1 ... 32 {
+            let listing = try await mcp(
+                NexusTairaMCPToolContract.discoveryRequest(
+                    id: "taira-tools-list-\(pageIndex)",
+                    toolsetVersion: version,
+                    cursor: cursor
+                ),
+                configuration: configuration
+            )
+            guard let result = listing.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let page = try NexusTairaMCPToolContract.validateToolPage(
+                result,
+                tools: [tool],
+                expectedToolsetVersion: version
+            )
+            guard advertisedNames.isDisjoint(with: page.advertisedNames)
+            else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            advertisedNames.formUnion(page.advertisedNames)
+            if page.matched.contains(tool) {
+                return
+            }
+            guard let nextCursor = page.nextCursor else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            guard seenCursors.insert(nextCursor).inserted else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            cursor = nextCursor
+        }
+        throw NexusToriiError.mcpContractMismatch
+    }
+
+    private func validateAccountHistoryMCPContract(
+        configuration: NexusNetworkConfiguration
+    ) async throws {
+        guard configuration.networkId != .taira else {
+            throw NexusToriiError.invalidRoute
+        }
+        for attempt in 1 ... 2 {
+            let before = try await mcpToolsetVersion(
+                id: "history-contract-before-\(attempt)",
+                configuration: configuration
+            )
+            let listing = try await mcp(
+                NexusMCPRequest(
+                    id: "history-contract-tools-\(attempt)",
+                    method: "tools/list",
+                    params: .object([:])
+                ),
+                configuration: configuration
+            )
+            guard let listed = listing.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let listedCount = try NexusMCPAccountHistoryContract
+                .validateToolList(listed)
+            let after = try await mcpToolsetVersion(
+                id: "history-contract-after-\(attempt)",
+                configuration: configuration
+            )
+            if before == after, listedCount == before.count {
+                return
+            }
+        }
+        throw NexusToriiError.mcpContractMismatch
+    }
+
+    private func mcpToolsetVersion(
+        id: String,
+        configuration: NexusNetworkConfiguration
+    ) async throws -> NexusMCPAccountHistoryContract.ToolsetSnapshot {
+        let response = try await mcp(
+            NexusMCPRequest(
+                id: id,
+                method: "initialize",
+                params: .object([
+                    "protocolVersion": .string(
+                        NexusMCPAccountHistoryContract.protocolVersion
+                    ),
+                    "capabilities": .object([:]),
+                    "clientInfo": .object([
+                        "name": .string("sora-wallet-ios"),
+                        "version": .string("1")
+                    ])
+                ])
+            ),
+            configuration: configuration
+        )
+        guard let result = response.result else {
+            throw NexusToriiError.mcpContractMismatch
+        }
+        return try NexusMCPAccountHistoryContract.toolsetSnapshot(
+            initialize: result
+        )
+    }
+
     func submit(
         signedNorito: Data,
         idempotencyKey: UUID,
+        expectedHash: String,
         configuration: NexusNetworkConfiguration
-    ) async throws -> NexusTransactionReceipt {
+    ) async throws -> NexusToriiSubmissionResult {
+        guard configuration.satisfiesCurrentTairaContract else {
+            throw NexusToriiError.invalidRoute
+        }
+        if configuration.networkId == .taira {
+            try await ensureTairaTool(
+                .submitAndWait,
+                configuration: configuration
+            )
+            let requestID = "submit-\(UUID().uuidString.lowercased())"
+            let response = try await mcp(
+                NexusTairaTransactionSubmissionContract.request(
+                    id: requestID,
+                    signedNorito: signedNorito,
+                    expectedHash: expectedHash
+                ),
+                configuration: configuration,
+                timeoutInterval:
+                    NexusTairaTransactionSubmissionContract
+                        .requestTimeoutInterval
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            return .applied(
+                try NexusTairaTransactionSubmissionContract
+                    .appliedSubmission(
+                        from: result,
+                        expectedHash: expectedHash
+                    )
+            )
+        }
         var transactionRequest = request(
             url: configuration.toriiURL
                 .appendingPathComponent("v1/pipeline/transactions"),
@@ -1812,9 +4181,11 @@ final class NexusToriiClient {
             idempotencyKey.uuidString,
             forHTTPHeaderField: "Idempotency-Key"
         )
-        return try decoder.decode(
-            NexusTransactionReceipt.self,
-            from: await data(request: transactionRequest)
+        return .submitted(
+            try decodeResponse(
+                NexusTransactionReceipt.self,
+                from: await data(request: transactionRequest)
+            )
         )
     }
 
@@ -1822,8 +4193,33 @@ final class NexusToriiClient {
         hash: String,
         configuration: NexusNetworkConfiguration
     ) async throws -> NexusPipelineStatus {
+        guard configuration.satisfiesCurrentTairaContract else {
+            throw NexusToriiError.invalidRoute
+        }
         guard let normalizedHash = NexusTransactionHash.normalized(hash) else {
             throw NexusToriiError.invalidRoute
+        }
+        if configuration.networkId == .taira {
+            try await ensureTairaTool(
+                .transactionStatus,
+                configuration: configuration
+            )
+            let response = try await mcp(
+                NexusTairaMCPToolContract.transactionStatusRequest(
+                    id: "taira-status-\(normalizedHash.prefix(12))",
+                    hash: normalizedHash
+                ),
+                configuration: configuration
+            )
+            guard let result = response.result else {
+                throw NexusToriiError.mcpContractMismatch
+            }
+            let structured = try NexusMCPResultContract
+                .validateEmbeddedRoute(result)
+            return try decodeMCPBody(
+                NexusPipelineStatus.self,
+                from: structured
+            )
         }
         var components = URLComponents(
             url: configuration.toriiURL
@@ -1837,7 +4233,7 @@ final class NexusToriiClient {
         guard let url = components?.url else {
             throw NexusToriiError.invalidRoute
         }
-        return try decoder.decode(
+        return try decodeResponse(
             NexusPipelineStatus.self,
             from: await data(request: request(url: url, method: "GET"))
         )
@@ -1845,8 +4241,12 @@ final class NexusToriiClient {
 
     private func mcp(
         _ payload: NexusMCPRequest,
-        configuration: NexusNetworkConfiguration
+        configuration: NexusNetworkConfiguration,
+        timeoutInterval: TimeInterval? = nil
     ) async throws -> NexusMCPResponse {
+        guard configuration.satisfiesCurrentTairaContract else {
+            throw NexusToriiError.invalidRoute
+        }
         guard
             payload.id.range(
                 of: #"^[A-Za-z0-9._:-]{1,64}$"#,
@@ -1855,17 +4255,22 @@ final class NexusToriiClient {
         else {
             throw NexusToriiError.invalidRoute
         }
+        let endpoint = configuration.networkId == .taira ?
+            TairaDeploymentBinding.canonicalPublicMcpEndpoint :
+            configuration.toriiURL.appendingPathComponent("v1/mcp")
         var mcpRequest = request(
-            url: configuration.toriiURL
-                .appendingPathComponent("v1/mcp"),
+            url: endpoint,
             method: "POST"
         )
+        if let timeoutInterval {
+            mcpRequest.timeoutInterval = timeoutInterval
+        }
         mcpRequest.httpBody = try encoder.encode(payload)
         mcpRequest.setValue(
             "application/json",
             forHTTPHeaderField: "Content-Type"
         )
-        let response = try decoder.decode(
+        let response = try decodeResponse(
             NexusMCPResponse.self,
             from: await data(request: mcpRequest)
         )
@@ -1895,9 +4300,8 @@ final class NexusToriiClient {
         guard let requestURL = request.url, let method = request.httpMethod else {
             throw NexusToriiError.invalidRoute
         }
-        // The external deployment admission is the only authority for Taira
-        // transport. In particular the convenience hostname is never a
-        // fallback. This guard executes before URLSession observes a request.
+        // The fixed first-release origin is checked before URLSession observes
+        // any Taira request. Alternate roots never become transport fallbacks.
         guard NexusNetworkConfiguration.transportIsAdmitted(
             for: requestURL
         ) else {
@@ -1922,11 +4326,16 @@ final class NexusToriiClient {
         guard response.url == requestURL else {
             throw NexusToriiError.invalidRoute
         }
-        try Self.validateResponseLength(
-            response.expectedContentLength,
-            maximumBytes: responseLimit
+        try Self.validateOuterAvailabilityStatus(
+            response.statusCode,
+            for: requestURL
         )
         let isSuccessful = (200 ... 299).contains(response.statusCode)
+        let maximumResponseBytes = isSuccessful ? responseLimit : 64 * 1_024
+        try Self.validateResponseLength(
+            response.expectedContentLength,
+            maximumBytes: maximumResponseBytes
+        )
         if isSuccessful {
             guard
                 Self.isExpectedResponseContentType(
@@ -1940,6 +4349,11 @@ final class NexusToriiClient {
                 response,
                 requiresFanout: requiresFanout
             )
+        } else {
+            // A failed routed read may carry the deployment diagnosis only in
+            // Torii headers. Preserve that typed signal before reading its
+            // bounded error body.
+            try Self.validateFanoutHeaders(response)
         }
         var data = Data()
         if response.expectedContentLength > 0 {
@@ -1949,11 +4363,20 @@ final class NexusToriiClient {
             try Self.appendResponseByte(
                 byte,
                 to: &data,
-                maximumBytes: responseLimit
+                maximumBytes: maximumResponseBytes
             )
         }
         guard isSuccessful else {
-            if (try? decoder.decode(ErrorEnvelope.self, from: data)) != nil {
+            if try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: response.value(
+                    forHTTPHeaderField: "x-iroha-reject-code"
+                ),
+                data: data,
+                decoder: decoder
+            ) {
+                throw NexusToriiError.deploymentUnavailable
+            }
+            if (try? decodeResponse(NexusJSONValue.self, from: data)) != nil {
                 throw NexusToriiError.server
             }
             throw NexusToriiError.httpStatus(response.statusCode)
@@ -2002,8 +4425,9 @@ protocol NexusToriiSubmitting {
     func submit(
         signedNorito: Data,
         idempotencyKey: UUID,
+        expectedHash: String,
         configuration: NexusNetworkConfiguration
-    ) async throws -> NexusTransactionReceipt
+    ) async throws -> NexusToriiSubmissionResult
 }
 
 final class NexusToriiReadClient: NexusToriiReading {
@@ -2082,11 +4506,13 @@ final class NexusToriiSubmissionClient: NexusToriiSubmitting {
     func submit(
         signedNorito: Data,
         idempotencyKey: UUID,
+        expectedHash: String,
         configuration: NexusNetworkConfiguration
-    ) async throws -> NexusTransactionReceipt {
+    ) async throws -> NexusToriiSubmissionResult {
         try await transport.submit(
             signedNorito: signedNorito,
             idempotencyKey: idempotencyKey,
+            expectedHash: expectedHash,
             configuration: configuration
         )
     }
@@ -2125,6 +4551,20 @@ final class NexusPreparedTransfer: Equatable {
 
     private let submissionLock = NSLock()
     private var submissionStarted = false
+    private var transportStarted = false
+
+    /// An in-memory boundary for recovery copy; it never changes journal or wire data.
+    var submissionMayHaveStarted: Bool {
+        submissionLock.lock()
+        defer { submissionLock.unlock() }
+        return transportStarted
+    }
+
+    func markTransportStarted() {
+        submissionLock.lock()
+        defer { submissionLock.unlock() }
+        transportStarted = true
+    }
 
     init(
         request: NexusTransferRequest,
@@ -2319,9 +4759,8 @@ enum NexusPendingRecoveryPolicy {
     }
 }
 
-/// Epoch binding for new Taira journal rows. UUID alone is deliberately
-/// insufficient: either known UUID may be selected by a later signed manifest,
-/// and that must not make an older schema-77 row authoritative again.
+/// Legacy schema field retained so older encoded rows and focused migration
+/// fixtures still compile. First-release Taira rows do not populate or admit it.
 struct NexusPendingTairaDeploymentIdentity: Codable, Equatable {
     let manifestSha256: String
     let deploymentEpoch: UInt64
@@ -2329,8 +4768,7 @@ struct NexusPendingTairaDeploymentIdentity: Codable, Equatable {
 
     static func admitted(
         for configuration: NexusNetworkConfiguration,
-        deployment: TairaDeploymentBinding? =
-            TairaDeploymentBinding.admittedFromBundle
+        deployment: TairaDeploymentBinding? = nil
     ) -> NexusPendingTairaDeploymentIdentity? {
         guard configuration.networkId == .taira else {
             return nil
@@ -2368,19 +4806,15 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
     let idempotencyKey: UUID
     let walletId: String
     let networkId: NetworkId
-    /// Exact chain UUID used to construct and sign this transaction. Nil is
-    /// accepted only as read-only legacy evidence. A non-current UUID is also
-    /// retained read-only because a testnet reset may keep the same networkId
-    /// and I105 discriminant while replacing the chain.
+    /// Exact chain UUID used to construct and sign this transaction. Taira
+    /// admits only the canonical first-release UUID.
     let chainId: UUID?
-    /// Missing on legacy schema-77 rows. Such rows stay recovery-only even if
-    /// a future admitted deployment selects the same chain UUID again.
+    /// Decoding compatibility only; current Taira rows require this to be nil.
     var tairaDeployment: NexusPendingTairaDeploymentIdentity? = nil
     let sender: String
     let receiver: String
     /// Exact opaque definition selected by `xor#universal` when the signed
-    /// transaction was prepared. Nil is retained only so journals written by
-    /// the prior production version remain readable and recovery-safe.
+    /// transaction was prepared. Taira requires this binding on every row.
     let assetDefinitionID: String?
     let amount: PIQuantity
     let fee: PIQuantity
@@ -2398,23 +4832,24 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
 
     func hasCurrentDeploymentIdentity(
         for configuration: NexusNetworkConfiguration,
-        tairaBinding: TairaDeploymentBinding? =
-            TairaDeploymentBinding.admittedFromBundle
+        tairaBinding: TairaDeploymentBinding? = nil
     ) -> Bool {
         guard chainId == configuration.chainId else {
             return false
         }
         switch configuration.networkId {
         case .taira:
-            guard
+            guard configuration.satisfiesCurrentTairaContract else {
+                return false
+            }
+            if let tairaBinding {
                 let expected = NexusPendingTairaDeploymentIdentity.admitted(
                     for: configuration,
                     deployment: tairaBinding
                 )
-            else {
-                return false
+                return expected != nil && tairaDeployment == expected
             }
-            return tairaDeployment == expected
+            return tairaDeployment == nil
         case .minamoto:
             return tairaDeployment == nil
         case .sora2:
@@ -2884,28 +5319,38 @@ actor NexusPendingTransactionStore {
         let admittedConfiguration = NexusNetworkConfiguration.configuration(
             for: transaction.networkId
         )
-        let configuration: NexusNetworkConfiguration?
-        if let admittedConfiguration {
-            configuration = admittedConfiguration
-        } else if
-            allowsReadOnlyHistoricalChain,
-            transaction.networkId == .taira,
-            let retainedChainId = transaction.chainId
-        {
-            configuration = NexusNetworkConfiguration.tairaRecovery(
-                chainId: retainedChainId
-            )
+        let addressDiscriminant: Int
+        if transaction.networkId == .taira,
+           allowsReadOnlyHistoricalChain {
+            guard
+                transaction.chainId == TairaDeploymentBinding.canonicalChainId,
+                transaction.tairaDeployment == nil,
+                transaction.assetDefinitionID ==
+                    NexusAssetDefinitionIdentity.tairaXorDefinitionID
+            else {
+                throw NexusToriiError.invalidResponse
+            }
+            addressDiscriminant =
+                NexusDerivationProfile.taira.i105Discriminant
         } else {
-            configuration = nil
+            guard let admittedConfiguration else {
+                throw NexusToriiError.invalidResponse
+            }
+            addressDiscriminant = admittedConfiguration.i105Discriminant
         }
         guard
             !transaction.walletId.isEmpty,
             transaction.walletId.utf8.count <= 512,
-            let configuration,
             let amount = NexusExactDecimal(transaction.amount.rawValue),
             let fee = NexusExactDecimal(transaction.fee.rawValue),
             amount.unscaled > 0,
             fee.unscaled >= 0,
+            amount.scale <= NexusAmountPolicy.maximumScale(
+                for: transaction.networkId
+            ),
+            fee.scale <= NexusAmountPolicy.maximumScale(
+                for: transaction.networkId
+            ),
             transaction.createdAt.timeIntervalSince1970.isFinite,
             transaction.updatedAt.timeIntervalSince1970.isFinite,
             transaction.updatedAt >= transaction.createdAt,
@@ -2914,24 +5359,35 @@ actor NexusPendingTransactionStore {
                     $0.utf8.count <= 256 &&
                     $0.rangeOfCharacter(from: .newlines) == nil
             }) ?? true,
-            transaction.assetDefinitionID.map(
-                NexusAssetDefinitionIdentity.hasCanonicalWireShape
-            ) ?? true,
-            transaction.tairaDeployment?.hasCanonicalShape ?? true,
-            transaction.networkId == .taira ||
-                transaction.tairaDeployment == nil
+            transaction.assetDefinitionID.map({ id in
+                if transaction.networkId == .taira {
+                    return id == NexusAssetDefinitionIdentity
+                        .tairaXorDefinitionID
+                }
+                return NexusAssetDefinitionIdentity.hasCanonicalWireShape(id)
+            }) ?? true,
+            transaction.tairaDeployment == nil
         else {
             throw NexusToriiError.invalidResponse
         }
         if !allowsReadOnlyHistoricalChain {
-            guard transaction.hasCurrentDeploymentIdentity(
-                for: configuration
-            ) else {
+            guard
+                let admittedConfiguration,
+                transaction.hasCurrentDeploymentIdentity(
+                    for: admittedConfiguration
+                )
+            else {
                 throw NexusToriiError.invalidResponse
             }
         }
-        try configuration.validate(address: transaction.sender)
-        try configuration.validate(address: transaction.receiver)
+        _ = try IrohaAddressCodec.parse(
+            transaction.sender,
+            expectedDiscriminant: addressDiscriminant
+        )
+        _ = try IrohaAddressCodec.parse(
+            transaction.receiver,
+            expectedDiscriminant: addressDiscriminant
+        )
 
         if let hash = transaction.hash {
             guard NexusTransactionHash.normalized(hash) != nil else {
@@ -3057,8 +5513,9 @@ actor NexusTransactionCoordinator {
         assetDefinitionID: String,
         requiresCurrentXorIdentity: Bool = true
     ) async throws -> PIQuantity {
-        guard NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-            assetDefinitionID
+        guard NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+            assetDefinitionID,
+            configuration: configuration
         ) else {
             throw NexusToriiError.invalidResponse
         }
@@ -3121,7 +5578,10 @@ actor NexusTransactionCoordinator {
         try configuration.validate(address: request.receiver)
         guard
             let amount = NexusExactDecimal(request.amount.rawValue),
-            amount.unscaled > 0
+            amount.unscaled > 0,
+            amount.scale <= NexusAmountPolicy.maximumScale(
+                for: configuration.networkId
+            )
         else {
             throw PIIndexerError.invalidQuantity
         }
@@ -3401,18 +5861,25 @@ actor NexusTransactionCoordinator {
 
         let immutableSignedPayload = signed.payload
         let immutableIdempotencyKey = pending.idempotencyKey
+        prepared.markTransportStarted()
         do {
-            async let submittedReceipt = submissionClient.submit(
+            async let submittedResult = submissionClient.submit(
                 signedNorito: immutableSignedPayload,
                 idempotencyKey: immutableIdempotencyKey,
+                expectedHash: expectedHash,
                 configuration: configuration
             )
             // The transport task now owns the immutable signed request. Do
             // not stall account switching/deletion while Torii responds.
             transportLease.release()
-            let receipt = try await submittedReceipt
-            try receipt.validate(expectedHash: expectedHash)
-            pending.state = .submitted
+            let result = try await submittedResult
+            let appliedHeight = try result.validate(
+                expectedHash: expectedHash,
+                configuration: configuration
+            )
+            pending.state = configuration.networkId == .taira ?
+                .committedPendingReconciliation : .submitted
+            pending.terminalBlockHeight = appliedHeight
             pending.updatedAt = Date()
             pending = try await pendingStore.put(pending)
         } catch {
@@ -3424,6 +5891,9 @@ actor NexusTransactionCoordinator {
             pending = try await pendingStore.put(pending)
             if pending.state.isTerminal {
                 return pending
+            }
+            if let classified = error as? NexusToriiError {
+                throw classified
             }
             throw NexusToriiError.ambiguousSubmission
         }
@@ -3623,8 +6093,9 @@ actor NexusTransactionCoordinator {
         assetDefinitionID: String
     ) throws {
         guard
-            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-                assetDefinitionID
+            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                assetDefinitionID,
+                configuration: configuration
             ),
             quote.networkId == configuration.networkId,
             quote.authority == request.sender,
@@ -3634,7 +6105,14 @@ actor NexusTransactionCoordinator {
             !quote.quoteIdentity.isEmpty,
             quote.validUntilBlock.map({ $0 > 0 }) ?? true,
             let fee = NexusExactDecimal(quote.fee.rawValue),
-            fee.unscaled > 0
+            fee.unscaled > 0,
+            fee.scale <= NexusAmountPolicy.maximumScale(
+                for: configuration.networkId
+            ),
+            NexusAmountPolicy.accepts(
+                request.amount,
+                networkId: configuration.networkId
+            )
         else {
             throw NexusToriiError.invalidResponse
         }
@@ -3662,11 +6140,19 @@ actor NexusTransactionCoordinator {
     }
 
     private func sendAvailabilityAllows(_ networkId: NetworkId) -> Bool {
-        NexusSendAvailabilityPolicy.permits(
+        guard let configuration = NexusNetworkConfiguration.configuration(
+            for: networkId
+        ) else {
+            return false
+        }
+        return NexusSendAvailabilityPolicy.permits(
             networkId: networkId,
             nexusEnabled: settings.nexusEnabled,
             sendsEnabled: settings.nexusSendsEnabled,
-            tairaEnabled: settings.isTairaEnabled
+            tairaEnabled: settings.isTairaEnabled,
+            networkAdmitted: configuration.satisfiesCurrentTairaContract,
+            signerQualified: signer.isQualified(for: configuration),
+            finalityQualified: finalityReader.isQualified(for: configuration)
         )
     }
 
@@ -3771,11 +6257,12 @@ actor NexusTransactionCoordinator {
         guard
             let hash = transaction.hash,
             let assetDefinitionID = transaction.assetDefinitionID,
-            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
-                assetDefinitionID
-            ),
             let configuration = NexusNetworkConfiguration.configuration(
                 for: transaction.networkId
+            ),
+            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                assetDefinitionID,
+                configuration: configuration
             ),
             transaction.hasCurrentDeploymentIdentity(
                 for: configuration
