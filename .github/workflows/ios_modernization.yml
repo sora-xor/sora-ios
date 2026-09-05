@@ -39,6 +39,13 @@ jobs:
           /bin/sh SoraPassport/Scripts/verify-modernization-dependencies.sh \
             --lint-ios-migration-release-source-gate
 
+      - name: Verify Egyptian localization and saved language upgrades
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B SoraPassport/Scripts/generate-middle-egyptian-localization.py --check
+          python3 -B SoraPassport/Scripts/test-egyptian-localization.py
+
   release-tests:
     name: Full Release XCTest Closure
     runs-on: macos-15

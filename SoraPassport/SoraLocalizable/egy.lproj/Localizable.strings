@@ -798,7 +798,7 @@
 "buy.crypto.buy.xor.banner.title" = "𓇋𓈖𓇋 𓅓 𓇋𓋴𓅱 XOR 𓇋𓐍𓏏";
 "more.menu.sora.card.title" = "SORA Card";
 "more.menu.sora.card.subtitle" = "𓐍𓂋𓊪 𓈖. 𓎡 𓈙𓂝𓏏 𓎛𓈖𓂝 IBAN 𓎛𓋴𓃀";
-"import.account.message" = "𓋴𓏏𓊪 𓏏𓊪 𓈖 𓇋𓈖𓇋 𓂋 𓄡𓈖𓅱";
+"import.account.message" = "𓋴𓏏𓊪 𓍿𓋴 𓅓𓂧𓅱 𓈖 𓋴𓂝𓈖𓐍 𓈖 𓅓𓂧𓅱.𓎡 𓋴𓄿𓅱, 𓂋-𓊪𓅱 𓊪𓂋𓏏 𓈙𓏏𓄿 𓈖 𓊪𓂋𓏏 𓈙𓏏𓄿 𓉔𓄿𓃀.𓈖.𓎡 𓂋 𓂋𓅱𓏏𓇋. 𓋴𓏏𓊪 Google 𓇋𓂋 𓋴𓄿𓅱.𓈖.𓎡 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱 Google 𓅓-𓃀𓄿𓎛. 𓇋𓂋 𓈖𓈖 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱 Google, 𓅓 𓋴𓏏𓊪 Google";
 "common.wrong.pin" = "𓈖 𓅓𓄿𓂝 PIN";
 "asset.details.your.pools" = "𓈖. 𓎡 %s 𓈙𓅱 𓈖 𓅓𓅱";
 "asset.details.liquid.balance" = "𓅓𓅱 𓎛𓆓 𓇋𓐍𓏏 𓈖𓏏𓏏";
@@ -841,7 +841,7 @@
 "create.backup.password.button.text" = "𓋴𓅓𓈖 𓅓𓂧𓅱 𓈖 𓅱𓈖 𓈖 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱";
 "create.backup.password.is.secure" = "𓅓𓂧𓅱 𓈖 𓅱𓈖 𓅱𓈖 𓅱𓂋𓏏 𓋴𓄿𓅱";
 "create.backup.password.matched" = "𓅓𓂧𓅱 𓈖 𓅱𓈖 𓅓𓇋";
-"onboarding.description" = "SORA 𓅱𓈖 𓎛𓂋-𓍿𓋴 𓐍𓂋𓊪 𓂧𓅓𓆓𓏏 𓋴𓏏 𓇋𓂋𓇋𓅱 𓇋𓂋 𓅓𓂧𓅱 𓈖 𓂋𓆓𓇋𓏏 𓎛𓆓, 𓎛𓈖𓂝 𓈖𓃀 XOR 𓇋𓐍𓏏 𓈖𓃀𓅱 𓅱𓆓 𓎛𓂋 𓈖𓆑𓂋 𓅱𓂋𓏏 𓇋𓐍𓏏 𓈖𓆑𓂋 𓎛𓈖𓂝 𓃀𓄿𓎡𓅱 𓂋 𓅱𓈖 𓈎𓅓𓄿. 𓈙𓋴𓊪 XOR 𓅓𓇋 𓂋𓆓𓇋𓏏 𓎛𓆓 𓅱𓈖𓈖 𓈎𓂧 SORA 𓊪𓂋 𓎛𓆓 𓈖 𓏏𓄿.";
+"onboarding.description" = "𓉔𓄿𓃀 𓇋𓐍𓏏, 𓈙𓋴𓊪 𓇋𓐍𓏏, 𓂧𓃀𓄿 𓇋𓐍𓏏 𓎛𓂋 SORA. 𓈎𓅓𓄿 𓎛𓋴𓃀 𓈖 𓍿𓋴 𓅓𓂧𓅱 𓈖 𓋴𓂝𓈖𓐍 𓅓𓄿𓅱, 𓂋-𓊪𓅱 𓇋𓈖𓇋 𓎛𓋴𓃀 𓂋 𓄡𓈖𓅱 𓅓 𓍿𓋴 𓅓𓂧𓅱 𓅱𓈖 𓈖.𓎡 𓅓-𓃀𓄿𓎛";
 "select.account.import" = "𓋴𓏏𓊪 𓎛𓋴𓃀 𓂋 𓇋𓈖𓇋 𓂋 𓄡𓈖𓅱";
 "enter.password.title" = "𓂋𓂧𓇋 𓅓 𓄡𓈖𓅱 𓅓𓂧𓅱 𓈖 𓅱𓈖";
 "enter.password.description" = "𓂋𓂧𓇋 𓅓 𓄡𓈖𓅱 𓅓𓂧𓅱 𓈖 𓅱𓈖 𓈖 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱 𓈖 𓋴𓏏𓊪 𓎛𓋴𓃀 𓂋 𓇋𓈖𓇋 𓂋 𓄡𓈖𓅱";
