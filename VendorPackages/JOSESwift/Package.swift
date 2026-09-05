@@ -5,7 +5,10 @@ let package = Package(
     name: "JOSESwift",
     platforms: [.iOS(.v10), .macOS(.v10_15)],
     products: [
-        .library(name: "JOSESwift", type: .dynamic, targets: ["JOSESwift"])
+        // Keep the vendored package statically linked. The app target does not
+        // embed this local dynamic product in archives, leaving an unresolved
+        // @rpath/JOSESwift.framework dependency at launch.
+        .library(name: "JOSESwift", type: .static, targets: ["JOSESwift"])
     ],
     dependencies: [],
     targets: [
