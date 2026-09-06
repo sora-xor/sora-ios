@@ -8459,6 +8459,52 @@ final class WalletModernizationTests: XCTestCase {
                     .path
             )
         )
+        for _ in 0 ..< 2 {
+            XCTAssertEqual(
+                WalletStorageStartup.run(settings: settings) {
+                    try migrator.performMigration()
+                },
+                .needsStorageSpace
+            )
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+            XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        }
+        let retry = makeUserStorageMigrator(
+            targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(), settings: settings,
+            fileManager: .default, availableCapacity: { _ in Int64.max }
+        )
+        for _ in 0 ..< 2 {
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try retry.performMigration()
+            }, .ready)
+            try assertStoredAccount(account, at: storeURL,
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue),
+                expectedSelection: true)
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+        }
+
+        // Neither a pre-existing integrity stop nor one raised concurrently
+        // during the preflight may be downgraded to a retryable disk warning.
+        let protectedSettings = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: protectedSettings) {
+            protectedSettings.walletMigrationRecoveryRequired = true
+            protectedSettings.walletMigrationRecoveryReason = "Retained integrity failure"
+            throw UserStorageMigrationError.insufficientStorage
+        }, .recoveryRequired)
+        XCTAssertEqual(protectedSettings.walletMigrationRecoveryReason, "Retained integrity failure")
+        var enteredProtectedMigration = false
+        XCTAssertEqual(WalletStorageStartup.run(settings: protectedSettings) {
+            enteredProtectedMigration = true
+        }, .recoveryRequired)
+        XCTAssertFalse(enteredProtectedMigration)
+
+        let corruptSettings = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: corruptSettings) {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }, .recoveryRequired)
+        XCTAssertTrue(corruptSettings.walletMigrationRecoveryRequired)
     }
 
     func testFailedCoreDataMigrationJournalRequiresExplicitRecovery() throws {
@@ -8725,12 +8771,26 @@ final class WalletModernizationTests: XCTestCase {
             settings.set(value: selected, for: SettingsKey.selectedAccount.rawValue)
             let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
             try writeAccounts(accounts, to: storeURL, model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+            let originalStoreBytes = try Data(contentsOf: storeURL)
+            var freeBytes: Int64 = 0
             let databaseMigrator = makeUserStorageMigrator(
                 targetVersion: .version2, storeURL: storeURL,
                 modelDirectory: UserStorageParams.modelDirectory,
-                keystore: keychain, settings: settings, fileManager: .default
+                keystore: keychain, settings: settings, fileManager: .default,
+                availableCapacity: { _ in freeBytes }
             )
-            try databaseMigrator.performMigration()
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try databaseMigrator.performMigration()
+            }, .needsStorageSpace)
+            XCTAssertEqual(try Data(contentsOf: storeURL), originalStoreBytes)
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+            for (tag, bytes) in originalKeys {
+                XCTAssertEqual(try keychain.fetchKey(for: tag), bytes)
+            }
+            freeBytes = Int64.max
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try databaseMigrator.performMigration()
+            }, .ready)
             try assertStoredAccounts(accounts, at: storeURL,
                 model: userStorageModel(named: UserStorageVersion.version2.rawValue))
             let store = try makeWalletNetworkStore(baseURL: directory)

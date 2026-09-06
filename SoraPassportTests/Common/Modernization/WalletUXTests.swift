@@ -10,6 +10,28 @@ import CoreData
 
 final class WalletUXTests: XCTestCase {
     @MainActor
+    func testStorageRetryRemainsAvailableAfterRepeatedLowSpace() throws {
+        let window = SoraWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        let presenter = SplashPresenter(window: window)
+        let controller = SplashViewController()
+        controller.presenter = presenter
+        presenter.view = controller
+        var retries = 0
+        for expected in 1 ... 2 {
+            controller.showStorageSpaceRetry { retries += 1 }
+            controller.view.layoutIfNeeded()
+            let retry = try XCTUnwrap(descendants(controller.view)
+                .compactMap { $0 as? UIButton }
+                .first { $0.accessibilityIdentifier == "wallet-upgrade-storage-retry" })
+            XCTAssertTrue(retry.isEnabled)
+            XCTAssertFalse(retry.frame.isEmpty)
+            retry.sendActions(for: .touchUpInside)
+            XCTAssertEqual(retries, expected)
+            XCTAssertFalse(retry.isEnabled)
+        }
+    }
+
+    @MainActor
     func testEditableSoraTextRetainsDynamicTypeAfterChanges() throws {
         let parent = UIViewController()
         let child = UIViewController()
