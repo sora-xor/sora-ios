@@ -35,6 +35,47 @@ import SSFUtils
 
 typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
 
+enum WalletStorageStartupOutcome: Equatable {
+    case ready
+    case needsStorageSpace
+    case recoveryRequired
+}
+
+enum WalletStorageStartup {
+    static func run(
+        settings: SettingsManagerProtocol,
+        migration: () throws -> Void
+    ) -> WalletStorageStartupOutcome {
+        guard !settings.walletMigrationRecoveryRequired else {
+            return .recoveryRequired
+        }
+        do {
+            try migration()
+            return settings.walletMigrationRecoveryRequired
+                ? .recoveryRequired : .ready
+        } catch {
+            // This typed error is raised by the capacity preflight before
+            // checkpointing, backup creation or store replacement. Do not
+            // turn a full disk into an irreversible integrity-recovery latch.
+            // A marker raised by another check still takes precedence.
+            if case UserStorageMigrationError.insufficientStorage = error,
+               !settings.walletMigrationRecoveryRequired {
+                return .needsStorageSpace
+            }
+            if !settings.walletMigrationRecoveryRequired {
+                settings.walletMigrationRecoveryRequired = true
+                settings.walletMigrationRecoveryReason =
+                    UserStorageMigrationError
+                        .privacySafeRecoveryDescription(for: error)
+            }
+            Logger.shared.error(
+                "Wallet startup outcome: \(UserStorageMigrationError.privacySafeOutcomeCode(for: error))"
+            )
+            return .recoveryRequired
+        }
+    }
+}
+
 final class SplashInteractor: SplashInteractorProtocol {
     weak var presenter: SplashPresenterProtocol!
     let settings: SettingsManagerProtocol
@@ -43,6 +84,7 @@ final class SplashInteractor: SplashInteractorProtocol {
     let reachabilityManager: ReachabilityManagerProtocol? = ReachabilityManager.shared
     private let migrationStateLock = NSLock()
     private var didStartStorageMigration = false
+    private var isAwaitingStorageRetry = false
     private let storageMigrationQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.name = "co.jp.soramitsu.sora.storage-migration"
@@ -63,6 +105,19 @@ final class SplashInteractor: SplashInteractorProtocol {
         configService.setupConfig { [weak self] in
             self?.socketService.setup()
             self?.loadGenesis()
+        }
+    }
+
+    func retryStorageMigration() {
+        migrationStateLock.lock()
+        guard isAwaitingStorageRetry else {
+            migrationStateLock.unlock()
+            return
+        }
+        isAwaitingStorageRetry = false
+        migrationStateLock.unlock()
+        storageMigrationQueue.addOperation { [weak self] in
+            self?.performStorageMigration()
         }
     }
 
@@ -143,7 +198,6 @@ final class SplashInteractor: SplashInteractorProtocol {
             settings: settings,
             fileManager: FileManager.default
         )
-        let logger = Logger.shared
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
         // A retained recovery marker means an earlier migration did not reach
         // a fully verified terminal state. Do not open or retry the installed
@@ -153,7 +207,8 @@ final class SplashInteractor: SplashInteractorProtocol {
             return
         }
 
-        do {
+        var deferredForLegacyUpgrade = false
+        let outcome = WalletStorageStartup.run(settings: settings) {
             let unresolvedCommits =
                 try WalletAccountCommitJournalStore().unresolved()
             guard unresolvedCommits.isEmpty else {
@@ -172,21 +227,31 @@ final class SplashInteractor: SplashInteractorProtocol {
                 // empty replacement store; Root presents the explicit,
                 // journaled upgrade confirmation and verifies the resulting
                 // SORA identity while retaining the original Keychain entry.
-                completeSplashOnMain()
+                deferredForLegacyUpgrade = true
                 return
             }
             try WalletLifecycleCoordinator.shared.withExclusiveAccess {
                 try dbMigrator.migrate()
             }
-        } catch {
-            let outcome = UserStorageMigrationError
-                .privacySafeOutcomeCode(for: error)
-            logger.error(
-                "Wallet startup outcome: \(outcome)"
-            )
-            settings.walletMigrationRecoveryRequired = true
-            settings.walletMigrationRecoveryReason = UserStorageMigrationError
-                .privacySafeRecoveryDescription(for: error)
+        }
+
+        switch outcome {
+        case .needsStorageSpace:
+            migrationStateLock.lock()
+            isAwaitingStorageRetry = true
+            migrationStateLock.unlock()
+            DispatchQueue.main.async { [weak self] in
+                self?.presenter.storageSpaceRequired()
+            }
+            return
+        case .recoveryRequired:
+            completeSplashOnMain()
+            return
+        case .ready:
+            break
+        }
+
+        if deferredForLegacyUpgrade {
             completeSplashOnMain()
             return
         }
