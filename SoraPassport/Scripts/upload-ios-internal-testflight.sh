@@ -16,10 +16,10 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="e886d7cfacbff119cb9bcb961cfc213882675636"
-reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090704"
-reviewed_build_number="2026090704"
-reviewed_lower_bound="2026090703"
+reviewed_base_revision="c86ba01d129fb0747ec3a730b1b366f0fef1920f"
+reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090706"
+reviewed_build_number="2026090706"
+reviewed_lower_bound="2026090705"
 reviewed_marketing_version="3.8.7"
 reviewed_bundle_identifier="co.jp.soramitsu.sora"
 reviewed_team_id="YLWWUD25VZ"
@@ -172,7 +172,7 @@ upstream_revision="$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/nu
 upstream_name="$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" ||
     fail "internal TestFlight upstream name cannot be resolved"
 [ "${upstream_name}" = "${reviewed_upstream}" ] ||
-    fail "internal TestFlight source must be pushed to origin/codex/ios-wallet-upgrade-testflight-2026090704"
+    fail "internal TestFlight source must be pushed to origin/codex/ios-wallet-upgrade-testflight-2026090706"
 parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
     fail "internal TestFlight source parent cannot be resolved"
 [ "${parent_revision}" = "${reviewed_base_revision}" ] ||

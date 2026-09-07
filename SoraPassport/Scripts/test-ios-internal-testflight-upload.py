@@ -60,7 +60,7 @@ def capability_environment() -> dict[str, str]:
         {
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE": "sora-ios-internal-testflight-upload-v1",
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION": "archive",
-            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026090704",
+            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026090706",
             "SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION": revision,
             "SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256": hashlib.sha256(
                 EXPORT_OPTIONS.read_bytes()
@@ -77,7 +77,7 @@ def capability_environment() -> dict[str, str]:
             "DEVELOPMENT_TEAM": "YLWWUD25VZ",
             "CODE_SIGN_IDENTITY": "iPhone Developer",
             "CODE_SIGN_STYLE": "Automatic",
-            "CURRENT_PROJECT_VERSION": "2026090704",
+            "CURRENT_PROJECT_VERSION": "2026090706",
             "PROVISIONING_PROFILE_SPECIFIER": "",
             "CODE_SIGN_ENTITLEMENTS": "SoraPassport/SoraPassport.entitlements",
             "INFOPLIST_FILE": "SoraPassport/Info.plist",
@@ -126,9 +126,9 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="e886d7cfacbff119cb9bcb961cfc213882675636"',
-            'reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090704"',
-            'reviewed_build_number="2026090704"',
+            'reviewed_base_revision="c86ba01d129fb0747ec3a730b1b366f0fef1920f"',
+            'reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090706"',
+            'reviewed_build_number="2026090706"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
             'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"',
             'reviewed_archive_signing_certificate_sha1="1F57A04EB10B3665696663CDA0DBD893CF7FE886"',
@@ -173,8 +173,8 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
-            "origin/codex/ios-wallet-upgrade-testflight-2026090704",
-            "e886d7cfacbff119cb9bcb961cfc213882675636",
+            "origin/codex/ios-wallet-upgrade-testflight-2026090706",
+            "c86ba01d129fb0747ec3a730b1b366f0fef1920f",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
@@ -276,7 +276,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             "ApplicationProperties": {
                 "CFBundleIdentifier": "co.jp.soramitsu.sora",
                 "CFBundleShortVersionString": "3.8.7",
-                "CFBundleVersion": "2026090704",
+                "CFBundleVersion": "2026090706",
                 "SigningIdentity": "Apple Development: Makoto Takemiya (6A4BK72ZFV)",
                 "Team": "YLWWUD25VZ",
             },
@@ -292,7 +292,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
                     "task": "distribute",
                     "teamID": "YLWWUD25VZ",
                     "uploadDestination": "App Store",
-                    "uploadedBuildNumber": "2026090704",
+                    "uploadedBuildNumber": "2026090706",
                     "uploadEvent": uploaded,
                 }
             ],
@@ -338,7 +338,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                 xcodebuild_log,
                 reviewed_profile,
                 receipt_path,
-                "2026090704",
+                "2026090706",
                 expected_profile_sha256=reviewed_profile_sha256,
             )
             self.assertEqual(delivery_id, "12345678-1234-4234-8234-123456789abc")
@@ -355,7 +355,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                     xcodebuild_log,
                     reviewed_profile,
                     root / "rejected.json",
-                    "2026090704",
+                    "2026090706",
                     expected_profile_sha256=reviewed_profile_sha256,
                 )
 
@@ -452,7 +452,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
             "--build-number",
             "2026081602",
             "--app-store-build-lower-bound",
-            "2026090703",
+            "2026090705",
             "--derived-data-path",
             "/private/tmp/never-created-DerivedData",
             "--archive-path",
