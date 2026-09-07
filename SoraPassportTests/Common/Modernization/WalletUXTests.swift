@@ -10,6 +10,37 @@ import CoreData
 
 final class WalletUXTests: XCTestCase {
     @MainActor
+    func testWalletRecoveryRetryRunsOnceWithoutClearingRecoveryState() throws {
+        let settings = InMemorySettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.invalidIdentifierFormat)
+        settings.setWalletMigrationRecovery(reason: reason)
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        var retries = 0
+        let controller = WalletRecoveryViewController(reason: reason, onRetry: {
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            retries += 1
+        })
+        controller.loadViewIfNeeded()
+        controller.view.frame = CGRect(x: 0, y: 0, width: 375, height: 667)
+        controller.view.layoutIfNeeded()
+        let retry = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
+        XCTAssertEqual(retry.title(for: .normal), "Try again")
+        XCTAssertTrue(retry.isEnabled)
+        XCTAssertFalse(retry.isHidden)
+        XCTAssertFalse(retry.frame.isEmpty)
+        retry.sendActions(for: .touchUpInside)
+        retry.sendActions(for: .touchUpInside)
+        XCTAssertEqual(retries, 1)
+        XCTAssertFalse(retry.isEnabled)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+        let passiveController = WalletRecoveryViewController(reason: reason)
+        passiveController.loadViewIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(descendants(passiveController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-retry" }).isHidden)
+    }
+
+    @MainActor
     func testStorageRetryRemainsAvailableAfterRepeatedLowSpace() throws {
         let window = SoraWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
         let presenter = SplashPresenter(window: window)

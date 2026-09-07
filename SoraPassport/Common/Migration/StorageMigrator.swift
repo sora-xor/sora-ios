@@ -344,6 +344,68 @@ final class UserStorageMigrator {
         try recoveryGate.requireMutableWalletAccess()
     }
 
+    /// Fresh identity proof for recovery, including stores with an already
+    /// verified migration backup. That backup alone does not prove today's keys.
+    func verifiedCurrentAccounts() throws -> [AccountItem] {
+        try recoveryGate.requireMutableWalletAccess()
+        guard pathExistsNoFollow(storeURL), storeBundleIsRegularNoFollow(at: storeURL) else {
+            throw UserStorageMigrationError.missingWalletStore
+        }
+        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+            ofType: NSSQLiteStoreType, at: storeURL, options: nil)
+        guard compatibleVersionForStoreMetadata(metadata) == targetVersion else {
+            throw UserStorageMigrationError.unknownStoreVersion
+        }
+        let model = try createManagedObjectModel(forResource: targetVersion.rawValue)
+        let manifest = try createManifest(storeURL: storeURL, model: model,
+            sourceVersion: targetVersion, destinationVersion: targetVersion)
+        try validateKeychain(for: manifest)
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType,
+            configurationName: nil, at: storeURL, options: [
+                NSReadOnlyPersistentStoreOption: true,
+                NSSQLitePragmasOption: ["query_only": "ON"]
+            ])
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        var result: Result<[AccountItem], Error>!
+        context.performAndWait {
+            result = Result {
+                let request = NSFetchRequest<CDAccountItem>(entityName: "CDAccountItem")
+                request.returnsObjectsAsFaults = false
+                return try context.fetch(request).map { entity in
+                    guard let address = entity.identifier,
+                          let username = entity.username,
+                          let publicKey = entity.publicKey,
+                          let cryptoValue = UInt8(exactly: entity.cryptoType),
+                          let cryptoType = CryptoType(rawValue: cryptoValue),
+                          let networkType = SNAddressType(exactly: entity.networkType),
+                          let retained = manifest.accounts.first(where: { $0.address == address }),
+                          retained.username == username,
+                          retained.publicKeySHA256 == Data(SHA256.hash(data: publicKey)).hexString,
+                          retained.cryptoType == Int(entity.cryptoType),
+                          retained.networkType == Int(entity.networkType),
+                          retained.order == Int(entity.order)
+                    else { throw UserStorageMigrationError.accountInventoryMismatch }
+                    return AccountItem(address: address, cryptoType: cryptoType,
+                        networkType: networkType, username: username, publicKeyData: publicKey,
+                        settings: AccountSettings(visibleAssetIds: entity.settings?.visibleAssets as? [String],
+                            orderedAssetIds: entity.settings?.orderedAssets as? [String]),
+                        order: entity.order, isSelected: entity.isSelected)
+                }
+            }
+        }
+        let accounts = try result.get()
+        guard accounts.count == manifest.accounts.count,
+              Set(accounts.map(\.address)).count == accounts.count,
+              try SelectedWalletSettings.resolveSelection(accounts: accounts,
+                legacySelectedAddress: manifest.settingsSelectedAddress)?.address == manifest.selectedAddress
+        else { throw UserStorageMigrationError.accountInventoryMismatch }
+        try recoveryGate.requireMutableWalletAccess()
+        return accounts
+    }
+
     func performMigration() throws {
         try recoveryGate.requireAuthorizedLifecycleContinuation()
         // Resume only after independently checking the retained attempt, live

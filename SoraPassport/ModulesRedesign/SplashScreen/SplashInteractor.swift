@@ -32,6 +32,7 @@ import Foundation
 import RobinHood
 import SoraKeystore
 import SSFUtils
+import IrohaCrypto
 
 typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
 
@@ -86,6 +87,101 @@ enum WalletStorageStartup {
             )
             return .recoveryRequired
         }
+    }
+}
+
+/// Older builds latched any unexpected framework error as a permanent wallet
+/// failure. Retry only that exact marker, retaining the ordinary operation gate
+/// until the complete installed account inventory and network keys are proven.
+enum WalletStartupVerificationRecovery {
+    @discardableResult
+    static func recoverIfNeeded(
+        storeURL: URL, modelDirectory: String,
+        keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        checkpoint: () throws -> Void = {}
+    ) throws -> Bool {
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        guard marker.isStartupVerificationFailure else { return false }
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        try marker.requireUnchangedForStartupVerification(settings)
+        let hasDatabaseJournal = {
+            WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
+        }
+        let hasAccountJournal = {
+            try !WalletAccountCommitJournalStore(baseURL: baseURL).unresolved().isEmpty
+        }
+        // An unfinished transaction needs its own recovery proof. Do not relabel
+        // it or change the captured marker while trying this narrower retry.
+        guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: hasDatabaseJournal,
+            unresolvedWalletCommitJournal: hasAccountJournal,
+            startupVerificationMarker: marker)
+        try gate.requireMutableWalletAccess()
+        let store = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: storeURL.path) {
+            let retainedPaths = [storeURL, URL(fileURLWithPath: storeURL.path + "-wal"),
+                URL(fileURLWithPath: storeURL.path + "-shm"),
+                storeURL.deletingLastPathComponent().appendingPathComponent("WalletMigrationSafety")]
+            guard !retainedPaths.contains(where: { (try? fileManager.attributesOfItem(atPath: $0.path)) != nil }),
+                  try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
+                    keystore: keystore, hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                    snapshot: store.load())
+            else { throw UserStorageMigrationError.missingWalletStore }
+            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+            let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+            guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+            _ = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
+            // The existing explicit legacy-upgrade flow creates the first account.
+        } else {
+            let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+                storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
+                settings: settings, fileManager: fileManager, recoveryGate: gate,
+                loadWalletNetworkSnapshot: { try store.load() })
+            try database.performMigration()
+            let accounts = try database.verifiedCurrentAccounts()
+            let selected = try SelectedWalletSettings.resolveSelection(accounts: accounts,
+                legacySelectedAddress: settings.value(of: AccountItem.self,
+                    for: SettingsKey.selectedAccount.rawValue)?.identifier)
+            guard !accounts.isEmpty, let selected else {
+                throw UserStorageMigrationError.selectedAccountMismatch
+            }
+            // The outer lease excludes normal lifecycle operations. The private
+            // coordinator admits only verification bound to this exact marker.
+            let verifier = WalletNetworkModelMigrator(keystore: keystore, store: store,
+                settings: settings, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+                recoveryGate: gate)
+            let expected = try verifier.verifiedSnapshot(accounts: accounts, selectedAddress: selected.address)
+            let current = try store.load()
+            if current?.wallets != expected.wallets || current?.accounts != expected.accounts ||
+                current?.selectedWalletId != expected.selectedWalletId {
+                try verifier.migrate(accounts: accounts, selectedAddress: selected.address)
+            }
+            let finalAccounts = try database.verifiedCurrentAccounts()
+            guard Set(finalAccounts.map(\.address)) == Set(accounts.map(\.address)),
+                  finalAccounts.allSatisfy({ account in accounts.contains(account) })
+            else { throw UserStorageMigrationError.accountInventoryMismatch }
+            let verified = try verifier.verifiedSnapshot(accounts: finalAccounts, selectedAddress: selected.address)
+            guard let active = try store.load(), active.wallets == verified.wallets,
+                  active.accounts == verified.accounts, active.selectedWalletId == verified.selectedWalletId
+            else { throw WalletNetworkMigrationError.snapshotVerificationFailed }
+        }
+        try checkpoint()
+        guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        try gate.requireMutableWalletAccess()
+        try marker.clearAfterVerifiedStartup(settings)
+        return true
     }
 }
 
@@ -214,6 +310,12 @@ final class SplashInteractor: SplashInteractorProtocol {
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
         var deferredForLegacyUpgrade = false
         let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+            try WalletStartupVerificationRecovery.recoverIfNeeded(
+                storeURL: UserStorageParams.storageURL,
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: keychain,
+                settings: self.settings
+            )
             try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
                 storeURL: UserStorageParams.storageURL,
                 modelDirectory: UserStorageParams.modelDirectory,

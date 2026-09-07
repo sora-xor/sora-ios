@@ -147,6 +147,33 @@ struct WalletMigrationRecoveryMarker: Equatable, Codable {
         ].contains(reason ?? "")
     }
 
+    /// Older builds collapsed non-storage errors into this fixed reason. The
+    /// marker is only cleared after startup independently proves the installed
+    /// database, selected account, signing material and network identities.
+    var isStartupVerificationFailure: Bool {
+        required && generation == reasonGeneration && reason ==
+            "Wallet storage could not be verified safely (unexpected_failure). Existing wallet data and recovery copies were preserved."
+    }
+
+    func requireUnchangedForStartupVerification(_ settings: SettingsManagerProtocol) throws {
+        guard isStartupVerificationFailure, Self.capture(settings) == self else {
+            throw WalletNetworkMigrationError.walletRecoveryRequired
+        }
+    }
+
+    func clearAfterVerifiedStartup(_ settings: SettingsManagerProtocol) throws {
+        try Self.synchronized {
+            try requireUnchangedForStartupVerification(settings)
+            let generation = UUID().uuidString
+            let cleared = Self(required: false, reason: nil, generation: generation,
+                               reasonGeneration: generation)
+            Self.publish(cleared, to: settings)
+            guard Self.capture(settings) == cleared else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
+    }
+
     static let accountCommitInterruptionReason =
         "An unfinished wallet account commit blocks signing and wallet changes. Existing wallet material was preserved."
 

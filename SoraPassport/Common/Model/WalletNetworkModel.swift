@@ -3231,13 +3231,15 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     private var didVerifyMigrationNamespace = false
     private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
     private let legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker?
+    private let startupVerificationMarker: WalletMigrationRecoveryMarker?
 
     init(
         settings: SettingsManagerProtocol,
         unresolvedMigrationJournal: @escaping () -> Bool,
         unresolvedWalletCommitJournal: @escaping () throws -> Bool,
         migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
-        legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker? = nil
+        legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
+        startupVerificationMarker: WalletMigrationRecoveryMarker? = nil
     ) {
         self.settings = settings
         self.unresolvedMigrationJournal = unresolvedMigrationJournal
@@ -3245,6 +3247,7 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
             unresolvedWalletCommitJournal
         self.migrationRecoveryMarker = migrationRecoveryMarker
         self.legacyAccountRecoveryMarker = legacyAccountRecoveryMarker
+        self.startupVerificationMarker = startupVerificationMarker
     }
 
     func requireMutableWalletAccess() throws {
@@ -3289,6 +3292,10 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     /// own expected in-flight commit journal, but a sticky recovery marker
     /// still aborts the next write phase.
     func requireAuthorizedLifecycleContinuation() throws {
+        if let startupVerificationMarker {
+            try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
+            return
+        }
         if let legacyAccountRecoveryMarker {
             try legacyAccountRecoveryMarker.requireUnchangedForLegacyAccountRecovery(settings)
             return
