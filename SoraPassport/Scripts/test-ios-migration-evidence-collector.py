@@ -227,7 +227,10 @@ class CollectorContractTests(unittest.TestCase):
 
     def test_reviewed_settings_inventory_is_source_derived(self) -> None:
         keys = COLLECTOR.reviewed_settings_keys(contract_entry_map())
-        self.assertEqual(len(keys), 30)
+        self.assertEqual(len(keys), 33)
+        self.assertIn("walletMigrationRecoveryGeneration", keys)
+        self.assertIn("walletMigrationRecoveryReasonGeneration", keys)
+        self.assertIn("walletMigrationRecoveryRecord", keys)
         self.assertIn("selectedAccount", keys)
         self.assertIn("walletMigrationRecoveryRequired", keys)
         self.assertNotIn("selectedAddress", keys)

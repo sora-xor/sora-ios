@@ -1607,8 +1607,8 @@ def reviewed_settings_keys(
     if len(matches) != 1:
         fail("SettingsKey source contract is ambiguous")
     keys = set(re.findall(r"^[ \t]+case[ \t]+([A-Za-z0-9_]+)[ \t]*$", matches[0], re.MULTILINE))
-    if len(keys) != 30:
-        fail("SettingsKey source contract must contain exactly 30 reviewed keys")
+    if len(keys) != 33:
+        fail("SettingsKey source contract must contain exactly 33 reviewed keys")
     return keys
 
 
