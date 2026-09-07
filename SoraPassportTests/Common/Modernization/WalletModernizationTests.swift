@@ -8929,6 +8929,339 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertFalse(settings.walletMigrationRecoveryRequired)
     }
 
+    func testInterruptedLegacyAccountActivationResumesWithoutChangingKeys() throws {
+        // The journal may lag a completed durable write. These are separate
+        // installed states, not exceptions injected into the original process.
+        let boundaries: [(WalletAccountCommitStage, String, Bool, Bool, Bool)] = [
+            (.prepared, "missing", false, false, false),
+            (.prepared, "empty", false, false, false),
+            (.secretsPersisted, "empty", false, false, false),
+            (.secretsPersisted, "account", false, false, false),
+            (.coreDataCommitted, "account", false, false, false),
+            (.coreDataCommitted, "account", true, false, true),
+            (.coreDataCommitted, "account", true, false, false),
+            (.networkModelActivated, "account", true, false, false),
+            (.networkModelActivated, "account", true, true, false),
+        ]
+        for (entropyBytes, irohaPair) in [(16, false), (20, false), (24, false),
+                                         (28, false), (32, false), (20, true)] {
+            for boundary in boundaries {
+                for markerKind in ["none", "legacy", "current", "account"] {
+                    try withLegacyActivationFixture(entropyBytes: entropyBytes,
+                        retainsIrohaPrivateKey: irohaPair, stage: boundary.0,
+                        database: boundary.1, networkActive: boundary.2,
+                        selectionPersisted: boundary.3, stagedOnly: boundary.4) { directory, account, keys, settings in
+                        let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                            ($0, try keys.fetchKey(for: $0))
+                        })
+                        let retainedSnapshots = boundary.4 ? try legacyActivationNetworkFiles(at: directory) : [:]
+                        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+                            for: UserStorageMigrationError.interruptedMigration)
+                        if markerKind == "legacy" {
+                            settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+                            settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+                        } else if markerKind == "current" {
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        } else if markerKind == "account" {
+                            settings.setWalletMigrationRecovery(reason: WalletMigrationRecoveryMarker.accountCommitInterruptionReason)
+                        }
+                        try resumeLegacyActivationFixture(at: directory, account: account,
+                            keys: keys, settings: settings)
+                        let firstSnapshot = try WalletNetworkStore(baseURL: directory).load()
+                        let restartedSettings = InMemorySettingsManager()
+                        for key in settings.allKeys() {
+                            restartedSettings.set(anyValue: try XCTUnwrap(settings.anyValue(for: key)), for: key)
+                        }
+                        try resumeLegacyActivationFixture(at: directory, account: account,
+                            keys: keys, settings: restartedSettings)
+                        XCTAssertEqual(try WalletNetworkStore(baseURL: directory).load(), firstSnapshot)
+                        XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                        for (tag, value) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), value) }
+                        for (url, bytes) in retainedSnapshots { XCTAssertEqual(try Data(contentsOf: url), bytes) }
+                        if boundary.4 {
+                            XCTAssertEqual(try legacyActivationNetworkFiles(at: directory).count, retainedSnapshots.count + 1)
+                        }
+                    }
+                }
+            }
+        }
+        // Stop again during recovery itself, including after terminal journal
+        // activation but before clearing its bound marker. Each restart reads
+        // copied durable files and a fresh persisted-settings representation.
+        try withLegacyActivationFixture(entropyBytes: 20, retainsIrohaPrivateKey: true,
+            stage: .secretsPersisted, database: "account") { directory, account, keys, settings in
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration))
+            var copies: [(URL, InMemorySettingsManager)] = []
+            defer { for (url, _) in copies { try? FileManager.default.removeItem(at: url) } }
+            let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                ($0, try keys.fetchKey(for: $0))
+            })
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            _ = try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+                recoveryGate: gate, checkpoint: { _ in
+                    let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                    try FileManager.default.copyItem(at: directory, to: copy)
+                    let copiedSettings = InMemorySettingsManager()
+                    for key in settings.allKeys() {
+                        copiedSettings.set(anyValue: try XCTUnwrap(settings.anyValue(for: key)), for: key)
+                    }
+                    copies.append((copy, copiedSettings))
+                })
+            XCTAssertEqual(copies.count, 7)
+            for (copy, copiedSettings) in copies {
+                try resumeLegacyActivationFixture(at: copy, account: account, keys: keys, settings: copiedSettings)
+                try resumeLegacyActivationFixture(at: copy, account: account, keys: keys, settings: copiedSettings)
+                XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+            }
+        }
+    }
+
+    func testLegacyAccountActivationRecoveryPreservesUnverifiableEvidence() throws {
+        for condition in ["foreignMarker", "missingKey", "changedEntropy", "changedName",
+                          "changedAccount", "unknownJournal", "extraAccount", "missingCommittedAccount",
+                          "changedStagedSnapshot", "multipleStagedSnapshots", "unknownNetworkEvidence"] {
+            let stagedOnly = condition.contains("Staged") || condition == "unknownNetworkEvidence"
+            try withLegacyActivationFixture(stage: .coreDataCommitted,
+                database: condition == "missingCommittedAccount" ? "empty" : "account",
+                networkActive: stagedOnly, stagedOnly: stagedOnly) {
+                    directory, account, keys, settings in
+                let reason = condition == "foreignMarker" ? "Missing retained wallet secret" :
+                    UserStorageMigrationError.privacySafeRecoveryDescription(
+                        for: UserStorageMigrationError.interruptedMigration)
+                settings.setWalletMigrationRecovery(reason: reason)
+                if condition == "missingKey" {
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                } else if condition == "changedEntropy" {
+                    try keys.saveKey(Data(repeating: 103, count: 16), with: KeystoreTag.legacyEntropy.rawValue)
+                } else if condition == "changedName" {
+                    try keys.saveKey(Data("Changed retained name".utf8), with: KeystoreTag.legacyUsername.rawValue)
+                } else if condition == "unknownJournal" {
+                    try Data("Retain this unknown journal evidence".utf8).write(to: directory
+                        .appendingPathComponent("SORA/WalletAccountCommits/unknown-evidence"))
+                } else if stagedOnly {
+                    let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks")
+                    let snapshotURL = try XCTUnwrap(legacyActivationNetworkFiles(at: directory).keys.first)
+                    if condition == "changedStagedSnapshot" {
+                        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: snapshotURL)) as? [String: Any])
+                        var wallets = try XCTUnwrap(json["wallets"] as? [[String: Any]])
+                        wallets[0]["displayName"] = "Changed staged wallet name"
+                        json["wallets"] = wallets
+                        try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]).write(to: snapshotURL)
+                    } else if condition == "multipleStagedSnapshots" {
+                        try FileManager.default.copyItem(at: snapshotURL,
+                            to: networkDirectory.appendingPathComponent("wallet-network-\(UUID().uuidString).json"))
+                    } else {
+                        try Data("Retain unknown network evidence".utf8).write(to: networkDirectory.appendingPathComponent("unknown-evidence"))
+                    }
+                } else if condition == "changedAccount" || condition == "extraAccount" {
+                    let url = directory.appendingPathComponent("UserDataModel.sqlite")
+                    let model = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+                    let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+                    let store = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType,
+                        configurationName: nil, at: url, options: nil)
+                    let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+                    context.persistentStoreCoordinator = coordinator
+                    try context.performAndWait {
+                        let row = try XCTUnwrap(context.fetch(NSFetchRequest<NSManagedObject>(entityName: "CDAccountItem")).first)
+                        if condition == "changedAccount" {
+                            row.setValue("Changed database name", forKey: "username")
+                        } else {
+                            let extra = NSEntityDescription.insertNewObject(forEntityName: "CDAccountItem", into: context)
+                            for name in row.entity.attributesByName.keys { extra.setValue(row.value(forKey: name), forKey: name) }
+                            extra.setValue("unexpected-account", forKey: "identifier")
+                            extra.setValue(false, forKey: "isSelected")
+                        }
+                        try context.save()
+                    }
+                    try coordinator.remove(store)
+                }
+                let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let storeBytes = try Data(contentsOf: directory.appendingPathComponent("UserDataModel.sqlite"))
+                let journalDirectory = directory.appendingPathComponent("SORA/WalletAccountCommits")
+                let journalBytes = try Dictionary(uniqueKeysWithValues: FileManager.default.contentsOfDirectory(
+                    at: journalDirectory, includingPropertiesForKeys: nil).map { ($0, try Data(contentsOf: $0)) })
+                let networkBytes = try legacyActivationNetworkFiles(at: directory)
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                for _ in 0..<2 {
+                    XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                        settings: settings, baseURL: directory,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("UserDataModel.sqlite")), storeBytes)
+                    for (url, bytes) in journalBytes { XCTAssertEqual(try Data(contentsOf: url), bytes) }
+                    XCTAssertEqual(try legacyActivationNetworkFiles(at: directory), networkBytes)
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                    for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                }
+            }
+        }
+        // A later integrity check repeating the same text is still a new
+        // recovery generation. The earlier journal must not clear it.
+        try withLegacyActivationFixture(stage: .coreDataCommitted, database: "account") {
+            directory, account, keys, settings in
+            let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration)
+            settings.setWalletMigrationRecovery(reason: reason)
+            let originalMarker = WalletMigrationRecoveryMarker.capture(settings)
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                settings: settings, baseURL: directory,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate,
+                checkpoint: { phase in
+                    if phase == .journalBound { settings.setWalletMigrationRecovery(reason: reason) }
+                }))
+            let laterMarker = WalletMigrationRecoveryMarker.capture(settings)
+            XCTAssertNotEqual(laterMarker, originalMarker)
+            XCTAssertTrue(laterMarker.required)
+            XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                settings: settings, baseURL: directory,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), laterMarker)
+            try assertStoredAccounts([account], at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        }
+    }
+
+    private func withLegacyActivationFixture(
+        entropyBytes: Int = 16, retainsIrohaPrivateKey: Bool = false,
+        stage: WalletAccountCommitStage, database: String,
+        networkActive: Bool = false, selectionPersisted: Bool = false, stagedOnly: Bool = false,
+        _ body: (URL, AccountItem, InMemoryKeychain, InMemorySettingsManager) throws -> Void
+    ) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let entropy = Data(repeating: retainsIrohaPrivateKey ? 0 : UInt8(entropyBytes), count: entropyBytes)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let seed = try SeedFactory().deriveSeed(from: phrase, password: "").seed.miniSeed
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = pair.publicKey().rawData()
+        let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: Chain.sora.addressType())
+        let displayName = "Retained legacy wallet"
+        let account = AccountItem(address: address, cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(), username: displayName, publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try keys.addKey(Data(displayName.utf8), with: KeystoreTag.legacyUsername.rawValue)
+        if retainsIrohaPrivateKey {
+            try keys.addKey(try Data(hexStringSSF:
+                "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"), with: "privateKey")
+        }
+        let settings = InMemorySettingsManager()
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let journals = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: gate)
+        var journal = try journals.begin(walletId: address, existingWalletIds: [])
+        if database != "missing" {
+            // The actual first-account writer persists a settings relationship
+            // with empty asset arrays; the older-schema fixture helper omits it.
+            let model = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+            let databaseCoordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+            let persistentStore = try databaseCoordinator.addPersistentStore(ofType: NSSQLiteStoreType,
+                configurationName: nil, at: directory.appendingPathComponent("UserDataModel.sqlite"), options: nil)
+            let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+            context.persistentStoreCoordinator = databaseCoordinator
+            try context.performAndWait {
+                if database == "account" {
+                    try AccountItemMapper().populate(entity: CDAccountItem(context: context), from: account, using: context)
+                }
+                try context.save()
+            }
+            try databaseCoordinator.remove(persistentStore)
+        }
+        if networkActive {
+            try WalletNetworkModelMigrator(keystore: keys,
+                store: WalletNetworkStore(baseURL: directory, recoveryGate: gate), settings: settings,
+                lifecycleCoordinator: coordinator, recoveryGate: gate).migrate(accounts: [account], selectedAddress: address)
+            if stagedOnly {
+                // Reproduce the persisted state at afterNetworkStaging: the
+                // exact immutable snapshot exists, but its pointer was not written.
+                try FileManager.default.removeItem(at: directory.appendingPathComponent("SORA/WalletNetworks/active.json"))
+                settings.removeValue(for: SettingsKey.walletNetworkStoreVersion.rawValue)
+            }
+        }
+        if selectionPersisted { settings.set(value: account, for: SettingsKey.selectedAccount.rawValue) }
+        if stage != .prepared {
+            for next in [WalletAccountCommitStage.secretsPersisted, .coreDataCommitted, .networkModelActivated, .activated] {
+                journal = try journals.advance(journal, to: next)
+                if next == stage { break }
+            }
+        }
+        try body(directory, account, keys, settings)
+    }
+
+    private func legacyActivationNetworkFiles(at directory: URL) throws -> [URL: Data] {
+        let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks")
+        guard FileManager.default.fileExists(atPath: networkDirectory.path) else { return [:] }
+        return try Dictionary(uniqueKeysWithValues: FileManager.default.contentsOfDirectory(
+            at: networkDirectory, includingPropertiesForKeys: nil).map { ($0, try Data(contentsOf: $0)) })
+    }
+
+    private func legacyActivationRecoveryGate(
+        at directory: URL, settings: InMemorySettingsManager
+    ) -> WalletRecoveryCapabilityGate {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        return WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) },
+            unresolvedWalletCommitJournal: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+    }
+
+    private func resumeLegacyActivationFixture(
+        at directory: URL, account: AccountItem, keys: InMemoryKeychain, settings: InMemorySettingsManager
+    ) throws {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+            _ = try LegacyWalletAccountCommitRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: coordinator, recoveryGate: gate)
+        }) {
+            let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                fileManager: .default, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+                loadWalletNetworkSnapshot: { try WalletNetworkStore(baseURL: directory).load() })
+            try migrator.migrateAtStartup(lifecycleCoordinator: coordinator,
+                hasUnresolvedAccountCommit: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+        }, .ready)
+        try gate.requireMutableWalletAccess()
+        try assertStoredAccounts([account], at: storeURL, model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
+        let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory).load())
+        XCTAssertEqual(snapshot.selectedWalletId, account.address)
+        XCTAssertEqual(snapshot.wallets.count, 1)
+        let entropy = try XCTUnwrap(keys.fetchEntropyForAddress(account.address, activeSnapshot: snapshot, recoveryGate: gate))
+        let expectedNetworks: Set<NetworkId> = [16, 32].contains(entropy.count)
+            ? NexusNetworkConfiguration.admittedWalletNetworkIds : [.sora2]
+        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), expectedNetworks)
+        XCTAssertEqual(snapshot.accounts.first { $0.networkId == .sora2 }?.publicKey, account.publicKeyData)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let seed = try SeedFactory().deriveSeed(from: phrase, password: "").seed.miniSeed
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = try SNPublicKey(rawData: account.publicKeyData)
+        let payload = Data("recovered legacy activation signing check".utf8)
+        let signature = try SNSigner(keypair: SNKeypair(
+            privateKey: SNPrivateKey(rawData: pair.privateKey().rawData()), publicKey: publicKey)).sign(payload)
+        XCTAssertTrue(SNSignatureVerifier().verify(signature, forOriginalData: payload, using: publicKey))
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
     func testInterruptedCoreDataMigrationResumesWithLegacyAndCurrentRecoveryMarkers() throws {
         for version in UserStorageVersion.allCases {
             try withInterruptedDatabaseFixture(version: version) { root, snapshots, accounts, keys in

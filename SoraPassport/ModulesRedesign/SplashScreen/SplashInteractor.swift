@@ -44,8 +44,20 @@ enum WalletStorageStartupOutcome: Equatable {
 enum WalletStorageStartup {
     static func run(
         settings: SettingsManagerProtocol,
+        accountCommitRecovery: (() throws -> Void)? = nil,
         migration: () throws -> Void
     ) -> WalletStorageStartupOutcome {
+        do {
+            try accountCommitRecovery?()
+        } catch {
+            if !settings.walletMigrationRecoveryRequired {
+                settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error),
+                    preservingExistingReason: true
+                )
+            }
+            return .recoveryRequired
+        }
         let marker = WalletMigrationRecoveryMarker.capture(settings)
         guard !marker.required || marker.isDatabaseInterruption else {
             return .recoveryRequired
@@ -201,7 +213,14 @@ final class SplashInteractor: SplashInteractorProtocol {
         )
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
         var deferredForLegacyUpgrade = false
-        let outcome = WalletStorageStartup.run(settings: settings) {
+        let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+            try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: UserStorageParams.storageURL,
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: keychain,
+                settings: self.settings
+            )
+        }) {
             let unresolvedCommits =
                 try WalletAccountCommitJournalStore().unresolved()
             guard unresolvedCommits.isEmpty else {
