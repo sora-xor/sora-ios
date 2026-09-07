@@ -1639,6 +1639,8 @@ struct WalletAccountCommitJournal: Codable, Equatable {
     var stage: WalletAccountCommitStage
     let createdAt: Date
     var updatedAt: Date
+    // Optional for journals written before restart recovery was supported.
+    var recoveryMarker: WalletMigrationRecoveryMarker? = nil
 }
 
 /// Non-secret interruption journal for new/imported wallets. An unfinished
@@ -1788,6 +1790,49 @@ final class WalletAccountCommitJournalStore {
             }
             throw error
         }
+    }
+
+    func journalsForLegacyRecovery() throws -> [WalletAccountCommitJournal] {
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        return try loadUnlocked()
+    }
+
+    func requireCurrentForLegacyRecovery(_ journal: WalletAccountCommitJournal) throws {
+        try withCurrentForLegacyRecovery(journal) {}
+    }
+
+    func withCurrentForLegacyRecovery<T>(
+        _ journal: WalletAccountCommitJournal,
+        _ body: () throws -> T
+    ) throws -> T {
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        let journals = try loadUnlocked()
+        guard journals.count == 1, Self.journalsMatch(journals[0], journal) else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        return try body()
+    }
+
+    func bindLegacyRecoveryMarker(
+        _ journal: WalletAccountCommitJournal,
+        marker: WalletMigrationRecoveryMarker
+    ) throws -> WalletAccountCommitJournal {
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        let journals = try loadUnlocked()
+        guard journals.count == 1, Self.journalsMatch(journals[0], journal),
+              journal.expectedExistingWalletIds.isEmpty,
+              journal.recoveryMarker == nil || journal.recoveryMarker == marker
+        else { throw WalletNetworkMigrationError.snapshotVerificationFailed }
+        if journal.recoveryMarker == marker { return journals[0] }
+        var bound = journals[0]
+        bound.recoveryMarker = marker
+        bound.updatedAt = Date()
+        try writeUnlocked(bound)
+        return bound
     }
 
     func unresolved() throws -> [WalletAccountCommitJournal] {
@@ -2047,6 +2092,7 @@ final class WalletAccountCommitJournalStore {
             lhs.expectedExistingWalletIds ==
                 rhs.expectedExistingWalletIds &&
             lhs.stage == rhs.stage &&
+            lhs.recoveryMarker == rhs.recoveryMarker &&
             Int64(lhs.createdAt.timeIntervalSince1970) ==
                 Int64(rhs.createdAt.timeIntervalSince1970) &&
             Int64(lhs.updatedAt.timeIntervalSince1970) ==
@@ -3184,18 +3230,21 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     private let stateLock = NSLock()
     private var didVerifyMigrationNamespace = false
     private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
+    private let legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker?
 
     init(
         settings: SettingsManagerProtocol,
         unresolvedMigrationJournal: @escaping () -> Bool,
         unresolvedWalletCommitJournal: @escaping () throws -> Bool,
-        migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil
+        migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
+        legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker? = nil
     ) {
         self.settings = settings
         self.unresolvedMigrationJournal = unresolvedMigrationJournal
         self.unresolvedWalletCommitJournal =
             unresolvedWalletCommitJournal
         self.migrationRecoveryMarker = migrationRecoveryMarker
+        self.legacyAccountRecoveryMarker = legacyAccountRecoveryMarker
     }
 
     func requireMutableWalletAccess() throws {
@@ -3240,6 +3289,10 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     /// own expected in-flight commit journal, but a sticky recovery marker
     /// still aborts the next write phase.
     func requireAuthorizedLifecycleContinuation() throws {
+        if let legacyAccountRecoveryMarker {
+            try legacyAccountRecoveryMarker.requireUnchangedForLegacyAccountRecovery(settings)
+            return
+        }
         if let migrationRecoveryMarker {
             // A private startup verifier may read/prove the exact interrupted
             // attempt while its marker continues to block all ordinary gates.
@@ -3249,6 +3302,13 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         guard !settings.walletMigrationRecoveryRequired else {
             throw WalletNetworkMigrationError.walletRecoveryRequired
         }
+    }
+
+    func requireLegacyAccountRecoveryVerification(pending: Bool = false) throws {
+        guard let legacyAccountRecoveryMarker,
+              !pending || legacyAccountRecoveryMarker.required
+        else { throw WalletNetworkMigrationError.walletRecoveryRequired }
+        try legacyAccountRecoveryMarker.requireUnchangedForLegacyAccountRecovery(settings)
     }
 
     /// A terminal journal write may have reached durable storage even when
@@ -3796,6 +3856,12 @@ enum NexusKeyDerivation {
 /// a small atomic pointer write performed only after decoding and equality
 /// checks pass, so an interrupted upgrade continues to use the old snapshot.
 final class WalletNetworkStore {
+    struct LegacyFirstSnapshotEvidence {
+        fileprivate let fileName: String
+        fileprivate let data: Data
+        let snapshot: WalletNetworkSnapshot
+    }
+
     private struct ActivePointer: Codable {
         let schemaVersion: Int
         let fileName: String
@@ -3865,6 +3931,67 @@ final class WalletNetworkStore {
         Self.lock.lock()
         defer { Self.lock.unlock() }
         return try loadUnlocked()
+    }
+
+    /// Only the private legacy-account verifier may inspect a first snapshot
+    /// whose durable write completed before its initial active pointer.
+    func loadForLegacyFirstActivationRecovery() throws
+        -> (active: WalletNetworkSnapshot?, staged: LegacyFirstSnapshotEvidence?) {
+        try recoveryGate.requireLegacyAccountRecoveryVerification()
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        let namespace = try validatedNamespaceUnlocked()
+        if namespace.pointerURL != nil || namespace.snapshotURLs.isEmpty {
+            return (try loadUnlocked(), nil)
+        }
+        guard namespace.snapshotURLs.count == 1, let url = namespace.snapshotURLs.first else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        let data = try readBoundedData(at: url, maximumBytes: Self.maximumSnapshotBytes)
+        let snapshot = try decoder.decode(WalletNetworkSnapshot.self, from: data)
+        try validate(snapshot)
+        return (nil, LegacyFirstSnapshotEvidence(fileName: url.lastPathComponent, data: data, snapshot: snapshot))
+    }
+
+    /// The caller holds the startup lease and exact bound journal/marker CAS.
+    /// Publish only a pointer to the already retained, independently proven bytes.
+    func activateVerifiedLegacyFirstSnapshot(
+        _ evidence: LegacyFirstSnapshotEvidence,
+        expected: WalletNetworkSnapshot
+    ) throws {
+        try recoveryGate.requireLegacyAccountRecoveryVerification(pending: true)
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        let namespace = try validatedNamespaceUnlocked()
+        guard namespace.pointerURL == nil, namespace.snapshotURLs.count == 1,
+              let snapshotURL = namespace.snapshotURLs.first,
+              snapshotURL.lastPathComponent == evidence.fileName,
+              try readBoundedData(at: snapshotURL, maximumBytes: Self.maximumSnapshotBytes) == evidence.data,
+              evidence.snapshot.schemaVersion == expected.schemaVersion,
+              evidence.snapshot.selectedWalletId == expected.selectedWalletId,
+              evidence.snapshot.wallets == expected.wallets,
+              evidence.snapshot.accounts == expected.accounts
+        else { throw WalletNetworkMigrationError.snapshotVerificationFailed }
+        try validate(expected)
+        try verifyTopologyAdmission(current: nil, proposed: evidence.snapshot)
+        let pointer = ActivePointer(schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            fileName: evidence.fileName, sha256: Self.sha256(evidence.data))
+        let pointerData = try encoder.encode(pointer)
+        guard pointerData.count <= Self.maximumPointerBytes else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        try recoveryGate.requireLegacyAccountRecoveryVerification(pending: true)
+        // An error after atomic publication retains the pointer and snapshot;
+        // the next restart verifies that active state through the ordinary path.
+        try DurableFileWriter.write(pointerData, to: directoryURL.appendingPathComponent("active.json"),
+            fileManager: fileManager, protection: .completeUntilFirstUserAuthentication)
+        let activatedNamespace = try validatedNamespaceUnlocked()
+        guard activatedNamespace.pointerURL != nil, activatedNamespace.snapshotURLs.count == 1,
+              activatedNamespace.snapshotURLs.first?.lastPathComponent == evidence.fileName,
+              try readBoundedData(at: snapshotURL, maximumBytes: Self.maximumSnapshotBytes) == evidence.data,
+              let activated = try loadUnlocked(), try snapshotsMatch(activated, evidence.snapshot)
+        else { throw WalletNetworkMigrationError.snapshotVerificationFailed }
+        try recoveryGate.requireLegacyAccountRecoveryVerification(pending: true)
     }
 
     func stageAndActivate(_ snapshot: WalletNetworkSnapshot) throws {
@@ -4930,21 +5057,46 @@ final class WalletNetworkModelMigrator {
         selectedAddress: String?,
         lifecycleLease: WalletLifecycleLease? = nil
     ) throws {
-        try lifecycleCoordinator.withExclusiveAccess(
+        _ = try lifecycleCoordinator.withExclusiveAccess(
             using: lifecycleLease
         ) {
             try migrateLocked(
                 accounts: accounts,
-                selectedAddress: selectedAddress
+                selectedAddress: selectedAddress,
+                current: try store.load(),
+                activate: true
             )
+        }
+    }
+
+    /// Runs the same identity and child-key proofs without publishing a snapshot or settings.
+    func verifiedSnapshot(
+        accounts: [AccountItem],
+        selectedAddress: String?,
+        lifecycleLease: WalletLifecycleLease? = nil
+    ) throws -> WalletNetworkSnapshot {
+        try lifecycleCoordinator.withExclusiveAccess(using: lifecycleLease) {
+            try migrateLocked(accounts: accounts, selectedAddress: selectedAddress,
+                current: store.load(), activate: false)
+        }
+    }
+
+    /// Independently derives the first snapshot while an orphan remains intact.
+    /// This entry cannot activate state and is restricted to the startup verifier.
+    func verifiedFirstLegacySnapshot(accounts: [AccountItem], selectedAddress: String) throws
+        -> WalletNetworkSnapshot {
+        try recoveryGate.requireLegacyAccountRecoveryVerification()
+        return try lifecycleCoordinator.withExclusiveAccess {
+            try migrateLocked(accounts: accounts, selectedAddress: selectedAddress, current: nil, activate: false)
         }
     }
 
     private func migrateLocked(
         accounts: [AccountItem],
-        selectedAddress: String?
-    ) throws {
-        let current = try store.load()
+        selectedAddress: String?,
+        current: WalletNetworkSnapshot?,
+        activate: Bool
+    ) throws -> WalletNetworkSnapshot {
         if let current {
             guard
                 current.schemaVersion ==
@@ -5201,17 +5353,19 @@ final class WalletNetworkModelMigrator {
             )
         }
 
+        guard activate else { return snapshot }
         if let current,
            current.schemaVersion == snapshot.schemaVersion,
            current.selectedWalletId == snapshot.selectedWalletId,
            current.wallets == snapshot.wallets,
            current.accounts == snapshot.accounts {
             settings.walletNetworkStoreVersion = WalletNetworkSnapshot.currentSchemaVersion
-            return
+            return snapshot
         }
 
         try store.stageAndActivate(snapshot)
         settings.walletNetworkStoreVersion = WalletNetworkSnapshot.currentSchemaVersion
+        return snapshot
     }
 
     private static func wipeSensitive(_ value: inout Data?) {

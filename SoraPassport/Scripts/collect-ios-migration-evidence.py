@@ -2604,8 +2604,8 @@ def expected_test_identifiers(
         if not methods or len(methods) != len(set(methods)):
             fail(f"{suite} source has an invalid test-method inventory")
         result.update(f"{suite}/{method}()" for method in methods)
-    if len(result) != 233:
-        fail("migration test source inventory must contain exactly 233 identifiers")
+    if len(result) != 235:
+        fail("migration test source inventory must contain exactly 235 identifiers")
     return result
 
 
@@ -2690,7 +2690,7 @@ def inspect_xcresult(
     exact_keys(tests, {"testPlanConfigurations", "devices", "testNodes"}, "xcresult tests")
     suite_counts, enumerated_total, observed_tests = count_test_cases(tests["testNodes"])
     required_counts = {
-        "WalletModernizationTests": 207,
+        "WalletModernizationTests": 209,
         "WalletRecoveryCapabilityGateTests": 11,
         "WalletRecoveryExporterTests": 12,
         "WalletMigrationRetainedDeviceEvidenceTests": 3,

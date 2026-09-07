@@ -29,6 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import CoreData
+import RobinHood
 import CryptoKit
 import SoraKeystore
 import IrohaCrypto
@@ -279,6 +281,287 @@ enum LegacyWalletUpgradeSecretRetention {
         else {
             throw WalletIntegrityError
                 .legacyWalletUpgradeVerificationFailed
+        }
+    }
+}
+
+/// Resumes only the first account activation backed by the original unsuffixed legacy keys.
+/// It never grants unfinished ordinary imports permission to invent or replace wallet secrets.
+enum LegacyWalletAccountCommitRecovery {
+    enum Checkpoint {
+        case proofVerified, journalBound, coreDataCommitted, networkModelActivated
+        case selectionCommitted, activated, beforeRecoveryClear
+    }
+
+    @discardableResult
+    static func recoverIfNeeded(
+        storeURL: URL,
+        modelDirectory: String,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        checkpoint: (Checkpoint) throws -> Void = { _ in }
+    ) throws -> Bool {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        var marker = WalletMigrationRecoveryMarker.capture(settings)
+        var gate = verificationGate(settings: settings, marker: marker)
+        var journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
+        let journals = try journalStore.journalsForLegacyRecovery()
+        let unresolved = journals.filter { $0.stage != .activated }
+        let candidates = unresolved.isEmpty && marker.required
+            ? journals.filter { $0.recoveryMarker == marker } : unresolved
+        guard !candidates.isEmpty else { return false }
+        guard journals.count == 1, candidates.count == 1,
+              candidates[0].expectedExistingWalletIds.isEmpty,
+              !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
+        else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+        var journal = candidates[0]
+        try marker.requireUnchangedForLegacyAccountRecovery(settings)
+        if let bound = journal.recoveryMarker {
+            guard bound == marker else { throw WalletNetworkMigrationError.walletRecoveryRequired }
+        }
+
+        let originalIdentifiers = Set(try keystore.allKeyIdentifiers())
+        var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        let entropyDigest = Data(SHA256.hash(data: entropy))
+        let displayName = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        guard !entropy.isEmpty,
+              WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count),
+              try LegacyWalletUpgradePolicy.isCandidate(keystore: keystore,
+                  hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(), snapshot: nil)
+        else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+        let operation = AccountOperationFactory(keystore: keystore, recoveryGate: gate)
+            .prepareAccountOperation(request: AccountCreationRequest(username: displayName,
+                type: .sora, derivationPath: "", cryptoType: .sr25519), mnemonic: mnemonic)
+        operation.start()
+        let prepared = try operation.extractNoCancellableResultData()
+        defer { prepared.discard() }
+        let expected = prepared.account
+        try LegacyWalletUpgradeSecretRetention.consumeWithoutPersisting(prepared, keystore: keystore,
+            settings: settings, expectedEntropyDigest: entropyDigest, expectedDisplayName: displayName,
+            recoveryGate: gate)
+        guard expected.address == journal.walletId else {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+        let model = try accountModel(modelDirectory: modelDirectory)
+        var networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+
+        func prove(requireAccount: Bool = false, requireSnapshot: Bool = false) throws {
+            try marker.requireUnchangedForLegacyAccountRecovery(settings)
+            try journalStore.requireCurrentForLegacyRecovery(journal)
+            guard Set(try keystore.allKeyIdentifiers()) == originalIdentifiers,
+                  !settings.hasRetainedWatchOnlyWallet(),
+                  try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore) == displayName
+            else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+            var retained = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+            defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+            guard Data(SHA256.hash(data: retained)) == entropyDigest else {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+            try keystore.verifyLegacyIrohaKeyIfPresent(entropy: retained)
+            try LegacySoraIdentityValidator.validate(address: expected.address, publicKey: expected.publicKeyData,
+                cryptoType: expected.cryptoType, networkType: expected.networkType, derivationPath: nil,
+                entropy: retained, rawSeed: nil, secret: nil, recoveryGate: gate)
+            let accounts = try readAccounts(storeURL: storeURL, model: model)
+            let stageRequiresAccount = [.coreDataCommitted, .networkModelActivated, .activated].contains(journal.stage)
+            guard accounts.isEmpty || accounts == [expected],
+                  !(requireAccount || stageRequiresAccount) || accounts == [expected]
+            else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+            let networkState = try networkStore.loadForLegacyFirstActivationRecovery()
+            let snapshot = networkState.active ?? networkState.staged?.snapshot
+            let stageRequiresSnapshot = [.networkModelActivated, .activated].contains(journal.stage)
+            guard !(requireSnapshot || stageRequiresSnapshot) || networkState.active != nil,
+                  snapshot == nil || accounts == [expected]
+            else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+            let verifier = WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+            let verified = try networkState.staged != nil
+                ? verifier.verifiedFirstLegacySnapshot(accounts: [expected], selectedAddress: expected.address)
+                : verifier.verifiedSnapshot(accounts: [expected], selectedAddress: expected.address)
+            if let snapshot {
+                guard snapshot.schemaVersion == verified.schemaVersion,
+                      snapshot.selectedWalletId == verified.selectedWalletId,
+                      snapshot.wallets == verified.wallets, snapshot.accounts == verified.accounts
+                else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+            }
+            let selectionKey = SettingsKey.selectedAccount.rawValue
+            if settings.allKeys().contains(selectionKey) {
+                guard accounts == [expected], networkState.active != nil,
+                      settings.value(of: AccountItem.self, for: selectionKey) == expected
+                else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+            } else if journal.stage == .activated {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+            try marker.requireUnchangedForLegacyAccountRecovery(settings)
+            try journalStore.requireCurrentForLegacyRecovery(journal)
+        }
+
+        try prove()
+        try checkpoint(.proofVerified)
+        try prove()
+        // Publish a stable pending marker before resuming any durable stage. Startup's error
+        // handling then preserves this generation even if this recovery itself is interrupted.
+        if !marker.required {
+            try WalletMigrationRecoveryMarker.synchronized {
+                try marker.requireUnchangedForLegacyAccountRecovery(settings)
+                settings.setWalletMigrationRecovery(reason: WalletMigrationRecoveryMarker.accountCommitInterruptionReason)
+                marker = WalletMigrationRecoveryMarker.capture(settings)
+                guard marker.isLegacyAccountCommitInterruption else {
+                    throw WalletNetworkMigrationError.walletRecoveryRequired
+                }
+            }
+            gate = verificationGate(settings: settings, marker: marker)
+            journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
+            networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+        }
+        journal = try journalStore.bindLegacyRecoveryMarker(journal, marker: marker)
+        try checkpoint(.journalBound)
+        try prove()
+        if journal.stage == .prepared {
+            journal = try journalStore.advance(journal, to: .secretsPersisted)
+        }
+        if journal.stage == .secretsPersisted {
+            try prove()
+            if try readAccounts(storeURL: storeURL, model: model).isEmpty {
+                try insertFirstAccount(expected, storeURL: storeURL, model: model)
+            }
+            try checkpoint(.coreDataCommitted)
+            try prove(requireAccount: true)
+            journal = try journalStore.advance(journal, to: .coreDataCommitted)
+        }
+        if journal.stage == .coreDataCommitted {
+            try prove(requireAccount: true)
+            let migrator = WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+            if let staged = try networkStore.loadForLegacyFirstActivationRecovery().staged {
+                let verified = try migrator.verifiedFirstLegacySnapshot(
+                    accounts: [expected], selectedAddress: expected.address)
+                try prove(requireAccount: true)
+                try journalStore.withCurrentForLegacyRecovery(journal) {
+                    try WalletMigrationRecoveryMarker.synchronized {
+                        try marker.requireUnchangedForLegacyAccountRecovery(settings)
+                        guard journal.recoveryMarker == marker else {
+                            throw WalletNetworkMigrationError.walletRecoveryRequired
+                        }
+                        try networkStore.activateVerifiedLegacyFirstSnapshot(staged, expected: verified)
+                    }
+                }
+            }
+            try migrator.migrate(accounts: [expected], selectedAddress: expected.address)
+            try checkpoint(.networkModelActivated)
+            try prove(requireAccount: true, requireSnapshot: true)
+            journal = try journalStore.advance(journal, to: .networkModelActivated)
+        }
+        if journal.stage == .networkModelActivated {
+            try prove(requireAccount: true, requireSnapshot: true)
+            if !settings.allKeys().contains(SettingsKey.selectedAccount.rawValue) {
+                settings.set(value: expected, for: SettingsKey.selectedAccount.rawValue)
+            }
+            try checkpoint(.selectionCommitted)
+            try prove(requireAccount: true, requireSnapshot: true)
+            guard settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) == expected else {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+            journal = try journalStore.advance(journal, to: .activated)
+            try checkpoint(.activated)
+        }
+        try prove(requireAccount: true, requireSnapshot: true)
+        try checkpoint(.beforeRecoveryClear)
+        try prove(requireAccount: true, requireSnapshot: true)
+        try marker.clearAfterVerifiedLegacyAccountActivation(settings)
+        try recoveryGate.requireMutableWalletAccess()
+        return true
+    }
+
+    private static func verificationGate(settings: SettingsManagerProtocol,
+                                         marker: WalletMigrationRecoveryMarker) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }, legacyAccountRecoveryMarker: marker)
+    }
+
+    private static func accountModel(modelDirectory: String) throws -> NSManagedObjectModel {
+        let name = UserStorageVersion.version2.rawValue
+        guard let url = Bundle.main.url(forResource: name, withExtension: "omo", subdirectory: modelDirectory)
+                ?? Bundle.main.url(forResource: name, withExtension: "mom", subdirectory: modelDirectory),
+              let model = NSManagedObjectModel(contentsOf: url)
+        else { throw UserStorageMigrationError.unavailableModel(name) }
+        return model
+    }
+
+    private static func validateStoreFiles(_ url: URL) throws {
+        let manager = FileManager.default
+        for path in [url.path, url.path + "-wal", url.path + "-shm", url.path + "-journal"] {
+            guard manager.fileExists(atPath: path) else { continue }
+            let attributes = try manager.attributesOfItem(atPath: path)
+            guard attributes[.type] as? FileAttributeType == .typeRegular,
+                  (attributes[.referenceCount] as? NSNumber)?.intValue == 1
+            else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+        }
+        if !manager.fileExists(atPath: url.path),
+           ["-wal", "-shm", "-journal"].contains(where: { manager.fileExists(atPath: url.path + $0) }) {
+            throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+        }
+    }
+
+    private static func withContext<T>(storeURL: URL, model: NSManagedObjectModel, writable: Bool,
+                                       body: (NSManagedObjectContext) throws -> T) throws -> T {
+        try validateStoreFiles(storeURL)
+        if FileManager.default.fileExists(atPath: storeURL.path) {
+            let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+                ofType: NSSQLiteStoreType, at: storeURL, options: [NSReadOnlyPersistentStoreOption: true])
+            guard model.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata) else {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+        }
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        var options: [AnyHashable: Any] = [NSMigratePersistentStoresAutomaticallyOption: false,
+                                          NSInferMappingModelAutomaticallyOption: false]
+        if !writable {
+            options[NSReadOnlyPersistentStoreOption] = true
+            options[NSSQLitePragmasOption] = ["query_only": "ON"]
+        }
+        let store = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil,
+                                                       at: storeURL, options: options)
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        var result: Result<T, Error>!
+        context.performAndWait { result = Result { try body(context) } }
+        return try result.get()
+    }
+
+    private static func accounts(in context: NSManagedObjectContext) throws -> [AccountItem] {
+        let request = NSFetchRequest<CDAccountItem>(entityName: "CDAccountItem")
+        request.fetchLimit = 2
+        request.returnsObjectsAsFaults = false
+        return try context.fetch(request).map { entity in
+            guard (0...255).contains(Int(entity.cryptoType)), (0...255).contains(Int(entity.networkType)) else {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+            return try AccountItemMapper().transform(entity: entity)
+        }
+    }
+
+    private static func readAccounts(storeURL: URL, model: NSManagedObjectModel) throws -> [AccountItem] {
+        try validateStoreFiles(storeURL)
+        guard FileManager.default.fileExists(atPath: storeURL.path) else { return [] }
+        return try withContext(storeURL: storeURL, model: model, writable: false, body: accounts)
+    }
+
+    private static func insertFirstAccount(_ account: AccountItem, storeURL: URL,
+                                            model: NSManagedObjectModel) throws {
+        try withContext(storeURL: storeURL, model: model, writable: true) { context in
+            guard try accounts(in: context).isEmpty else {
+                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            }
+            let entity = CDAccountItem(context: context)
+            try AccountItemMapper().populate(entity: entity, from: account, using: context)
+            try context.save()
         }
     }
 }

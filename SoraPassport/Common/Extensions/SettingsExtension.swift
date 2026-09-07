@@ -147,6 +147,32 @@ struct WalletMigrationRecoveryMarker: Equatable, Codable {
         ].contains(reason ?? "")
     }
 
+    static let accountCommitInterruptionReason =
+        "An unfinished wallet account commit blocks signing and wallet changes. Existing wallet material was preserved."
+
+    var isLegacyAccountCommitInterruption: Bool {
+        isDatabaseInterruption || (required && generation == reasonGeneration &&
+            reason == Self.accountCommitInterruptionReason)
+    }
+
+    func requireUnchangedForLegacyAccountRecovery(_ settings: SettingsManagerProtocol) throws {
+        guard (!required || isLegacyAccountCommitInterruption), Self.capture(settings) == self else {
+            throw WalletNetworkMigrationError.walletRecoveryRequired
+        }
+    }
+
+    func clearAfterVerifiedLegacyAccountActivation(_ settings: SettingsManagerProtocol) throws {
+        try Self.synchronized {
+            try requireUnchangedForLegacyAccountRecovery(settings)
+            let generation = UUID().uuidString
+            let cleared = Self(required: false, reason: nil, generation: generation, reasonGeneration: generation)
+            Self.publish(cleared, to: settings)
+            guard Self.capture(settings) == cleared else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
+    }
+
     func requireUnchanged(_ settings: SettingsManagerProtocol) throws {
         guard isDatabaseInterruption, Self.capture(settings) == self else {
             throw WalletNetworkMigrationError.walletRecoveryRequired
