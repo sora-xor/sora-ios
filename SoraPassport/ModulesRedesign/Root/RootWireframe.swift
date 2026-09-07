@@ -99,8 +99,18 @@ final class RootWireframe: RootWireframeProtocol {
         RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
             .recovery
         )
+        var onRetry: (() -> Void)?
+        if let window = view as? SoraWindow {
+            onRetry = { [weak window] in
+                guard let window else { return }
+                // Restart the full storage/account checks. Only their verified
+                // activation may clear recovery; this action changes no data.
+                SplashPresenterFactory.createSplashPresenter(with: window)
+            }
+        }
         let controller = WalletRecoveryViewController(
-            reason: SettingsManager.shared.walletMigrationRecoveryReason
+            reason: SettingsManager.shared.walletMigrationRecoveryReason,
+            onRetry: onRetry
         )
         let navigation = UINavigationController(rootViewController: controller)
         navigation.navigationBar.isHidden = true
@@ -217,13 +227,17 @@ private final class LegacyWalletUpgradeViewController: UIViewController {
 /// recovery strategy for a production wallet.
 final class WalletRecoveryViewController: UIViewController {
     private let reason: String?
+    private let onRetry: (() -> Void)?
+    private let retryButton = UIButton(type: .system)
+    private var didRetry = false
     private let exportButton = UIButton(type: .system)
     private let exportProgress = UIActivityIndicatorView(style: .medium)
     private let exportStatusLabel = UILabel()
     private var isExporting = false
 
-    init(reason: String?) {
+    init(reason: String?, onRetry: (() -> Void)? = nil) {
         self.reason = reason
+        self.onRetry = onRetry
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -242,6 +256,12 @@ final class WalletRecoveryViewController: UIViewController {
         titleLabel.font = .preferredFont(forTextStyle: .title2)
         titleLabel.text = "Your wallet is safe"
         titleLabel.numberOfLines = 0
+
+        retryButton.setTitle("Try again", for: .normal)
+        retryButton.accessibilityIdentifier = "wallet-recovery-retry"
+        retryButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        retryButton.isHidden = onRetry == nil
+        retryButton.addTarget(self, action: #selector(retryWalletVerification), for: .touchUpInside)
 
         let bodyLabel = UILabel()
         bodyLabel.font = .preferredFont(forTextStyle: .body)
@@ -313,6 +333,7 @@ final class WalletRecoveryViewController: UIViewController {
         let stack = UIStackView(
             arrangedSubviews: [
                 titleLabel,
+                retryButton,
                 bodyLabel,
                 versionLabel,
                 supportButton,
@@ -367,6 +388,13 @@ final class WalletRecoveryViewController: UIViewController {
                 constant: -48
             )
         ])
+    }
+
+    @objc private func retryWalletVerification() {
+        guard let onRetry, !didRetry, !isExporting else { return }
+        didRetry = true
+        retryButton.isEnabled = false
+        onRetry()
     }
 
     @objc private func openSupport() {

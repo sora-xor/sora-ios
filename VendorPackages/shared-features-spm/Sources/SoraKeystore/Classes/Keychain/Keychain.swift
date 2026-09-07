@@ -114,6 +114,14 @@ public class Keychain: KeystoreProtocol {
             throw KeystoreError.unexpectedFail
         }
 
+        return try Self.keyIdentifiers(fromKeychainAttributes: result)
+    }
+
+    /// Decode the attributes returned by the identifier-only Security query.
+    /// The same access group can contain framework keys without a SORA UTF-8
+    /// application tag. They are not identifier-based wallet records and must
+    /// not make otherwise readable wallet keys unavailable during an upgrade.
+    public static func keyIdentifiers(fromKeychainAttributes result: Any?) throws -> [String] {
         let attributes: [[String: Any]]
         if let values = result as? [[String: Any]] {
             attributes = values
@@ -123,7 +131,7 @@ public class Keychain: KeystoreProtocol {
             throw KeystoreError.unexpectedFail
         }
 
-        let identifiers = try attributes.map { item -> String in
+        let identifiers = attributes.compactMap { item -> String? in
             let value = item[kSecAttrApplicationTag as String]
             if let identifier = value as? String, !identifier.isEmpty {
                 return identifier
@@ -135,7 +143,7 @@ public class Keychain: KeystoreProtocol {
             {
                 return identifier
             }
-            throw KeystoreError.invalidIdentifierFormat
+            return nil
         }
         return Array(Set(identifiers)).sorted()
     }
