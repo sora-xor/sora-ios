@@ -3183,16 +3183,19 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     private let unresolvedWalletCommitJournal: () throws -> Bool
     private let stateLock = NSLock()
     private var didVerifyMigrationNamespace = false
+    private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
 
     init(
         settings: SettingsManagerProtocol,
         unresolvedMigrationJournal: @escaping () -> Bool,
-        unresolvedWalletCommitJournal: @escaping () throws -> Bool
+        unresolvedWalletCommitJournal: @escaping () throws -> Bool,
+        migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil
     ) {
         self.settings = settings
         self.unresolvedMigrationJournal = unresolvedMigrationJournal
         self.unresolvedWalletCommitJournal =
             unresolvedWalletCommitJournal
+        self.migrationRecoveryMarker = migrationRecoveryMarker
     }
 
     func requireMutableWalletAccess() throws {
@@ -3237,6 +3240,12 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     /// own expected in-flight commit journal, but a sticky recovery marker
     /// still aborts the next write phase.
     func requireAuthorizedLifecycleContinuation() throws {
+        if let migrationRecoveryMarker {
+            // A private startup verifier may read/prove the exact interrupted
+            // attempt while its marker continues to block all ordinary gates.
+            try migrationRecoveryMarker.requireUnchanged(settings)
+            return
+        }
         guard !settings.walletMigrationRecoveryRequired else {
             throw WalletNetworkMigrationError.walletRecoveryRequired
         }
@@ -3255,10 +3264,7 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     private func latchRecovery(
         _ reason: String
     ) -> WalletNetworkMigrationError {
-        settings.walletMigrationRecoveryRequired = true
-        if settings.walletMigrationRecoveryReason?.isEmpty != false {
-            settings.walletMigrationRecoveryReason = reason
-        }
+        settings.setWalletMigrationRecovery(reason: reason, preservingExistingReason: true)
         return .walletRecoveryRequired
     }
 }

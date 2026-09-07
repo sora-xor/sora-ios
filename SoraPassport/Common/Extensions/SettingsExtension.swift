@@ -54,6 +54,9 @@ enum SettingsKey: String {
     case lastSuccessfulUrl
     case walletMigrationRecoveryRequired
     case walletMigrationRecoveryReason
+    case walletMigrationRecoveryGeneration
+    case walletMigrationRecoveryReasonGeneration
+    case walletMigrationRecoveryRecord
     case walletNetworkStoreVersion
     case tairaEnabled
     case tairaPreferenceWasSet
@@ -63,6 +66,104 @@ enum SettingsKey: String {
     case nexusSendsEnabled
     case polkamarktEnabled
     case polkamarktMutationsEnabled
+}
+
+/// A generation changes even when another integrity check repeats the same
+/// Boolean/reason. Recovery can then compare-and-clear only the marker it proved.
+struct WalletMigrationRecoveryMarker: Equatable, Codable {
+    private static let lock = NSRecursiveLock()
+    let required: Bool
+    let reason: String?
+    let generation: String?
+    let reasonGeneration: String?
+
+    static func synchronized<T>(_ body: () throws -> T) rethrows -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body()
+    }
+
+    static func capture(_ settings: SettingsManagerProtocol) -> Self {
+        synchronized {
+            let recordKey = SettingsKey.walletMigrationRecoveryRecord.rawValue
+            if let stored = settings.anyValue(for: recordKey) {
+                guard let encoded = stored as? String,
+                      encoded.utf8.count <= 64 * 1_024,
+                      let marker = try? JSONDecoder().decode(Self.self, from: Data(encoded.utf8)),
+                      let generation = marker.generation,
+                      UUID(uuidString: generation)?.uuidString == generation,
+                      marker.reasonGeneration == generation
+                else {
+                    // Never fall back to potentially clear legacy fields when a new record is
+                    // present but unreadable. It remains a distinct, non-retryable integrity stop.
+                    return Self(required: true, reason: "The persisted wallet recovery marker is invalid.",
+                                generation: nil, reasonGeneration: nil)
+                }
+                return marker
+            }
+            return Self(
+                required: settings.bool(for: SettingsKey.walletMigrationRecoveryRequired.rawValue) ?? false,
+                reason: settings.string(for: SettingsKey.walletMigrationRecoveryReason.rawValue),
+                generation: settings.string(for: SettingsKey.walletMigrationRecoveryGeneration.rawValue),
+                reasonGeneration: settings.string(for: SettingsKey.walletMigrationRecoveryReasonGeneration.rawValue)
+            )
+        }
+    }
+
+    /// SettingsManager synchronizes after every set. Publish the entire new tuple in one value
+    /// before updating compatibility mirrors, so termination at any mirror write retains either
+    /// the previous authoritative record or the complete new one, never a partial tuple.
+    static func publish(_ marker: Self, to settings: SettingsManagerProtocol) {
+        synchronized {
+            guard let data = try? JSONEncoder().encode(marker), data.count <= 64 * 1_024 else {
+                settings.set(value: "{}", for: SettingsKey.walletMigrationRecoveryRecord.rawValue)
+                return
+            }
+            settings.set(value: String(decoding: data, as: UTF8.self),
+                         for: SettingsKey.walletMigrationRecoveryRecord.rawValue)
+            guard capture(settings) == marker else { return }
+            settings.set(value: marker.required, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+            if let reason = marker.reason {
+                settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            } else {
+                settings.removeValue(for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            }
+            if let generation = marker.generation {
+                settings.set(value: generation, for: SettingsKey.walletMigrationRecoveryGeneration.rawValue)
+                settings.set(value: generation, for: SettingsKey.walletMigrationRecoveryReasonGeneration.rawValue)
+            }
+        }
+    }
+
+    var isDatabaseInterruption: Bool {
+        // A legacy marker has neither generation. For new writes, the reason
+        // must belong to the same generation as the flag: a reader between
+        // the two setters must not reuse the previous failure's reason.
+        required && generation == reasonGeneration && [
+            UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration
+            ),
+            "An unfinished or unverifiable wallet database migration blocks signing and wallet changes."
+        ].contains(reason ?? "")
+    }
+
+    func requireUnchanged(_ settings: SettingsManagerProtocol) throws {
+        guard isDatabaseInterruption, Self.capture(settings) == self else {
+            throw WalletNetworkMigrationError.walletRecoveryRequired
+        }
+    }
+
+    func clearAfterVerifiedActivation(_ settings: SettingsManagerProtocol) throws {
+        try Self.synchronized {
+            try requireUnchanged(settings)
+            let generation = UUID().uuidString
+            let cleared = Self(required: false, reason: nil, generation: generation, reasonGeneration: generation)
+            Self.publish(cleared, to: settings)
+            guard Self.capture(settings) == cleared else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
+    }
 }
 
 private enum TairaExplicitPreferenceState {
@@ -341,21 +442,41 @@ extension SettingsManagerProtocol {
         }
     }
 
-    /// A sticky, non-destructive recovery marker. Migration success is not
-    /// authority to clear a marker that another integrity check may have
-    /// latched; only a future explicit, audited recovery action may clear it.
+    /// Ordinary migration success cannot clear recovery. The narrowly bound
+    /// interrupted-database recovery compares the full marker after activation.
+    func setWalletMigrationRecovery(reason: String, preservingExistingReason: Bool = false) {
+        WalletMigrationRecoveryMarker.synchronized {
+            let current = WalletMigrationRecoveryMarker.capture(self)
+            let retainedReason = preservingExistingReason && current.required &&
+                current.reason?.isEmpty == false ? current.reason! : reason
+            let generation = UUID().uuidString
+            WalletMigrationRecoveryMarker.publish(.init(required: true, reason: retainedReason,
+                generation: generation, reasonGeneration: generation), to: self)
+        }
+    }
+
     var walletMigrationRecoveryRequired: Bool {
-        get { bool(for: SettingsKey.walletMigrationRecoveryRequired.rawValue) ?? false }
-        set { set(value: newValue, for: SettingsKey.walletMigrationRecoveryRequired.rawValue) }
+        get { WalletMigrationRecoveryMarker.capture(self).required }
+        set {
+            WalletMigrationRecoveryMarker.synchronized {
+                let current = WalletMigrationRecoveryMarker.capture(self)
+                let generation = UUID().uuidString
+                // A Boolean-only latch cannot authorize recovery using an older failure's reason.
+                WalletMigrationRecoveryMarker.publish(.init(required: newValue,
+                    reason: newValue ? nil : current.reason,
+                    generation: generation, reasonGeneration: generation), to: self)
+            }
+        }
     }
 
     var walletMigrationRecoveryReason: String? {
-        get { string(for: SettingsKey.walletMigrationRecoveryReason.rawValue) }
+        get { WalletMigrationRecoveryMarker.capture(self).reason }
         set {
-            if let newValue {
-                set(value: newValue, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
-            } else {
-                removeValue(for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            WalletMigrationRecoveryMarker.synchronized {
+                let current = WalletMigrationRecoveryMarker.capture(self)
+                let generation = UUID().uuidString
+                WalletMigrationRecoveryMarker.publish(.init(required: current.required,
+                    reason: newValue, generation: generation, reasonGeneration: generation), to: self)
             }
         }
     }

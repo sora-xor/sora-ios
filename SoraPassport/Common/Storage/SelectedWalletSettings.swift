@@ -114,10 +114,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     lifecycleLease: lifecycleLease
                 )
             } catch {
-                SettingsManager.shared.walletMigrationRecoveryRequired = true
-                SettingsManager.shared.walletMigrationRecoveryReason =
-                    UserStorageMigrationError
-                        .privacySafeRecoveryDescription(for: error)
+                SettingsManager.shared.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
                 throw error
             }
         },
@@ -135,10 +134,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     )
                 }
             } catch {
-                SettingsManager.shared.walletMigrationRecoveryRequired = true
-                SettingsManager.shared.walletMigrationRecoveryReason =
-                    UserStorageMigrationError
-                        .privacySafeRecoveryDescription(for: error)
+                SettingsManager.shared.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
                 throw error
             }
         },
@@ -158,10 +156,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     )
                 }
             } catch {
-                SettingsManager.shared.walletMigrationRecoveryRequired = true
-                SettingsManager.shared.walletMigrationRecoveryReason =
-                    UserStorageMigrationError
-                        .privacySafeRecoveryDescription(for: error)
+                SettingsManager.shared.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
                 throw error
             }
         }
@@ -536,12 +533,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                             })
                     ) == true
                 if hasUnresolvedCommit {
-                    self?.legacySettings?
-                        .walletMigrationRecoveryRequired = true
-                    self?.legacySettings?
-                        .walletMigrationRecoveryReason =
-                        UserStorageMigrationError
-                            .privacySafeRecoveryDescription(for: error)
+                    self?.legacySettings?.setWalletMigrationRecovery(
+                        reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                    )
                 }
                 completionClosure(.failure(error))
             }
@@ -751,12 +745,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 completionResult = .success(selectedAccount)
             } catch {
                 if case .some(.success) = saveOperation.result {
-                    self?.legacySettings?
-                        .walletMigrationRecoveryRequired = true
-                    self?.legacySettings?
-                        .walletMigrationRecoveryReason =
-                        UserStorageMigrationError
-                            .privacySafeRecoveryDescription(for: error)
+                    self?.legacySettings?.setWalletMigrationRecovery(
+                        reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                    )
                 }
                 completionResult = .failure(error)
             }
@@ -987,12 +978,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 completionResult = .success(updatedAccount)
             } catch {
                 if case .some(.success) = saveOperation.result {
-                    self?.legacySettings?
-                        .walletMigrationRecoveryRequired = true
-                    self?.legacySettings?
-                        .walletMigrationRecoveryReason =
-                        UserStorageMigrationError
-                            .privacySafeRecoveryDescription(for: error)
+                    self?.legacySettings?.setWalletMigrationRecovery(
+                        reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                    )
                 }
                 completionResult = .failure(error)
             }

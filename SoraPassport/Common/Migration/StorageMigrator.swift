@@ -216,6 +216,14 @@ private struct UserStorageMigrationJournal: Codable {
     var updatedAt: Date
     var failureReason: String?
     var safetyArtifacts: [UserStorageBackupRecord]?
+    var recoveryMarker: WalletMigrationRecoveryMarker? = nil
+}
+
+/// Observes durable migration boundaries for retained-store restart qualification.
+/// The observer never authorizes migration or changes its outcome.
+enum UserStorageMigrationCheckpoint: String, CaseIterable {
+    case preparationCreated, inventoryWritten, backupCopied
+    case backupVerified, stagingVerified, liveStoreReplaced, activated
 }
 
 final class UserStorageMigrator {
@@ -233,6 +241,8 @@ final class UserStorageMigrator {
     let fileManager: FileManager
     let targetVersion: UserStorageVersion
     private let recoveryGate: WalletRecoveryCapabilityGate
+    private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
+    private let checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)?
     private let availableCapacity: (URL) -> Int64?
     private let loadWalletNetworkSnapshot:
         () throws -> WalletNetworkSnapshot?
@@ -249,6 +259,8 @@ final class UserStorageMigrator {
         settings: SettingsManagerProtocol,
         fileManager: FileManager,
         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
+        checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
         availableCapacity: @escaping (URL) -> Int64? = UserStorageMigrator
             .availableCapacityForMigration(at:),
         loadWalletNetworkSnapshot:
@@ -267,6 +279,8 @@ final class UserStorageMigrator {
         self.settings = settings
         self.fileManager = fileManager
         self.recoveryGate = recoveryGate
+        self.migrationRecoveryMarker = migrationRecoveryMarker
+        self.checkpoint = checkpoint
         self.availableCapacity = availableCapacity
         self.loadWalletNetworkSnapshot = loadWalletNetworkSnapshot
         self.afterLegacyStoreCopyBeforeVerification =
@@ -275,13 +289,68 @@ final class UserStorageMigrator {
             beforeSafetyActivationVerification
     }
 
+    /// Startup owns the lifecycle lease while resolving the database journal.
+    /// Ordinary mutable access remains blocked until this concrete migrator has
+    /// verified activation; this is not a general bypass for wallet operations.
+    func migrateAtStartup(
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        hasUnresolvedAccountCommit: @escaping () throws -> Bool = {
+            try !WalletAccountCommitJournalStore().unresolved().isEmpty
+        }
+    ) throws {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        guard !marker.required || marker.isDatabaseInterruption else {
+            throw WalletNetworkMigrationError.walletRecoveryRequired
+        }
+        guard try !hasUnresolvedAccountCommit() else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        if marker.required {
+            let verificationGate = WalletRecoveryCapabilityGate(
+                settings: settings,
+                unresolvedMigrationJournal: {
+                    WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(
+                        storeURL: self.storeURL
+                    )
+                },
+                unresolvedWalletCommitJournal: hasUnresolvedAccountCommit,
+                migrationRecoveryMarker: marker
+            )
+            let verifier = UserStorageMigrator(
+                targetVersion: targetVersion, storeURL: storeURL,
+                modelDirectory: modelDirectory, keystore: keystore,
+                settings: settings, fileManager: fileManager,
+                recoveryGate: verificationGate,
+                migrationRecoveryMarker: marker,
+                checkpoint: checkpoint,
+                availableCapacity: availableCapacity,
+                loadWalletNetworkSnapshot: loadWalletNetworkSnapshot,
+                afterLegacyStoreCopyBeforeVerification:
+                    afterLegacyStoreCopyBeforeVerification,
+                beforeSafetyActivationVerification:
+                    beforeSafetyActivationVerification
+            )
+            try verifier.performMigration()
+            try marker.requireUnchanged(settings)
+            guard try !hasUnresolvedAccountCommit() else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            try marker.clearAfterVerifiedActivation(settings)
+        } else {
+            try performMigration()
+        }
+        try recoveryGate.requireMutableWalletAccess()
+    }
+
     func performMigration() throws {
-        // Do this before checkpointing or opening the live database writable.
-        // A process death can occur after the replacement store is activated
-        // but before its journal reaches `activated`. The destination schema
-        // alone is therefore not proof that the migration completed. Never
-        // skip that state on restart or silently retry over its retained
-        // legacy backup.
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        // Resume only after independently checking the retained attempt, live
+        // inventory and Keychain. The destination schema alone is insufficient.
+        if hasUnresolvedMigrationJournal() || migrationRecoveryMarker != nil {
+            try resumeInterruptedMigrationIfProven()
+        }
         guard !hasUnresolvedMigrationJournal() else {
             throw UserStorageMigrationError.interruptedMigration
         }
@@ -357,6 +426,8 @@ final class UserStorageMigrator {
             .appendingPathComponent("staging", isDirectory: true)
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
 
+        try checkpoint?(.preparationCreated)
+
         let manifestURL = migrationDirectory.appendingPathComponent("account-manifest.json")
         try writeJSON(
             sourceManifest,
@@ -381,6 +452,8 @@ final class UserStorageMigrator {
             maximumBytes: Self.maximumJournalBytes
         )
 
+        try checkpoint?(.inventoryWritten)
+
         // The immutable backup survives activation and is intentionally not
         // deleted in this release, enabling dual-read/recovery if a later
         // validation discovers an issue.
@@ -391,6 +464,7 @@ final class UserStorageMigrator {
                 at: storeURL,
                 to: legacyStoreDirectory
             )
+            try checkpoint?(.backupCopied)
             try afterLegacyStoreCopyBeforeVerification?(
                 legacyStoreDirectory
             )
@@ -423,6 +497,8 @@ final class UserStorageMigrator {
             )
             throw error
         }
+
+        try checkpoint?(.backupVerified)
 
         if sourceVersion == targetVersion {
             // Most installed production wallets already use the current Core
@@ -461,6 +537,8 @@ final class UserStorageMigrator {
                 throw error
             }
 
+            try checkpoint?(.activated)
+
             // Recovery is sticky. This migration began only after the caller
             // observed a clear marker; never erase a marker that another
             // integrity check may have latched while verification was
@@ -468,6 +546,24 @@ final class UserStorageMigrator {
             return
         }
 
+        try migrateAndActivateStore(
+            from: sourceVersion, sourceManifest: sourceManifest,
+            migrationDirectory: migrationDirectory,
+            stagingDirectory: stagingDirectory,
+            legacyStoreDirectory: legacyStoreDirectory,
+            journal: &journal, journalURL: journalURL
+        )
+    }
+
+    private func migrateAndActivateStore(
+        from sourceVersion: UserStorageVersion,
+        sourceManifest: UserStorageMigrationManifest,
+        migrationDirectory: URL,
+        stagingDirectory: URL,
+        legacyStoreDirectory: URL,
+        journal: inout UserStorageMigrationJournal,
+        journalURL: URL
+    ) throws {
         var liveStoreWasReplaced = false
         do {
             let stagedStoreURL = try createMigratedStore(
@@ -509,6 +605,8 @@ final class UserStorageMigrator {
                 maximumBytes: Self.maximumJournalBytes
             )
 
+            try checkpoint?(.stagingVerified)
+
             // This is the only mutation of the live store and happens after
             // the staging database and secure-key inventory have both passed.
             guard
@@ -517,6 +615,7 @@ final class UserStorageMigrator {
             else {
                 throw UserStorageMigrationError.unknownStoreVersion
             }
+            try recoveryGate.requireAuthorizedLifecycleContinuation()
             RetainedMigrationEvidenceHarness.shared
                 .recordRollbackStoreBeforeReplacement(storeURL)
             try NSPersistentStoreCoordinator.replaceStore(
@@ -530,6 +629,8 @@ final class UserStorageMigrator {
                 )
             try RetainedMigrationEvidenceHarness.shared
                 .injectRollbackAfterLiveStoreReplacement(storeURL)
+
+            try checkpoint?(.liveStoreReplaced)
 
             let activatedManifest = try createManifest(
                 storeURL: storeURL,
@@ -560,6 +661,7 @@ final class UserStorageMigrator {
                         migrationDirectory.lastPathComponent
                     )
             }
+            try recoveryGate.requireAuthorizedLifecycleContinuation()
             journal.state = .activated
             journal.updatedAt = Date()
             try writeJSON(
@@ -567,6 +669,8 @@ final class UserStorageMigrator {
                 to: journalURL,
                 maximumBytes: Self.maximumJournalBytes
             )
+
+            try checkpoint?(.activated)
 
             // Recovery is sticky. A successful store activation is not
             // authority to clear a marker latched by another integrity check.
@@ -606,6 +710,344 @@ final class UserStorageMigrator {
         }
     }
 
+    /// Finishes only preflight copies. Keeping the attempt and its journal in place makes a
+    /// second interruption retryable under the same recovery marker; no live wallet file is replaced.
+    private func completeIncompletePreflightAttemptIfProven(at attempt: URL) throws -> Bool {
+        let journalURL = attempt.appendingPathComponent("journal.json")
+        var journal: UserStorageMigrationJournal?
+        if pathExistsNoFollow(journalURL) {
+            journal = try readBoundedJSON(UserStorageMigrationJournal.self, at: journalURL,
+                                         maximumBytes: Self.maximumJournalBytes)
+            if journal?.safetyArtifacts != nil { return false }
+        }
+        guard let identifier = UUID(uuidString: attempt.lastPathComponent),
+              identifier.uuidString == attempt.lastPathComponent,
+              storeBundleIsRegularNoFollow(at: storeURL),
+              let metadata = NSPersistentStoreCoordinator.metadata(at: storeURL),
+              let sourceVersion = compatibleVersionForStoreMetadata(metadata)
+        else { throw UserStorageMigrationError.interruptedMigration }
+        if let journal {
+            guard journal.migrationID == identifier,
+                  journal.sourceVersion == sourceVersion.rawValue,
+                  journal.destinationVersion == targetVersion.rawValue,
+                  journal.state == .inventoryVerified, journal.failureReason == nil,
+                  journal.updatedAt.timeIntervalSince1970.isFinite,
+                  journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker
+            else { throw UserStorageMigrationError.interruptedMigration }
+        }
+
+        let staging = attempt.appendingPathComponent("staging", isDirectory: true)
+        let legacy = attempt.appendingPathComponent("legacy-store", isDirectory: true)
+        let manifestURL = attempt.appendingPathComponent("account-manifest.json")
+        let settingsURL = attempt.appendingPathComponent("settings-backup.plist")
+        let backupManifestURL = legacy.appendingPathComponent("backup-manifest.json")
+        let rootNames: Set<String> = ["staging", "legacy-store", "account-manifest.json",
+                                     "settings-backup.plist", "journal.json"]
+        let root = try incompletePreflightSnapshot(at: attempt, allowedNames: rootNames,
+                                                   directories: ["staging", "legacy-store"])
+        if pathExistsNoFollow(staging) {
+            guard try fileManager.contentsOfDirectory(atPath: staging.path).isEmpty else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+        }
+        // The writer publishes manifest, settings, journal, then legacy copies in this order.
+        guard (!pathExistsNoFollow(settingsURL) || pathExistsNoFollow(manifestURL)),
+              (journal == nil || pathExistsNoFollow(settingsURL)),
+              (!pathExistsNoFollow(legacy) || journal != nil)
+        else { throw UserStorageMigrationError.interruptedMigration }
+
+        let model = try createManagedObjectModel(forResource: sourceVersion.rawValue)
+        let liveManifest = try createManifest(storeURL: storeURL, model: model,
+                                             sourceVersion: sourceVersion, destinationVersion: targetVersion)
+        try validateKeychain(for: liveManifest)
+        let sourceRecords = try incompletePreflightStoreRecords()
+        let sourceNames = Set(sourceRecords.map(\.fileName))
+        let legacySnapshot = try pathExistsNoFollow(legacy)
+            ? incompletePreflightSnapshot(at: legacy,
+                allowedNames: sourceNames.union(["backup-manifest.json"]), directories: []) : nil
+        let manifest: UserStorageMigrationManifest
+        if pathExistsNoFollow(manifestURL) {
+            manifest = try readBoundedJSON(UserStorageMigrationManifest.self, at: manifestURL,
+                                          maximumBytes: Self.maximumManifestBytes)
+            guard validate(manifest: manifest, sourceVersion: sourceVersion, destinationVersion: targetVersion),
+                  manifest.inventoryEquals(liveManifest)
+            else { throw UserStorageMigrationError.accountInventoryMismatch }
+        } else {
+            manifest = liveManifest
+        }
+        guard let bundle = Bundle.main.bundleIdentifier else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        let preferences = UserDefaults.standard.persistentDomain(forName: bundle) ?? [:]
+        if pathExistsNoFollow(settingsURL) {
+            let data = try readBoundedData(at: settingsURL, maximumBytes: Self.maximumSettingsBackupBytes)
+            guard let retained = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+                    as? [String: Any],
+                  incompletePreflightSettingsEqual(retained, preferences)
+            else { throw UserStorageMigrationError.interruptedMigration }
+        }
+        if pathExistsNoFollow(backupManifestURL) {
+            let records = try readBoundedJSON([UserStorageBackupRecord].self, at: backupManifestURL,
+                                             maximumBytes: Self.maximumBackupManifestBytes)
+            guard records == sourceRecords else { throw UserStorageMigrationError.interruptedMigration }
+        }
+        for record in sourceRecords {
+            let retained = legacy.appendingPathComponent(record.fileName)
+            if pathExistsNoFollow(retained) {
+                try requireIncompletePreflightPrefix(at: retained,
+                    of: storeURL.deletingLastPathComponent().appendingPathComponent(record.fileName))
+            }
+        }
+        try ensureMigrationCapacity()
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard try incompletePreflightStoreRecords() == sourceRecords,
+              incompletePreflightSettingsEqual(preferences,
+                  UserDefaults.standard.persistentDomain(forName: bundle) ?? [:]),
+              try incompletePreflightSnapshot(at: attempt, allowedNames: rootNames,
+                    directories: ["staging", "legacy-store"]) == root,
+              try !pathExistsNoFollow(legacy) || incompletePreflightSnapshot(at: legacy,
+                    allowedNames: sourceNames.union(["backup-manifest.json"]), directories: []) == legacySnapshot
+        else { throw UserStorageMigrationError.interruptedMigration }
+
+        if !pathExistsNoFollow(staging) {
+            try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
+        }
+        if !pathExistsNoFollow(manifestURL) {
+            try writeJSON(manifest, to: manifestURL, maximumBytes: Self.maximumManifestBytes)
+        }
+        if !pathExistsNoFollow(settingsURL) { try backupSettings(to: settingsURL) }
+        var completed = journal ?? UserStorageMigrationJournal(
+            migrationID: identifier, sourceVersion: sourceVersion.rawValue,
+            destinationVersion: targetVersion.rawValue, state: .inventoryVerified,
+            updatedAt: Date(), failureReason: nil, safetyArtifacts: nil)
+        completed.recoveryMarker = migrationRecoveryMarker
+        try writeJSON(completed, to: journalURL, maximumBytes: Self.maximumJournalBytes)
+        if !pathExistsNoFollow(legacy) {
+            try fileManager.createDirectory(at: legacy, withIntermediateDirectories: false)
+        }
+        for record in sourceRecords {
+            let source = storeURL.deletingLastPathComponent().appendingPathComponent(record.fileName)
+            let destination = legacy.appendingPathComponent(record.fileName)
+            if pathExistsNoFollow(destination) {
+                try requireIncompletePreflightPrefix(at: destination, of: source)
+                let size = try destination.resourceValues(forKeys: [.fileSizeKey]).fileSize
+                if size == record.byteCount { continue }
+                // Only a proved redundant partial copy is removed, and the attempt/journal stay
+                // present. A restart between removal and recopy sees a missing copy it can rebuild.
+                guard try incompletePreflightStoreRecords() == sourceRecords else {
+                    throw UserStorageMigrationError.interruptedMigration
+                }
+                try fileManager.removeItem(at: destination)
+            }
+            try fileManager.copyItem(at: source, to: destination)
+            try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: destination)
+            guard try sha256File(at: destination) == record.sha256 else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+        }
+        try writeJSON(sourceRecords, to: backupManifestURL, maximumBytes: Self.maximumBackupManifestBytes)
+        try verifyCopiedLegacyStore(in: legacy, sourceModel: model,
+                                    sourceManifest: manifest, sourceVersion: sourceVersion)
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard try incompletePreflightStoreRecords() == sourceRecords,
+              incompletePreflightSettingsEqual(preferences,
+                  UserDefaults.standard.persistentDomain(forName: bundle) ?? [:])
+        else { throw UserStorageMigrationError.interruptedMigration }
+        completed.safetyArtifacts = try safetyArtifactRecords(manifestURL: manifestURL,
+            settingsURL: settingsURL, backupManifestURL: backupManifestURL)
+        completed.updatedAt = Date()
+        try writeJSON(completed, to: journalURL, maximumBytes: Self.maximumJournalBytes)
+        return true
+    }
+
+    private func incompletePreflightSettingsEqual(_ lhs: [String: Any], _ rhs: [String: Any]) -> Bool {
+        // A restart may have latched the exact marker that authorized this retry. Its compare-and-
+        // clear is owned by the caller; no other retained preference difference is ignored here.
+        let markerKeys = Set([SettingsKey.walletMigrationRecoveryRequired,
+            .walletMigrationRecoveryReason, .walletMigrationRecoveryGeneration,
+            .walletMigrationRecoveryReasonGeneration, .walletMigrationRecoveryRecord].map(\.rawValue))
+        return NSDictionary(dictionary: lhs.filter { !markerKeys.contains($0.key) })
+            .isEqual(NSDictionary(dictionary: rhs.filter { !markerKeys.contains($0.key) }))
+    }
+
+    private func incompletePreflightStoreRecords() throws -> [UserStorageBackupRecord] {
+        guard storeBundleIsRegularNoFollow(at: storeURL) else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        return try ["", "-wal", "-shm"].compactMap { suffix in
+            let url = URL(fileURLWithPath: storeURL.path + suffix)
+            guard pathExistsNoFollow(url) else { return nil }
+            let state = try incompletePreflightFileState(at: url, directory: false)
+            guard state.size > 0, state.size <= Int.max else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            return UserStorageBackupRecord(fileName: url.lastPathComponent,
+                                           byteCount: Int(state.size), sha256: try sha256File(at: url))
+        }.sorted { $0.fileName < $1.fileName }
+    }
+
+    private func incompletePreflightSnapshot(at directory: URL, allowedNames: Set<String>,
+                                             directories: Set<String>) throws -> [String: String] {
+        var result = ["": try incompletePreflightFileState(at: directory, directory: true).identity]
+        let children = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        guard children.count <= allowedNames.count else { throw UserStorageMigrationError.interruptedMigration }
+        for child in children {
+            guard allowedNames.contains(child.lastPathComponent) else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            let isDirectory = directories.contains(child.lastPathComponent)
+            let state = try incompletePreflightFileState(at: child, directory: isDirectory)
+            result[child.lastPathComponent] = state.identity + (isDirectory ? "" : try sha256File(at: child))
+        }
+        return result
+    }
+
+    private func incompletePreflightFileState(at url: URL, directory: Bool) throws -> (identity: String, size: off_t) {
+        var value = stat()
+        guard url.withUnsafeFileSystemRepresentation({ path in
+            path.map { Darwin.lstat($0, &value) } ?? -1
+        }) == 0,
+        value.st_mode & mode_t(S_IFMT) == mode_t(directory ? S_IFDIR : S_IFREG),
+        directory || value.st_nlink == 1, value.st_size >= 0
+        else { throw UserStorageMigrationError.interruptedMigration }
+        return ("\(value.st_dev):\(value.st_ino):\(value.st_mode):\(value.st_nlink):\(value.st_size):" +
+                "\(value.st_mtimespec.tv_sec):\(value.st_mtimespec.tv_nsec):" +
+                "\(value.st_ctimespec.tv_sec):\(value.st_ctimespec.tv_nsec):", value.st_size)
+    }
+
+    private func requireIncompletePreflightPrefix(at copy: URL, of source: URL) throws {
+        let copiedState = try incompletePreflightFileState(at: copy, directory: false)
+        let sourceState = try incompletePreflightFileState(at: source, directory: false)
+        guard copiedState.size <= sourceState.size else { throw UserStorageMigrationError.interruptedMigration }
+        let copied = try FileHandle(forReadingFrom: copy)
+        let original = try FileHandle(forReadingFrom: source)
+        defer { try? copied.close(); try? original.close() }
+        while let bytes = try copied.read(upToCount: 1_048_576), !bytes.isEmpty {
+            var expected = Data()
+            while expected.count < bytes.count {
+                guard let part = try original.read(upToCount: bytes.count - expected.count), !part.isEmpty else {
+                    throw UserStorageMigrationError.interruptedMigration
+                }
+                expected.append(part)
+            }
+            guard bytes == expected else { throw UserStorageMigrationError.interruptedMigration }
+        }
+        guard try incompletePreflightFileState(at: copy, directory: false).identity == copiedState.identity,
+              try incompletePreflightFileState(at: source, directory: false).identity == sourceState.identity
+        else { throw UserStorageMigrationError.interruptedMigration }
+    }
+
+    private func resumeInterruptedMigrationIfProven() throws {
+        let attempts = try migrationAttempts(in: migrationSafetyDirectory())
+        guard attempts.count <= Self.maximumMigrationAttempts else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        var unfinished: [(URL, UserStorageMigrationJournal)] = []
+        for attempt in attempts {
+            try completeIncompletePreflightAttemptIfProven(at: attempt)
+            let journal = try readBoundedJSON(
+                UserStorageMigrationJournal.self,
+                at: attempt.appendingPathComponent("journal.json"),
+                maximumBytes: Self.maximumJournalBytes
+            )
+            guard journal.migrationID.uuidString == attempt.lastPathComponent,
+                  journal.updatedAt.timeIntervalSince1970.isFinite,
+                  journal.failureReason == nil,
+                  try verifySafetyAttempt(at: attempt, journal: journal,
+                                          expectedState: journal.state)
+            else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            if journal.state != .activated ||
+                (migrationRecoveryMarker != nil &&
+                 journal.recoveryMarker == migrationRecoveryMarker) {
+                unfinished.append((attempt, journal))
+            }
+        }
+        guard unfinished.count == 1 else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        let (attempt, retainedJournal) = unfinished[0]
+        var journal = retainedJournal
+        guard journal.state == .inventoryVerified ||
+                journal.state == .stagingVerified ||
+                (journal.state == .activated &&
+                 journal.recoveryMarker == migrationRecoveryMarker &&
+                 migrationRecoveryMarker != nil),
+              journal.recoveryMarker == nil ||
+                journal.recoveryMarker == migrationRecoveryMarker,
+              let sourceVersion = UserStorageVersion(rawValue: journal.sourceVersion),
+              journal.destinationVersion == targetVersion.rawValue,
+              storeBundleIsRegularNoFollow(at: storeURL),
+              let metadata = NSPersistentStoreCoordinator.metadata(at: storeURL),
+              let liveVersion = compatibleVersionForStoreMetadata(metadata),
+              liveVersion == sourceVersion || liveVersion == targetVersion,
+              journal.state != .inventoryVerified || liveVersion == sourceVersion
+        else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        let manifest = try readBoundedJSON(
+            UserStorageMigrationManifest.self,
+            at: attempt.appendingPathComponent("account-manifest.json"),
+            maximumBytes: Self.maximumManifestBytes
+        )
+        let backupDirectory = attempt.appendingPathComponent("legacy-store", isDirectory: true)
+        try verifyCopiedLegacyStore(
+            in: backupDirectory,
+            sourceModel: createManagedObjectModel(forResource: sourceVersion.rawValue),
+            sourceManifest: manifest, sourceVersion: sourceVersion
+        )
+        let liveManifest = try createManifest(
+            storeURL: storeURL,
+            model: createManagedObjectModel(forResource: liveVersion.rawValue),
+            sourceVersion: sourceVersion, destinationVersion: targetVersion
+        )
+        guard manifest.inventoryEquals(liveManifest),
+              manifest.selectedAddress == liveManifest.selectedAddress,
+              manifest.settingsSelectedAddress == liveManifest.settingsSelectedAddress
+        else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        try validateKeychain(for: liveManifest)
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        let journalURL = attempt.appendingPathComponent("journal.json")
+        if let migrationRecoveryMarker {
+            // Bind activation to the exact old marker. If the process dies
+            // after activation but before compare-and-clear, restart can prove
+            // which marker that completed attempt is authorized to resolve.
+            journal.recoveryMarker = migrationRecoveryMarker
+            try writeJSON(journal, to: journalURL,
+                          maximumBytes: Self.maximumJournalBytes)
+        }
+        if liveVersion == targetVersion {
+            try beforeSafetyActivationVerification?(attempt)
+            guard try verifySafetyAttempt(at: attempt, journal: journal,
+                                          expectedState: journal.state) else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            try recoveryGate.requireAuthorizedLifecycleContinuation()
+            journal.state = .activated
+            journal.updatedAt = Date()
+            try writeJSON(journal, to: journalURL,
+                          maximumBytes: Self.maximumJournalBytes)
+            try checkpoint?(.activated)
+            return
+        }
+        try ensureMigrationCapacity()
+        // Preserve unfinished staging files. A new child contains only this
+        // restart's candidate; the immutable legacy backup is never replaced.
+        let stagingDirectory = attempt.appendingPathComponent("staging", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: stagingDirectory,
+                                        withIntermediateDirectories: false)
+        try migrateAndActivateStore(
+            from: sourceVersion, sourceManifest: manifest,
+            migrationDirectory: attempt, stagingDirectory: stagingDirectory,
+            legacyStoreDirectory: backupDirectory,
+            journal: &journal, journalURL: journalURL
+        )
+    }
+
     private func recordMigrationFailure(
         _ error: Error,
         journal: inout UserStorageMigrationJournal,
@@ -623,9 +1065,10 @@ final class UserStorageMigrator {
         )
 
         // Never remove or replace the legacy backup on failure.
-        settings.walletMigrationRecoveryRequired = true
-        settings.walletMigrationRecoveryReason = UserStorageMigrationError
-            .privacySafeRecoveryDescription(for: error)
+        settings.setWalletMigrationRecovery(
+            reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error),
+            preservingExistingReason: true
+        )
     }
 
     private func createMigratedStore(
@@ -1953,10 +2396,9 @@ extension UserStorageMigrator: StorageMigrating {
             do {
                 try self?.performMigration()
             } catch {
-                self?.settings.walletMigrationRecoveryRequired = true
-                self?.settings.walletMigrationRecoveryReason =
-                    UserStorageMigrationError
-                        .privacySafeRecoveryDescription(for: error)
+                self?.settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
                 let outcome = UserStorageMigrationError
                     .privacySafeOutcomeCode(for: error)
                 Logger.shared.error(

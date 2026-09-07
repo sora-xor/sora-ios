@@ -46,7 +46,8 @@ enum WalletStorageStartup {
         settings: SettingsManagerProtocol,
         migration: () throws -> Void
     ) -> WalletStorageStartupOutcome {
-        guard !settings.walletMigrationRecoveryRequired else {
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        guard !marker.required || marker.isDatabaseInterruption else {
             return .recoveryRequired
         }
         do {
@@ -63,10 +64,10 @@ enum WalletStorageStartup {
                 return .needsStorageSpace
             }
             if !settings.walletMigrationRecoveryRequired {
-                settings.walletMigrationRecoveryRequired = true
-                settings.walletMigrationRecoveryReason =
-                    UserStorageMigrationError
-                        .privacySafeRecoveryDescription(for: error)
+                settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error),
+                    preservingExistingReason: true
+                )
             }
             Logger.shared.error(
                 "Wallet startup outcome: \(UserStorageMigrationError.privacySafeOutcomeCode(for: error))"
@@ -199,14 +200,6 @@ final class SplashInteractor: SplashInteractorProtocol {
             fileManager: FileManager.default
         )
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
-        // A retained recovery marker means an earlier migration did not reach
-        // a fully verified terminal state. Do not open or retry the installed
-        // store before presenting the recovery-safe route.
-        guard !settings.walletMigrationRecoveryRequired else {
-            completeSplashOnMain()
-            return
-        }
-
         var deferredForLegacyUpgrade = false
         let outcome = WalletStorageStartup.run(settings: settings) {
             let unresolvedCommits =
@@ -214,7 +207,8 @@ final class SplashInteractor: SplashInteractorProtocol {
             guard unresolvedCommits.isEmpty else {
                 throw UserStorageMigrationError.interruptedMigration
             }
-            if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+            if !settings.walletMigrationRecoveryRequired,
+               try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
                 storeExists: FileManager.default.fileExists(
                     atPath: UserStorageParams.storageURL.path
                 ),
@@ -230,9 +224,7 @@ final class SplashInteractor: SplashInteractorProtocol {
                 deferredForLegacyUpgrade = true
                 return
             }
-            try WalletLifecycleCoordinator.shared.withExclusiveAccess {
-                try dbMigrator.migrate()
-            }
+            try dbMigrator.migrateAtStartup()
         }
 
         switch outcome {
@@ -279,10 +271,9 @@ final class SplashInteractor: SplashInteractorProtocol {
                 logger.error(
                     "Selected account setup outcome: \(outcome)"
                 )
-                self?.settings.walletMigrationRecoveryRequired = true
-                self?.settings.walletMigrationRecoveryReason =
-                    UserStorageMigrationError
-                        .privacySafeRecoveryDescription(for: error)
+                self?.settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
                 self?.presenter.setupComplete()
             }
         }
@@ -341,9 +332,9 @@ final class SplashInteractor: SplashInteractorProtocol {
                     self.presenter.setupComplete()
                 }
             } catch {
-                settings.walletMigrationRecoveryRequired = true
-                settings.walletMigrationRecoveryReason = UserStorageMigrationError
-                    .privacySafeRecoveryDescription(for: error)
+                settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
                 let outcome = UserStorageMigrationError
                     .privacySafeOutcomeCode(for: error)
                 Logger.shared.error(

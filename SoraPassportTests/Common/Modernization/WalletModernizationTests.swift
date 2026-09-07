@@ -131,6 +131,32 @@ private final class CountingSettingsManager: SettingsManagerProtocol {
     }
 }
 
+private final class PersistedWriteObservingSettingsManager: SettingsManagerProtocol {
+    private let backing = InMemorySettingsManager()
+    private(set) var snapshots: [(key: String, state: [String: Any])] = []
+    func clearSnapshots() { snapshots.removeAll() }
+    private func recorded(_ key: String) {
+        snapshots.append((key, Dictionary(uniqueKeysWithValues: backing.allKeys().compactMap { name in
+            backing.anyValue(for: name).map { (name, $0) }
+        })))
+    }
+    func set(value: Bool, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: Int, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: Double, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: String, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: Data, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(anyValue: Any, for key: String) { backing.set(anyValue: anyValue, for: key); recorded(key) }
+    func bool(for key: String) -> Bool? { backing.bool(for: key) }
+    func integer(for key: String) -> Int? { backing.integer(for: key) }
+    func double(for key: String) -> Double? { backing.double(for: key) }
+    func string(for key: String) -> String? { backing.string(for: key) }
+    func data(for key: String) -> Data? { backing.data(for: key) }
+    func anyValue(for key: String) -> Any? { backing.anyValue(for: key) }
+    func allKeys() -> [String] { backing.allKeys() }
+    func removeValue(for key: String) { backing.removeValue(for: key); recorded(key) }
+    func removeAll() { backing.removeAll(); recorded("removeAll") }
+}
+
 private func makeLiquidityBatchWireFixture(
     assetA: String,
     assetB: String
@@ -8823,6 +8849,320 @@ final class WalletModernizationTests: XCTestCase {
                 XCTAssertEqual(try keychain.fetchKey(for: tag), bytes)
             }
             XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+        }
+    }
+
+    /// Snapshots are copied at real production persistence boundaries. Restart
+    /// uses fresh migrator/coordinator instances against those retained bytes;
+    /// no injected error is relabelled as an interrupted process.
+    private func withInterruptedDatabaseFixture(
+        version: UserStorageVersion = .version1,
+        _ body: (URL, [UserStorageMigrationCheckpoint: URL], [AccountItem], InMemoryKeychain) throws -> Void
+    ) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let installed = root.appendingPathComponent("installed")
+        try FileManager.default.createDirectory(at: installed, withIntermediateDirectories: true)
+        let keys = InMemoryKeychain()
+        let accounts = try [UInt8(81), UInt8(82)].enumerated().map { index, byte in
+            let seed = Data(repeating: byte, count: 32)
+            let pair = try Ed25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+            let publicKey = pair.publicKey().rawData()
+            let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: Chain.sora.addressType())
+            try keys.saveSecretKey(seed, address: address)
+            try keys.saveSeed(seed, address: address)
+            return AccountItem(address: address, cryptoType: .ed25519,
+                networkType: Chain.sora.addressType(), username: "Retained account \(index)",
+                publicKeyData: publicKey,
+                settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                order: index == 0 ? 17 : 3, isSelected: index == 1)
+        }
+        let settings = InMemorySettingsManager()
+        settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+        let storeURL = installed.appendingPathComponent("UserDataModel.sqlite")
+        try writeAccounts(accounts, to: storeURL,
+            model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+        var snapshots: [UserStorageMigrationCheckpoint: URL] = [:]
+        let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+            settings: settings, fileManager: .default,
+            recoveryGate: makeIsolatedRecoveryGate(settings: settings),
+            checkpoint: { phase in
+                let snapshot = root.appendingPathComponent(phase.rawValue)
+                try FileManager.default.copyItem(at: installed, to: snapshot)
+                snapshots[phase] = snapshot
+            }, availableCapacity: { _ in Int64.max }, loadWalletNetworkSnapshot: { nil })
+        try migrator.performMigration()
+        try body(root, snapshots, accounts, keys)
+    }
+
+    private func interruptedDatabaseStartup(
+        directory: URL, accounts: [AccountItem], keys: InMemoryKeychain,
+        settings: InMemorySettingsManager,
+        checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
+        unresolvedAccountCommit: @escaping () throws -> Bool = { false }
+    ) throws {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: {
+                WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
+            }, unresolvedWalletCommitJournal: unresolvedAccountCommit)
+        let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+            settings: settings, fileManager: .default, recoveryGate: gate,
+            checkpoint: checkpoint, availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { nil })
+        try migrator.migrateAtStartup(lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+            hasUnresolvedAccountCommit: unresolvedAccountCommit)
+        try gate.requireMutableWalletAccess()
+        try assertStoredAccounts(accounts, at: storeURL,
+            model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)?.address,
+                       accounts[1].address)
+        for account in accounts {
+            let seed = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
+            let payload = Data("restart-signing-qualification".utf8)
+            let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: seed)
+            try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                                             secretKey: seed, account: account)
+        }
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testInterruptedCoreDataMigrationResumesWithLegacyAndCurrentRecoveryMarkers() throws {
+        for version in UserStorageVersion.allCases {
+            try withInterruptedDatabaseFixture(version: version) { root, snapshots, accounts, keys in
+                let expected: Set<UserStorageMigrationCheckpoint> = version == .version1
+                    ? Set(UserStorageMigrationCheckpoint.allCases)
+                    : [.preparationCreated, .inventoryWritten, .backupCopied, .backupVerified, .activated]
+                XCTAssertEqual(Set(snapshots.keys), expected)
+                let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                for (phase, snapshot) in snapshots where phase != .activated {
+                    for markerKind in ["none", "legacy", "current"] {
+                        let resumed = root.appendingPathComponent("resume-\(phase.rawValue)-\(markerKind)")
+                        try FileManager.default.copyItem(at: snapshot, to: resumed)
+                        let settings = InMemorySettingsManager()
+                        settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+                            for: UserStorageMigrationError.interruptedMigration)
+                        if markerKind == "legacy" {
+                            // Actual previous-build representation, without generation fields.
+                            settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+                            settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+                        } else if markerKind == "current" {
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        }
+                        for _ in 0..<2 {
+                            try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                                keys: keys, settings: settings)
+                            XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                            for (tag, bytes) in originalKeys {
+                                XCTAssertEqual(try keys.fetchKey(for: tag), bytes)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testInterruptedRecoveryRechecksEvidenceAndMarkerBeforeClearing() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            for failure in ["foreignMarker", "repeatedMarker", "changedBackup", "accountCommit"] {
+                let resumed = root.appendingPathComponent(failure)
+                try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupVerified]), to: resumed)
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                let reason = failure == "foreignMarker" ? "Missing retained wallet secret" :
+                    UserStorageMigrationError.privacySafeRecoveryDescription(for: UserStorageMigrationError.interruptedMigration)
+                settings.setWalletMigrationRecovery(reason: reason)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let safety = resumed.appendingPathComponent("WalletMigrationSafety")
+                let attempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: safety,
+                    includingPropertiesForKeys: nil).first)
+                if failure == "changedBackup" {
+                    let backup = attempt.appendingPathComponent("legacy-store/UserDataModel.sqlite")
+                    var data = try Data(contentsOf: backup)
+                    data[data.count - 1] ^= 1
+                    try data.write(to: backup)
+                }
+                XCTAssertThrowsError(try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                    keys: keys, settings: settings, checkpoint: { phase in
+                        if phase == .liveStoreReplaced, failure == "repeatedMarker" {
+                            // A concurrent integrity check repeated the SAME reason. Its
+                            // newer generation must not be erased by the old verifier.
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        }
+                    }, unresolvedAccountCommit: { failure == "accountCommit" }))
+                XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+                if failure != "repeatedMarker" {
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                }
+                try assertStoredAccounts(accounts.map { $0.replacingSelection(false) },
+                    at: resumed.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version1.rawValue), includesSelection: false)
+                XCTAssertTrue(FileManager.default.fileExists(atPath: attempt.path))
+            }
+        }
+    }
+
+    func testInterruptedRecoveryResumesAfterActivationBeforeMarkerClear() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            let first = root.appendingPathComponent("first-recovery")
+            try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupVerified]), to: first)
+            let settings = InMemorySettingsManager()
+            settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration))
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let second = root.appendingPathComponent("restart-after-activation")
+            try interruptedDatabaseStartup(directory: first, accounts: accounts, keys: keys, settings: settings,
+                checkpoint: { phase in
+                    if phase == .activated {
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                        try FileManager.default.copyItem(at: first, to: second)
+                    }
+                })
+            let restartedSettings = InMemorySettingsManager()
+            restartedSettings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+            restartedSettings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+            restartedSettings.set(value: try XCTUnwrap(marker.reason), for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            restartedSettings.set(value: try XCTUnwrap(marker.generation), for: SettingsKey.walletMigrationRecoveryGeneration.rawValue)
+            restartedSettings.set(value: try XCTUnwrap(marker.reasonGeneration), for: SettingsKey.walletMigrationRecoveryReasonGeneration.rawValue)
+            try interruptedDatabaseStartup(directory: second, accounts: accounts, keys: keys, settings: restartedSettings)
+            try interruptedDatabaseStartup(directory: second, accounts: accounts, keys: keys, settings: restartedSettings)
+        }
+    }
+
+    func testRecoveryMarkerPublicationRemainsAtomicAcrossPersistedWrites() throws {
+        func freshCapture(_ snapshot: [String: Any]) -> WalletMigrationRecoveryMarker {
+            let restarted = InMemorySettingsManager()
+            snapshot.forEach { restarted.set(anyValue: $0.value, for: $0.key) }
+            return WalletMigrationRecoveryMarker.capture(restarted)
+        }
+        let settings = PersistedWriteObservingSettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+            for: UserStorageMigrationError.interruptedMigration)
+        // Authentic older representation remains readable before the new record is introduced.
+        settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+        settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+        XCTAssertTrue(WalletMigrationRecoveryMarker.capture(settings).isDatabaseInterruption)
+        var lastMarker = WalletMigrationRecoveryMarker.capture(settings)
+        for _ in 0..<2 {
+            settings.clearSnapshots()
+            settings.setWalletMigrationRecovery(reason: reason)
+            let published = WalletMigrationRecoveryMarker.capture(settings)
+            XCTAssertNotEqual(lastMarker, published)
+            XCTAssertThrowsError(try lastMarker.clearAfterVerifiedActivation(settings))
+            XCTAssertEqual(settings.snapshots.first?.key, SettingsKey.walletMigrationRecoveryRecord.rawValue)
+            XCTAssertGreaterThan(settings.snapshots.count, 1)
+            for snapshot in settings.snapshots {
+                // Each snapshot is an independent persisted state after exactly one underlying
+                // write, including termination before any or all compatibility mirrors complete.
+                let restarted = freshCapture(snapshot.state)
+                XCTAssertEqual(restarted, published)
+                XCTAssertTrue(restarted.required)
+                XCTAssertTrue(restarted.isDatabaseInterruption)
+                XCTAssertEqual(restarted.generation, restarted.reasonGeneration)
+            }
+            lastMarker = published
+        }
+        // The caller has verified activation before invoking this method. At every subsequent
+        // persisted write, fresh readers see the complete cleared record despite stale true mirrors.
+        try lastMarker.requireUnchanged(settings)
+        settings.clearSnapshots()
+        try lastMarker.clearAfterVerifiedActivation(settings)
+        let cleared = WalletMigrationRecoveryMarker.capture(settings)
+        XCTAssertFalse(cleared.required)
+        XCTAssertEqual(settings.snapshots.first?.key, SettingsKey.walletMigrationRecoveryRecord.rawValue)
+        XCTAssertEqual(settings.snapshots.first?.state[SettingsKey.walletMigrationRecoveryRequired.rawValue] as? Bool, true)
+        for snapshot in settings.snapshots { XCTAssertEqual(freshCapture(snapshot.state), cleared) }
+
+        settings.clearSnapshots()
+        settings.walletMigrationRecoveryRequired = true
+        XCTAssertTrue(settings.snapshots.allSatisfy { freshCapture($0.state).required })
+        XCTAssertTrue(settings.snapshots.allSatisfy {
+            let marker = freshCapture($0.state)
+            return marker.generation == marker.reasonGeneration && !marker.isDatabaseInterruption
+        })
+        settings.clearSnapshots()
+        settings.walletMigrationRecoveryReason = reason
+        XCTAssertTrue(settings.snapshots.allSatisfy { freshCapture($0.state).isDatabaseInterruption })
+
+        for malformed: Any in ["{}", "{\"required\":false}", "not-json", Data([1, 2]), 17] {
+            let invalid = InMemorySettingsManager()
+            invalid.set(value: false, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+            invalid.set(anyValue: malformed, for: SettingsKey.walletMigrationRecoveryRecord.rawValue)
+            let marker = WalletMigrationRecoveryMarker.capture(invalid)
+            XCTAssertTrue(marker.required)
+            XCTAssertFalse(marker.isDatabaseInterruption)
+            XCTAssertThrowsError(try marker.clearAfterVerifiedActivation(invalid))
+        }
+    }
+
+    func testIncompletePreflightCopiesResumeOnlyWhenRedundant() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                ($0, try keys.fetchKey(for: $0))
+            })
+            for condition in ["partial", "changed", "unknown"] {
+                let resumed = root.appendingPathComponent("incomplete-\(condition)")
+                try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupCopied]), to: resumed)
+                let attempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+                    at: resumed.appendingPathComponent("WalletMigrationSafety"),
+                    includingPropertiesForKeys: nil).first)
+                let journal = try XCTUnwrap(JSONSerialization.jsonObject(with:
+                    Data(contentsOf: attempt.appendingPathComponent("journal.json"))) as? [String: Any])
+                XCTAssertNil(journal["safetyArtifacts"])
+                let backup = attempt.appendingPathComponent("legacy-store/UserDataModel.sqlite")
+                let originalBackup = try Data(contentsOf: backup)
+                let installed = resumed.appendingPathComponent("UserDataModel.sqlite")
+                let originalInstalled = try Data(contentsOf: installed)
+                if condition == "partial" {
+                    try originalBackup.prefix(originalBackup.count / 2).write(to: backup)
+                    try FileManager.default.removeItem(at:
+                        attempt.appendingPathComponent("legacy-store/backup-manifest.json"))
+                } else if condition == "changed" {
+                    var changed = originalBackup
+                    changed[changed.count - 1] ^= 1
+                    try changed.write(to: backup)
+                } else {
+                    try Data("Retain unknown evidence".utf8).write(to:
+                        attempt.appendingPathComponent("unknown-evidence"))
+                }
+                let retainedBackup = try Data(contentsOf: backup)
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                settings.setWalletMigrationRecovery(reason:
+                    UserStorageMigrationError.privacySafeRecoveryDescription(
+                        for: UserStorageMigrationError.interruptedMigration))
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                if condition == "partial" {
+                    try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                        keys: keys, settings: settings)
+                    try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                        keys: keys, settings: settings)
+                    XCTAssertEqual(try Data(contentsOf: backup), originalBackup)
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                } else {
+                    for _ in 0..<2 {
+                        XCTAssertThrowsError(try interruptedDatabaseStartup(directory: resumed,
+                            accounts: accounts, keys: keys, settings: settings))
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                        XCTAssertEqual(try Data(contentsOf: installed), originalInstalled)
+                        XCTAssertEqual(try Data(contentsOf: backup), retainedBackup)
+                        if condition == "unknown" {
+                            XCTAssertEqual(try Data(contentsOf: attempt.appendingPathComponent("unknown-evidence")),
+                                           Data("Retain unknown evidence".utf8))
+                        }
+                    }
+                }
+                XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                XCTAssertTrue(FileManager.default.fileExists(atPath: attempt.path))
+            }
         }
     }
 

@@ -393,10 +393,9 @@ final class RootInteractor {
     }
 
     private func failLegacyWalletUpgrade(_ error: Error) {
-        settings.walletMigrationRecoveryRequired = true
-        settings.walletMigrationRecoveryReason =
-            UserStorageMigrationError
-                .privacySafeRecoveryDescription(for: error)
+        settings.setWalletMigrationRecovery(
+            reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+        )
         legacyImportInteractor = nil
         presenter?.didDecideBroken()
     }
@@ -504,10 +503,9 @@ extension RootInteractor: RootInteractorInputProtocol {
                     hasInventoriedWallets ||
                     pincodeExists {
                     let error = WalletIntegrityError.selectedAccountMissing
-                    settings.walletMigrationRecoveryRequired = true
-                    settings.walletMigrationRecoveryReason =
-                        UserStorageMigrationError
-                            .privacySafeRecoveryDescription(for: error)
+                    settings.setWalletMigrationRecovery(
+                        reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                    )
                     presenter?.didDecideBroken()
                     return
                 }
@@ -527,10 +525,9 @@ extension RootInteractor: RootInteractorInputProtocol {
             }
 
         } catch {
-            settings.walletMigrationRecoveryRequired = true
-            settings.walletMigrationRecoveryReason =
-                UserStorageMigrationError
-                    .privacySafeRecoveryDescription(for: error)
+            settings.setWalletMigrationRecovery(
+                reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+            )
             presenter?.didDecideBroken()
         }
     }
