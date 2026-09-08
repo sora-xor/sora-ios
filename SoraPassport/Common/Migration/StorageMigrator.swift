@@ -2244,7 +2244,14 @@ final class UserStorageMigrator {
             return scoped
         }
         guard let snapshot = try loadWalletNetworkSnapshot() else {
-            return nil
+            // A legacy watch-only declaration never acquires a global signer.
+            guard settings.bool(for: "wallet.watchOnly.\(address)") != true else {
+                return nil
+            }
+            return try keystore.fetchLegacyEntropyBeforeNetworkActivation(
+                for: address,
+                recoveryGate: recoveryGate
+            )
         }
         return try keystore.fetchEntropyForAddress(
             address,
