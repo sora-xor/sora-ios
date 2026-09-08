@@ -5176,9 +5176,9 @@ final class WalletNetworkModelMigrator {
                     recoveryGate: recoveryGate
                 )
             } else {
-                // Before activation only an exact address-scoped record may be
-                // read here. The guarded single-account block below owns the
-                // one supported unsuffixed legacy resolution path.
+                // Scoped credentials take precedence. The migration-only
+                // fallback below proves any retained global entropy against
+                // this exact account before the first snapshot is activated.
                 entropy = try keystore.loadIfKeyExists(scopedEntropyTag)
             }
             var rawSeed = try keystore.fetchSeedForAddress(account.address)
@@ -5198,42 +5198,19 @@ final class WalletNetworkModelMigrator {
                 settings.bool(for: watchOnlyKey) == true
             if
                 current == nil,
-                accounts.count == 1,
                 entropy == nil,
                 rawSeed == nil,
                 legacySecret == nil,
                 !isExplicitWatchOnly
             {
-                let identifiers = Set(try keystore.allKeyIdentifiers())
-                let scopedSuffixes = [
-                    "-secretKey",
-                    "-entropy",
-                    "-deriv",
-                    "-seed",
-                ]
-                guard
-                    identifiers.contains(
-                        KeystoreTag.legacyEntropy.rawValue
-                    ),
-                    !identifiers.contains(where: { identifier in
-                        scopedSuffixes.contains(where: {
-                            identifier.hasSuffix($0)
-                        })
-                    }),
-                    account.cryptoType == .sr25519,
-                    account.networkType == SNAddressType(chain: .sora)
-                else {
-                    throw WalletNetworkMigrationError
-                        .legacyIdentityMismatch(account.address)
+                guard account.cryptoType == .sr25519,
+                      account.networkType == SNAddressType(chain: .sora) else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
                 }
-                // Migration-only read of the original tag. The activated
-                // snapshot binds its owner; no address-scoped secret is made.
-                entropy = try keystore.fetchKey(
-                    for: KeystoreTag.legacyEntropy.rawValue
+                entropy = try keystore.fetchLegacyEntropyBeforeNetworkActivation(
+                    for: account.address,
+                    recoveryGate: recoveryGate
                 )
-                if let entropy {
-                    try keystore.verifyLegacyIrohaKeyIfPresent(entropy: entropy)
-                }
             }
             defer {
                 Self.wipeSensitive(&entropy)

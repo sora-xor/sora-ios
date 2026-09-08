@@ -175,6 +175,55 @@ extension KeystoreProtocol {
         )
     }
 
+    /// The database must be verified before the first network snapshot exists.
+    /// Prove the unsuffixed record against the exact retained SORA address here,
+    /// using the released default sr25519 derivation. This is a read-only
+    /// migration path: it never creates a scoped key or infers a new identity.
+    func fetchLegacyEntropyBeforeNetworkActivation(
+        for address: String,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws -> Data? {
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard
+            try !checkKey(for: KeystoreTag.entropyTagForAddress(address)),
+            try !checkKey(for: KeystoreTag.secretKeyTagForAddress(address)),
+            try !checkKey(for: KeystoreTag.seedTagForAddress(address)),
+            try !checkKey(for: KeystoreTag.deriviationTagForAddress(address)),
+            try checkKey(for: KeystoreTag.legacyEntropy.rawValue)
+        else { return nil }
+
+        let networkType = SNAddressType(chain: .sora)
+        let publicKey = try SS58AddressFactory().accountId(
+            fromAddress: address, type: networkType
+        )
+        var entropy = try fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        do {
+            try verifyLegacyIrohaKeyIfPresent(entropy: entropy)
+            let mnemonic = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: entropy)
+            guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(
+                mnemonic.allWords().count
+            ) else {
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+            }
+            try LegacySoraIdentityValidator.validate(
+                address: address,
+                publicKey: publicKey,
+                cryptoType: .sr25519,
+                networkType: networkType,
+                derivationPath: nil,
+                entropy: entropy,
+                rawSeed: nil,
+                secret: nil,
+                recoveryGate: recoveryGate
+            )
+            return entropy
+        } catch {
+            entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex)
+            throw error
+        }
+    }
+
     private func fetchRetainedLegacyEntropyForAddress(
         _ address: String,
         activeSnapshot snapshot: WalletNetworkSnapshot?,

@@ -4740,12 +4740,14 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "testExplicitWatchOnlyMigrationNeverSynthesizesNexusChildren" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testReleasedMnemonicFormatsSurviveDatabaseAndNetworkUpgrade" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testVersionOneMigrationPreservesSamePublicKeyOnDifferentNetworks" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "func fetchLegacyEntropyBeforeNetworkActivation(" "${keystore_extensions}" ||
+   ! /usr/bin/grep -Fq "return try keystore.fetchLegacyEntropyBeforeNetworkActivation(" "${storage_migrator}" ||
    ! /usr/bin/awk '
        /private func migrateLocked\(/ { in_migrate = 1 }
        in_migrate && /let isExplicitWatchOnly =/ && stage == 0 { stage = 1 }
        in_migrate && /legacySecret == nil,/ && stage == 1 { stage = 2 }
        in_migrate && /!isExplicitWatchOnly/ && stage == 2 { stage = 3 }
-       in_migrate && /KeystoreTag\.legacyEntropy\.rawValue/ && stage == 3 { stage = 4 }
+       in_migrate && /fetchLegacyEntropyBeforeNetworkActivation\(/ && stage == 3 { stage = 4 }
        in_migrate && /private static func wipeSensitive\(/ { in_migrate = 0 }
        END { exit(stage == 4 ? 0 : 1) }
    ' "${wallet_network_model}"; then
@@ -5825,11 +5827,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "219" ] ||
+    if [ "${modernization_test_count}" != "223" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 245 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 249 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -6022,15 +6024,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "219" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 219 test methods"
+if [ "${modernization_test_count}" != "223" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 223 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 245 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 245-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 249 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 249-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(

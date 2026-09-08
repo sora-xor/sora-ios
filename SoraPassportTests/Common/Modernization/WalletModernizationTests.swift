@@ -10156,6 +10156,322 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
+    // These fixtures model an already-retained Core Data row backed by the
+    // released unsuffixed entropy record. Unlike pre-account upgrade tests,
+    // database verification must succeed before any network snapshot exists.
+    func testRetainedGlobalEntropyCompletesDatabaseBeforeNetworkStartup() throws {
+        for length in [16, 20, 24, 28, 32] {
+            let entropy = Data(repeating: 0, count: length)
+            let account = try retainedEntropyAccount(entropy: entropy)
+            for version in [UserStorageVersion.version1, .version2] {
+                for recovering in [false, true] {
+                    try withRetainedEntropyDatabase(accounts: [account], version: version,
+                        entropy: entropy, recovering: recovering) { directory, keys, settings in
+                        if length == 20 {
+                            // Independent legacy-1.x scrypt vector retained with its entropy.
+                            try keys.addKey(try Data(hexStringSSF:
+                                "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
+                                with: "privateKey")
+                        }
+                        let originals = try retainedEntropyKeyBytes(keys)
+                        XCTAssertNil(try WalletNetworkStore(baseURL: directory,
+                            recoveryGate: makeIsolatedRecoveryGate()).load())
+                        XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty)
+                        for _ in 0..<2 {
+                            let snapshot = try runRetainedEntropyStartup(directory: directory,
+                                keys: keys, settings: settings, accounts: [account])
+                            try assertRetainedEntropySigner(account: account, entropy: entropy,
+                                snapshot: snapshot, keys: keys, settings: settings)
+                            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testRetainedGlobalEntropyCoexistsWithScopedAndWatchOnlyAccounts() throws {
+        let entropy = Data(repeating: 0, count: 20)
+        let global = try retainedEntropyAccount(entropy: entropy).replacingSelection(false)
+        let scopedSeed = Data(repeating: 47, count: 32)
+        let scopedPair = try Ed25519KeypairFactory().createKeypairFromSeed(scopedSeed, chaincodeList: [])
+        let scopedPublic = scopedPair.publicKey().rawData()
+        let scoped = AccountItem(address: try SS58AddressFactory().address(fromAccountId: scopedPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Retained scoped selection", publicKeyData: scopedPublic,
+            settings: global.settings, order: 3, isSelected: true)
+        let watch = makeLegacyAccount(address: "retained watch-only coexistence").replacingSelection(false)
+        let accounts = [global, scoped, watch]
+        for version in [UserStorageVersion.version1, .version2] {
+            for recovering in [false, true] {
+                try withRetainedEntropyDatabase(accounts: accounts, version: version,
+                    entropy: entropy, recovering: recovering) { directory, keys, settings in
+                    try keys.addKey(scopedSeed, with: KeystoreTag.seedTagForAddress(scoped.address))
+                    settings.set(value: true, for: "wallet.watchOnly.\(watch.address)")
+                    let originals = try retainedEntropyKeyBytes(keys)
+                    for _ in 0..<2 {
+                        let snapshot = try runRetainedEntropyStartup(directory: directory,
+                            keys: keys, settings: settings, accounts: accounts)
+                        try assertRetainedEntropySigner(account: global, entropy: entropy,
+                            snapshot: snapshot, keys: keys, settings: settings)
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == watch.address }?.secretSource, .watchOnly)
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == scoped.address }?.secretSource, .rawSeed)
+                        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), [.sora2])
+                        let payload = Data("retained mixed scoped signer".utf8)
+                        let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: scopedSeed)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                            secretKey: scopedSeed, account: scoped)
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    }
+                }
+            }
+        }
+    }
+
+    func testRetainedGlobalEntropyStartupPreservesConflictingEvidence() throws {
+        let entropy = Data(repeating: 0, count: 20)
+        let original = try retainedEntropyAccount(entropy: entropy)
+        let other = try retainedEntropyAccount(entropy: Data(repeating: 2, count: 20))
+            .replacingSelection(false)
+        for condition in ["globalMismatch", "privateKeyMismatch", "missingAccount", "scopedEntropy",
+                          "scopedSecret", "scopedSeed", "derivation", "publicKey", "cryptoType",
+                          "networkAlias", "snapshot", "watchOnlyConflict", "newerMarker"] {
+            var account = original
+            if ["publicKey", "cryptoType", "networkAlias"].contains(condition) {
+                account = AccountItem(address: original.address,
+                    cryptoType: condition == "cryptoType" ? .ed25519 : original.cryptoType,
+                    networkType: condition == "networkAlias" ? SNAddressType(42) : original.networkType,
+                    username: original.username,
+                    publicKeyData: condition == "publicKey" ? other.publicKeyData : original.publicKeyData,
+                    settings: original.settings, order: original.order, isSelected: true)
+            }
+            let accounts = condition == "missingAccount" ? [account, other] : [account]
+            try withRetainedEntropyDatabase(accounts: accounts, version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                switch condition {
+                case "globalMismatch":
+                    try keys.saveKey(Data(repeating: 2, count: 20), with: KeystoreTag.legacyEntropy.rawValue)
+                case "privateKeyMismatch":
+                    try keys.addKey(Data(repeating: 7, count: 32), with: "privateKey")
+                case "scopedEntropy":
+                    try keys.addKey(Data(repeating: 2, count: 20), with: KeystoreTag.entropyTagForAddress(account.address))
+                case "scopedSecret", "watchOnlyConflict":
+                    let seed = try retainedEntropySeed(Data(repeating: 2, count: 20))
+                    let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+                    try keys.addKey(pair.privateKey().rawData(), with: KeystoreTag.secretKeyTagForAddress(account.address))
+                    if condition == "watchOnlyConflict" {
+                        settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+                    }
+                case "scopedSeed":
+                    try keys.addKey(Data(repeating: 7, count: 32), with: KeystoreTag.seedTagForAddress(account.address))
+                case "derivation":
+                    try keys.addKey(Data("//other".utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
+                case "snapshot":
+                    let snapshotSettings = InMemorySettingsManager()
+                    snapshotSettings.set(value: true, for: "wallet.watchOnly.\(other.address)")
+                    let gate = makeIsolatedRecoveryGate(settings: snapshotSettings)
+                    try WalletNetworkModelMigrator(keystore: keys,
+                        store: WalletNetworkStore(baseURL: directory, recoveryGate: gate), settings: snapshotSettings,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+                        .migrate(accounts: [other], selectedAddress: other.address)
+                default: break
+                }
+                let originalKeys = try retainedEntropyKeyBytes(keys)
+                let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                var newerMarker: WalletMigrationRecoveryMarker?
+                var verifiedCheckpointFiles: [URL: Data]?
+                let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                    _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                            XCTAssertEqual(condition, "newerMarker")
+                            verifiedCheckpointFiles = try self.startupRecoveryFixtureFiles(at: directory)
+                            settings.setWalletMigrationRecovery(reason: "newer preserved recovery")
+                            newerMarker = WalletMigrationRecoveryMarker.capture(settings)
+                        })
+                }, migration: { XCTFail("Unverified recovery reached ordinary migration: \(condition)") })
+                XCTAssertEqual(outcome, .recoveryRequired, condition)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newerMarker ?? marker, condition)
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess(), condition)
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys, condition)
+                // SQLite readers update the transient shared-memory index.
+                // Compare durable main/WAL/snapshot bytes before opening another
+                // reader. Successful verification may checkpoint WAL before CAS,
+                // so that case compares the final verified boundary instead.
+                let shmURL = directory.appendingPathComponent("UserDataModel.sqlite-shm")
+                let expectedFiles: [URL: Data]
+                if condition == "newerMarker" {
+                    expectedFiles = try XCTUnwrap(verifiedCheckpointFiles)
+                    let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+                    let backup = try XCTUnwrap(WalletRecoveryMigrationJournalProbe
+                        .newestVerifiedLegacyStoreBackup(storeURL: storeURL))
+                    let backupFile = try XCTUnwrap(backup.databaseFiles.first { $0.fileName == storeURL.lastPathComponent })
+                    // Inspect a copy, preserving the verified backup itself even
+                    // if Core Data changes its copied transient SQLite state.
+                    let inspection = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                    defer { try? FileManager.default.removeItem(at: inspection) }
+                    try FileManager.default.copyItem(at: backupFile.url.deletingLastPathComponent(), to: inspection)
+                    try assertStoredAccounts(accounts, at: inspection.appendingPathComponent(storeURL.lastPathComponent),
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                } else {
+                    XCTAssertNil(verifiedCheckpointFiles)
+                    expectedFiles = originalFiles
+                }
+                XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory).filter { $0.key != shmURL },
+                    expectedFiles.filter { $0.key != shmURL }, condition)
+                try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
+                if condition != "snapshot" && condition != "newerMarker" {
+                    XCTAssertNil(try WalletNetworkStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).load(), condition)
+                }
+            }
+        }
+    }
+
+    func testRetainedScopedCredentialsRemainAuthoritativeOverGlobalEntropy() throws {
+        let entropy = Data(repeating: 0, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let seed = try retainedEntropySeed(entropy)
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        for recovering in [false, true] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: Data(repeating: 9, count: 20), recovering: recovering) { directory, keys, settings in
+                try keys.addKey(entropy, with: KeystoreTag.entropyTagForAddress(account.address))
+                try keys.addKey(seed, with: KeystoreTag.seedTagForAddress(account.address))
+                try keys.addKey(pair.privateKey().rawData(), with: KeystoreTag.secretKeyTagForAddress(account.address))
+                let originals = try retainedEntropyKeyBytes(keys)
+                for _ in 0..<2 {
+                    let snapshot = try runRetainedEntropyStartup(directory: directory,
+                        keys: keys, settings: settings, accounts: [account])
+                    try assertRetainedEntropySigner(account: account, entropy: entropy,
+                        snapshot: snapshot, keys: keys, settings: settings)
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                }
+            }
+        }
+    }
+
+    private func retainedEntropySeed(_ entropy: Data) throws -> Data {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        return try SeedFactory().deriveSeed(from: mnemonic.toString(), password: "").seed.miniSeed
+    }
+
+    private func retainedEntropyAccount(entropy: Data) throws -> AccountItem {
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(entropy), chaincodeList: [])
+        let publicKey = pair.publicKey().rawData()
+        return AccountItem(address: try SS58AddressFactory().address(fromAccountId: publicKey,
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Retained global mnemonic", publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 17, isSelected: true)
+    }
+
+    private func retainedEntropyKeyBytes(_ keys: InMemoryKeychain) throws -> [String: Data] {
+        try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map { ($0, try keys.fetchKey(for: $0)) })
+    }
+
+    private func withRetainedEntropyDatabase(
+        accounts: [AccountItem], version: UserStorageVersion, entropy: Data, recovering: Bool,
+        body: (URL, InMemoryKeychain, InMemorySettingsManager) throws -> Void
+    ) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try writeAccounts(accounts, to: directory.appendingPathComponent("UserDataModel.sqlite"),
+            model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try keys.addKey(Data("Retained account name".utf8), with: KeystoreTag.legacyUsername.rawValue)
+        let settings = InMemorySettingsManager()
+        settings.set(value: try XCTUnwrap(accounts.first { $0.isSelected }), for: SettingsKey.selectedAccount.rawValue)
+        if recovering {
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: DurableFileWriter.Failure.fileSystemFailure))
+            XCTAssertTrue(WalletMigrationRecoveryMarker.capture(settings).isStartupVerificationFailure)
+        }
+        try body(directory, keys, settings)
+    }
+
+    private func runRetainedEntropyStartup(
+        directory: URL, keys: InMemoryKeychain, settings: InMemorySettingsManager, accounts: [AccountItem]
+    ) throws -> WalletNetworkSnapshot {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let store = try WalletNetworkStore(baseURL: directory, recoveryGate: gate)
+        let database = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+            fileManager: .default, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { try store.load() })
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+            _ = try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                    let competingLease = coordinator.tryAcquire()
+                    XCTAssertNil(competingLease)
+                    competingLease?.release()
+                })
+        }, migration: {
+            try database.migrateAtStartup(lifecycleCoordinator: coordinator,
+                hasUnresolvedAccountCommit: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+        })
+        XCTAssertEqual(outcome, .ready)
+        guard outcome == .ready else { throw UserStorageMigrationError.accountInventoryMismatch }
+        try gate.requireMutableWalletAccess()
+        let currentAccounts = try database.verifiedCurrentAccounts()
+        XCTAssertEqual(Set(currentAccounts.map(\.address)), Set(accounts.map(\.address)))
+        let selected = try XCTUnwrap(accounts.first { $0.isSelected })
+        let migrator = WalletNetworkModelMigrator(keystore: keys, store: store, settings: settings,
+            lifecycleCoordinator: coordinator, recoveryGate: gate)
+        try migrator.migrate(accounts: currentAccounts, selectedAddress: selected.address)
+        let snapshot = try migrator.verifiedSnapshot(accounts: currentAccounts, selectedAddress: selected.address)
+        try assertStoredAccounts(accounts, at: storeURL,
+            model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), selected)
+        XCTAssertEqual(snapshot.selectedWalletId, selected.address)
+        XCTAssertEqual(Set(snapshot.wallets.map(\.id)), Set(accounts.map(\.address)))
+        for account in accounts {
+            let child = try XCTUnwrap(snapshot.accounts.first { $0.walletId == account.address && $0.networkId == .sora2 })
+            XCTAssertEqual(child.address, account.address)
+            XCTAssertEqual(child.publicKey, account.publicKeyData)
+        }
+        XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty)
+        return snapshot
+    }
+
+    private func assertRetainedEntropySigner(
+        account: AccountItem, entropy: Data, snapshot: WalletNetworkSnapshot,
+        keys: InMemoryKeychain, settings: InMemorySettingsManager
+    ) throws {
+        let resolved = try XCTUnwrap(keys.fetchEntropyForAddress(account.address, activeSnapshot: snapshot,
+            recoveryGate: makeIsolatedRecoveryGate(settings: settings)))
+        XCTAssertEqual(resolved, entropy)
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(resolved), chaincodeList: [])
+        let payload = Data("retained global native signing after database startup".utf8)
+        let signature = try SNSigner(keypair: SNKeypair(
+            privateKey: SNPrivateKey(rawData: pair.privateKey().rawData()),
+            publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(payload)
+        try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+            secretKey: pair.privateKey().rawData(), account: account)
+        XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature,
+            originalData: payload + Data([1]), secretKey: pair.privateKey().rawData(), account: account))
+        let words = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords().count
+        let source = try XCTUnwrap(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: words))
+        XCTAssertEqual(snapshot.wallets.first { $0.id == account.address }?.secretSource, source)
+        let expected: Set<NetworkId> = source == .legacyMnemonicEntropy
+            ? [.sora2] : NexusNetworkConfiguration.admittedWalletNetworkIds
+        XCTAssertEqual(Set(snapshot.accounts.filter { $0.walletId == account.address }.map(\.networkId)), expected)
+    }
+
     private func startupRecoveryFixtureFiles(at directory: URL) throws -> [URL: Data] {
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: directory,
             includingPropertiesForKeys: [.isRegularFileKey]))

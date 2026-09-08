@@ -346,7 +346,9 @@ enum WalletStartupVerificationRecovery {
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
                 settings: settings, fileManager: fileManager, recoveryGate: gate,
                 loadWalletNetworkSnapshot: { try store.load() })
-            try database.performMigration()
+            try WalletStartupDiagnostic.check(.databaseMigration) {
+                try database.performMigration()
+            }
             let accounts = try WalletStartupDiagnostic.check(.databaseInventory) {
                 try database.verifiedCurrentAccounts()
             }
