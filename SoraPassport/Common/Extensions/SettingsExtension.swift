@@ -57,6 +57,7 @@ enum SettingsKey: String {
     case walletMigrationRecoveryGeneration
     case walletMigrationRecoveryReasonGeneration
     case walletMigrationRecoveryRecord
+    case walletStartupDiagnostic
     case walletNetworkStoreVersion
     case tairaEnabled
     case tairaPreferenceWasSet

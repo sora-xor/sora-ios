@@ -130,12 +130,12 @@ Required identity and aggregate fields:
   exporter, which continues to export only independently verified database and
   settings artifacts for support. Existing-target rollback and absent-target
   withdrawal are both exercised by weakening the actual published inode to `.none`
-  inside the existing 214-method source suite.
+  inside the existing 219-method source suite.
 - A positive `retainedReleaseSnapshotCount`, the reviewed
   `retainedReleaseSnapshotManifestSha256`, both checked-in Core Data model SHA-256 values, the
   exact executed `WalletModernizationTests`, `WalletRecoveryCapabilityGateTests`, and
   `WalletRecoveryExporterTests` method counts, zero failure counts, and a reviewed
-  `testResultBundleSha256` covering all four suite inventories (214 + 11 + 12 + 3 = 240).
+  `testResultBundleSha256` covering all four suite inventories (219 + 11 + 12 + 3 = 245).
 - True parity for account count, selected wallet, preferences, Keychain identity and accessibility,
   legacy dual-read retention, existing SORA2 identity/signatures, and zero lost accounts.
 - Missing-store qualification must separately retain and exercise raw selected-account settings,
@@ -263,11 +263,11 @@ with six success cohorts fails admission. All affected sources are bound by
 be recollected and independently reviewed for the current candidate.
 
 `SoraPassportMigrationEvidence.xcscheme` is the dedicated Release/physical-device evidence
-scheme. Its exact test inventory is 214 `WalletModernizationTests`, 11
+scheme. Its exact test inventory is 219 `WalletModernizationTests`, 11
 `WalletRecoveryCapabilityGateTests`, 12 `WalletRecoveryExporterTests`, and three
 `WalletMigrationRetainedDeviceEvidenceTests`. The ordinary wallet regression suite additionally
-uses 16 `WalletUXTests` instead of the three retained-device tests, for 253 tests
-(214 + 11 + 12 + 16). The new regressions exercise mixed framework and wallet Keychain
+uses 19 `WalletUXTests` instead of the three retained-device tests, for 261 tests
+(219 + 11 + 12 + 19). The regressions also cover canonical interrupted and failed startup journals, marker-preserving retry, latest privacy-safe diagnostics, and mixed framework and wallet Keychain
 attributes, full recovery from an earlier generic startup error, multi-account
 identity and signing preservation, rejected recovery evidence, marker-generation
 changes, pre-account wallets, and the recovery screen retry action.
@@ -551,7 +551,7 @@ the repository with this fixed layout:
 - `application/SoraPassport.app`, the exact archive-derived installable clone;
 - `application/canonical-projection-receipt-v2.json`, the canonical observed projection receipt;
 - `application/installable-clone-receipt-v1.json`, the protected non-authorizing clone receipt;
-- `tests/Migration.xcresult`, containing the exact 240 passing test identifiers and three
+- `tests/Migration.xcresult`, containing the exact 245 passing test identifiers and three
   test-associated reserved JSON attachments;
 - `snapshots/index.json` and `snapshots/data/<snapshotId>/{source,migrated}`, containing the
   retained Core Data/settings bundles.
@@ -699,7 +699,7 @@ Keychain aggregate must exactly match successful/failing source counts and the r
 identity/accessibility assertions, with no credential rewrite or raw values. The device aggregate
 must exactly match Core Data and interruption counts plus reinstall/upgrade, rollback, low-storage,
 recovery-export, and process-death/restart assertions. The ZIP summary must exactly match all four
-declared suite counts (214 + 11 + 12 + 3 = 240) and zero failure, unexpected-failure, skipped, and
+declared suite counts (219 + 11 + 12 + 3 = 245) and zero failure, unexpected-failure, skipped, and
 expected-failure counters. Independent byte reproduction proves that these public aggregates are
 the collector's derivation from the pinned raw namespace; producer and reviewer signatures remain
 necessary authentication and do not replace review of the restricted scenario material.

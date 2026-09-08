@@ -1607,8 +1607,8 @@ def reviewed_settings_keys(
     if len(matches) != 1:
         fail("SettingsKey source contract is ambiguous")
     keys = set(re.findall(r"^[ \t]+case[ \t]+([A-Za-z0-9_]+)[ \t]*$", matches[0], re.MULTILINE))
-    if len(keys) != 33:
-        fail("SettingsKey source contract must contain exactly 33 reviewed keys")
+    if len(keys) != 34:
+        fail("SettingsKey source contract must contain exactly 34 reviewed keys")
     return keys
 
 
@@ -2604,8 +2604,8 @@ def expected_test_identifiers(
         if not methods or len(methods) != len(set(methods)):
             fail(f"{suite} source has an invalid test-method inventory")
         result.update(f"{suite}/{method}()" for method in methods)
-    if len(result) != 240:
-        fail("migration test source inventory must contain exactly 240 identifiers")
+    if len(result) != 245:
+        fail("migration test source inventory must contain exactly 245 identifiers")
     return result
 
 
@@ -2690,7 +2690,7 @@ def inspect_xcresult(
     exact_keys(tests, {"testPlanConfigurations", "devices", "testNodes"}, "xcresult tests")
     suite_counts, enumerated_total, observed_tests = count_test_cases(tests["testNodes"])
     required_counts = {
-        "WalletModernizationTests": 214,
+        "WalletModernizationTests": 219,
         "WalletRecoveryCapabilityGateTests": 11,
         "WalletRecoveryExporterTests": 12,
         "WalletMigrationRetainedDeviceEvidenceTests": 3,

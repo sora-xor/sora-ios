@@ -110,6 +110,7 @@ final class RootWireframe: RootWireframeProtocol {
         }
         let controller = WalletRecoveryViewController(
             reason: SettingsManager.shared.walletMigrationRecoveryReason,
+            diagnostic: WalletStartupDiagnostic.current(SettingsManager.shared),
             onRetry: onRetry
         )
         let navigation = UINavigationController(rootViewController: controller)
@@ -227,6 +228,7 @@ private final class LegacyWalletUpgradeViewController: UIViewController {
 /// recovery strategy for a production wallet.
 final class WalletRecoveryViewController: UIViewController {
     private let reason: String?
+    private let diagnostic: WalletStartupDiagnostic?
     private let onRetry: (() -> Void)?
     private let retryButton = UIButton(type: .system)
     private var didRetry = false
@@ -235,8 +237,9 @@ final class WalletRecoveryViewController: UIViewController {
     private let exportStatusLabel = UILabel()
     private var isExporting = false
 
-    init(reason: String?, onRetry: (() -> Void)? = nil) {
+    init(reason: String?, diagnostic: WalletStartupDiagnostic? = nil, onRetry: (() -> Void)? = nil) {
         self.reason = reason
+        self.diagnostic = diagnostic
         self.onRetry = onRetry
         super.init(nibName: nil, bundle: nil)
     }
@@ -290,6 +293,7 @@ final class WalletRecoveryViewController: UIViewController {
 
         let detailsButton = UIButton(type: .system)
         detailsButton.setTitle("Copy recovery details", for: .normal)
+        detailsButton.accessibilityIdentifier = "wallet-recovery-copy-details"
         detailsButton.addTarget(
             self,
             action: #selector(copyRecoveryDetails),
@@ -410,8 +414,9 @@ final class WalletRecoveryViewController: UIViewController {
         ) as? String ?? "unknown"
         UIPasteboard.general.string = [
             "SORA \(version) (\(build))",
-            reason ?? "Wallet integrity verification stopped."
-        ].joined(separator: "\n")
+            reason ?? "Wallet integrity verification stopped.",
+            diagnostic?.summary
+        ].compactMap { $0 }.joined(separator: "\n")
     }
 
     @objc private func showBackupHelp() {

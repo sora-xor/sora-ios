@@ -302,12 +302,30 @@ enum LegacyWalletAccountCommitRecovery {
         baseURL: URL? = nil,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        startupVerificationMarker: WalletMigrationRecoveryMarker? = nil,
         checkpoint: (Checkpoint) throws -> Void = { _ in }
     ) throws -> Bool {
         let lease = lifecycleCoordinator.acquire()
         defer { lease.release() }
         var marker = WalletMigrationRecoveryMarker.capture(settings)
-        var gate = verificationGate(settings: settings, marker: marker)
+        if let startupVerificationMarker {
+            try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
+            guard marker == startupVerificationMarker else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
+        func requireMarkerUnchanged() throws {
+            if let startupVerificationMarker {
+                try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
+                guard marker == startupVerificationMarker else {
+                    throw WalletNetworkMigrationError.walletRecoveryRequired
+                }
+            } else {
+                try marker.requireUnchangedForLegacyAccountRecovery(settings)
+            }
+        }
+        var gate = verificationGate(settings: settings, marker: marker,
+            startupVerificationMarker: startupVerificationMarker)
         var journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
         let journals = try journalStore.journalsForLegacyRecovery()
         let unresolved = journals.filter { $0.stage != .activated }
@@ -319,7 +337,7 @@ enum LegacyWalletAccountCommitRecovery {
               !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
         else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
         var journal = candidates[0]
-        try marker.requireUnchangedForLegacyAccountRecovery(settings)
+        try requireMarkerUnchanged()
         if let bound = journal.recoveryMarker {
             guard bound == marker else { throw WalletNetworkMigrationError.walletRecoveryRequired }
         }
@@ -352,7 +370,7 @@ enum LegacyWalletAccountCommitRecovery {
         var networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
 
         func prove(requireAccount: Bool = false, requireSnapshot: Bool = false) throws {
-            try marker.requireUnchangedForLegacyAccountRecovery(settings)
+            try requireMarkerUnchanged()
             try journalStore.requireCurrentForLegacyRecovery(journal)
             guard Set(try keystore.allKeyIdentifiers()) == originalIdentifiers,
                   !settings.hasRetainedWatchOnlyWallet(),
@@ -397,7 +415,7 @@ enum LegacyWalletAccountCommitRecovery {
             } else if journal.stage == .activated {
                 throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
             }
-            try marker.requireUnchangedForLegacyAccountRecovery(settings)
+            try requireMarkerUnchanged()
             try journalStore.requireCurrentForLegacyRecovery(journal)
         }
 
@@ -408,14 +426,15 @@ enum LegacyWalletAccountCommitRecovery {
         // handling then preserves this generation even if this recovery itself is interrupted.
         if !marker.required {
             try WalletMigrationRecoveryMarker.synchronized {
-                try marker.requireUnchangedForLegacyAccountRecovery(settings)
+                try requireMarkerUnchanged()
                 settings.setWalletMigrationRecovery(reason: WalletMigrationRecoveryMarker.accountCommitInterruptionReason)
                 marker = WalletMigrationRecoveryMarker.capture(settings)
                 guard marker.isLegacyAccountCommitInterruption else {
                     throw WalletNetworkMigrationError.walletRecoveryRequired
                 }
             }
-            gate = verificationGate(settings: settings, marker: marker)
+            gate = verificationGate(settings: settings, marker: marker,
+                startupVerificationMarker: startupVerificationMarker)
             journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
             networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
         }
@@ -444,7 +463,7 @@ enum LegacyWalletAccountCommitRecovery {
                 try prove(requireAccount: true)
                 try journalStore.withCurrentForLegacyRecovery(journal) {
                     try WalletMigrationRecoveryMarker.synchronized {
-                        try marker.requireUnchangedForLegacyAccountRecovery(settings)
+                        try requireMarkerUnchanged()
                         guard journal.recoveryMarker == marker else {
                             throw WalletNetworkMigrationError.walletRecoveryRequired
                         }
@@ -473,15 +492,23 @@ enum LegacyWalletAccountCommitRecovery {
         try prove(requireAccount: true, requireSnapshot: true)
         try checkpoint(.beforeRecoveryClear)
         try prove(requireAccount: true, requireSnapshot: true)
-        try marker.clearAfterVerifiedLegacyAccountActivation(settings)
-        try recoveryGate.requireMutableWalletAccess()
+        if startupVerificationMarker == nil {
+            try marker.clearAfterVerifiedLegacyAccountActivation(settings)
+            try recoveryGate.requireMutableWalletAccess()
+        } else {
+            // The outer startup verifier still has to prove the database and
+            // full active network inventory before clearing this same marker.
+            try requireMarkerUnchanged()
+        }
         return true
     }
 
     private static func verificationGate(settings: SettingsManagerProtocol,
-                                         marker: WalletMigrationRecoveryMarker) -> WalletRecoveryCapabilityGate {
+                                         marker: WalletMigrationRecoveryMarker,
+                                         startupVerificationMarker: WalletMigrationRecoveryMarker? = nil) -> WalletRecoveryCapabilityGate {
         WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false },
-            unresolvedWalletCommitJournal: { false }, legacyAccountRecoveryMarker: marker)
+            unresolvedWalletCommitJournal: { false }, legacyAccountRecoveryMarker: marker,
+            startupVerificationMarker: startupVerificationMarker)
     }
 
     private static func accountModel(modelDirectory: String) throws -> NSManagedObjectModel {
