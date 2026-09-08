@@ -6,9 +6,78 @@ import XCTest
 import SoraUIKit
 import SoraKeystore
 import CoreData
+import Darwin
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
+    func testStartupRetryReportsCurrentFailureWithoutReplacingRecoveryMarker() throws {
+        let settings = InMemorySettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
+        settings.setWalletMigrationRecovery(reason: reason)
+        let original = WalletMigrationRecoveryMarker.capture(settings)
+        let secret = "PRIVATE-wallet-address-path-and-phrase"
+        let failures: [(Error, WalletStartupDiagnostic.Cause, Int?)] = [
+            (UserStorageMigrationError.backupVerificationFailed(secret), .backupVerification, nil),
+            (WalletNetworkMigrationError.legacyIdentityMismatch(secret), .legacyIdentityMismatch, nil),
+            (WalletIntegrityError.selectedAccountSecretMissing(address: secret), .missingSecret, nil),
+            (KeystoreSystemError(status: -25308), .keychainSystem, -25308),
+            (NSError(domain: NSCocoaErrorDomain, code: 134100,
+                userInfo: [NSLocalizedDescriptionKey: secret, NSFilePathErrorKey: secret]), .cocoa, 134100),
+            (NSError(domain: secret, code: 7, userInfo: [NSLocalizedDescriptionKey: secret]), .unexpected, nil)
+        ]
+        for (error, cause, systemCode) in failures {
+            var migrated = false
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                try WalletStartupDiagnostic.check(.databaseInventory) { throw error }
+            }, migration: { migrated = true }), .recoveryRequired)
+            XCTAssertFalse(migrated)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), original)
+            let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+            XCTAssertEqual(diagnostic.phase, .databaseInventory)
+            XCTAssertEqual(diagnostic.cause, cause)
+            XCTAssertEqual(diagnostic.systemCode, systemCode)
+            XCTAssertFalse(diagnostic.summary.contains(secret))
+            XCTAssertFalse(try String(decoding: JSONEncoder().encode(diagnostic), as: UTF8.self).contains(secret))
+        }
+        settings.setWalletMigrationRecovery(reason: "A newer integrity failure")
+        XCTAssertNil(WalletStartupDiagnostic.current(settings), "A new marker must not display the previous attempt's diagnostic")
+
+        let fresh = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: fresh, migration: {
+            throw KeystoreSystemError(status: -34018)
+        }), .recoveryRequired)
+        XCTAssertEqual(WalletStartupDiagnostic.current(fresh)?.phase, .databaseMigration)
+        XCTAssertEqual(WalletStartupDiagnostic.current(fresh)?.systemCode, -34018)
+        XCTAssertEqual(fresh.walletMigrationRecoveryReason, reason)
+    }
+
+    @MainActor
+    func testRecoveryDetailsIncludeLatestSafeDiagnosticAndRejectInvalidStoredCodes() throws {
+        let settings = InMemorySettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
+        settings.setWalletMigrationRecovery(reason: reason)
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        WalletStartupDiagnostic.record(KeystoreSystemError(status: -25308),
+            phase: .networkBootstrap, settings: settings)
+        let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+        let controller = WalletRecoveryViewController(reason: reason, diagnostic: diagnostic)
+        controller.loadViewIfNeeded()
+        let copy = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-copy-details" })
+        copy.sendActions(for: .touchUpInside)
+        let details = try XCTUnwrap(UIPasteboard.general.string)
+        XCTAssertTrue(details.contains(reason))
+        XCTAssertTrue(details.contains("Latest verification: network_bootstrap / keychain_system (-25308)"))
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+
+        var stored = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(diagnostic)) as? [String: Any])
+        stored["cause"] = "PRIVATE-ACCOUNT"
+        let malformed = try JSONSerialization.data(withJSONObject: stored)
+        settings.set(value: String(decoding: malformed, as: UTF8.self), for: "walletStartupDiagnostic")
+        XCTAssertNil(WalletStartupDiagnostic.current(settings))
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+    }
+
     @MainActor
     func testWalletRecoveryRetryRunsOnceWithoutClearingRecoveryState() throws {
         let settings = InMemorySettingsManager()
@@ -393,6 +462,67 @@ final class WalletUXTests: XCTestCase {
         primary.sendActions(for: .touchUpInside)
         edit.sendActions(for: .touchUpInside)
         XCTAssertTrue(primary.isHidden)
+    }
+
+    func testDurableAncestorSynchronizationStopsAtContainerBeforeSandboxDeniedParent() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let container = root.appendingPathComponent("AppHome", isDirectory: true)
+        let shallow = container.appendingPathComponent("Documents/CoreData", isDirectory: true)
+        let deep = container.appendingPathComponent("Library/Application Support/SORA/WalletNetworks", isDirectory: true)
+        try FileManager.default.createDirectory(at: shallow, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: deep, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let alias = root.appendingPathComponent("AppHomeAlias", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: container)
+        let homeDescriptor = Darwin.open(container.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(homeDescriptor, 0)
+        defer { _ = Darwin.close(homeDescriptor) }
+        var homeIdentity = stat()
+        XCTAssertEqual(Darwin.fstat(homeDescriptor, &homeIdentity), 0)
+        let cases: [(URL, URL, Int)] = [
+            (container, container, 0),
+            (shallow, container, 2),
+            (deep, container, 4),
+            (alias.appendingPathComponent("Documents/CoreData"), container, 2),
+            (shallow, alias, 2)
+        ]
+        for (start, boundary, expectedOpens) in cases {
+            let descriptor = Darwin.open(start.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            XCTAssertGreaterThanOrEqual(descriptor, 0)
+            defer { _ = Darwin.close(descriptor) }
+            var opens = 0
+            var outsideContainerAttempted = false
+            try DurableFileWriter.synchronizeAncestorDirectoryEntries(from: descriptor,
+                maximumDepth: 4, containerURL: boundary, openParent: { current in
+                    var identity = stat()
+                    guard Darwin.fstat(current, &identity) == 0 else { return -1 }
+                    if identity.st_dev == homeIdentity.st_dev && identity.st_ino == homeIdentity.st_ino {
+                        outsideContainerAttempted = true
+                        errno = EACCES
+                        return -1
+                    }
+                    opens += 1
+                    return Darwin.openat(current, "..", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                })
+            XCTAssertEqual(opens, expectedOpens)
+            XCTAssertFalse(outsideContainerAttempted,
+                "The app container must be recognized before openat attempts its forbidden parent")
+        }
+        let descriptor = Darwin.open(shallow.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { _ = Darwin.close(descriptor) }
+        var attempted = 0
+        XCTAssertThrowsError(try DurableFileWriter.synchronizeAncestorDirectoryEntries(from: descriptor,
+            maximumDepth: 4, containerURL: container, openParent: { _ in
+                attempted += 1
+                errno = EACCES
+                return -1
+            })) { error in
+                guard case DurableFileWriter.Failure.fileSystemFailure = error else {
+                    return XCTFail("An in-container durability failure must remain a failure")
+                }
+            }
+        XCTAssertEqual(attempted, 1)
     }
 
     @MainActor

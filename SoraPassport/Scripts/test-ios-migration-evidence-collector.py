@@ -227,17 +227,18 @@ class CollectorContractTests(unittest.TestCase):
 
     def test_reviewed_settings_inventory_is_source_derived(self) -> None:
         keys = COLLECTOR.reviewed_settings_keys(contract_entry_map())
-        self.assertEqual(len(keys), 33)
+        self.assertEqual(len(keys), 34)
         self.assertIn("walletMigrationRecoveryGeneration", keys)
         self.assertIn("walletMigrationRecoveryReasonGeneration", keys)
         self.assertIn("walletMigrationRecoveryRecord", keys)
+        self.assertIn("walletStartupDiagnostic", keys)
         self.assertIn("selectedAccount", keys)
         self.assertIn("walletMigrationRecoveryRequired", keys)
         self.assertNotIn("selectedAddress", keys)
 
     def test_point_of_use_source_reads_require_admitted_digest(self) -> None:
         entries = contract_entry_map()
-        self.assertEqual(len(COLLECTOR.expected_test_identifiers(entries)), 240)
+        self.assertEqual(len(COLLECTOR.expected_test_identifiers(entries)), 245)
         settings = "SoraPassport/Common/Extensions/SettingsExtension.swift"
         _, byte_count = entries[settings]
         entries[settings] = ("f" * 64, byte_count)
@@ -642,7 +643,7 @@ class CollectorContractTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 240
+            len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 245
         )
 
     def test_collection_job_cannot_promote_or_sign(self) -> None:

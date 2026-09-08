@@ -1515,13 +1515,33 @@ enum DurableFileWriter {
     /// durable in its own parent. Synchronize through the app container's
     /// bounded namespace (for example Library/Application Support/SORA/
     /// WalletNetworks) before advertising a successful commit.
-    private static func synchronizeAncestorDirectoryEntries(
+    static func synchronizeAncestorDirectoryEntries(
         from directoryDescriptor: Int32,
-        maximumDepth: Int
+        maximumDepth: Int,
+        containerURL: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        openParent: (Int32) -> Int32 = {
+            Darwin.openat($0, "..", O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
     ) throws {
-        guard maximumDepth >= 0 else {
+        guard maximumDepth >= 0, containerURL.isFileURL else {
             throw Failure.invalidTarget
         }
+        // Documents/CoreData is only two levels below the app container.
+        // A fixed four-parent walk otherwise attempts to open Apple's shared
+        // Containers/Data/Application directory, which the device sandbox
+        // denies. The container is created by iOS; its parent is not ours to
+        // synchronize. Identify that boundary by inode, including /var aliases.
+        let containerDescriptor = Darwin.open(
+            containerURL.resolvingSymlinksInPath().path,
+            O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard containerDescriptor >= 0 else { throw Failure.fileSystemFailure }
+        defer { _ = Darwin.close(containerDescriptor) }
+        var containerState = stat()
+        guard Darwin.fstat(containerDescriptor, &containerState) == 0,
+              (containerState.st_mode & mode_t(S_IFMT)) == mode_t(S_IFDIR)
+        else { throw Failure.invalidTarget }
+
         var currentDescriptor = Darwin.dup(directoryDescriptor)
         guard currentDescriptor >= 0 else {
             throw Failure.fileSystemFailure
@@ -1529,11 +1549,15 @@ enum DurableFileWriter {
         defer { _ = Darwin.close(currentDescriptor) }
 
         for _ in 0 ..< maximumDepth {
-            let parentDescriptor = Darwin.openat(
-                currentDescriptor,
-                "..",
-                O_RDONLY | O_NOFOLLOW | O_CLOEXEC
-            )
+            var currentState = stat()
+            guard Darwin.fstat(currentDescriptor, &currentState) == 0,
+                  (currentState.st_mode & mode_t(S_IFMT)) == mode_t(S_IFDIR)
+            else { throw Failure.invalidTarget }
+            if currentState.st_dev == containerState.st_dev,
+               currentState.st_ino == containerState.st_ino {
+                return
+            }
+            let parentDescriptor = openParent(currentDescriptor)
             guard parentDescriptor >= 0 else {
                 throw Failure.fileSystemFailure
             }
@@ -3315,7 +3339,14 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         guard let legacyAccountRecoveryMarker,
               !pending || legacyAccountRecoveryMarker.required
         else { throw WalletNetworkMigrationError.walletRecoveryRequired }
-        try legacyAccountRecoveryMarker.requireUnchangedForLegacyAccountRecovery(settings)
+        if let startupVerificationMarker {
+            guard legacyAccountRecoveryMarker == startupVerificationMarker else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+            try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
+        } else {
+            try legacyAccountRecoveryMarker.requireUnchangedForLegacyAccountRecovery(settings)
+        }
     }
 
     /// A terminal journal write may have reached durable storage even when

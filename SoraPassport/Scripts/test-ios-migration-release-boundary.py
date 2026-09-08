@@ -54,7 +54,7 @@ REACHABILITY_MANAGER = (
 )
 
 
-def run(*arguments: str) -> subprocess.CompletedProcess[str]:
+def run(*arguments: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         list(arguments),
         cwd=ROOT,
@@ -62,7 +62,7 @@ def run(*arguments: str) -> subprocess.CompletedProcess[str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
-        timeout=30,
+        timeout=timeout,
     )
 
 
@@ -142,8 +142,10 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         self.assertNotIn("--verify-qualified", wrapper)
         self.assertNotIn("xcodebuild", wrapper)
         self.assertTrue(PROJECTOR_HARNESS.is_file())
+        # This command runs a full 30-test child suite, which can exceed the
+        # ordinary command allowance during a Release build. Keep it bounded.
         regressions = run(
-            "/usr/bin/python3", "-B", "-I", "-S", str(PROJECTOR_HARNESS)
+            "/usr/bin/python3", "-B", "-I", "-S", str(PROJECTOR_HARNESS), timeout=120
         )
         self.assertEqual(regressions.returncode, 0, regressions.stderr)
         self.assertIn("Ran 30 tests", regressions.stderr)
@@ -945,9 +947,39 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            "'WalletLifecycleCoordinator.shared' \"${ios_gate_modernization_tests}\"",
+            '! verify_ios_migration_shared_lifecycle_test_scope "${ios_gate_modernization_tests}"',
             source,
         )
+        lifecycle_function = "verify_ios_migration_shared_lifecycle_test_scope() {" + source.split(
+            "verify_ios_migration_shared_lifecycle_test_scope() {", 1
+        )[1].split("\nrun_ios_migration_release_source_gate()", 1)[0]
+        lifecycle_tests = (
+            ROOT / "SoraPassportTests/Common/Modernization/WalletModernizationTests.swift"
+        ).read_text()
+        lifecycle_cases = {
+            "production-startup-regressions": (lifecycle_tests, True),
+            "missing-probe": (lifecycle_tests.replace(
+                "WalletLifecycleCoordinator.shared.tryAcquire()", "isolated.tryAcquire()", 1
+            ), False),
+            "changed-operation": (lifecycle_tests.replace(
+                "WalletLifecycleCoordinator.shared.tryAcquire()", "WalletLifecycleCoordinator.shared.acquire()", 1
+            ), False),
+            "unrelated-test": (lifecycle_tests + "\n    func testUnrelatedSharedUse() {\n"
+                "        let lease = WalletLifecycleCoordinator.shared.acquire()\n    }\n", False),
+            "duplicate-probe": (lifecycle_tests.replace(
+                "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+                "let competing = WalletLifecycleCoordinator.shared.tryAcquire()\n"
+                "                    let competing = WalletLifecycleCoordinator.shared.tryAcquire()", 1
+            ), False),
+        }
+        with tempfile.TemporaryDirectory(prefix="startup-lifecycle-scope-") as temporary:
+            fixture = Path(temporary) / "WalletModernizationTests.swift"
+            for case, (contents, accepted) in lifecycle_cases.items():
+                with self.subTest(lifecycle_scope=case):
+                    fixture.write_text(contents)
+                    checked = run("/bin/sh", "-c", lifecycle_function +
+                        '\nverify_ios_migration_shared_lifecycle_test_scope "$1"', "scope-check", str(fixture))
+                    self.assertEqual(checked.returncode == 0, accepted, checked.stderr)
         self.assertIn(
             "'Task { [weak self] in' \"${ios_gate_websocket_engine}\"",
             source,

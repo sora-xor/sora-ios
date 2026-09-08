@@ -6,6 +6,15 @@
 import Foundation
 import Security
 
+/// Retains only the Security status, never a key identifier or value.
+public struct KeystoreSystemError: Error {
+    public let status: OSStatus
+
+    public init(status: OSStatus) {
+        self.status = status
+    }
+}
+
 public class Keychain: KeystoreProtocol {
     /// Production wallet items have always used this non-migrating protection
     /// class. Keep it as the single typed source used by both the Security
@@ -91,7 +100,7 @@ public class Keychain: KeystoreProtocol {
 
         let optionalError = keystoreError(for: status)
 
-        if optionalError == KeystoreError.noKeyFound { return false }
+        if status == errSecItemNotFound { return false }
 
         guard optionalError == nil else { throw optionalError! }
 
@@ -111,7 +120,7 @@ public class Keychain: KeystoreProtocol {
             return []
         }
         guard status == errSecSuccess else {
-            throw KeystoreError.unexpectedFail
+            throw KeystoreSystemError(status: status)
         }
 
         return try Self.keyIdentifiers(fromKeychainAttributes: result)
@@ -164,10 +173,10 @@ public class Keychain: KeystoreProtocol {
         guard optionalError == nil else { throw optionalError! }
     }
 
-    private func keystoreError(for status: OSStatus) -> KeystoreError? {
+    private func keystoreError(for status: OSStatus) -> Error? {
         guard status != errSecDuplicateItem else { return KeystoreError.duplicatedItem }
         guard status != errSecItemNotFound else { return KeystoreError.noKeyFound }
-        guard status == errSecSuccess else { return KeystoreError.unexpectedFail }
+        guard status == errSecSuccess else { return KeystoreSystemError(status: status) }
 
         return nil
     }

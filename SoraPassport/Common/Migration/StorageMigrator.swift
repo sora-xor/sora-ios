@@ -344,6 +344,30 @@ final class UserStorageMigrator {
         try recoveryGate.requireMutableWalletAccess()
     }
 
+    /// Resume a canonical interrupted database attempt while the caller keeps the
+    /// exact generic startup marker latched. Account/network proof and marker CAS
+    /// remain the outer startup verifier's responsibility.
+    func resumeForStartupVerification(marker: WalletMigrationRecoveryMarker) throws {
+        try marker.requireUnchangedForStartupVerification(settings)
+        guard hasUnresolvedMigrationJournal() else { return }
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false },
+            startupVerificationMarker: marker)
+        let verifier = UserStorageMigrator(targetVersion: targetVersion, storeURL: storeURL,
+            modelDirectory: modelDirectory, keystore: keystore, settings: settings,
+            fileManager: fileManager, recoveryGate: gate, migrationRecoveryMarker: marker,
+            checkpoint: checkpoint, availableCapacity: availableCapacity,
+            loadWalletNetworkSnapshot: loadWalletNetworkSnapshot,
+            afterLegacyStoreCopyBeforeVerification: afterLegacyStoreCopyBeforeVerification,
+            beforeSafetyActivationVerification: beforeSafetyActivationVerification)
+        try verifier.performMigration()
+        try marker.requireUnchangedForStartupVerification(settings)
+        guard !hasUnresolvedMigrationJournal() else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+    }
+
     /// Fresh identity proof for recovery, including stores with an already
     /// verified migration backup. That backup alone does not prove today's keys.
     func verifiedCurrentAccounts() throws -> [AccountItem] {
@@ -927,7 +951,8 @@ final class UserStorageMigrator {
         // clear is owned by the caller; no other retained preference difference is ignored here.
         let markerKeys = Set([SettingsKey.walletMigrationRecoveryRequired,
             .walletMigrationRecoveryReason, .walletMigrationRecoveryGeneration,
-            .walletMigrationRecoveryReasonGeneration, .walletMigrationRecoveryRecord].map(\.rawValue))
+            .walletMigrationRecoveryReasonGeneration, .walletMigrationRecoveryRecord,
+            .walletStartupDiagnostic].map(\.rawValue))
         return NSDictionary(dictionary: lhs.filter { !markerKeys.contains($0.key) })
             .isEqual(NSDictionary(dictionary: rhs.filter { !markerKeys.contains($0.key) }))
     }
@@ -1014,9 +1039,10 @@ final class UserStorageMigrator {
             )
             guard journal.migrationID.uuidString == attempt.lastPathComponent,
                   journal.updatedAt.timeIntervalSince1970.isFinite,
-                  journal.failureReason == nil,
+                  journal.failureReason == nil || isRecoverableStartupFailure(journal),
                   try verifySafetyAttempt(at: attempt, journal: journal,
-                                          expectedState: journal.state)
+                                          expectedState: journal.state,
+                                          allowingVerifiedStartupFailure: isRecoverableStartupFailure(journal))
             else {
                 throw UserStorageMigrationError.interruptedMigration
             }
@@ -1031,8 +1057,12 @@ final class UserStorageMigrator {
         }
         let (attempt, retainedJournal) = unfinished[0]
         var journal = retainedJournal
+        let failedJournalData = isRecoverableStartupFailure(journal)
+            ? try readBoundedData(at: attempt.appendingPathComponent("journal.json"),
+                                 maximumBytes: Self.maximumJournalBytes) : nil
         guard journal.state == .inventoryVerified ||
                 journal.state == .stagingVerified ||
+                isRecoverableStartupFailure(journal) ||
                 (journal.state == .activated &&
                  journal.recoveryMarker == migrationRecoveryMarker &&
                  migrationRecoveryMarker != nil),
@@ -1073,6 +1103,18 @@ final class UserStorageMigrator {
         try validateKeychain(for: liveManifest)
         try recoveryGate.requireAuthorizedLifecycleContinuation()
         let journalURL = attempt.appendingPathComponent("journal.json")
+        if let failedJournalData {
+            // Keep the exact original failure record. Only after the retained
+            // backup, live inventory and all keys passed may this retry replace
+            // the active journal. A restart reuses the same immutable copy.
+            try preserveFailedStartupJournal(failedJournalData, at: attempt)
+            try recoveryGate.requireAuthorizedLifecycleContinuation()
+            guard try readBoundedData(at: journalURL, maximumBytes: Self.maximumJournalBytes) == failedJournalData else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            journal.state = liveVersion == sourceVersion ? .inventoryVerified : .stagingVerified
+            journal.failureReason = nil
+        }
         if let migrationRecoveryMarker {
             // Bind activation to the exact old marker. If the process dies
             // after activation but before compare-and-clear, restart can prove
@@ -1108,6 +1150,29 @@ final class UserStorageMigrator {
             legacyStoreDirectory: backupDirectory,
             journal: &journal, journalURL: journalURL
         )
+    }
+
+    private func isRecoverableStartupFailure(_ journal: UserStorageMigrationJournal) -> Bool {
+        migrationRecoveryMarker?.isStartupVerificationFailure == true &&
+            journal.state == .failed && journal.failureReason == "unexpected_failure" &&
+            journal.safetyArtifacts?.count == 3 &&
+            (journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker)
+    }
+
+    private func preserveFailedStartupJournal(_ data: Data, at attempt: URL) throws {
+        let digest = Data(SHA256.hash(data: data)).hexString
+        let retained = attempt.appendingPathComponent("staging", isDirectory: true)
+            .appendingPathComponent("recovery-failed-journal-\(digest).json")
+        if pathExistsNoFollow(retained) {
+            guard try readBoundedData(at: retained, maximumBytes: Self.maximumJournalBytes) == data else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+        } else {
+            try DurableFileWriter.write(data, to: retained, fileManager: fileManager, protection: .complete)
+            guard try readBoundedData(at: retained, maximumBytes: Self.maximumJournalBytes) == data else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+        }
     }
 
     private func recordMigrationFailure(
@@ -1544,7 +1609,8 @@ final class UserStorageMigrator {
     private func verifySafetyAttempt(
         at attempt: URL,
         journal: UserStorageMigrationJournal,
-        expectedState: UserStorageMigrationJournal.State
+        expectedState: UserStorageMigrationJournal.State,
+        allowingVerifiedStartupFailure: Bool = false
     ) throws -> Bool {
         guard
             try WalletMigrationSafetyNamespaceAdmission
@@ -1553,7 +1619,8 @@ final class UserStorageMigrator {
                     fileManager: fileManager
                 ),
             journal.state == expectedState,
-            journal.failureReason == nil,
+            journal.failureReason == nil ||
+                (allowingVerifiedStartupFailure && isRecoverableStartupFailure(journal)),
             let sourceVersion = UserStorageVersion(
                 rawValue: journal.sourceVersion
             ),

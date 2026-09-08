@@ -280,6 +280,41 @@ for operation_range in (add_range, remove_range):
 PY
 }
 
+verify_ios_migration_shared_lifecycle_test_scope() {
+    # These five regressions intentionally exercise the production startup lease.
+    # Other modernization fixtures must continue using isolated coordinators.
+    /usr/bin/python3 -B -I -S - "$1" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+expected = {
+    "testGenericStartupRecoveryResumesTransientPreflightWriteFailure":
+        "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+    "testGenericStartupRecoveryResumesCanonicalDatabaseJournals":
+        "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+    "testGenericStartupRecoveryResumesCanonicalLegacyAccountJournals":
+        "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+    "testGenericStartupJournalRecoveryPreservesConflictingEvidenceAndMarkerCAS":
+        "let outerLease = WalletLifecycleCoordinator.shared.acquire()",
+    "testGenericStartupRecoveryReprovesFailedDatabaseAttemptAndRetainsFailure":
+        "let lease = WalletLifecycleCoordinator.shared.acquire()",
+}
+observed = {}
+method = None
+for line in Path(sys.argv[1]).read_text().splitlines():
+    declaration = re.match(r"^    (?:private )?func (\w+)\(", line)
+    if declaration:
+        method = declaration.group(1)
+    if "WalletLifecycleCoordinator.shared" in line:
+        if method not in expected or method in observed or line.strip() != expected[method]:
+            raise SystemExit("error: production lifecycle use escaped the five startup recovery regressions")
+        observed[method] = line.strip()
+if observed != expected:
+    raise SystemExit("error: startup recovery production lifecycle regression coverage changed")
+PY
+}
+
 run_ios_migration_release_source_gate() {
     ios_gate_projector="${root}/SoraPassport/Scripts/derive-ios-migration-test-host.py"
     ios_gate_clone="${root}/SoraPassport/Scripts/create-ios-migration-installable-clone.py"
@@ -539,7 +574,7 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'private func makeIsolatedRecoveryGate(' "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeWalletNetworkStore(' "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeLifecycleCoordinator()' "${ios_gate_modernization_tests}" ||
-       /usr/bin/grep -Fq 'WalletLifecycleCoordinator.shared' "${ios_gate_modernization_tests}" ||
+       ! verify_ios_migration_shared_lifecycle_test_scope "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'Task { [weak self] in' "${ios_gate_websocket_engine}" ||
        ! /usr/bin/grep -Fq 'let previousState = oldValue' "${ios_gate_websocket_engine}" ||
        ! /usr/bin/grep -Fq 'let currentState = state' "${ios_gate_websocket_engine}" ||
@@ -711,7 +746,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026090706" ] ||
+       [ "${internal_testflight_build_number}" != "2026090801" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -747,10 +782,10 @@ if [ -n "${internal_testflight_mode}" ]; then
     if [ ! -x /usr/bin/git ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/ios-wallet-upgrade-testflight-2026090706" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "c86ba01d129fb0747ec3a730b1b366f0fef1920f" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "c86ba01d129fb0747ec3a730b1b366f0fef1920f..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "c86ba01d129fb0747ec3a730b1b366f0fef1920f..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/ios-wallet-upgrade-testflight-2026090801" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "b82a225bad3af795de2997ae74f781a9744bd593" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "b82a225bad3af795de2997ae74f781a9744bd593..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "b82a225bad3af795de2997ae74f781a9744bd593..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh' ] ||
@@ -2390,9 +2425,9 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="c86ba01d129fb0747ec3a730b1b366f0fef1920f"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090706"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026090706"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="b82a225bad3af795de2997ae74f781a9744bd593"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090801"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026090801"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq -- '--verify-app-runtime-closure "${archived_app}"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'verify_app_runtime_dependency_closure' "${internal_testflight_delivery_verifier}" ||
    ! /usr/bin/grep -Fq 'test_runtime_dependency_closure_rejects_missing_framework' "${internal_testflight_harness}" ||
@@ -5790,11 +5825,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "214" ] ||
+    if [ "${modernization_test_count}" != "219" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 240 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 245 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -5987,15 +6022,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "214" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 214 test methods"
+if [ "${modernization_test_count}" != "219" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 219 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 240 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 240-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 245 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 245-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(
