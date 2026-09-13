@@ -1016,6 +1016,226 @@ import SSFUtils
 import TweetNacl
 import UIKit
 
+enum WalletCloudBackupWriteError: Error {
+    case invalidBackup, ambiguous, preservationFailed, verificationFailed, busy
+
+    static func userMessage(for error: Error) -> String {
+        switch error as? Self {
+        case .invalidBackup:
+            return "The wallet backup could not be prepared safely. Existing backups were kept."
+        case .ambiguous:
+            return "More than one existing backup matches this wallet. Existing backups were kept."
+        case .preservationFailed:
+            return "Google Drive could not preserve the previous backup revision. It was not replaced. Try again later."
+        case .verificationFailed:
+            return "The new backup could not be verified. Previous backup revisions were kept. Try again."
+        case .busy:
+            return "A backup is already being saved. Wait for it to finish."
+        default:
+            return "The backup could not be saved and verified. Existing backups were not deleted. Try again."
+        }
+    }
+}
+
+/// Keeps the library's backup encoder and authentication flow, while replacing
+/// its final create request with a verified create or preserved-revision update.
+final class WalletBackupPreservingGoogleService: GoogleService {
+    private let base: GoogleService
+    private let lock = NSLock()
+    private var saving = false
+    private static let fileFields = "id,name,size,mimeType,trashed,headRevisionId,version"
+
+    init(base: GoogleService = BaseGoogleService(googleService: GTLRDriveService())) {
+        self.base = base
+    }
+
+    func set(authorizer: GTMFetcherAuthorizationProtocol?) { base.set(authorizer: authorizer) }
+
+    func executeQuery(_ query: GTLRQueryProtocol) async throws -> (ticket: GoogleServiceTicket, file: Any?) {
+        if let list = query as? GTLRDriveQuery_FilesList,
+           list.spaces == "appDataFolder", list.q == "name = 'backupFolder'" {
+            let result = try await boundedList("name = 'backupFolder' and mimeType = 'application/vnd.google-apps.folder' and trashed = false")
+            guard result.files.count <= 1 else { throw WalletCloudBackupWriteError.ambiguous }
+            for folder in result.files {
+                guard folder.name == "backupFolder", folder.mimeType == "application/vnd.google-apps.folder",
+                      folder.trashed?.boolValue != true, validID(folder.identifier) else {
+                    throw WalletCloudBackupWriteError.invalidBackup
+                }
+            }
+            let files = GTLRDrive_FileList(); files.files = result.files
+            return (result.ticket, files)
+        }
+        guard let create = query as? GTLRDriveQuery_FilesCreate,
+              let metadata = create.bodyObject as? GTLRDrive_File else {
+            throw WalletCloudBackupWriteError.invalidBackup
+        }
+        if create.uploadParameters == nil {
+            guard metadata.name == "backupFolder", metadata.mimeType == "application/vnd.google-apps.folder",
+                  metadata.parents == ["appDataFolder"] else { throw WalletCloudBackupWriteError.invalidBackup }
+            let result = try await base.executeQuery(create)
+            guard let folder = result.file as? GTLRDrive_File, validID(folder.identifier) else {
+                throw WalletCloudBackupWriteError.verificationFailed
+            }
+            return result
+        }
+        try beginSaving()
+        defer { endSaving() }
+        return try await save(create, metadata: metadata)
+    }
+
+    private func beginSaving() throws {
+        lock.lock(); defer { lock.unlock() }
+        guard !saving else { throw WalletCloudBackupWriteError.busy }
+        saving = true
+    }
+
+    private func endSaving() {
+        lock.lock(); defer { lock.unlock() }
+        saving = false
+    }
+
+    private func validID(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.isEmpty && value.utf8.count <= 1024 &&
+            !value.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+    }
+
+    private func boundedList(_ filter: String) async throws -> (ticket: GoogleServiceTicket, files: [GTLRDrive_File]) {
+        var files: [GTLRDrive_File] = []
+        var token: String?
+        var tokens = Set<String>()
+        for page in 0..<4 {
+            try Task.checkCancellation()
+            let query = GTLRDriveQuery_FilesList.query()
+            query.spaces = "appDataFolder"; query.q = filter
+            query.fields = "nextPageToken,incompleteSearch,files(\(Self.fileFields))"
+            query.pageSize = 100; query.pageToken = token
+            let result = try await base.executeQuery(query)
+            guard let list = result.file as? GTLRDrive_FileList,
+                  list.incompleteSearch?.boolValue != true, (list.files?.count ?? 0) <= 100 else {
+                throw WalletCloudBackupWriteError.invalidBackup
+            }
+            files.append(contentsOf: list.files ?? [])
+            guard files.count <= 1 else { throw WalletCloudBackupWriteError.ambiguous }
+            token = list.nextPageToken
+            if token == nil || token == "" { return (result.ticket, files) }
+            guard page < 3, validID(token), tokens.insert(token!).inserted else {
+                throw WalletCloudBackupWriteError.invalidBackup
+            }
+        }
+        throw WalletCloudBackupWriteError.invalidBackup
+    }
+
+    private func validateFile(_ file: GTLRDrive_File, name: String, identifier: String? = nil) throws {
+        guard validID(file.identifier), identifier == nil || file.identifier == identifier,
+              file.name == name, file.trashed?.boolValue != true,
+              file.mimeType == "application/json", validID(file.headRevisionId),
+              let size = file.size?.int64Value, size > 0,
+              size <= Int64(WalletCloudBackupRecoveryService.maximumBackupBytes),
+              let version = file.version?.int64Value, version > 0 else {
+            throw WalletCloudBackupWriteError.verificationFailed
+        }
+    }
+
+    private func metadata(_ identifier: String, name: String) async throws -> GTLRDrive_File {
+        let query = GTLRDriveQuery_FilesGet.query(withFileId: identifier)
+        query.fields = Self.fileFields
+        let result = try await base.executeQuery(query)
+        guard let file = result.file as? GTLRDrive_File else { throw WalletCloudBackupWriteError.verificationFailed }
+        try validateFile(file, name: name, identifier: identifier)
+        return file
+    }
+
+    private func media(_ query: GTLRQueryProtocol) async throws -> Data {
+        let result = try await base.executeQuery(query)
+        guard let data = (result.file as? GTLRDataObject)?.data, !data.isEmpty,
+              data.count <= WalletCloudBackupRecoveryService.maximumBackupBytes else {
+            throw WalletCloudBackupWriteError.verificationFailed
+        }
+        return data
+    }
+
+    private func verifyPinnedRevision(file: String, revision: String) async throws {
+        let query = GTLRDriveQuery_RevisionsGet.query(withFileId: file, revisionId: revision)
+        query.fields = "id,keepForever"
+        let result = try await base.executeQuery(query)
+        guard let retained = result.file as? GTLRDrive_Revision,
+              retained.identifier == revision, retained.keepForever?.boolValue == true else {
+            throw WalletCloudBackupWriteError.preservationFailed
+        }
+    }
+
+    private func save(_ create: GTLRDriveQuery_FilesCreate, metadata submitted: GTLRDrive_File)
+        async throws -> (ticket: GoogleServiceTicket, file: Any?) {
+        guard let payload = create.uploadParameters?.data, !payload.isEmpty,
+              payload.count <= WalletCloudBackupRecoveryService.maximumBackupBytes,
+              let envelope = try JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let address = envelope["address"] as? String,
+              (32...128).contains(address.count),
+              address.allSatisfy({ "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".contains($0) }),
+              submitted.name == "\(address).json",
+              let parents = submitted.parents, parents.count == 1, validID(parents[0]) else {
+            throw WalletCloudBackupWriteError.invalidBackup
+        }
+        let name = "\(address).json"
+        let matches = try await boundedList("name = '\(name)' and trashed = false")
+        let result: (ticket: GoogleServiceTicket, file: Any?)
+        if let old = matches.files.first {
+            try validateFile(old, name: name)
+            let identifier = old.identifier!
+            let original = try await metadata(identifier, name: name)
+            guard original.headRevisionId == old.headRevisionId, original.version == old.version else {
+                throw WalletCloudBackupWriteError.preservationFailed
+            }
+            let originalData = try await media(GTLRDriveQuery_FilesGet.queryForMedia(withFileId: identifier))
+            guard Int64(originalData.count) == original.size?.int64Value else {
+                throw WalletCloudBackupWriteError.preservationFailed
+            }
+            let revision = original.headRevisionId!
+            do {
+                let retained = GTLRDrive_Revision(); retained.keepForever = true
+                let pin = GTLRDriveQuery_RevisionsUpdate.query(withObject: retained, fileId: identifier, revisionId: revision)
+                pin.fields = "id,keepForever"
+                _ = try await base.executeQuery(pin)
+                try await verifyPinnedRevision(file: identifier, revision: revision)
+            } catch { throw WalletCloudBackupWriteError.preservationFailed }
+            // Pinning itself can change the file version. Compare only subsequent
+            // metadata snapshots, while keeping the original head and bytes fixed.
+            let afterPin = try await metadata(identifier, name: name)
+            guard afterPin.headRevisionId == revision else { throw WalletCloudBackupWriteError.preservationFailed }
+            let preservedData = try await media(GTLRDriveQuery_RevisionsGet.queryForMedia(withFileId: identifier, revisionId: revision))
+            guard preservedData == originalData else { throw WalletCloudBackupWriteError.preservationFailed }
+            let beforeWrite = try await metadata(identifier, name: name)
+            guard beforeWrite.headRevisionId == revision, beforeWrite.version == afterPin.version else {
+                throw WalletCloudBackupWriteError.preservationFailed
+            }
+            let updateMetadata = GTLRDrive_File()
+            updateMetadata.descriptionProperty = submitted.descriptionProperty
+            let update = GTLRDriveQuery_FilesUpdate.query(withObject: updateMetadata,
+                fileId: identifier, uploadParameters: create.uploadParameters)
+            update.keepRevisionForever = true
+            update.fields = Self.fileFields
+            result = try await base.executeQuery(update)
+        } else {
+            create.keepRevisionForever = true
+            create.fields = Self.fileFields
+            result = try await base.executeQuery(create)
+        }
+        guard let saved = result.file as? GTLRDrive_File else { throw WalletCloudBackupWriteError.verificationFailed }
+        try validateFile(saved, name: name, identifier: matches.files.first?.identifier)
+        guard saved.size?.int64Value == Int64(payload.count) else { throw WalletCloudBackupWriteError.verificationFailed }
+        do { try await verifyPinnedRevision(file: saved.identifier!, revision: saved.headRevisionId!) }
+        catch { throw WalletCloudBackupWriteError.verificationFailed }
+        let uploaded = try await media(GTLRDriveQuery_FilesGet.queryForMedia(withFileId: saved.identifier!))
+        guard uploaded == payload else { throw WalletCloudBackupWriteError.verificationFailed }
+        let final = try await metadata(saved.identifier!, name: name)
+        guard final.headRevisionId == saved.headRevisionId, final.size == saved.size else {
+            throw WalletCloudBackupWriteError.verificationFailed
+        }
+        return result
+    }
+}
+
 enum WalletCloudBackupRecoveryError: Error {
     case notAuthorized, authorizationCanceled, notFound, ambiguous, invalidBackup, incorrectPassword
     case identityMismatch, unsupportedBackup, unavailable
@@ -1282,9 +1502,10 @@ final class WalletCloudBackupRecoveryService {
         defer { pkcs.resetBytes(in: pkcs.startIndex..<pkcs.endIndex) }
         let header = SSFUtils.KeystoreConstants.pkcs8Header
         let divider = SSFUtils.KeystoreConstants.pkcs8Divider
-        let privateLength = account.cryptoType == .sr25519 ? 64 : 32
+        let privateLength = pkcs.count - header.count - divider.count - account.publicKeyData.count
+        let admittedLengths = account.cryptoType == .ed25519 ? [32, 64] : [account.cryptoType == .sr25519 ? 64 : 32]
         let publicStart = header.count + privateLength + divider.count
-        guard pkcs.count == publicStart + account.publicKeyData.count,
+        guard admittedLengths.contains(privateLength), pkcs.count == publicStart + account.publicKeyData.count,
               pkcs.starts(with: header),
               pkcs.subdata(in: header.count + privateLength..<publicStart) == divider,
               pkcs.range(of: divider)?.lowerBound == header.count + privateLength,
@@ -1305,11 +1526,19 @@ final class WalletCloudBackupRecoveryService {
         guard extracted.publicKeyData == account.publicKeyData, extracted.cryptoType.stringValue == account.cryptoType.typeString.lowercased() else {
             throw WalletCloudBackupRecoveryError.identityMismatch
         }
-        try validateSecretEncoding(extracted.secretKeyData, cryptoType: account.cryptoType)
+        try validateSecretEncoding(extracted.secretKeyData, cryptoType: account.cryptoType, publicKey: account.publicKeyData)
         return extracted.secretKeyData
     }
 
-    static func validateSecretEncoding(_ secret: Data, cryptoType: CryptoType) throws {
+    static func validateSecretEncoding(_ secret: Data, cryptoType: CryptoType, publicKey: Data) throws {
+        // Released Ed25519 JSON imports may retain seed + public key. Keep that
+        // representation intact, but never discard or ignore a conflicting suffix.
+        if cryptoType == .ed25519, secret.count == 64 {
+            guard publicKey.count == 32, secret.suffix(32) == publicKey else {
+                throw WalletCloudBackupRecoveryError.identityMismatch
+            }
+            return
+        }
         guard secret.count == (cryptoType == .sr25519 ? 64 : 32),
               cryptoType != .sr25519 || isCanonicalScalar(Array(secret.prefix(32))) else {
             throw WalletCloudBackupRecoveryError.invalidBackup

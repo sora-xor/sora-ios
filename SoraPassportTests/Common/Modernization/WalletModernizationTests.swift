@@ -31,6 +31,158 @@ private final class RecoveryDriveFixture: GoogleService {
     }
 }
 
+private final class PreservedBackupDriveFixture: GoogleService {
+    let name: String
+    var head = "original"
+    var version: Int64 = 1
+    var revisions: [String: Data] = [:]
+    var pinned = Set<String>()
+    var queries: [GTLRQueryProtocol] = []
+    var failure: String?
+    var folderExists = true
+    var duplicates = false
+    var afterPinReads = 0
+    init(name: String, original: Data?) {
+        self.name = name
+        revisions[head] = original
+    }
+    func set(authorizer: GTMFetcherAuthorizationProtocol?) {}
+    func file() -> GTLRDrive_File {
+        let value = GTLRDrive_File()
+        value.identifier = "synthetic-wallet-file"; value.name = name
+        value.mimeType = "application/json"; value.size = NSNumber(value: revisions[head]?.count ?? 0)
+        value.headRevisionId = head; value.version = NSNumber(value: version)
+        return value
+    }
+    func media(_ data: Data) -> GTLRDataObject {
+        let object = GTLRDataObject(); object.data = data; return object
+    }
+    func fail(_ phase: String) throws {
+        if failure == phase { throw NSError(domain: "synthetic-cloud-failure", code: 503) }
+    }
+    func executeQuery(_ query: GTLRQueryProtocol) async throws -> (ticket: GoogleServiceTicket, file: Any?) {
+        queries.append(query)
+        let result: Any
+        if let list = query as? GTLRDriveQuery_FilesList {
+            let files = GTLRDrive_FileList()
+            if list.q?.contains("backupFolder") == true {
+                let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"
+                folder.name = "backupFolder"; folder.mimeType = "application/vnd.google-apps.folder"
+                files.files = folderExists ? [folder] : []
+            } else {
+                files.files = revisions[head] == nil ? [] : (duplicates ? [file(), file()] : [file()])
+            }
+            result = files
+        } else if let pin = query as? GTLRDriveQuery_RevisionsUpdate {
+            try fail("pin")
+            let revision = try XCTUnwrap(pin.revisionId)
+            XCTAssertEqual((pin.bodyObject as? GTLRDrive_Revision)?.keepForever?.boolValue, true)
+            pinned.insert(revision); version += 1
+            let value = GTLRDrive_Revision(); value.identifier = revision; value.keepForever = true
+            result = value
+        } else if let get = query as? GTLRDriveQuery_RevisionsGet {
+            let revision = try XCTUnwrap(get.revisionId)
+            if get.downloadAsDataObjectType == "media" {
+                let bytes = try XCTUnwrap(revisions[revision])
+                result = media(failure == "preserved-media" ? Data("corrupt".utf8) : bytes)
+            } else {
+                let value = GTLRDrive_Revision(); value.identifier = revision
+                value.keepForever = NSNumber(value: pinned.contains(revision) && !(failure == "pin-verification" && revision == "original"))
+                result = value
+            }
+        } else if let get = query as? GTLRDriveQuery_FilesGet {
+            if get.downloadAsDataObjectType == "media" {
+                let bytes = try XCTUnwrap(revisions[head])
+                result = media(failure == "new-media" && head != "original" ? Data("corrupt".utf8) : bytes)
+            } else {
+                if pinned.contains("original") {
+                    afterPinReads += 1
+                    if failure == "concurrent-version" && afterPinReads == 2 { version += 1 }
+                }
+                result = file()
+            }
+        } else if let create = query as? GTLRDriveQuery_FilesCreate {
+            if let upload = create.uploadParameters {
+                try fail("create")
+                XCTAssertTrue(create.keepRevisionForever)
+                head = "created"; version += 1; revisions[head] = try XCTUnwrap(upload.data)
+                pinned.insert(head); result = file()
+            } else {
+                folderExists = true
+                let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"; result = folder
+            }
+        } else if let update = query as? GTLRDriveQuery_FilesUpdate {
+            try fail("update")
+            XCTAssertTrue(pinned.contains(head), "Existing head must be pinned before replacement")
+            XCTAssertTrue(update.keepRevisionForever)
+            XCTAssertEqual(update.fileId, "synthetic-wallet-file")
+            head = "updated-\(version)"; version += 1
+            revisions[head] = try XCTUnwrap(update.uploadParameters?.data)
+            pinned.insert(head)
+            try fail("lost-update-response")
+            result = file()
+        } else {
+            XCTFail("Unexpected Drive operation, including deletion")
+            throw WalletCloudBackupWriteError.invalidBackup
+        }
+        return (RecoveryDriveTicket(), result)
+    }
+}
+
+private final class BackupSavingCloudFixture: CloudStorageServiceProtocol {
+    var isUserAuthorized = true
+    var saves: [OpenBackupAccount] = []
+    var continuation: CheckedContinuation<Void, Error>?
+    var onSave: (() -> Void)?
+    func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
+    func getBackupAccounts() async throws -> [OpenBackupAccount] { XCTFail("Saving must not depend on an existing backup"); return [] }
+    func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("Saving must never delete an existing backup") }
+    func disconnect() { XCTFail("Saving must not disconnect Google") }
+    func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount {
+        XCTFail("Saving must not import a wallet"); return account
+    }
+    func saveBackup(account: OpenBackupAccount, password: String) async throws {
+        saves.append(account)
+        try await withCheckedThrowingContinuation {
+            continuation = $0
+            onSave?()
+        }
+    }
+    func complete(_ result: Result<Void, Error>) {
+        let pending = continuation; continuation = nil
+        pending?.resume(with: result)
+    }
+}
+
+private final class BackupSavingViewFixture: UIViewController, SetupPasswordViewProtocol {
+    var viewModel: SetupPasswordPresenterProtocol?
+    var shows = 0
+    var hides = 0
+    var onHide: (() -> Void)?
+    func showLoading() { XCTAssertTrue(Thread.isMainThread); shows += 1 }
+    func hideLoading() { XCTAssertTrue(Thread.isMainThread); hides += 1; onHide?() }
+}
+
+private final class BackupAccountCreatorFixture: CreateAccountServiceProtocol {
+    let account: AccountItem
+    var calls = 0
+    init(account: AccountItem) { self.account = account }
+    func createAccount(request: AccountCreationRequest, mnemonic: IRMnemonicProtocol,
+                       completion: @escaping (Result<AccountItem, Error>?) -> Void) {
+        calls += 1; completion(.success(account))
+    }
+}
+
+private final class BackupSavingWireframeFixture: SetupPasswordWireframeProtocol {
+    var activityIndicatorWindow: UIWindow?
+    var successes = 0
+    var failures: [String] = []
+    func showSetupPinCode() { XCTAssertTrue(Thread.isMainThread); successes += 1 }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+        XCTAssertTrue(Thread.isMainThread); failures.append(message ?? "")
+    }
+}
+
 /// Keeps synthetic wallet data in memory while using the production parser for
 /// Security's mixed wallet/framework attribute result, which InMemoryKeychain
 /// alone cannot represent.
@@ -10939,6 +11091,248 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
+    func testCloudBackupCreateAndReadbackRemainBounded() async throws {
+        let entropy = Data(repeating: 27, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let payload = try cloudRecoveryFixture(account: account, entropy: entropy,
+            format: "phrase", password: "synthetic-backup-password")
+        func upload() -> GTLRDriveQuery_FilesCreate {
+            let file = GTLRDrive_File(); file.name = "\(account.address).json"
+            file.parents = ["synthetic-folder"]
+            let parameters = GTLRUploadParameters(data: payload, mimeType: "application/json")
+            parameters.shouldUploadWithSingleRequest = true
+            return GTLRDriveQuery_FilesCreate.query(withObject: file, uploadParameters: parameters)
+        }
+        let drive = PreservedBackupDriveFixture(name: "\(account.address).json", original: nil)
+        drive.folderExists = false
+        let writer = WalletBackupPreservingGoogleService(base: drive)
+        let folderList = GTLRDriveQuery_FilesList.query()
+        folderList.spaces = "appDataFolder"; folderList.q = "name = 'backupFolder'"
+        let folders = try await writer.executeQuery(folderList)
+        XCTAssertEqual((folders.file as? GTLRDrive_FileList)?.files?.count, 0)
+        let folder = GTLRDrive_File(); folder.name = "backupFolder"
+        folder.mimeType = "application/vnd.google-apps.folder"; folder.parents = ["appDataFolder"]
+        _ = try await writer.executeQuery(GTLRDriveQuery_FilesCreate.query(withObject: folder, uploadParameters: nil))
+        _ = try await writer.executeQuery(upload())
+        XCTAssertEqual(drive.revisions[drive.head], payload)
+        XCTAssertTrue(drive.pinned.contains(drive.head))
+        XCTAssertEqual(drive.queries.filter { ($0 as? GTLRDriveQuery_FilesCreate)?.uploadParameters != nil }.count, 1)
+        XCTAssertFalse(drive.queries.contains { $0 is GTLRDriveQuery_FilesDelete || $0 is GTLRDriveQuery_FilesUpdate })
+        let list = try XCTUnwrap(drive.queries.compactMap { $0 as? GTLRDriveQuery_FilesList }.last)
+        XCTAssertEqual(list.q, "name = '\(account.address).json' and trashed = false")
+        XCTAssertEqual(list.pageSize, 100)
+        for fault in ["create", "new-media"] {
+            let failed = PreservedBackupDriveFixture(name: "\(account.address).json", original: nil)
+            failed.failure = fault
+            do { _ = try await WalletBackupPreservingGoogleService(base: failed).executeQuery(upload()); XCTFail("Unverified create accepted") }
+            catch {}
+            XCTAssertFalse(failed.queries.contains { $0 is GTLRDriveQuery_FilesDelete })
+            if fault == "new-media" {
+                XCTAssertEqual(failed.revisions[failed.head], payload)
+                XCTAssertTrue(failed.pinned.contains(failed.head), "An uncertain upload must remain recoverable")
+            }
+        }
+        let ambiguous = PreservedBackupDriveFixture(name: "\(account.address).json", original: payload)
+        ambiguous.duplicates = true
+        do { _ = try await WalletBackupPreservingGoogleService(base: ambiguous).executeQuery(upload()); XCTFail("Ambiguous backups admitted") }
+        catch WalletCloudBackupWriteError.ambiguous {}
+        catch { XCTFail("Ambiguous backup error lost") }
+        XCTAssertEqual(ambiguous.revisions["original"], payload)
+        XCTAssertTrue(ambiguous.queries.allSatisfy { $0 is GTLRDriveQuery_FilesList })
+    }
+
+    func testCloudBackupReplacementPreservesPriorRevisionAcrossFailures() async throws {
+        let entropy = Data(repeating: 28, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let original = try cloudRecoveryFixture(account: account, entropy: entropy,
+            format: "phrase", password: "synthetic-original-password")
+        let replacement = try cloudRecoveryFixture(account: account, entropy: entropy,
+            format: "combined", password: "synthetic-new-password")
+        func upload() -> GTLRDriveQuery_FilesCreate {
+            let file = GTLRDrive_File(); file.name = "\(account.address).json"; file.parents = ["synthetic-folder"]
+            return GTLRDriveQuery_FilesCreate.query(withObject: file,
+                uploadParameters: GTLRUploadParameters(data: replacement, mimeType: "application/json"))
+        }
+        for fault in ["pin", "pin-verification", "preserved-media", "concurrent-version", "update", "lost-update-response", "new-media"] {
+            let drive = PreservedBackupDriveFixture(name: "\(account.address).json", original: original)
+            drive.failure = fault
+            do { _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload()); XCTFail("Injected backup fault was accepted") }
+            catch {}
+            XCTAssertEqual(drive.revisions["original"], original)
+            XCTAssertFalse(drive.queries.contains { $0 is GTLRDriveQuery_FilesDelete || $0 is GTLRDriveQuery_RevisionsDelete })
+            if fault != "pin" { XCTAssertTrue(drive.pinned.contains("original")) }
+            if ["pin", "pin-verification", "preserved-media", "concurrent-version"].contains(fault) {
+                XCTAssertFalse(drive.queries.contains { $0 is GTLRDriveQuery_FilesUpdate })
+                XCTAssertEqual(drive.head, "original")
+            }
+            // A new adapter represents a restarted save. A lost upload response may
+            // already have installed the new head; preserve it and verify the retry.
+            drive.failure = nil
+            _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload())
+            XCTAssertEqual(drive.revisions["original"], original)
+            XCTAssertTrue(drive.pinned.contains("original"))
+            XCTAssertEqual(drive.revisions[drive.head], replacement)
+            XCTAssertTrue(drive.pinned.contains(drive.head))
+        }
+    }
+
+    @MainActor
+    func testCloudBackupPresenterRetriesSameCreatedAccountAndMarksOnlyVerifiedSuccess() async throws {
+        let entropy = Data(repeating: 29, count: 16)
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.entropyTagForAddress(account.address))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let gate = legacyActivationRecoveryGate(at: directory, settings: InMemorySettingsManager())
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let creator = BackupAccountCreatorFixture(account: account)
+        let cloud = BackupSavingCloudFixture(), view = BackupSavingViewFixture(), wireframe = BackupSavingWireframeFixture()
+        let oldFlags = ApplicationConfig.shared.backupedAccountAddresses
+        defer { ApplicationConfig.shared.backupedAccountAddresses = oldFlags; cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
+        ApplicationConfig.shared.backupedAccountAddresses = oldFlags.filter { $0 != account.address }
+        let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: "", passphrase: mnemonic.toString(),
+            cryptoType: "sr25519", substrateDerivationPath: ""), cloudStorageService: cloud,
+            createAccountRequest: AccountCreationRequest(username: "Synthetic backup", type: .sora,
+                derivationPath: "", cryptoType: .sr25519), createAccountService: creator, mnemonic: mnemonic,
+            entryPoint: .onboarding, keystore: keys, lifecycleCoordinator: coordinator, recoveryGate: gate)
+        presenter.view = view; presenter.wireframe = wireframe
+        let first = expectation(description: "first save pending"), failed = expectation(description: "failed save stops loading")
+        cloud.onSave = { first.fulfill() }; view.onHide = { failed.fulfill() }
+        presenter.backupAccount(with: "synthetic-password")
+        presenter.backupAccount(with: "synthetic-password")
+        await fulfillment(of: [first], timeout: 10)
+        XCTAssertEqual(creator.calls, 1); XCTAssertEqual(cloud.saves.count, 1); XCTAssertEqual(view.shows, 1)
+        XCTAssertFalse(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+        cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed))
+        await fulfillment(of: [failed], timeout: 10)
+        XCTAssertEqual(view.hides, 1); XCTAssertEqual(wireframe.successes, 0); XCTAssertEqual(wireframe.failures.count, 1)
+        XCTAssertFalse(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+        let retry = expectation(description: "same account retry"), saved = expectation(description: "verified save stops loading")
+        cloud.onSave = { retry.fulfill() }; view.onHide = { saved.fulfill() }
+        presenter.backupAccount(with: "synthetic-password")
+        await fulfillment(of: [retry], timeout: 10)
+        XCTAssertEqual(creator.calls, 1, "Retry must not create another wallet")
+        XCTAssertEqual(cloud.saves.map(\.address), [account.address, account.address])
+        cloud.complete(.success(()))
+        await fulfillment(of: [saved], timeout: 10)
+        XCTAssertEqual(view.hides, 2); XCTAssertEqual(wireframe.successes, 1)
+        XCTAssertTrue(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+        XCTAssertEqual(try keys.fetchKey(for: KeystoreTag.entropyTagForAddress(account.address)), entropy)
+    }
+
+    @MainActor
+    func testCloudBackupPresenterRejectsIdentityConflictsAndPreservesStoredDerivation() async throws {
+        let entropy = Data(repeating: 30, count: 16), otherEntropy = Data(repeating: 31, count: 16)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let otherPhrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: otherEntropy).toString()
+        let path = "//backup-fixture"
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(entropy),
+            chaincodeList: SubstrateJunctionFactory().parse(path: path).chaincodes)
+        let account = AccountItem(address: try SS58AddressFactory().address(fromAccountId: pair.publicKey().rawData(),
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Synthetic derived backup", publicKeyData: pair.publicKey().rawData(),
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        let otherAccount = try retainedEntropyAccount(entropy: otherEntropy)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.entropyTagForAddress(account.address))
+        try keys.addKey(Data(path.utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
+        let originalKeys = try retainedEntropyKeyBytes(keys)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let gate = legacyActivationRecoveryGate(at: directory, settings: InMemorySettingsManager())
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let oldFlags = ApplicationConfig.shared.backupedAccountAddresses
+        defer { ApplicationConfig.shared.backupedAccountAddresses = oldFlags }
+        for scenario in ["switched-account", "wrong-phrase", "wrong-path", "valid"] {
+            let cloud = BackupSavingCloudFixture(), view = BackupSavingViewFixture(), wireframe = BackupSavingWireframeFixture()
+            defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
+            let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: account.address,
+                passphrase: scenario == "wrong-phrase" ? otherPhrase : phrase, cryptoType: "sr25519",
+                substrateDerivationPath: scenario == "wrong-path" ? "//other" : ""), cloudStorageService: cloud,
+                entryPoint: .profile, keystore: keys,
+                currentAccount: { scenario == "switched-account" ? otherAccount : account },
+                lifecycleCoordinator: coordinator, recoveryGate: gate)
+            presenter.view = view; presenter.wireframe = wireframe
+            let ended = expectation(description: "profile backup loading ends")
+            view.onHide = { ended.fulfill() }
+            if scenario == "valid" {
+                let started = expectation(description: "verified profile backup payload")
+                cloud.onSave = { started.fulfill() }
+                presenter.backupAccount(with: "synthetic-password")
+                await fulfillment(of: [started], timeout: 10)
+                let prepared = try XCTUnwrap(cloud.saves.first)
+                XCTAssertEqual(prepared.address, account.address)
+                XCTAssertEqual(prepared.substrateDerivationPath, path)
+                XCTAssertTrue(prepared.backupAccountType?.contains(.passphrase) == true,
+                    "Profile has no presenter mnemonic but its saved phrase must be importable")
+                let restoredEntropy = try IRMnemonicCreator(language: .english).mnemonic(fromList: XCTUnwrap(prepared.passphrase)).entropy()
+                let lease = coordinator.acquire(); defer { lease.release() }
+                try LegacySoraIdentityValidator.validate(address: account.address, publicKey: account.publicKeyData,
+                    cryptoType: account.cryptoType, networkType: account.networkType,
+                    derivationPath: prepared.substrateDerivationPath, entropy: restoredEntropy,
+                    rawSeed: nil, secret: nil, recoveryGate: gate)
+                cloud.complete(.success(()))
+            } else {
+                presenter.backupAccount(with: "synthetic-password")
+            }
+            await fulfillment(of: [ended], timeout: 10)
+            XCTAssertEqual(cloud.saves.count, scenario == "valid" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, scenario == "valid" ? 1 : 0)
+            XCTAssertEqual(wireframe.failures.count, scenario == "valid" ? 0 : 1)
+            XCTAssertEqual(view.hides, 1)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys)
+        }
+        // Released Ed25519 JSON imports retain seed + public key, not only a
+        // 32-byte seed. Back up those exact bytes and reject either conflicting half.
+        let edSeed = Data(repeating: 42, count: 32)
+        let edPair = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: [])
+        let edPublic = edPair.publicKey().rawData()
+        let edAccount = AccountItem(address: try SS58AddressFactory().address(fromAccountId: edPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Synthetic retained Ed25519", publicKeyData: edPublic,
+            settings: account.settings, order: 0, isSelected: true)
+        for condition in ["valid", "suffix", "seed"] {
+            var retainedSecret = edSeed + edPublic
+            if condition == "suffix" { retainedSecret[63] ^= 1 }
+            if condition == "seed" { retainedSecret[0] ^= 1 }
+            let retainedKeys = InMemoryKeychain()
+            try retainedKeys.addKey(retainedSecret, with: KeystoreTag.secretKeyTagForAddress(edAccount.address))
+            let original = try retainedEntropyKeyBytes(retainedKeys)
+            let cloud = BackupSavingCloudFixture(), view = BackupSavingViewFixture(), wireframe = BackupSavingWireframeFixture()
+            defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
+            let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: edAccount.address,
+                cryptoType: "ed25519", substrateDerivationPath: ""), cloudStorageService: cloud,
+                entryPoint: .profile, keystore: retainedKeys, currentAccount: { edAccount },
+                lifecycleCoordinator: coordinator, recoveryGate: gate)
+            presenter.view = view; presenter.wireframe = wireframe
+            let ended = expectation(description: "retained Ed25519 backup completes")
+            view.onHide = { ended.fulfill() }
+            if condition == "valid" {
+                let started = expectation(description: "retained Ed25519 backup prepared")
+                cloud.onSave = { started.fulfill() }
+                presenter.backupAccount(with: "synthetic-password")
+                await fulfillment(of: [started], timeout: 10)
+                let backup = try XCTUnwrap(cloud.saves.first)
+                let json = try XCTUnwrap(backup.json?.substrateJson).data(using: .utf8)!
+                let definition = try JSONDecoder().decode(KeystoreDefinition.self, from: json)
+                let exported = try KeystoreExtractor().extractFromDefinition(definition, password: "synthetic-password")
+                XCTAssertEqual(exported.secretKeyData, retainedSecret)
+                XCTAssertEqual(exported.publicKeyData, edPublic)
+                XCTAssertNil(backup.passphrase)
+                XCTAssertEqual(backup.backupAccountType, [.json])
+                cloud.complete(.success(()))
+            } else {
+                presenter.backupAccount(with: "synthetic-password")
+            }
+            await fulfillment(of: [ended], timeout: 10)
+            XCTAssertEqual(cloud.saves.count, condition == "valid" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, condition == "valid" ? 1 : 0)
+            XCTAssertEqual(try retainedEntropyKeyBytes(retainedKeys), original)
+        }
+    }
+
     func testCloudRecoveryReadsOnlyExactBoundedExistingBackup() async throws {
         let account = try retainedEntropyAccount(entropy: Data(repeating: 20, count: 20))
         let payload = Data("synthetic encrypted backup bytes".utf8)
@@ -11087,6 +11481,46 @@ final class WalletModernizationTests: XCTestCase {
                 }
             }
         }
+        let edSeed = Data(repeating: 43, count: 32)
+        let edPublic = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: []).publicKey().rawData()
+        let edAccount = AccountItem(address: try SS58AddressFactory().address(fromAccountId: edPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Retained Ed25519 JSON", publicKeyData: edPublic,
+            settings: account.settings, order: 0, isSelected: true)
+        for secret in [edSeed, edSeed + edPublic] {
+            let payload = try cloudRecoveryEd25519Fixture(account: edAccount, secret: secret, password: password)
+            for version in UserStorageVersion.allCases {
+                try withRetainedEntropyDatabase(accounts: [edAccount], version: version,
+                    entropy: entropy, recovering: true) { directory, keys, settings in
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                    let original = try retainedEntropyKeyBytes(keys)
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                        legacyActivationRecoveryGate(at: directory, settings: settings))
+                    let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    try WalletCloudBackupRecoveryService.restore(data: payload, password: password,
+                        account: edAccount, migrator: database, baseURL: directory, lifecycleCoordinator: coordinator)
+                    var expected = original
+                    expected[KeystoreTag.secretKeyTagForAddress(edAccount.address)] = secret
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    for _ in 0..<2 {
+                        let snapshot = try runRetainedEntropyStartup(directory: directory, keys: keys,
+                            settings: settings, accounts: [edAccount])
+                        XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+                        let restored = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: edAccount, keystore: keys))
+                        XCTAssertEqual(restored, secret)
+                        let message = Data("retained Ed25519 JSON recovery proof".utf8)
+                        let signature = try Sora2Ed25519SeedSigner.sign(message, seed: restored)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: message,
+                            secretKey: restored, account: edAccount)
+                        XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature,
+                            originalData: message + Data([1]), secretKey: restored, account: edAccount))
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    }
+                }
+            }
+        }
     }
 
     func testCloudRecoveryRejectsWrongPasswordConflictsAndMalformedSecretWithoutWrites() throws {
@@ -11138,8 +11572,33 @@ final class WalletModernizationTests: XCTestCase {
                 XCTAssertFalse(text.contains(password))
             }
         }
+        let edSeed = Data(repeating: 44, count: 32)
+        let edPublic = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: []).publicKey().rawData()
+        let edAccount = AccountItem(address: try SS58AddressFactory().address(fromAccountId: edPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Retained Ed25519 conflict", publicKeyData: edPublic,
+            settings: account.settings, order: 0, isSelected: true)
+        for condition in ["suffix", "seed"] {
+            var invalid = edSeed + edPublic
+            invalid[condition == "suffix" ? 63 : 0] ^= 1
+            let payload = try cloudRecoveryEd25519Fixture(account: edAccount, secret: invalid, password: password)
+            try withRetainedEntropyDatabase(accounts: [edAccount], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                let original = try retainedEntropyKeyBytes(keys)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                    legacyActivationRecoveryGate(at: directory, settings: settings))
+                let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
+                    password: password, account: edAccount, migrator: database,
+                    baseURL: directory, lifecycleCoordinator: coordinator))
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), original)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            }
+        }
         XCTAssertThrowsError(try WalletCloudBackupRecoveryService.validateSecretEncoding(
-            Data(repeating: 255, count: 64), cryptoType: .sr25519))
+            Data(repeating: 255, count: 64), cryptoType: .sr25519, publicKey: account.publicKeyData))
     }
 
     private func cloudRecoveryFixture(account: AccountItem, entropy: Data, format: String,
@@ -11167,6 +11626,17 @@ final class WalletModernizationTests: XCTestCase {
                 cryptoType: .sr25519), password: password, isEthereum: false)
             fields["json"] = ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]
         }
+        return try JSONSerialization.data(withJSONObject: fields)
+    }
+
+    private func cloudRecoveryEd25519Fixture(account: AccountItem, secret: Data, password: String) throws -> Data {
+        let definition = try KeystoreBuilder().build(from: KeystoreData(address: account.address,
+            secretKeyData: secret, publicKeyData: account.publicKeyData, cryptoType: .ed25519),
+            password: password, isEthereum: false)
+        let verifier = try XCTUnwrap(EncryptionService().createEncryptedData(with: password, message: account.address))
+        let fields: [String: Any] = ["name": "Synthetic Ed25519 backup", "address": account.address,
+            "cryptoType": "ED25519", "keyVerifier": verifier.hex, "backupAccountType": ["json"],
+            "json": ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]]
         return try JSONSerialization.data(withJSONObject: fields)
     }
 
