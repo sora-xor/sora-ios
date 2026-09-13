@@ -1009,6 +1009,7 @@ extension SelectedWalletSettings {
 // in recovery for an already retained identity.
 import GoogleAPIClientForREST_Drive
 import GoogleAPIClientForRESTCore
+import GoogleSignIn
 import IrohaCrypto
 import SSFCloudStorage
 import SSFUtils
@@ -1016,8 +1017,26 @@ import TweetNacl
 import UIKit
 
 enum WalletCloudBackupRecoveryError: Error {
-    case notAuthorized, notFound, ambiguous, invalidBackup, incorrectPassword
+    case notAuthorized, authorizationCanceled, notFound, ambiguous, invalidBackup, incorrectPassword
     case identityMismatch, unsupportedBackup, unavailable
+
+    static func authorizationError(for error: Error) -> Self {
+        let system = error as NSError
+        // GIDSignIn's public kGIDSignInErrorCodeCanceled is -5.
+        if error is CancellationError || (system.domain == kGIDSignInErrorDomain && system.code == -5) {
+            return .authorizationCanceled
+        }
+        return .notAuthorized
+    }
+
+    static func title(for error: Error) -> String {
+        switch error as? Self {
+        case .notFound: return "Backup not found"
+        case .authorizationCanceled: return "Google sign-in canceled"
+        case .notAuthorized: return "Google sign-in required"
+        default: return "Wallet keys not restored"
+        }
+    }
 
     static func userMessage(for error: Error) -> String {
         if let system = error as? KeystoreSystemError {
@@ -1034,7 +1053,8 @@ enum WalletCloudBackupRecoveryError: Error {
         }
         switch error {
         case .notAuthorized: return "Sign in to the Google account that holds your wallet backup."
-        case .notFound: return "No backup for this existing wallet was found in this Google account."
+        case .authorizationCanceled: return "Google sign-in was canceled. No wallet keys were changed. Tap Restore from Google Drive backup to choose an account again."
+        case .notFound: return "No backup for this existing wallet was found in the selected Google account. Tap Restore from Google Drive backup again to choose another Google account."
         case .ambiguous: return "More than one backup matches this wallet. No wallet keys were changed."
         case .invalidBackup: return "The backup file is incomplete or unsupported. No wallet keys were changed."
         case .incorrectPassword: return "The backup could not be decrypted with this password. Try the original backup password."
@@ -1051,9 +1071,30 @@ final class WalletCloudBackupRecoveryService {
     private let authorize: () async throws -> Bool
 
     init(viewController: UIViewController) {
-        let cloud = CloudStorageService(uiDelegate: viewController)
-        drive = cloud.googleDriveService
-        authorize = { try await cloud.signInIfNeeded() == .authorized }
+        let recoveryDrive = BaseGoogleService(googleService: GTLRDriveService())
+        drive = recoveryDrive
+        authorize = {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                Task { @MainActor in
+                    // Recovery must let the user choose the backup's Google account
+                    // even when ordinary cloud browsing already has a saved session.
+                    GIDSignIn.sharedInstance.signIn(withPresenting: viewController, hint: nil,
+                        additionalScopes: [kGTLRAuthScopeDriveAppdata]) { result, error in
+                        if let error {
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        guard let user = result?.user,
+                              user.grantedScopes?.contains(kGTLRAuthScopeDriveAppdata) == true else {
+                            continuation.resume(returning: false)
+                            return
+                        }
+                        recoveryDrive.set(authorizer: user.fetcherAuthorizer)
+                        continuation.resume(returning: true)
+                    }
+                }
+            }
+        }
     }
 
     init(drive: GoogleService, authorize: @escaping () async throws -> Bool) {
@@ -1067,7 +1108,11 @@ final class WalletCloudBackupRecoveryService {
             throw WalletCloudBackupRecoveryError.identityMismatch
         }
         do {
+            try Task.checkCancellation()
             guard try await authorize() else { throw WalletCloudBackupRecoveryError.notAuthorized }
+        } catch let error as WalletCloudBackupRecoveryError { throw error }
+        catch { throw WalletCloudBackupRecoveryError.authorizationError(for: error) }
+        do {
             var token: String?
             var seenTokens = Set<String>()
             var matches: [GTLRDrive_File] = []
