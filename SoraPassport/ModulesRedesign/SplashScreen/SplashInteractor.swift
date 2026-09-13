@@ -36,6 +36,86 @@ import IrohaCrypto
 
 typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
 
+/// Collect only outcomes of operations the wallet already performs. No key tags,
+/// identifiers, values, derivation strings or database paths enter this record.
+final class WalletSecretDiagnostics {
+    enum Origin: String, Codable { case liveInventory = "live_account_inventory", savedManifest = "saved_manifest_validation" }
+    enum Operation: String, Codable, CaseIterable {
+        case scopedSecret = "scoped_secret", scopedEntropy = "scoped_entropy", scopedSeed = "scoped_seed"
+        case scopedDerivation = "scoped_derivation", globalEntropy = "global_entropy", legacyIrohaKey = "legacy_iroha_key"
+    }
+    enum Outcome: String, Codable { case notChecked = "not_checked", missing = "not_found", present, empty, failed }
+    enum Fallback: String, Codable {
+        case notChecked = "not_checked", scopedEntropy = "scoped_entropy", watchOnly = "watch_only"
+        case scopedConflict = "scoped_material_present", derivationConflict = "scoped_derivation_present"
+        case globalMissing = "global_entropy_not_found", noSnapshot = "no_snapshot"
+        case snapshotIdentity = "snapshot_identity_not_unique", snapshotSource = "snapshot_source_not_mnemonic"
+        case provingGlobal = "proving_global_identity", resolvedGlobal = "global_identity_verified"
+    }
+    struct Snapshot: Codable, Equatable {
+        let origin: Origin
+        let schema: Int
+        let accountNumber: Int
+        let accountCount: Int
+        let cryptoType: Int
+        let networkType: Int
+        let selectedPreferenceMatches: Bool
+        let watchOnly: Bool
+        var outcomes: [Operation: Outcome] = [:]
+        var fallback: Fallback = .notChecked
+        var failedOperation: Operation?
+        var snapshotPresent: Bool?
+        var savedSecret: Bool?
+        var savedEntropy: Bool?
+        var savedSeed: Bool?
+        var isValid: Bool {
+            (1...2).contains(schema) && (1...4096).contains(accountCount) &&
+                (1...accountCount).contains(accountNumber) && (0...255).contains(cryptoType) &&
+                (0...16383).contains(networkType) && outcomes.count <= Operation.allCases.count
+        }
+        var summary: String {
+            var rows = ["Secret check: \(origin.rawValue); schema=\(schema); account=\(accountNumber)/\(accountCount)",
+                "Account type: crypto=\(cryptoType); network=\(networkType); selected=\(selectedPreferenceMatches); watch_only=\(watchOnly)"]
+            rows += Operation.allCases.map { "\($0.rawValue)=\((outcomes[$0] ?? .notChecked).rawValue)" }
+            rows.append("Entropy fallback: \(fallback.rawValue)")
+            if let snapshotPresent { rows.append("Network snapshot present: \(snapshotPresent)") }
+            if let failedOperation { rows.append("Failed key operation: \(failedOperation.rawValue)") }
+            if let savedSecret, let savedEntropy, let savedSeed {
+                rows.append("Saved manifest: secret=\(savedSecret); entropy=\(savedEntropy); seed=\(savedSeed)")
+            }
+            return rows.joined(separator: "\n")
+        }
+    }
+    var snapshot: Snapshot
+    init(origin: Origin, schema: Int, accountNumber: Int, accountCount: Int,
+         cryptoType: Int, networkType: Int, selected: Bool, watchOnly: Bool) {
+        snapshot = Snapshot(origin: origin, schema: schema, accountNumber: accountNumber,
+            accountCount: accountCount, cryptoType: cryptoType, networkType: networkType,
+            selectedPreferenceMatches: selected, watchOnly: watchOnly)
+    }
+    static func observe<T>(_ operation: Operation, into observation: WalletSecretDiagnostics?,
+                           _ body: () throws -> T) throws -> T {
+        do {
+            let result = try body()
+            let outcome: Outcome
+            if let value = result as? Data { outcome = value.isEmpty ? .empty : .present }
+            else if let value = result as? String { outcome = value.isEmpty ? .empty : .present }
+            else if let value = result as? Bool {
+                // An existence recheck cannot establish that earlier empty
+                // bytes acquired content. Keep the more specific observation.
+                outcome = value ? (observation?.snapshot.outcomes[operation] == .empty ? .empty : .present) : .missing
+            }
+            else { outcome = .missing }
+            observation?.snapshot.outcomes[operation] = outcome
+            return result
+        } catch {
+            observation?.snapshot.outcomes[operation] = .failed
+            observation?.snapshot.failedOperation = operation
+            throw error
+        }
+    }
+}
+
 /// A retry can fail for a different reason than the original recovery marker.
 /// Keep that new outcome separately: it is diagnostic evidence, not permission
 /// to clear the marker. Only fixed codes and numeric framework status are stored.
@@ -96,10 +176,60 @@ struct WalletStartupDiagnostic: Codable, Equatable {
     let cause: Cause
     let systemCode: Int?
     private let markerGeneration: String?
+    let secretChecks: WalletSecretDiagnostics.Snapshot?
+    let recordedAt: Date?
 
     var summary: String {
         let suffix = systemCode.map { " (\($0))" } ?? ""
-        return "Latest verification: \(phase.rawValue) / \(cause.rawValue)\(suffix)"
+        let prefix = "Latest verification: \(phase.rawValue) / \(cause.rawValue)\(suffix)"
+        let checks = secretChecks?.summary ?? "Detailed credential checks were not recorded for this failure."
+        let attempted = recordedAt.map { "Attempted at: \(ISO8601DateFormatter().string(from: $0))" }
+        return [prefix, attempted, checks].compactMap { $0 }.joined(separator: "\n")
+    }
+
+    var userMessage: String {
+        switch cause {
+        case .missingSecret, .keychainMissing:
+            if secretChecks?.origin == .savedManifest {
+                return "The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved."
+            }
+            return "SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account."
+        case .emptySecret:
+            return "A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved."
+        case .keychainSystem:
+            if systemCode == -25308 { return "iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again." }
+            if systemCode == -34018 { return "iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced." }
+            return "iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation."
+        case .snapshotVerification, .inventoryMismatch, .legacyIdentityMismatch, .legacyUpgradeProof:
+            return "The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access."
+        case .missingStore, .unknownStore, .unavailableModel:
+            return "SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved."
+        case .insufficientStorage: return "SORA needs more free storage to retain a verified recovery copy before completing this upgrade."
+        default: return "SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved."
+        }
+    }
+
+    private static let pendingSecretChecksKey = "co.jp.soramitsu.sora.pending-secret-diagnostic"
+    private final class PendingSecretChecks: NSObject {
+        let value: WalletSecretDiagnostics.Snapshot
+        let cause: Cause
+        let code: Int?
+        init(_ value: WalletSecretDiagnostics.Snapshot, error: Error) {
+            self.value = value
+            (cause, code) = WalletStartupDiagnostic.classify(error)
+        }
+    }
+    static func retainSecretChecks(_ value: WalletSecretDiagnostics.Snapshot?, error: Error? = nil) {
+        if let value, value.isValid, let error {
+            Thread.current.threadDictionary[pendingSecretChecksKey] = PendingSecretChecks(value, error: error)
+        } else { Thread.current.threadDictionary.removeObject(forKey: pendingSecretChecksKey) }
+    }
+    private static func takeSecretChecks(matching error: Error) -> WalletSecretDiagnostics.Snapshot? {
+        let pending = Thread.current.threadDictionary[pendingSecretChecksKey] as? PendingSecretChecks
+        Thread.current.threadDictionary.removeObject(forKey: pendingSecretChecksKey)
+        let (cause, code) = classify(error)
+        guard pending?.cause == cause, pending?.code == code else { return nil }
+        return pending?.value
     }
 
     private static func classify(_ error: Error) -> (Cause, Int?) {
@@ -173,11 +303,13 @@ struct WalletStartupDiagnostic: Codable, Equatable {
     static func record(_ error: Error, phase: Phase, settings: SettingsManagerProtocol) {
         let detail = error as? WalletStartupCheckFailure
         let (cause, code) = classify(detail?.underlying ?? error)
+        let pendingChecks = takeSecretChecks(matching: detail?.underlying ?? error)
+        let checks = detail?.secretChecks ?? pendingChecks
         WalletMigrationRecoveryMarker.synchronized {
             let marker = WalletMigrationRecoveryMarker.capture(settings)
             guard marker.required else { return }
             let value = Self(phase: detail?.phase ?? phase, cause: cause,
-                systemCode: code, markerGeneration: marker.generation)
+                systemCode: code, markerGeneration: marker.generation, secretChecks: checks, recordedAt: Date())
             guard let data = try? JSONEncoder().encode(value) else { return }
             settings.set(value: String(decoding: data, as: UTF8.self), for: settingsKey)
             Logger.shared.error(value.summary)
@@ -190,21 +322,26 @@ struct WalletStartupDiagnostic: Codable, Equatable {
             guard marker.required,
                   let stored = settings.string(for: settingsKey), stored.utf8.count <= 1_024,
                   let value = try? JSONDecoder().decode(Self.self, from: Data(stored.utf8)),
-                  value.markerGeneration == marker.generation else { return nil }
+                  value.markerGeneration == marker.generation,
+                  value.secretChecks?.isValid != false,
+                  value.recordedAt?.timeIntervalSince1970.isFinite != false else { return nil }
             return value
         }
     }
 
     static func check<T>(_ phase: Phase, _ body: () throws -> T) throws -> T {
+        retainSecretChecks(nil)
+        defer { retainSecretChecks(nil) }
         do { return try body() }
         catch let failure as WalletStartupCheckFailure { throw failure }
-        catch { throw WalletStartupCheckFailure(phase: phase, underlying: error) }
+        catch { throw WalletStartupCheckFailure(phase: phase, underlying: error, secretChecks: takeSecretChecks(matching: error)) }
     }
 }
 
 private struct WalletStartupCheckFailure: Error {
     let phase: WalletStartupDiagnostic.Phase
     let underlying: Error
+    let secretChecks: WalletSecretDiagnostics.Snapshot?
 }
 
 enum WalletStorageStartupOutcome: Equatable {
@@ -219,6 +356,8 @@ enum WalletStorageStartup {
         accountCommitRecovery: (() throws -> Void)? = nil,
         migration: () throws -> Void
     ) -> WalletStorageStartupOutcome {
+        WalletStartupDiagnostic.retainSecretChecks(nil)
+        defer { WalletStartupDiagnostic.retainSecretChecks(nil) }
         do {
             try accountCommitRecovery?()
         } catch {

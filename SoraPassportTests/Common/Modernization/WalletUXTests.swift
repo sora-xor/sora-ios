@@ -37,6 +37,8 @@ final class WalletUXTests: XCTestCase {
             XCTAssertEqual(diagnostic.cause, cause)
             XCTAssertEqual(diagnostic.systemCode, systemCode)
             XCTAssertFalse(diagnostic.summary.contains(secret))
+            XCTAssertFalse(diagnostic.userMessage.isEmpty)
+            XCTAssertFalse(diagnostic.userMessage.contains(secret))
             XCTAssertFalse(try String(decoding: JSONEncoder().encode(diagnostic), as: UTF8.self).contains(secret))
         }
         settings.setWalletMigrationRecovery(reason: "A newer integrity failure")
@@ -53,6 +55,8 @@ final class WalletUXTests: XCTestCase {
 
     @MainActor
     func testRecoveryDetailsIncludeLatestSafeDiagnosticAndRejectInvalidStoredCodes() throws {
+        let previousClipboard = UIPasteboard.general.string
+        defer { UIPasteboard.general.string = previousClipboard }
         let settings = InMemorySettingsManager()
         let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
         settings.setWalletMigrationRecovery(reason: reason)
@@ -68,7 +72,34 @@ final class WalletUXTests: XCTestCase {
         let details = try XCTUnwrap(UIPasteboard.general.string)
         XCTAssertTrue(details.contains(reason))
         XCTAssertTrue(details.contains("Latest verification: network_bootstrap / keychain_system (-25308)"))
+        XCTAssertTrue(details.contains("Recovery report format: 2"))
+        XCTAssertTrue(details.contains("Protected data when copied: "))
+        XCTAssertTrue(details.contains("iOS: "))
+        XCTAssertTrue(details.contains("Current failure: \(diagnostic.userMessage)"))
+        let latestRange = try XCTUnwrap(details.range(of: "Latest verification:"))
+        let originalRange = try XCTUnwrap(details.range(of: "Original recovery trigger:"))
+        XCTAssertLessThan(latestRange.lowerBound, originalRange.lowerBound)
+        let visibleDiagnostic = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-diagnostic" })
+        XCTAssertEqual(visibleDiagnostic.text, diagnostic.summary)
         XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+
+        let privateHistoricalText = "PRIVATE-ACCOUNT-ADDRESS-PHRASE-PATH"
+        let historicalController = WalletRecoveryViewController(reason: privateHistoricalText, diagnostic: diagnostic)
+        historicalController.loadViewIfNeeded()
+        let historicalCopy = try XCTUnwrap(descendants(historicalController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-copy-details" })
+        historicalCopy.sendActions(for: .touchUpInside)
+        let historicalDetails = try XCTUnwrap(UIPasteboard.general.string)
+        XCTAssertFalse(historicalDetails.contains(privateHistoricalText))
+        XCTAssertTrue(historicalDetails.contains(diagnostic.summary))
+        XCTAssertTrue(historicalDetails.contains("Original recovery trigger: legacy record"))
+
+        let oldController = WalletRecoveryViewController(reason: reason, onRetry: {})
+        oldController.loadViewIfNeeded()
+        let oldDiagnostic = try XCTUnwrap(descendants(oldController.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-diagnostic" })
+        XCTAssertTrue(try XCTUnwrap(oldDiagnostic.text).contains("Try again"))
 
         var stored = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(diagnostic)) as? [String: Any])
         stored["cause"] = "PRIVATE-ACCOUNT"
