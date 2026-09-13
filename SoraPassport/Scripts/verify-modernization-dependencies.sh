@@ -746,7 +746,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026090802" ] ||
+       [ "${internal_testflight_build_number}" != "2026091301" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -782,10 +782,10 @@ if [ -n "${internal_testflight_mode}" ]; then
     if [ ! -x /usr/bin/git ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/ios-wallet-upgrade-testflight-2026090802" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "95d33aad697f476c6d8170e4a4303df779b3cc8b" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "95d33aad697f476c6d8170e4a4303df779b3cc8b..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "95d33aad697f476c6d8170e4a4303df779b3cc8b..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/ios-wallet-upgrade-testflight-2026091301" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "28f413c52be1a201dc2964c101727089a9d39ce2" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "28f413c52be1a201dc2964c101727089a9d39ce2..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "28f413c52be1a201dc2964c101727089a9d39ce2..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh' ] ||
@@ -2425,9 +2425,9 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="95d33aad697f476c6d8170e4a4303df779b3cc8b"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026090802"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026090802"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="28f413c52be1a201dc2964c101727089a9d39ce2"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/ios-wallet-upgrade-testflight-2026091301"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026091301"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq -- '--verify-app-runtime-closure "${archived_app}"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'verify_app_runtime_dependency_closure' "${internal_testflight_delivery_verifier}" ||
    ! /usr/bin/grep -Fq 'test_runtime_dependency_closure_rejects_missing_framework' "${internal_testflight_harness}" ||
@@ -4730,7 +4730,8 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "case 15, 18, 21:" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "case legacyMnemonicEntropy" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "source == .mnemonicEntropy" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "source.supportsNexusDerivation" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(words.count)" "${wallet_network_model}" ||
    [ "$(/usr/bin/grep -Fc "allowedMnemonicWordCounts.contains(mnemonic.allWords().count)" "${account_import}")" -lt 2 ] ||
    ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.userImportWordCounts" "${account_import}" ||
    [ "$(/usr/bin/grep -Fc ".retainedSoraWordCounts" "${account_import_factory}")" -ne 1 ] ||
@@ -5827,11 +5828,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "223" ] ||
+    if [ "${modernization_test_count}" != "229" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 249 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 255 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -6024,15 +6025,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "223" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 223 test methods"
+if [ "${modernization_test_count}" != "229" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 229 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 249 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 249-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 255 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 255-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(

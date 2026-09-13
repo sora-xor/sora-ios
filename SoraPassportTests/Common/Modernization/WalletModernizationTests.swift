@@ -1259,6 +1259,121 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
+    func testRetainedMnemonicLengthsDeriveStandardTairaVectors() throws {
+        // Independent Python hashlib.pbkdf2_hmac/hmac SHA-512 BIP39 + SLIP-0010
+        // vectors: zero entropy, empty passphrase, m/44'/617'/1'/0'.
+        let vectors = [
+            (20, "67c782b87ecc0ece1328ec016e72933845fb7dd1c58d2902db6956634c4e00a5",
+             "0592eaf47bb80d044909356e8f1369b40986aff6b1934e749b6dda18b6b70148"),
+            (24, "38ac8497bf1d995963cb314eec81fa8df915c15638d820d31dfa006bb723af7e",
+             "20a1748bf099817e3b177c0d53c58f922343fcf6000a4b6d561b225a3a022bcf"),
+            (28, "458fcd909ea9fd70559f09a266c94c672e9b377005b4176b16416f2d8b51946e",
+             "769b220e10f8dd845568a116447ed8f2d2f07b82166f7e7a07fe48ccd180591b")
+        ]
+        for (bytes, expectedPrivateKey, expectedChainCode) in vectors {
+            let mnemonic = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: Data(repeating: 0, count: bytes))
+            let child = try NexusKeyDerivation.derive(mnemonic: mnemonic.toString(), profile: .taira)
+            XCTAssertEqual(child.privateKey.hex, expectedPrivateKey)
+            XCTAssertEqual(child.chainCode.hex, expectedChainCode)
+            XCTAssertEqual(child.derivationPath, "m/44'/617'/1'/0'")
+            let key = try Curve25519.Signing.PrivateKey(rawRepresentation: child.privateKey)
+            XCTAssertEqual(child.publicKey, key.publicKey.rawRepresentation)
+            XCTAssertNoThrow(try XCTUnwrap(NexusNetworkConfiguration.taira).validate(address: child.address))
+        }
+        XCTAssertEqual(WalletMnemonicWordPolicy.userImportWordCounts, [12, 24])
+    }
+
+    func testLegacyMnemonicSnapshotBackfillsTairaAndSignsWithoutReplacingKeys() throws {
+        for bytes in [20, 24, 28] {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let entropy = Data(repeating: UInt8(bytes), count: bytes)
+            let account = try retainedEntropyAccount(entropy: entropy)
+            let keys = InMemoryKeychain()
+            try keys.saveEntropy(entropy, address: account.address)
+            let originals = try retainedEntropyKeyBytes(keys)
+            let settings = InMemorySettingsManager()
+            let gate = makeIsolatedRecoveryGate(settings: settings)
+            let lifecycle = WalletLifecycleCoordinator(recoveryGate: gate)
+            let store = try WalletNetworkStore(baseURL: directory, recoveryGate: gate)
+            let original = WalletNetworkSnapshot(
+                schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: account.address,
+                wallets: [WalletIdentity(id: account.address, displayName: account.username,
+                    existingSoraAddress: account.address, secretSource: .legacyMnemonicEntropy)],
+                accounts: [NetworkAccount(walletId: account.address, networkId: .sora2,
+                    derivationVersion: 0, publicKey: account.publicKeyData, address: account.address)],
+                createdAt: Date(timeIntervalSince1970: 1))
+            let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks", isDirectory: true)
+            let pointerURL = networkDirectory.appendingPathComponent("active.json")
+            // Retain the exact pre-upgrade SORA-only format. New production
+            // activations must already include the admitted deterministic children.
+            func writeRetainedSnapshot(_ snapshot: WalletNetworkSnapshot, fileName: String) throws {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(snapshot)
+                let snapshotURL = networkDirectory.appendingPathComponent(fileName)
+                try data.write(to: snapshotURL)
+                try FileProtectionMetadata.setProtectionClass(.completeUntilFirstUserAuthentication,
+                    at: snapshotURL, fileManager: .default)
+                let pointer: [String: Any] = ["schemaVersion": snapshot.schemaVersion,
+                    "fileName": fileName, "sha256": Data(SHA256.hash(data: data)).hex]
+                try JSONSerialization.data(withJSONObject: pointer, options: [.sortedKeys]).write(to: pointerURL)
+                try FileProtectionMetadata.setProtectionClass(.completeUntilFirstUserAuthentication,
+                    at: pointerURL, fileManager: .default)
+            }
+            let originalFile = "wallet-network-\(UUID().uuidString).json"
+            try writeRetainedSnapshot(original, fileName: originalFile)
+            let originalBytes = try Data(contentsOf: networkDirectory.appendingPathComponent(originalFile))
+            XCTAssertEqual(try store.load(), original)
+            let migrator = WalletNetworkModelMigrator(keystore: keys, store: store, settings: settings,
+                lifecycleCoordinator: lifecycle, recoveryGate: gate)
+            try migrator.migrate(accounts: [account], selectedAddress: account.address)
+            let activated = try XCTUnwrap(store.load())
+            XCTAssertEqual(activated.wallets, original.wallets)
+            XCTAssertEqual(activated.selectedWalletId, original.selectedWalletId)
+            XCTAssertEqual(activated.accounts.first { $0.networkId == .sora2 }, original.accounts.first)
+            XCTAssertEqual(Set(activated.accounts.map(\.networkId)), NexusNetworkConfiguration.admittedWalletNetworkIds)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+            XCTAssertEqual(try Data(contentsOf: networkDirectory.appendingPathComponent(originalFile)), originalBytes)
+            let provider = try IrohaConnectWalletProvider(keystore: keys, store: store, selectedAccount: { account })
+            let launch = IrohaConnectLaunch(originalURL: URL(string: "iroha://connect")!,
+                sid: Data(repeating: 1, count: 32), sidText: "synthetic-session",
+                network: try IrohaConnectNetworkLiteral(IrohaConnectLaunch.tairaNetworkId),
+                appPublicKey: Data(repeating: 2, count: 32), nonce: Data(repeating: 3, count: 16),
+                node: TairaDeploymentBinding.canonicalToriiBaseURL, networkId: .taira,
+                token: "synthetic-token", relayToken: "synthetic-relay", receivedAt: Date())
+            let context = try provider.context(for: launch)
+            let message = Data("retained mnemonic Taira signing proof".utf8)
+            let signature = try provider.sign(message, context: context)
+            let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: context.publicKey)
+            XCTAssertTrue(publicKey.isValidSignature(signature, for: message))
+            XCTAssertFalse(publicKey.isValidSignature(signature, for: message + Data([1])))
+            try migrator.migrate(accounts: [account], selectedAddress: account.address)
+            XCTAssertEqual(try store.load(), activated)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+
+            // A syntactically valid but changed child must not be replaced by
+            // a freshly derived identity during the next startup.
+            let different = try NexusKeyDerivation.derive(mnemonic: mnemonic12, profile: .taira)
+            let altered = WalletNetworkSnapshot(schemaVersion: activated.schemaVersion,
+                selectedWalletId: activated.selectedWalletId, wallets: activated.wallets,
+                accounts: activated.accounts.map {
+                    $0.networkId == .taira ? NetworkAccount(walletId: $0.walletId, networkId: .taira,
+                        derivationVersion: 1, publicKey: different.publicKey, address: different.address) : $0
+                }, createdAt: activated.createdAt)
+            let pointer = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: pointerURL)) as? [String: Any])
+            try writeRetainedSnapshot(altered, fileName: try XCTUnwrap(pointer["fileName"] as? String))
+            let beforeFailure = try legacyActivationNetworkFiles(at: directory)
+            XCTAssertThrowsError(try migrator.migrate(accounts: [account], selectedAddress: account.address))
+            XCTAssertEqual(try legacyActivationNetworkFiles(at: directory), beforeFailure)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+        }
+    }
+
     func testI105RejectsCrossNetworkAddress() throws {
         let address =
             "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
@@ -5890,7 +6005,7 @@ final class WalletModernizationTests: XCTestCase {
             XCTAssertEqual(try pairedKeychain.fetchKey(for: "privateKey"), invalidPrivateKey)
             XCTAssertEqual(try pairedKeychain.fetchKey(for: KeystoreTag.legacyEntropy.rawValue), legacyEntropy)
         }
-        XCTAssertThrowsError(
+        XCTAssertNoThrow(
             try NexusKeyDerivation.derive(
                 mnemonic: phrase,
                 configuration: .minamoto
@@ -6245,8 +6360,8 @@ final class WalletModernizationTests: XCTestCase {
             retainedDisplayName
         )
         XCTAssertEqual(
-            migratedSnapshot.accounts.map(\.networkId),
-            [.sora2]
+            Set(migratedSnapshot.accounts.map(\.networkId)),
+            NexusNetworkConfiguration.admittedWalletNetworkIds
         )
         XCTAssertEqual(
             migratedSnapshot.accounts.first?.publicKey,
@@ -8930,10 +9045,11 @@ final class WalletModernizationTests: XCTestCase {
                 let wallet = try XCTUnwrap(snapshot.wallets.first { $0.id == account.address })
                 let children = snapshot.accounts.filter { $0.walletId == account.address }
                 let retainedEntropy = try keychain.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
-                let supportsNexus = retainedEntropy.map { [16, 32].contains($0.count) } ?? false
+                let supportsNexus = retainedEntropy != nil
                 let expectedSource: WalletSecretSource
                 if retainedEntropy != nil {
-                    expectedSource = supportsNexus ? .mnemonicEntropy : .legacyMnemonicEntropy
+                    expectedSource = retainedEntropy.map { [16, 32].contains($0.count) } == true
+                        ? .mnemonicEntropy : .legacyMnemonicEntropy
                 } else {
                     expectedSource = try keychain.checkSeedForAddress(account.address) ? .rawSeed : .legacySecret
                 }
@@ -9241,6 +9357,7 @@ final class WalletModernizationTests: XCTestCase {
         entropyBytes: Int = 16, retainsIrohaPrivateKey: Bool = false,
         stage: WalletAccountCommitStage, database: String,
         networkActive: Bool = false, selectionPersisted: Bool = false, stagedOnly: Bool = false,
+        historicalLegacyTopology: Bool = false,
         _ body: (URL, AccountItem, InMemoryKeychain, InMemorySettingsManager) throws -> Void
     ) throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -9290,6 +9407,26 @@ final class WalletModernizationTests: XCTestCase {
             try WalletNetworkModelMigrator(keystore: keys,
                 store: WalletNetworkStore(baseURL: directory, recoveryGate: gate), settings: settings,
                 lifecycleCoordinator: coordinator, recoveryGate: gate).migrate(accounts: [account], selectedAddress: address)
+            if historicalLegacyTopology {
+                let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks")
+                let pointerURL = networkDirectory.appendingPathComponent("active.json")
+                var pointer = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: pointerURL)) as? [String: Any])
+                let snapshotURL = networkDirectory.appendingPathComponent(try XCTUnwrap(pointer["fileName"] as? String))
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let snapshot = try decoder.decode(WalletNetworkSnapshot.self, from: Data(contentsOf: snapshotURL))
+                XCTAssertEqual(snapshot.wallets.first?.secretSource, .legacyMnemonicEntropy)
+                let historical = WalletNetworkSnapshot(schemaVersion: snapshot.schemaVersion,
+                    selectedWalletId: snapshot.selectedWalletId, wallets: snapshot.wallets,
+                    accounts: snapshot.accounts.filter { $0.networkId == .sora2 }, createdAt: snapshot.createdAt)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(historical)
+                try data.write(to: snapshotURL)
+                pointer["sha256"] = Data(SHA256.hash(data: data)).hex
+                try JSONSerialization.data(withJSONObject: pointer, options: [.sortedKeys]).write(to: pointerURL)
+            }
             if stagedOnly {
                 // Reproduce the persisted state at afterNetworkStaging: the
                 // exact immutable snapshot exists, but its pointer was not written.
@@ -9348,8 +9485,7 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(snapshot.selectedWalletId, account.address)
         XCTAssertEqual(snapshot.wallets.count, 1)
         let entropy = try XCTUnwrap(keys.fetchEntropyForAddress(account.address, activeSnapshot: snapshot, recoveryGate: gate))
-        let expectedNetworks: Set<NetworkId> = [16, 32].contains(entropy.count)
-            ? NexusNetworkConfiguration.admittedWalletNetworkIds : [.sora2]
+        let expectedNetworks = NexusNetworkConfiguration.admittedWalletNetworkIds
         XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), expectedNetworks)
         XCTAssertEqual(snapshot.accounts.first { $0.networkId == .sora2 }?.publicKey, account.publicKeyData)
         let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
@@ -9768,6 +9904,78 @@ final class WalletModernizationTests: XCTestCase {
                     for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
                     for (path, bytes) in retainedSnapshots { XCTAssertEqual(try Data(contentsOf: path), bytes) }
                 }
+            }
+        }
+    }
+
+    func testHistoricalLegacyJournalBackfillsTairaWithoutReplacingStagedEvidence() throws {
+        for bytes in [20, 24, 28] {
+            for stagedOnly in [true, false] {
+                try withLegacyActivationFixture(entropyBytes: bytes,
+                    stage: stagedOnly ? .coreDataCommitted : .networkModelActivated,
+                    database: "account", networkActive: true, selectionPersisted: !stagedOnly,
+                    stagedOnly: stagedOnly, historicalLegacyTopology: true) { directory, account, keys, settings in
+                    let originals = try retainedEntropyKeyBytes(keys)
+                    let retained = try legacyActivationNetworkFiles(at: directory)
+                        .filter { $0.key.lastPathComponent != "active.json" }
+                    settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                        .privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure))
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                    XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                            XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                            let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                                recoveryGate: self.makeIsolatedRecoveryGate()).load())
+                            XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)),
+                                NexusNetworkConfiguration.admittedWalletNetworkIds)
+                        }))
+                    for _ in 0..<2 {
+                        try resumeLegacyActivationFixture(at: directory, account: account, keys: keys, settings: settings)
+                    }
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    for (url, data) in retained { XCTAssertEqual(try Data(contentsOf: url), data) }
+                }
+            }
+        }
+        for condition in ["changedSora", "newerMarker"] {
+            try withLegacyActivationFixture(entropyBytes: 20, stage: .coreDataCommitted,
+                database: "account", networkActive: true, stagedOnly: true,
+                historicalLegacyTopology: true) { directory, account, keys, settings in
+                if condition == "changedSora" {
+                    let file = try XCTUnwrap(legacyActivationNetworkFiles(at: directory).keys.first)
+                    var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+                    var accounts = try XCTUnwrap(object["accounts"] as? [[String: Any]])
+                    accounts[0]["publicKey"] = Data(repeating: 7, count: 32).base64EncodedString()
+                    object["accounts"] = accounts
+                    try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).write(to: file)
+                }
+                let retained = try legacyActivationNetworkFiles(at: directory)
+                let originals = try retainedEntropyKeyBytes(keys)
+                settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                    .privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure))
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                var newer: WalletMigrationRecoveryMarker?
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                XCTAssertThrowsError(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                    storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                    baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+                    checkpoint: {
+                        XCTAssertEqual(condition, "newerMarker")
+                        settings.setWalletMigrationRecovery(reason: "newer recovery generation")
+                        newer = WalletMigrationRecoveryMarker.capture(settings)
+                    }))
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer ?? marker)
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                for (url, data) in retained { XCTAssertEqual(try Data(contentsOf: url), data) }
+                try assertStoredAccounts([account], at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version2.rawValue))
             }
         }
     }
@@ -10217,7 +10425,11 @@ final class WalletModernizationTests: XCTestCase {
                             snapshot: snapshot, keys: keys, settings: settings)
                         XCTAssertEqual(snapshot.wallets.first { $0.id == watch.address }?.secretSource, .watchOnly)
                         XCTAssertEqual(snapshot.wallets.first { $0.id == scoped.address }?.secretSource, .rawSeed)
-                        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), [.sora2])
+                        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)),
+                            NexusNetworkConfiguration.admittedWalletNetworkIds)
+                        for retained in [scoped, watch] {
+                            XCTAssertEqual(snapshot.accounts.filter { $0.walletId == retained.address }.map(\.networkId), [.sora2])
+                        }
                         let payload = Data("retained mixed scoped signer".utf8)
                         let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: scopedSeed)
                         try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
@@ -10358,6 +10570,232 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
+    func testMissingKeyPhraseRecoveryPreservesRetainedAccountsAndActivatesTaira() throws {
+        for version in UserStorageVersion.allCases {
+            for bytes in [16, 20, 24, 28, 32] {
+                let entropy = Data(repeating: UInt8(bytes), count: bytes)
+                let account = try retainedEntropyAccount(entropy: entropy)
+                try withRetainedEntropyDatabase(accounts: [account], version: version,
+                    entropy: entropy, recovering: true) { directory, keys, settings in
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                    try keys.addKey(Data("retained unrelated item".utf8), with: "synthetic-unrelated-key")
+                    let originals = try retainedEntropyKeyBytes(keys)
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                    let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                        _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                            baseURL: directory, lifecycleCoordinator: coordinator)
+                    }, migration: { XCTFail("An absent signing credential reached ordinary startup") }), .recoveryRequired)
+                    XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.phase, .databaseMigration)
+                    XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .missingSecret)
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    let candidates = try database.accountsForMissingKeyRecovery(baseURL: directory,
+                        lifecycleCoordinator: coordinator)
+                    XCTAssertEqual(candidates.map(\.address), [account.address])
+                    XCTAssertEqual(candidates.first?.publicKeyData, account.publicKeyData)
+                    XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                        mnemonic: mnemonic12, derivationPath: "", baseURL: directory,
+                        lifecycleCoordinator: coordinator))
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+                    try database.restoreMissingEntropy(address: account.address,
+                        mnemonic: "  \n" + phrase.replacingOccurrences(of: " ", with: "  ") + "\n",
+                        derivationPath: "", baseURL: directory, lifecycleCoordinator: coordinator)
+                    var expected = originals
+                    expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                    XCTAssertTrue(try database.accountsForMissingKeyRecovery(baseURL: directory,
+                        lifecycleCoordinator: coordinator).isEmpty)
+                    XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                        mnemonic: phrase, derivationPath: "", baseURL: directory,
+                        lifecycleCoordinator: coordinator))
+                    for _ in 0..<2 {
+                        let snapshot = try runRetainedEntropyStartup(directory: directory,
+                            keys: keys, settings: settings, accounts: [account])
+                        try assertRetainedEntropySigner(account: account, entropy: entropy,
+                            snapshot: snapshot, keys: keys, settings: settings)
+                        try assertRecoveredTairaSigning(account: account, directory: directory,
+                            keys: keys, settings: settings)
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    }
+                }
+            }
+        }
+    }
+
+    func testMissingKeyPhraseRecoveryRejectsConflictsAndNewerMarkersWithoutChangingEvidence() throws {
+        let entropy = Data(repeating: 20, count: 20)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        for condition in ["entropy", "secret", "seed", "path", "watchOnly", "malformedWatchOnly",
+                          "wrongMarker", "accountJournal", "databaseJournal", "newerJournal", "newerMarker"] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                switch condition {
+                case "entropy": try keys.saveEntropy(entropy, address: account.address)
+                case "secret": try keys.saveSecretKey(Data(repeating: 1, count: 64), address: account.address)
+                case "seed": try keys.saveSeed(Data(repeating: 1, count: 32), address: account.address)
+                case "path": try keys.addKey(Data("//other".utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
+                case "watchOnly": settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+                case "malformedWatchOnly": settings.set(value: "unexpected", for: "wallet.watchOnly.\(account.address)")
+                case "wrongMarker": settings.setWalletMigrationRecovery(reason: "retained integrity conflict")
+                case "accountJournal":
+                    _ = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: makeIsolatedRecoveryGate())
+                        .begin(walletId: account.address, existingWalletIds: [])
+                case "databaseJournal":
+                    let attempt = directory.appendingPathComponent("WalletMigrationSafety/\(UUID().uuidString)")
+                    try FileManager.default.createDirectory(at: attempt, withIntermediateDirectories: true)
+                    let journal: [String: Any] = ["migrationID": UUID().uuidString,
+                        "sourceVersion": UserStorageVersion.version1.rawValue,
+                        "destinationVersion": UserStorageVersion.version2.rawValue, "state": "failed",
+                        "updatedAt": "2026-09-13T00:00:00Z", "failureReason": "account_inventory_mismatch"]
+                    try JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys])
+                        .write(to: attempt.appendingPathComponent("journal.json"))
+                default: break
+                }
+                let originals = try retainedEntropyKeyBytes(keys)
+                let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                    .filter { !$0.key.lastPathComponent.hasSuffix("-shm") }
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                var newer: WalletMigrationRecoveryMarker?
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                    mnemonic: phrase, derivationPath: "", baseURL: directory,
+                    lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), checkpoint: {
+                        if condition == "newerJournal" {
+                            _ = try WalletAccountCommitJournalStore(baseURL: directory,
+                                recoveryGate: self.makeIsolatedRecoveryGate())
+                                .begin(walletId: account.address, existingWalletIds: [])
+                        } else {
+                            XCTAssertEqual(condition, "newerMarker")
+                            settings.setWalletMigrationRecovery(reason: "newer recovery generation")
+                            newer = WalletMigrationRecoveryMarker.capture(settings)
+                        }
+                    }), condition)
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals, condition)
+                let retainedMarker = WalletMigrationRecoveryMarker.capture(settings)
+                if ["accountJournal", "databaseJournal", "newerJournal"].contains(condition) {
+                    // Rejecting unresolved journals relatches the existing reason
+                    // with a new generation, invalidating any outstanding verifier.
+                    XCTAssertTrue(retainedMarker.required, condition)
+                    XCTAssertEqual(retainedMarker.reason, marker.reason, condition)
+                    XCTAssertNotNil(retainedMarker.generation, condition)
+                    XCTAssertNotEqual(retainedMarker.generation, marker.generation, condition)
+                    XCTAssertEqual(retainedMarker.reasonGeneration, retainedMarker.generation, condition)
+                } else {
+                    XCTAssertEqual(retainedMarker, newer ?? marker, condition)
+                }
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess(), condition)
+                let currentFiles = try startupRecoveryFixtureFiles(at: directory)
+                    .filter { !$0.key.lastPathComponent.hasSuffix("-shm") }
+                if condition == "newerJournal" {
+                    for (url, data) in originalFiles { XCTAssertEqual(currentFiles[url], data) }
+                    XCTAssertFalse(try WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty)
+                } else {
+                    XCTAssertEqual(currentFiles, originalFiles, condition)
+                }
+                try assertStoredAccounts([account], at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
+            }
+        }
+    }
+
+    func testMissingKeyPhraseRecoveryResumesAfterVerifiedDerivationPathWrite() throws {
+        let entropy = Data(repeating: 28, count: 28)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let path = "//retained//7///legacy-password"
+        let junction = try SubstrateJunctionFactory().parse(path: path)
+        let seed = try SeedFactory().deriveSeed(from: phrase, password: junction.password ?? "").seed.miniSeed
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: junction.chaincodes)
+        let account = AccountItem(address: try SS58AddressFactory().address(fromAccountId: pair.publicKey().rawData(),
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Retained derived account", publicKeyData: pair.publicKey().rawData(),
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        try withRetainedEntropyDatabase(accounts: [account], version: .version1,
+            entropy: entropy, recovering: true) { directory, keys, settings in
+            try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+            let originals = try retainedEntropyKeyBytes(keys)
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+            let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+            XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                mnemonic: phrase, derivationPath: path, baseURL: directory,
+                lifecycleCoordinator: coordinator, checkpoint: { throw NSError(domain: "Synthetic interruption", code: 1) }))
+            var expected = originals
+            expected[KeystoreTag.deriviationTagForAddress(account.address)] = Data(path.utf8)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                mnemonic: phrase, derivationPath: "//other", baseURL: directory,
+                lifecycleCoordinator: coordinator))
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            try database.restoreMissingEntropy(address: account.address, mnemonic: phrase,
+                derivationPath: path, baseURL: directory, lifecycleCoordinator: coordinator)
+            expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            for _ in 0..<2 {
+                _ = try runRetainedEntropyStartup(directory: directory, keys: keys, settings: settings, accounts: [account])
+                let payload = Data("restored retained derivation signing proof".utf8)
+                let recoveredSecret = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+                let signature = try SNSigner(keypair: SNKeypair(privateKey: SNPrivateKey(rawData: recoveredSecret),
+                    publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(payload)
+                try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                    secretKey: recoveredSecret, account: account)
+                XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature,
+                    originalData: payload + Data([1]), secretKey: recoveredSecret, account: account))
+                try assertRecoveredTairaSigning(account: account, directory: directory, keys: keys, settings: settings)
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            }
+        }
+    }
+
+    private func missingKeyRecoveryMigrator(directory: URL, keys: InMemoryKeychain,
+        settings: InMemorySettingsManager) -> UserStorageMigrator {
+        UserStorageMigrator(targetVersion: .version2, storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+            fileManager: .default, recoveryGate: legacyActivationRecoveryGate(at: directory, settings: settings),
+            availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { try WalletNetworkStore(baseURL: directory,
+                recoveryGate: self.makeIsolatedRecoveryGate(settings: settings)).load() })
+    }
+
+    private func assertRecoveredTairaSigning(account: AccountItem, directory: URL,
+        keys: InMemoryKeychain, settings: InMemorySettingsManager) throws {
+        let soraPayload = Data("restored credential production SORA signing proof".utf8)
+        let soraSecret = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+        let soraSignature = try SNSigner(keypair: SNKeypair(privateKey: SNPrivateKey(rawData: soraSecret),
+            publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(soraPayload)
+        try Sora2SignatureVerifier.verify(signature: soraSignature, originalData: soraPayload,
+            secretKey: soraSecret, account: account)
+        let store = try WalletNetworkStore(baseURL: directory, recoveryGate: makeIsolatedRecoveryGate(settings: settings))
+        let provider = try IrohaConnectWalletProvider(keystore: keys, store: store, selectedAccount: { account })
+        let launch = IrohaConnectLaunch(originalURL: URL(string: "iroha://connect")!,
+            sid: Data(repeating: 1, count: 32), sidText: "synthetic-session",
+            network: try IrohaConnectNetworkLiteral(IrohaConnectLaunch.tairaNetworkId),
+            appPublicKey: Data(repeating: 2, count: 32), nonce: Data(repeating: 3, count: 16),
+            node: TairaDeploymentBinding.canonicalToriiBaseURL, networkId: .taira,
+            token: "synthetic-token", relayToken: "synthetic-relay", receivedAt: Date())
+        let context = try provider.context(for: launch)
+        let payload = Data("restored mnemonic Taira signing proof".utf8)
+        let signature = try provider.sign(payload, context: context)
+        let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: context.publicKey)
+        XCTAssertTrue(publicKey.isValidSignature(signature, for: payload))
+        XCTAssertFalse(publicKey.isValidSignature(signature, for: payload + Data([1])))
+    }
+
     private func retainedEntropySeed(_ entropy: Data) throws -> Data {
         let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
         return try SeedFactory().deriveSeed(from: mnemonic.toString(), password: "").seed.miniSeed
@@ -10467,8 +10905,7 @@ final class WalletModernizationTests: XCTestCase {
         let words = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords().count
         let source = try XCTUnwrap(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: words))
         XCTAssertEqual(snapshot.wallets.first { $0.id == account.address }?.secretSource, source)
-        let expected: Set<NetworkId> = source == .legacyMnemonicEntropy
-            ? [.sora2] : NexusNetworkConfiguration.admittedWalletNetworkIds
+        let expected = NexusNetworkConfiguration.admittedWalletNetworkIds
         XCTAssertEqual(Set(snapshot.accounts.filter { $0.walletId == account.address }.map(\.networkId)), expected)
     }
 
@@ -18983,10 +19420,7 @@ final class WalletModernizationTests: XCTestCase {
                     forWordCount: wordCount
                 )
             )
-            let expectedNetworks: Set<NetworkId> =
-                expectedSource == .legacyMnemonicEntropy
-                    ? [.sora2]
-                    : NexusNetworkConfiguration.admittedWalletNetworkIds
+            let expectedNetworks = NexusNetworkConfiguration.admittedWalletNetworkIds
             XCTAssertEqual(snapshot.selectedWalletId, expectedAddress)
             XCTAssertEqual(snapshot.wallets.count, 1)
             XCTAssertEqual(snapshot.wallets.first?.id, expectedAddress)

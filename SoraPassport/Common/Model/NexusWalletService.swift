@@ -6075,7 +6075,7 @@ actor NexusTransactionCoordinator {
             snapshot.selectedWalletId == request.walletId,
             snapshot.wallets.contains(where: {
                 $0.id == request.walletId &&
-                    $0.secretSource == .mnemonicEntropy
+                    $0.secretSource.supportsNexusDerivation
             }),
             snapshot.accounts.first(where: {
                 $0.walletId == request.walletId &&

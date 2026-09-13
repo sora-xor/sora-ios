@@ -17,24 +17,29 @@ struct IrohaConnectWalletContext: Equatable {
 final class IrohaConnectWalletProvider {
     private let keystore: KeystoreProtocol
     private let store: WalletNetworkStore
+    private let selectedAccount: () -> AccountItem?
 
     init(
         keystore: KeystoreProtocol = Keychain(),
-        store: WalletNetworkStore? = nil
+        store: WalletNetworkStore? = nil,
+        selectedAccount: @escaping () -> AccountItem? = {
+            SelectedWalletSettings.shared.currentAccount
+        }
     ) throws {
         self.keystore = keystore
         self.store = try store ?? WalletNetworkStore()
+        self.selectedAccount = selectedAccount
     }
 
     func context(for launch: IrohaConnectLaunch) throws -> IrohaConnectWalletContext {
         guard
-            let selected = SelectedWalletSettings.shared.currentAccount,
+            let selected = selectedAccount(),
             let snapshot = try store.load(),
             snapshot.selectedWalletId == selected.address,
             snapshot.wallets.filter({ $0.id == selected.address }).count == 1,
             let wallet = snapshot.wallets.first(where: { $0.id == selected.address }),
             wallet.existingSoraAddress == selected.address,
-            wallet.secretSource == .mnemonicEntropy
+            wallet.secretSource.supportsNexusDerivation
         else {
             throw IrohaConnectError.walletUnavailable
         }
@@ -69,7 +74,7 @@ final class IrohaConnectWalletProvider {
             throw IrohaConnectError.protocolViolation("empty signing message")
         }
         guard
-            let selected = SelectedWalletSettings.shared.currentAccount,
+            let selected = selectedAccount(),
             selected.address == expected.walletId,
             let snapshot = try store.load(),
             snapshot.selectedWalletId == expected.walletId,
