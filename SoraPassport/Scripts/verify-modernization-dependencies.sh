@@ -4730,7 +4730,8 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "case 15, 18, 21:" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "case legacyMnemonicEntropy" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "source == .mnemonicEntropy" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "source.supportsNexusDerivation" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(words.count)" "${wallet_network_model}" ||
    [ "$(/usr/bin/grep -Fc "allowedMnemonicWordCounts.contains(mnemonic.allWords().count)" "${account_import}")" -lt 2 ] ||
    ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.userImportWordCounts" "${account_import}" ||
    [ "$(/usr/bin/grep -Fc ".retainedSoraWordCounts" "${account_import_factory}")" -ne 1 ] ||
@@ -5827,11 +5828,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "223" ] ||
+    if [ "${modernization_test_count}" != "229" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 249 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 255 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -6024,15 +6025,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "223" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 223 test methods"
+if [ "${modernization_test_count}" != "229" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 229 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 249 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 249-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 255 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 255-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(

@@ -1592,6 +1592,10 @@ enum WalletSecretSource: String, Codable {
     case rawSeed
     case legacySecret
     case watchOnly
+
+    var supportsNexusDerivation: Bool {
+        self == .mnemonicEntropy || self == .legacyMnemonicEntropy
+    }
 }
 
 enum WalletMnemonicWordPolicy {
@@ -1610,8 +1614,8 @@ enum WalletMnemonicWordPolicy {
             return .mnemonicEntropy
         case 15, 18, 21:
             // Released importers accepted every valid BIP39 phrase length.
-            // Preserve those SORA2 identities even when their phrase length
-            // is outside the Nexus derivation contract.
+            // Keep the persisted classification while allowing the same standard
+            // BIP39 derivation used for every other retained mnemonic length.
             return .legacyMnemonicEntropy
         default:
             return nil
@@ -3708,7 +3712,7 @@ enum NexusKeyDerivation {
         let words = mnemonic
             .split(whereSeparator: \.isWhitespace)
             .map(String.init)
-        guard WalletMnemonicWordPolicy.isUserImportWordCount(words.count) else {
+        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(words.count) else {
             throw WalletNetworkMigrationError.invalidMnemonic
         }
         do {
@@ -3991,6 +3995,41 @@ final class WalletNetworkStore {
         return (nil, LegacyFirstSnapshotEvidence(fileName: url.lastPathComponent, data: data, snapshot: snapshot))
     }
 
+    /// Older releases staged SORA-only snapshots for 15/18/21-word wallets.
+    /// Recovery may retain exactly those children while the normal migrator
+    /// appends the newly supported networks; no retained identity may change.
+    func verifyLegacyRecoverySnapshot(
+        _ retained: WalletNetworkSnapshot, expected: WalletNetworkSnapshot,
+        allowingTairaBackfill: Bool = true
+    ) throws {
+        try recoveryGate.requireLegacyAccountRecoveryVerification()
+        try verifyLegacyRecoverySnapshotContents(retained, expected: expected,
+            allowingTairaBackfill: allowingTairaBackfill)
+    }
+
+    private func verifyLegacyRecoverySnapshotContents(
+        _ retained: WalletNetworkSnapshot, expected: WalletNetworkSnapshot,
+        allowingTairaBackfill: Bool
+    ) throws {
+        try validate(retained)
+        try validate(expected)
+        guard retained.schemaVersion == expected.schemaVersion,
+              retained.selectedWalletId == expected.selectedWalletId,
+              retained.wallets == expected.wallets else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        for wallet in retained.wallets {
+            let original = retained.accounts.filter { $0.walletId == wallet.id }
+            let verified = expected.accounts.filter { $0.walletId == wallet.id }
+            if original == verified { continue }
+            guard allowingTairaBackfill, wallet.secretSource == .legacyMnemonicEntropy,
+                  original.count == 1, original.first?.networkId == .sora2,
+                  original == verified.filter({ $0.networkId == .sora2 }) else {
+                throw WalletNetworkMigrationError.snapshotVerificationFailed
+            }
+        }
+    }
+
     /// The caller holds the startup lease and exact bound journal/marker CAS.
     /// Publish only a pointer to the already retained, independently proven bytes.
     func activateVerifiedLegacyFirstSnapshot(
@@ -4004,14 +4043,11 @@ final class WalletNetworkStore {
         guard namespace.pointerURL == nil, namespace.snapshotURLs.count == 1,
               let snapshotURL = namespace.snapshotURLs.first,
               snapshotURL.lastPathComponent == evidence.fileName,
-              try readBoundedData(at: snapshotURL, maximumBytes: Self.maximumSnapshotBytes) == evidence.data,
-              evidence.snapshot.schemaVersion == expected.schemaVersion,
-              evidence.snapshot.selectedWalletId == expected.selectedWalletId,
-              evidence.snapshot.wallets == expected.wallets,
-              evidence.snapshot.accounts == expected.accounts
+              try readBoundedData(at: snapshotURL, maximumBytes: Self.maximumSnapshotBytes) == evidence.data
         else { throw WalletNetworkMigrationError.snapshotVerificationFailed }
-        try validate(expected)
-        try verifyTopologyAdmission(current: nil, proposed: evidence.snapshot)
+        try verifyLegacyRecoverySnapshotContents(evidence.snapshot, expected: expected,
+            allowingTairaBackfill: true)
+        try verifyTopologyAdmission(current: nil, proposed: expected)
         let pointer = ActivePointer(schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
             fileName: evidence.fileName, sha256: Self.sha256(evidence.data))
         let pointerData = try encoder.encode(pointer)
@@ -4496,7 +4532,7 @@ final class WalletNetworkStore {
             let proposedNetworkIds = Set(
                 (proposedAccounts[wallet.id] ?? []).map(\.networkId)
             )
-            guard wallet.secretSource == .mnemonicEntropy else {
+            guard wallet.secretSource.supportsNexusDerivation else {
                 guard proposedNetworkIds == [.sora2] else {
                     throw WalletNetworkMigrationError
                         .snapshotVerificationFailed
@@ -4790,11 +4826,18 @@ final class WalletNetworkStore {
                 let networkIds = Set(walletAccounts.map(\.networkId))
                 let hasExpectedAccountCount =
                     walletAccounts.count == networkIds.count
-                let hasExpectedNetworks =
-                    wallet.secretSource == .mnemonicEntropy
+                // Older snapshots intentionally kept 15/18/21-word wallets
+                // SORA-only. Read that history before the migrator appends
+                // verified deterministic children without reclassifying it.
+                let isHistoricalLegacyMnemonic =
+                    wallet.secretSource == .legacyMnemonicEntropy &&
+                        networkIds == [.sora2]
+                let hasExpectedNetworks = isHistoricalLegacyMnemonic || (
+                    wallet.secretSource.supportsNexusDerivation
                         ? NexusNetworkAdmissionPolicy
                             .persistedMnemonicNetworkIdsAreValid(networkIds)
                         : networkIds == [.sora2]
+                )
                 let preservesSoraAddress = walletAccounts.contains(where: {
                     account in
                     account.networkId == .sora2 &&
@@ -4868,8 +4911,8 @@ final class WalletNetworkStore {
 }
 
 /// Validates the installed SORA2 identity against its retained secret source.
-/// Nexus migration separately admits only eligible 12- or 24-word master
-/// phrases; retained 15/18/21-word, raw-seed, secret-only, and watch-only wallets stay SORA2-only.
+/// Nexus migration derives standard children from every retained BIP39 phrase
+/// length. Raw-seed, secret-only, and watch-only wallets retain their SORA2 policy.
 enum LegacySoraIdentityValidator {
     static func validate(
         address: String,
@@ -5290,7 +5333,7 @@ final class WalletNetworkModelMigrator {
             )
 
             guard
-                source == .mnemonicEntropy,
+                source.supportsNexusDerivation,
                 var derivationEntropy = entropy
             else {
                 continue
@@ -5507,7 +5550,7 @@ final class WalletNetworkModelMigrator {
             let storedChildren = current.accounts.filter {
                 $0.walletId == wallet.id && $0.networkId != .sora2
             }
-            if wallet.secretSource != .mnemonicEntropy {
+            if !wallet.secretSource.supportsNexusDerivation {
                 guard storedChildren.isEmpty else {
                     throw WalletNetworkMigrationError.legacyIdentityMismatch(
                         wallet.existingSoraAddress

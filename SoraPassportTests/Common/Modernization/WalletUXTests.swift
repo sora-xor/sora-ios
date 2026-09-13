@@ -107,6 +107,23 @@ final class WalletUXTests: XCTestCase {
         passiveController.loadViewIfNeeded()
         XCTAssertTrue(try XCTUnwrap(descendants(passiveController.view).compactMap { $0 as? UIButton }
             .first { $0.accessibilityIdentifier == "wallet-recovery-retry" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
+
+        WalletStartupDiagnostic.record(UserStorageMigrationError.missingWalletSecret("fixture"),
+            phase: .databaseMigration, settings: settings)
+        let missingKeysController = WalletRecoveryViewController(reason: reason,
+            diagnostic: WalletStartupDiagnostic.current(settings), onRetry: {})
+        missingKeysController.loadViewIfNeeded()
+        let restore = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" })
+        XCTAssertFalse(restore.isHidden)
+        XCTAssertTrue(restore.isEnabled)
+        let missingKeysWithoutRetry = WalletRecoveryViewController(reason: reason,
+            diagnostic: WalletStartupDiagnostic.current(settings))
+        missingKeysWithoutRetry.loadViewIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
     }
 
     @MainActor
