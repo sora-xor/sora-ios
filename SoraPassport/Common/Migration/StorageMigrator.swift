@@ -511,7 +511,7 @@ final class UserStorageMigrator {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
         if let secret {
-            try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: account.cryptoType)
+            try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: account.cryptoType, publicKey: account.publicKeyData)
         }
         let path = derivationPath.isEmpty ? nil : derivationPath
         try LegacySoraIdentityValidator.validate(address: account.address,
