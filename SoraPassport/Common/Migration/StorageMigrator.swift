@@ -2158,7 +2158,10 @@ final class UserStorageMigrator {
         let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         context.persistentStoreCoordinator = coordinator
 
+        WalletStartupDiagnostic.retainSecretChecks(nil)
         var capturedError: Error?
+        var capturedChecks: WalletSecretDiagnostics.Snapshot?
+        var observation: WalletSecretDiagnostics?
         var accounts: [UserStorageMigrationAccount] = []
         context.performAndWait {
             do {
@@ -2166,7 +2169,8 @@ final class UserStorageMigrator {
                 request.returnsObjectsAsFaults = false
                 let objects = try context.fetch(request)
 
-                accounts = try objects.map { object in
+                accounts = try objects.enumerated().map { accountNumber, object in
+                    observation = nil
                     guard
                         let address = object.value(forKey: "identifier") as? String,
                         let publicKey = object.value(forKey: "publicKey") as? Data,
@@ -2177,23 +2181,29 @@ final class UserStorageMigrator {
                     }
 
                     let username = object.value(forKey: "username") as? String ?? ""
-                    var secret = try keystore.loadIfKeyExists(
-                        KeystoreTag.secretKeyTagForAddress(address)
-                    )
-                    var entropy = try fetchEntropyForAddress(address)
-                    var seed = try keystore.loadIfKeyExists(
-                        KeystoreTag.seedTagForAddress(address)
-                    )
+                    let cryptoRaw =
+                        (object.value(forKey: "cryptoType") as? NSNumber)?.intValue ?? 0
+                    let networkRaw =
+                        (object.value(forKey: "networkType") as? NSNumber)?.intValue ?? 0
+                    observation = WalletSecretDiagnostics(origin: .liveInventory,
+                        schema: sourceVersion == .version1 ? 1 : 2,
+                        accountNumber: accountNumber + 1, accountCount: objects.count,
+                        cryptoType: cryptoRaw, networkType: networkRaw,
+                        selected: settingsSelectedAddress == address,
+                        watchOnly: settings.bool(for: "wallet.watchOnly.\(address)") == true)
+                    var secret = try WalletSecretDiagnostics.observe(.scopedSecret, into: observation) {
+                        try keystore.loadIfKeyExists(KeystoreTag.secretKeyTagForAddress(address))
+                    }
+                    var entropy = try fetchEntropyForAddress(address, diagnostic: observation)
+                    var seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
+                        try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
+                    }
                     defer {
                         Self.wipeSensitive(&secret)
                         Self.wipeSensitive(&entropy)
                         Self.wipeSensitive(&seed)
                     }
-                    let derivation = try keystore.fetchDeriviationForAddress(address)
-                    let cryptoRaw =
-                        (object.value(forKey: "cryptoType") as? NSNumber)?.intValue ?? 0
-                    let networkRaw =
-                        (object.value(forKey: "networkType") as? NSNumber)?.intValue ?? 0
+                    let derivation = try keystore.fetchDeriviationForAddress(address, diagnostic: observation)
                     guard
                         let cryptoValue = UInt8(exactly: cryptoRaw),
                         let cryptoType = CryptoType(rawValue: cryptoValue),
@@ -2263,10 +2273,14 @@ final class UserStorageMigrator {
                 }
             } catch {
                 capturedError = error
+                capturedChecks = observation?.snapshot
             }
         }
 
         if let capturedError {
+            // Core Data ran the observations on its private queue. Transfer only
+            // fixed outcomes to the calling startup check, preserving the error.
+            WalletStartupDiagnostic.retainSecretChecks(capturedChecks, error: capturedError)
             throw capturedError
         }
 
@@ -2332,77 +2346,105 @@ final class UserStorageMigrator {
     }
 
     private func validateKeychain(for manifest: UserStorageMigrationManifest) throws {
-        for account in manifest.accounts {
-            let watchOnlyKey = "wallet.watchOnly.\(account.address)"
-            guard
-                !settings.allKeys().contains(watchOnlyKey) ||
-                    settings.anyValue(for: watchOnlyKey) is Bool
-            else {
-                throw UserStorageMigrationError.accountInventoryMismatch
-            }
-            let isExplicitWatchOnly = settings.bool(for: watchOnlyKey) == true
-            guard
-                !isExplicitWatchOnly ||
-                    (!account.hasSecretKey &&
-                        !account.hasEntropy &&
-                        !account.hasSeed)
-            else {
-                throw UserStorageMigrationError.accountInventoryMismatch
-            }
-            guard
-                account.hasSecretKey ||
-                    account.hasEntropy ||
-                    account.hasSeed ||
-                    isExplicitWatchOnly
-            else {
-                throw UserStorageMigrationError.missingWalletSecret(account.address)
-            }
-            if account.hasSecretKey {
-                var secret = try keystore.fetchSecretKeyForAddress(
-                    account.address
-                )
-                defer { Self.wipeSensitive(&secret) }
-                guard secret?.isEmpty == false else {
-                    throw UserStorageMigrationError.emptyWalletSecret(account.address)
+        WalletStartupDiagnostic.retainSecretChecks(nil)
+        for (accountNumber, account) in manifest.accounts.enumerated() {
+            let observation = WalletSecretDiagnostics(origin: .savedManifest,
+                schema: manifest.sourceVersion == UserStorageVersion.version1.rawValue ? 1 : 2,
+                accountNumber: accountNumber + 1, accountCount: manifest.accounts.count,
+                cryptoType: account.cryptoType, networkType: account.networkType,
+                selected: manifest.settingsSelectedAddress == account.address,
+                watchOnly: settings.bool(for: "wallet.watchOnly.\(account.address)") == true)
+            observation.snapshot.savedSecret = account.hasSecretKey
+            observation.snapshot.savedEntropy = account.hasEntropy
+            observation.snapshot.savedSeed = account.hasSeed
+            do {
+                let watchOnlyKey = "wallet.watchOnly.\(account.address)"
+                guard
+                    !settings.allKeys().contains(watchOnlyKey) ||
+                        settings.anyValue(for: watchOnlyKey) is Bool
+                else {
+                    throw UserStorageMigrationError.accountInventoryMismatch
                 }
-            }
-            if account.hasEntropy {
-                var entropy = try fetchEntropyForAddress(account.address)
-                defer { Self.wipeSensitive(&entropy) }
-                guard entropy?.isEmpty == false else {
-                    throw UserStorageMigrationError.emptyWalletSecret(account.address)
+                let isExplicitWatchOnly = settings.bool(for: watchOnlyKey) == true
+                guard
+                    !isExplicitWatchOnly ||
+                        (!account.hasSecretKey &&
+                            !account.hasEntropy &&
+                            !account.hasSeed)
+                else {
+                    throw UserStorageMigrationError.accountInventoryMismatch
                 }
-            }
-            if account.hasSeed {
-                var seed = try keystore.fetchSeedForAddress(account.address)
-                defer { Self.wipeSensitive(&seed) }
-                guard seed?.isEmpty == false else {
-                    throw UserStorageMigrationError.emptyWalletSecret(account.address)
+                guard
+                    account.hasSecretKey ||
+                        account.hasEntropy ||
+                        account.hasSeed ||
+                        isExplicitWatchOnly
+                else {
+                    throw UserStorageMigrationError.missingWalletSecret(account.address)
                 }
+                if account.hasSecretKey {
+                    var secret = try WalletSecretDiagnostics.observe(.scopedSecret, into: observation) {
+                        try keystore.fetchSecretKeyForAddress(account.address)
+                    }
+                    defer { Self.wipeSensitive(&secret) }
+                    guard secret?.isEmpty == false else {
+                        throw UserStorageMigrationError.emptyWalletSecret(account.address)
+                    }
+                }
+                if account.hasEntropy {
+                    var entropy = try fetchEntropyForAddress(account.address, diagnostic: observation)
+                    defer { Self.wipeSensitive(&entropy) }
+                    guard entropy?.isEmpty == false else {
+                        throw UserStorageMigrationError.emptyWalletSecret(account.address)
+                    }
+                }
+                if account.hasSeed {
+                    var seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
+                        try keystore.fetchSeedForAddress(account.address)
+                    }
+                    defer { Self.wipeSensitive(&seed) }
+                    guard seed?.isEmpty == false else {
+                        throw UserStorageMigrationError.emptyWalletSecret(account.address)
+                    }
+                }
+            } catch {
+                WalletStartupDiagnostic.retainSecretChecks(observation.snapshot, error: error)
+                throw error
             }
         }
     }
 
     private func fetchEntropyForAddress(_ address: String) throws -> Data? {
-        if let scoped = try keystore.loadIfKeyExists(
-            KeystoreTag.entropyTagForAddress(address)
-        ) {
+        try fetchEntropyForAddress(address, diagnostic: nil)
+    }
+
+    private func fetchEntropyForAddress(_ address: String, diagnostic: WalletSecretDiagnostics?) throws -> Data? {
+        if let scoped = try WalletSecretDiagnostics.observe(.scopedEntropy, into: diagnostic, {
+            try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(address))
+        }) {
+            diagnostic?.snapshot.fallback = .scopedEntropy
             return scoped
         }
-        guard let snapshot = try loadWalletNetworkSnapshot() else {
+        let activeSnapshot = try loadWalletNetworkSnapshot()
+        diagnostic?.snapshot.snapshotPresent = activeSnapshot != nil
+        guard let snapshot = activeSnapshot else {
+            diagnostic?.snapshot.fallback = .noSnapshot
             // A legacy watch-only declaration never acquires a global signer.
             guard settings.bool(for: "wallet.watchOnly.\(address)") != true else {
+                diagnostic?.snapshot.fallback = .watchOnly
                 return nil
             }
             return try keystore.fetchLegacyEntropyBeforeNetworkActivation(
                 for: address,
-                recoveryGate: recoveryGate
+                recoveryGate: recoveryGate,
+                diagnostic: diagnostic
             )
         }
         return try keystore.fetchEntropyForAddress(
             address,
             activeSnapshot: snapshot,
-            recoveryGate: recoveryGate
+            recoveryGate: recoveryGate,
+            diagnostic: diagnostic
         )
     }
 
@@ -2516,6 +2558,9 @@ final class UserStorageMigrator {
                 destinationVersion: targetVersion
             )
         } catch {
+            // The caller receives a backup-verification failure, not the
+            // copied inventory's credential failure. Do not misattribute it.
+            WalletStartupDiagnostic.retainSecretChecks(nil)
             throw UserStorageMigrationError.backupVerificationFailed(
                 copiedStoreURL.lastPathComponent
             )

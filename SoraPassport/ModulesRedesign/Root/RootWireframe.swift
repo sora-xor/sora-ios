@@ -278,12 +278,16 @@ final class WalletRecoveryViewController: UIViewController {
         bodyLabel.textColor = .secondaryLabel
         bodyLabel.numberOfLines = 0
         bodyLabel.text = [
-            diagnostic?.cause == .missingSecret
-                ? "Your account is still present, but its signing keys are unavailable on this iPhone. Restore its keys using your existing recovery phrase. SORA checks that the phrase matches the original account before saving it."
-                : "SORA could not verify the wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account.",
-            reason,
+            diagnostic?.userMessage ?? "SORA could not verify the wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account.",
             "Do not delete or reinstall the app. The installed wallet database, settings, Keychain entries, and any verified migration backup have been preserved. Contact SORA support and include the app version shown below; never share your recovery phrase."
         ].compactMap { $0 }.joined(separator: "\n\n")
+
+        let diagnosticLabel = UILabel()
+        diagnosticLabel.font = .preferredFont(forTextStyle: .footnote)
+        diagnosticLabel.textColor = .secondaryLabel
+        diagnosticLabel.numberOfLines = 0
+        diagnosticLabel.accessibilityIdentifier = "wallet-recovery-diagnostic"
+        diagnosticLabel.text = diagnostic?.summary ?? "No detailed check was recorded by the previous build. Tap Try again to collect the current failure."
 
         let versionLabel = UILabel()
         versionLabel.font = .preferredFont(forTextStyle: .footnote)
@@ -349,6 +353,7 @@ final class WalletRecoveryViewController: UIViewController {
                 retryButton,
                 restoreKeysButton,
                 bodyLabel,
+                diagnosticLabel,
                 versionLabel,
                 supportButton,
                 detailsButton,
@@ -516,11 +521,31 @@ final class WalletRecoveryViewController: UIViewController {
         let build = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleVersion"
         ) as? String ?? "unknown"
+        let operatingSystem = ProcessInfo.processInfo.operatingSystemVersion
+        let protection = UIApplication.shared.isProtectedDataAvailable ? "available" : "unavailable"
         UIPasteboard.general.string = [
             "SORA \(version) (\(build))",
-            reason ?? "Wallet integrity verification stopped.",
-            diagnostic?.summary
+            "Recovery report format: 2",
+            diagnostic?.summary ?? "Latest verification: not recorded; retry required",
+            diagnostic.map { "Current failure: \($0.userMessage)" },
+            originalRecoverySummary,
+            "iOS: \(operatingSystem.majorVersion).\(operatingSystem.minorVersion).\(operatingSystem.patchVersion)",
+            "Protected data when copied: \(protection)"
         ].compactMap { $0 }.joined(separator: "\n")
+    }
+
+    /// Old marker text is history, not the latest failure. Copy only the known
+    /// fixed-code format; arbitrary historical errors can contain account data.
+    private var originalRecoverySummary: String {
+        let prefix = "Wallet storage could not be verified safely ("
+        let suffix = "). Existing wallet data and recovery copies were preserved."
+        if let reason, reason.hasPrefix(prefix), reason.hasSuffix(suffix) {
+            let code = String(reason.dropFirst(prefix.count).dropLast(suffix.count))
+            if WalletStartupDiagnostic.Cause(rawValue: code) != nil {
+                return "Original recovery trigger: \(reason)"
+            }
+        }
+        return "Original recovery trigger: legacy record (details unavailable)"
     }
 
     @objc private func showBackupHelp() {
