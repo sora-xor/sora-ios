@@ -1003,3 +1003,284 @@ extension SelectedWalletSettings {
         return value
     }
 }
+
+// Recovery reads the existing backup directly. Ordinary cloud browsing can
+// create a folder and ordinary import can create an account; neither belongs
+// in recovery for an already retained identity.
+import GoogleAPIClientForREST_Drive
+import GoogleAPIClientForRESTCore
+import IrohaCrypto
+import SSFCloudStorage
+import SSFUtils
+import TweetNacl
+import UIKit
+
+enum WalletCloudBackupRecoveryError: Error {
+    case notAuthorized, notFound, ambiguous, invalidBackup, incorrectPassword
+    case identityMismatch, unsupportedBackup, unavailable
+
+    static func userMessage(for error: Error) -> String {
+        if let system = error as? KeystoreSystemError {
+            return "The iPhone could not access protected wallet storage (Keychain status \(system.status)). Unlock it and try again."
+        }
+        if case WalletNetworkMigrationError.legacyIdentityMismatch = error {
+            return "This backup does not match the existing wallet. No wallet keys were changed."
+        }
+        if error is UserStorageMigrationError || error is KeystoreError {
+            return "The existing wallet storage could not be updated safely. Existing wallet data was preserved."
+        }
+        guard let error = error as? Self else {
+            return "The backup could not be verified. Existing wallet data was preserved."
+        }
+        switch error {
+        case .notAuthorized: return "Sign in to the Google account that holds your wallet backup."
+        case .notFound: return "No backup for this existing wallet was found in this Google account."
+        case .ambiguous: return "More than one backup matches this wallet. No wallet keys were changed."
+        case .invalidBackup: return "The backup file is incomplete or unsupported. No wallet keys were changed."
+        case .incorrectPassword: return "The backup could not be decrypted with this password. Try the original backup password."
+        case .identityMismatch: return "This backup does not match the existing wallet. No wallet keys were changed."
+        case .unsupportedBackup: return "This backup has no supported SORA signing credentials. No wallet keys were changed."
+        case .unavailable: return "Google Drive could not be read. Try again when the connection is available."
+        }
+    }
+}
+
+final class WalletCloudBackupRecoveryService {
+    static let maximumBackupBytes = 1_048_576
+    private let drive: GoogleService
+    private let authorize: () async throws -> Bool
+
+    init(viewController: UIViewController) {
+        let cloud = CloudStorageService(uiDelegate: viewController)
+        drive = cloud.googleDriveService
+        authorize = { try await cloud.signInIfNeeded() == .authorized }
+    }
+
+    init(drive: GoogleService, authorize: @escaping () async throws -> Bool) {
+        self.drive = drive
+        self.authorize = authorize
+    }
+
+    func readBackup(for address: String) async throws -> Data {
+        let alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+        guard (32...128).contains(address.count), address.allSatisfy({ alphabet.contains($0) }) else {
+            throw WalletCloudBackupRecoveryError.identityMismatch
+        }
+        do {
+            guard try await authorize() else { throw WalletCloudBackupRecoveryError.notAuthorized }
+            var token: String?
+            var seenTokens = Set<String>()
+            var matches: [GTLRDrive_File] = []
+            for page in 0..<4 {
+                try Task.checkCancellation()
+                let query = GTLRDriveQuery_FilesList.query()
+                query.spaces = "appDataFolder"
+                query.q = "name = '\(address).json' and trashed = false"
+                query.fields = "nextPageToken,incompleteSearch,files(id,name,size,trashed,mimeType)"
+                query.pageSize = 100
+                query.pageToken = token
+                let result = try await drive.executeQuery(query)
+                guard let list = result.file as? GTLRDrive_FileList,
+                      list.incompleteSearch?.boolValue != true,
+                      (list.files?.count ?? 0) <= 100 else {
+                    throw WalletCloudBackupRecoveryError.invalidBackup
+                }
+                for file in list.files ?? [] {
+                    guard file.name == "\(address).json", file.trashed?.boolValue != true,
+                          file.mimeType != "application/vnd.google-apps.folder",
+                          let identifier = file.identifier, !identifier.isEmpty,
+                          let size = file.size?.int64Value, size > 0,
+                          size <= Int64(Self.maximumBackupBytes) else {
+                        throw WalletCloudBackupRecoveryError.invalidBackup
+                    }
+                    matches.append(file)
+                    guard matches.count <= 1 else { throw WalletCloudBackupRecoveryError.ambiguous }
+                }
+                token = list.nextPageToken
+                if token == nil || token == "" { break }
+                guard page < 3, seenTokens.insert(token!).inserted else {
+                    throw WalletCloudBackupRecoveryError.invalidBackup
+                }
+            }
+            guard let file = matches.first, let identifier = file.identifier else {
+                throw WalletCloudBackupRecoveryError.notFound
+            }
+            try Task.checkCancellation()
+            let result = try await drive.executeQuery(GTLRDriveQuery_FilesGet.queryForMedia(withFileId: identifier))
+            guard let data = (result.file as? GTLRDataObject)?.data,
+                  !data.isEmpty, data.count <= Self.maximumBackupBytes,
+                  Int64(data.count) == file.size?.int64Value else {
+                throw WalletCloudBackupRecoveryError.invalidBackup
+            }
+            return data
+        } catch let error as WalletCloudBackupRecoveryError { throw error }
+        catch { throw WalletCloudBackupRecoveryError.unavailable }
+    }
+
+    private struct Backup: Decodable {
+        let address: String
+        let keyVerifier: String?
+        let encryptedMnemonicPhrase: String?
+        let encryptedSubstrateDerivationPath: String?
+        let cryptoType: String?
+        let encryptedSeed: OpenBackupAccount.Seed?
+        let json: OpenBackupAccount.Json?
+    }
+
+    static func restore(data: Data, password: String, account: AccountItem,
+                        migrator: UserStorageMigrator, baseURL: URL? = nil,
+                        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+                        checkpoint: () throws -> Void = {}) throws {
+        guard !data.isEmpty, data.count <= maximumBackupBytes,
+              let backup = try? JSONDecoder().decode(Backup.self, from: data) else {
+            throw WalletCloudBackupRecoveryError.invalidBackup
+        }
+        guard backup.address == account.address else { throw WalletCloudBackupRecoveryError.identityMismatch }
+        if let crypto = backup.cryptoType, !crypto.isEmpty {
+            guard crypto.lowercased() == account.cryptoType.typeString.lowercased() ||
+                    crypto == String(account.cryptoType.rawValue) else {
+                throw WalletCloudBackupRecoveryError.identityMismatch
+            }
+        }
+        let encryption = EncryptionService()
+        func decrypt(_ value: String?) throws -> String? {
+            guard let value, !value.isEmpty else { return nil }
+            guard let bytes = try? Data(hexStringSSF: value) else {
+                throw WalletCloudBackupRecoveryError.invalidBackup
+            }
+            _ = try checkedScrypt(bytes)
+            do { return try encryption.getDecrypted(from: value, password: password) }
+            catch { throw WalletCloudBackupRecoveryError.incorrectPassword }
+        }
+        guard let verifier = try decrypt(backup.keyVerifier), verifier == account.address else {
+            throw WalletCloudBackupRecoveryError.incorrectPassword
+        }
+        var phrase = try decrypt(backup.encryptedMnemonicPhrase)
+        defer { phrase = nil }
+        let path = try decrypt(backup.encryptedSubstrateDerivationPath) ?? ""
+        var entropy: Data?
+        var seed: Data?
+        var secret: Data?
+        defer {
+            if let count = entropy?.count { entropy?.resetBytes(in: 0..<count) }
+            if let count = seed?.count { seed?.resetBytes(in: 0..<count) }
+            if let count = secret?.count { secret?.resetBytes(in: 0..<count) }
+        }
+        if let phrase, !phrase.isEmpty {
+            guard let mnemonic = try? IRMnemonicCreator(language: .english)
+                .mnemonic(fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " ")),
+                WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+                throw WalletCloudBackupRecoveryError.invalidBackup
+            }
+            entropy = mnemonic.entropy()
+        }
+        if let seedString = try decrypt(backup.encryptedSeed?.substrateSeed), !seedString.isEmpty {
+            guard let decoded = try? Data(hexStringSSF: seedString), [32, 64].contains(decoded.count) else {
+                throw WalletCloudBackupRecoveryError.invalidBackup
+            }
+            seed = decoded
+        }
+        if let json = backup.json?.substrateJson, !json.isEmpty {
+            secret = try extractJSONSecret(json, password: password, account: account)
+        }
+        guard entropy != nil || seed != nil || secret != nil else {
+            throw WalletCloudBackupRecoveryError.unsupportedBackup
+        }
+        try migrator.restoreMissingBackupMaterial(address: account.address, expectedAccount: account,
+            entropy: entropy, rawSeed: seed, secret: secret, derivationPath: path,
+            baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
+    }
+
+    private static func checkedScrypt(_ data: Data) throws -> ScryptParameters {
+        // The retained writer uses N=32768,r=8,p=1. Bound work before invoking
+        // the existing native decoder and ensure nonce/MAC slices exist.
+        guard data.count >= ScryptParameters.encodedLength + 24 + 16,
+              data.count <= maximumBackupBytes else { throw WalletCloudBackupRecoveryError.invalidBackup }
+        let params = try ScryptParameters(data: data)
+        let n = UInt64(params.scryptN), r = UInt64(params.scryptR), p = UInt64(params.scryptP)
+        guard n >= 2, n.nonzeroBitCount == 1, n <= 262_144,
+              r > 0, r <= 32, p > 0, p <= 16,
+              n * r <= 2_097_152, n * r * p <= 4_194_304 else {
+            throw WalletCloudBackupRecoveryError.invalidBackup
+        }
+        return params
+    }
+
+    private static func extractJSONSecret(_ json: String, password: String, account: AccountItem) throws -> Data {
+        guard let bytes = json.data(using: .utf8), bytes.count <= maximumBackupBytes,
+              let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: bytes),
+              let info = try? KeystoreInfoFactory().createInfo(from: definition),
+              info.cryptoType.stringValue == account.cryptoType.typeString.lowercased(),
+              definition.address == nil || definition.address == account.address,
+              definition.encoding.content == ["pkcs8", account.cryptoType.typeString.lowercased()],
+              let encoded = Data(base64Encoded: definition.encoded) else {
+            throw WalletCloudBackupRecoveryError.invalidBackup
+        }
+        var pkcs: Data
+        if definition.encoding.type.isEmpty {
+            pkcs = encoded
+        } else {
+            guard definition.encoding.type == ["scrypt", "xsalsa20-poly1305"] else {
+                throw WalletCloudBackupRecoveryError.unsupportedBackup
+            }
+            let params = try checkedScrypt(encoded)
+            var key = try IRScryptKeyDeriviation().deriveKey(from: Data(password.utf8),
+                salt: params.salt, scryptN: UInt(params.scryptN), scryptP: UInt(params.scryptP),
+                scryptR: UInt(params.scryptR), length: 32)
+            defer { key.resetBytes(in: key.startIndex..<key.endIndex) }
+            let nonceEnd = ScryptParameters.encodedLength + 24
+            do {
+                pkcs = try NaclSecretBox.open(box: Data(encoded[nonceEnd...]),
+                    nonce: Data(encoded[ScryptParameters.encodedLength..<nonceEnd]), key: key)
+            } catch { throw WalletCloudBackupRecoveryError.incorrectPassword }
+        }
+        defer { pkcs.resetBytes(in: pkcs.startIndex..<pkcs.endIndex) }
+        let header = SSFUtils.KeystoreConstants.pkcs8Header
+        let divider = SSFUtils.KeystoreConstants.pkcs8Divider
+        let privateLength = account.cryptoType == .sr25519 ? 64 : 32
+        let publicStart = header.count + privateLength + divider.count
+        guard pkcs.count == publicStart + account.publicKeyData.count,
+              pkcs.starts(with: header),
+              pkcs.subdata(in: header.count + privateLength..<publicStart) == divider,
+              pkcs.range(of: divider)?.lowerBound == header.count + privateLength,
+              pkcs.suffix(account.publicKeyData.count) == account.publicKeyData else {
+            throw WalletCloudBackupRecoveryError.identityMismatch
+        }
+        if account.cryptoType == .sr25519 {
+            var scalar = Array(pkcs[header.count..<header.count + 32])
+            guard scalar[0] & 7 == 0 else { throw WalletCloudBackupRecoveryError.invalidBackup }
+            for i in 0..<31 { scalar[i] = (scalar[i] >> 3) | (scalar[i + 1] << 5) }
+            scalar[31] >>= 3
+            guard isCanonicalScalar(scalar) else { throw WalletCloudBackupRecoveryError.invalidBackup }
+        }
+        let plain = KeystoreDefinition(address: definition.address, encoded: pkcs.base64EncodedString(),
+            encoding: KeystoreEncoding(content: definition.encoding.content, type: [],
+                version: definition.encoding.version), meta: definition.meta)
+        let extracted = try KeystoreExtractor().extractFromDefinition(plain, password: nil)
+        guard extracted.publicKeyData == account.publicKeyData, extracted.cryptoType.stringValue == account.cryptoType.typeString.lowercased() else {
+            throw WalletCloudBackupRecoveryError.identityMismatch
+        }
+        try validateSecretEncoding(extracted.secretKeyData, cryptoType: account.cryptoType)
+        return extracted.secretKeyData
+    }
+
+    static func validateSecretEncoding(_ secret: Data, cryptoType: CryptoType) throws {
+        guard secret.count == (cryptoType == .sr25519 ? 64 : 32),
+              cryptoType != .sr25519 || isCanonicalScalar(Array(secret.prefix(32))) else {
+            throw WalletCloudBackupRecoveryError.invalidBackup
+        }
+    }
+
+    private static func isCanonicalScalar(_ bytes: [UInt8]) -> Bool {
+        // Little-endian subgroup order; this is an input-format check before
+        // native signing, not key derivation or a replacement crypto primitive.
+        let order: [UInt8] = [0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
+            0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10]
+        guard bytes.count == 32 else { return false }
+        for i in (0..<32).reversed() {
+            if bytes[i] != order[i] { return bytes[i] < order[i] }
+        }
+        return false
+    }
+}
