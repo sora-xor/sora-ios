@@ -42,7 +42,8 @@ final class SetupPasswordViewFactory {
                            entryPoint: EntryPoint,
                            completion: (() -> Void)? = nil) -> SetupPasswordViewProtocol? {
         let view = SetupPasswordViewController()
-        let cloudStorageService = CloudStorageService(uiDelegate: view)
+        let cloudStorageService = CloudStorageService(uiDelegate: view,
+            googleDriveService: WalletBackupPreservingGoogleService())
         let viewModel = SetupPasswordPresenter(account: account,
                                                cloudStorageService: cloudStorageService,
                                                createAccountRequest: createAccountRequest,

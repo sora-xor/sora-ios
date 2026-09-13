@@ -56,6 +56,11 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     private var mnemonic: IRMnemonicProtocol?
     private let entryPoint: EntryPoint
     private let keystore: KeystoreProtocol
+    private let currentAccount: () -> AccountItem?
+    private var isSavingBackup = false
+    private var createdAccountForBackup: AccountItem?
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
+    private let recoveryGate: WalletRecoveryCapabilityGate
 
     init(account: OpenBackupAccount,
          cloudStorageService: CloudStorageServiceProtocol,
@@ -64,7 +69,10 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
          mnemonic: IRMnemonicProtocol? = nil,
          entryPoint: EntryPoint,
          keystore: KeystoreProtocol,
-         completion: (() -> Void)? = nil) {
+         completion: (() -> Void)? = nil,
+         currentAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+         recoveryGate: WalletRecoveryCapabilityGate = .shared) {
         self.backupAccount = account
         self.completion = completion
         self.createAccountRequest = createAccountRequest
@@ -73,6 +81,9 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         self.entryPoint = entryPoint
         self.keystore = keystore
         self.cloudStorageService = cloudStorageService
+        self.currentAccount = currentAccount
+        self.lifecycleCoordinator = lifecycleCoordinator
+        self.recoveryGate = recoveryGate
     }
     
     deinit {
@@ -85,23 +96,64 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     func backupAccount(with password: String) {
-        if entryPoint == .profile {
-            guard let account = SelectedWalletSettings.shared.currentAccount else { return }
-    
-            updateBackupedAccount(with: account, password: password)
-            
-            view?.showLoading()
-            updateCloudStorage(with: password)
-            return
-        }
-        
-        if let createAccountRequest = createAccountRequest, let mnemonic = mnemonic {
+        Task { @MainActor [weak self] in
+            guard let self, !self.isSavingBackup else { return }
+            self.isSavingBackup = true
             self.view?.showLoading()
-            createAccountService?.createAccount(request: createAccountRequest, mnemonic: mnemonic) { [weak self] result in
-                guard let self = self, let result = result, case .success(let account) = result else { return }
-    
-                self.updateBackupedAccount(with: account, password: password)
-                self.updateCloudStorage(with: password)
+            defer {
+                self.isSavingBackup = false
+                self.view?.hideLoading()
+            }
+            do {
+                let account: AccountItem
+                if self.entryPoint == .profile {
+                    guard let current = self.currentAccount() else {
+                        throw WalletCloudBackupWriteError.invalidBackup
+                    }
+                    guard current.address == self.backupAccount.address else {
+                        throw WalletCloudBackupWriteError.invalidBackup
+                    }
+                    account = current
+                } else if let created = self.createdAccountForBackup {
+                    account = created
+                } else {
+                    guard let request = self.createAccountRequest, let mnemonic = self.mnemonic,
+                          let creator = self.createAccountService else {
+                        throw WalletCloudBackupWriteError.invalidBackup
+                    }
+                    let result: Result<AccountItem, Error>? = await withCheckedContinuation { continuation in
+                        creator.createAccount(request: request, mnemonic: mnemonic) { result in
+                            continuation.resume(returning: result)
+                        }
+                    }
+                    guard let result else { throw WalletCloudBackupWriteError.invalidBackup }
+                    account = try result.get()
+                    self.createdAccountForBackup = account
+                }
+                let lease = try await self.lifecycleCoordinator.acquireForMutableWalletAccessAsync()
+                do {
+                    self.backupAccount = try self.prepareBackup(with: account, password: password)
+                    lease.release()
+                } catch {
+                    lease.release()
+                    throw error
+                }
+                // The production service returns only after preserving the previous
+                // revision and reading back the exact newly encoded payload.
+                try await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
+                var addresses = ApplicationConfig.shared.backupedAccountAddresses
+                if !addresses.contains(self.backupAccount.address) { addresses.append(self.backupAccount.address) }
+                ApplicationConfig.shared.backupedAccountAddresses = addresses
+                if let completion = self.completion {
+                    self.view?.controller.dismiss(animated: true, completion: completion)
+                } else {
+                    self.wireframe?.showSetupPinCode()
+                }
+            } catch {
+                self.wireframe?.present(message: WalletCloudBackupWriteError.userMessage(for: error),
+                    title: "Backup not saved",
+                    closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                    from: self.view)
             }
         }
     }
@@ -124,96 +176,61 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         return SetupPasswordSection(items: [ .setupPassword(item) ])
     }
     
-    private func handler(_ result: Result<Void, Error>) {
-        switch result {
-        case .success:
-            var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-            backupedAccountAddresses.append(backupAccount.address)
-            ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
-            
-            if completion != nil {
-                view?.controller.dismiss(animated: true, completion: completion)
-            } else {
-                wireframe?.showSetupPinCode()
-            }
-        case .failure(let error):
-            wireframe?.present(message: nil,
-                               title: error.localizedDescription,
-                               closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-                               from: view)
+    private func prepareBackup(with account: AccountItem, password: String) throws -> OpenBackupAccount {
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard backupAccount.address == account.address || (entryPoint == .onboarding && backupAccount.address.isEmpty) else {
+            throw WalletCloudBackupWriteError.invalidBackup
         }
+        if let crypto = backupAccount.cryptoType, !crypto.isEmpty {
+            guard crypto.lowercased() == account.cryptoType.typeString.lowercased() ||
+                crypto == String(account.cryptoType.rawValue) else { throw WalletCloudBackupWriteError.invalidBackup }
+        }
+        let path = try keystore.fetchDeriviationForAddress(account.address) ?? ""
+        if let suppliedPath = backupAccount.substrateDerivationPath, !suppliedPath.isEmpty, suppliedPath != path {
+            throw WalletCloudBackupWriteError.invalidBackup
+        }
+        var entropy = try keystore.fetchEntropyForAddress(account.address)
+        var rawSeed = try keystore.fetchSeedForAddress(account.address)
+        var secret = try keystore.fetchSecretKeyForAddress(account.address)
+        defer {
+            let entropyCount = entropy?.count ?? 0, seedCount = rawSeed?.count ?? 0, secretCount = secret?.count ?? 0
+            entropy?.resetBytes(in: 0..<entropyCount)
+            rawSeed?.resetBytes(in: 0..<seedCount)
+            secret?.resetBytes(in: 0..<secretCount)
+        }
+        if let suppliedPhrase = backupAccount.passphrase,
+           !suppliedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
+                fromList: suppliedPhrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+            let suppliedEntropy = mnemonic.entropy()
+            guard entropy == nil || entropy == suppliedEntropy else { throw WalletCloudBackupWriteError.invalidBackup }
+            entropy = suppliedEntropy
+        }
+        if let rawSeed, rawSeed.count != 32 && rawSeed.count != 64 { throw WalletCloudBackupWriteError.invalidBackup }
+        if let secret { try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: account.cryptoType) }
+        guard entropy != nil || rawSeed != nil || secret != nil else { throw WalletCloudBackupWriteError.invalidBackup }
+        try LegacySoraIdentityValidator.validate(address: account.address,
+            publicKey: account.publicKeyData, cryptoType: account.cryptoType, networkType: account.networkType,
+            derivationPath: path.isEmpty ? nil : path, entropy: entropy, rawSeed: rawSeed, secret: secret,
+            recoveryGate: recoveryGate)
+        var prepared = backupAccount
+        prepared.address = account.address
+        prepared.cryptoType = account.cryptoType.typeString
+        prepared.substrateDerivationPath = path
+        prepared.passphrase = try entropy.map { try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: $0).toString() }
+        prepared.encryptedSeed = OpenBackupAccount.Seed(substrateSeed: rawSeed?.toHex(includePrefix: true),
+            ethSeed: backupAccount.encryptedSeed?.ethSeed)
+        let exported = try KeystoreExportWrapper(keystore: keystore).export(account: account, password: password)
+        guard let json = String(data: exported, encoding: .utf8) else { throw WalletCloudBackupWriteError.invalidBackup }
+        prepared.json = OpenBackupAccount.Json(substrateJson: json, ethJson: backupAccount.json?.ethJson)
+        var formats: [OpenBackupAccount.BackupAccountType] = [.json]
+        if prepared.passphrase != nil { formats.append(.passphrase) }
+        if rawSeed != nil { formats.append(.seed) }
+        prepared.backupAccountType = formats
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        return prepared
     }
-    
-    private func updateBackupedAccount(with account: AccountItem, password: String) {
-        var backupAccountType: [OpenBackupAccount.BackupAccountType] = []
-        
-        if mnemonic != nil {
-            backupAccountType.append(.passphrase)
-        }
 
-        let rawSeed = getRawSeed(from: account)
-        if rawSeed != nil {
-            backupAccountType.append(.seed)
-        }
-
-        _ = try? keystore.fetchSecretKeyForAddress(account.address)
-        
-        let substrateJson = getJson(from: account, password: password)
-        if substrateJson != nil {
-            backupAccountType.append(.json)
-        }
-
-        backupAccount.address = account.address
-        backupAccount.backupAccountType = backupAccountType
-        backupAccount.encryptedSeed = OpenBackupAccount.Seed(substrateSeed: rawSeed)
-        backupAccount.json = OpenBackupAccount.Json(substrateJson: substrateJson)
-    }
-    
-    private func updateCloudStorage(with password: String) {
-        Task { [weak self] in
-            guard let self = self else { return }
-            
-            do {
-                let accounts = try await self.cloudStorageService.getBackupAccounts()
-                if let foudedAccount = accounts.first(where: { self.backupAccount.address == $0.address }) {
-                    try await self.cloudStorageService.deleteBackup(account: foudedAccount)
-                    
-                    let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                    ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != foudedAccount.address }
-                    
-                    try await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                    
-                    self.view?.hideLoading()
-                    
-                    var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                    backupedAccountAddresses.append(backupAccount.address)
-                    ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
-                    
-                    if completion != nil {
-                        await view?.controller.dismiss(animated: true, completion: completion)
-                    } else {
-                        wireframe?.showSetupPinCode()
-                    }
-                }
-            } catch {
-                try? await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                self.view?.hideLoading()
-                self.wireframe?.present(message: nil,
-                                        title: error.localizedDescription,
-                                        closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-                                        from: view)
-            }
-        }
-    }
-    
-    private func getRawSeed(from account: AccountItem) -> String? {
-        return try? keystore.fetchSeedForAddress(account.address)?.toHex(includePrefix: true)
-    }
-    
-    private func getJson(from account: AccountItem, password: String) -> String? {
-        guard let exportData = try? KeystoreExportWrapper(keystore: keystore).export(account: account, password: password) else { return nil }
-        return String(data: exportData, encoding: .utf8)
-    }
 }
 
 extension SetupPasswordPresenter: Localizable {
