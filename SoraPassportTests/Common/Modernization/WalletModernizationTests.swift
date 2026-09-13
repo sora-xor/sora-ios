@@ -4,6 +4,7 @@
 import BigInt
 import GoogleAPIClientForREST_Drive
 import GoogleAPIClientForRESTCore
+import GoogleSignIn
 import SSFCloudStorage
 import CoreData
 import CryptoKit
@@ -10986,8 +10987,51 @@ final class WalletModernizationTests: XCTestCase {
             _ = try await WalletCloudBackupRecoveryService(drive: unauthorized, authorize: { false })
                 .readBackup(for: account.address)
             XCTFail("Unauthorized backup read")
-        } catch {}
+        } catch WalletCloudBackupRecoveryError.notAuthorized {}
+        catch { XCTFail("Authorization was not reported distinctly") }
         XCTAssertTrue(unauthorized.queries.isEmpty)
+
+        // The first selected account can have no backup. Retrying must authorize
+        // again; canceling that chooser must not reuse the previous Drive session.
+        let retryDrive = RecoveryDriveFixture([list([]), list([file()]), media])
+        var authorizationAttempts = 0
+        let retryReader = WalletCloudBackupRecoveryService(drive: retryDrive, authorize: {
+            authorizationAttempts += 1
+            if authorizationAttempts == 2 {
+                throw NSError(domain: kGIDSignInErrorDomain, code: -5,
+                    userInfo: [NSLocalizedDescriptionKey: "synthetic private authorization content"])
+            }
+            return true
+        })
+        do {
+            _ = try await retryReader.readBackup(for: account.address)
+            XCTFail("An empty Google account was admitted")
+        } catch WalletCloudBackupRecoveryError.notFound {}
+        catch { XCTFail("An empty account was not reported as missing backup") }
+        XCTAssertEqual(authorizationAttempts, 1)
+        XCTAssertEqual(retryDrive.queries.count, 1)
+        do {
+            _ = try await retryReader.readBackup(for: account.address)
+            XCTFail("A canceled account chooser was admitted")
+        } catch WalletCloudBackupRecoveryError.authorizationCanceled {}
+        catch { XCTFail("Google sign-in cancellation was not distinguished") }
+        XCTAssertEqual(authorizationAttempts, 2)
+        XCTAssertEqual(retryDrive.queries.count, 1, "Cancel must issue no Drive query")
+        let retryPayload = try await retryReader.readBackup(for: account.address)
+        XCTAssertEqual(retryPayload, payload)
+        XCTAssertEqual(authorizationAttempts, 3)
+        XCTAssertEqual(retryDrive.queries.count, 3)
+        XCTAssertTrue(retryDrive.queries.last is GTLRDriveQuery_FilesGet)
+
+        let failedAuthorization = RecoveryDriveFixture([])
+        do {
+            _ = try await WalletCloudBackupRecoveryService(drive: failedAuthorization, authorize: {
+                throw NSError(domain: "synthetic-auth-error", code: -5)
+            }).readBackup(for: account.address)
+            XCTFail("Failed authorization was admitted")
+        } catch WalletCloudBackupRecoveryError.notAuthorized {}
+        catch { XCTFail("Non-Google errors must not be labeled Google cancellation") }
+        XCTAssertTrue(failedAuthorization.queries.isEmpty)
     }
 
     func testCloudRecoveryRetainedBackupFormatsPreserveAccountAndSigning() throws {

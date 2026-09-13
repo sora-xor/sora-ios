@@ -501,7 +501,7 @@ final class WalletRecoveryViewController: UIViewController {
                 self.setKeyRecoveryBusy(false)
                 let message = WalletCloudBackupRecoveryError.userMessage(for: error)
                 self.setCloudRecoveryStatus(message)
-                self.showKeyRecoveryError(message)
+                self.showKeyRecoveryError(message, title: WalletCloudBackupRecoveryError.title(for: error))
             }
         }
     }
@@ -610,8 +610,8 @@ final class WalletRecoveryViewController: UIViewController {
         exportButton.isEnabled = !busy && !isExporting
     }
 
-    private func showKeyRecoveryError(_ message: String) {
-        let alert = UIAlertController(title: "Wallet keys not restored", message: message, preferredStyle: .alert)
+    private func showKeyRecoveryError(_ message: String, title: String = "Wallet keys not restored") {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
