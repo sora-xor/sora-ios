@@ -594,3 +594,138 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
     }
  */
 }
+
+
+import UIKit
+import SSFCloudStorage
+import GoogleSignIn
+
+private final class GoogleImportViewFixture: UIViewController, OnboardingMainViewProtocol {
+    var shows = 0
+    var hides = 0
+    func showLoading() { XCTAssertTrue(Thread.isMainThread); shows += 1 }
+    func hideLoading() { XCTAssertTrue(Thread.isMainThread); hides += 1 }
+}
+
+private final class GoogleImportInteractorFixture: OnboardingMainInteractorInputProtocol {
+    var calls = 0
+    var resets = 0
+    var onRead: (() -> Void)?
+    var pending: CheckedContinuation<[OpenBackupAccount], Error>?
+    func setup() {}
+    func resetGoogleState() { resets += 1 }
+    func getBackupedAccounts() async throws -> [OpenBackupAccount] {
+        calls += 1
+        return try await withCheckedThrowingContinuation {
+            pending = $0
+            onRead?()
+        }
+    }
+    func complete(_ result: Result<[OpenBackupAccount], Error>) {
+        let continuation = pending; pending = nil
+        continuation?.resume(with: result)
+    }
+}
+
+private final class GoogleImportWireframeFixture: OnboardingMainWireframeProtocol {
+    var activityIndicatorWindow: UIWindow?
+    var onFinish: (() -> Void)?
+    var alerts: [String] = []
+    var accounts: [OpenBackupAccount] = []
+    var signups = 0
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) {
+        XCTAssertTrue(Thread.isMainThread)
+        XCTAssertTrue(isGoogleBackupSelected)
+        signups += 1; onFinish?()
+    }
+    func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) {}
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
+        XCTAssertTrue(Thread.isMainThread)
+        self.accounts = accounts; onFinish?()
+    }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+        XCTAssertTrue(Thread.isMainThread)
+        alerts.append((title ?? "") + " " + (message ?? "")); onFinish?()
+    }
+}
+
+final class GoogleImportResponseTests: XCTestCase {
+    @MainActor
+    func testFailedGoogleImportStopsLoadingShowsSafeFeedbackAndCanRetry() async {
+        let view = GoogleImportViewFixture()
+        let interactor = GoogleImportInteractorFixture()
+        let wireframe = GoogleImportWireframeFixture()
+        let presenter = OnboardingMainPresenter(locale: Locale(identifier: "en"))
+        presenter.view = view; presenter.interactor = interactor; presenter.wireframe = wireframe
+        let privateText = "PRIVATE-TOKEN-ACCOUNT-CONTENT"
+        let failures: [Error] = [
+            NSError(domain: kGIDSignInErrorDomain, code: -5),
+            CloudStorageServiceError.notAuthorized,
+            NSError(domain: NSURLErrorDomain, code: -1009, userInfo: [NSLocalizedDescriptionKey: privateText])
+        ]
+        for (index, error) in failures.enumerated() {
+            let started = expectation(description: "Google read started")
+            let finished = expectation(description: "Google failure visible")
+            interactor.onRead = { started.fulfill() }; wireframe.onFinish = { finished.fulfill() }
+            presenter.activateCloudStorageConnection()
+            presenter.activateCloudStorageConnection()
+            presenter.viewWillAppear()
+            await fulfillment(of: [started], timeout: 3)
+            XCTAssertEqual(interactor.calls, index + 1)
+            XCTAssertEqual(interactor.resets, 0, "Returning from Google must not disconnect the active request")
+            interactor.complete(.failure(error))
+            await fulfillment(of: [finished], timeout: 3)
+            XCTAssertEqual(view.shows, index + 1)
+            XCTAssertEqual(view.hides, index + 1)
+            XCTAssertEqual(wireframe.alerts.count, index + 1)
+            XCTAssertFalse(wireframe.alerts[index].contains(privateText))
+            XCTAssertFalse(wireframe.alerts[index].isEmpty)
+        }
+        XCTAssertTrue(wireframe.alerts[0].contains("canceled"))
+        XCTAssertTrue(wireframe.alerts[1].contains("Sign in"))
+        XCTAssertTrue(wireframe.alerts[2].contains("connection"))
+        XCTAssertEqual(wireframe.signups, 0)
+        XCTAssertTrue(wireframe.accounts.isEmpty)
+    }
+
+    @MainActor
+    func testSuccessfulGoogleImportStopsLoadingAndPresentsAccounts() async {
+        let view = GoogleImportViewFixture()
+        let interactor = GoogleImportInteractorFixture()
+        let wireframe = GoogleImportWireframeFixture()
+        let presenter = OnboardingMainPresenter(locale: Locale(identifier: "en"))
+        presenter.view = view; presenter.interactor = interactor; presenter.wireframe = wireframe
+        let started = expectation(description: "Google read started")
+        let finished = expectation(description: "Backup selection shown")
+        interactor.onRead = { started.fulfill() }; wireframe.onFinish = { finished.fulfill() }
+        presenter.activateCloudStorageConnection()
+        await fulfillment(of: [started], timeout: 3)
+        let account = OpenBackupAccount(name: "Synthetic backup", address: "synthetic-google-import-test-account")
+        interactor.complete(.success([account]))
+        await fulfillment(of: [finished], timeout: 3)
+        XCTAssertEqual(wireframe.accounts.map(\.address), [account.address])
+        XCTAssertEqual(view.hides, 1)
+        XCTAssertTrue(wireframe.alerts.isEmpty)
+        presenter.viewWillAppear()
+        XCTAssertEqual(interactor.resets, 1)
+    }
+
+    @MainActor
+    func testEmptyGoogleImportStopsLoadingAndCompletesExistingEmptyRoute() async {
+        let view = GoogleImportViewFixture()
+        let interactor = GoogleImportInteractorFixture()
+        let wireframe = GoogleImportWireframeFixture()
+        let presenter = OnboardingMainPresenter(locale: Locale(identifier: "en"))
+        presenter.view = view; presenter.interactor = interactor; presenter.wireframe = wireframe
+        let started = expectation(description: "Google read started")
+        let finished = expectation(description: "Empty result handled")
+        interactor.onRead = { started.fulfill() }; wireframe.onFinish = { finished.fulfill() }
+        presenter.activateCloudStorageConnection()
+        await fulfillment(of: [started], timeout: 3)
+        interactor.complete(.success([]))
+        await fulfillment(of: [finished], timeout: 3)
+        XCTAssertEqual(wireframe.signups, 1)
+        XCTAssertEqual(view.hides, 1)
+        XCTAssertTrue(wireframe.alerts.isEmpty)
+    }
+}
