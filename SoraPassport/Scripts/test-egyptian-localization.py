@@ -175,7 +175,8 @@ print("passed")
         generator = self.generator()
         core, fallback = generator.parse_source_catalog()
         self.assertEqual(len(core), 952)
-        self.assertEqual(len(fallback), 150)
+        # Nine wallet-opening and node-status messages extend the explicit fallback.
+        self.assertEqual(len(fallback), 159)
         self.assertTrue(all(key == value for key, value in fallback))
         generator.generate(check=True)
 

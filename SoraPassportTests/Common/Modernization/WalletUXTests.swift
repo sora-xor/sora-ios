@@ -11,6 +11,136 @@ import Darwin
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
+
+    @MainActor
+    func testAuthenticatedWalletOpeningRetriesLateServicesAndLeavesPIN() async throws {
+        let previousWindow = UIApplication.shared.keyWindow
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
+        let wallet = UIViewController()
+        var attempts = 0
+        var refreshes = 0
+        var opened = 0
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            if attempts < 3 { throw WalletOpeningError.assetsNotReady }
+            return wallet
+        }, refresh: { refreshes += 1 }, makeNodes: { nil }, recheckWallet: { XCTFail("No storage recovery required") }, opened: {
+            opened += 1
+            window.rootViewController = $0
+        }, retryInterval: 0.01, maximumAttempts: 5)
+        window.rootViewController = UINavigationController(rootViewController: opening)
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { window.rootViewController === wallet }
+        XCTAssertTrue(window.rootViewController === wallet)
+        XCTAssertEqual(attempts, 3)
+        XCTAssertEqual(refreshes, 1)
+        XCTAssertEqual(opened, 1)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(opened, 1, "Successful opening cancels pending retries")
+    }
+
+    @MainActor
+    func testWalletOpeningStopsWaitingAndOffersRetryAndNodes() async throws {
+        let previousWindow = UIApplication.shared.keyWindow
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
+        var attempts = 0
+        var ready = false
+        var nodeRequests = 0
+        let wallet = UIViewController()
+        let nodes = UIViewController()
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            if !ready { throw WalletOpeningError.connectionNotReady }
+            return wallet
+        }, refresh: {}, makeNodes: {
+            nodeRequests += 1
+            return nodeRequests == 1 ? nil : nodes
+        }, recheckWallet: { XCTFail("A node failure is not a storage failure") }, opened: {
+            window.rootViewController = $0
+        }, retryInterval: 0.01, maximumAttempts: 2)
+        let navigation = UINavigationController(rootViewController: opening)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 2 }
+        XCTAssertEqual(attempts, 2)
+        let buttons = descendants(opening.view).compactMap { $0 as? UIButton }
+        let retry = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" })
+        let changeNode = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" })
+        let status = try XCTUnwrap(descendants(opening.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-opening-status" })
+        XCTAssertTrue(retry.isEnabled && !retry.isHidden)
+        XCTAssertTrue(changeNode.isEnabled && !changeNode.isHidden)
+        XCTAssertTrue(descendants(opening.view).compactMap { $0 as? UIActivityIndicatorView }.allSatisfy { !$0.isAnimating })
+        XCTAssertEqual(status.text, WalletUX.text("Wallet services are not ready. Try again or choose another node."))
+        retry.sendActions(for: .touchUpInside)
+        try await waitForWalletOpening { attempts == 4 }
+        XCTAssertEqual(attempts, 4)
+        changeNode.sendActions(for: .touchUpInside)
+        XCTAssertEqual(status.text, WalletUX.text("Node settings are still loading. Try again."))
+        XCTAssertTrue(retry.isEnabled)
+        changeNode.sendActions(for: .touchUpInside)
+        XCTAssertTrue(navigation.topViewController === nodes)
+        try await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(attempts, 4, "Do not replace a node picker with a background retry")
+        ready = true
+        navigation.popViewController(animated: false)
+        try await waitForWalletOpening { window.rootViewController === wallet }
+        XCTAssertTrue(window.rootViewController === wallet)
+        XCTAssertEqual(attempts, 5)
+    }
+
+    @MainActor
+    func testWalletOpeningNeverBypassesRetainedRecoveryForANodeError() async throws {
+        let settings = InMemorySettingsManager()
+        settings.setWalletMigrationRecovery(reason: "Retained fixture")
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        let keys = InMemoryKeychain()
+        try keys.addKey(Data([1, 2, 3]), with: "retained-fixture-key")
+        let identifiers = try keys.allKeyIdentifiers()
+        var attempts = 0
+        var rechecks = 0
+        let controller = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            throw WalletOpeningError.recoveryRequired
+        }, refresh: {}, makeNodes: { XCTFail("Recovery cannot expose node settings"); return nil },
+           recheckWallet: { rechecks += 1 }, opened: { _ in XCTFail("Recovery cannot open the wallet") },
+           retryInterval: 0.01, maximumAttempts: 2)
+        controller.loadViewIfNeeded()
+        controller.viewDidAppear(false)
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(attempts, 1)
+        let buttons = descendants(controller.view).compactMap { $0 as? UIButton }
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" }).isHidden)
+        let recheck = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-recheck" })
+        XCTAssertFalse(recheck.isHidden)
+        recheck.sendActions(for: .touchUpInside)
+        XCTAssertEqual(rechecks, 1)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+        XCTAssertEqual(try keys.allKeyIdentifiers(), identifiers)
+        XCTAssertEqual(try keys.fetchKey(for: "retained-fixture-key"), Data([1, 2, 3]))
+    }
+
+    @MainActor
+    func testNodeFailureUsesStatusWithoutBlockingPINOrClaimingAccountCreation() {
+        let view = WalletUXNetworkStatusSpy()
+        let presenter = NetworkAvailabilityLayerPresenter()
+        presenter.view = view
+        presenter.didDecideUnreachableNodesAllertPresentation()
+        XCTAssertEqual(view.alerts, 0)
+        XCTAssertEqual(view.statuses, [WalletUX.text("Network unavailable. Retrying connection…")])
+    }
+
+    @MainActor
+    private func waitForWalletOpening(_ condition: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(3)
+        while !condition(), Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
     @MainActor
     func testResumeAuthorizationPreservesRecoveryAndGoogleCompletionAfterTimeout() async throws {
         let previousKeyWindow = UIApplication.shared.keyWindow
@@ -903,4 +1033,12 @@ private final class WalletUXPINWireframeSpy: PinSetupWireframeProtocol {
 private final class WalletUXAuthorizationSpy: ScreenAuthorizationWireframeProtocol {
     var results: [Bool] = []
     func showAuthorizationCompletion(with result: Bool) { results.append(result) }
+}
+
+private final class WalletUXNetworkStatusSpy: ApplicationStatusPresentable {
+    var alerts = 0
+    var statuses: [String] = []
+    func presentAlert(alert: UIAlertController, animated: Bool) { alerts += 1 }
+    func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) { statuses.append(title) }
+    func dismissStatus(title: String?, style: ApplicationStatusStyle?, animated: Bool) {}
 }

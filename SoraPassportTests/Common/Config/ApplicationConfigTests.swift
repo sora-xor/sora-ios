@@ -1,5 +1,7 @@
 import XCTest
 import Foundation
+import SSFUtils
+import RobinHood
 @testable import SoraPassport
 
 class ApplicationConfigTests: XCTestCase {
@@ -28,10 +30,9 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertEqual(ApplicationConfig.shared.subqueryUrl, ApplicationConfig.shared.polkaswapIndexerURL)
 
         let nodes = ApplicationConfig.shared.defaultChainNodes
-        XCTAssertEqual(nodes.count, 1)
-        XCTAssertEqual(nodes.first?.url.absoluteString, "wss://mof2.sora.org")
-        XCTAssertEqual(nodes.first?.name, "Sora")
-        XCTAssertNil(nodes.first?.apikey)
+        XCTAssertEqual(Set(nodes.map { $0.url.absoluteString }),
+                       ["wss://ws.mof.sora.org", "wss://mof2.sora.org"])
+        XCTAssertTrue(nodes.allSatisfy { $0.apikey == nil && $0.url.scheme == "wss" })
     }
 
     func testRemoteConfigFallsBackFromInvalidURLs() {
@@ -79,6 +80,129 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertFalse(project.contains("pod install"))
     }
 
+    func testNodeFailoverTriesEveryCandidateBeforeOneOutageAlert() throws {
+        let mainnet = configuredChain()
+        let nodes = SoraNodeConnectionPolicy.candidates(for: mainnet)
+        XCTAssertEqual(nodes.map { $0.url.absoluteString }, ["wss://ws.mof.sora.org", "wss://mof2.sora.org"])
+        var failover = NodeConnectionFailover()
+        let first = failover.failed(url: nodes[0].url, candidates: nodes)
+        XCTAssertEqual(first.nextNode, nodes[1])
+        XCTAssertFalse(first.shouldPresentUnavailable)
+        let exhausted = failover.failed(url: nodes[1].url, candidates: nodes)
+        XCTAssertEqual(exhausted.nextNode, nodes[0])
+        XCTAssertTrue(exhausted.shouldPresentUnavailable)
+        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertFalse(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
+        failover.connected()
+        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertTrue(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
+
+        var singleton = NodeConnectionFailover()
+        XCTAssertTrue(singleton.failed(url: nodes[0].url, candidates: [nodes[0]]).shouldPresentUnavailable)
+        XCTAssertNil(singleton.failed(url: nodes[0].url, candidates: [nodes[0]]).nextNode)
+        XCTAssertFalse(singleton.failed(url: nodes[0].url, candidates: []).shouldPresentUnavailable)
+        XCTAssertNil(mainnet.selectedNode)
+        let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
+        let selected = configuredChain(selected: custom, custom: [custom])
+        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: selected).first, custom)
+        let otherChain = configuredChain(chainId: "other-genesis", selected: custom, custom: [custom])
+        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: otherChain), [custom])
+        XCTAssertTrue(SoraNodeConnectionPolicy.candidates(for: configuredChain(chainId: "other-genesis")).isEmpty)
+        XCTAssertTrue(SoraNodeConnectionPolicy.candidates(for: configuredChain(prefix: 42)).isEmpty)
+    }
+
+    func testConnectionPoolPreservesActiveFallbackUntilUserChangesPreference() throws {
+        let factory = NodeTestConnectionFactory()
+        let pool = ConnectionPool(connectionFactory: factory)
+        let chain = configuredChain()
+        let first = try pool.setupConnection(for: chain)
+        XCTAssertEqual(first.url, SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
+        // The same subscribed engine has moved temporarily to its fallback.
+        first.reconnect(url: SoraNodeConnectionPolicy.bundledMainnetNodes[1].url)
+        XCTAssertTrue(first === (try pool.setupConnection(for: chain)))
+        XCTAssertEqual(factory.createdURLs.count, 1)
+        XCTAssertNil(chain.selectedNode)
+
+        let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
+        let explicitlyChanged = configuredChain(selected: custom, custom: [custom])
+        let second = try pool.setupConnection(for: explicitlyChanged)
+        XCTAssertTrue(first === second)
+        XCTAssertEqual(second.url, custom.url)
+        let recording = try XCTUnwrap(second as? NodeTestConnection)
+        XCTAssertEqual(Array(recording.operations.suffix(3)), ["disconnect", "reconnect", "connect"])
+        XCTAssertEqual(factory.createdURLs.count, 1)
+        XCTAssertEqual(explicitlyChanged.selectedNode, custom)
+        let ignored = try pool.setupConnection(for: chain, ignoredUrl: SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
+        XCTAssertEqual(ignored.url, SoraNodeConnectionPolicy.bundledMainnetNodes[1].url)
+        XCTAssertThrowsError(try pool.setupConnection(for: configuredChain(chainId: "other-genesis")))
+    }
+
+    func testChainSyncKeepsNodesAndSavedChoiceWithoutRemoteWhitelist() throws {
+        let repository = NodeTestRepository()
+        let requestedWhitelist = expectation(description: "Optional whitelist starts after local chain is saved")
+        let releaseWhitelist = DispatchSemaphore(value: 0)
+        let fetchFactory = NodeTestDataFactory {
+            XCTAssertEqual(repository.snapshot.count, 1)
+            XCTAssertGreaterThanOrEqual(repository.snapshot.first?.nodes.count ?? 0, 2)
+            requestedWhitelist.fulfill()
+            return ClosureOperation {
+                _ = releaseWhitelist.wait(timeout: .now() + 5)
+                throw NSError(domain: "SyntheticOfflineWhitelist", code: 1)
+            }
+        }
+        let queue = OperationQueue()
+        let service = ChainSyncService(
+            typesUrl: nil, assetsUrl: URL(string: "https://metadata.invalid/whitelist"),
+            dataFetchFactory: fetchFactory, repository: AnyDataProviderRepository(repository),
+            eventCenter: EventCenter(), operationQueue: queue
+        )
+        service.syncUp()
+        wait(for: [requestedWhitelist], timeout: 3)
+        releaseWhitelist.signal()
+        queue.waitUntilAllOperationsAreFinished()
+        XCTAssertEqual(repository.snapshot.count, 1)
+
+        let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
+        let local = configuredChain(selected: custom, custom: [custom])
+        local.assets = [ChainAssetModel(assetId: AssetInfo.xor.assetId, type: .normal, asset: .xor, chain: local)]
+        for unavailableWhitelist in [nil, Data("invalid metadata".utf8)] as [Data?] {
+            let synced = ChainSyncService.preparedChain(
+                chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
+                typesURL: nil, local: local, assets: [], whitelistData: unavailableWhitelist
+            )
+            XCTAssertEqual(synced.selectedNode, custom)
+            XCTAssertEqual(synced.customNodes, [custom])
+            XCTAssertEqual(Set(synced.nodes.map { $0.url }), Set(SoraNodeConnectionPolicy.bundledMainnetNodes.map { $0.url }))
+            XCTAssertEqual(synced.assets.map { $0.assetId }, [AssetInfo.xor.assetId])
+            XCTAssertTrue(synced.assets.allSatisfy { $0.chain === synced })
+            XCTAssertEqual(local.selectedNode, custom)
+            XCTAssertEqual(local.customNodes, [custom])
+        }
+        let cold = ChainSyncService.preparedChain(
+            chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
+            typesURL: nil, local: nil, assets: [.xor], whitelistData: nil
+        )
+        XCTAssertEqual(cold.nodes.count, 2)
+        XCTAssertEqual(cold.assets.count, 1)
+        let different = ChainSyncService.preparedChain(
+            chainId: "other-genesis", addressPrefix: 42, name: "Other", nodes: [],
+            typesURL: nil, local: local, assets: [], whitelistData: nil
+        )
+        XCTAssertTrue(different.nodes.isEmpty)
+        XCTAssertNil(different.selectedNode)
+        XCTAssertNil(different.customNodes)
+    }
+
+    private func configuredChain(
+        chainId: String = SoraNodeConnectionPolicy.mainnetGenesis,
+        prefix: UInt16 = 69,
+        selected: ChainNodeModel? = nil,
+        custom: Set<ChainNodeModel>? = nil
+    ) -> ChainModel {
+        ChainModel(chainId: chainId, name: "SORA", nodes: [], addressPrefix: prefix,
+                   icon: nil, selectedNode: selected, customNodes: custom, iosMinAppVersion: nil)
+    }
+
     private func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fileManager = FileManager.default
@@ -111,4 +235,86 @@ class ApplicationConfigTests: XCTestCase {
 
         return []
     }
+}
+
+private final class NodeTestConnectionFactory: ConnectionFactoryProtocol {
+    var createdURLs: [URL] = []
+    func createConnection(for url: URL, delegate: WebSocketEngineDelegate) -> ChainConnection {
+        createdURLs.append(url)
+        return NodeTestConnection(url: url)
+    }
+}
+
+private final class NodeTestConnection: ChainConnection {
+    var url: URL?
+    var state: WebSocketEngine.State = .notConnected
+    var ranking: [ConnectionRank] = []
+    var pendingEngineRequests: [JSONRPCRequest] = []
+    var operations: [String] = []
+    init(url: URL) { self.url = url }
+    func set(ranking: [ConnectionRank]) { self.ranking = ranking }
+    func disconnectIfNeeded() { operations.append("disconnect"); state = .notConnected }
+    func reconnect(url: URL) { operations.append("reconnect"); self.url = url }
+    func connectIfNeeded() { operations.append("connect"); state = .connecting(attempt: 0) }
+    func callMethod<P: Codable, T: Decodable>(
+        _ method: String, params: P?, options: JSONRPCOptions,
+        completion closure: ((Result<T, Error>) -> Void)?
+    ) throws -> UInt16 { 0 }
+    func subscribe<P: Codable, T: Decodable>(
+        _ method: String, params: P?, updateClosure: @escaping (T) -> Void,
+        failureClosure: @escaping (Error, Bool) -> Void
+    ) throws -> UInt16 { 0 }
+    func cancelForIdentifier(_ identifier: UInt16) {}
+    func generateRequestId() -> UInt16 { 0 }
+    func addSubscription(_ subscription: JSONRPCSubscribing) {}
+    func unsubsribe(_ identifier: UInt16) throws {}
+}
+
+private final class NodeTestDataFactory: DataOperationFactoryProtocol {
+    let makeOperation: () -> BaseOperation<Data>
+    init(_ makeOperation: @escaping () -> BaseOperation<Data>) { self.makeOperation = makeOperation }
+    func fetchData(from url: URL) -> BaseOperation<Data> { makeOperation() }
+}
+
+private final class NodeTestRepository: DataProviderRepositoryProtocol {
+    typealias Model = ChainModel
+    private let lock = NSLock()
+    private var stored: [ChainModel] = []
+    var snapshot: [ChainModel] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+    func fetchAllOperation(with options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+        ClosureOperation { self.snapshot }
+    }
+    func saveOperation(_ updates: @escaping () throws -> [ChainModel],
+                       _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
+        ClosureOperation {
+            let changed = try updates()
+            let removed = try deletions()
+            self.lock.lock()
+            defer { self.lock.unlock() }
+            self.stored.removeAll { old in removed.contains(old.chainId) || changed.contains(where: { $0.chainId == old.chainId }) }
+            self.stored.append(contentsOf: changed)
+        }
+    }
+    func saveBatchOperation(_ updates: @escaping () throws -> [ChainModel],
+                            _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
+        saveOperation(updates, deletions)
+    }
+    func fetchOperation(by ids: @escaping () throws -> [String], options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+        ClosureOperation { let selected = try ids(); return self.snapshot.filter { selected.contains($0.chainId) } }
+    }
+    func fetchOperation(by id: @escaping () throws -> String, options: RepositoryFetchOptions) -> BaseOperation<ChainModel?> {
+        ClosureOperation { let selected = try id(); return self.snapshot.first { $0.chainId == selected } }
+    }
+    func fetchOperation(by request: RepositorySliceRequest, options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+        fetchAllOperation(with: options)
+    }
+    func replaceOperation(_ models: @escaping () throws -> [ChainModel]) -> BaseOperation<Void> {
+        saveOperation(models, { self.snapshot.map { $0.chainId } })
+    }
+    func deleteAllOperation() -> BaseOperation<Void> { replaceOperation { [] } }
+    func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { self.snapshot.count } }
 }
