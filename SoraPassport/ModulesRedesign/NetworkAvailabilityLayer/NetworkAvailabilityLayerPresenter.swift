@@ -52,15 +52,11 @@ extension NetworkAvailabilityLayerPresenter: NetworkAvailabilityLayerInteractorO
 
     func didDecideUnreachableNodesAllertPresentation() {
 
-        let languages = localizationManager?.preferredLocalizations
-        let alert = UIAlertController(
-            title: R.string.localizable.nodeOffline(preferredLanguages: languages),
-            message: R.string.localizable.nodeConnectionIssue(preferredLanguages: languages),
-            preferredStyle: .alert
-        )
-        alert.addAction(.init(title: R.string.localizable.commonClose(preferredLanguages: languages), style: .cancel))
-
-        view.presentAlert(alert: alert, animated: true)
+        // A disconnected node does not mean an account was just created.
+        // Keep navigation and retry controls usable while failover continues.
+        view.presentStatus(title: WalletUX.text("Network unavailable. Retrying connection…"),
+                           style: unavailbleStyle,
+                           animated: true)
     }
 
     func didDecideUnreachableStatusPresentation() {
