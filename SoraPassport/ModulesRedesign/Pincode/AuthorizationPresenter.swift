@@ -34,6 +34,9 @@ final class AuthorizationPresenter {
     weak var view: PinSetupViewProtocol?
     var wireframe: ScreenAuthorizationWireframeProtocol!
     var interactor: LocalAuthInteractorInputProtocol!
+    private var verificationPinLength: Int?
+    private var isCheckingPin = false
+    private var isLoadingPinLength = false
     
     var inputedPinCode: String = "" {
         didSet {
@@ -43,11 +46,17 @@ final class AuthorizationPresenter {
             view?.setupDeleteButton(isHidden: inputedPinCode.isEmpty)
         }
     }
+    private func requestPinLength() {
+        isLoadingPinLength = true
+        view?.setupTitleLabel(text: "Checking PIN availability…")
+        interactor.getPinCodeCount()
+    }
+
 }
 
 extension AuthorizationPresenter: PinSetupPresenterProtocol {
     func start() {
-        view?.updatePinCodeSymbolsCount(with: 6)
+        requestPinLength()
 
         if let date = interactor.getInputBlockDate(), date.timeIntervalSinceNow > 0 {
             view?.blockUserInputUntil(date: date)
@@ -80,14 +89,19 @@ extension AuthorizationPresenter: PinSetupPresenterProtocol {
     }
 
     func padButtonTapped(with symbol: String) {
-        guard inputedPinCode.count <= 6 else {
+        guard verificationPinLength != nil else {
+            if !isLoadingPinLength { requestPinLength() }
             return
         }
+        guard let requiredLength = verificationPinLength, !isCheckingPin,
+              inputedPinCode.count < requiredLength,
+              symbol.count == 1, symbol.allSatisfy({ $0.isNumber }) else { return }
 
         inputedPinCode += symbol
         view?.setupDeleteButton(isHidden: inputedPinCode.isEmpty)
         
-        if inputedPinCode.count == 6 {
+        if inputedPinCode.count == requiredLength {
+            isCheckingPin = true
             interactor.process(pin: inputedPinCode)
         }
     }
@@ -110,8 +124,21 @@ extension AuthorizationPresenter: LocalAuthInteractorOutputProtocol {
         DispatchQueue.main.async { [weak self] in
             self?.view?.animateWrongInputError() { [weak self] _ in
                 self?.inputedPinCode = ""
+                self?.isCheckingPin = false
             }
         }
+    }
+
+    func setupPinCodeSymbols(with count: Int) {
+        isLoadingPinLength = false
+        guard count == 4 || count == 6 else {
+            verificationPinLength = nil
+            view?.setupTitleLabel(text: "PIN unavailable. Unlock your iPhone, then tap a number to retry.")
+            return
+        }
+        view?.setupTitleLabel(text: R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized)
+        verificationPinLength = count
+        view?.updatePinCodeSymbolsCount(with: count)
     }
 
     func didChangeState(from state: LocalAuthInteractor.LocalAuthState) {}

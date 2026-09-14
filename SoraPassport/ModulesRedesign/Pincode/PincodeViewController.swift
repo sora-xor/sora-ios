@@ -86,6 +86,8 @@ final class PincodeViewController: SoramitsuViewController {
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
         label.sora.alignment = .center
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byWordWrapping
         return label
     }()
     
