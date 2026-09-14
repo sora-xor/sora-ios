@@ -48,6 +48,7 @@ class ConnectionPool {
     weak var delegate: ConnectionPoolDelegate?
 
     private var mutex = NSLock()
+    private var preferredURLs: [ChainModel.Id: URL] = [:]
 
     private(set) var connectionsByChainIds: [ChainModel.Id: WeakWrapper] = [:]
 
@@ -70,7 +71,7 @@ extension ConnectionPool: ConnectionPoolProtocol {
     }
 
     func setupConnection(for chain: ChainModel, ignoredUrl: URL?) throws -> ChainConnection {
-        let node = chain.selectedNode ?? chain.nodes.first
+        let node = SoraNodeConnectionPolicy.candidates(for: chain).first { $0.url != ignoredUrl }
 
         guard let url = node?.url else {
             throw JSONRPCEngineError.unknownError
@@ -85,13 +86,15 @@ extension ConnectionPool: ConnectionPoolProtocol {
         clearUnusedConnections()
 
         if let connection = connectionsByChainIds[chain.chainId]?.target as? ChainConnection {
-            if connection.url == url {
+            if preferredURLs[chain.chainId] == url {
                 return connection
             } else {
+                connection.disconnectIfNeeded()
                 connectionsByChainIds[chain.chainId] = nil
             }
         }
 
+        preferredURLs[chain.chainId] = url
         let connection = connectionFactory.createConnection(for: url, delegate: self)
         let wrapper = WeakWrapper(target: connection)
         Logger.shared.info("Connected node: \(url)")
@@ -119,8 +122,8 @@ extension ConnectionPool: WebSocketEngineDelegate {
 
         switch newState {
         case let .connecting(attempt):
+            guard case let .connecting(currentAttempt) = engine.state, currentAttempt == attempt else { return }
             if attempt > 1 {
-                // temporary disable autobalance , maybe this causing crashes
                 delegate?.connectionNeedsReconnect(url: previousUrl, attempt: attempt)
             }
         case .connected:
