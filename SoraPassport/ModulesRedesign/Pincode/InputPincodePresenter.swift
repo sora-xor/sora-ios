@@ -51,6 +51,9 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     var interactor: LocalAuthInteractorInputProtocol!
     var isNeedUpdateTo6Symbols: Bool = false
     let formatter = DateComponentsFormatter()
+    private var verificationPinLength: Int?
+    private var isCheckingPin = false
+    private var isLoadingPinLength = false
     
     public var mode: InputMode = .verify {
         didSet {
@@ -76,8 +79,6 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     }
 
     func start() {
-        interactor.getPinCodeCount()
-
         if let date = interactor.getInputBlockDate(), date.timeIntervalSinceNow > 0 {
             view?.blockUserInputUntil(date: date)
             return
@@ -85,6 +86,7 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
             mode = .verify
         }
 
+        requestPinLength()
         view?.didChangeAccessoryState(enabled: interactor.allowManualBiometryAuth)
         interactor.startAuth { [weak self] in
             self?.view?.askBiometryPermission()
@@ -106,6 +108,7 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     func updatePinButtonTapped() {
         mode = .create
         inputedPinCode = ""
+        isCheckingPin = false
         view?.updatePinCodeSymbolsCount(with: 6)
     }
     
@@ -115,14 +118,19 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     }
 
     func padButtonTapped(with symbol: String) {
-        guard inputedPinCode.count <= 6 else {
+        if mode == .verify, verificationPinLength == nil {
+            if !isLoadingPinLength { requestPinLength() }
             return
         }
+        let requiredLength = mode == .verify ? verificationPinLength : 6
+        guard let requiredLength, !isCheckingPin, inputedPinCode.count < requiredLength,
+              symbol.count == 1, symbol.allSatisfy({ $0.isNumber }) else { return }
 
         inputedPinCode += symbol
         view?.setupDeleteButton(isHidden: inputedPinCode.isEmpty)
         
-        if inputedPinCode.count == 6, mode == .verify {
+        if inputedPinCode.count == requiredLength, mode == .verify {
+            isCheckingPin = true
             interactor.process(pin: inputedPinCode)
             return
         }
@@ -149,6 +157,12 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
             return
         }
     }
+    private func requestPinLength() {
+        isLoadingPinLength = true
+        view?.setupTitleLabel(text: "Checking PIN availability…")
+        interactor.getPinCodeCount()
+    }
+
 }
 
 extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
@@ -157,6 +171,7 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
         DispatchQueue.main.async { [weak self] in
             self?.view?.animateWrongInputError() { [weak self] _ in
                 self?.inputedPinCode = ""
+                self?.isCheckingPin = false
                 self?.mode = .verify
             }
         }
@@ -195,6 +210,14 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
     }
 
     func setupPinCodeSymbols(with count: Int) {
+        isLoadingPinLength = false
+        guard count == 4 || count == 6 else {
+            verificationPinLength = nil
+            view?.setupTitleLabel(text: "PIN unavailable. Unlock your iPhone, then tap a number to retry.")
+            return
+        }
+        view?.setupTitleLabel(text: R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized)
+        verificationPinLength = count
         isNeedUpdateTo6Symbols = count == 4
         view?.updatePinCodeSymbolsCount(with: count)
     }

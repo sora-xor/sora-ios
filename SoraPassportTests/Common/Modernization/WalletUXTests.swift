@@ -5,11 +5,204 @@ import UIKit
 import XCTest
 import SoraUIKit
 import SoraKeystore
+import SoraFoundation
 import CoreData
 import Darwin
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
+    @MainActor
+    func testResumeAuthorizationPreservesRecoveryAndGoogleCompletionAfterTimeout() async throws {
+        let previousKeyWindow = UIApplication.shared.keyWindow
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKeyAndVisible() }
+        for pin in ["1234", "123456"] {
+            let settings = InMemorySettingsManager()
+            settings.biometryEnabled = false
+            settings.setWalletMigrationRecovery(reason: "retained missing credentials")
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let store = InMemoryKeychainManager()
+            try store.keychain.addKey(Data(pin.utf8), with: KeystoreTag.pincode.rawValue)
+            let recovery = WalletRecoveryViewController(reason: "retained missing credentials", onRetry: {})
+            let root = UINavigationController(rootViewController: recovery)
+            window.rootViewController = root
+            window.makeKeyAndVisible()
+            recovery.loadViewIfNeeded()
+            var pinPresenter: AuthorizationPresenter?
+            let wireframe = SecurityLayerWireframe(windowProvider: { window }, pinFactory: { delegate in
+                let view = PincodeViewController()
+                view.mode = .securedInput
+                let presenter = AuthorizationPresenter()
+                let interactor = LocalAuthInteractor(secretManager: store, settingsManager: settings,
+                    biometryAuth: WalletUXNoBiometry(), locale: .current)
+                view.presenter = presenter; presenter.view = view; presenter.interactor = interactor
+                presenter.wireframe = delegate; interactor.presenter = presenter
+                pinPresenter = presenter
+                return view
+            })
+            var date = Date(timeIntervalSince1970: 1_000)
+            let lifecycle = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
+                keystore: store.keychain, pincodeDelay: 300, currentDate: { date })
+            let presenter = SecurityLayerPresenter()
+            presenter.wireframe = wireframe; presenter.interactor = lifecycle; lifecycle.presenter = presenter
+            lifecycle.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
+            date.addTimeInterval(301)
+            lifecycle.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
+            lifecycle.didReceiveDidBecomeActive(notification: Notification(name: UIApplication.didBecomeActiveNotification))
+            await drainPINCallbacks()
+            let lockWindow = try XCTUnwrap(wireframe.authorizationWindow)
+            XCTAssertTrue(window.rootViewController === root)
+            XCTAssertTrue(recovery.view.window === window)
+            XCTAssertFalse(window.isHidden)
+            XCTAssertFalse(lockWindow.isHidden)
+            XCTAssertGreaterThan(lockWindow.windowLevel.rawValue, window.windowLevel.rawValue)
+            XCTAssertEqual(lockWindow.rootViewController?.view.backgroundColor, .systemBackground)
+            XCTAssertEqual(lockWindow.rootViewController?.view.alpha, 1)
+            XCTAssertTrue(lockWindow.rootViewController?.view.isUserInteractionEnabled == true)
+            // A Google completion arrives while the lock is visible. Its result
+            // stays attached to the original flow and remains covered by the PIN window.
+            let backupPrompt = UIAlertController(title: "Backup password", message: "Synthetic callback", preferredStyle: .alert)
+            backupPrompt.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            recovery.present(backupPrompt, animated: false)
+            XCTAssertTrue(recovery.presentedViewController === backupPrompt)
+            wireframe.showAuthorization()
+            XCTAssertTrue(wireframe.authorizationWindow === lockWindow, "Repeated foreground notifications cannot replace pending auth")
+            let input = try XCTUnwrap(pinPresenter)
+            for digit in String(repeating: "0", count: pin.count) { input.padButtonTapped(with: String(digit)) }
+            await drainPINCallbacks()
+            try await Task.sleep(nanoseconds: 600_000_000)
+            XCTAssertTrue(wireframe.authorizationWindow === lockWindow, "An incorrect PIN cannot uncover recovery")
+            for digit in pin { input.padButtonTapped(with: String(digit)) }
+            await drainPINCallbacks()
+            XCTAssertNil(wireframe.authorizationWindow)
+            XCTAssertTrue(window.rootViewController === root)
+            XCTAssertTrue(recovery.presentedViewController === backupPrompt, "Successful PIN must resume the outstanding import result")
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            XCTAssertEqual(try store.keychain.allKeyIdentifiers(), [KeystoreTag.pincode.rawValue])
+            XCTAssertEqual(try store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(pin.utf8), "Resume authentication cannot rewrite even a legacy PIN")
+            backupPrompt.dismiss(animated: false)
+        }
+    }
+
+    @MainActor
+    func testPINPresentersSubmitStoredLengthOnceAndKeepSixDigitUpgrade() async throws {
+        for length in [4, 6] {
+            let input = InputPincodePresenter()
+            let inputView = WalletUXPINViewSpy()
+            let inputAuth = WalletUXLocalAuthSpy()
+            let inputWireframe = WalletUXPINWireframeSpy()
+            input.view = inputView; input.interactor = inputAuth; input.wireframe = inputWireframe
+            input.start()
+            XCTAssertEqual(inputAuth.countRequests, 1)
+            input.padButtonTapped(with: "1")
+            XCTAssertTrue(inputAuth.submitted.isEmpty, "Do not guess the length before Keychain responds")
+            input.setupPinCodeSymbols(with: 0)
+            XCTAssertTrue(inputView.titles.last?.contains("PIN unavailable") == true)
+            input.padButtonTapped(with: "1")
+            XCTAssertEqual(inputAuth.countRequests, 2)
+            XCTAssertTrue(inputAuth.submitted.isEmpty)
+            input.setupPinCodeSymbols(with: length)
+            for _ in 0 ..< length - 1 { input.padButtonTapped(with: "1") }
+            XCTAssertTrue(inputAuth.submitted.isEmpty)
+            input.padButtonTapped(with: "1")
+            input.padButtonTapped(with: "9")
+            XCTAssertEqual(inputAuth.submitted, [String(repeating: "1", count: length)])
+            input.didEnterWrongPincode()
+            await drainPINCallbacks()
+            for _ in 0 ..< length { input.padButtonTapped(with: "2") }
+            XCTAssertEqual(inputAuth.submitted.count, 2)
+            input.didCompleteAuth()
+            await drainPINCallbacks()
+            if length == 4 {
+                XCTAssertEqual(inputView.updateRequests, 1)
+                XCTAssertEqual(inputWireframe.mainCount, 0)
+                input.updatePinButtonTapped()
+                for _ in 0 ..< 6 { input.padButtonTapped(with: "3") }
+                for _ in 0 ..< 6 { input.padButtonTapped(with: "3") }
+                XCTAssertEqual(inputAuth.updated, ["333333"])
+                XCTAssertEqual(inputWireframe.mainCount, 1)
+            } else {
+                XCTAssertEqual(inputView.updateRequests, 0)
+                XCTAssertEqual(inputWireframe.mainCount, 1)
+                XCTAssertTrue(inputAuth.updated.isEmpty)
+            }
+
+            let authorization = AuthorizationPresenter()
+            let auth = WalletUXLocalAuthSpy()
+            let view = WalletUXPINViewSpy()
+            let completion = WalletUXAuthorizationSpy()
+            authorization.interactor = auth; authorization.view = view; authorization.wireframe = completion
+            authorization.start()
+            XCTAssertEqual(auth.countRequests, 1)
+            authorization.setupPinCodeSymbols(with: 5)
+            XCTAssertTrue(view.titles.last?.contains("PIN unavailable") == true)
+            authorization.padButtonTapped(with: "1")
+            XCTAssertEqual(auth.countRequests, 2)
+            XCTAssertTrue(auth.submitted.isEmpty)
+            authorization.setupPinCodeSymbols(with: length)
+            XCTAssertEqual(view.symbolCounts.last, length)
+            for _ in 0 ..< length { authorization.padButtonTapped(with: "4") }
+            authorization.padButtonTapped(with: "5")
+            XCTAssertEqual(auth.submitted, [String(repeating: "4", count: length)])
+            authorization.didCompleteAuth()
+            await drainPINCallbacks()
+            XCTAssertEqual(completion.results, [true])
+            XCTAssertTrue(auth.updated.isEmpty)
+        }
+    }
+
+    @MainActor
+    func testResumeAuthorizationFailureKeepsOpaqueLockAndAllowsRetry() throws {
+        let previousKeyWindow = UIApplication.shared.keyWindow
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        let original = UIViewController()
+        window.rootViewController = original
+        window.makeKeyAndVisible()
+        let delegate = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+        let previousAppWindow = delegate.window
+        delegate.window = window
+        let loadingWindow = UIWindow(frame: window.frame)
+        loadingWindow.windowLevel = .alert
+        let spinnerRoot = UIViewController()
+        loadingWindow.rootViewController = spinnerRoot
+        loadingWindow.makeKeyAndVisible()
+        var attempts = 0
+        let wireframe = SecurityLayerWireframe(pinFactory: { _ in attempts += 1; return nil })
+        defer {
+            wireframe.authorizationWindow?.isHidden = true
+            loadingWindow.isHidden = true; loadingWindow.rootViewController = nil
+            window.isHidden = true; window.rootViewController = nil
+            delegate.window = previousAppWindow
+            previousKeyWindow?.makeKeyAndVisible()
+        }
+        wireframe.showAuthorization()
+        let lock = try XCTUnwrap(wireframe.authorizationWindow)
+        let retry = try XCTUnwrap(descendants(try XCTUnwrap(lock.rootViewController?.view)).compactMap { $0 as? UIButton }.first)
+        XCTAssertEqual(attempts, 1)
+        XCTAssertFalse(lock.isHidden)
+        XCTAssertEqual(lock.rootViewController?.view.backgroundColor, .systemBackground)
+        retry.sendActions(for: .touchUpInside)
+        XCTAssertEqual(attempts, 2)
+        wireframe.showAuthorizationCompletion(with: false)
+        XCTAssertEqual(attempts, 3)
+        XCTAssertTrue(wireframe.authorizationWindow === lock)
+        XCTAssertFalse(lock.isHidden)
+        XCTAssertTrue(window.rootViewController === original)
+        XCTAssertTrue(loadingWindow.rootViewController === spinnerRoot)
+        XCTAssertGreaterThan(lock.windowLevel.rawValue, loadingWindow.windowLevel.rawValue)
+        XCTAssertEqual((lock.rootViewController?.presentedViewController as? UIAlertController)?.title, "PIN verification unavailable")
+    }
+
+    @MainActor
+    private func drainPINCallbacks() async {
+        for _ in 0 ..< 5 {
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+        }
+    }
+
+
     func testStartupRetryReportsCurrentFailureWithoutReplacingRecoveryMarker() throws {
         let settings = InMemorySettingsManager()
         let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
@@ -623,4 +816,56 @@ private final class WalletUXRootPresenterSpy: RootInteractorOutputProtocol {
     func didDecideLocalAuthentication() { decisions.append(.localAuthentication) }
     func didDecideBroken() { decisions.append(.broken) }
     func didDecidePincodeSetup() { decisions.append(.pincodeSetup) }
+}
+
+private final class WalletUXNoBiometry: BiometryAuthProtocol {
+    var availableBiometryType: AvailableBiometryType { .none }
+    func authenticate(localizedReason: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        completionQueue.async { completionBlock(false) }
+    }
+}
+
+private final class WalletUXPINViewSpy: UIViewController, PinSetupViewProtocol {
+    var controller: UIViewController { self }
+    var symbolCounts: [Int] = []
+    var updateRequests = 0
+    var titles: [String] = []
+    func didRequestBiometryUsage(biometryType: AvailableBiometryType, completionBlock: @escaping (Bool) -> Void) { completionBlock(false) }
+    func didChangeAccessoryState(enabled: Bool) {}
+    func didReceiveWrongPincode() {}
+    func updatePinCodeSymbolsCount(with count: Int) { symbolCounts.append(count) }
+    func showUpdatePinRequestView() { updateRequests += 1 }
+    func blockUserInputUntil(date: Date) {}
+    func showLastChanceAlert() {}
+    func updateInputedCircles(with count: Int) {}
+    func setupDeleteButton(isHidden: Bool) {}
+    func setupTitleLabel(text: String) { titles.append(text) }
+    func resetTitleColor() {}
+    func animateWrongInputError(with completion: @escaping (Bool) -> Void) { completion(true) }
+    func askBiometryPermission() {}
+}
+
+private final class WalletUXLocalAuthSpy: LocalAuthInteractorInputProtocol {
+    var allowManualBiometryAuth: Bool { false }
+    var countRequests = 0
+    var submitted: [String] = []
+    var updated: [String] = []
+    func startAuth(completion: (() -> Void)?) {}
+    func process(pin: String) { submitted.append(pin) }
+    func getPinCodeCount() { countRequests += 1 }
+    func getInputBlockDate() -> Date? { nil }
+    func updatePin(pin: String, completion: (() -> Void)?) { updated.append(pin); completion?() }
+}
+
+private final class WalletUXPINWireframeSpy: PinSetupWireframeProtocol {
+    var mainCount = 0
+    func dismiss(from view: PinSetupViewProtocol?) {}
+    func showMain(from view: PinSetupViewProtocol?) { mainCount += 1 }
+    func showSignup(from view: PinSetupViewProtocol?) {}
+    func showPinUpdatedNotify(from view: PinSetupViewProtocol?, completionBlock: @escaping () -> Void) { completionBlock() }
+}
+
+private final class WalletUXAuthorizationSpy: ScreenAuthorizationWireframeProtocol {
+    var results: [Bool] = []
+    func showAuthorizationCompletion(with result: Bool) { results.append(result) }
 }
