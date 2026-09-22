@@ -144,9 +144,9 @@ final class WalletUXTests: XCTestCase {
     @MainActor
     func testResumeAuthorizationPreservesRecoveryAndGoogleCompletionAfterTimeout() async throws {
         let previousKeyWindow = UIApplication.shared.keyWindow
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
-        defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKeyAndVisible() }
         for pin in ["1234", "123456"] {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+            defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKeyAndVisible() }
             let settings = InMemorySettingsManager()
             settings.biometryEnabled = false
             settings.setWalletMigrationRecovery(reason: "retained missing credentials")
@@ -156,8 +156,18 @@ final class WalletUXTests: XCTestCase {
             let recovery = WalletRecoveryViewController(reason: "retained missing credentials", onRetry: {})
             let root = UINavigationController(rootViewController: recovery)
             window.rootViewController = root
-            window.makeKeyAndVisible()
+            root.loadViewIfNeeded()
             recovery.loadViewIfNeeded()
+            window.makeKeyAndVisible()
+            window.layoutIfNeeded()
+            root.view.layoutIfNeeded()
+            // Establish an attached fixture before testing whether the lock preserves it.
+            // Queued PIN callbacks alone do not complete UIKit appearance transactions.
+            try await waitForWalletOpening { recovery.view.window === window }
+            guard recovery.view.window === window else {
+                XCTFail("Recovery fixture did not attach before the background transition")
+                return
+            }
             var pinPresenter: AuthorizationPresenter?
             let wireframe = SecurityLayerWireframe(windowProvider: { window }, pinFactory: { delegate in
                 let view = PincodeViewController()
@@ -170,6 +180,10 @@ final class WalletUXTests: XCTestCase {
                 pinPresenter = presenter
                 return view
             })
+            defer {
+                wireframe.authorizationWindow?.isHidden = true
+                wireframe.authorizationWindow?.rootViewController = nil
+            }
             var date = Date(timeIntervalSince1970: 1_000)
             let lifecycle = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
                 keystore: store.keychain, pincodeDelay: 300, currentDate: { date })
@@ -210,7 +224,15 @@ final class WalletUXTests: XCTestCase {
             XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
             XCTAssertEqual(try store.keychain.allKeyIdentifiers(), [KeystoreTag.pincode.rawValue])
             XCTAssertEqual(try store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(pin.utf8), "Resume authentication cannot rewrite even a legacy PIN")
-            backupPrompt.dismiss(animated: false)
+            var didDismissPrompt = false
+            backupPrompt.dismiss(animated: false) { didDismissPrompt = true }
+            try await waitForWalletOpening { didDismissPrompt && recovery.presentedViewController == nil }
+            XCTAssertTrue(didDismissPrompt)
+            XCTAssertNil(recovery.presentedViewController)
+            window.isHidden = true
+            window.rootViewController = nil
+            try await waitForWalletOpening { recovery.view.window == nil }
+            XCTAssertNil(recovery.view.window)
         }
     }
 
