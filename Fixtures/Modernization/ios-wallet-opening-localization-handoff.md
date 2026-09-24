@@ -2,10 +2,11 @@
 
 The release candidate added nine user-visible wallet-opening and connection-recovery
 messages. As of source revision `8af8112b`, all nine keys are present in `en` and
-`ja`. For 30 other checked-in catalogs, `Try again` now reuses the existing,
-checked-in `common.retry` translation for the same retry button action. The
-remaining eight keys are missing in each of the 31 other catalogs, and `ca`
-still needs reviewed text for `Try again`: 249 missing locale/key pairs.
+`ja`. For 30 other checked-in catalogs, `Try again` reuses the existing,
+checked-in `common.retry` translation for the same retry button action. Catalan
+uses a retry phrase derived from its existing `common.error.retry` value. The
+remaining eight keys are missing in each of the 31 other catalogs: 248 missing
+locale/key pairs.
 The app falls back to English for those messages. This is an inventory for
 translation review, not approval of the fallback or of machine-generated
 translations.
@@ -33,7 +34,10 @@ The English source wording differs (`Try again` versus
 claim a new translation review, and a language reviewer should still inspect
 each value in the wallet-opening screen. The existing `common.retry` value in
 `ca` reads `Reintentar`, which appears to be Spanish; that value was not reused.
-The Catalan `Try again` action needs reviewed text before release.
+The Catalan value `Torna-ho a provar` removes the existing polite prefix
+`Siusplau` from `common.error.retry = "Siusplau torna-ho a provar"`, whose
+English source is `Please try again`. This preserves a checked-in Catalan
+retry phrase; language review is still needed for the wallet-opening context.
 The storage-upgrade retry, retained-wallet recovery retry, and PIN-unavailable
 alert also use this existing `Try again` lookup for the same retry action.
 Their surrounding safety messages remain English and need separate review.
@@ -50,13 +54,13 @@ placeholder issue and no exact text for the other new wallet-opening messages.
 `en`, and finally returns the English phrase passed by the caller. The nine
 new wallet-opening call sites pass English phrases as keys. A macOS Foundation
 probe using the same lookup sequence against the checked-in `.lproj` folders
-produced these values at candidate `d58b9936`:
+produces these values at the current candidate:
 
 | Selected locale | Opening wallet | Try again | Node settings are still loading. Try again. |
 | --- | --- | --- | --- |
 | `fr` | Opening wallet | Recommencer | Node settings are still loading. Try again. |
 | `ja` | ウォレットを開いています | 再試行 | ノード設定を読み込んでいます。再試行してください。 |
-| `ca` | Opening wallet | Try again | Node settings are still loading. Try again. |
+| `ca` | Opening wallet | Torna-ho a provar | Node settings are still loading. Try again. |
 | unknown `xx` | Opening wallet | Try again | Node settings are still loading. Try again. |
 
 Reproduce from the repository root:
@@ -67,7 +71,7 @@ Reproduce from the repository root:
 
 This probes the source resources and Foundation lookup, not a rendered iPhone
 screen. Missing keys display the English phrase in this path; that behavior does
-not approve the 249 missing translations for release. The separate wallet
+not approve the 248 missing translations for release. The separate wallet
 recovery screen also contains English-only safety guidance and needs its own
 localization review.
 
@@ -119,7 +123,7 @@ raise SystemExit(bool(missing))
 PY
 ```
 
-The current expected result is `249 missing locale/key pairs`. To verify the
+The current expected result is `248 missing locale/key pairs`. To verify the
 reused values have not diverged from their checked-in source, run:
 
 ```sh
