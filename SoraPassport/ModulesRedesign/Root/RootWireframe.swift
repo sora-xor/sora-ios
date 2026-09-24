@@ -264,7 +264,7 @@ final class WalletRecoveryViewController: UIViewController {
         titleLabel.text = "Wallet recovery"
         titleLabel.numberOfLines = 0
 
-        retryButton.setTitle("Try again", for: .normal)
+        retryButton.setTitle(WalletUX.text("Try again"), for: .normal)
         retryButton.accessibilityIdentifier = "wallet-recovery-retry"
         retryButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         retryButton.isHidden = onRetry == nil

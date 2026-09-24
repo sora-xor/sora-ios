@@ -152,7 +152,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         message.textAlignment = .center
 
         let retry = UIButton(type: .system)
-        retry.setTitle("Try again", for: .normal)
+        retry.setTitle(WalletUX.text("Try again"), for: .normal)
         retry.accessibilityIdentifier = "wallet-upgrade-storage-retry"
         retry.addAction(UIAction { [weak self, weak retry] _ in
             retry?.isEnabled = false
