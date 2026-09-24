@@ -444,7 +444,7 @@
 "polkaswap.info.faq" = "Polkaswap najčešće postavljana pitanja";
 "polkaswap.pool.not.created" = "Pool nije kreiran";
 "common.enter.amount" = "Unesite iznos";
-"polkaswap.insufficient.balance" = "Nedovoljan balans";
+"polkaswap.insufficient.balance" = "Nedovoljan balans (%@)";
 "polkaswap.confirm.swap" = "Потврдите замену";
 "wallet.transaction.rejected" = "Transakcija odbijena";
 "polkaswap.input.estimated" = "Улаз је процењен. Продаћете максимум %@ или ће трансакција бити отказана.";

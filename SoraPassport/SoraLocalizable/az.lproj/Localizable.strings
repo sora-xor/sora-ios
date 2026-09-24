@@ -444,7 +444,7 @@
 "polkaswap.info.faq" = "Polkasvap FAQ (Çox Soruşulan Suallar)";
 "polkaswap.pool.not.created" = "Hovuz (pool) yaradılmadı";
 "common.enter.amount" = "Məbləği daxil edin";
-"polkaswap.insufficient.balance" = "Balans kifayət deyil";
+"polkaswap.insufficient.balance" = "Balans kifayət deyil (%@)";
 "polkaswap.confirm.swap" = "Mübadiləni təsdiq edin";
 "wallet.transaction.rejected" = "Köçürmə əməliyyatı rədd edildi";
 "polkaswap.input.estimated" = "Giriş hesablanır. Maksimum %@ satacaqsınız və ya əməliyyat geri qaytarılacaq.";
