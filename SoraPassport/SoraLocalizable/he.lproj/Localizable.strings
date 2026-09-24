@@ -362,6 +362,7 @@
 "tutorial.one.world" = "עולם אחד.\nכלכלה אחת.";
 "tutorial.one.world.desc" = "סורה פועלת להפוך למערכת כלכלית עולמית מבוזרת, על ידי  מימון של יצירת יישומים חדשים ומרתקים, בפיקוח דמוקרטי של פרלמנט סורה.";
 "common.retry" = "נסה שנית";
+"Try again" = "נסה שנית";
 "common.failed" = "נכשל";
 "ethereum.config.unavailable" = "צומת רשת איתריום אינו זמין";
 "asset.val.fullname" = "מאמת טוקן סורה (VAL)";

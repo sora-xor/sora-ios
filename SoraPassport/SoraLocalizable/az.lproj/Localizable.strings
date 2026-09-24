@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Bir Dünya.\n Bir İqtisadiyyat.";
 "tutorial.one.world.desc" = "SORA, SORA Parlamentinin demokratik nəzarəti altında yeni və maraqlı tətbiqetmələrin yaradılmasını maliyyələşdirərək, dünyanın qeyri-mərkəzləşdirilmiş mərkəzi bankı olmaq üçün çalışır.";
 "common.retry" = "Yenidən cəhd edin";
+"Try again" = "Yenidən cəhd edin";
 "common.failed" = "Uğursuz oldu";
 "ethereum.config.unavailable" = "Ethereum düyünü mövcud deyil";
 "asset.val.fullname" = "SORA Validator Token (VAL)";

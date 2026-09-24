@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Un Monde.\nUne Économie.";
 "tutorial.one.world.desc" = "SORA ambitionne de devenir un système économique mondial décentralisé, en finançant la création de nouvelles applications passionnantes, sous la supervision démocratique du Parlement SORA.";
 "common.retry" = "Recommencer";
+"Try again" = "Recommencer";
 "common.failed" = "Échoué";
 "ethereum.config.unavailable" = "Nœud Ethereum indisponible";
 "asset.val.fullname" = "Jeton SORA Validateur (VAL)";

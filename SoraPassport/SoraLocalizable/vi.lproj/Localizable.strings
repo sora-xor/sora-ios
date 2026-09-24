@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Một thế giới.\nMột nền kinh tế.";
 "tutorial.one.world.desc" = "SORA đang nỗ lực để trở thành một hệ thống kinh tế đa vũ trụ phi tập trung, cung cấp tài chính cho việc tạo ra các ứng dụng mới và thú vị, dưới sự giám sát dân chủ của Nghị viện SORA.";
 "common.retry" = "Thử lại";
+"Try again" = "Thử lại";
 "common.failed" = "Thất bại";
 "ethereum.config.unavailable" = "Nút Ethereum không khả dụng";
 "asset.val.fullname" = "SORA Validator Token (VAL)";

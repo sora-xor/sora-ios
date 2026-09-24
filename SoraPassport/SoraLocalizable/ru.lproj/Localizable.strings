@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Один мир.\n Единая экономика.";
 "tutorial.one.world.desc" = "SORA работает над тем, чтобы стать децентрализованным центральным банком для всего мира, финансируя создание новых интересных приложений под демократическим контролем парламента SORA.";
 "common.retry" = "Повторить";
+"Try again" = "Повторить";
 "common.failed" = "Ошибка";
 "ethereum.config.unavailable" = "Нода Ethereum недоступна";
 "asset.val.fullname" = "Токен валидатора SORA (VAL)";

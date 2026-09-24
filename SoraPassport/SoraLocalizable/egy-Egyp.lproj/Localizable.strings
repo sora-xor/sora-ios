@@ -364,6 +364,7 @@
 "tutorial.one.world" = "𓅱𓂝 𓏏𓄿.\n𓅱𓂝 𓊪𓂋 𓎛𓆓 𓈖 𓏏𓄿.";
 "tutorial.one.world.desc" = "SORA 𓅱𓈖 𓎛𓂋 𓇋𓂋 𓂋 𓐍𓊪𓂋 𓈖𓈖 𓈖𓃀 𓅱𓂝 𓏏𓄿 𓈖 𓊪𓂋 𓎛𓆓 𓂧𓅓𓆓𓏏, 𓂋𓆓𓇋𓏏 𓎛𓆓 𓈎𓅓𓄿𓏏 𓈖 𓅓𓄿𓅱 𓎛𓈖𓂝 𓈖𓆑𓂋 𓅓𓆓𓄿𓅱𓏏, 𓄡𓂋 𓈖 𓂋𓅓𓍿𓅱 𓈖𓃀 𓅓𓄿𓄿 𓈖 SORA 𓂧𓅓𓆓𓏏 𓈖 𓅓𓂧𓅱.";
 "common.retry" = "𓇋𓂋 𓅓 𓅱𓎛𓅓";
+"Try again" = "𓇋𓂋 𓅓 𓅱𓎛𓅓";
 "common.failed" = "𓈖 𓅓𓈖𓐍";
 "ethereum.config.unavailable" = "Ethereum 𓋴𓃀𓄿 𓈖 𓇋𓄿𓂧𓏏 𓈖𓈖 𓅱𓈖";
 "asset.val.fullname" = "SORA 𓋴𓅓𓈖 𓇋𓐍𓏏 (VAL)";

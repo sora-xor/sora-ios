@@ -362,6 +362,7 @@
 "tutorial.one.world" = "一个世界。\n一个经济体。";
 "tutorial.one.world.desc" = "SORA正在努力成为一个去中心化的世界经济系统，在SORA议会的民主监督下，为创建新颖而令人振奋的应用程序提供资金。";
 "common.retry" = "重试";
+"Try again" = "重试";
 "common.failed" = "失败了";
 "ethereum.config.unavailable" = "以太坊节点不可用";
 "asset.val.fullname" = "SORA验证人代币（VAL）";

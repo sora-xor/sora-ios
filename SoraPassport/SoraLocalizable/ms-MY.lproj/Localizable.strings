@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Satu dunia.\n Satu Ekonomi.";
 "tutorial.one.world.desc" = "SORA sedang berusaha kearah untuk menjadi sistem ekonomi dunia yang tidak berpusat, membiayai pewujudan aplikasi baharu dan menarik, di bawah seliaan demokratik Parlimen SORA.";
 "common.retry" = "Cuba lagi";
+"Try again" = "Cuba lagi";
 "common.failed" = "Gagal";
 "ethereum.config.unavailable" = "Node Ethereum tidak tersedia";
 "asset.val.fullname" = "Token Pengesah SORA (VAL)";

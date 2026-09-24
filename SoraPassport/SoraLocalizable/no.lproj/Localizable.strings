@@ -362,6 +362,7 @@
 "tutorial.one.world" = "En Verden.\nEn Økonomi.";
 "tutorial.one.world.desc" = "SORA jobber for å bli verdens desentraliserte sentralbank, og finansierer etableringen av nye og spennende applikasjoner, under demokratisk tilsyn av SORA-parlamentet.";
 "common.retry" = "Prøv igjen";
+"Try again" = "Prøv igjen";
 "common.failed" = "Mislyktes";
 "ethereum.config.unavailable" = "Ethereum-node ikke tilgjengelig";
 "asset.val.fullname" = "SORA Validator Token (VAL)";

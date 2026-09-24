@@ -2,10 +2,13 @@
 
 The release candidate added nine user-visible wallet-opening and connection-recovery
 messages. As of source revision `8af8112b`, all nine keys are present in `en` and
-`ja`. Every other checked-in `SoraLocalizable/*.lproj/Localizable.strings` catalog
-lacks all nine keys: 279 missing locale/key pairs. The app falls back to English
-for those messages. This is an inventory for translation review, not approval of
-the fallback or of machine-generated translations.
+`ja`. For 30 other checked-in catalogs, `Try again` now reuses the existing,
+checked-in `common.retry` translation for the same retry button action. The
+remaining eight keys are missing in each of the 31 other catalogs, and `ca`
+still needs reviewed text for `Try again`: 249 missing locale/key pairs.
+The app falls back to English for those messages. This is an inventory for
+translation review, not approval of the fallback or of machine-generated
+translations.
 
 ## Exact keys
 
@@ -18,6 +21,25 @@ the fallback or of machine-generated translations.
 7. `Wallet services are not ready. Try again or choose another node.`
 8. `Node settings are still loading. Try again.`
 9. `Network unavailable. Retrying connection…`
+
+## Reused translation provenance
+
+`Try again` is the button that invokes `retry()` in
+`PinSetupWireframe.swift`. Thirty non-English/Japanese values were copied
+byte-for-byte from `common.retry` in the same catalog, a tracked generic retry
+action label.
+The English source wording differs (`Try again` versus
+`Retry`), but both label the same immediate retry action. This reuse does not
+claim a new translation review, and a language reviewer should still inspect
+each value in the wallet-opening screen. The existing `common.retry` value in
+`ca` reads `Reintentar`, which appears to be Spanish; that value was not reused.
+The Catalan `Try again` action needs reviewed text before release.
+
+No other key has an equivalently direct, complete match. The existing
+`switch.node` is the closest label to `Change node`, but most catalogs still
+contain the English placeholder `Switch node`, and the action here opens node
+settings; it was not copied. Android's `switch_node` catalogs have the same
+placeholder issue and no exact text for the other new wallet-opening messages.
 
 ## Catalogs needing reviewed translations
 
@@ -64,6 +86,30 @@ for locale, keys in missing.items():
     print(f'{locale}: {len(keys)} missing')
 print(f'{sum(map(len, missing.values()))} missing locale/key pairs')
 raise SystemExit(bool(missing))
+PY
+```
+
+The current expected result is `249 missing locale/key pairs`. To verify the
+reused values have not diverged from their checked-in source, run:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+root = Path('SoraPassport/SoraLocalizable')
+def value(text, key):
+    pattern = r'^\s*"' + re.escape(key) + r'"\s*=\s*"((?:\\.|[^"\\])*)"\s*;'
+    match = re.search(pattern, text, re.M)
+    assert match, key
+    return match.group(1)
+
+for catalog in sorted(root.glob('*.lproj/Localizable.strings')):
+    if catalog.parent.name in {'en.lproj', 'ja.lproj', 'ca.lproj'}:
+        continue
+    text = catalog.read_text()
+    assert value(text, 'Try again') == value(text, 'common.retry'), catalog
+print('30 existing retry translations reused byte-for-byte')
 PY
 ```
 

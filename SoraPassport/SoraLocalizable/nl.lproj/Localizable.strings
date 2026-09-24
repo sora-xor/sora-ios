@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Eén Wereld.\nEén Economie.";
 "tutorial.one.world.desc" = "SORA werkt eraan om een wereldwijd gedecentraliseerd economisch systeem te worden, die de creatie van nieuwe en opwindende toepassingen financiert, onder democratisch toezicht van het SORA-parlement.";
 "common.retry" = "Probeer opnieuw";
+"Try again" = "Probeer opnieuw";
 "common.failed" = "Mislukt";
 "ethereum.config.unavailable" = "Ethereum node (knooppunt) niet beschikbaar";
 "asset.val.fullname" = "SORA Validator Token (VAL)";
