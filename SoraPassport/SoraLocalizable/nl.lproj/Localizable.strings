@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Eén Wereld.\nEén Economie.";
 "tutorial.one.world.desc" = "SORA werkt eraan om een wereldwijd gedecentraliseerd economisch systeem te worden, die de creatie van nieuwe en opwindende toepassingen financiert, onder democratisch toezicht van het SORA-parlement.";
 "common.retry" = "Probeer opnieuw";
+"Try again" = "Probeer opnieuw";
 "common.failed" = "Mislukt";
 "ethereum.config.unavailable" = "Ethereum node (knooppunt) niet beschikbaar";
 "asset.val.fullname" = "SORA Validator Token (VAL)";
@@ -547,12 +548,12 @@
 "common.remove" = "Verwijder";
 "liquidity.added" = "%@ liquiditeit toegevoegd";
 "liquidity.removed" = "%@ liquiditeit verwijderd";
-"remove.pool.confirmation.description" = "De output wordt geschat. Als de prijs meer dan {slippageTolerance}% verandert, wordt uw transactie teniet gedaan.";
+"remove.pool.confirmation.description" = "De output wordt geschat. Als de prijs meer dan %s%% verandert, wordt uw transactie teniet gedaan.";
 "remove.pool.confirmation.title" = "Bevestig Verwijderen";
 "polkaswap.not.enough.tokens.in.pool" = "Niet genoeg tokens in de pool";
 "add.liquidity.confirmation.title" = "Bevestig voorraad";
 "add.liquidity.pool.title" = "%s - %s Pool";
-"add.liquidity.pool.share.description" = "De output wordt geschat. Als de prijs meer dan {slippageTolerance}% verandert, wordt uw transactie teniet gedaan.";
+"add.liquidity.pool.share.description" = "De output wordt geschat. Als de prijs meer dan %s%% verandert, wordt uw transactie teniet gedaan.";
 "common.deposit.symbol" = "%s storting";
 "polkaswap.info.prices.and.fees" = "Prijzen en vergoedingen";
 "polkaswap.your.position" = "Uw positie (geschat)";

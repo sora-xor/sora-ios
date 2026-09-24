@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Један свет.\nЈедна економија.";
 "tutorial.one.world.desc" = "СОРА ради на томе да постане децентрализован светски економски систем, финансирајући стварање нових и узбудљивих апликација, под демократским надзором СОРА парламента.";
 "common.retry" = "Покушај поново";
+"Try again" = "Покушај поново";
 "common.failed" = "Није успело";
 "ethereum.config.unavailable" = "Етеријум нод није доступан";
 "asset.val.fullname" = "SORA Валидатор токен";
@@ -444,7 +445,7 @@
 "polkaswap.info.faq" = "Polkaswap najčešće postavljana pitanja";
 "polkaswap.pool.not.created" = "Pool nije kreiran";
 "common.enter.amount" = "Unesite iznos";
-"polkaswap.insufficient.balance" = "Nedovoljan balans";
+"polkaswap.insufficient.balance" = "Nedovoljan balans (%@)";
 "polkaswap.confirm.swap" = "Потврдите замену";
 "wallet.transaction.rejected" = "Transakcija odbijena";
 "polkaswap.input.estimated" = "Улаз је процењен. Продаћете максимум %@ или ће трансакција бити отказана.";

@@ -876,10 +876,9 @@ private extension AccountOptionsInteractor {
         _ error: Error,
         lifecycleLease: WalletLifecycleLease? = nil
     ) {
-        settings.walletMigrationRecoveryRequired = true
-        settings.walletMigrationRecoveryReason =
-            UserStorageMigrationError
-                .privacySafeRecoveryDescription(for: error)
+        settings.setWalletMigrationRecovery(
+            reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+        )
         lifecycleLease?.release()
         DispatchQueue.main.async { [weak self] in
             self?.presenter?.restart()

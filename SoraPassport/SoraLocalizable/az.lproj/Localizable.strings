@@ -34,7 +34,7 @@
 "project.title" = "Sora Layihələri";
 "project.founded.template" = "%@-dən %@ səslər";
 "project.votes.template" = "%@ səslər";
-"project.ended.template" = "Tamamlandı";
+"project.ended.template" = "Tamamlandı %@";
 "project.not.voted.title" = "Səs verin";
 "project.spent.format" = "%@ səs sərf etdiniz";
 "project.all.small" = "Hamısı";
@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Bir Dünya.\n Bir İqtisadiyyat.";
 "tutorial.one.world.desc" = "SORA, SORA Parlamentinin demokratik nəzarəti altında yeni və maraqlı tətbiqetmələrin yaradılmasını maliyyələşdirərək, dünyanın qeyri-mərkəzləşdirilmiş mərkəzi bankı olmaq üçün çalışır.";
 "common.retry" = "Yenidən cəhd edin";
+"Try again" = "Yenidən cəhd edin";
 "common.failed" = "Uğursuz oldu";
 "ethereum.config.unavailable" = "Ethereum düyünü mövcud deyil";
 "asset.val.fullname" = "SORA Validator Token (VAL)";
@@ -444,7 +445,7 @@
 "polkaswap.info.faq" = "Polkasvap FAQ (Çox Soruşulan Suallar)";
 "polkaswap.pool.not.created" = "Hovuz (pool) yaradılmadı";
 "common.enter.amount" = "Məbləği daxil edin";
-"polkaswap.insufficient.balance" = "Balans kifayət deyil";
+"polkaswap.insufficient.balance" = "Balans kifayət deyil (%@)";
 "polkaswap.confirm.swap" = "Mübadiləni təsdiq edin";
 "wallet.transaction.rejected" = "Köçürmə əməliyyatı rədd edildi";
 "polkaswap.input.estimated" = "Giriş hesablanır. Maksimum %@ satacaqsınız və ya əməliyyat geri qaytarılacaq.";

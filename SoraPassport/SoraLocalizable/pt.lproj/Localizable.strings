@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Um mundo.\nUma economia.";
 "tutorial.one.world.desc" = "A SORA está a trabalhar para se tornar num sistema económico mundial descentralizado, financiando a criação de novas e estimulantes aplicações, sob a supervisão democrática do Parlamento da SORA.";
 "common.retry" = "Tentar novamente";
+"Try again" = "Tentar novamente";
 "common.failed" = "Falhou";
 "ethereum.config.unavailable" = "Nó da Ethereum indisponível";
 "asset.val.fullname" = "Token Validador SORA (VAL)";

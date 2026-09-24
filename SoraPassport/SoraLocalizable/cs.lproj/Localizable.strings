@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Jeden svět.\nJedna ekonomika.";
 "tutorial.one.world.desc" = "SORA se snaží stát decentralizovaným světovým ekonomickým systémem, který financuje vytváření nových a zajímavých aplikací pod demokratickým dohledem SORA Parlamentu.";
 "common.retry" = "Zkuste znovu";
+"Try again" = "Zkuste znovu";
 "common.failed" = "Neúspěšné";
 "ethereum.config.unavailable" = "Uzel Ethereum není k dispozici";
 "asset.val.fullname" = "SORA Validátor Token (VAL)";

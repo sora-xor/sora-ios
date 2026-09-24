@@ -108,3 +108,92 @@ jobs:
               exit 1
               ;;
           esac
+
+  release-device-compile:
+    name: Unsigned Release Device Compile
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=normal)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Initialize private device-build paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:-}"
+          test -n "${GITHUB_ENV:-}"
+          test ! -L "${RUNNER_TEMP}"
+          test ! -L "${GITHUB_ENV}"
+          device_parent="$(mktemp -d "${RUNNER_TEMP}/sora-ios-device-compile.XXXXXX")"
+          chmod 700 "${device_parent}"
+          test "$(stat -f '%Lp' "${device_parent}")" = 700
+          {
+            printf 'SORA_DEVICE_COMPILE_PARENT=%s\n' "${device_parent}"
+            printf 'SORA_DEVICE_COMPILE_DERIVED_DATA=%s\n' "${device_parent}/DerivedData"
+            printf 'SORA_DEVICE_COMPILE_LOG=%s\n' "${device_parent}/build.log"
+          } >> "${GITHUB_ENV}"
+
+      # Simulator XCTest cannot compile the iPhoneOS slice. This is a compile
+      # check only; protected signing and retained-device admission stay separate.
+      - name: Compile unsigned Release app and device test targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! /usr/bin/xcodebuild \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "${SORA_DEVICE_COMPILE_DERIVED_DATA}" \
+            build-for-testing \
+            SORA_IOS_MIGRATION_EVIDENCE_BUILD_MODE=sora-ios-migration-observed-only-build-v1 \
+            SORA_IOS_MIGRATION_EVIDENCE_BUILD_ACTION=build-for-testing \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            ENABLE_TESTABILITY=YES > "${SORA_DEVICE_COMPILE_LOG}" 2>&1; then
+            tail -n 120 "${SORA_DEVICE_COMPILE_LOG}"
+            exit 1
+          fi
+          app="${SORA_DEVICE_COMPILE_DERIVED_DATA}/Build/Products/Release-iphoneos/SoraPassport.app"
+          test -f "${app}/SoraPassport"
+          test -f "${app}/Info.plist"
+          test "$(/usr/bin/lipo -archs "${app}/SoraPassport")" = arm64
+          test "$(/usr/bin/plutil -extract CFBundleIdentifier raw -o - "${app}/Info.plist")" = co.jp.soramitsu.sora
+          test ! -e "${app}/_CodeSignature"
+          printf 'Unsigned Release iPhoneOS arm64 build: OK\n'
+
+      - name: Archive device-build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoraPassport-Device-Compile-${{ github.sha }}
+          path: ${{ env.SORA_DEVICE_COMPILE_LOG }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove private device-build products
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${SORA_DEVICE_COMPILE_PARENT:-}/" in
+            "${RUNNER_TEMP}/sora-ios-device-compile."*/)
+              test -d "${SORA_DEVICE_COMPILE_PARENT}"
+              test ! -L "${SORA_DEVICE_COMPILE_PARENT}"
+              find "${SORA_DEVICE_COMPILE_PARENT}" -depth -delete
+              ;;
+            *)
+              printf 'Refusing unsafe device-build cleanup path\n' >&2
+              exit 1
+              ;;
+          esac

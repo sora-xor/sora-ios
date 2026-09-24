@@ -30,22 +30,37 @@
 
 import UIKit
 
-final class SecurityLayerWireframe: SecurityLayerWireframProtocol, AuthorizationPresentable, SecuredPresentable {
-
+/// Locks the existing presentation in place. Authentication must never replace
+/// an in-progress import/recovery root or attempt to construct an unverified wallet.
+final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, ScreenAuthorizationWireframeProtocol, SecuredPresentable {
     var logger: LoggerProtocol?
+    private let windowProvider: () -> UIWindow?
+    private let pinFactory: (ScreenAuthorizationWireframeProtocol) -> PinSetupViewProtocol?
+    private weak var applicationWindow: UIWindow?
+    private(set) var authorizationWindow: UIWindow?
 
-    private var isPincodeVisible: Bool {
-        let rootViewController = UIApplication.shared.keyWindow?.rootViewController
-        let presentedController = rootViewController?.presentedViewController
+    init(windowProvider: @escaping () -> UIWindow? = {
+             // Loading and authentication windows can temporarily be key. The
+             // app delegate owns the flow that must survive reauthentication.
+             (UIApplication.shared.delegate as? AppDelegate)?.window ??
+                 UIApplication.shared.windows.first { $0 is SoraWindow }
+         },
+         pinFactory: @escaping (ScreenAuthorizationWireframeProtocol) -> PinSetupViewProtocol? = {
+             PinViewFactory.createRedesignScreenAuthorizationView(with: $0, cancellable: false)
+         }) {
+        self.windowProvider = windowProvider
+        self.pinFactory = pinFactory
+        super.init()
+    }
 
-        return rootViewController as? PinSetupViewProtocol != nil || presentedController as? PinSetupViewProtocol != nil
+    private func containsRootPincode(_ controller: UIViewController) -> Bool {
+        controller is PinSetupViewProtocol || controller.children.contains(where: containsRootPincode)
     }
 
     func showSecuringOverlay() {
-        guard !isPincodeVisible else {
-            return
-        }
-
+        if authorizationWindow != nil { return }
+        guard let root = windowProvider()?.rootViewController,
+              !containsRootPincode(root) else { return }
         securePresentingView(animated: true)
     }
 
@@ -54,36 +69,75 @@ final class SecurityLayerWireframe: SecurityLayerWireframProtocol, Authorization
     }
 
     func showAuthorization() {
-        guard let window = UIApplication.shared.keyWindow else {
-            return
-        }
-
-        if window.rootViewController as? PinSetupViewProtocol != nil {
-            return
-        }
-
-        if window.rootViewController as? MainTabBarViewProtocol != nil {
-            removeExistingAuthViewIfPresented { [weak self] in
-                self?.presentModalAuthorization()
-            }
+        guard authorizationWindow == nil, let window = windowProvider(),
+              let root = window.rootViewController, !containsRootPincode(root) else { return }
+        let lockWindow: UIWindow
+        if let scene = window.windowScene {
+            lockWindow = UIWindow(windowScene: scene)
         } else {
-            presentRootAuthorization(on: window)
+            lockWindow = UIWindow(frame: window.bounds)
+        }
+        lockWindow.frame = window.frame
+        lockWindow.windowLevel = UIWindow.Level(rawValue: max(window.windowLevel.rawValue, UIWindow.Level.alert.rawValue) + 1)
+        applicationWindow = window
+        authorizationWindow = lockWindow
+        installPincode(on: lockWindow)
+        lockWindow.makeKeyAndVisible()
+    }
+
+    private func installPincode(on window: UIWindow) {
+        // A separate opaque window permits an outstanding Google callback to
+        // present its result on the original controller, covered until PIN succeeds.
+        let container = UIViewController()
+        container.view.backgroundColor = .systemBackground
+        container.view.accessibilityIdentifier = "wallet-resume-authorization"
+        window.rootViewController = container
+        if let pin = pinFactory(self) {
+            container.addChild(pin.controller)
+            pin.controller.view.translatesAutoresizingMaskIntoConstraints = false
+            container.view.addSubview(pin.controller.view)
+            NSLayoutConstraint.activate([
+                pin.controller.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
+                pin.controller.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
+                pin.controller.view.topAnchor.constraint(equalTo: container.view.topAnchor),
+                pin.controller.view.bottomAnchor.constraint(equalTo: container.view.bottomAnchor)
+            ])
+            pin.controller.didMove(toParent: container)
+        } else {
+            let retry = UIButton(type: .system)
+            retry.setTitle("PIN verification unavailable. Try again", for: .normal)
+            retry.translatesAutoresizingMaskIntoConstraints = false
+            retry.addTarget(self, action: #selector(retryAuthorization), for: .touchUpInside)
+            container.view.addSubview(retry)
+            NSLayoutConstraint.activate([
+                retry.centerXAnchor.constraint(equalTo: container.view.centerXAnchor),
+                retry.centerYAnchor.constraint(equalTo: container.view.centerYAnchor)
+            ])
         }
     }
 
-    private func presentModalAuthorization() {
-        authorize(animated: false) { isAuthorized in
-            if !isAuthorized {
-                self.logger?.error("Authorization unexpectedly failed")
-            }
-        }
+    @objc private func retryAuthorization() {
+        guard let window = authorizationWindow else { return }
+        installPincode(on: window)
     }
 
-    private func presentRootAuthorization(on window: UIWindow) {
-        guard let localAuthentication = PinViewFactory.createRedesignSecuredPinView() else {
+    func showAuthorizationCompletion(with result: Bool) {
+        guard let lockWindow = authorizationWindow else { return }
+        guard result else {
+            // Failed/canceled authentication never uncovers or discards the
+            // original wallet flow. A fresh interactor allows a safe retry.
+            logger?.error("Resume PIN authorization failed")
+            installPincode(on: lockWindow)
+            let message = UIAlertController(title: "PIN verification unavailable",
+                message: "Your wallet screen is still protected. Try entering your PIN again.", preferredStyle: .alert)
+            message.addAction(UIAlertAction(title: WalletUX.text("Try again"), style: .default))
+            lockWindow.rootViewController?.present(message, animated: true)
             return
         }
-
-        window.rootViewController = localAuthentication.controller
+        lockWindow.isHidden = true
+        lockWindow.rootViewController = nil
+        authorizationWindow = nil
+        applicationWindow?.makeKeyAndVisible()
+        applicationWindow = nil
     }
 }

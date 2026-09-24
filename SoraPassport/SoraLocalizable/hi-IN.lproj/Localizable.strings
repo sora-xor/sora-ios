@@ -362,6 +362,7 @@
 "tutorial.one.world" = "एक दुनिया।\nएक अर्थव्यवस्था।";
 "tutorial.one.world.desc" = "सोरा संसद की लोकतांत्रिक देखरेख में  सोरा नए और रोमांचक अनुप्रयोगों के निर्माण का वित्तपोषण करते हुए दुनिया के लिए विकेंद्रीकृत केंद्रीय बैंक बनने के लिए काम कर रहा है ।";
 "common.retry" = "पुन: प्रयास करें";
+"Try again" = "पुन: प्रयास करें";
 "common.failed" = "विफल";
 "ethereum.config.unavailable" = "इथेरियम नोड अनुपलब्ध है";
 "asset.val.fullname" = "सोरा सत्यापनकर्ता टोकन (VAL)";
@@ -546,7 +547,7 @@
 "remove.liquidity.info.text" = "Liquidity  को हटाने से आपकी स्थिति वर्तमान दर पर वापस बदल जाती है, जो पूल के आपके हिस्से के आनुपातिक होती है।";
 "common.remove" = "हटाये";
 "liquidity.added" = "जोड़ा गया %@ Liquidity";
-"liquidity.removed" = "Liquidity  को हटा दें";
+"liquidity.removed" = "Liquidity %@ को हटा दें";
 "remove.pool.confirmation.description" = "आउटपुट अनुमानित है। यदि मूल्य %s %% से अधिक बदलता है तो आपका लेन-देन वापस कर दिया जाएगा।";
 "remove.pool.confirmation.title" = "हटाने की पुष्टि करें";
 "polkaswap.not.enough.tokens.in.pool" = "पूल में पर्याप्त टोकन नहीं हैं";

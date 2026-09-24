@@ -107,7 +107,9 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
             substrateStorageFacade.createRepository()
 
         let localStorageIdFactory = try ChainStorageIdFactory(chain: Chain.sora)
-        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
+        guard let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+            throw WalletContextFactoryError.missingConnection
+        }
         let extrinsicService = ExtrinsicService(address: selectedAccount.address,
                                                 cryptoType: selectedAccount.cryptoType,
                                                 runtimeRegistry: runtime,

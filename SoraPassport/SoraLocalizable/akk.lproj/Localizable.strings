@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Mātum ištēt.\nBīt kaspim ištēn";
 "tutorial.one.world.desc" = "SORA bīt kaspim ša mātim lā bēlim ibanni, ana šiprī eššūtim u libba mārṣūtim kaspam inaddin, ina maṣṣarat dīn puḫur SORA";
 "common.retry" = "Šanītam epēšum";
+"Try again" = "Šanītam epēšum";
 "common.failed" = "Ul ikšud";
 "ethereum.config.unavailable" = "Bābum Ethereum ul bašûm";
 "asset.val.fullname" = "Kaspum mūkinnī SORA, VAL";

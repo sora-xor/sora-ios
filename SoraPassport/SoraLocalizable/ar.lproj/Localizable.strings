@@ -362,6 +362,7 @@
 "tutorial.one.world" = "عالم واحد.\n اقتصاد واحد.";
 "tutorial.one.world.desc" = "تعمل سورا على أن تصبح نظام إقتصادي عالمي لامركزي، وتمول إنشاء تطبيقات جديدة ومثيرة ، تحت الإشراف الديمقراطي لبرلمان سورا.";
 "common.retry" = "أعد المحاولة";
+"Try again" = "أعد المحاولة";
 "common.failed" = "فشل";
 "ethereum.config.unavailable" = "عقدة إيثريوم غير متوفرة";
 "asset.val.fullname" = "عملة مدققي شبكة سورا (VAL)";

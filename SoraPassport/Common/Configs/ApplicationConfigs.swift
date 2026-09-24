@@ -298,21 +298,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var defaultChainNodes: Set<ChainNodeModel> {
-    #if F_RELEASE
-        return [
-            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
-        ]
-
-    #elseif F_STAGING || F_TEST
-        return [
-            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
-        ]
-    #else
-        return [
-            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
-        ]
-
-    #endif
+        Set(SoraNodeConnectionPolicy.bundledMainnetNodes)
     }
 
     var polkaswapIndexerURL: URL {

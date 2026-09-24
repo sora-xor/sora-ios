@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Un Món.\nUna Economia.";
 "tutorial.one.world.desc" = "SORA està treballant per convertir-se en un sistema econòmic mundial descentralitzat, finançant la creació de noves i emocionants aplicacions, sota la supervisió democràtica del Parlament SORA.";
 "common.retry" = "Reintentar";
+"Try again" = "Torna-ho a provar";
 "common.failed" = "Fallida";
 "ethereum.config.unavailable" = "Node d'Ethereum no disponible";
 "asset.val.fullname" = "Token de Validació de SORA (VAL)";

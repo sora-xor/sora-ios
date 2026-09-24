@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Egy világ. Egy gazdaság.";
 "tutorial.one.world.desc" = "A SORA azon dolgozik, hogy a világ decentralizált központi bankjává váljon, és finanszírozza az új és izgalmas alkalmazások létrehozását a SORA Parlament demokratikus felügyelete alatt.";
 "common.retry" = "Próbálja újra";
+"Try again" = "Próbálja újra";
 "common.failed" = "Nem sikerült";
 "ethereum.config.unavailable" = "Ethereum csomópont nem érhető el";
 "asset.val.fullname" = "SORA Validator Token (VAL)";
@@ -561,7 +562,7 @@
 "settings.header.app" = "ALKALMAZÁS BEÁLLÍTÁSAI";
 "settings.header.other" = "EGYÉB";
 "settings.accounts" = "Fiókok";
-"wallet.qr.share.message.template.v2" = "Olvassa be ezt a QR-kódot, hogy elküldje nekem %s . %s hálózati fiókom azonosítója: \n %s";
+"wallet.qr.share.message.template.v2" = "Olvassa be ezt a QR-kódot, hogy elküldje nekem %s %s. %s hálózati fiókom azonosítója: \n %s";
 "wallet.qr.share.message.empty.template.v2" = "Olvassa be ezt a QR-kódot, hogy elküldje nekem %s . %s hálózati fiókom azonosítója: \n %s";
 "polkaswap.sb.apy.info" = "Farming jutalom a likviditás biztosításaért";
 "polkaswap.price.for.one" = "ÁR 1";

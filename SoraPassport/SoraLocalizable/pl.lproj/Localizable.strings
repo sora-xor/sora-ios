@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Jeden Świat.\nJedna Gospodarka.";
 "tutorial.one.world.desc" = "SORA dąży do tego, aby stać się zdecentralizowanym bankiem centralnym dla świata, finansując tworzenie nowych i ekscytujących aplikacji, pod demokratycznym nadzorem Parlamentu SORY.";
 "common.retry" = "Spróbuj ponownie";
+"Try again" = "Spróbuj ponownie";
 "common.failed" = "Niepowodzenie";
 "ethereum.config.unavailable" = "Węzeł Ethereum niedostępny.";
 "asset.val.fullname" = "SORA Validator Token (VAL)";
@@ -547,12 +548,12 @@
 "common.remove" = "Usuń";
 "liquidity.added" = "Dodano płynność %@.";
 "liquidity.removed" = "Usunięto płynność %@.";
-"remove.pool.confirmation.description" = "Wynik jest szacunkowy. Jeśli cena zmieni się o więcej niż {slippageTolerance}%, Twoja transakcja zostanie anulowana.";
+"remove.pool.confirmation.description" = "Wynik jest szacunkowy. Jeśli cena zmieni się o więcej niż %s%%, Twoja transakcja zostanie anulowana.";
 "remove.pool.confirmation.title" = "Potwierdź usunięcie";
 "polkaswap.not.enough.tokens.in.pool" = "Niewystarczająca ilość tokenów w puli.";
 "add.liquidity.confirmation.title" = "Potwierdź dodanie";
 "add.liquidity.pool.title" = "Pula %s - %s";
-"add.liquidity.pool.share.description" = "Wynik jest szacunkowy. Jeśli cena zmieni się o więcej niż {slippageTolerance}%, Twoja transakcja zostanie anulowana.";
+"add.liquidity.pool.share.description" = "Wynik jest szacunkowy. Jeśli cena zmieni się o więcej niż %s%%, Twoja transakcja zostanie anulowana.";
 "common.deposit.symbol" = "Depozyt %s";
 "polkaswap.info.prices.and.fees" = "Ceny i opłaty";
 "polkaswap.your.position" = "Twoja pozycja (szacunkowa)";
