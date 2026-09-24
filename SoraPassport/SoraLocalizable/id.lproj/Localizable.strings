@@ -362,6 +362,7 @@
 "tutorial.one.world" = "One World.\nOne Economy.";
 "tutorial.one.world.desc" = "SORA bekerja untuk menjadi sistem ekonomi dunia yang terdesentralisasi, membiayai pembuatan aplikasi baru dan menarik, di bawah pengawasan demokratis Parlemen SORA.";
 "common.retry" = "Coba lagi";
+"Try again" = "Coba lagi";
 "common.failed" = "Gagal";
 "ethereum.config.unavailable" = "Node Ethereum tidak tersedia";
 "asset.val.fullname" = "SORA Validator Token (VAL)";

@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Yksi maailma.\n Yksi talous.";
 "tutorial.one.world.desc" = "SORA pyrkii tulemaan hajautetuksi maailman keskuspankiksi, joka rahoittaa uusien ja jännittävien sovellusten luomista SORA-parlamentin demokraattisessa valvonnassa.";
 "common.retry" = "Yritä uudelleen";
+"Try again" = "Yritä uudelleen";
 "common.failed" = "Epäonnistui";
 "ethereum.config.unavailable" = "Ethereum-solmu ei ole käytettävissä";
 "asset.val.fullname" = "SORA-validointitunnus (VAL)";

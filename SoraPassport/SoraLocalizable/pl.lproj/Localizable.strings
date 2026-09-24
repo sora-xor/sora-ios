@@ -362,6 +362,7 @@
 "tutorial.one.world" = "Jeden Świat.\nJedna Gospodarka.";
 "tutorial.one.world.desc" = "SORA dąży do tego, aby stać się zdecentralizowanym bankiem centralnym dla świata, finansując tworzenie nowych i ekscytujących aplikacji, pod demokratycznym nadzorem Parlamentu SORY.";
 "common.retry" = "Spróbuj ponownie";
+"Try again" = "Spróbuj ponownie";
 "common.failed" = "Niepowodzenie";
 "ethereum.config.unavailable" = "Węzeł Ethereum niedostępny.";
 "asset.val.fullname" = "SORA Validator Token (VAL)";

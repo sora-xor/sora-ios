@@ -362,6 +362,7 @@
 "tutorial.one.world" = "One World.\nOne Economy.";
 "tutorial.one.world.desc" = "SORA sta lavorando per diventare la banca centrale decentralizzata per il mondo, finanziando la creazione di nuove ed entusiasmanti applicazioni, sotto la supervisione democratica del Parlamento SORA.";
 "common.retry" = "Riprova";
+"Try again" = "Riprova";
 "common.failed" = "Fallito";
 "ethereum.config.unavailable" = "Nodo Ethereum non disponibile";
 "asset.val.fullname" = "SORA Validator Token (VAL)";

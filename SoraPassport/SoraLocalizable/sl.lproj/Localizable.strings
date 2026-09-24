@@ -362,6 +362,7 @@
 "tutorial.one.world" = "En svet.\nEna ekonomija.";
 "tutorial.one.world.desc" = "SORA si prizadeva, da bi pod demokratičnim nadzorom parlamenta SORA postala decentraliziran svetovni gospodarski sistem, ki financira ustvarjanje novih in vznemirljivih aplikacij.";
 "common.retry" = "Poskusite znova";
+"Try again" = "Poskusite znova";
 "common.failed" = "Ni uspelo";
 "ethereum.config.unavailable" = "Vozlišče Ethereum ni na voljo";
 "asset.val.fullname" = "SORA Validator Token (VAL)";
