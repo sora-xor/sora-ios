@@ -36,7 +36,7 @@
 "project.votes.template" = "%@ voti";
 "project.ended.template" = "Terminato %@";
 "project.not.voted.title" = "Vota";
-"project.spent.format" = "Hai speso % di voti";
+"project.spent.format" = "Hai speso %@ voti";
 "project.all.small" = "Tutti";
 "project.voted.small" = "Votato";
 "project.favourites.small" = "Preferiti";
