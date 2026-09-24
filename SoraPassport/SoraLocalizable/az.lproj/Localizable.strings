@@ -34,7 +34,7 @@
 "project.title" = "Sora Layihələri";
 "project.founded.template" = "%@-dən %@ səslər";
 "project.votes.template" = "%@ səslər";
-"project.ended.template" = "Tamamlandı";
+"project.ended.template" = "Tamamlandı %@";
 "project.not.voted.title" = "Səs verin";
 "project.spent.format" = "%@ səs sərf etdiniz";
 "project.all.small" = "Hamısı";

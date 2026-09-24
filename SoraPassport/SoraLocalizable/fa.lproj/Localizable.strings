@@ -34,7 +34,7 @@
 "project.title" = "پروژه‌های سورا";
 "project.founded.template" = "%@٪ آرا از %@";
 "project.votes.template" = "%@ آرا";
-"project.ended.template" = "پایان یافت";
+"project.ended.template" = "پایان یافت %@";
 "project.not.voted.title" = "رای";
 "project.spent.format" = "شما %@ رأی استفاده کرده اید";
 "project.all.small" = "همه";
