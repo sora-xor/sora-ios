@@ -547,7 +547,7 @@
 "remove.liquidity.info.text" = "Liquidity  को हटाने से आपकी स्थिति वर्तमान दर पर वापस बदल जाती है, जो पूल के आपके हिस्से के आनुपातिक होती है।";
 "common.remove" = "हटाये";
 "liquidity.added" = "जोड़ा गया %@ Liquidity";
-"liquidity.removed" = "Liquidity  को हटा दें";
+"liquidity.removed" = "Liquidity %@ को हटा दें";
 "remove.pool.confirmation.description" = "आउटपुट अनुमानित है। यदि मूल्य %s %% से अधिक बदलता है तो आपका लेन-देन वापस कर दिया जाएगा।";
 "remove.pool.confirmation.title" = "हटाने की पुष्टि करें";
 "polkaswap.not.enough.tokens.in.pool" = "पूल में पर्याप्त टोकन नहीं हैं";

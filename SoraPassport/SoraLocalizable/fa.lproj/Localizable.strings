@@ -32,8 +32,8 @@
 "access.backup.load.error.title" = "اعتبارنامه ها بارگیری نشدند";
 "access.backup.error.message" = "لطفاً، سعی کنید ثبت نام را از ابتدا تکرار کنید.";
 "project.title" = "پروژه‌های سورا";
-"project.founded.template" = "[٪s]٪٪ آرا از [٪s]";
-"project.votes.template" = "آرا";
+"project.founded.template" = "%@٪ آرا از %@";
+"project.votes.template" = "%@ آرا";
 "project.ended.template" = "پایان یافت";
 "project.not.voted.title" = "رای";
 "project.spent.format" = "شما %@ رأی استفاده کرده اید";
@@ -46,8 +46,8 @@
 "project.details.favorite.voted.count" = "%@ %@";
 "project.remove.from.favourite" = "مورد علاقه";
 "project.details.email.subject" = "جزئیات پروژه سورا";
-"project.discussion.template" = "بحث در مورد [٪s]";
-"project.requires.votes.format" = "پروژه تنها نیاز به [٪s] رای 🚀";
+"project.discussion.template" = "بحث در مورد %@";
+"project.requires.votes.format" = "پروژه تنها نیاز به %@ رای 🚀";
 "personal.info.first.name" = "نام کوچک";
 "personal.info.last.name" = "نام خانوادگی";
 "personal.info.phone" = "تلفن همراه";
@@ -249,7 +249,7 @@
 "contacts.search.results" = "نتایج جستجو";
 "transaction.receiver.title" = "به";
 "transaction.amount.title" = "مقدار";
-"wallet.transfer.note.hint" = "یک یادداشت بگذارید، [٪s] نمادهای حداکثر.";
+"wallet.transfer.note.hint" = "یک یادداشت بگذارید، %@ نمادهای حداکثر.";
 "common.min" = "دقیقه";
 "common.sec" = "ثانیه";
 "common.advanced.settings" = "تنظیمات پیشرفته";
