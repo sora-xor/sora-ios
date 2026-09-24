@@ -37,6 +37,8 @@ import SnapKit
 class SplashViewController: UIViewController, SplashViewProtocol {
     
     var presenter: SplashPresenter!
+    private var storageRetryView: UIStackView?
+    private var isWaitingForStorage = false
     
     private lazy var animationView: LottieAnimationView = {
         let animationView = LottieAnimationView(filePath: R.file.soraSplashJson.path()!)
@@ -115,6 +117,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }
     
     private func showLoader() {
+        guard !isWaitingForStorage else { return }
         containerView.sora.isHidden = false
         loaderView.startAnimating()
     }
@@ -125,9 +128,54 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }
     
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void) {
+        storageRetryView?.removeFromSuperview()
+        storageRetryView = nil
+        isWaitingForStorage = false
         hideLoader()
         animationView.play(fromProgress: 0.8, toProgress: 1, loopMode: .playOnce) { (_) in
             completion()
         }
+    }
+
+    func showStorageSpaceRetry(onRetry: @escaping () -> Void) {
+        loadViewIfNeeded()
+        isWaitingForStorage = true
+        hideLoader()
+        animationView.pause()
+        storageRetryView?.removeFromSuperview()
+
+        let message = UILabel()
+        message.text = "Free up some storage on your iPhone, then try the upgrade again. Your accounts and keys have not been changed."
+        message.font = .preferredFont(forTextStyle: .body)
+        message.textColor = .label
+        message.numberOfLines = 0
+        message.textAlignment = .center
+
+        let retry = UIButton(type: .system)
+        retry.setTitle("Try again", for: .normal)
+        retry.accessibilityIdentifier = "wallet-upgrade-storage-retry"
+        retry.addAction(UIAction { [weak self, weak retry] _ in
+            retry?.isEnabled = false
+            self?.isWaitingForStorage = false
+            self?.showLoader()
+            onRetry()
+        }, for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [message, retry])
+        stack.axis = .vertical
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.backgroundColor = view.backgroundColor
+        stack.isLayoutMarginsRelativeArrangement = true
+        stack.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 24, leading: 24, bottom: 24, trailing: 24
+        )
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24),
+            stack.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
+        ])
+        storageRetryView = stack
     }
 }
