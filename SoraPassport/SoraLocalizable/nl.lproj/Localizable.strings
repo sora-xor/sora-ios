@@ -548,12 +548,12 @@
 "common.remove" = "Verwijder";
 "liquidity.added" = "%@ liquiditeit toegevoegd";
 "liquidity.removed" = "%@ liquiditeit verwijderd";
-"remove.pool.confirmation.description" = "De output wordt geschat. Als de prijs meer dan {slippageTolerance}% verandert, wordt uw transactie teniet gedaan.";
+"remove.pool.confirmation.description" = "De output wordt geschat. Als de prijs meer dan %s%% verandert, wordt uw transactie teniet gedaan.";
 "remove.pool.confirmation.title" = "Bevestig Verwijderen";
 "polkaswap.not.enough.tokens.in.pool" = "Niet genoeg tokens in de pool";
 "add.liquidity.confirmation.title" = "Bevestig voorraad";
 "add.liquidity.pool.title" = "%s - %s Pool";
-"add.liquidity.pool.share.description" = "De output wordt geschat. Als de prijs meer dan {slippageTolerance}% verandert, wordt uw transactie teniet gedaan.";
+"add.liquidity.pool.share.description" = "De output wordt geschat. Als de prijs meer dan %s%% verandert, wordt uw transactie teniet gedaan.";
 "common.deposit.symbol" = "%s storting";
 "polkaswap.info.prices.and.fees" = "Prijzen en vergoedingen";
 "polkaswap.your.position" = "Uw positie (geschat)";

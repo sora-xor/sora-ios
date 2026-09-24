@@ -562,7 +562,7 @@
 "settings.header.app" = "ALKALMAZÁS BEÁLLÍTÁSAI";
 "settings.header.other" = "EGYÉB";
 "settings.accounts" = "Fiókok";
-"wallet.qr.share.message.template.v2" = "Olvassa be ezt a QR-kódot, hogy elküldje nekem %s . %s hálózati fiókom azonosítója: \n %s";
+"wallet.qr.share.message.template.v2" = "Olvassa be ezt a QR-kódot, hogy elküldje nekem %s %s. %s hálózati fiókom azonosítója: \n %s";
 "wallet.qr.share.message.empty.template.v2" = "Olvassa be ezt a QR-kódot, hogy elküldje nekem %s . %s hálózati fiókom azonosítója: \n %s";
 "polkaswap.sb.apy.info" = "Farming jutalom a likviditás biztosításaért";
 "polkaswap.price.for.one" = "ÁR 1";
