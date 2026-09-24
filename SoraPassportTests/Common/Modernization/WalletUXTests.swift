@@ -503,7 +503,7 @@ final class WalletUXTests: XCTestCase {
         controller.view.layoutIfNeeded()
         let retry = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
             .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
-        XCTAssertEqual(retry.title(for: .normal), "Try again")
+        XCTAssertEqual(retry.title(for: .normal), WalletUX.text("Try again"))
         XCTAssertTrue(retry.isEnabled)
         XCTAssertFalse(retry.isHidden)
         XCTAssertFalse(retry.frame.isEmpty)

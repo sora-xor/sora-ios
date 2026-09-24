@@ -130,7 +130,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             installPincode(on: lockWindow)
             let message = UIAlertController(title: "PIN verification unavailable",
                 message: "Your wallet screen is still protected. Try entering your PIN again.", preferredStyle: .alert)
-            message.addAction(UIAlertAction(title: "Try again", style: .default))
+            message.addAction(UIAlertAction(title: WalletUX.text("Try again"), style: .default))
             lockWindow.rootViewController?.present(message, animated: true)
             return
         }

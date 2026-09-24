@@ -34,12 +34,42 @@ claim a new translation review, and a language reviewer should still inspect
 each value in the wallet-opening screen. The existing `common.retry` value in
 `ca` reads `Reintentar`, which appears to be Spanish; that value was not reused.
 The Catalan `Try again` action needs reviewed text before release.
+The storage-upgrade retry, retained-wallet recovery retry, and PIN-unavailable
+alert also use this existing `Try again` lookup for the same retry action.
+Their surrounding safety messages remain English and need separate review.
 
 No other key has an equivalently direct, complete match. The existing
 `switch.node` is the closest label to `Change node`, but most catalogs still
 contain the English placeholder `Switch node`, and the action here opens node
 settings; it was not copied. Android's `switch_node` catalogs have the same
 placeholder issue and no exact text for the other new wallet-opening messages.
+
+## Observed fallback for missing keys
+
+`WalletUX.text` looks in the selected locale's `Localizable.strings`, then in
+`en`, and finally returns the English phrase passed by the caller. The nine
+new wallet-opening call sites pass English phrases as keys. A macOS Foundation
+probe using the same lookup sequence against the checked-in `.lproj` folders
+produced these values at candidate `d58b9936`:
+
+| Selected locale | Opening wallet | Try again | Node settings are still loading. Try again. |
+| --- | --- | --- | --- |
+| `fr` | Opening wallet | Recommencer | Node settings are still loading. Try again. |
+| `ja` | ウォレットを開いています | 再試行 | ノード設定を読み込んでいます。再試行してください。 |
+| `ca` | Opening wallet | Try again | Node settings are still loading. Try again. |
+| unknown `xx` | Opening wallet | Try again | Node settings are still loading. Try again. |
+
+Reproduce from the repository root:
+
+```sh
+/usr/bin/swift -e 'import Foundation; let root = URL(fileURLWithPath: CommandLine.arguments[1]); func text(_ key: String, _ selected: String) -> String { for locale in [selected, "en"] { let path = root.appendingPathComponent("\(locale).lproj").path; guard let bundle = Bundle(path: path) else { continue }; let result = bundle.localizedString(forKey: key, value: key, table: "Localizable"); if result != key { return result } }; return key }; for locale in ["fr", "ja", "ca", "xx"] { print("\(locale): \(text("Opening wallet", locale)) | \(text("Try again", locale)) | \(text("Node settings are still loading. Try again.", locale))") }' "$PWD/SoraPassport/SoraLocalizable"
+```
+
+This probes the source resources and Foundation lookup, not a rendered iPhone
+screen. Missing keys display the English phrase in this path; that behavior does
+not approve the 249 missing translations for release. The separate wallet
+recovery screen also contains English-only safety guidance and needs its own
+localization review.
 
 ## Catalogs needing reviewed translations
 
