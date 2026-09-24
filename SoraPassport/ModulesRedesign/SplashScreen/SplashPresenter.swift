@@ -48,6 +48,12 @@ final class SplashPresenter: SplashPresenterProtocol {
             })
         }
     }
+
+    func storageSpaceRequired() {
+        view?.showStorageSpaceRetry { [weak self] in
+            self?.interactor.retryStorageMigration()
+        }
+    }
     
     func showIsLoading(after duration: TimeInterval, execute: @escaping () -> Void) {
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
