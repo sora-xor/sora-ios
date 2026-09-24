@@ -793,8 +793,8 @@ final class WalletUXTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("bundle")
         defer { try? FileManager.default.removeItem(at: root) }
         for (language, content) in [
-            ("en", "\"Greeting\" = \"Hello\";\n\"Fallback\" = \"English fallback\";"),
-            ("ja", "\"Greeting\" = \"こんにちは\";")
+            ("en", "\"Greeting\" = \"Hello\";\n\"Fallback\" = \"English fallback\";\n\"Blank\" = \"English instead\";"),
+            ("ja", "\"Greeting\" = \"こんにちは\";\n\"Blank\" = \"\";")
         ] {
             let directory = root.appendingPathComponent(language + ".lproj")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -803,7 +803,122 @@ final class WalletUXTests: XCTestCase {
         let bundle = try XCTUnwrap(Bundle(url: root))
         XCTAssertEqual(WalletUX.text("Greeting", language: "ja", bundle: bundle), "こんにちは")
         XCTAssertEqual(WalletUX.text("Fallback", language: "ja", bundle: bundle), "English fallback")
+        XCTAssertEqual(WalletUX.text("Blank", language: "ja", bundle: bundle), "English instead")
         XCTAssertEqual(WalletUX.text("Greeting", language: "missing", bundle: bundle), "Hello")
+    }
+
+    func testGeneratedStringsChooseAValueBeforeFallingBackToEnglish() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).appendingPathExtension("bundle")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let info = ["CFBundleDevelopmentRegion": "en", "CFBundleIdentifier": "org.sora.tests.localization"]
+        let infoData = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+        try infoData.write(to: root.appendingPathComponent("Info.plist"))
+
+        for (language, strings, plural) in [
+            ("en", "\"greeting.key\" = \"Hello\";\n\"blank.key\" = \"English value\";\n\"formatted.key\" = \"Welcome %@\";",
+             "%d items"),
+            ("ja", "\"greeting.key\" = \"こんにちは\";\n\"blank.key\" = \"\";", "%d 項目")
+        ] {
+            let directory = root.appendingPathComponent(language + ".lproj")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try strings.write(to: directory.appendingPathComponent("Localizable.strings"),
+                              atomically: true, encoding: .utf8)
+            let pluralEntry: [String: Any] = [
+                "count.key": [
+                    "NSStringLocalizedFormatKey": "%#@items@",
+                    "items": [
+                        "NSStringFormatSpecTypeKey": "NSStringPluralRuleType",
+                        "NSStringFormatValueTypeKey": "d",
+                        "one": plural,
+                        "other": plural
+                    ]
+                ]
+            ]
+            let pluralData = try PropertyListSerialization.data(fromPropertyList: pluralEntry,
+                                                                format: .xml, options: 0)
+            try pluralData.write(to: directory.appendingPathComponent("Localizable.stringsdict"))
+        }
+
+        let fixture = try XCTUnwrap(Bundle(url: root))
+        func value(_ key: String) throws -> (Locale, String) {
+            let (locale, selectedBundle) = try XCTUnwrap(
+                R.localeBundle(tableName: "Localizable", key: key,
+                               preferredLanguages: ["ja"], in: fixture)
+            )
+            return (locale, selectedBundle.localizedString(forKey: key, value: nil, table: "Localizable"))
+        }
+
+        XCTAssertEqual(try value("greeting.key").1, "こんにちは")
+        XCTAssertEqual(try value("blank.key").1, "English value")
+        let englishFormat = try value("formatted.key")
+        XCTAssertEqual(String(format: englishFormat.1, locale: englishFormat.0, "Sora"), "Welcome Sora")
+        let japanesePlural = try value("count.key")
+        XCTAssertEqual(String(format: japanesePlural.1, locale: japanesePlural.0, 2), "2 項目")
+        XCTAssertNil(R.localeBundle(tableName: "Localizable", key: "absent.key",
+                                   preferredLanguages: ["ja"], in: fixture))
+    }
+
+    func testGeneratedStringsFallbackInTheShippedCatalogs() {
+        XCTAssertEqual(R.string.localizable.commonFarms(preferredLanguages: ["de-DE"]), "Farms")
+        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["egy-Egyp"]), "m")
+        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["ja"]), "分")
+        XCTAssertEqual(R.string.localizable.approveTheIrohaConnectConnectionFor(
+            "Sora", preferredLanguages: ["ja"]), "Approve the IrohaConnect connection for Sora")
+        XCTAssertTrue(R.string.localizable.favoriteUsers(favorite: 2,
+                                                         preferredLanguages: ["ja"]).contains("お気に入り"))
+        XCTAssertEqual(R.string.localizable.referendumDateSecondPlurals(
+            preferredLanguages: ["ja"]), "")
+    }
+
+    func testLegacyLocalizableErrorsUseEnglishWhenSelectedValueIsMissing() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).appendingPathExtension("bundle")
+        defer { try? FileManager.default.removeItem(at: root) }
+        for (language, strings) in [
+            ("en", "\"selected.key\" = \"English selected\";\n\"missing.key\" = \"English fallback\";\n\"empty.key\" = \"English instead\";"),
+            ("ja", "\"selected.key\" = \"日本語\";\n\"empty.key\" = \"\";")
+        ] {
+            let directory = root.appendingPathComponent(language + ".lproj")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try strings.write(to: directory.appendingPathComponent("Localizable.strings"),
+                              atomically: true, encoding: .utf8)
+        }
+        let bundle = try XCTUnwrap(Bundle(url: root))
+        func localize(_ key: String) -> String {
+            L10n.getFormat(for: key, localization: "ja", bundle: bundle)
+        }
+
+        XCTAssertEqual(localize("selected.key"), "日本語")
+        XCTAssertEqual(localize("missing.key"), "English fallback")
+        XCTAssertEqual(localize("empty.key"), "English instead")
+        XCTAssertEqual(localize("unshipped.key"), "")
+
+        let activeFallbacks = [
+            "amount.error.asset": "Sorry, we couldn't find asset information you want to send. Please, try again later.",
+            "amount.error.balance": "Sorry, balance checking request failed. Please, try again later.",
+            "amount.error.transfer": "Sorry, we couldn't contact transfer provider. Please, try again later.",
+            "invoice_scan.error.camera_restricted_previously": "Unfortunately, you denied access to camera previously. Would you like to allow access now?",
+            "invoice_scan.error.camera_title": "Camera Access",
+            "invoice_scan.error.extract_fail": "Can't extract receiver's data",
+            "invoice_scan.error.gallery_restricted_previously": "Unfortunately, you denied access to photos previously. Would you like to allow access now?",
+            "invoice_scan.error.gallery_title": "Photos Access",
+            "invoice_scan.error.match": "You can't send to yourself",
+            "invoice_scan.error.no_internet": "Please, check internet connection",
+            "invoice_scan.error.user_not_found": "Can't find a user from QR"
+        ]
+        for (key, expected) in activeFallbacks {
+            XCTAssertEqual(localize(key), expected, key)
+        }
+
+        XCTAssertEqual(TransferPresenterError.missingAsset
+            .toErrorContent(for: Locale(identifier: "ja")).title, "エラー")
+        XCTAssertEqual(TransferPresenterError.missingAsset
+            .toErrorContent(for: Locale(identifier: "ja")).message,
+                       activeFallbacks["amount.error.asset"])
+        XCTAssertEqual(L10n.InvoiceScan.Error.extractFail,
+                       activeFallbacks["invoice_scan.error.extract_fail"])
     }
 
     @MainActor

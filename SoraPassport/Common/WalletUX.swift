@@ -23,7 +23,7 @@ enum WalletUX {
             guard let path = bundle.path(forResource: locale, ofType: "lproj"),
                   let localized = Bundle(path: path) else { continue }
             let result = localized.localizedString(forKey: value, value: value, table: "Localizable")
-            if result != value { return result }
+            if !result.isEmpty && result != value { return result }
         }
         return value
     }
