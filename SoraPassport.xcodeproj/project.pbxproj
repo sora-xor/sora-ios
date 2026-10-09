@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A71000020000000000000002 /* HistoricalReleaseUpgradeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71000010000000000000002 /* HistoricalReleaseUpgradeTests.swift */; };
+		A71000020000000000000001 /* HistoricalReleaseAccountOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71000010000000000000001 /* HistoricalReleaseAccountOperationFactory.swift */; };
 		A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
 		A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
 		A66B00012F5B000000000003 /* IrohaConnectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000102 /* IrohaConnectSession.swift */; };
@@ -2805,6 +2807,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A71000010000000000000002 /* HistoricalReleaseUpgradeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalReleaseUpgradeTests.swift; sourceTree = "<group>"; };
+		A71000010000000000000001 /* HistoricalReleaseAccountOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalReleaseAccountOperationFactory.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectProtocol.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000102 /* IrohaConnectSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectSession.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000103 /* IrohaConnectUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectUI.swift; sourceTree = "<group>"; };
@@ -4495,6 +4499,8 @@
 				A66B00012F5B000000000110 /* IrohaConnectTests.swift */,
 				B66B00012F5B000000000110 /* WalletUXTests.swift */,
 				A10000210000000000000001 /* WalletModernizationTests.swift */,
+				A71000010000000000000002 /* HistoricalReleaseUpgradeTests.swift */,
+				A71000010000000000000001 /* HistoricalReleaseAccountOperationFactory.swift */,
 				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
 				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
 			);
@@ -10120,6 +10126,8 @@
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
 				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
 				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
+				A71000020000000000000002 /* HistoricalReleaseUpgradeTests.swift in Sources */,
+				A71000020000000000000001 /* HistoricalReleaseAccountOperationFactory.swift in Sources */,
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
 				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
 				9431D55226305306001E5C85 /* UserDataStorageTestFacade.swift in Sources */,

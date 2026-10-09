@@ -303,6 +303,23 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         )
     }
 
+    override func save(
+        value: AccountItem,
+        runningCompletionIn queue: DispatchQueue?,
+        completionClosure: ((Result<AccountItem, Error>) -> Void)?
+    ) {
+        // performSave commits the selection while holding its lifecycle lease.
+        // Do not repeat that write after the lease has been released: another
+        // queued selection may already have committed a newer value.
+        performSave(value: value) { result in
+            if let completionClosure {
+                dispatchInQueueWhenPossible(queue) {
+                    completionClosure(result)
+                }
+            }
+        }
+    }
+
     func performInsertAndSelect(
         prepared: PreparedAccount,
         persistSecrets: @escaping () throws -> Void,
@@ -649,14 +666,12 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         saveOperation.addDependency(accountsOperation)
 
         saveOperation.completionBlock = { [weak self] in
+            var acquiredLease: WalletLifecycleLease?
+            let completionResult: Result<AccountItem, Error>
             do {
                 let lifecycleLease = try lifecycleOperation
                     .extractNoCancellableResultData()
-                defer {
-                    if suppliedLifecycleLease == nil {
-                        lifecycleLease.release()
-                    }
-                }
+                acquiredLease = lifecycleLease
                 _ = try saveOperation.extractNoCancellableResultData()
                 try recoveryGate
                     .requireAuthorizedLifecycleContinuation()
@@ -733,7 +748,7 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     }
                 }
                 self?.commitInternalValue(selectedAccount)
-                completionClosure(.success(selectedAccount))
+                completionResult = .success(selectedAccount)
             } catch {
                 if case .some(.success) = saveOperation.result {
                     self?.legacySettings?
@@ -743,8 +758,16 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                         UserStorageMigrationError
                             .privacySafeRecoveryDescription(for: error)
                 }
-                completionClosure(.failure(error))
+                completionResult = .failure(error)
             }
+            // A completion may immediately sign or start another mutation.
+            // Finish all durable state and recovery handling before allowing
+            // that caller to acquire a new lease. Borrowed leases stay owned
+            // by the removal/import operation that supplied them.
+            if suppliedLifecycleLease == nil {
+                acquiredLease?.release()
+            }
+            completionClosure(completionResult)
         }
 
         if suppliedLifecycleLease == nil {
@@ -864,10 +887,12 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         let walletNetworkMetadataSynchronizer =
             walletNetworkMetadataSynchronizer
         saveOperation.completionBlock = { [weak self] in
+            var acquiredLease: WalletLifecycleLease?
+            let completionResult: Result<AccountItem, Error>
             do {
                 let lifecycleLease = try lifecycleOperation
                     .extractNoCancellableResultData()
-                defer { lifecycleLease.release() }
+                acquiredLease = lifecycleLease
                 _ = try saveOperation.extractNoCancellableResultData()
                 try recoveryGate
                     .requireAuthorizedLifecycleContinuation()
@@ -959,7 +984,7 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     }
                     self?.commitInternalValue(updatedAccount)
                 }
-                completionClosure(.success(updatedAccount))
+                completionResult = .success(updatedAccount)
             } catch {
                 if case .some(.success) = saveOperation.result {
                     self?.legacySettings?
@@ -969,8 +994,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                         UserStorageMigrationError
                             .privacySafeRecoveryDescription(for: error)
                 }
-                completionClosure(.failure(error))
+                completionResult = .failure(error)
             }
+            acquiredLease?.release()
+            completionClosure(completionResult)
         }
 
         lifecycleCoordinator.enqueueOwnedAcquireOperation(

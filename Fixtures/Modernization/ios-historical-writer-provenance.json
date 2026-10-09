@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "evidenceScope": "Historical release account writer rebuilt for disposable simulator upgrade rehearsal; not an original App Store binary, physical-device qualification, or production approval.",
+  "historicalTag": "3.8.7",
+  "historicalCommit": "b890dd5c5b64e336f6f6510cf1284b54ab7e6edb",
+  "alsoIdenticalAtTag": "3.8.9",
+  "writer": {
+    "sourcePath": "SoraPassport/Common/Operation/AccountOperationFactory.swift",
+    "sourceGitBlob": "f407986656b5f43c3e99635e91aa0a04f6f2b34e",
+    "sourceSha256": "7d057c6c8da0d78f97cb8310cb976713997c243f3101d86c588bb60c22128703",
+    "testOnlyPath": "SoraPassportTests/Common/Modernization/HistoricalReleaseAccountOperationFactory.swift",
+    "testOnlySha256": "023bb566f918d3847a10448ba80f9368bae4afd4f4832f8e6b388b325d9501f6",
+    "prefix": "@testable import SoraPassport\n",
+    "identifierSubstitutions": {
+      "AccountOperationFactoryProtocol": "HistoricalReleaseAccountOperationFactoryProtocol",
+      "AccountOperationFactory": "HistoricalReleaseAccountOperationFactory"
+    }
+  },
+  "preservedHistoricalSerializersAndModels": [
+    {
+      "path": "SoraPassport/Common/Model/AccountItemMapper.swift",
+      "gitBlob": "96cc5c407088f010019b2f5b90d247de09ded7cc",
+      "sha256": "3cdd96fa9002a75e07eefac5e01fb7507f1ced1e89629c872dcf7df343133427"
+    },
+    {
+      "path": "SoraPassport/Common/Model/ManagedAccountItemMapper.swift",
+      "gitBlob": "e8a24b03fc6653514d25d84fb379a44886894e15",
+      "sha256": "7144001dca4a894fbe74044d8b4378c0f48bc3614e42da347889957802683089"
+    },
+    {
+      "path": "SoraPassport/Common/Storage/UserDataModel.xcdatamodeld/UserDataModel.xcdatamodel/contents",
+      "gitBlob": "ad5b7f948efa237abe580788abbfc94ab9ec82f7",
+      "sha256": "bbcfdb3104bbbc226767832bccea5695b08777e669b80fafdfd30f033a022cfa"
+    },
+    {
+      "path": "SoraPassport/Common/Storage/UserDataModel.xcdatamodeld/UserDataModel 2.xcdatamodel/contents",
+      "gitBlob": "341f9227963146302c5ffec2d2a4164d2024e616",
+      "sha256": "c25544fcd28950f58255d6711a6b8fc4df2c9211c691043eabdef3b78f58c57d"
+    }
+  ],
+  "limitations": [
+    "Uses the current compiled dependency implementations with the historical account-writer source.",
+    "Does not prove continuity of historical App Store signatures, device entitlements, or Keychain protection across a physical-device upgrade.",
+    "Does not cover SORA 1.x unsuffixed identity creation; that release used IdentityCreationOperation and IdentityRestorationOperation."
+  ]
+}

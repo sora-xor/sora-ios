@@ -5562,6 +5562,152 @@ final class WalletModernizationTests: XCTestCase {
                 legacySelectedAddress: nil
             )
         )
+        try exerciseSelectedWalletCompletionLeaseBoundaries(
+            first: first,
+            second: second
+        )
+    }
+
+    private func exerciseSelectedWalletCompletionLeaseBoundaries(
+        first: AccountItem,
+        second: AccountItem
+    ) throws {
+        let storage = UserDataStorageTestFacade()
+        let worker = OperationQueue()
+        worker.maxConcurrentOperationCount = 1
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> =
+            storage.createRepository(mapper: AnyCoreDataMapper(AccountItemMapper()))
+        try save(models: [first, second],
+                 to: AnyDataProviderRepository(repository),
+                 operationQueue: worker, expectationHandler: self)
+        let legacySettings = InMemorySettingsManager()
+        legacySettings.set(value: first, for: SettingsKey.selectedAccount.rawValue)
+        let gate = makeIsolatedRecoveryGate(settings: legacySettings)
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let selection = SelectedWalletSettings(
+            storageFacade: storage, operationQueue: worker,
+            legacySettings: legacySettings,
+            walletNetworkSelectionSynchronizer: { _, _, lease in
+                XCTAssertNil(coordinator.tryAcquire())
+                try coordinator.withExclusiveAccess(using: lease) {}
+            },
+            walletNetworkMetadataSynchronizer: { _, _, _, lease in
+                XCTAssertNil(coordinator.tryAcquire())
+                try coordinator.withExclusiveAccess(using: lease) {}
+            },
+            lifecycleCoordinator: coordinator, recoveryGate: gate
+        )
+
+        func assertOwnedLeaseReleased() {
+            do {
+                let lease = try XCTUnwrap(
+                    coordinator.tryAcquireForMutableWalletAccess(),
+                    "Completion must permit immediate signing/lifecycle access"
+                )
+                lease.release()
+            } catch { XCTFail("Completion retained an owned lease: \(error)") }
+        }
+
+        func observe(
+            _ label: String,
+            action: (@escaping (Result<AccountItem, Error>) -> Void) -> Void,
+            inspect: @escaping (Result<AccountItem, Error>) throws -> Void
+        ) {
+            let done = expectation(description: label)
+            action { result in
+                defer { done.fulfill() }
+                do {
+                    try inspect(result)
+                } catch {
+                    XCTFail("\(label) callback inspection threw: \(error)")
+                }
+            }
+            wait(for: [done], timeout: 5)
+        }
+
+        // Probe from inside the callback, where the old deferred release was
+        // deterministically still holding the lease; no scheduling delay helps.
+        let reentered = expectation(description: "selection reentered from success")
+        selection.save(value: second, runningCompletionIn: nil) { result in
+            XCTAssertEqual(try? result.get().address, second.address)
+            XCTAssertEqual(selection.currentAccount?.address, second.address)
+            assertOwnedLeaseReleased()
+            selection.save(value: first, runningCompletionIn: nil) { nested in
+                XCTAssertEqual(try? nested.get().address, first.address)
+                XCTAssertEqual(selection.currentAccount?.address, first.address)
+                assertOwnedLeaseReleased()
+                reentered.fulfill()
+            }
+        }
+        wait(for: [reentered], timeout: 5)
+        let renamed = first.replacingUsername("Completed metadata update")
+        observe("metadata callback permits immediate lifecycle access", action: {
+            selection.performUpdateName(account: first, displayName: renamed.username,
+                                        completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertEqual(try? result.get(), renamed)
+            XCTAssertEqual(selection.currentAccount, renamed)
+            assertOwnedLeaseReleased()
+        })
+
+        let missing = makeLegacyAccount(address: "completion-missing-wallet")
+        XCTAssertFalse([first.address, second.address].contains(missing.address))
+        observe("failed selection releases owned lease", action: {
+            selection.performSave(value: missing, completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertThrowsError(try result.get())
+            XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired)
+            assertOwnedLeaseReleased()
+        })
+        observe("failed metadata releases owned lease", action: {
+            selection.performUpdateName(account: missing, displayName: "Not stored",
+                                        completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertThrowsError(try result.get())
+            assertOwnedLeaseReleased()
+        })
+
+        // Removal owns its supplied lease across this callback and the next
+        // step of the removal transaction, for both successful and failed saves.
+        let supplied = try XCTUnwrap(coordinator.tryAcquireForMutableWalletAccess())
+        defer { supplied.release() }
+        for account in [second, missing] {
+            observe("supplied lease remains caller-owned", action: {
+                selection.performSelectAfterRemoval(value: account,
+                    lifecycleLease: supplied, completionClosure: $0)
+            }, inspect: { result in
+                if account.address == second.address {
+                    XCTAssertEqual(try? result.get().address, second.address)
+                } else {
+                    XCTAssertThrowsError(try result.get())
+                }
+                XCTAssertNil(coordinator.tryAcquire())
+                XCTAssertNoThrow(try coordinator.withExclusiveAccess(using: supplied) {})
+            })
+        }
+        supplied.release()
+        assertOwnedLeaseReleased()
+
+        // A failure after Core Data committed must latch recovery before the
+        // caller is notified, while still releasing the owned lease itself.
+        let failingSelection = SelectedWalletSettings(
+            storageFacade: storage, operationQueue: worker,
+            legacySettings: legacySettings,
+            walletNetworkSelectionSynchronizer: { _, _, _ in
+                throw WalletNetworkMigrationError.snapshotVerificationFailed
+            },
+            lifecycleCoordinator: coordinator, recoveryGate: gate
+        )
+        observe("post-commit failure latches recovery and releases owned lease", action: {
+            failingSelection.performSave(value: first, completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertThrowsError(try result.get())
+            XCTAssertTrue(legacySettings.walletMigrationRecoveryRequired)
+            XCTAssertThrowsError(try coordinator.tryAcquireForMutableWalletAccess())
+            let available = coordinator.tryAcquire()
+            XCTAssertNotNil(available)
+            available?.release()
+        })
     }
 
     func testLegacyWalletUpgradeRequiresExplicitUnambiguousLegacyOnlyState()
