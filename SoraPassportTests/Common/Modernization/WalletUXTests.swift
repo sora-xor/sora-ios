@@ -123,6 +123,27 @@ final class WalletUXTests: XCTestCase {
         XCTAssertEqual(try keys.fetchKey(for: "retained-fixture-key"), Data([1, 2, 3]))
     }
 
+    /// AirPlay mirroring or a wired display must never receive the wallet
+    /// windows or its life-cycle events: only the application role gets
+    /// SceneDelegate, and every other role is left to system mirroring.
+    @MainActor
+    func testOnlyTheApplicationSceneHostsTheWallet() {
+        let application = AppDelegate.sceneConfiguration(for: .windowApplication)
+        XCTAssertTrue(application.delegateClass == SceneDelegate.self)
+        XCTAssertEqual(application.role, .windowApplication)
+
+        let externalDisplay = AppDelegate.sceneConfiguration(for: .windowExternalDisplayNonInteractive)
+        XCTAssertNil(externalDisplay.delegateClass)
+        XCTAssertEqual(externalDisplay.role, .windowExternalDisplayNonInteractive)
+
+        XCTAssertTrue(UISceneSession.Role.windowApplication.isSoraWalletScene)
+        XCTAssertFalse(UISceneSession.Role.windowExternalDisplayNonInteractive.isSoraWalletScene)
+
+        if let walletScene = UIApplication.shared.soraWindowScene {
+            XCTAssertEqual(walletScene.session.role, .windowApplication)
+        }
+    }
+
     @MainActor
     func testNodeFailureUsesStatusWithoutBlockingPINOrClaimingAccountCreation() {
         let view = WalletUXNetworkStatusSpy()
