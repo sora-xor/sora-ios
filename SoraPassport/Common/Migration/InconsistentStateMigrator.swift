@@ -81,13 +81,13 @@ final class InconsistentStateMigrator: Migrating {
             // and make a recoverable keychain/database mismatch look like data
             // loss. Keep every legacy key and setting intact and route startup
             // to the recovery-safe screen instead.
-            settings.walletMigrationRecoveryRequired = true
-            settings.walletMigrationRecoveryReason = UserStorageMigrationError
-                .privacySafeRecoveryDescription(
+            settings.setWalletMigrationRecovery(
+                reason: UserStorageMigrationError.privacySafeRecoveryDescription(
                     for: WalletIntegrityError.selectedAccountSecretMissing(
                         address: selectedAccount.address
                     )
                 )
+            )
             throw WalletIntegrityError.selectedAccountSecretMissing(address: selectedAccount.address)
         }
     }

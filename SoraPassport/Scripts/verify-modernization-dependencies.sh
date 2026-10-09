@@ -280,6 +280,95 @@ for operation_range in (add_range, remove_range):
 PY
 }
 
+verify_ios_migration_shared_lifecycle_test_scope() {
+    # These five regressions intentionally exercise the production startup lease.
+    # Other modernization fixtures must continue using isolated coordinators.
+    /usr/bin/python3 -B -I -S - "$1" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+expected = {
+    "testGenericStartupRecoveryResumesTransientPreflightWriteFailure":
+        "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+    "testGenericStartupRecoveryResumesCanonicalDatabaseJournals":
+        "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+    "testGenericStartupRecoveryResumesCanonicalLegacyAccountJournals":
+        "let competing = WalletLifecycleCoordinator.shared.tryAcquire()",
+    "testGenericStartupJournalRecoveryPreservesConflictingEvidenceAndMarkerCAS":
+        "let outerLease = WalletLifecycleCoordinator.shared.acquire()",
+    "testGenericStartupRecoveryReprovesFailedDatabaseAttemptAndRetainsFailure":
+        "let lease = WalletLifecycleCoordinator.shared.acquire()",
+}
+observed = {}
+method = None
+for line in Path(sys.argv[1]).read_text().splitlines():
+    declaration = re.match(r"^    (?:private )?func (\w+)\(", line)
+    if declaration:
+        method = declaration.group(1)
+    if "WalletLifecycleCoordinator.shared" in line:
+        if method not in expected or method in observed or line.strip() != expected[method]:
+            raise SystemExit("error: production lifecycle use escaped the five startup recovery regressions")
+        observed[method] = line.strip()
+if observed != expected:
+    raise SystemExit("error: startup recovery production lifecycle regression coverage changed")
+PY
+}
+
+verify_ios_retained_mnemonic_policy() {
+    ios_policy_model="$1"
+    ios_policy_root="$2"
+    if [ ! -f "${ios_policy_model}" ] || [ -L "${ios_policy_model}" ] ||
+       [ ! -f "${ios_policy_root}" ] || [ -L "${ios_policy_root}" ]; then
+        echo "error: retained mnemonic policy sources are absent or symbolic" >&2
+        return 1
+    fi
+    /usr/bin/python3 -I -S - "${ios_policy_model}" "${ios_policy_root}" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+
+model = Path(sys.argv[1]).read_text(encoding="utf-8")
+root = Path(sys.argv[2]).read_text(encoding="utf-8")
+
+
+def require(condition: bool, detail: str) -> None:
+    if not condition:
+        raise SystemExit(f"error: retained 15/18/21-word SORA2-only policy drifted: {detail}")
+
+
+require(model.count("var supportsNexusDerivation: Bool") == 1, "source classification")
+require(
+    re.search(
+        r"var\s+supportsNexusDerivation:\s*Bool\s*\{\s*self\s*==\s*\.mnemonicEntropy\s*\}",
+        model,
+    ) is not None,
+    "legacy mnemonic source may derive Nexus children",
+)
+require(
+    re.search(
+        r"guard\s+WalletMnemonicWordPolicy\.isUserImportWordCount\(words\.count\)\s+else",
+        model,
+    ) is not None,
+    "Nexus derivation accepts retained-only word counts",
+)
+require("allowingTairaBackfill" not in model, "legacy recovery permits child backfill")
+require("isHistoricalLegacyMnemonic" not in model, "legacy snapshot topology permits children")
+require(root.count("let expectedNetworks: Set<NetworkId>") == 1, "activation topology")
+require(
+    re.search(
+        r"let\s+expectedNetworks:\s*Set<NetworkId>\s*=\s*"
+        r"expectedSource\s*==\s*\.legacyMnemonicEntropy\s*"
+        r"\?\s*\[\s*\.sora2\s*\]\s*:\s*"
+        r"NexusNetworkConfiguration\.admittedWalletNetworkIds",
+        root,
+    ) is not None,
+    "legacy activation requires Nexus children",
+)
+PY
+}
+
 run_ios_migration_release_source_gate() {
     ios_gate_projector="${root}/SoraPassport/Scripts/derive-ios-migration-test-host.py"
     ios_gate_clone="${root}/SoraPassport/Scripts/create-ios-migration-installable-clone.py"
@@ -539,7 +628,7 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'private func makeIsolatedRecoveryGate(' "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeWalletNetworkStore(' "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeLifecycleCoordinator()' "${ios_gate_modernization_tests}" ||
-       /usr/bin/grep -Fq 'WalletLifecycleCoordinator.shared' "${ios_gate_modernization_tests}" ||
+       ! verify_ios_migration_shared_lifecycle_test_scope "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'Task { [weak self] in' "${ios_gate_websocket_engine}" ||
        ! /usr/bin/grep -Fq 'let previousState = oldValue' "${ios_gate_websocket_engine}" ||
        ! /usr/bin/grep -Fq 'let currentState = state' "${ios_gate_websocket_engine}" ||
@@ -657,6 +746,10 @@ if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-reachability-listener-synchronization"
     verify_reachability_listener_synchronization "$2"
     exit 0
 fi
+if [ "$#" -eq 3 ] && [ "$1" = "--lint-ios-retained-mnemonic-policy" ]; then
+    verify_ios_retained_mnemonic_policy "$2" "$3"
+    exit 0
+fi
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
     unset SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE
     unset SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION
@@ -667,7 +760,7 @@ if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
     exit 0
 fi
 if [ "$#" -ne 0 ]; then
-    echo "error: usage: verify-modernization-dependencies.sh [--lint-ios-migration-release-source-gate | --lint-ios-google-signin-phase-dependencies PROJECT | --lint-ios-reachability-listener-synchronization SOURCE]" >&2
+    echo "error: usage: verify-modernization-dependencies.sh [--lint-ios-migration-release-source-gate | --lint-ios-google-signin-phase-dependencies PROJECT | --lint-ios-reachability-listener-synchronization SOURCE | --lint-ios-retained-mnemonic-policy MODEL ROOT]" >&2
     exit 64
 fi
 
@@ -4104,7 +4197,7 @@ if ! /usr/bin/grep -Fq "rawSeed == mnemonicSeed" "${wallet_network_model}" ||
 fi
 
 if ! /usr/bin/grep -Fq "walletNetworkSynchronizer" "${selected_wallet_settings}" ||
-   ! /usr/bin/grep -Fq "walletMigrationRecoveryRequired = true" "${selected_wallet_settings}" ||
+   ! /usr/bin/grep -Fq "setWalletMigrationRecovery(" "${selected_wallet_settings}" ||
    ! /usr/bin/grep -Fq "commitInternalValue(" "${selected_wallet_settings}" ||
    ! /usr/bin/grep -Fq "func performInsertAndSelect(" "${selected_wallet_settings}" ||
    ! /usr/bin/grep -Fq "WalletAccountCommitJournalStore" "${selected_wallet_settings}" ||
@@ -4672,7 +4765,11 @@ fi
 
 if ! /usr/bin/grep -Fq "co.jp.soramitsu.sora.storage-migration" "${splash_interactor}" ||
    ! /usr/bin/grep -Fq "WalletAccountCommitJournalStore().unresolved()" "${splash_interactor}" ||
-   ! /usr/bin/grep -Fq "WalletLifecycleCoordinator.shared.withExclusiveAccess" "${splash_interactor}"; then
+   ! /usr/bin/grep -Fq "try dbMigrator.migrateAtStartup()" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "let lease = lifecycleCoordinator.acquire()" "${storage_migrator}" ||
+   ! /usr/bin/grep -Fq "defer { lease.release() }" "${storage_migrator}" ||
+   ! /usr/bin/grep -Fq "guard try !hasUnresolvedAccountCommit()" "${storage_migrator}" ||
+   ! /usr/bin/grep -Fq "try recoveryGate.requireMutableWalletAccess()" "${storage_migrator}"; then
     echo "error: startup migration is not background, single-flight, journal-aware, and lifecycle coordinated"
     exit 1
 fi
@@ -4689,9 +4786,11 @@ fi
 if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "static let userImportWordCounts: Set<Int> = [12, 24]" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]" "${wallet_network_model}" ||
+   ! verify_ios_retained_mnemonic_policy "${wallet_network_model}" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "case 15, 18, 21:" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "case legacyMnemonicEntropy" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "source == .mnemonicEntropy" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "source.supportsNexusDerivation" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "guard WalletMnemonicWordPolicy.isUserImportWordCount(words.count)" "${wallet_network_model}" ||
    [ "$(/usr/bin/grep -Fc "allowedMnemonicWordCounts.contains(mnemonic.allWords().count)" "${account_import}")" -lt 2 ] ||
    ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.userImportWordCounts" "${account_import}" ||
    [ "$(/usr/bin/grep -Fc ".retainedSoraWordCounts" "${account_import_factory}")" -ne 1 ] ||
@@ -4701,12 +4800,14 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "testExplicitWatchOnlyMigrationNeverSynthesizesNexusChildren" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testReleasedMnemonicFormatsSurviveDatabaseAndNetworkUpgrade" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testVersionOneMigrationPreservesSamePublicKeyOnDifferentNetworks" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "func fetchLegacyEntropyBeforeNetworkActivation(" "${keystore_extensions}" ||
+   ! /usr/bin/grep -Fq "return try keystore.fetchLegacyEntropyBeforeNetworkActivation(" "${storage_migrator}" ||
    ! /usr/bin/awk '
        /private func migrateLocked\(/ { in_migrate = 1 }
        in_migrate && /let isExplicitWatchOnly =/ && stage == 0 { stage = 1 }
        in_migrate && /legacySecret == nil,/ && stage == 1 { stage = 2 }
        in_migrate && /!isExplicitWatchOnly/ && stage == 2 { stage = 3 }
-       in_migrate && /KeystoreTag\.legacyEntropy\.rawValue/ && stage == 3 { stage = 4 }
+       in_migrate && /fetchLegacyEntropyBeforeNetworkActivation\(/ && stage == 3 { stage = 4 }
        in_migrate && /private static func wipeSensitive\(/ { in_migrate = 0 }
        END { exit(stage == 4 ? 0 : 1) }
    ' "${wallet_network_model}"; then
@@ -5786,11 +5887,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "202" ] ||
+    if [ "${modernization_test_count}" != "236" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 228 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 262 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -5983,15 +6084,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "202" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 202 test methods"
+if [ "${modernization_test_count}" != "236" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 236 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 228 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 228-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 262 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 262-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(

@@ -1,0 +1,207 @@
+diff --git a/SoraPassport/Common/Storage/SelectedWalletSettings.swift b/SoraPassport/Common/Storage/SelectedWalletSettings.swift
+index 5665f6bc540e92895696ce44fa444521318fd718..c00ffe22916b74ef9099ea416eda1b2e7e91c9b6 100644
+--- a/SoraPassport/Common/Storage/SelectedWalletSettings.swift
++++ b/SoraPassport/Common/Storage/SelectedWalletSettings.swift
+@@ -1009,6 +1009,7 @@ extension SelectedWalletSettings {
+ // in recovery for an already retained identity.
+ import GoogleAPIClientForREST_Drive
+ import GoogleAPIClientForRESTCore
++import GoogleSignIn
+ import IrohaCrypto
+ import SSFCloudStorage
+ import SSFUtils
+@@ -1016,9 +1017,27 @@ import TweetNacl
+ import UIKit
+ 
+ enum WalletCloudBackupRecoveryError: Error {
+-    case notAuthorized, notFound, ambiguous, invalidBackup, incorrectPassword
++    case notAuthorized, authorizationCanceled, notFound, ambiguous, invalidBackup, incorrectPassword
+     case identityMismatch, unsupportedBackup, unavailable
+ 
++    static func authorizationError(for error: Error) -> Self {
++        let system = error as NSError
++        // GIDSignIn's public kGIDSignInErrorCodeCanceled is -5.
++        if error is CancellationError || (system.domain == kGIDSignInErrorDomain && system.code == -5) {
++            return .authorizationCanceled
++        }
++        return .notAuthorized
++    }
++
++    static func title(for error: Error) -> String {
++        switch error as? Self {
++        case .notFound: return "Backup not found"
++        case .authorizationCanceled: return "Google sign-in canceled"
++        case .notAuthorized: return "Google sign-in required"
++        default: return "Wallet keys not restored"
++        }
++    }
++
+     static func userMessage(for error: Error) -> String {
+         if let system = error as? KeystoreSystemError {
+             return "The iPhone could not access protected wallet storage (Keychain status \(system.status)). Unlock it and try again."
+@@ -1034,7 +1053,8 @@ enum WalletCloudBackupRecoveryError: Error {
+         }
+         switch error {
+         case .notAuthorized: return "Sign in to the Google account that holds your wallet backup."
+-        case .notFound: return "No backup for this existing wallet was found in this Google account."
++        case .authorizationCanceled: return "Google sign-in was canceled. No wallet keys were changed. Tap Restore from Google Drive backup to choose an account again."
++        case .notFound: return "No backup for this existing wallet was found in the selected Google account. Tap Restore from Google Drive backup again to choose another Google account."
+         case .ambiguous: return "More than one backup matches this wallet. No wallet keys were changed."
+         case .invalidBackup: return "The backup file is incomplete or unsupported. No wallet keys were changed."
+         case .incorrectPassword: return "The backup could not be decrypted with this password. Try the original backup password."
+@@ -1051,9 +1071,30 @@ final class WalletCloudBackupRecoveryService {
+     private let authorize: () async throws -> Bool
+ 
+     init(viewController: UIViewController) {
+-        let cloud = CloudStorageService(uiDelegate: viewController)
+-        drive = cloud.googleDriveService
+-        authorize = { try await cloud.signInIfNeeded() == .authorized }
++        let recoveryDrive = BaseGoogleService(googleService: GTLRDriveService())
++        drive = recoveryDrive
++        authorize = {
++            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
++                Task { @MainActor in
++                    // Recovery must let the user choose the backup's Google account
++                    // even when ordinary cloud browsing already has a saved session.
++                    GIDSignIn.sharedInstance.signIn(withPresenting: viewController, hint: nil,
++                        additionalScopes: [kGTLRAuthScopeDriveAppdata]) { result, error in
++                        if let error {
++                            continuation.resume(throwing: error)
++                            return
++                        }
++                        guard let user = result?.user,
++                              user.grantedScopes?.contains(kGTLRAuthScopeDriveAppdata) == true else {
++                            continuation.resume(returning: false)
++                            return
++                        }
++                        recoveryDrive.set(authorizer: user.fetcherAuthorizer)
++                        continuation.resume(returning: true)
++                    }
++                }
++            }
++        }
+     }
+ 
+     init(drive: GoogleService, authorize: @escaping () async throws -> Bool) {
+@@ -1067,7 +1108,11 @@ final class WalletCloudBackupRecoveryService {
+             throw WalletCloudBackupRecoveryError.identityMismatch
+         }
+         do {
++            try Task.checkCancellation()
+             guard try await authorize() else { throw WalletCloudBackupRecoveryError.notAuthorized }
++        } catch let error as WalletCloudBackupRecoveryError { throw error }
++        catch { throw WalletCloudBackupRecoveryError.authorizationError(for: error) }
++        do {
+             var token: String?
+             var seenTokens = Set<String>()
+             var matches: [GTLRDrive_File] = []
+diff --git a/SoraPassport/ModulesRedesign/Root/RootWireframe.swift b/SoraPassport/ModulesRedesign/Root/RootWireframe.swift
+index b9e3985f6489254afa63fd172f5524b113ab5f84..d5b514d7df6c06feea7e377ed04d898c74dabf7c 100644
+--- a/SoraPassport/ModulesRedesign/Root/RootWireframe.swift
++++ b/SoraPassport/ModulesRedesign/Root/RootWireframe.swift
+@@ -501,7 +501,7 @@ final class WalletRecoveryViewController: UIViewController {
+                 self.setKeyRecoveryBusy(false)
+                 let message = WalletCloudBackupRecoveryError.userMessage(for: error)
+                 self.setCloudRecoveryStatus(message)
+-                self.showKeyRecoveryError(message)
++                self.showKeyRecoveryError(message, title: WalletCloudBackupRecoveryError.title(for: error))
+             }
+         }
+     }
+@@ -610,8 +610,8 @@ final class WalletRecoveryViewController: UIViewController {
+         exportButton.isEnabled = !busy && !isExporting
+     }
+ 
+-    private func showKeyRecoveryError(_ message: String) {
+-        let alert = UIAlertController(title: "Wallet keys not restored", message: message, preferredStyle: .alert)
++    private func showKeyRecoveryError(_ message: String, title: String = "Wallet keys not restored") {
++        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+         alert.addAction(UIAlertAction(title: "OK", style: .default))
+         present(alert, animated: true)
+     }
+diff --git a/SoraPassportTests/Common/Modernization/WalletModernizationTests.swift b/SoraPassportTests/Common/Modernization/WalletModernizationTests.swift
+index 5bf768a6a1bcfd0777d2f136ba759343cb7b1ba0..16200a3fb59b08d5355c139b16caa434590130f9 100644
+--- a/SoraPassportTests/Common/Modernization/WalletModernizationTests.swift
++++ b/SoraPassportTests/Common/Modernization/WalletModernizationTests.swift
+@@ -4,6 +4,7 @@
+ import BigInt
+ import GoogleAPIClientForREST_Drive
+ import GoogleAPIClientForRESTCore
++import GoogleSignIn
+ import SSFCloudStorage
+ import CoreData
+ import CryptoKit
+@@ -10986,8 +10987,51 @@ final class WalletModernizationTests: XCTestCase {
+             _ = try await WalletCloudBackupRecoveryService(drive: unauthorized, authorize: { false })
+                 .readBackup(for: account.address)
+             XCTFail("Unauthorized backup read")
+-        } catch {}
++        } catch WalletCloudBackupRecoveryError.notAuthorized {}
++        catch { XCTFail("Authorization was not reported distinctly") }
+         XCTAssertTrue(unauthorized.queries.isEmpty)
++
++        // The first selected account can have no backup. Retrying must authorize
++        // again; canceling that chooser must not reuse the previous Drive session.
++        let retryDrive = RecoveryDriveFixture([list([]), list([file()]), media])
++        var authorizationAttempts = 0
++        let retryReader = WalletCloudBackupRecoveryService(drive: retryDrive, authorize: {
++            authorizationAttempts += 1
++            if authorizationAttempts == 2 {
++                throw NSError(domain: kGIDSignInErrorDomain, code: -5,
++                    userInfo: [NSLocalizedDescriptionKey: "synthetic private authorization content"])
++            }
++            return true
++        })
++        do {
++            _ = try await retryReader.readBackup(for: account.address)
++            XCTFail("An empty Google account was admitted")
++        } catch WalletCloudBackupRecoveryError.notFound {}
++        catch { XCTFail("An empty account was not reported as missing backup") }
++        XCTAssertEqual(authorizationAttempts, 1)
++        XCTAssertEqual(retryDrive.queries.count, 1)
++        do {
++            _ = try await retryReader.readBackup(for: account.address)
++            XCTFail("A canceled account chooser was admitted")
++        } catch WalletCloudBackupRecoveryError.authorizationCanceled {}
++        catch { XCTFail("Google sign-in cancellation was not distinguished") }
++        XCTAssertEqual(authorizationAttempts, 2)
++        XCTAssertEqual(retryDrive.queries.count, 1, "Cancel must issue no Drive query")
++        let retryPayload = try await retryReader.readBackup(for: account.address)
++        XCTAssertEqual(retryPayload, payload)
++        XCTAssertEqual(authorizationAttempts, 3)
++        XCTAssertEqual(retryDrive.queries.count, 3)
++        XCTAssertTrue(retryDrive.queries.last is GTLRDriveQuery_FilesGet)
++
++        let failedAuthorization = RecoveryDriveFixture([])
++        do {
++            _ = try await WalletCloudBackupRecoveryService(drive: failedAuthorization, authorize: {
++                throw NSError(domain: "synthetic-auth-error", code: -5)
++            }).readBackup(for: account.address)
++            XCTFail("Failed authorization was admitted")
++        } catch WalletCloudBackupRecoveryError.notAuthorized {}
++        catch { XCTFail("Non-Google errors must not be labeled Google cancellation") }
++        XCTAssertTrue(failedAuthorization.queries.isEmpty)
+     }
+ 
+     func testCloudRecoveryRetainedBackupFormatsPreserveAccountAndSigning() throws {
+diff --git a/SoraPassportTests/Common/Modernization/WalletUXTests.swift b/SoraPassportTests/Common/Modernization/WalletUXTests.swift
+index cac5a57ff2e26bc7120c4e509dba2ac9913a7520..2643418cc12c950aca80cb99cf16de31af7c57ac 100644
+--- a/SoraPassportTests/Common/Modernization/WalletUXTests.swift
++++ b/SoraPassportTests/Common/Modernization/WalletUXTests.swift
+@@ -157,6 +157,16 @@ final class WalletUXTests: XCTestCase {
+         XCTAssertFalse(restoreCloud.isHidden)
+         XCTAssertTrue(restoreCloud.isEnabled)
+         XCTAssertEqual(restoreCloud.title(for: .normal), "Restore from Google Drive backup")
++        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.notFound),
++            "Backup not found")
++        XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.notFound)
++            .contains("again to choose another Google account"))
++        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.authorizationCanceled),
++            "Google sign-in canceled")
++        XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.authorizationCanceled)
++            .contains("No wallet keys were changed"))
++        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.incorrectPassword),
++            "Wallet keys not restored")
+         XCTAssertTrue(try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UILabel }
+             .first { $0.accessibilityIdentifier == "wallet-recovery-cloud-status" }).isHidden)
+         let missingKeysRetry = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }

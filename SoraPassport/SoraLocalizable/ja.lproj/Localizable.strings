@@ -952,3 +952,14 @@
 "polkamarkt.ticket.slippage" = "Slippage";
 "polkamarkt.ticket.takerFee" = "Taker fee";
 "networkFeeText" = "Network fee";
+
+// Wallet opening and connection recovery
+"Opening wallet" = "ウォレットを開いています";
+"Preparing wallet services…" = "ウォレットを準備しています…";
+"Try again" = "再試行";
+"Change node" = "ノードを変更";
+"Check wallet again" = "ウォレットを再確認";
+"Wallet verification needs attention. Check your saved wallet again." = "保存されたウォレットを確認する必要があります。ウォレットを再確認してください。";
+"Wallet services are not ready. Try again or choose another node." = "ウォレットの準備が完了していません。再試行するか、別のノードを選択してください。";
+"Node settings are still loading. Try again." = "ノード設定を読み込んでいます。再試行してください。";
+"Network unavailable. Retrying connection…" = "ネットワークに接続できません。再接続しています…";

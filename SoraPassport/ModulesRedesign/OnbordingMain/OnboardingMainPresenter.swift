@@ -37,25 +37,26 @@ final class OnboardingMainPresenter {
     var wireframe: OnboardingMainWireframeProtocol!
 
     let locale: Locale
+    private var isConnectingCloudStorage = false
 
     init(locale: Locale) {
         self.locale = locale
     }
     
-    private func showScreenAfterSelection(_ result: (Result<[OpenBackupAccount], Error>)) {
-        view?.hideLoading()
-        switch result {
-        case .success(let accounts):
-            let accounts = accounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
-            if accounts.isEmpty {
-                wireframe.showSignup(from: view, isGoogleBackupSelected: true)
-                return
-            }
-            wireframe.showBackupedAccounts(from: view, accounts: accounts)
-        case .failure:
-            break
+    private func showCloudImportError(_ error: Error) {
+        let recoveryError: WalletCloudBackupRecoveryError
+        switch error as? CloudStorageServiceError {
+        case .notAuthorized: recoveryError = .notAuthorized
+        case .notFound: recoveryError = .notFound
+        default:
+            recoveryError = WalletCloudBackupRecoveryError.authorizationError(for: error) == .authorizationCanceled
+                ? .authorizationCanceled : .unavailable
         }
+        wireframe.present(message: WalletCloudBackupRecoveryError.userMessage(for: recoveryError),
+            title: WalletCloudBackupRecoveryError.title(for: recoveryError),
+            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale), from: view)
     }
+
 }
 
 extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
@@ -65,6 +66,7 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
     
     func viewWillAppear() {
+        guard !isConnectingCloudStorage else { return }
         interactor.resetGoogleState()
     }
 
@@ -77,19 +79,27 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
     
     func activateCloudStorageConnection() {
+        guard !isConnectingCloudStorage else { return }
+        isConnectingCloudStorage = true
         view?.showLoading()
-        Task { [weak self] in
-            do {
-                guard let self else { return }
-                let result = try await self.interactor.getBackupedAccounts()
-                
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let outcome: Result<[OpenBackupAccount], Error>
+            do { outcome = .success(try await self.interactor.getBackupedAccounts()) }
+            catch { outcome = .failure(error) }
+            self.isConnectingCloudStorage = false
+            self.view?.hideLoading()
+            switch outcome {
+            case .success(let result):
                 let accounts = result.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
                 if accounts.isEmpty {
                     self.wireframe.showSignup(from: self.view, isGoogleBackupSelected: true)
-                    return
+                } else {
+                    self.wireframe.showBackupedAccounts(from: self.view, accounts: accounts)
                 }
-                self.wireframe.showBackupedAccounts(from: self.view, accounts: accounts)
-            } catch {}
+            case .failure(let error):
+                self.showCloudImportError(error)
+            }
         }
     }
 }

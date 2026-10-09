@@ -36,15 +36,32 @@ import SoraUIKit
 import IrohaCrypto
 import SSFUtils
 
+enum WalletOpeningError: String, Error {
+    case recoveryRequired = "recovery_required"
+    case servicesNotReady = "services_not_ready"
+    case connectionNotReady = "connection_not_ready"
+    case accountNotReady = "account_not_ready"
+    case assetsNotReady = "assets_not_ready"
+    case contextNotReady = "context_not_ready"
+    case screensNotReady = "screens_not_ready"
+}
+
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
     
     @MainActor
     static func createView() -> MainTabBarViewProtocol? {
-        
+        try? createViewOrThrow()
+    }
+
+    @MainActor
+    static func createViewOrThrow() throws -> MainTabBarViewProtocol {
+        guard !SettingsManager.shared.walletMigrationRecoveryRequired else {
+            throw WalletOpeningError.recoveryRequired
+        }
         guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared.findService() else {
             Logger.shared.error("Can't find required keystore import service")
-            return nil
+            throw WalletOpeningError.servicesNotReady
         }
         
         let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
@@ -56,16 +73,24 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return nil
+        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil else {
+            throw WalletOpeningError.connectionNotReady
         }
         
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         assetManager.setup(for: SelectedWalletSettings.shared)
 
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
-            return nil
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+            throw WalletOpeningError.accountNotReady
+        }
+        let accountSettings: WalletAccountSettingsProtocol
+        do {
+            accountSettings = try primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
+        } catch WalletPrimitiveFactoryError.undefinedAssets {
+            throw WalletOpeningError.assetsNotReady
+        } catch {
+            throw WalletOpeningError.accountNotReady
         }
         
         let farmingService = DemeterFarmingService(
@@ -78,7 +103,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                             assetManager: assetManager,
                                                                             accountSettings: accountSettings, 
                                                                             demeterFarmingService: farmingService) else {
-            return nil
+            throw WalletOpeningError.contextNotReady
         }
         
         let feeProvider = FeeProvider()
@@ -89,7 +114,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                               accountSettings: accountSettings, 
                                                               feeProvider: feeProvider,
                                                               farmingService: farmingService) else {
-            return nil
+            throw WalletOpeningError.screensNotReady
         }
         
         view.viewControllers = viewControllers
