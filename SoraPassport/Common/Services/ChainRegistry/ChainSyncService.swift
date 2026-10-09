@@ -207,10 +207,23 @@ final class ChainSyncService {
         whitelistData: Data?
     ) -> ChainModel {
         let matchingLocal = local?.chainId == chainId && local?.addressPrefix == addressPrefix ? local : nil
-        var availableNodes = nodes
+        // One node per URL: the store has a uniqueness constraint on the node
+        // URL, and the same URL can arrive under two names (bundled
+        // "SORA Ministry of Finance 2" and PI's "Sora" for mof2). Saving both
+        // failed every chain sync with a constraint conflict. Bundled names win.
+        var nodesByURL: [URL: ChainNodeModel] = [:]
         if SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix) {
-            availableNodes.formUnion(SoraNodeConnectionPolicy.bundledMainnetNodes)
+            for node in SoraNodeConnectionPolicy.bundledMainnetNodes {
+                nodesByURL[node.url] = node
+            }
         }
+        let orderedNodes = nodes.sorted {
+            ($0.url.absoluteString, $0.name) < ($1.url.absoluteString, $1.name)
+        }
+        for node in orderedNodes where nodesByURL[node.url] == nil {
+            nodesByURL[node.url] = node
+        }
+        var availableNodes = Set(nodesByURL.values)
         if availableNodes.isEmpty {
             availableNodes = matchingLocal?.nodes ?? []
         }

@@ -79,13 +79,18 @@ extension ConfigService: ConfigServiceProtocol {
                 completion()
                 return
             }
-            let nodes: Set<ChainNodeModel> = Set(response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address) else { return nil }
+            // The bundled nodes and type registry always stay. PI may add
+            // nodes at other URLs; a URL that is already bundled keeps its
+            // bundled entry.
+            let bundled = ApplicationConfig.shared.defaultChainNodes
+            let bundledURLs = Set(bundled.map(\.url))
+            let remote: [ChainNodeModel] = response.nodes.compactMap({ node in
+                guard let url = URL(string: node.address), !bundledURLs.contains(url) else { return nil }
                 return ChainNodeModel(url: url, name: node.name, apikey: nil)
-            }))
+            })
             self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
-                                       typesUrlString: response.substrateTypesUrl,
-                                       defaultNodes: nodes)
+                                       typesUrlString: ApplicationConfig.shared.commonTypesURL?.absoluteString,
+                                       defaultNodes: bundled.union(remote))
             completion()
         }
         

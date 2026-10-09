@@ -191,6 +191,23 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertTrue(different.nodes.isEmpty)
         XCTAssertNil(different.selectedNode)
         XCTAssertNil(different.customNodes)
+
+        // PI lists mof2 under another name. The store allows one node per
+        // URL, so the chain must keep exactly one entry per URL, with the
+        // bundled name, plus genuinely new PI nodes.
+        let renamedMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
+        let extra = ChainNodeModel(url: URL(string: "wss://extra.sora.example")!, name: "Extra", apikey: nil)
+        let merged = ChainSyncService.preparedChain(
+            chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [renamedMof2, extra],
+            typesURL: nil, local: nil, assets: [.xor], whitelistData: nil
+        )
+        XCTAssertEqual(merged.nodes.count, 3)
+        XCTAssertEqual(Set(merged.nodes.map(\.url)).count, merged.nodes.count)
+        XCTAssertEqual(
+            merged.nodes.first { $0.url == renamedMof2.url }?.name,
+            "SORA Ministry of Finance 2"
+        )
+        XCTAssertTrue(merged.nodes.contains(extra))
     }
 
     private func configuredChain(
