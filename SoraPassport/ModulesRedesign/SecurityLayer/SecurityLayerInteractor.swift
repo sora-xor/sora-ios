@@ -42,6 +42,7 @@ final class SecurityLayerInteractor {
     private var backgroundEnterDate: Date?
 
     let pincodeDelay: TimeInterval
+    private let currentDate: () -> Date
 
     private var canEnterPincode: Bool {
         do {
@@ -55,11 +56,13 @@ final class SecurityLayerInteractor {
     init(applicationHandler: ApplicationHandlerProtocol,
          settings: SettingsManagerProtocol,
          keystore: KeystoreProtocol,
-         pincodeDelay: TimeInterval) {
+         pincodeDelay: TimeInterval,
+         currentDate: @escaping () -> Date = Date.init) {
         self.applicationHandler = applicationHandler
         self.settings = settings
         self.keystore = keystore
         self.pincodeDelay = pincodeDelay
+        self.currentDate = currentDate
     }
 
     private func checkAuthorizationRequirement() {
@@ -70,7 +73,7 @@ final class SecurityLayerInteractor {
         self.backgroundEnterDate = nil
 
         if canEnterPincode {
-            let pincodeDelayReached = Date().timeIntervalSince(backgroundEnterDate) >= pincodeDelay
+            let pincodeDelayReached = currentDate().timeIntervalSince(backgroundEnterDate) >= pincodeDelay
 
             if pincodeDelayReached {
                 presenter.didDecideRequestAuthorization()
@@ -98,6 +101,6 @@ extension SecurityLayerInteractor: ApplicationHandlerDelegate {
     func didReceiveWillResignActive(notification: Notification) {
         presenter.didDecideSecurePresentation()
 
-        backgroundEnterDate = Date()
+        backgroundEnterDate = currentDate()
     }
 }
