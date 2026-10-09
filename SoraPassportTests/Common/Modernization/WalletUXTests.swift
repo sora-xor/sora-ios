@@ -140,6 +140,8 @@ final class WalletUXTests: XCTestCase {
             .first { $0.accessibilityIdentifier == "wallet-recovery-retry" }).isHidden)
         XCTAssertTrue(try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
             .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" }).isHidden)
 
         WalletStartupDiagnostic.record(UserStorageMigrationError.missingWalletSecret("fixture"),
             phase: .databaseMigration, settings: settings)
@@ -150,11 +152,25 @@ final class WalletUXTests: XCTestCase {
             .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" })
         XCTAssertFalse(restore.isHidden)
         XCTAssertTrue(restore.isEnabled)
+        let restoreCloud = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" })
+        XCTAssertFalse(restoreCloud.isHidden)
+        XCTAssertTrue(restoreCloud.isEnabled)
+        XCTAssertEqual(restoreCloud.title(for: .normal), "Restore from Google Drive backup")
+        XCTAssertTrue(try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-cloud-status" }).isHidden)
+        let missingKeysRetry = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
+        missingKeysRetry.sendActions(for: .touchUpInside)
+        XCTAssertFalse(restore.isEnabled)
+        XCTAssertFalse(restoreCloud.isEnabled)
         let missingKeysWithoutRetry = WalletRecoveryViewController(reason: reason,
             diagnostic: WalletStartupDiagnostic.current(settings))
         missingKeysWithoutRetry.loadViewIfNeeded()
         XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
             .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" }).isHidden)
     }
 
     @MainActor

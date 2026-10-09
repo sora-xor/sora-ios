@@ -460,13 +460,43 @@ final class UserStorageMigrator {
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         checkpoint: () throws -> Void = {}
     ) throws {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
+            fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+            throw WalletNetworkMigrationError.invalidMnemonic
+        }
+        var entropy = mnemonic.entropy()
+        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        try restoreMissingBackupMaterial(address: address, expectedAccount: nil,
+            entropy: entropy, rawSeed: nil, secret: nil, derivationPath: derivationPath,
+            baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
+    }
+
+    /// All supplied backup sources must agree with the retained identity. Only
+    /// one absent source is committed, with the richest source preferred; the
+    /// subsequent ordinary startup still owns full verification and activation.
+    func restoreMissingBackupMaterial(
+        address: String, expectedAccount: AccountItem?, entropy: Data?, rawSeed: Data?,
+        secret: Data?, derivationPath: String, baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        checkpoint: () throws -> Void = {}
+    ) throws {
         let lease = lifecycleCoordinator.acquire()
         defer { lease.release() }
         let (marker, gate) = try missingKeyRecoveryGate(baseURL: baseURL)
         let accounts = try readMissingKeyRecoveryAccounts(gate: gate)
         guard let account = accounts.first(where: { $0.address == address }),
-              settings.bool(for: "wallet.watchOnly.\(address)") != true else {
+              settings.bool(for: "wallet.watchOnly.\(address)") != true,
+              entropy != nil || rawSeed != nil || secret != nil else {
             throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        if let expectedAccount {
+            guard expectedAccount.address == account.address,
+                  expectedAccount.publicKeyData == account.publicKeyData,
+                  expectedAccount.cryptoType == account.cryptoType,
+                  expectedAccount.networkType == account.networkType else {
+                throw UserStorageMigrationError.accountInventoryMismatch
+            }
         }
         let absentTags = [KeystoreTag.entropyTagForAddress(address),
             KeystoreTag.secretKeyTagForAddress(address), KeystoreTag.seedTagForAddress(address)]
@@ -477,30 +507,32 @@ final class UserStorageMigrator {
         guard existingPath == nil || existingPath == derivationPath else {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
-        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
-            fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
-        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
-            throw WalletNetworkMigrationError.invalidMnemonic
+        if let rawSeed, rawSeed.count != 32 && rawSeed.count != 64 {
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
-        var entropy = mnemonic.entropy()
-        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        if let secret {
+            try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: account.cryptoType)
+        }
         let path = derivationPath.isEmpty ? nil : derivationPath
         try LegacySoraIdentityValidator.validate(address: account.address,
             publicKey: account.publicKeyData, cryptoType: account.cryptoType,
             networkType: account.networkType, derivationPath: path,
-            entropy: entropy, rawSeed: nil, secret: nil, recoveryGate: gate)
+            entropy: entropy, rawSeed: rawSeed, secret: secret, recoveryGate: gate)
         try marker.requireUnchangedForStartupVerification(settings)
-        // The derivation record alone cannot enable a signer. If interrupted
-        // between these additions, retry proves the same path and identity.
         if existingPath == nil, let path {
             try keystore.addKey(Data(path.utf8), with: KeystoreTag.deriviationTagForAddress(address))
         }
         try checkpoint()
         try marker.requireUnchangedForStartupVerification(settings)
         try gate.requireMutableWalletAccess()
-        try keystore.addKey(entropy, with: KeystoreTag.entropyTagForAddress(address))
-        // Do not roll back an independently proven recovery key, including if
-        // a later read or the following startup is interrupted.
+        if let entropy {
+            try keystore.addKey(entropy, with: KeystoreTag.entropyTagForAddress(address))
+        } else if let rawSeed {
+            try keystore.addKey(rawSeed, with: KeystoreTag.seedTagForAddress(address))
+        } else if let secret {
+            try keystore.addKey(secret, with: KeystoreTag.secretKeyTagForAddress(address))
+        }
+        // Never delete a proven recovery source after a later interruption.
     }
 
     private func missingKeyRecoveryGate(baseURL: URL?) throws

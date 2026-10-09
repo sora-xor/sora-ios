@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: BSD-4-Clause
 
 import BigInt
+import GoogleAPIClientForREST_Drive
+import GoogleAPIClientForRESTCore
+import SSFCloudStorage
 import CoreData
 import CryptoKit
 import IrohaCrypto
@@ -13,6 +16,19 @@ import SSFUtils
 import UIKit
 import XCTest
 @testable import SoraPassport
+
+private struct RecoveryDriveTicket: GoogleServiceTicket {}
+private final class RecoveryDriveFixture: GoogleService {
+    var responses: [Any]
+    var queries: [GTLRQueryProtocol] = []
+    init(_ responses: [Any]) { self.responses = responses }
+    func set(authorizer: GTMFetcherAuthorizationProtocol?) {}
+    func executeQuery(_ query: GTLRQueryProtocol) async throws -> (ticket: GoogleServiceTicket, file: Any?) {
+        queries.append(query)
+        guard !responses.isEmpty else { throw WalletCloudBackupRecoveryError.unavailable }
+        return (RecoveryDriveTicket(), responses.removeFirst())
+    }
+}
 
 /// Keeps synthetic wallet data in memory while using the production parser for
 /// Security's mixed wallet/framework attribute result, which InMemoryKeychain
@@ -10920,6 +10936,194 @@ final class WalletModernizationTests: XCTestCase {
                 XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
             }
         }
+    }
+
+    func testCloudRecoveryReadsOnlyExactBoundedExistingBackup() async throws {
+        let account = try retainedEntropyAccount(entropy: Data(repeating: 20, count: 20))
+        let payload = Data("synthetic encrypted backup bytes".utf8)
+        func file(name: String? = nil) -> GTLRDrive_File {
+            let item = GTLRDrive_File()
+            item.identifier = "synthetic-backup"
+            item.name = name ?? "\(account.address).json"
+            item.size = NSNumber(value: payload.count)
+            item.mimeType = "application/json"
+            return item
+        }
+        func list(_ files: [GTLRDrive_File], token: String? = nil) -> GTLRDrive_FileList {
+            let result = GTLRDrive_FileList()
+            result.files = files
+            result.nextPageToken = token
+            return result
+        }
+        let media = GTLRDataObject()
+        media.data = payload
+        let drive = RecoveryDriveFixture([list([], token: "next"), list([file()]), media])
+        let reader = WalletCloudBackupRecoveryService(drive: drive, authorize: { true })
+        let fetched = try await reader.readBackup(for: account.address)
+        XCTAssertEqual(fetched, payload)
+        XCTAssertEqual(drive.queries.count, 3)
+        for query in drive.queries.prefix(2) {
+            let read = try XCTUnwrap(query as? GTLRDriveQuery_FilesList)
+            XCTAssertEqual(read.spaces, "appDataFolder")
+            XCTAssertEqual(read.q, "name = '\(account.address).json' and trashed = false")
+            XCTAssertEqual(read.pageSize, 100)
+            XCTAssertTrue(read.fields?.contains("nextPageToken") == true)
+        }
+        XCTAssertEqual((drive.queries[1] as? GTLRDriveQuery_FilesList)?.pageToken, "next")
+        XCTAssertTrue(drive.queries.last is GTLRDriveQuery_FilesGet)
+        for response in [list([]), list([file(), file()]), list([file(name: "prefix-\(account.address).json")]),
+                         list([], token: "loop")] {
+            let bad = RecoveryDriveFixture([response, response])
+            do {
+                _ = try await WalletCloudBackupRecoveryService(drive: bad, authorize: { true })
+                    .readBackup(for: account.address)
+                XCTFail("Unproven backup was admitted")
+            } catch {}
+            XCTAssertTrue(bad.queries.allSatisfy { $0 is GTLRDriveQuery_FilesList })
+        }
+        let unauthorized = RecoveryDriveFixture([])
+        do {
+            _ = try await WalletCloudBackupRecoveryService(drive: unauthorized, authorize: { false })
+                .readBackup(for: account.address)
+            XCTFail("Unauthorized backup read")
+        } catch {}
+        XCTAssertTrue(unauthorized.queries.isEmpty)
+    }
+
+    func testCloudRecoveryRetainedBackupFormatsPreserveAccountAndSigning() throws {
+        let entropy = Data(repeating: 20, count: 20)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let seed = try retainedEntropySeed(entropy)
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        let password = "synthetic-backup-password"
+        for format in ["phrase", "seed", "json", "combined"] {
+            let payload = try cloudRecoveryFixture(account: account, entropy: entropy,
+                format: format, password: password)
+            for version in UserStorageVersion.allCases {
+                try withRetainedEntropyDatabase(accounts: [account], version: version,
+                    entropy: entropy, recovering: true) { directory, keys, settings in
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                    let original = try retainedEntropyKeyBytes(keys)
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                        self.legacyActivationRecoveryGate(at: directory, settings: settings))
+                    let database = self.missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    try WalletCloudBackupRecoveryService.restore(data: payload, password: password,
+                        account: account, migrator: database, baseURL: directory, lifecycleCoordinator: coordinator)
+                    var expected = original
+                    switch format {
+                    case "seed": expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                    case "json": expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    default: expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    }
+                    XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), expected)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
+                        password: password, account: account, migrator: database,
+                        baseURL: directory, lifecycleCoordinator: coordinator))
+                    for _ in 0..<2 {
+                        let snapshot = try self.runRetainedEntropyStartup(directory: directory, keys: keys,
+                            settings: settings, accounts: [account])
+                        if format == "seed" || format == "json" {
+                            XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+                            XCTAssertEqual(snapshot.wallets.first?.secretSource, format == "seed" ? .rawSeed : .legacySecret)
+                        }
+                        let recovered = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+                        let message = Data("cloud recovery production signer".utf8)
+                        let signature = try SNSigner(keypair: SNKeypair(privateKey: SNPrivateKey(rawData: recovered),
+                            publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(message)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: message,
+                            secretKey: recovered, account: account)
+                        if format == "phrase" || format == "combined" {
+                            try self.assertRecoveredTairaSigning(account: account, directory: directory,
+                                keys: keys, settings: settings)
+                        }
+                        XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), expected)
+                    }
+                }
+            }
+        }
+    }
+
+    func testCloudRecoveryRejectsWrongPasswordConflictsAndMalformedSecretWithoutWrites() throws {
+        let entropy = Data(repeating: 20, count: 20)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let password = "synthetic-backup-password"
+        let valid = try cloudRecoveryFixture(account: account, entropy: entropy, format: "combined", password: password)
+        for condition in ["password", "address", "crypto", "seed", "malformedCipher", "malformedScalar", "newerMarker"] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                let original = try self.retainedEntropyKeyBytes(keys)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                    self.legacyActivationRecoveryGate(at: directory, settings: settings))
+                let database = self.missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: valid) as? [String: Any])
+                switch condition {
+                case "address": fields["address"] = "synthetic-other-address"
+                case "crypto": fields["cryptoType"] = "ed25519"
+                case "seed":
+                    let wrong = try EncryptionService().createEncryptedData(with: password,
+                        message: Data(repeating: 9, count: 32).hex)
+                    fields["encryptedSeed"] = ["substrateSeed": try XCTUnwrap(wrong).hex]
+                case "malformedCipher": fields["encryptedMnemonicPhrase"] = String(repeating: "00", count: 44)
+                case "malformedScalar":
+                    let pkcs = SSFUtils.KeystoreConstants.pkcs8Header + Data(repeating: 255, count: 64) +
+                        SSFUtils.KeystoreConstants.pkcs8Divider + account.publicKeyData
+                    let definition = KeystoreDefinition(address: account.address, encoded: pkcs.base64EncodedString(),
+                        encoding: KeystoreEncoding(content: ["pkcs8", "sr25519"], type: [], version: "3"), meta: nil)
+                    fields["json"] = ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]
+                default: break
+                }
+                let payload = try JSONSerialization.data(withJSONObject: fields)
+                var newer: WalletMigrationRecoveryMarker?
+                XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
+                    password: condition == "password" ? "wrong" : password, account: account, migrator: database,
+                    baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                        if condition == "newerMarker" {
+                            settings.walletMigrationRecoveryReason = "newer recovery evidence"
+                            newer = WalletMigrationRecoveryMarker.capture(settings)
+                        }
+                    }))
+                XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), original)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer ?? marker)
+                let text = WalletCloudBackupRecoveryError.userMessage(for:
+                    NSError(domain: account.address, code: 1, userInfo: [NSLocalizedDescriptionKey: password]))
+                XCTAssertFalse(text.contains(account.address))
+                XCTAssertFalse(text.contains(password))
+            }
+        }
+        XCTAssertThrowsError(try WalletCloudBackupRecoveryService.validateSecretEncoding(
+            Data(repeating: 255, count: 64), cryptoType: .sr25519))
+    }
+
+    private func cloudRecoveryFixture(account: AccountItem, entropy: Data, format: String,
+                                      password: String) throws -> Data {
+        let encryption = EncryptionService()
+        func encrypted(_ value: String) throws -> String {
+            try XCTUnwrap(encryption.createEncryptedData(with: password, message: value)).hex
+        }
+        var fields: [String: Any] = ["name": "Synthetic cloud wallet", "address": account.address,
+            "cryptoType": "SR25519", "keyVerifier": try encrypted(account.address),
+            "backupAccountType": ["seed", "json"]]
+        // Profile backups can contain the phrase despite not labeling passphrase.
+        if format == "phrase" || format == "combined" {
+            fields["encryptedMnemonicPhrase"] = try encrypted(
+                IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString())
+        }
+        let seed = try retainedEntropySeed(entropy)
+        if format == "seed" || format == "combined" {
+            fields["encryptedSeed"] = ["substrateSeed": try encrypted(seed.hex)]
+        }
+        if format == "json" || format == "combined" {
+            let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+            let definition = try KeystoreBuilder().build(from: KeystoreData(address: account.address,
+                secretKeyData: pair.privateKey().rawData(), publicKeyData: account.publicKeyData,
+                cryptoType: .sr25519), password: password, isEthereum: false)
+            fields["json"] = ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]
+        }
+        return try JSONSerialization.data(withJSONObject: fields)
     }
 
     private func missingKeyRecoveryMigrator(directory: URL, keys: InMemoryKeychain,

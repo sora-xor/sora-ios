@@ -232,6 +232,8 @@ final class WalletRecoveryViewController: UIViewController {
     private let onRetry: (() -> Void)?
     private let retryButton = UIButton(type: .system)
     private let restoreKeysButton = UIButton(type: .system)
+    private let restoreCloudBackupButton = UIButton(type: .system)
+    private let cloudRecoveryStatusLabel = UILabel()
     private var didRetry = false
     private let exportButton = UIButton(type: .system)
     private let exportProgress = UIActivityIndicatorView(style: .medium)
@@ -272,6 +274,16 @@ final class WalletRecoveryViewController: UIViewController {
         restoreKeysButton.accessibilityIdentifier = "wallet-recovery-restore-keys"
         restoreKeysButton.isHidden = diagnostic?.cause != .missingSecret || onRetry == nil
         restoreKeysButton.addTarget(self, action: #selector(chooseKeyRecoveryAccount), for: .touchUpInside)
+
+        restoreCloudBackupButton.setTitle("Restore from Google Drive backup", for: .normal)
+        restoreCloudBackupButton.accessibilityIdentifier = "wallet-recovery-restore-cloud-backup"
+        restoreCloudBackupButton.isHidden = restoreKeysButton.isHidden
+        restoreCloudBackupButton.addTarget(self, action: #selector(chooseCloudRecoveryAccount), for: .touchUpInside)
+        cloudRecoveryStatusLabel.font = .preferredFont(forTextStyle: .footnote)
+        cloudRecoveryStatusLabel.textColor = .secondaryLabel
+        cloudRecoveryStatusLabel.numberOfLines = 0
+        cloudRecoveryStatusLabel.isHidden = true
+        cloudRecoveryStatusLabel.accessibilityIdentifier = "wallet-recovery-cloud-status"
 
         let bodyLabel = UILabel()
         bodyLabel.font = .preferredFont(forTextStyle: .body)
@@ -352,6 +364,8 @@ final class WalletRecoveryViewController: UIViewController {
                 titleLabel,
                 retryButton,
                 restoreKeysButton,
+                restoreCloudBackupButton,
+                cloudRecoveryStatusLabel,
                 bodyLabel,
                 diagnosticLabel,
                 versionLabel,
@@ -413,6 +427,8 @@ final class WalletRecoveryViewController: UIViewController {
         guard let onRetry, !didRetry, !isExporting, !isRestoringKeys else { return }
         didRetry = true
         retryButton.isEnabled = false
+        restoreKeysButton.isEnabled = false
+        restoreCloudBackupButton.isEnabled = false
         onRetry()
     }
 
@@ -423,6 +439,14 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     @objc private func chooseKeyRecoveryAccount() {
+        selectKeyRecoveryAccount(useCloudBackup: false)
+    }
+
+    @objc private func chooseCloudRecoveryAccount() {
+        selectKeyRecoveryAccount(useCloudBackup: true)
+    }
+
+    private func selectKeyRecoveryAccount(useCloudBackup: Bool) {
         guard !didRetry, !isExporting, !isRestoringKeys, diagnostic?.cause == .missingSecret else { return }
         setKeyRecoveryBusy(true)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -433,13 +457,15 @@ final class WalletRecoveryViewController: UIViewController {
                 guard !self.didRetry else { return }
                 switch result {
                 case .success(let accounts) where accounts.count == 1:
-                    self.presentKeyRecovery(for: accounts[0])
+                    self.beginKeyRecovery(for: accounts[0], useCloudBackup: useCloudBackup)
                 case .success(let accounts) where !accounts.isEmpty:
                     let chooser = UIAlertController(title: "Choose the existing wallet",
-                        message: "Restore each wallet using its own recovery phrase.", preferredStyle: .alert)
+                        message: "Choose the saved wallet whose keys you want to restore.", preferredStyle: .alert)
                     for account in accounts {
                         chooser.addAction(UIAlertAction(title: "\(account.username) · \(account.address.prefix(8))…",
-                            style: .default) { [weak self] _ in self?.presentKeyRecovery(for: account) })
+                            style: .default) { [weak self] _ in
+                                self?.beginKeyRecovery(for: account, useCloudBackup: useCloudBackup)
+                            })
                     }
                     chooser.addAction(UIAlertAction(title: "Cancel", style: .cancel))
                     self.present(chooser, animated: true)
@@ -448,6 +474,85 @@ final class WalletRecoveryViewController: UIViewController {
                 }
             }
         }
+    }
+
+    private func beginKeyRecovery(for account: AccountItem, useCloudBackup: Bool) {
+        if useCloudBackup { readCloudBackup(for: account) }
+        else { presentKeyRecovery(for: account) }
+    }
+
+    private func readCloudBackup(for account: AccountItem) {
+        guard !didRetry, !isExporting, !isRestoringKeys else { return }
+        guard UIApplication.shared.isProtectedDataAvailable else {
+            showKeyRecoveryError("Unlock this iPhone, then try again.")
+            return
+        }
+        setKeyRecoveryBusy(true)
+        setCloudRecoveryStatus("Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup.")
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let reader = WalletCloudBackupRecoveryService(viewController: self)
+                let encryptedBackup = try await reader.readBackup(for: account.address)
+                self.setKeyRecoveryBusy(false)
+                self.setCloudRecoveryStatus("Encrypted backup found. Enter its backup password to verify and restore the saved account.")
+                self.presentCloudBackupPassword(for: account, encryptedBackup: encryptedBackup)
+            } catch {
+                self.setKeyRecoveryBusy(false)
+                let message = WalletCloudBackupRecoveryError.userMessage(for: error)
+                self.setCloudRecoveryStatus(message)
+                self.showKeyRecoveryError(message)
+            }
+        }
+    }
+
+    private func presentCloudBackupPassword(for account: AccountItem, encryptedBackup: Data) {
+        let prompt = UIAlertController(title: "Unlock your existing backup",
+            message: "Enter the password you set for this SORA Google Drive backup. The password stays on this iPhone. SORA will verify that the backup matches your saved account before restoring missing keys.",
+            preferredStyle: .alert)
+        prompt.addTextField { field in
+            field.placeholder = "Backup password"
+            field.isSecureTextEntry = true
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+            field.spellCheckingType = .no
+            field.accessibilityIdentifier = "wallet-recovery-backup-password"
+        }
+        prompt.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak prompt] _ in
+            prompt?.textFields?.forEach { $0.text = nil }
+        })
+        prompt.addAction(UIAlertAction(title: "Verify and restore", style: .default) { [weak self, weak prompt] _ in
+            guard let self, let prompt, !self.didRetry, !self.isExporting, !self.isRestoringKeys else { return }
+            var password = prompt.textFields?.first?.text ?? ""
+            prompt.textFields?.forEach { $0.text = nil }
+            self.setKeyRecoveryBusy(true)
+            self.setCloudRecoveryStatus("Verifying the backup against the saved account…")
+            DispatchQueue.global(qos: .userInitiated).async {
+                defer { password.removeAll(keepingCapacity: false) }
+                let result = Result {
+                    try WalletCloudBackupRecoveryService.restore(data: encryptedBackup, password: password,
+                        account: account, migrator: self.keyRecoveryMigrator())
+                }
+                DispatchQueue.main.async {
+                    self.setKeyRecoveryBusy(false)
+                    switch result {
+                    case .success:
+                        self.setCloudRecoveryStatus("Missing credentials restored. Verifying the complete wallet…")
+                        self.retryWalletVerification()
+                    case .failure(let error):
+                        let message = WalletCloudBackupRecoveryError.userMessage(for: error)
+                        self.setCloudRecoveryStatus(message)
+                        self.showKeyRecoveryError(message)
+                    }
+                }
+            }
+        })
+        present(prompt, animated: true)
+    }
+
+    private func setCloudRecoveryStatus(_ message: String) {
+        cloudRecoveryStatusLabel.text = message
+        cloudRecoveryStatusLabel.isHidden = false
     }
 
     private func presentKeyRecovery(for account: AccountItem) {
@@ -500,6 +605,7 @@ final class WalletRecoveryViewController: UIViewController {
     private func setKeyRecoveryBusy(_ busy: Bool) {
         isRestoringKeys = busy
         restoreKeysButton.isEnabled = !busy
+        restoreCloudBackupButton.isEnabled = !busy
         retryButton.isEnabled = !busy && !didRetry
         exportButton.isEnabled = !busy && !isExporting
     }
@@ -528,6 +634,7 @@ final class WalletRecoveryViewController: UIViewController {
             "Recovery report format: 2",
             diagnostic?.summary ?? "Latest verification: not recorded; retry required",
             diagnostic.map { "Current failure: \($0.userMessage)" },
+            cloudRecoveryStatusLabel.isHidden ? nil : cloudRecoveryStatusLabel.text.map { "Backup recovery: \($0)" },
             originalRecoverySummary,
             "iOS: \(operatingSystem.majorVersion).\(operatingSystem.minorVersion).\(operatingSystem.patchVersion)",
             "Protected data when copied: \(protection)"
