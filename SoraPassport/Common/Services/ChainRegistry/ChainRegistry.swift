@@ -54,8 +54,9 @@ protocol ChainRegistryProtocol: AnyObject {
     func performColdBoot()
     func syncUp()
     /// Asks the runtime sync service to fetch the runtime the live node runs.
-    /// Does nothing while a sync for that chain is already running or queued,
-    /// unless the stored metadata must be replaced.
+    /// Does nothing while a sync for that chain is already running or queued.
+    /// A request to replace the stored metadata does nothing while such a
+    /// replacement is already running or scheduled for that runtime version.
     func requestRuntimeRefresh(
         for chainId: ChainModel.Id,
         liveVersion: RuntimeVersion,

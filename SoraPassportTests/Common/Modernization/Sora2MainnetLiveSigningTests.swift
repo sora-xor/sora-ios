@@ -151,8 +151,10 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
         try Sora2LiveRuntimeValidator.validate(factory: factory, live: live)
 
         // 3b. The extrinsic service's own live-runtime operations (the ones
-        //     every fee estimate, prepare and submit depends on) agree, and
-        //     the second run uses the per-runtime cache.
+        //     every fee estimate, prepare and submit depends on) agree. The
+        //     first run downloads and proves the node's metadata (a fresh,
+        //     in-memory proof cache); the second uses the stored proof.
+        let proofs = Sora2LiveRuntimeIdentityCache()
         let service = ExtrinsicService(
             address: try SS58AddressFactory().address(
                 fromAccountId: Data(repeating: 0x42, count: 32),
@@ -161,8 +163,13 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
             cryptoType: .sr25519,
             runtimeRegistry: FixedRuntimeService(factory: factory),
             engine: source,
-            operationManager: OperationManager()
+            operationManager: OperationManager(),
+            liveRuntimeIdentityCache: proofs
         )
+        XCTAssertNil(proofs.metadataSHA256(
+            specVersion: live.specVersion,
+            transactionVersion: live.transactionVersion
+        ))
         for _ in 0 ..< 2 {
             let operations = service.createLiveRuntimeOperations()
             OperationQueue().addOperations(

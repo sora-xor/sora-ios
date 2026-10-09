@@ -122,20 +122,64 @@ struct Sora2LiveRuntime: Equatable {
     let metadataSHA256: String
 }
 
-/// Process-wide cache of the live metadata hash per runtime version, so the
-/// app downloads the node's metadata once per runtime, not once per signature.
-/// An entry is stored only after the downloaded metadata proved (through
-/// `System.Version`) that it belongs to that exact runtime version.
+/// The proven live metadata hash per SORA2 mainnet runtime version.
+///
+/// An entry is stored only after metadata downloaded from the connected node
+/// proved, through its `System.Version`, that it belongs to exactly that
+/// runtime version: by the extrinsic service's own download, or by the
+/// runtime sync service, which downloads the same bytes from the same node
+/// when the runtime changes. Metadata is fixed per runtime version on a
+/// chain, so entries are kept across launches (they are not wallet data).
+/// After the first proof, each fee estimate, prepare or submit needs only
+/// `chain_getRuntimeVersion`. Concurrent proofs for one runtime share a
+/// single download.
 final class Sora2LiveRuntimeIdentityCache {
-    static let shared = Sora2LiveRuntimeIdentityCache()
+    static let shared = Sora2LiveRuntimeIdentityCache(defaults: .standard)
+    static let persistenceKey = "sora2.mainnet.liveRuntimeMetadataProofs.v1"
+    static let maximumEntries = 16
 
     private struct Key: Hashable {
         let specVersion: UInt32
         let transactionVersion: UInt32
+
+        var persisted: String { "\(specVersion):\(transactionVersion)" }
+
+        init(specVersion: UInt32, transactionVersion: UInt32) {
+            self.specVersion = specVersion
+            self.transactionVersion = transactionVersion
+        }
+
+        init?(persisted: String) {
+            let parts = persisted.split(separator: ":", omittingEmptySubsequences: false)
+            guard
+                parts.count == 2,
+                let spec = UInt32(parts[0]),
+                let transaction = UInt32(parts[1]),
+                spec >= Sora2RuntimeIdentity.minimumSpecVersion,
+                transaction > 0
+            else {
+                return nil
+            }
+            self.init(specVersion: spec, transactionVersion: transaction)
+        }
     }
 
+    /// One download in progress; later callers wait for its result.
+    private final class Flight {
+        let group = DispatchGroup()
+        var result: Result<Sora2LiveRuntime, Error>?
+    }
+
+    private let defaults: UserDefaults?
     private let lock = NSLock()
-    private var values: [Key: String] = [:]
+    private var values: [Key: String]
+    private var flights: [Key: Flight] = [:]
+
+    /// `defaults: nil` keeps entries in memory only.
+    init(defaults: UserDefaults? = nil) {
+        self.defaults = defaults
+        values = Self.load(from: defaults)
+    }
 
     func metadataSHA256(
         specVersion: UInt32,
@@ -154,15 +198,140 @@ final class Sora2LiveRuntimeIdentityCache {
         specVersion: UInt32,
         transactionVersion: UInt32
     ) {
+        guard
+            Self.isHash(metadataSHA256),
+            specVersion >= Sora2RuntimeIdentity.minimumSpecVersion,
+            transactionVersion > 0
+        else {
+            return
+        }
         lock.lock()
         defer { lock.unlock() }
-        if values.count >= 16 {
-            values.removeAll(keepingCapacity: true)
-        }
         values[Key(
             specVersion: specVersion,
             transactionVersion: transactionVersion
         )] = metadataSHA256
+        while values.count > Self.maximumEntries,
+              let oldest = values.keys.min(by: {
+                  ($0.specVersion, $0.transactionVersion) <
+                      ($1.specVersion, $1.transactionVersion)
+              }) {
+            values[oldest] = nil
+        }
+        persist()
+    }
+
+    /// Records metadata that the runtime sync service downloaded from the
+    /// connected node and admitted for this runtime version.
+    func recordAdmittedMetadata(
+        _ metadata: Data,
+        specVersion: UInt32,
+        transactionVersion: UInt32
+    ) {
+        store(
+            metadataSHA256: PolkamarktRuntimeContract.rawMetadataSHA256(metadata),
+            specVersion: specVersion,
+            transactionVersion: transactionVersion
+        )
+    }
+
+    /// The live runtime for `version`: from a stored proof, or by proving
+    /// the node's current metadata (`fetchMetadataHex`) against it. Only one
+    /// download per runtime version runs at a time; other callers wait for
+    /// it (up to `waitTimeout`).
+    func liveRuntime(
+        for version: RuntimeVersion,
+        waitTimeout: TimeInterval = 75,
+        fetchMetadataHex: () throws -> String
+    ) throws -> Sora2LiveRuntime {
+        let key = Key(
+            specVersion: version.specVersion,
+            transactionVersion: version.transactionVersion
+        )
+        lock.lock()
+        if let proven = values[key] {
+            lock.unlock()
+            return Sora2LiveRuntime(
+                specVersion: version.specVersion,
+                transactionVersion: version.transactionVersion,
+                metadataSHA256: proven
+            )
+        }
+        if let flight = flights[key] {
+            lock.unlock()
+            guard flight.group.wait(timeout: .now() + waitTimeout) == .success else {
+                throw URLError(.timedOut)
+            }
+            lock.lock()
+            let result = flight.result
+            lock.unlock()
+            guard let result else {
+                throw URLError(.cancelled)
+            }
+            return try result.get()
+        }
+        let flight = Flight()
+        flight.group.enter()
+        flights[key] = flight
+        lock.unlock()
+
+        let result = Result<Sora2LiveRuntime, Error> {
+            try Sora2LiveRuntimeValidator.liveRuntime(
+                version: version,
+                metadataHex: try fetchMetadataHex()
+            )
+        }
+        if case let .success(live) = result {
+            store(
+                metadataSHA256: live.metadataSHA256,
+                specVersion: live.specVersion,
+                transactionVersion: live.transactionVersion
+            )
+        }
+        lock.lock()
+        flight.result = result
+        flights[key] = nil
+        lock.unlock()
+        flight.group.leave()
+        return try result.get()
+    }
+
+    private func persist() {
+        guard let defaults else {
+            return
+        }
+        var persisted: [String: String] = [:]
+        for (key, value) in values {
+            persisted[key.persisted] = value
+        }
+        defaults.set(persisted, forKey: Self.persistenceKey)
+    }
+
+    private static func load(from defaults: UserDefaults?) -> [Key: String] {
+        guard
+            let stored = defaults?.dictionary(forKey: persistenceKey)
+        else {
+            return [:]
+        }
+        var values: [Key: String] = [:]
+        for (rawKey, rawValue) in stored {
+            guard
+                values.count < maximumEntries,
+                let key = Key(persisted: rawKey),
+                let value = rawValue as? String,
+                isHash(value)
+            else {
+                continue
+            }
+            values[key] = value
+        }
+        return values
+    }
+
+    private static func isHash(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy {
+            (48 ... 57).contains($0) || (97 ... 102).contains($0)
+        }
     }
 }
 
@@ -251,9 +420,20 @@ enum Sora2LiveRuntimeValidator {
         }
         guard
             declared.specName == Sora2RuntimeIdentity.reviewedSpecName,
+            declared.specVersion >= Sora2RuntimeIdentity.minimumSpecVersion
+        else {
+            // Not a SORA2 runtime this app can sign for. Waiting for a
+            // runtime sync would not change that.
+            throw ExtrinsicServiceError.unsupportedRuntime(
+                spec: declared.specVersion,
+                transaction: declared.transactionVersion
+            )
+        }
+        guard
             declared.specVersion == version.specVersion,
             declared.transactionVersion == version.transactionVersion
         else {
+            // The runtime changed between the two reads.
             throw ExtrinsicServiceError.runtimeUpgradeInProgress(
                 spec: declared.specVersion,
                 transaction: declared.transactionVersion
@@ -420,20 +600,9 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
         }
 
         init(from decoder: Decoder) throws {
-            declared.specVersion >= Sora2RuntimeIdentity.minimumSpecVersion
-        else {
-            // Not a SORA2 runtime this app can sign for. Waiting for a
-            // runtime sync would not change that.
-            throw ExtrinsicServiceError.unsupportedRuntime(
-                spec: declared.specVersion,
-                transaction: declared.transactionVersion
-            )
-        }
-        guard
             let container = try decoder.container(keyedBy: CodingKeys.self)
             value = try container.decode(Value.self, forKey: .result)
         }
-            // The runtime changed between the two reads.
     }
 
     private let sourceEngine: JSONRPCEngine
@@ -2046,6 +2215,7 @@ final class Sora2PendingSubmissionReconciler {
     private let rpc: PolkamarktRPCClient
     private let runtimeService: RuntimeCodingServiceProtocol
     private let engine: JSONRPCEngine
+    private let liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache
     private var canonicalBlockCache: [Int: CanonicalBlock] = [:]
     private var decodingFactories: [RuntimeKey: RuntimeCoderFactoryProtocol] = [:]
     private var recoveryHashes = Set<String>()
@@ -2053,12 +2223,14 @@ final class Sora2PendingSubmissionReconciler {
     init(
         store: Sora2PendingSubmissionStore,
         engine: JSONRPCEngine,
-        runtimeService: RuntimeCodingServiceProtocol
+        runtimeService: RuntimeCodingServiceProtocol,
+        liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared
     ) {
         self.store = store
         self.engine = Sora2BoundedHTTPJSONRPCEngine.wrapping(engine)
         rpc = PolkamarktRPCClient(engine: self.engine)
         self.runtimeService = runtimeService
+        self.liveRuntimeIdentityCache = liveRuntimeIdentityCache
     }
 
     func reconcileStatusOnly() async throws {
@@ -2149,7 +2321,7 @@ final class Sora2PendingSubmissionReconciler {
 
     /// Returns a decoder for the runtime that produced `blockHash`. The
     /// current runtime snapshot is reused only when it is exactly that
-    /// runtime and its metadata was proven against the node in this process;
+    /// runtime and its metadata matches the proof stored for that version;
     /// otherwise the block's own metadata is fetched, bound to its declared
     /// `System.Version`, and combined with the bundled SORA2 type registry.
     private func decodingFactory(
@@ -2169,7 +2341,7 @@ final class Sora2PendingSubmissionReconciler {
             let snapshot = provider.snapshot,
             snapshot.specVersion == version.specVersion,
             snapshot.txVersion == version.transactionVersion,
-            let proven = Sora2LiveRuntimeIdentityCache.shared.metadataSHA256(
+            let proven = liveRuntimeIdentityCache.metadataSHA256(
                 specVersion: version.specVersion,
                 transactionVersion: version.transactionVersion
             )
@@ -2647,18 +2819,21 @@ final class ExtrinsicService {
     let runtimeRegistry: RuntimeCodingServiceProtocol
     let engine: JSONRPCEngine
     let operationManager: OperationManagerProtocol
+    let liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache
     private let pendingSubmissionStore: Sora2PendingSubmissionStore?
 
     init(address: String,
          cryptoType: CryptoType,
          runtimeRegistry: RuntimeCodingServiceProtocol,
          engine: JSONRPCEngine,
-         operationManager: OperationManagerProtocol) {
+         operationManager: OperationManagerProtocol,
+         liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared) {
         self.address = address
         self.cryptoType = cryptoType
         self.runtimeRegistry = runtimeRegistry
         self.engine = Sora2BoundedHTTPJSONRPCEngine.wrapping(engine)
         self.operationManager = operationManager
+        self.liveRuntimeIdentityCache = liveRuntimeIdentityCache
         pendingSubmissionStore = try? Sora2PendingSubmissionStore()
     }
 
@@ -2801,18 +2976,18 @@ final class ExtrinsicService {
                 ),
                 PolkamarktRuntimeContract.matchesReviewedGenesisHash(
                     connectedGenesisHash
-                ),
+                )
+            else {
+                throw ExtrinsicServiceError.unexpectedNetwork
+            }
+            guard
                 Sora2PendingSubmissionStore.normalizedHash(
                     hashAndEra.hash
                 ) != nil,
                 case let .mortal(period, phase) = hashAndEra.era,
                 period == UInt64(
                     Sora2SubmissionRecoveryContext.reviewedEraPeriod
-                )
-            else {
-                throw ExtrinsicServiceError.unexpectedNetwork
-            }
-            guard
+                ),
                 phase == UInt64(
                     hashAndEra.blockNumber %
                         Sora2SubmissionRecoveryContext.reviewedEraPeriod
@@ -2926,7 +3101,6 @@ final class ExtrinsicService {
 
     func createLiveRuntimeOperations() -> (
         version: BaseOperation<RuntimeVersion>,
-        metadata: BaseOperation<String>,
         identity: BaseOperation<Sora2LiveRuntime>,
         all: [Operation]
     ) {
@@ -2937,69 +3111,53 @@ final class ExtrinsicService {
             method: RPCMethod.getRuntimeVersion,
             timeout: 30
         )
-        let metadataOperation = JSONRPCListOperation<String>(
-            engine: engine,
-            method: RPCMethod.getRuntimeMetadata,
-            timeout: 60
-        )
-        metadataOperation.configurationBlock = {
-            do {
-                let version = try versionOperation
-                    .extractNoCancellableResultData()
-                if Sora2LiveRuntimeIdentityCache.shared.metadataSHA256(
-                    specVersion: version.specVersion,
-                    transactionVersion: version.transactionVersion
-                ) != nil {
-                    // Already proven for this runtime in this process.
-                    metadataOperation.result = .success("")
-                }
-            } catch {
-                metadataOperation.result = .failure(error)
-            }
-        }
-        metadataOperation.addDependency(versionOperation)
-
+        let engine = self.engine
+        let cache = liveRuntimeIdentityCache
         let identityOperation = ClosureOperation<Sora2LiveRuntime> {
             let version = try versionOperation.extractNoCancellableResultData()
-            let cache = Sora2LiveRuntimeIdentityCache.shared
-            if let cached = cache.metadataSHA256(
-                specVersion: version.specVersion,
-                transactionVersion: version.transactionVersion
-            ) {
-                return Sora2LiveRuntime(
-                    specVersion: version.specVersion,
-                    transactionVersion: version.transactionVersion,
-                    metadataSHA256: cached
-                )
+            // The node's metadata is downloaded only when no proof for this
+            // runtime version is stored yet, and only once at a time.
+            return try cache.liveRuntime(for: version) {
+                try Self.fetchCurrentMetadataHex(engine: engine, timeout: 60)
             }
-            let metadataHex = try metadataOperation
-                .extractNoCancellableResultData()
-            guard !metadataHex.isEmpty else {
-                throw ExtrinsicServiceError.runtimeUpgradeInProgress(
-                    spec: version.specVersion,
-                    transaction: version.transactionVersion
-                )
-            }
-            let live = try Sora2LiveRuntimeValidator.liveRuntime(
-                version: version,
-                metadataHex: metadataHex
-            )
-            cache.store(
-                metadataSHA256: live.metadataSHA256,
-                specVersion: live.specVersion,
-                transactionVersion: live.transactionVersion
-            )
-            return live
         }
         identityOperation.addDependency(versionOperation)
-        identityOperation.addDependency(metadataOperation)
 
         return (
             versionOperation,
-            metadataOperation,
             identityOperation,
-            [versionOperation, metadataOperation, identityOperation]
+            [versionOperation, identityOperation]
         )
+    }
+
+    /// `state_getMetadata` at the node's best block, waited for
+    /// synchronously like `JSONRPCOperation` does.
+    static func fetchCurrentMetadataHex(
+        engine: JSONRPCEngine,
+        timeout: TimeInterval
+    ) throws -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var received: Result<String, Error>?
+        let requestId = try engine.callMethod(
+            RPCMethod.getRuntimeMetadata,
+            params: [String]?.none
+        ) { (result: Result<String, Error>) in
+            lock.lock()
+            received = result
+            lock.unlock()
+            semaphore.signal()
+        }
+        guard semaphore.wait(timeout: .now() + timeout) == .success else {
+            engine.cancelForIdentifier(requestId)
+            throw URLError(.timedOut)
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        guard let received else {
+            throw URLError(.cancelled)
+        }
+        return try received.get()
     }
 
     /// Every SORA2 extrinsic (fee estimates included) is encoded only with
@@ -3010,7 +3168,6 @@ final class ExtrinsicService {
         _ factory: RuntimeCoderFactoryProtocol,
         live: (
             version: BaseOperation<RuntimeVersion>,
-            metadata: BaseOperation<String>,
             identity: BaseOperation<Sora2LiveRuntime>,
             all: [Operation]
         )
@@ -3272,7 +3429,6 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             hashAndEraOperation,
             codingFactoryOperation,
             liveRuntime.version,
-            liveRuntime.metadata,
             liveRuntime.identity,
             builderOperation,
             feeOperation
@@ -3296,8 +3452,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                 hashAndEraOperation,
                 codingFactoryOperation,
                 liveRuntime.version,
-                liveRuntime.metadata,
-                liveRuntime.identity,
+                    liveRuntime.identity,
                 builderOperation
             ]
         )
@@ -3476,7 +3631,6 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             hashAndEraOperation,
             codingFactoryOperation,
             liveRuntime.version,
-            liveRuntime.metadata,
             liveRuntime.identity,
             builderOperation
         ]
@@ -4078,7 +4232,6 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             hashAndEraOperation,
             codingFactoryOperation,
             liveRuntime.version,
-            liveRuntime.metadata,
             liveRuntime.identity,
             builderOperation,
             stageOperation,
