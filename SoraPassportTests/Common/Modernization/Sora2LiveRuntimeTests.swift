@@ -4,6 +4,7 @@
 import BigInt
 import Foundation
 import IrohaCrypto
+import RobinHood
 import SSFModels
 import SSFUtils
 import XCTest
@@ -448,6 +449,192 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         }
     }
 
+    // MARK: - Live runtime proofs
+
+    func testLiveRuntimeProofsPersistAcrossLaunches() throws {
+        let suite = "Sora2LiveRuntimeTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let first = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        first.recordAdmittedMetadata(
+            try fixtureMetadata(),
+            specVersion: 133,
+            transactionVersion: 131
+        )
+        let relaunched = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        XCTAssertEqual(
+            relaunched.metadataSHA256(specVersion: 133, transactionVersion: 131),
+            Self.fixtureHexLineSHA256
+        )
+        // A proof for a runtime below the reviewed floor, or a malformed
+        // value, is never stored or loaded.
+        relaunched.store(metadataSHA256: Self.fixtureHexLineSHA256, specVersion: 129, transactionVersion: 129)
+        relaunched.store(metadataSHA256: "not-a-hash", specVersion: 134, transactionVersion: 131)
+        var persisted = defaults.dictionary(forKey: Sora2LiveRuntimeIdentityCache.persistenceKey) ?? [:]
+        XCTAssertEqual(Array(persisted.keys), ["133:131"])
+        persisted["135:131"] = "XYZ"
+        persisted["garbage"] = Self.fixtureHexLineSHA256
+        defaults.set(persisted, forKey: Sora2LiveRuntimeIdentityCache.persistenceKey)
+        let reloaded = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        XCTAssertNil(reloaded.metadataSHA256(specVersion: 135, transactionVersion: 131))
+        XCTAssertEqual(
+            reloaded.metadataSHA256(specVersion: 133, transactionVersion: 131),
+            Self.fixtureHexLineSHA256
+        )
+        // In-memory caches never write.
+        let memoryOnly = Sora2LiveRuntimeIdentityCache()
+        memoryOnly.store(metadataSHA256: Self.fixtureHexLineSHA256, specVersion: 140, transactionVersion: 131)
+        XCTAssertNil(Sora2LiveRuntimeIdentityCache(defaults: defaults)
+            .metadataSHA256(specVersion: 140, transactionVersion: 131))
+    }
+
+    func testConcurrentLiveRuntimeProofsShareOneDownload() throws {
+        let cache = Sora2LiveRuntimeIdentityCache()
+        let hex = try fixtureMetadata().toHex(includePrefix: true)
+        let version = try runtimeVersion(spec: 133, tx: 131)
+        let started = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var downloads = 0
+        let fetch: () throws -> String = {
+            lock.lock()
+            downloads += 1
+            lock.unlock()
+            started.signal()
+            _ = release.wait(timeout: .now() + 10)
+            return hex
+        }
+        let group = DispatchGroup()
+        var results: [Result<Sora2LiveRuntime, Error>] = []
+        func prove() {
+            group.enter()
+            DispatchQueue.global().async {
+                let result = Result { try cache.liveRuntime(for: version, fetchMetadataHex: fetch) }
+                lock.lock()
+                results.append(result)
+                lock.unlock()
+                group.leave()
+            }
+        }
+        prove()
+        XCTAssertEqual(started.wait(timeout: .now() + 5), .success)
+        prove()
+        prove()
+        // Let the later callers reach the shared download before it ends.
+        Thread.sleep(forTimeInterval: 0.3)
+        release.signal()
+        XCTAssertEqual(group.wait(timeout: .now() + 10), .success)
+        XCTAssertEqual(downloads, 1)
+        XCTAssertEqual(results.count, 3)
+        for result in results {
+            XCTAssertEqual(try result.get(), live())
+        }
+        // Afterwards the stored proof answers without any download.
+        XCTAssertEqual(
+            try cache.liveRuntime(for: version) {
+                XCTFail("No download expected")
+                return ""
+            },
+            live()
+        )
+    }
+
+    func testFailedLiveProofIsNotStoredAndIsRetried() throws {
+        let cache = Sora2LiveRuntimeIdentityCache()
+        let version = try runtimeVersion(spec: 133, tx: 131)
+        XCTAssertThrowsError(
+            try cache.liveRuntime(for: version) { throw URLError(.notConnectedToInternet) }
+        )
+        XCTAssertNil(cache.metadataSHA256(specVersion: 133, transactionVersion: 131))
+        let hex = try fixtureMetadata().toHex(includePrefix: true)
+        XCTAssertEqual(try cache.liveRuntime(for: version) { hex }, live())
+    }
+
+    // MARK: - Runtime sync replacement
+
+    /// Signing found that the stored metadata for the live runtime differs
+    /// from the node's. The replacement download must never delete the stored
+    /// copy before new bytes pass admission, must keep replacing on automatic
+    /// retries, and must not restart while it is already running.
+    func testMetadataReplacementKeepsStoredCopyRetriesAndIsNotRestarted() throws {
+        let genesis = PIIndexerClient.soraMainnetGenesis
+        let stored = try item()
+        let repository = RuntimeTestRepository(items: [stored])
+        let engine = MetadataTestEngine()
+        // First answer: bytes that do not declare runtime 133/131.
+        engine.respond(with: "0x" + String(repeating: "00", count: 64))
+        engine.hold()
+        let proofs = Sora2LiveRuntimeIdentityCache()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let service = RuntimeSyncService(
+            repository: AnyDataProviderRepository(repository),
+            filesOperationFactory: RuntimeFilesOperationFactory(
+                repository: FileRepository(),
+                directoryPath: directory.path
+            ),
+            dataOperationFactory: DataOperationFactory(),
+            eventCenter: EventCenter(),
+            retryStrategy: QuickRetry(),
+            liveRuntimeIdentityCache: proofs,
+            metadataEngine: { _ in engine }
+        )
+        let chain = ChainModel(
+            chainId: genesis, name: "SORA", nodes: [], addressPrefix: 69,
+            icon: nil, selectedNode: nil, customNodes: nil, iosMinAppVersion: nil
+        )
+        service.register(chain: chain, with: RuntimeTestConnection())
+        let version = try runtimeVersion(spec: 133, tx: 131)
+
+        service.applyReplacingCachedMetadata(version: version, for: genesis)
+        XCTAssertTrue(engine.waitForCalls(1))
+        // Signing keeps asking while the download runs: no restart.
+        for _ in 0 ..< 3 {
+            service.applyReplacingCachedMetadata(version: version, for: genesis)
+        }
+        // A restart would cancel the running download and start a new one.
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(engine.callCount, 1)
+        XCTAssertTrue(service.isChainSyncing(genesis))
+        engine.release()
+        // The failed download is retried, and the retry downloads again even
+        // though a copy for spec 133 is stored (a plain sync would skip it).
+        XCTAssertTrue(engine.waitForCalls(2))
+        XCTAssertEqual(repository.items, [stored])
+        XCTAssertNil(proofs.metadataSHA256(specVersion: 133, transactionVersion: 131))
+
+        // The node now serves its real metadata: it replaces the stored copy
+        // and becomes the proof for this runtime.
+        engine.respond(with: try fixtureMetadata().toHex(includePrefix: true))
+        let deadline = Date().addingTimeInterval(20)
+        while proofs.metadataSHA256(specVersion: 133, transactionVersion: 131) == nil,
+              Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        XCTAssertEqual(
+            proofs.metadataSHA256(specVersion: 133, transactionVersion: 131),
+            Self.fixtureHexLineSHA256
+        )
+        XCTAssertEqual(repository.items, [stored])
+        let settled = Date().addingTimeInterval(5)
+        while service.isChainSyncing(genesis), Date() < settled {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        XCTAssertFalse(service.isChainSyncing(genesis))
+        // Once replaced, a plain sync for the same runtime does not download.
+        let calls = engine.callCount
+        service.apply(version: version, for: genesis)
+        let plainDeadline = Date().addingTimeInterval(5)
+        while service.isChainSyncing(genesis), Date() < plainDeadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        XCTAssertEqual(engine.callCount, calls)
+        service.unregister(chainId: genesis)
+    }
+
     private func assertError<T>(
         _ expression: @autoclosure () throws -> T,
         isUpgrade: Bool,
@@ -464,5 +651,212 @@ final class Sora2LiveRuntimeTests: XCTestCase {
                 XCTFail("Unexpected \(error)", file: file, line: line)
             }
         }
+    }
+}
+
+
+// MARK: - Runtime sync test doubles
+
+private struct QuickRetry: SoraPassport.ReconnectionStrategyProtocol {
+    func reconnectAfter(attempt: Int) -> TimeInterval? {
+        attempt <= 20 ? 0.1 : nil
+    }
+}
+
+/// Answers `state_getMetadata` with a configurable result; can hold the
+/// answer until released.
+private final class MetadataTestEngine: JSONRPCEngine {
+    var url: URL? = URL(string: "wss://metadata.test")
+    var pendingEngineRequests: [JSONRPCRequest] { [] }
+
+    private let lock = NSCondition()
+    private var answer = ""
+    private var held = false
+    private var calls = 0
+
+    var callCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return calls
+    }
+
+    func respond(with hex: String) {
+        lock.lock()
+        answer = hex
+        lock.unlock()
+    }
+
+    func hold() {
+        lock.lock()
+        held = true
+        lock.unlock()
+    }
+
+    func release() {
+        lock.lock()
+        held = false
+        lock.broadcast()
+        lock.unlock()
+    }
+
+    func waitForCalls(_ count: Int, timeout: TimeInterval = 10) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        lock.lock()
+        defer { lock.unlock() }
+        while calls < count {
+            guard lock.wait(until: deadline) else {
+                return calls >= count
+            }
+        }
+        return true
+    }
+
+    func callMethod<P: Codable, T: Decodable>(
+        _ method: String,
+        params _: P?,
+        options _: JSONRPCOptions,
+        completion closure: ((Result<T, Error>) -> Void)?
+    ) throws -> UInt16 {
+        guard method == SoraPassport.RPCMethod.getRuntimeMetadata else {
+            throw JSONRPCEngineError.unknownError
+        }
+        lock.lock()
+        calls += 1
+        lock.broadcast()
+        lock.unlock()
+        DispatchQueue.global().async {
+            self.lock.lock()
+            while self.held {
+                self.lock.wait()
+            }
+            let hex = self.answer
+            self.lock.unlock()
+            if let value = hex as? T {
+                closure?(.success(value))
+            } else {
+                closure?(.failure(JSONRPCEngineError.unknownError))
+            }
+        }
+        return 1
+    }
+
+    func subscribe<P: Codable, T: Decodable>(
+        _: String, params _: P?, updateClosure _: @escaping (T) -> Void,
+        failureClosure _: @escaping (Error, Bool) -> Void
+    ) throws -> UInt16 { 0 }
+    func cancelForIdentifier(_: UInt16) {}
+    func generateRequestId() -> UInt16 { 1 }
+    func addSubscription(_: JSONRPCSubscribing) {}
+    func reconnect(url _: URL) {}
+    func connectIfNeeded() {}
+    func disconnectIfNeeded() {}
+    func unsubsribe(_: UInt16) throws {}
+}
+
+private final class RuntimeTestConnection: ChainConnection {
+    var url: URL? = URL(string: "wss://metadata.test")
+    var state: WebSocketEngine.State = .notConnected
+    var ranking: [ConnectionRank] = []
+    var pendingEngineRequests: [JSONRPCRequest] = []
+    func set(ranking: [ConnectionRank]) { self.ranking = ranking }
+    func disconnectIfNeeded() {}
+    func reconnect(url: URL) { self.url = url }
+    func connectIfNeeded() {}
+    func callMethod<P: Codable, T: Decodable>(
+        _: String, params _: P?, options _: JSONRPCOptions,
+        completion _: ((Result<T, Error>) -> Void)?
+    ) throws -> UInt16 {
+        throw JSONRPCEngineError.unknownError
+    }
+    func subscribe<P: Codable, T: Decodable>(
+        _: String, params _: P?, updateClosure _: @escaping (T) -> Void,
+        failureClosure _: @escaping (Error, Bool) -> Void
+    ) throws -> UInt16 { 0 }
+    func cancelForIdentifier(_: UInt16) {}
+    func generateRequestId() -> UInt16 { 0 }
+    func addSubscription(_: JSONRPCSubscribing) {}
+    func unsubsribe(_: UInt16) throws {}
+}
+
+private final class RuntimeTestRepository: DataProviderRepositoryProtocol {
+    typealias Model = SoraPassport.RuntimeMetadataItem
+
+    private let lock = NSLock()
+    private var stored: [Model]
+
+    init(items: [Model]) {
+        stored = items
+    }
+
+    var items: [Model] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    func fetchAllOperation(with _: RepositoryFetchOptions) -> BaseOperation<[Model]> {
+        ClosureOperation { self.items }
+    }
+
+    func saveOperation(
+        _ updates: @escaping () throws -> [Model],
+        _ deletions: @escaping () throws -> [String]
+    ) -> BaseOperation<Void> {
+        ClosureOperation {
+            let changed = try updates()
+            let removed = try deletions()
+            self.lock.lock()
+            defer { self.lock.unlock() }
+            self.stored.removeAll { old in
+                removed.contains(old.chain) || changed.contains { $0.chain == old.chain }
+            }
+            self.stored.append(contentsOf: changed)
+        }
+    }
+
+    func saveBatchOperation(
+        _ updates: @escaping () throws -> [Model],
+        _ deletions: @escaping () throws -> [String]
+    ) -> BaseOperation<Void> {
+        saveOperation(updates, deletions)
+    }
+
+    func fetchOperation(
+        by ids: @escaping () throws -> [String],
+        options _: RepositoryFetchOptions
+    ) -> BaseOperation<[Model]> {
+        ClosureOperation {
+            let selected = try ids()
+            return self.items.filter { selected.contains($0.chain) }
+        }
+    }
+
+    func fetchOperation(
+        by id: @escaping () throws -> String,
+        options _: RepositoryFetchOptions
+    ) -> BaseOperation<Model?> {
+        ClosureOperation {
+            let selected = try id()
+            return self.items.first { $0.chain == selected }
+        }
+    }
+
+    func fetchOperation(
+        by _: RepositorySliceRequest,
+        options: RepositoryFetchOptions
+    ) -> BaseOperation<[Model]> {
+        fetchAllOperation(with: options)
+    }
+
+    func replaceOperation(_ models: @escaping () throws -> [Model]) -> BaseOperation<Void> {
+        saveOperation(models, { self.items.map(\.chain) })
+    }
+
+    func deleteAllOperation() -> BaseOperation<Void> {
+        replaceOperation { [] }
+    }
+
+    func fetchCountOperation() -> BaseOperation<Int> {
+        ClosureOperation { self.items.count }
     }
 }
