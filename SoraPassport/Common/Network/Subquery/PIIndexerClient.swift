@@ -915,6 +915,27 @@ struct PIMobileChainNode: Decodable, Equatable {
     let address: URL
 }
 
+/// The `mobileConfig` fields every deployed PI schema serves.
+struct PIMobileConfigBase: Decodable, Equatable {
+    let blockExplorerUrl: URL
+    let substrateTypesUrl: URL?
+    let nodes: [PIMobileChainNode]
+
+    /// The PI cannot confirm any optional feature, so all stay off.
+    var withEveryFeatureOff: PIMobileConfig {
+        PIMobileConfig(
+            blockExplorerUrl: blockExplorerUrl,
+            substrateTypesUrl: substrateTypesUrl,
+            nodes: nodes,
+            nexusAvailable: false,
+            nexusSendsAvailable: false,
+            polkamarktVisible: false,
+            polkamarktMutationsAvailable: false,
+            tairaDefaultVisible: false
+        )
+    }
+}
+
 struct PIMobileConfig: Decodable, Equatable {
     let blockExplorerUrl: URL
     let substrateTypesUrl: URL?
@@ -2122,8 +2143,66 @@ final class PIIndexerClient {
         return qualified.value
     }
 
+    /// Reads `mobileConfig`. The deployed PI may run an older schema without
+    /// the feature-flag fields; it rejects the full query (HTTP 200 with
+    /// GraphQL errors, or HTTP 400). Then the base fields are read with a
+    /// schema-compatible query and every optional feature stays off.
     func qualifiedMobileConfig(
         requireLive: Bool = false
+    ) async throws -> PIQualifiedRead<PIMobileConfig> {
+        do {
+            return try await qualifiedFlaggedMobileConfig(
+                requireLive: requireLive
+            )
+        } catch let error as PIIndexerError where
+            Self.indicatesUnsupportedSchema(error)
+        {
+            return try await qualifiedBaseMobileConfig(
+                requireLive: requireLive
+            )
+        }
+    }
+
+    static func indicatesUnsupportedSchema(_ error: PIIndexerError) -> Bool {
+        switch error {
+        case .graphQLErrors, .httpStatus(400):
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func qualifiedBaseMobileConfig(
+        requireLive: Bool
+    ) async throws -> PIQualifiedRead<PIMobileConfig> {
+        struct Payload: Decodable { let mobileConfig: PIMobileConfigBase }
+        let result: PIQualifiedRead<Payload> = try await executeQualified(
+            operationName: "MobileConfigBase",
+            query: """
+            query MobileConfigBase {
+              mobileConfig {
+                blockExplorerUrl substrateTypesUrl
+                nodes { name address }
+              }
+            }
+            """,
+            cachePolicy: requireLive
+                ? .none
+                : .offline(maximumAge: TimeInterval(7 * 24 * 60 * 60)),
+            validateResponse: { payload, _ in
+                try Self.validateMobileConfig(
+                    payload.mobileConfig.withEveryFeatureOff
+                )
+            }
+        )
+        return PIQualifiedRead(
+            value: result.value.mobileConfig.withEveryFeatureOff,
+            qualification: result.qualification
+        )
+    }
+
+    private func qualifiedFlaggedMobileConfig(
+        requireLive: Bool
     ) async throws -> PIQualifiedRead<PIMobileConfig> {
         struct Payload: Decodable { let mobileConfig: PIMobileConfig }
         let result: PIQualifiedRead<Payload> = try await executeQualified(

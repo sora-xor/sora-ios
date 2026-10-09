@@ -36,6 +36,7 @@
 		A10000610000000000000001 /* WalletRecoveryExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000620000000000000001 /* WalletRecoveryExporter.swift */; };
 		A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000640000000000000001 /* WalletRecoveryExporterTests.swift */; };
 		C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000020000000000000001 /* AddressQRCodecTests.swift */; };
+		C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */; };
 		C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */; };
 		C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */; };
 		A10000070000000000000001 /* PIAsyncOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000140000000000000001 /* PIAsyncOperation.swift */; };
@@ -2477,6 +2478,7 @@
 		A10000620000000000000001 /* WalletRecoveryExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExporter.swift; sourceTree = "<group>"; };
 		A10000640000000000000001 /* WalletRecoveryExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExporterTests.swift; sourceTree = "<group>"; };
 		C20000020000000000000001 /* AddressQRCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressQRCodecTests.swift; sourceTree = "<group>"; };
+		C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIMobileConfigFallbackTests.swift; sourceTree = "<group>"; };
 		C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2MainnetLiveSigningTests.swift; sourceTree = "<group>"; };
 		C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2LiveRuntimeTests.swift; sourceTree = "<group>"; };
 		A10000140000000000000001 /* PIAsyncOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIAsyncOperation.swift; sourceTree = "<group>"; };
@@ -3948,6 +3950,7 @@
 				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
 				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
 				C20000020000000000000001 /* AddressQRCodecTests.swift */,
+				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
 				C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */,
 				C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */,
 			);
@@ -8860,6 +8863,7 @@
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
 				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
 				C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */,
+				C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */,
 				C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */,
 				C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */,
 				9431D55226305306001E5C85 /* UserDataStorageTestFacade.swift in Sources */,
