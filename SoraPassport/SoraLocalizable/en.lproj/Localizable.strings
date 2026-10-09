@@ -1081,3 +1081,5 @@
 "Wallet services are not ready. Try again or choose another node." = "Wallet services are not ready. Try again or choose another node.";
 "Node settings are still loading. Try again." = "Node settings are still loading. Try again.";
 "Network unavailable. Retrying connection…" = "Network unavailable. Retrying connection…";
+"The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds." = "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds.";
+"The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment." = "The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment.";

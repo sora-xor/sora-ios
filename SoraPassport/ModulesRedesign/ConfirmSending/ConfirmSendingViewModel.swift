@@ -506,7 +506,11 @@ extension ConfirmSendingViewModel {
         preflightTask = nil
         wireframe?.hideActivityIndicator()
         let message: String
-        if let walletError = error as? WalletNetworkOperationFactoryError {
+        if let runtimeMessage = ExtrinsicServiceError.runtimeUserMessage(
+            for: error
+        ) {
+            message = runtimeMessage
+        } else if let walletError = error as? WalletNetworkOperationFactoryError {
             switch walletError {
             case .insufficientBalance:
                 message = R.string.localizable.commonNotEnoughBalance(

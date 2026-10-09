@@ -923,3 +923,5 @@
 "Wallet services are not ready. Try again or choose another node." = "ウォレットの準備が完了していません。再試行するか、別のノードを選択してください。";
 "Node settings are still loading. Try again." = "ノード設定を読み込んでいます。再試行してください。";
 "Network unavailable. Retrying connection…" = "ネットワークに接続できません。再接続しています…";
+"The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds." = "SORA ネットワークが更新されました。アプリがネットワーク情報を更新しています。数秒後にもう一度お試しください。";
+"The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment." = "SORA ネットワークのバージョンを確認できなかったため、署名は行われていません。しばらくしてからもう一度お試しください。";

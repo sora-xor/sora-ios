@@ -378,7 +378,10 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                 )
             } catch {
                 let message: String
-                if let walletError = error as? WalletNetworkOperationFactoryError,
+                if let runtimeMessage = ExtrinsicServiceError
+                    .runtimeUserMessage(for: error) {
+                    message = runtimeMessage
+                } else if let walletError = error as? WalletNetworkOperationFactoryError,
                    case .insufficientBalance = walletError {
                     message = R.string.localizable.commonNotEnoughBalance(
                         preferredLanguages: .currentLocale

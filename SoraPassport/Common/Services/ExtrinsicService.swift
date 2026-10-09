@@ -34,6 +34,7 @@ import SSFUtils
 import RobinHood
 import IrohaCrypto
 import BigInt
+import SSFModels
 
 typealias FeeExtrinsicResult = Result<RuntimeDispatchInfo, Error>
 typealias ExtrinsicBuilderClosure = (ExtrinsicBuilderProtocol) throws -> (ExtrinsicBuilderProtocol)
@@ -67,6 +68,211 @@ enum ExtrinsicServiceError: Error {
     case preparedSubmissionAlreadyConsumed
     case unsupportedRuntime(spec: UInt32, transaction: UInt32)
     case unsupportedRuntimeMetadata
+    /// The connected node already runs a newer runtime than the metadata the
+    /// app holds. The runtime sync service is fetching it; nothing was signed.
+    case runtimeUpgradeInProgress(spec: UInt32, transaction: UInt32)
+}
+
+extension ExtrinsicServiceError: LocalizedError {
+    var errorDescription: String? {
+        Self.runtimeUserMessage(for: self)
+    }
+
+    /// A calm, user-facing message for runtime-related failures, or nil when
+    /// the error is not runtime related.
+    static func runtimeUserMessage(for error: Error) -> String? {
+        guard let error = error as? ExtrinsicServiceError else {
+            return nil
+        }
+        switch error {
+        case .runtimeUpgradeInProgress:
+            return WalletUX.text(
+                "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds."
+            )
+        case .unsupportedRuntime, .unsupportedRuntimeMetadata:
+            return WalletUX.text(
+                "The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment."
+            )
+        default:
+            return nil
+        }
+    }
+}
+
+/// What the connected SORA2 node reports as its current runtime.
+struct Sora2LiveRuntime: Equatable {
+    let specVersion: UInt32
+    let transactionVersion: UInt32
+    /// `PolkamarktRuntimeContract.rawMetadataSHA256` of the node's current
+    /// metadata (SHA-256 of its lowercase `0x` hex plus a newline).
+    let metadataSHA256: String
+}
+
+/// Process-wide cache of the live metadata hash per runtime version, so the
+/// app downloads the node's metadata once per runtime, not once per signature.
+/// An entry is stored only after the downloaded metadata proved (through
+/// `System.Version`) that it belongs to that exact runtime version.
+final class Sora2LiveRuntimeIdentityCache {
+    static let shared = Sora2LiveRuntimeIdentityCache()
+
+    private struct Key: Hashable {
+        let specVersion: UInt32
+        let transactionVersion: UInt32
+    }
+
+    private let lock = NSLock()
+    private var values: [Key: String] = [:]
+
+    func metadataSHA256(
+        specVersion: UInt32,
+        transactionVersion: UInt32
+    ) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return values[Key(
+            specVersion: specVersion,
+            transactionVersion: transactionVersion
+        )]
+    }
+
+    func store(
+        metadataSHA256: String,
+        specVersion: UInt32,
+        transactionVersion: UInt32
+    ) {
+        lock.lock()
+        defer { lock.unlock() }
+        if values.count >= 16 {
+            values.removeAll(keepingCapacity: true)
+        }
+        values[Key(
+            specVersion: specVersion,
+            transactionVersion: transactionVersion
+        )] = metadataSHA256
+    }
+}
+
+/// Validates the runtime a SORA2 extrinsic is about to be encoded with
+/// against the live chain. This replaces the former pin to runtime 130: any
+/// mainnet runtime at or above the reviewed floor is accepted, provided the
+/// local metadata is exactly the one the connected node runs now. Chain
+/// identity (genesis) is checked separately against the same live engine.
+enum Sora2LiveRuntimeValidator {
+    static func validate(
+        factory: RuntimeCoderFactoryProtocol,
+        live: Sora2LiveRuntime
+    ) throws {
+        guard
+            live.specVersion >= Sora2RuntimeIdentity.minimumSpecVersion,
+            live.transactionVersion > 0
+        else {
+            throw ExtrinsicServiceError.unsupportedRuntime(
+                spec: live.specVersion,
+                transaction: live.transactionVersion
+            )
+        }
+        guard
+            factory.specVersion == live.specVersion,
+            factory.txVersion == live.transactionVersion
+        else {
+            throw ExtrinsicServiceError.runtimeUpgradeInProgress(
+                spec: live.specVersion,
+                transaction: live.transactionVersion
+            )
+        }
+        do {
+            try Sora2RuntimeIdentity.requireDeclaredIdentity(
+                of: factory.metadata,
+                specVersion: factory.specVersion,
+                transactionVersion: factory.txVersion
+            )
+        } catch {
+            throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+        // Versions alone are not a metadata identity: pallet and call indices
+        // and the types used for the signed bytes must be exactly those of
+        // the runtime the node executes.
+        guard
+            try PolkamarktRuntimeContract.signingMetadataSHA256(
+                for: factory
+            ) == live.metadataSHA256
+        else {
+            throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+    }
+
+    /// Binds a metadata download to the runtime version the node reported.
+    /// Both reads are separate RPC calls, so a runtime upgrade between them
+    /// is detected here instead of caching a hash under the wrong version.
+    static func liveRuntime(
+        version: RuntimeVersion,
+        metadataHex: String
+    ) throws -> Sora2LiveRuntime {
+        guard
+            let metadataSHA256 =
+                PolkamarktRuntimeContract.wireMetadataSHA256(metadataHex),
+            let metadataBytes = try? Data(hexStringSSF: metadataHex),
+            metadataBytes.count <=
+                ReviewedSoraRuntimeSnapshotAdmission.maximumMetadataBytes
+        else {
+            throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+        let metadata: RuntimeMetadata
+        do {
+            metadata = try RuntimeMetadata(
+                scaleDecoder: try ScaleDecoder(data: metadataBytes)
+            )
+        } catch {
+            throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+        let declared = try Sora2RuntimeIdentity.declared(by: metadata)
+        guard
+            declared.specName == Sora2RuntimeIdentity.reviewedSpecName,
+            declared.specVersion == version.specVersion,
+            declared.transactionVersion == version.transactionVersion
+        else {
+            throw ExtrinsicServiceError.runtimeUpgradeInProgress(
+                spec: declared.specVersion,
+                transaction: declared.transactionVersion
+            )
+        }
+        return Sora2LiveRuntime(
+            specVersion: version.specVersion,
+            transactionVersion: version.transactionVersion,
+            metadataSHA256: metadataSHA256
+        )
+    }
+
+    /// Asks the runtime sync service to fetch the live runtime when the app's
+    /// metadata is behind the node. A sync that is already running or
+    /// scheduled is left alone.
+    static func requestRuntimeRefresh(
+        after error: Error,
+        live: RuntimeVersion?
+    ) {
+        guard
+            let live,
+            let serviceError = error as? ExtrinsicServiceError
+        else {
+            return
+        }
+        switch serviceError {
+        case .runtimeUpgradeInProgress:
+            ChainRegistryFacade.sharedRegistry.requestRuntimeRefresh(
+                for: Chain.sora.genesisHash(),
+                liveVersion: live,
+                replacingCachedMetadata: false
+            )
+        case .unsupportedRuntimeMetadata:
+            ChainRegistryFacade.sharedRegistry.requestRuntimeRefresh(
+                for: Chain.sora.genesisHash(),
+                liveVersion: live,
+                replacingCachedMetadata: true
+            )
+        default:
+            return
+        }
+    }
 }
 
 enum Sora2BoundedHTTPJSONRPCError: LocalizedError {
@@ -1164,11 +1370,15 @@ struct Sora2SubmissionRecoveryContext: Codable, Equatable {
             Sora2PendingSubmissionStore.normalizedHash(
                 PIIndexerClient.soraMainnetGenesis
             ) == genesisHash &&
-            specVersion == PolkamarktRuntimeContract.specVersion &&
-            transactionVersion ==
-                PolkamarktRuntimeContract.transactionVersion &&
-            metadataSHA256 ==
-                PolkamarktRuntimeContract.metadataFileSHA256 &&
+            // Any reviewed-floor runtime: contexts written at runtime 130
+            // stay valid, and new ones record whatever runtime signed them.
+            specVersion >= Sora2RuntimeIdentity.minimumSpecVersion &&
+            transactionVersion > 0 &&
+            metadataSHA256.count == 64 &&
+            metadataSHA256.unicodeScalars.allSatisfy({
+                (48 ... 57).contains($0.value) ||
+                    (97 ... 102).contains($0.value)
+            }) &&
             eraBirthBlock >= 0 &&
             eraPeriod == Self.reviewedEraPeriod &&
             eraPhase == eraBirthBlock % eraPeriod &&
@@ -1793,11 +2003,17 @@ final class Sora2PendingSubmissionReconciler {
         extrinsicIndices: [String: UInt32]
     )
 
+    private struct RuntimeKey: Hashable {
+        let specVersion: UInt32
+        let transactionVersion: UInt32
+    }
+
     private let store: Sora2PendingSubmissionStore
     private let rpc: PolkamarktRPCClient
-    private let runtimeValidator: PolkamarktRuntimeValidator
+    private let runtimeService: RuntimeCodingServiceProtocol
     private let engine: JSONRPCEngine
     private var canonicalBlockCache: [Int: CanonicalBlock] = [:]
+    private var decodingFactories: [RuntimeKey: RuntimeCoderFactoryProtocol] = [:]
     private var recoveryHashes = Set<String>()
 
     init(
@@ -1808,15 +2024,13 @@ final class Sora2PendingSubmissionReconciler {
         self.store = store
         self.engine = Sora2BoundedHTTPJSONRPCEngine.wrapping(engine)
         rpc = PolkamarktRPCClient(engine: self.engine)
-        runtimeValidator = PolkamarktRuntimeValidator(
-            runtimeService: runtimeService,
-            rpc: rpc
-        )
+        self.runtimeService = runtimeService
     }
 
     func reconcileStatusOnly() async throws {
         try Task.checkCancellation()
         canonicalBlockCache.removeAll(keepingCapacity: true)
+        decodingFactories.removeAll(keepingCapacity: true)
         recoveryHashes.removeAll(keepingCapacity: true)
         let values = try store.all()
         let qualified = values.filter {
@@ -1866,31 +2080,105 @@ final class Sora2PendingSubmissionReconciler {
         else {
             throw Sora2PendingRecoveryError.unavailable
         }
-        let factory = try await runtimeValidator.validate()
-
+        // Block zero of this engine is the reviewed SORA2 genesis (the
+        // context is valid only for it), so every read below is bound to
+        // mainnet. The runtime may have been upgraded since signing: events
+        // are decoded with the runtime that produced the inclusion block.
+        var deferredEntry = false
         for pending in selected {
             try Task.checkCancellation()
             guard let context = pending.recoveryContext else {
                 continue
             }
-            guard
-                canonicalGenesis.blockHash == context.genesisHash,
-                factory.specVersion == context.specVersion,
-                factory.txVersion == context.transactionVersion,
-                try PolkamarktRuntimeContract.signingMetadataSHA256(
-                    for: factory
-                ) == context.metadataSHA256
-            else {
+            guard canonicalGenesis.blockHash == context.genesisHash else {
                 throw Sora2PendingRecoveryError.unavailable
             }
-            try await reconcile(
-                pending,
-                context: context,
-                finalizedHeight: finalizedHeight,
-                finalized: finalized,
-                factory: factory
-            )
+            do {
+                try await reconcile(
+                    pending,
+                    context: context,
+                    finalizedHeight: finalizedHeight,
+                    finalized: finalized
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // One entry that cannot be resolved yet stays pending and
+                // protected; it must not hold back the others.
+                deferredEntry = true
+            }
         }
+        if deferredEntry {
+            throw Sora2PendingRecoveryError.unavailable
+        }
+    }
+
+    /// Returns a decoder for the runtime that produced `blockHash`. The
+    /// current runtime snapshot is reused only when it is exactly that
+    /// runtime and its metadata was proven against the node in this process;
+    /// otherwise the block's own metadata is fetched, bound to its declared
+    /// `System.Version`, and combined with the bundled SORA2 type registry.
+    private func decodingFactory(
+        atBlock normalizedBlockHash: String
+    ) async throws -> RuntimeCoderFactoryProtocol {
+        let blockHash = "0x\(normalizedBlockHash)"
+        let version = try await rpc.runtimeVersion(at: blockHash)
+        let key = RuntimeKey(
+            specVersion: version.specVersion,
+            transactionVersion: version.transactionVersion
+        )
+        if let cached = decodingFactories[key] {
+            return cached
+        }
+        if
+            let provider = runtimeService as? RuntimeProviderProtocol,
+            let snapshot = provider.snapshot,
+            snapshot.specVersion == version.specVersion,
+            snapshot.txVersion == version.transactionVersion,
+            let proven = Sora2LiveRuntimeIdentityCache.shared.metadataSHA256(
+                specVersion: version.specVersion,
+                transactionVersion: version.transactionVersion
+            )
+        {
+            let current = RuntimeCoderFactory(
+                catalog: snapshot.typeRegistryCatalog,
+                specVersion: snapshot.specVersion,
+                txVersion: snapshot.txVersion,
+                metadata: snapshot.metadata
+            )
+            if try PolkamarktRuntimeContract.signingMetadataSHA256(
+                for: current
+            ) == proven {
+                decodingFactories[key] = current
+                return current
+            }
+        }
+        let metadataHex = try await rpc.metadataHex(at: blockHash)
+        let live = try Sora2LiveRuntimeValidator.liveRuntime(
+            version: version,
+            metadataHex: metadataHex
+        )
+        let snapshot = try RuntimeSnapshotFactory.makeOwnTypesSnapshot(
+            chainId: PIIndexerClient.soraMainnetGenesis,
+            runtimeMetadataItem: RuntimeMetadataItem(
+                chain: PIIndexerClient.soraMainnetGenesis,
+                version: live.specVersion,
+                txVersion: live.transactionVersion,
+                metadata: try Data(hexStringSSF: metadataHex),
+                resolver: nil
+            ),
+            ownTypes: try ReviewedSoraRuntimeSnapshotAdmission
+                .loadReviewedChainTypes(),
+            dataHasher: .twox256
+        )
+        let factory = RuntimeCoderFactory(
+            catalog: snapshot.typeRegistryCatalog,
+            specVersion: snapshot.specVersion,
+            txVersion: snapshot.txVersion,
+            metadata: snapshot.metadata
+        )
+        decodingFactories[key] = factory
+        return factory
     }
 
     private func validateWalletBinding(
@@ -1945,8 +2233,7 @@ final class Sora2PendingSubmissionReconciler {
         _ pending: Sora2PendingSubmission,
         context: Sora2SubmissionRecoveryContext,
         finalizedHeight: Int,
-        finalized: BigUInt,
-        factory: RuntimeCoderFactoryProtocol
+        finalized: BigUInt
     ) async throws {
         guard finalizedHeight >= context.eraBirthBlock else {
             throw Sora2PendingRecoveryError.unavailable
@@ -1985,6 +2272,9 @@ final class Sora2PendingSubmissionReconciler {
         }
 
         if let inclusion = foundInclusion {
+            let factory = try await decodingFactory(
+                atBlock: inclusion.blockHash
+            )
             guard let succeeded = try await authoritativeExecutionResult(
                 at: inclusion.blockHash,
                 extrinsicIndex: inclusion.extrinsicIndex,
@@ -2486,17 +2776,6 @@ final class ExtrinsicService {
                 throw ExtrinsicServiceError.unsupportedRuntimeMetadata
             }
 
-            let account = MultiAddress.accoundId(accountId)
-
-            var builder: ExtrinsicBuilderProtocol =
-                try ExtrinsicBuilder(specVersion: codingFactory.specVersion,
-                                     transactionVersion: codingFactory.txVersion,
-                                     genesisHash: signingGenesisHash)
-                    .with(address: account)
-                    .with(nonce: nonce)
-                    .with(era: hashAndEra.era, blockHash: hashAndEra.hash)
-
-            builder = try customClosure(builder)
             let guardedSigningClosure: (Data) throws -> Data = { data in
                 // The builder has now encoded the exact signature payload.
                 // Validate once, at the last synchronous boundary before the
@@ -2504,12 +2783,17 @@ final class ExtrinsicService {
                 try preSigningValidation?()
                 return try signingClosure(data)
             }
-            builder = try builder.signing(by: guardedSigningClosure,
-                                          of: currentCryptoType,
-                                          using: codingFactory.createEncoder(),
-                                          metadata: codingFactory.metadata)
-            let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
-            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), metadata: codingFactory.metadata)
+            let (extrinsicData, extrinsic) = try Self.assembleSignedExtrinsic(
+                codingFactory: codingFactory,
+                genesisHash: signingGenesisHash,
+                accountId: accountId,
+                nonce: nonce,
+                era: hashAndEra.era,
+                eraBlockHash: hashAndEra.hash,
+                cryptoType: currentCryptoType,
+                customClosure: customClosure,
+                signingClosure: guardedSigningClosure
+            )
             let transactionHash = try extrinsicData.blake2b32()
                 .toHex(includePrefix: true)
             let recoveryContext = try Sora2SubmissionRecoveryContext.make(
@@ -2532,6 +2816,41 @@ final class ExtrinsicService {
                 recoveryContext: recoveryContext
             )
         }
+    }
+
+    /// Encodes and signs one SORA2 extrinsic with the given runtime. The
+    /// service calls this only after its wallet, chain and live-runtime
+    /// checks; the live-network signing test calls it with a throwaway key,
+    /// so both produce bytes with exactly the same code.
+    static func assembleSignedExtrinsic(
+        codingFactory: RuntimeCoderFactoryProtocol,
+        genesisHash: String,
+        accountId: Data,
+        nonce: UInt32,
+        era: Era,
+        eraBlockHash: String,
+        cryptoType: CryptoType,
+        customClosure: ExtrinsicBuilderClosure,
+        signingClosure: @escaping (Data) throws -> Data
+    ) throws -> (data: Data, extrinsic: Extrinsic) {
+        let account = MultiAddress.accoundId(accountId)
+
+        var builder: ExtrinsicBuilderProtocol =
+            try ExtrinsicBuilder(specVersion: codingFactory.specVersion,
+                                 transactionVersion: codingFactory.txVersion,
+                                 genesisHash: genesisHash)
+                .with(address: account)
+                .with(nonce: nonce)
+                .with(era: era, blockHash: eraBlockHash)
+
+        builder = try customClosure(builder)
+        builder = try builder.signing(by: signingClosure,
+                                      of: cryptoType,
+                                      using: codingFactory.createEncoder(),
+                                      metadata: codingFactory.metadata)
+        let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
+        let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), metadata: codingFactory.metadata)
+        return (extrinsicData, extrinsic)
     }
 
     private func createSigningLeaseOperation(
@@ -2560,31 +2879,110 @@ final class ExtrinsicService {
             .enqueueOwnedAcquireOperation(lifecycle.operation)
     }
 
-    private func validateSora2SigningRuntime(
-        _ factory: RuntimeCoderFactoryProtocol
-    ) throws {
-        guard
-            factory.specVersion == PolkamarktRuntimeContract.specVersion,
-            factory.txVersion ==
-                PolkamarktRuntimeContract.transactionVersion
-        else {
-            throw ExtrinsicServiceError.unsupportedRuntime(
-                spec: factory.specVersion,
-                transaction: factory.txVersion
-            )
+    private func createLiveRuntimeOperations() -> (
+        version: BaseOperation<RuntimeVersion>,
+        metadata: BaseOperation<String>,
+        identity: BaseOperation<Sora2LiveRuntime>,
+        all: [Operation]
+    ) {
+        // Both reads come from the same live engine that supplies the nonce,
+        // the era and genesis, and that receives the signed bytes.
+        let versionOperation = JSONRPCListOperation<RuntimeVersion>(
+            engine: engine,
+            method: RPCMethod.getRuntimeVersion,
+            timeout: 30
+        )
+        let metadataOperation = JSONRPCListOperation<String>(
+            engine: engine,
+            method: RPCMethod.getRuntimeMetadata,
+            timeout: 60
+        )
+        metadataOperation.configurationBlock = {
+            do {
+                let version = try versionOperation
+                    .extractNoCancellableResultData()
+                if Sora2LiveRuntimeIdentityCache.shared.metadataSHA256(
+                    specVersion: version.specVersion,
+                    transactionVersion: version.transactionVersion
+                ) != nil {
+                    // Already proven for this runtime in this process.
+                    metadataOperation.result = .success("")
+                }
+            } catch {
+                metadataOperation.result = .failure(error)
+            }
         }
-        let metadataSHA256 = try PolkamarktRuntimeContract
-            .signingMetadataSHA256(for: factory)
-        guard PolkamarktRuntimeContract.matchesReviewedSigningIdentity(
-            specVersion: factory.specVersion,
-            transactionVersion: factory.txVersion,
-            metadataSHA256: metadataSHA256
-        ) else {
-            // Runtime versions are not a metadata identity. Pallet/call
-            // indices and types used for the signed bytes must match the
-            // reviewed runtime-130 fixture on every SORA2 mutation, not only
-            // on the Polkamarkt paths.
-            throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        metadataOperation.addDependency(versionOperation)
+
+        let identityOperation = ClosureOperation<Sora2LiveRuntime> {
+            let version = try versionOperation.extractNoCancellableResultData()
+            let cache = Sora2LiveRuntimeIdentityCache.shared
+            if let cached = cache.metadataSHA256(
+                specVersion: version.specVersion,
+                transactionVersion: version.transactionVersion
+            ) {
+                return Sora2LiveRuntime(
+                    specVersion: version.specVersion,
+                    transactionVersion: version.transactionVersion,
+                    metadataSHA256: cached
+                )
+            }
+            let metadataHex = try metadataOperation
+                .extractNoCancellableResultData()
+            guard !metadataHex.isEmpty else {
+                throw ExtrinsicServiceError.runtimeUpgradeInProgress(
+                    spec: version.specVersion,
+                    transaction: version.transactionVersion
+                )
+            }
+            let live = try Sora2LiveRuntimeValidator.liveRuntime(
+                version: version,
+                metadataHex: metadataHex
+            )
+            cache.store(
+                metadataSHA256: live.metadataSHA256,
+                specVersion: live.specVersion,
+                transactionVersion: live.transactionVersion
+            )
+            return live
+        }
+        identityOperation.addDependency(versionOperation)
+        identityOperation.addDependency(metadataOperation)
+
+        return (
+            versionOperation,
+            metadataOperation,
+            identityOperation,
+            [versionOperation, metadataOperation, identityOperation]
+        )
+    }
+
+    /// Every SORA2 extrinsic (fee estimates included) is encoded only with
+    /// the runtime the connected node runs right now. When the app's metadata
+    /// is behind a runtime upgrade, nothing is signed and the runtime sync
+    /// service is asked to fetch the new metadata.
+    private func validateLiveSora2SigningRuntime(
+        _ factory: RuntimeCoderFactoryProtocol,
+        live: (
+            version: BaseOperation<RuntimeVersion>,
+            metadata: BaseOperation<String>,
+            identity: BaseOperation<Sora2LiveRuntime>,
+            all: [Operation]
+        )
+    ) throws {
+        do {
+            let liveRuntime = try live.identity
+                .extractNoCancellableResultData()
+            try Sora2LiveRuntimeValidator.validate(
+                factory: factory,
+                live: liveRuntime
+            )
+        } catch {
+            Sora2LiveRuntimeValidator.requestRuntimeRefresh(
+                after: error,
+                live: try? live.version.extractNoCancellableResultData()
+            )
+            throw error
         }
     }
 
@@ -2626,6 +3024,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         let eraOperation = createEraOperation(dependingOn: headOperation)
         let hashAndEraOperation = createBlockhashAndEraOperation(dependingOn: headOperation, headerOperation: eraOperation)
         let codingFactoryOperation = runtimeRegistry.fetchCoderFactoryOperation()
+        let liveRuntime = createLiveRuntimeOperations()
 
         let currentCryptoType = cryptoType
 
@@ -2639,7 +3038,10 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                                                         codingFactoryOperation: codingFactoryOperation,
                                                         customClosure: closure,
                                                         runtimeValidation: { factory in
-                                                            try self.validateSora2SigningRuntime(factory)
+                                                            try self.validateLiveSora2SigningRuntime(
+                                                                factory,
+                                                                live: liveRuntime
+                                                            )
                                                         },
                                                         signingClosure: signingClosure)
         eraOperation.addDependency(headOperation)
@@ -2649,12 +3051,14 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         builderOperation.addDependency(genesisOperation)
         builderOperation.addDependency(hashAndEraOperation)
         builderOperation.addDependency(codingFactoryOperation)
+        builderOperation.addDependency(liveRuntime.identity)
 
         let infoOperation = feeDetailsOperation(queue: queue, builderOperation: builderOperation, completionClosure: completionClosure)
 
-        let operations = [nonceOperation, genesisOperation, headOperation,
-                          eraOperation, hashAndEraOperation,
-                          codingFactoryOperation, builderOperation, infoOperation]
+        let operations: [Operation] = [nonceOperation, genesisOperation, headOperation,
+                                       eraOperation, hashAndEraOperation,
+                                       codingFactoryOperation, builderOperation, infoOperation] +
+            liveRuntime.all
         operationManager.enqueue(operations: operations, in: .transient)
     }
 
@@ -2713,6 +3117,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         hashAndEraOperation.addDependency(headOperation)
         hashAndEraOperation.addDependency(eraOperation)
         let codingFactoryOperation = runtimeRegistry.fetchCoderFactoryOperation()
+        let liveRuntime = createLiveRuntimeOperations()
         let lifecycle = createSigningLeaseOperation(
             suppliedLease: lifecycleLease
         )
@@ -2720,6 +3125,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         lifecycle.operation.addDependency(genesisOperation)
         lifecycle.operation.addDependency(hashAndEraOperation)
         lifecycle.operation.addDependency(codingFactoryOperation)
+        lifecycle.operation.addDependency(liveRuntime.identity)
 
         let signingClosure: (Data) throws -> Data
         do {
@@ -2739,7 +3145,10 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             codingFactoryOperation: codingFactoryOperation,
             customClosure: closure,
             runtimeValidation: { factory in
-                try self.validateSora2SigningRuntime(factory)
+                try self.validateLiveSora2SigningRuntime(
+                    factory,
+                    live: liveRuntime
+                )
                 try runtimeValidation?(factory)
             },
             finalizedHeadValidation: finalizedHeadValidation,
@@ -2752,6 +3161,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         builderOperation.addDependency(eraOperation)
         builderOperation.addDependency(hashAndEraOperation)
         builderOperation.addDependency(codingFactoryOperation)
+        builderOperation.addDependency(liveRuntime.identity)
         builderOperation.addDependency(lifecycle.operation)
 
         let feeOperation = JSONRPCListOperation<InclusionFeeInfo>(
@@ -2816,6 +3226,9 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             eraOperation,
             hashAndEraOperation,
             codingFactoryOperation,
+            liveRuntime.version,
+            liveRuntime.metadata,
+            liveRuntime.identity,
             builderOperation,
             feeOperation
         ]
@@ -2837,6 +3250,9 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                 eraOperation,
                 hashAndEraOperation,
                 codingFactoryOperation,
+                liveRuntime.version,
+                liveRuntime.metadata,
+                liveRuntime.identity,
                 builderOperation
             ]
         )
@@ -2921,6 +3337,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         hashAndEraOperation.addDependency(eraOperation)
 
         let codingFactoryOperation = runtimeRegistry.fetchCoderFactoryOperation()
+        let liveRuntime = createLiveRuntimeOperations()
         guard signer is LifecycleSigningWrapperProtocol else {
             queue.async {
                 completion(
@@ -2938,6 +3355,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         lifecycle.operation.addDependency(genesisOperation)
         lifecycle.operation.addDependency(hashAndEraOperation)
         lifecycle.operation.addDependency(codingFactoryOperation)
+        lifecycle.operation.addDependency(liveRuntime.identity)
         let signingClosure: (Data) throws -> Data
         do {
             signingClosure = try self.signingClosure(
@@ -2961,7 +3379,10 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             codingFactoryOperation: codingFactoryOperation,
             customClosure: closure,
             runtimeValidation: { factory in
-                try self.validateSora2SigningRuntime(factory)
+                try self.validateLiveSora2SigningRuntime(
+                    factory,
+                    live: liveRuntime
+                )
                 try runtimeValidation?(factory)
             },
             preSigningValidation: preSigningValidation,
@@ -2973,6 +3394,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         builderOperation.addDependency(eraOperation)
         builderOperation.addDependency(hashAndEraOperation)
         builderOperation.addDependency(codingFactoryOperation)
+        builderOperation.addDependency(liveRuntime.identity)
         builderOperation.addDependency(lifecycle.operation)
         builderOperation.completionBlock = {
             let result: Result<PreparedExtrinsicSubmission, Error>
@@ -3008,6 +3430,9 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             eraOperation,
             hashAndEraOperation,
             codingFactoryOperation,
+            liveRuntime.version,
+            liveRuntime.metadata,
+            liveRuntime.identity,
             builderOperation
         ]
         if !lifecycle.ownsLease {
@@ -3372,6 +3797,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         hashAndEraOperation.addDependency(eraOperation)
 
         let codingFactoryOperation = runtimeRegistry.fetchCoderFactoryOperation()
+        let liveRuntime = createLiveRuntimeOperations()
 
         let lifecycle = createSigningLeaseOperation(
             suppliedLease: lifecycleLease
@@ -3380,6 +3806,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         lifecycle.operation.addDependency(genesisOperation)
         lifecycle.operation.addDependency(hashAndEraOperation)
         lifecycle.operation.addDependency(codingFactoryOperation)
+        lifecycle.operation.addDependency(liveRuntime.identity)
 
         let signingClosure: (Data) throws -> Data
         do {
@@ -3401,7 +3828,10 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             codingFactoryOperation: codingFactoryOperation,
             customClosure: closure,
             runtimeValidation: { factory in
-                try self.validateSora2SigningRuntime(factory)
+                try self.validateLiveSora2SigningRuntime(
+                    factory,
+                    live: liveRuntime
+                )
             },
             preSigningValidation: preSigningValidation,
             signingClosure: signingClosure
@@ -3413,6 +3843,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         builderOperation.addDependency(eraOperation)
         builderOperation.addDependency(hashAndEraOperation)
         builderOperation.addDependency(codingFactoryOperation)
+        builderOperation.addDependency(liveRuntime.identity)
         builderOperation.addDependency(lifecycle.operation)
 
         let stageOperation = ClosureOperation<StagedExtrinsicInfo> {
@@ -3601,6 +4032,9 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
             eraOperation,
             hashAndEraOperation,
             codingFactoryOperation,
+            liveRuntime.version,
+            liveRuntime.metadata,
+            liveRuntime.identity,
             builderOperation,
             stageOperation,
             submitOperation
