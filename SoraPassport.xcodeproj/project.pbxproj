@@ -1145,7 +1145,6 @@
 		4D87A4765137A6959565578B /* SetupPasswordCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A78322A3227AC00A6DDF9 /* SetupPasswordCell.swift */; };
 		4D9701F1935AAFD17BC45901 /* NotificationRequestError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E3198E21D200B200B33B66 /* NotificationRequestError.swift */; };
 		4D9A289072FA258EEDA33C65 /* ActiveEraSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FBE025CC034A00775559 /* ActiveEraSubscription.swift */; };
-		4E04A2268ABD976F9F293D4E /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = 968922F2C2B8465236DF8F4E /* JOSESwift */; };
 		4E0D9EBF84377EFCBE5B85B4 /* InvitationRequestError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E3199021D2010200B33B66 /* InvitationRequestError.swift */; };
 		4E5D99F2C5C01725D2249A50 /* DataProviderChange+Result.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C025C9815B00775559 /* DataProviderChange+Result.swift */; };
 		4E61411319A9C3CF867A29DD /* ScryptParameters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364BF1C72B10B4F600758323 /* ScryptParameters.swift */; };
@@ -2401,7 +2400,6 @@
 		B923EAC73D06876EC65A0FFE /* NSPredicate+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9B925C9805B00775559 /* NSPredicate+Filter.swift */; };
 		B92DBF21C234029AE98CF66B /* FriendsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */; };
 		B9B3CC13AD1D484A1A8A018C /* EnterPasswordWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A780F2A319D3500A6DDF9 /* EnterPasswordWireframe.swift */; };
-		B9D49A1203EC91E206C48A9B /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = 629B3C2CF82421BD5E24D152 /* JOSESwift */; };
 		B9D936959F0CE2B16D2EC991 /* SubqueryRewardOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3001326FB772400F239D7 /* SubqueryRewardOperationFactory.swift */; };
 		BA05A1E1152E486AF358C887 /* CountryFetchMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F0100222C60A8D001927A1 /* CountryFetchMock.swift */; };
 		BA19AE775365F7D168A4ECF3 /* RuntimeVersionSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A572B25DE7FCF003E4023 /* RuntimeVersionSubscription.swift */; };
@@ -4338,7 +4336,6 @@
 				D7276A6ABCE7784077FA94C1 /* SSFSingleValueCache in Frameworks */,
 				14D93B1A483E7CBA88098BF9 /* GoogleSignIn in Frameworks */,
 				741FC16885BB1E041DEE119E /* GoogleAPIClientForREST_Drive in Frameworks */,
-				B9D49A1203EC91E206C48A9B /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4422,7 +4419,6 @@
 				15969AB5D74F78EF931B5F72 /* SSFSingleValueCache in Frameworks */,
 				54670744B8C9D9D89BB44914 /* GoogleSignIn in Frameworks */,
 				76E39488A73EC6A6449EBC7E /* GoogleAPIClientForREST_Drive in Frameworks */,
-				4E04A2268ABD976F9F293D4E /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8217,7 +8213,6 @@
 				EE4803001A8597D8059DB25F /* SSFSingleValueCache */,
 				02C1E5BCE01E9F8CE6DC8BC5 /* GoogleSignIn */,
 				0E88FECEB9AA35203BCC4A82 /* GoogleAPIClientForREST_Drive */,
-				629B3C2CF82421BD5E24D152 /* JOSESwift */,
 			);
 			productName = SoraPassport;
 			productReference = 02623EB52178C0910011250E /* SoraPassport.app */;
@@ -8387,7 +8382,6 @@
 				B062A800EA32DDAB3AD58C38 /* SSFSingleValueCache */,
 				1C4B75C1220BC523E3598FC1 /* GoogleSignIn */,
 				F56E794DA1C232C00B9D6AB6 /* GoogleAPIClientForREST_Drive */,
-				968922F2C2B8465236DF8F4E /* JOSESwift */,
 				DF251242E13E80E6425B25E0 /* FLEX */,
 			);
 			productName = SoraPassportDev;
@@ -8515,7 +8509,6 @@
 				C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */,
 				AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */,
 				14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */,
-				0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */,
 			);
 			productRefGroup = 02623EB62178C0910011250E /* Products */;
 			projectDirPath = "";
@@ -12531,10 +12524,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = VendorPackages/JOSESwift;
-		};
 		14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "VendorPackages/google-api-objectivec-client-for-rest";
@@ -12953,11 +12942,6 @@
 			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
 			productName = Starscream;
 		};
-		629B3C2CF82421BD5E24D152 /* JOSESwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */;
-			productName = JOSESwift;
-		};
 		65D72B5BCB0A03340F9A4A7E /* Starscream */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
@@ -13082,11 +13066,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */;
 			productName = SnapKit;
-		};
-		968922F2C2B8465236DF8F4E /* JOSESwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */;
-			productName = JOSESwift;
 		};
 		99181BC773FED5D7FC25B230 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
