@@ -102,7 +102,7 @@ final class RootWireframe: RootWireframeProtocol {
         let restart: () -> Void = { [weak view] in
             guard let window = view as? SoraWindow else { return }
             // Re-run the full startup checks with the restored wallets.
-            SplashPresenterFactory.createSplashPresenter(with: window)
+            Self.restartStartup(on: window)
         }
         let controller = WalletWelcomeBackViewController(
             onContinueToOnboarding: { [weak self, weak view] in
@@ -116,6 +116,15 @@ final class RootWireframe: RootWireframeProtocol {
         view.rootViewController = navigation
     }
 
+    /// Runs the startup checks again in this process. The app's own Core
+    /// Data stack is closed first (it reopens on next use): the first
+    /// migration backup of a store checkpoints its WAL, which needs the store
+    /// not to be held open by this process.
+    static func restartStartup(on window: SoraWindow) {
+        try? UserDataStorageFacade.shared.databaseService.close()
+        SplashPresenterFactory.createSplashPresenter(with: window)
+    }
+
     func showBroken(on view: UIWindow) {
         RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
             .recovery
@@ -126,7 +135,7 @@ final class RootWireframe: RootWireframeProtocol {
                 guard let window else { return }
                 // Restart the full storage/account checks. Only their verified
                 // activation may clear recovery; this action changes no data.
-                SplashPresenterFactory.createSplashPresenter(with: window)
+                Self.restartStartup(on: window)
             }
         }
         let controller = WalletRecoveryViewController(
