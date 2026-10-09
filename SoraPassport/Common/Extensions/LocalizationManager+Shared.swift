@@ -62,9 +62,11 @@ extension LocalizationManager {
         return manager
     }()
 
-    /// A tester build offered languages that 3.9.0 no longer ships (Old
-    /// Akkadian, Middle Egyptian). A stored choice that is not in this build
-    /// falls back to the best device language, or English.
+    /// A stored choice that this build does not ship is replaced: first by
+    /// the same language without its region (a regional variant such as
+    /// "es-CO" from an old release keeps Spanish), then by the best device
+    /// language, then English. Tester builds offered Old Akkadian and Middle
+    /// Egyptian, which 3.9.0 no longer ships.
     func replaceUnavailableSelection(
         preferredLanguages: [String] = Locale.preferredLanguages
     ) {
@@ -72,11 +74,12 @@ extension LocalizationManager {
             return
         }
         // A manager with no stored choice picks the best available
-        // localization for the device languages, or English.
+        // localization for the given languages, matching an exact entry or
+        // the same language code. The stored choice is tried first.
         let suggestion = LocalizationManager(
             settings: InMemorySettingsManager(),
             key: "selection",
-            preferredLanguages: preferredLanguages,
+            preferredLanguages: [selectedLocalization] + preferredLanguages,
             availableLocalizations: availableLocalizations
         ).selectedLocalization
         selectedLocalization = availableLocalizations.contains(suggestion)

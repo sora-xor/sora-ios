@@ -98,6 +98,32 @@ final class ShippedLocalizationTests: XCTestCase {
         }
     }
 
+    func testStoredRegionalVariantKeepsItsLanguage() {
+        // 1.5.1 shipped es-CO; 3.9.0 ships es. An English device must not
+        // switch a Spanish user to English.
+        let settings = InMemorySettingsManager()
+        settings.set(value: "es-CO", for: "language")
+        let manager = LocalizationManager(
+            settings: settings,
+            key: "language",
+            availableLocalizations: ["en", "es", "ja"]
+        )
+        manager.replaceUnavailableSelection(preferredLanguages: ["en-US"])
+        XCTAssertEqual(manager.selectedLocalization, "es")
+        XCTAssertEqual(settings.string(for: "language"), "es")
+
+        // A regional variant whose language is not shipped still falls back
+        // to the device language.
+        settings.set(value: "ba-RU", for: "language")
+        let other = LocalizationManager(
+            settings: settings,
+            key: "language",
+            availableLocalizations: ["en", "es", "ja"]
+        )
+        other.replaceUnavailableSelection(preferredLanguages: ["ja-JP"])
+        XCTAssertEqual(other.selectedLocalization, "ja")
+    }
+
     func testShippedSelectionIsKept() {
         let settings = InMemorySettingsManager()
         settings.set(value: "ru", for: "language")
