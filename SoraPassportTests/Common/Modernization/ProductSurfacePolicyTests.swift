@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: BSD-4-Clause
 
 import Foundation
+import SoraFoundation
+import SoraKeystore
 import XCTest
 @testable import SoraPassport
 
@@ -53,3 +55,58 @@ final class ProductSurfacePolicyTests: XCTestCase {
     }
 }
 
+/// Old Akkadian and Middle Egyptian were tester-only locales. 3.9.0 packages
+/// the same locales as App Store 3.8.6, and a stored choice of a removed
+/// locale falls back to a shipped one.
+final class ShippedLocalizationTests: XCTestCase {
+    func testRemovedLocalesAreNotPackaged() {
+        let shipped = Set(Bundle.main.localizations)
+        XCTAssertFalse(shipped.contains("akk"))
+        XCTAssertFalse(shipped.contains("egy-Egyp"))
+        XCTAssertTrue(shipped.contains("en"))
+        XCTAssertTrue(shipped.contains("ja"))
+        XCTAssertNil(Bundle.main.path(forResource: "akk", ofType: "lproj"))
+        XCTAssertNil(Bundle.main.path(forResource: "egy-Egyp", ofType: "lproj"))
+        let fonts = Bundle.main.object(forInfoDictionaryKey: "UIAppFonts")
+            as? [String] ?? []
+        XCTAssertFalse(fonts.contains { $0.contains("Egyptian") })
+    }
+
+    func testStoredRemovedLocaleFallsBackToAShippedOne() throws {
+        for removed in ["akk", "egy-Egyp"] {
+            let settings = InMemorySettingsManager()
+            settings.set(value: removed, for: "language")
+            let manager = LocalizationManager(
+                settings: settings,
+                key: "language",
+                availableLocalizations: ["en", "ja", "ru"]
+            )
+            XCTAssertEqual(manager.selectedLocalization, removed)
+
+            manager.replaceUnavailableSelection(preferredLanguages: ["ja-JP"])
+            XCTAssertEqual(manager.selectedLocalization, "ja")
+            XCTAssertEqual(settings.string(for: "language"), "ja")
+
+            settings.set(value: removed, for: "language")
+            let other = LocalizationManager(
+                settings: settings,
+                key: "language",
+                availableLocalizations: ["en", "ja", "ru"]
+            )
+            other.replaceUnavailableSelection(preferredLanguages: ["xx"])
+            XCTAssertEqual(other.selectedLocalization, "en")
+        }
+    }
+
+    func testShippedSelectionIsKept() {
+        let settings = InMemorySettingsManager()
+        settings.set(value: "ru", for: "language")
+        let manager = LocalizationManager(
+            settings: settings,
+            key: "language",
+            availableLocalizations: ["en", "ja", "ru"]
+        )
+        manager.replaceUnavailableSelection(preferredLanguages: ["ja"])
+        XCTAssertEqual(manager.selectedLocalization, "ru")
+    }
+}

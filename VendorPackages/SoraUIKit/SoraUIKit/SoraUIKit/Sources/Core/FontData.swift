@@ -20,20 +20,7 @@ public struct FontData {
     let paragraphSpacing: CGFloat
 
     public var font: UIFont {
-        let baseFont = UIFont(name: "\(fontFamily)-\(fontWeight)", size: fontSize)
-            ?? .systemFont(ofSize: fontSize, weight: fontWeight.uiKitWeight)
-        let egyptianDescriptor = UIFontDescriptor(
-            name: "NotoSansEgyptianHieroglyphs-Regular",
-            size: fontSize
-        )
-        let cascadeAttribute = UIFontDescriptor.AttributeName(
-            rawValue: kCTFontCascadeListAttribute as String
-        )
-        let descriptor = baseFont.fontDescriptor.addingAttributes([
-            cascadeAttribute: [egyptianDescriptor]
-        ])
-
-        return UIFont(descriptor: descriptor, size: fontSize)
+        return UIFont(name: "\(fontFamily)-\(fontWeight)", size: fontSize) ?? .systemFont(ofSize: fontSize, weight: fontWeight.uiKitWeight)
     }
 
     var paragraph: NSMutableParagraphStyle {
