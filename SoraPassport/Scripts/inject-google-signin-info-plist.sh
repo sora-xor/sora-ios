@@ -33,15 +33,46 @@ do
   fi
 done
 
-google_url_scheme="${SORA_GOOGLE_URL_SCHEME:-${SORA_GOOGLE_URL_SCHEME_DEV:-${SORA_IOS_GOOGLE_URL_SCHEME_PROD:-}}}"
-google_token="${SORA_GOOGLE_TOKEN:-${SORA_GOOGLE_TOKEN_DEV:-${SORA_IOS_GOOGLE_TOKEN_PROD:-}}}"
+if [ "$CONFIGURATION" = "Release" ]; then
+  # Google Drive backups made by App Store 3.8.6 are visible only to the same
+  # OAuth client. 3.8.6 took GIDClientID and its URL scheme from the
+  # SORA_GOOGLE_TOKEN_DEV / SORA_GOOGLE_URL_SCHEME_DEV build settings (a
+  # Jenkins credential, despite the name). Release uses exactly those
+  # settings; any other source would silently switch the OAuth client.
+  google_token="${SORA_GOOGLE_TOKEN_DEV:-}"
+  google_url_scheme="${SORA_GOOGLE_URL_SCHEME_DEV:-}"
+  for other in "${SORA_GOOGLE_TOKEN:-}" "${SORA_IOS_GOOGLE_TOKEN_PROD:-}"; do
+    if [ -n "$other" ] && [ "$other" != "$google_token" ]; then
+      echo "error: Release Google client ID must come only from SORA_GOOGLE_TOKEN_DEV (the 3.8.6 setting); another setting has a different value." >&2
+      exit 1
+    fi
+  done
+  if [ -z "$google_token" ] || [ -z "$google_url_scheme" ]; then
+    if [ "$ACTION" = "install" ]; then
+      echo "error: Release archives need SORA_GOOGLE_TOKEN_DEV and SORA_GOOGLE_URL_SCHEME_DEV with the values App Store 3.8.6 shipped, or existing Google Drive backups disappear for users." >&2
+      exit 1
+    fi
+    echo "warning: SORA_GOOGLE_TOKEN_DEV is not set; this Release build uses the GoogleService-Info.plist client and must not be distributed." >&2
+    google_token="$(read_plist_value CLIENT_ID "$firebase_config_path")"
+    google_url_scheme="$(read_plist_value REVERSED_CLIENT_ID "$firebase_config_path")"
+  fi
+  # The callback scheme is the client ID with its components reversed.
+  client_prefix="${google_token%.apps.googleusercontent.com}"
+  if [ "$client_prefix" = "$google_token" ] || [ "$google_url_scheme" != "com.googleusercontent.apps.$client_prefix" ]; then
+    echo "error: Google URL scheme does not match the Google client ID." >&2
+    exit 1
+  fi
+else
+  google_url_scheme="${SORA_GOOGLE_URL_SCHEME:-${SORA_GOOGLE_URL_SCHEME_DEV:-${SORA_IOS_GOOGLE_URL_SCHEME_PROD:-}}}"
+  google_token="${SORA_GOOGLE_TOKEN:-${SORA_GOOGLE_TOKEN_DEV:-${SORA_IOS_GOOGLE_TOKEN_PROD:-}}}"
 
-if [ -z "$google_url_scheme" ] && [ -n "$firebase_config_path" ]; then
-  google_url_scheme="$(read_plist_value REVERSED_CLIENT_ID "$firebase_config_path")"
-fi
+  if [ -z "$google_url_scheme" ] && [ -n "$firebase_config_path" ]; then
+    google_url_scheme="$(read_plist_value REVERSED_CLIENT_ID "$firebase_config_path")"
+  fi
 
-if [ -z "$google_token" ] && [ -n "$firebase_config_path" ]; then
-  google_token="$(read_plist_value CLIENT_ID "$firebase_config_path")"
+  if [ -z "$google_token" ] && [ -n "$firebase_config_path" ]; then
+    google_token="$(read_plist_value CLIENT_ID "$firebase_config_path")"
+  fi
 fi
 
 if [ -z "$google_url_scheme" ]; then
