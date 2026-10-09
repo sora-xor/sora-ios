@@ -32,7 +32,9 @@ import CoreData
 import CryptoKit
 import Darwin
 import Foundation
+import IrohaCrypto
 import SoraKeystore
+import SSFUtils
 
 protocol StorageMigrating {
     func requiresMigration() -> Bool
@@ -427,6 +429,150 @@ final class UserStorageMigrator {
                 legacySelectedAddress: manifest.settingsSelectedAddress)?.address == manifest.selectedAddress
         else { throw UserStorageMigrationError.accountInventoryMismatch }
         try recoveryGate.requireMutableWalletAccess()
+        return accounts
+    }
+
+    /// Public account metadata is sufficient to identify a recovery target. It
+    /// is not a successful signing proof and never admits ordinary wallet use.
+    func accountsForMissingKeyRecovery(
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws -> [AccountItem] {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let (marker, gate) = try missingKeyRecoveryGate(baseURL: baseURL)
+        let accounts = try readMissingKeyRecoveryAccounts(gate: gate)
+        try marker.requireUnchangedForStartupVerification(settings)
+        return try accounts.filter { account in
+            try !keystore.checkKey(for: KeystoreTag.entropyTagForAddress(account.address)) &&
+                !keystore.checkKey(for: KeystoreTag.secretKeyTagForAddress(account.address)) &&
+                !keystore.checkKey(for: KeystoreTag.seedTagForAddress(account.address)) &&
+                settings.bool(for: "wallet.watchOnly.\(account.address)") != true
+        }
+    }
+
+    /// Re-entering a backup repairs only absent credentials for an existing
+    /// identity. The database, other keys and recovery marker stay untouched;
+    /// startup must still verify and activate the complete wallet afterwards.
+    func restoreMissingEntropy(
+        address: String, mnemonic phrase: String, derivationPath: String,
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        checkpoint: () throws -> Void = {}
+    ) throws {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let (marker, gate) = try missingKeyRecoveryGate(baseURL: baseURL)
+        let accounts = try readMissingKeyRecoveryAccounts(gate: gate)
+        guard let account = accounts.first(where: { $0.address == address }),
+              settings.bool(for: "wallet.watchOnly.\(address)") != true else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        let absentTags = [KeystoreTag.entropyTagForAddress(address),
+            KeystoreTag.secretKeyTagForAddress(address), KeystoreTag.seedTagForAddress(address)]
+        guard try absentTags.allSatisfy({ try !keystore.checkKey(for: $0) }) else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        let existingPath = try keystore.fetchDeriviationForAddress(address)
+        guard existingPath == nil || existingPath == derivationPath else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
+            fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+            throw WalletNetworkMigrationError.invalidMnemonic
+        }
+        var entropy = mnemonic.entropy()
+        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        let path = derivationPath.isEmpty ? nil : derivationPath
+        try LegacySoraIdentityValidator.validate(address: account.address,
+            publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+            networkType: account.networkType, derivationPath: path,
+            entropy: entropy, rawSeed: nil, secret: nil, recoveryGate: gate)
+        try marker.requireUnchangedForStartupVerification(settings)
+        // The derivation record alone cannot enable a signer. If interrupted
+        // between these additions, retry proves the same path and identity.
+        if existingPath == nil, let path {
+            try keystore.addKey(Data(path.utf8), with: KeystoreTag.deriviationTagForAddress(address))
+        }
+        try checkpoint()
+        try marker.requireUnchangedForStartupVerification(settings)
+        try gate.requireMutableWalletAccess()
+        try keystore.addKey(entropy, with: KeystoreTag.entropyTagForAddress(address))
+        // Do not roll back an independently proven recovery key, including if
+        // a later read or the following startup is interrupted.
+    }
+
+    private func missingKeyRecoveryGate(baseURL: URL?) throws
+        -> (WalletMigrationRecoveryMarker, WalletRecoveryCapabilityGate) {
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        try marker.requireUnchangedForStartupVerification(settings)
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { self.hasUnresolvedMigrationJournal() },
+            unresolvedWalletCommitJournal: {
+                try !WalletAccountCommitJournalStore(baseURL: baseURL).unresolved().isEmpty
+            }, startupVerificationMarker: marker)
+        try gate.requireMutableWalletAccess()
+        return (marker, gate)
+    }
+
+    private func readMissingKeyRecoveryAccounts(gate: WalletRecoveryCapabilityGate) throws -> [AccountItem] {
+        guard pathExistsNoFollow(storeURL), storeBundleIsRegularNoFollow(at: storeURL) else {
+            throw UserStorageMigrationError.missingWalletStore
+        }
+        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+            ofType: NSSQLiteStoreType, at: storeURL, options: nil)
+        guard let version = compatibleVersionForStoreMetadata(metadata) else {
+            throw UserStorageMigrationError.unknownStoreVersion
+        }
+        let model = try createManagedObjectModel(forResource: version.rawValue)
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType,
+            configurationName: nil, at: storeURL, options: [
+                NSReadOnlyPersistentStoreOption: true,
+                NSSQLitePragmasOption: ["query_only": "ON"]])
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        var result: Result<[AccountItem], Error>!
+        context.performAndWait {
+            result = Result {
+                let request = NSFetchRequest<NSManagedObject>(entityName: "CDAccountItem")
+                request.returnsObjectsAsFaults = false
+                request.fetchLimit = Self.maximumAccountsPerManifest + 1
+                return try context.fetch(request).map { object in
+                    guard let address = object.value(forKey: "identifier") as? String,
+                          let publicKey = object.value(forKey: "publicKey") as? Data,
+                          let cryptoRaw = object.value(forKey: "cryptoType") as? NSNumber,
+                          let cryptoValue = UInt8(exactly: cryptoRaw.intValue),
+                          let crypto = CryptoType(rawValue: cryptoValue),
+                          let networkRaw = object.value(forKey: "networkType") as? NSNumber,
+                          let network = SNAddressType(exactly: networkRaw.intValue) else {
+                        throw UserStorageMigrationError.accountInventoryMismatch
+                    }
+                    guard try SS58AddressFactory().address(fromAccountId: publicKey, type: network) == address else {
+                        throw UserStorageMigrationError.accountInventoryMismatch
+                    }
+                    let watchOnlyKey = "wallet.watchOnly.\(address)"
+                    guard !settings.allKeys().contains(watchOnlyKey) ||
+                            settings.anyValue(for: watchOnlyKey) is Bool else {
+                        throw UserStorageMigrationError.accountInventoryMismatch
+                    }
+                    return AccountItem(address: address, cryptoType: crypto, networkType: network,
+                        username: object.value(forKey: "username") as? String ?? "",
+                        publicKeyData: publicKey,
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                        order: (object.value(forKey: "order") as? NSNumber)?.int16Value ?? 0,
+                        isSelected: false)
+                }
+            }
+        }
+        let accounts = try result.get()
+        guard !accounts.isEmpty, accounts.count <= Self.maximumAccountsPerManifest,
+              Set(accounts.map(\.address)).count == accounts.count else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
+        try gate.requireMutableWalletAccess()
         return accounts
     }
 

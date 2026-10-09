@@ -238,7 +238,7 @@ class CollectorContractTests(unittest.TestCase):
 
     def test_point_of_use_source_reads_require_admitted_digest(self) -> None:
         entries = contract_entry_map()
-        self.assertEqual(len(COLLECTOR.expected_test_identifiers(entries)), 249)
+        self.assertEqual(len(COLLECTOR.expected_test_identifiers(entries)), 255)
         settings = "SoraPassport/Common/Extensions/SettingsExtension.swift"
         _, byte_count = entries[settings]
         entries[settings] = ("f" * 64, byte_count)
@@ -643,7 +643,7 @@ class CollectorContractTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 249
+            len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 255
         )
 
     def test_collection_job_cannot_promote_or_sign(self) -> None:

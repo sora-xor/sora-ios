@@ -369,7 +369,8 @@ enum LegacyWalletAccountCommitRecovery {
         let model = try accountModel(modelDirectory: modelDirectory)
         var networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
 
-        func prove(requireAccount: Bool = false, requireSnapshot: Bool = false) throws {
+        func prove(requireAccount: Bool = false, requireSnapshot: Bool = false,
+                   allowingTairaBackfill: Bool = true) throws {
             try requireMarkerUnchanged()
             try journalStore.requireCurrentForLegacyRecovery(journal)
             guard Set(try keystore.allKeyIdentifiers()) == originalIdentifiers,
@@ -402,10 +403,8 @@ enum LegacyWalletAccountCommitRecovery {
                 ? verifier.verifiedFirstLegacySnapshot(accounts: [expected], selectedAddress: expected.address)
                 : verifier.verifiedSnapshot(accounts: [expected], selectedAddress: expected.address)
             if let snapshot {
-                guard snapshot.schemaVersion == verified.schemaVersion,
-                      snapshot.selectedWalletId == verified.selectedWalletId,
-                      snapshot.wallets == verified.wallets, snapshot.accounts == verified.accounts
-                else { throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed }
+                try networkStore.verifyLegacyRecoverySnapshot(snapshot, expected: verified,
+                    allowingTairaBackfill: allowingTairaBackfill)
             }
             let selectionKey = SettingsKey.selectedAccount.rawValue
             if settings.allKeys().contains(selectionKey) {
@@ -476,8 +475,18 @@ enum LegacyWalletAccountCommitRecovery {
             try prove(requireAccount: true, requireSnapshot: true)
             journal = try journalStore.advance(journal, to: .networkModelActivated)
         }
-        if journal.stage == .networkModelActivated {
+        // A previous release may already have activated its SORA-only legacy
+        // snapshot. Finish normal append-only network migration before either
+        // finalizing that journal or clearing its bound recovery marker.
+        if journal.stage == .networkModelActivated || journal.stage == .activated {
             try prove(requireAccount: true, requireSnapshot: true)
+            try WalletNetworkModelMigrator(keystore: keystore, store: networkStore, settings: settings,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+                .migrate(accounts: [expected], selectedAddress: expected.address)
+            try prove(requireAccount: true, requireSnapshot: true, allowingTairaBackfill: false)
+        }
+        if journal.stage == .networkModelActivated {
+            try prove(requireAccount: true, requireSnapshot: true, allowingTairaBackfill: false)
             if !settings.allKeys().contains(SettingsKey.selectedAccount.rawValue) {
                 settings.set(value: expected, for: SettingsKey.selectedAccount.rawValue)
             }
@@ -491,7 +500,7 @@ enum LegacyWalletAccountCommitRecovery {
         }
         try prove(requireAccount: true, requireSnapshot: true)
         try checkpoint(.beforeRecoveryClear)
-        try prove(requireAccount: true, requireSnapshot: true)
+        try prove(requireAccount: true, requireSnapshot: true, allowingTairaBackfill: false)
         if startupVerificationMarker == nil {
             try marker.clearAfterVerifiedLegacyAccountActivation(settings)
             try recoveryGate.requireMutableWalletAccess()
@@ -742,10 +751,7 @@ final class RootInteractor {
             throw WalletIntegrityError
                 .legacyWalletUpgradeVerificationFailed
         }
-        let expectedNetworks: Set<NetworkId> =
-            expectedSource == .legacyMnemonicEntropy
-                ? [.sora2]
-                : NexusNetworkConfiguration.admittedWalletNetworkIds
+        let expectedNetworks: Set<NetworkId> = NexusNetworkConfiguration.admittedWalletNetworkIds
         guard
             !retainedEntropy.isEmpty,
             Data(SHA256.hash(data: retainedEntropy)) ==

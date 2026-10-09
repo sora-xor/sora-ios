@@ -231,11 +231,13 @@ final class WalletRecoveryViewController: UIViewController {
     private let diagnostic: WalletStartupDiagnostic?
     private let onRetry: (() -> Void)?
     private let retryButton = UIButton(type: .system)
+    private let restoreKeysButton = UIButton(type: .system)
     private var didRetry = false
     private let exportButton = UIButton(type: .system)
     private let exportProgress = UIActivityIndicatorView(style: .medium)
     private let exportStatusLabel = UILabel()
     private var isExporting = false
+    private var isRestoringKeys = false
 
     init(reason: String?, diagnostic: WalletStartupDiagnostic? = nil, onRetry: (() -> Void)? = nil) {
         self.reason = reason
@@ -257,7 +259,7 @@ final class WalletRecoveryViewController: UIViewController {
 
         let titleLabel = UILabel()
         titleLabel.font = .preferredFont(forTextStyle: .title2)
-        titleLabel.text = "Your wallet is safe"
+        titleLabel.text = "Wallet recovery"
         titleLabel.numberOfLines = 0
 
         retryButton.setTitle("Try again", for: .normal)
@@ -266,12 +268,19 @@ final class WalletRecoveryViewController: UIViewController {
         retryButton.isHidden = onRetry == nil
         retryButton.addTarget(self, action: #selector(retryWalletVerification), for: .touchUpInside)
 
+        restoreKeysButton.setTitle("Restore existing wallet keys", for: .normal)
+        restoreKeysButton.accessibilityIdentifier = "wallet-recovery-restore-keys"
+        restoreKeysButton.isHidden = diagnostic?.cause != .missingSecret || onRetry == nil
+        restoreKeysButton.addTarget(self, action: #selector(chooseKeyRecoveryAccount), for: .touchUpInside)
+
         let bodyLabel = UILabel()
         bodyLabel.font = .preferredFont(forTextStyle: .body)
         bodyLabel.textColor = .secondaryLabel
         bodyLabel.numberOfLines = 0
         bodyLabel.text = [
-            "SORA could not verify the encrypted wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account.",
+            diagnostic?.cause == .missingSecret
+                ? "Your account is still present, but its signing keys are unavailable on this iPhone. Restore its keys using your existing recovery phrase. SORA checks that the phrase matches the original account before saving it."
+                : "SORA could not verify the wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account.",
             reason,
             "Do not delete or reinstall the app. The installed wallet database, settings, Keychain entries, and any verified migration backup have been preserved. Contact SORA support and include the app version shown below; never share your recovery phrase."
         ].compactMap { $0 }.joined(separator: "\n\n")
@@ -338,6 +347,7 @@ final class WalletRecoveryViewController: UIViewController {
             arrangedSubviews: [
                 titleLabel,
                 retryButton,
+                restoreKeysButton,
                 bodyLabel,
                 versionLabel,
                 supportButton,
@@ -395,10 +405,104 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     @objc private func retryWalletVerification() {
-        guard let onRetry, !didRetry, !isExporting else { return }
+        guard let onRetry, !didRetry, !isExporting, !isRestoringKeys else { return }
         didRetry = true
         retryButton.isEnabled = false
         onRetry()
+    }
+
+    private func keyRecoveryMigrator() -> UserStorageMigrator {
+        UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+            storeURL: UserStorageParams.storageURL, modelDirectory: UserStorageParams.modelDirectory,
+            keystore: Keychain(), settings: SettingsManager.shared, fileManager: .default)
+    }
+
+    @objc private func chooseKeyRecoveryAccount() {
+        guard !didRetry, !isExporting, !isRestoringKeys, diagnostic?.cause == .missingSecret else { return }
+        setKeyRecoveryBusy(true)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let result = Result { try self.keyRecoveryMigrator().accountsForMissingKeyRecovery() }
+            DispatchQueue.main.async {
+                self.setKeyRecoveryBusy(false)
+                guard !self.didRetry else { return }
+                switch result {
+                case .success(let accounts) where accounts.count == 1:
+                    self.presentKeyRecovery(for: accounts[0])
+                case .success(let accounts) where !accounts.isEmpty:
+                    let chooser = UIAlertController(title: "Choose the existing wallet",
+                        message: "Restore each wallet using its own recovery phrase.", preferredStyle: .alert)
+                    for account in accounts {
+                        chooser.addAction(UIAlertAction(title: "\(account.username) · \(account.address.prefix(8))…",
+                            style: .default) { [weak self] _ in self?.presentKeyRecovery(for: account) })
+                    }
+                    chooser.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                    self.present(chooser, animated: true)
+                default:
+                    self.showKeyRecoveryError("The retained account could not be read for recovery. Its data has not been changed.")
+                }
+            }
+        }
+    }
+
+    private func presentKeyRecovery(for account: AccountItem) {
+        let prompt = UIAlertController(title: "Restore existing wallet keys",
+            message: "Enter this wallet’s recovery phrase on this iPhone. It must match the existing account. Add your original derivation path only if you used one.", preferredStyle: .alert)
+        prompt.addTextField { field in
+            field.placeholder = "Recovery phrase"
+            field.isSecureTextEntry = true
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+            field.spellCheckingType = .no
+            field.accessibilityIdentifier = "wallet-recovery-phrase"
+        }
+        prompt.addTextField { field in
+            field.placeholder = "Original derivation path (optional)"
+            field.isSecureTextEntry = true
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+            field.spellCheckingType = .no
+        }
+        prompt.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak prompt] _ in
+            prompt?.textFields?.forEach { $0.text = nil }
+        })
+        prompt.addAction(UIAlertAction(title: "Verify and restore", style: .default) { [weak self, weak prompt] _ in
+            guard let self, let prompt else { return }
+            var phrase = prompt.textFields?.first?.text ?? ""
+            var path = prompt.textFields?.last?.text ?? ""
+            prompt.textFields?.forEach { $0.text = nil }
+            self.setKeyRecoveryBusy(true)
+            DispatchQueue.global(qos: .userInitiated).async {
+                defer { phrase.removeAll(keepingCapacity: false); path.removeAll(keepingCapacity: false) }
+                let result = Result {
+                    try self.keyRecoveryMigrator().restoreMissingEntropy(address: account.address,
+                        mnemonic: phrase, derivationPath: path)
+                }
+                DispatchQueue.main.async {
+                    self.setKeyRecoveryBusy(false)
+                    switch result {
+                    case .success:
+                        self.retryWalletVerification()
+                    case .failure:
+                        self.showKeyRecoveryError("The phrase and derivation path could not be verified for this account, or the keys could not be saved. Existing accounts and keys were not replaced. Check your original backup and try again.")
+                    }
+                }
+            }
+        })
+        present(prompt, animated: true)
+    }
+
+    private func setKeyRecoveryBusy(_ busy: Bool) {
+        isRestoringKeys = busy
+        restoreKeysButton.isEnabled = !busy
+        retryButton.isEnabled = !busy && !didRetry
+        exportButton.isEnabled = !busy && !isExporting
+    }
+
+    private func showKeyRecoveryError(_ message: String) {
+        let alert = UIAlertController(title: "Wallet keys not restored", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     @objc private func openSupport() {
@@ -458,7 +562,7 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     @objc private func confirmRecoveryExport() {
-        guard !isExporting else {
+        guard !isExporting, !isRestoringKeys else {
             return
         }
         let alert = UIAlertController(
@@ -488,7 +592,7 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     private func createRecoveryExport() {
-        guard !isExporting else {
+        guard !isExporting, !isRestoringKeys else {
             return
         }
         isExporting = true
