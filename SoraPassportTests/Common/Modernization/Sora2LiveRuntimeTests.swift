@@ -635,6 +635,130 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         service.unregister(chainId: genesis)
     }
 
+    // MARK: - Pending recovery decoding
+
+    private func reconciler(
+        runtimeService: SoraPassport.RuntimeCodingServiceProtocol,
+        proofs: Sora2LiveRuntimeIdentityCache,
+        directory: URL
+    ) throws -> Sora2PendingSubmissionReconciler {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RPCStubProtocol.self]
+        configuration.urlCache = nil
+        return Sora2PendingSubmissionReconciler(
+            store: try Sora2PendingSubmissionStore(baseURL: directory),
+            engine: Sora2BoundedHTTPJSONRPCEngine(
+                sourceEngine: MetadataTestEngine(),
+                session: URLSession(configuration: configuration)
+            ),
+            runtimeService: runtimeService,
+            liveRuntimeIdentityCache: proofs
+        )
+    }
+
+    private func stubBlockRuntime(spec: UInt32, tx: UInt32) throws {
+        let hex = try fixtureMetadata().toHex(includePrefix: true)
+        RPCStubProtocol.reset { method, _ in
+            switch method {
+            case "chain_getRuntimeVersion":
+                return #"{"specVersion":\#(spec),"transactionVersion":\#(tx)}"#
+            case "state_getMetadata":
+                return "\"\(hex)\""
+            default:
+                return nil
+            }
+        }
+    }
+
+    /// A transfer signed at one runtime and included after an upgrade is
+    /// decoded with the inclusion block's own runtime, fetched for that
+    /// block and bound to its declared `System.Version`.
+    func testPendingRecoveryDecodesWithTheInclusionBlockRuntime() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try stubBlockRuntime(spec: 133, tx: 131)
+        // The app's current runtime is older (132) and unproven.
+        let reconciler = try reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory
+        )
+        let block = String(repeating: "ab", count: 32)
+        let factory = try await reconciler.decodingFactory(atBlock: block)
+        XCTAssertEqual(factory.specVersion, 133)
+        XCTAssertEqual(factory.txVersion, 131)
+        XCTAssertEqual(RPCStubProtocol.calls("state_getMetadata"), ["0x" + block])
+        XCTAssertNotNil(factory.metadata.getModuleIndex("System"))
+        // A second block of the same runtime reuses that decoder.
+        _ = try await reconciler.decodingFactory(atBlock: String(repeating: "cd", count: 32))
+        XCTAssertEqual(RPCStubProtocol.calls("state_getMetadata").count, 1)
+
+        // Metadata that declares another runtime than the block reports is
+        // never used to decode.
+        try stubBlockRuntime(spec: 134, tx: 131)
+        let mismatched = try self.reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory
+        )
+        do {
+            _ = try await mismatched.decodingFactory(atBlock: block)
+            XCTFail("Metadata for runtime 133 must not decode a runtime 134 block")
+        } catch {
+            guard case ExtrinsicServiceError.runtimeUpgradeInProgress = error else {
+                return XCTFail("\(error)")
+            }
+        }
+    }
+
+    /// The current runtime snapshot is reused only when it is the block's
+    /// runtime and matches the stored proof for that version.
+    func testPendingRecoveryReusesOnlyAProvenCurrentRuntime() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let snapshot = try RuntimeSnapshotFactory.makeOwnTypesSnapshot(
+            chainId: PIIndexerClient.soraMainnetGenesis,
+            runtimeMetadataItem: try item(),
+            ownTypes: try chainTypes(),
+            dataHasher: .twox256
+        )
+        let block = String(repeating: "ef", count: 32)
+
+        try stubBlockRuntime(spec: 133, tx: 131)
+        let proven = Sora2LiveRuntimeIdentityCache()
+        proven.store(metadataSHA256: Self.fixtureHexLineSHA256, specVersion: 133, transactionVersion: 131)
+        let reused = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: snapshot),
+            proofs: proven,
+            directory: directory
+        ).decodingFactory(atBlock: block)
+        XCTAssertEqual(reused.specVersion, 133)
+        XCTAssertTrue(RPCStubProtocol.calls("state_getMetadata").isEmpty)
+
+        // A proof that does not match the snapshot: the block's metadata is
+        // fetched instead.
+        try stubBlockRuntime(spec: 133, tx: 131)
+        let otherProof = Sora2LiveRuntimeIdentityCache()
+        otherProof.store(metadataSHA256: String(repeating: "0", count: 64), specVersion: 133, transactionVersion: 131)
+        _ = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: snapshot),
+            proofs: otherProof,
+            directory: directory
+        ).decodingFactory(atBlock: block)
+        XCTAssertEqual(RPCStubProtocol.calls("state_getMetadata").count, 1)
+
+        // No proof yet: also fetched.
+        try stubBlockRuntime(spec: 133, tx: 131)
+        _ = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: snapshot),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory
+        ).decodingFactory(atBlock: block)
+        XCTAssertEqual(RPCStubProtocol.calls("state_getMetadata").count, 1)
+    }
+
     private func assertError<T>(
         _ expression: @autoclosure () throws -> T,
         isUpgrade: Bool,
@@ -859,4 +983,92 @@ private final class RuntimeTestRepository: DataProviderRepositoryProtocol {
     func fetchCountOperation() -> BaseOperation<Int> {
         ClosureOperation { self.items.count }
     }
+}
+
+
+// MARK: - Recovery test doubles
+
+private final class RuntimeTestProvider: RuntimeProviderProtocol {
+    let chainId: SoraPassport.ChainModel.Id = PIIndexerClient.soraMainnetGenesis
+    let snapshot: RuntimeSnapshot?
+
+    init(snapshot: RuntimeSnapshot?) {
+        self.snapshot = snapshot
+    }
+
+    func setup() {}
+    func setupHot() {}
+    func replaceTypesUsage(_: SoraPassport.ChainModel.TypesUsage) {}
+    func cleanup() {}
+
+    func fetchCoderFactoryOperation(
+        with _: TimeInterval,
+        closure _: SoraPassport.RuntimeMetadataClosure?
+    ) -> BaseOperation<RuntimeCoderFactoryProtocol> {
+        ClosureOperation { throw BaseOperationError.parentOperationCancelled }
+    }
+}
+
+/// JSON-RPC over HTTPS, answered in process for the bounded transport.
+private final class RPCStubProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private static var responder: ((String, [Any]) -> String?)?
+    private static var recorded: [(method: String, params: [Any])] = []
+
+    static func reset(_ responder: @escaping (String, [Any]) -> String?) {
+        lock.lock()
+        self.responder = responder
+        recorded = []
+        lock.unlock()
+    }
+
+    static func calls(_ method: String) -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded.filter { $0.method == method }.map {
+            ($0.params.first as? String) ?? ""
+        }
+    }
+
+    override class func canInit(with _: URLRequest) -> Bool { true }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        var body = request.httpBody ?? Data()
+        if body.isEmpty, let stream = request.httpBodyStream {
+            stream.open()
+            var buffer = [UInt8](repeating: 0, count: 4_096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count > 0 else { break }
+                body.append(buffer, count: count)
+            }
+            stream.close()
+        }
+        let object = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:]
+        let method = object["method"] as? String ?? ""
+        let params = object["params"] as? [Any] ?? []
+        let identifier = object["id"] as? Int ?? 0
+        Self.lock.lock()
+        Self.recorded.append((method, params))
+        let result = Self.responder?(method, params)
+        Self.lock.unlock()
+        let text = result.map {
+            #"{"jsonrpc":"2.0","id":\#(identifier),"result":\#($0)}"#
+        } ?? #"{"jsonrpc":"2.0","id":\#(identifier),"error":{"code":-32601,"message":"Method not found"}}"#
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(text.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

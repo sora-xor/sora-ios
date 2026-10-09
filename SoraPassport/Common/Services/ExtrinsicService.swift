@@ -2324,7 +2324,7 @@ final class Sora2PendingSubmissionReconciler {
     /// runtime and its metadata matches the proof stored for that version;
     /// otherwise the block's own metadata is fetched, bound to its declared
     /// `System.Version`, and combined with the bundled SORA2 type registry.
-    private func decodingFactory(
+    func decodingFactory(
         atBlock normalizedBlockHash: String
     ) async throws -> RuntimeCoderFactoryProtocol {
         let blockHash = "0x\(normalizedBlockHash)"
