@@ -254,6 +254,19 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         operationQueue.addOperation(operation)
     }
 
+    /// The selected account, resolved the same way at startup, in the
+    /// storage migrator and at runtime.
+    ///
+    /// - Exactly one selected row: that row (Core Data is authoritative after
+    ///   version 2; the 2.x UserDefaults value is never cleared and may be
+    ///   stale).
+    /// - No selected row (version 1 or an interrupted write): the account the
+    ///   2.x setting names, otherwise the lowest order, then address.
+    /// - Several selected rows: the one the setting names, otherwise the
+    ///   lowest order, then address. (App Store 3.8.6 took the first row.)
+    /// - No accounts: nil. A stale setting is ignored.
+    ///
+    /// Only duplicate identifiers (real corruption) throw.
     static func resolveSelection(
         accounts: [AccountItem],
         legacySelectedAddress: String?
@@ -261,31 +274,39 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         guard Set(accounts.map(\.identifier)).count == accounts.count else {
             throw SelectedWalletSettingsError.duplicateAccountIdentifiers
         }
-        let selectedAccounts = accounts.filter(\.isSelected)
-        guard selectedAccounts.count <= 1 else {
-            throw SelectedWalletSettingsError.multipleSelectedAccounts
-        }
-        if let selected = selectedAccounts.first {
-            // Core Data is authoritative after version 2. The retained
-            // UserDefaults value may legitimately be stale after a later
-            // account switch.
-            return selected
-        }
-        guard !accounts.isEmpty else {
-            guard legacySelectedAddress == nil else {
-                throw SelectedWalletSettingsError.missingSelectedAccount
-            }
+        guard let address = resolveSelection(
+            candidates: accounts.map { ($0.address, Int($0.order), $0.isSelected) },
+            legacySelectedAddress: legacySelectedAddress
+        ) else {
             return nil
         }
-        guard
-            let legacySelectedAddress,
-            let legacySelected = accounts.first(where: {
-                $0.identifier == legacySelectedAddress
-            })
-        else {
-            throw SelectedWalletSettingsError.missingSelectedAccount
+        return accounts.first(where: { $0.address == address })
+    }
+
+    static func resolveSelection(
+        candidates: [(address: String, order: Int, isSelected: Bool)],
+        legacySelectedAddress: String?
+    ) -> String? {
+        guard !candidates.isEmpty else { return nil }
+        let selected = candidates.filter(\.isSelected)
+        if selected.count == 1 {
+            return selected[0].address
         }
-        return legacySelected
+        let pool = selected.isEmpty ? candidates : selected
+        if let legacySelectedAddress,
+           pool.contains(where: { $0.address == legacySelectedAddress }) {
+            return legacySelectedAddress
+        }
+        return pool.min(by: { lhs, rhs in
+            lhs.order != rhs.order ? lhs.order < rhs.order : lhs.address < rhs.address
+        })?.address
+    }
+
+    /// True when Core Data does not hold exactly one selected row, so the
+    /// resolved selection should be written back (App Store 3.8.6 reads only
+    /// the selected row).
+    static func needsSelectionRepair(accounts: [AccountItem]) -> Bool {
+        !accounts.isEmpty && accounts.filter(\.isSelected).count != 1
     }
 
     override func performSave(
@@ -359,16 +380,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 else {
                     throw AccountCreateError.duplicated
                 }
-                let selectedAccounts = accounts.filter(\.isSelected)
-                guard
-                    (accounts.isEmpty && selectedAccounts.isEmpty) ||
-                        selectedAccounts.count == 1
-                else {
-                    throw selectedAccounts.isEmpty
-                        ? SelectedWalletSettingsError.missingSelectedAccount
-                        : SelectedWalletSettingsError
-                            .multipleSelectedAccounts
-                }
+                // Every currently selected row is deselected below, so zero
+                // or several selected rows (older releases, interrupted
+                // writes) are repaired by this insert.
                 let nextOrder: Int16
                 if let maximumOrder = accounts.map(\.order).max() {
                     guard maximumOrder < Int16.max else {
@@ -607,21 +621,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 throw WalletNetworkMigrationError
                     .explicitRemovalTargetMissing(value.address)
             }
-            let selectedAccounts = accounts.filter(\.isSelected)
-            let isFirstWalletInsertion =
-                requiresFullIdentitySynchronization &&
-                accounts.count == 1 &&
-                selectedAccounts.isEmpty &&
-                !existingAccount.isSelected
-            guard
-                selectedAccounts.count == 1 ||
-                    isFirstWalletInsertion
-            else {
-                throw selectedAccounts.isEmpty
-                    ? SelectedWalletSettingsError.missingSelectedAccount
-                    : SelectedWalletSettingsError.multipleSelectedAccounts
-            }
-
+            // Zero or several selected rows (older releases, interrupted
+            // writes) are repaired: every selected row is deselected and the
+            // target is selected in the same save.
             var accountsToSave: [ManagedAccountItem] = accounts.compactMap {
                 account -> ManagedAccountItem? in
                 guard

@@ -1974,11 +1974,10 @@ final class UserStorageMigrator {
             ? manifest.selectedAddress == nil
             : selected.count == 1 &&
                 manifest.selectedAddress == expectedSelection
+        // The 2.x UserDefaults selection is never cleared by 3.x and may name
+        // a removed account. It is recorded for comparison only.
         let hasValidSettingsSelection =
-            manifest.settingsSelectedAddress == nil ||
-            manifest.settingsSelectedAddress.map {
-                Set(addresses).contains($0)
-            } == true
+            manifest.settingsSelectedAddress.map { $0.utf8.count <= 512 } ?? true
         return manifest.schemaVersion == 1 &&
             manifest.sourceVersion == sourceVersion.rawValue &&
             manifest.destinationVersion == destinationVersion.rawValue &&
