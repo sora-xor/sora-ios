@@ -1675,6 +1675,15 @@ enum WalletAccountCommitStage: String, Codable {
     case coreDataCommitted
     case networkModelActivated
     case activated
+    /// An interrupted create or import whose account row never reached Core
+    /// Data. Nothing is deleted: any Keychain items it wrote stay in place and
+    /// a later import of the same phrase adopts them.
+    case abandoned
+
+    /// Activated and abandoned journals need no further recovery.
+    var isTerminal: Bool {
+        self == .activated || self == .abandoned
+    }
 }
 
 struct WalletAccountCommitJournal: Codable, Equatable {
@@ -1754,7 +1763,7 @@ final class WalletAccountCommitJournalStore {
         guard
             existingJournals.count < Self.maximumJournalFiles,
             existingJournals.allSatisfy({
-                $0.stage == .activated
+                $0.stage.isTerminal
             })
         else {
             throw WalletNetworkMigrationError
@@ -1804,7 +1813,7 @@ final class WalletAccountCommitJournalStore {
             var next = current
             next.stage = stage
             next.updatedAt = Date()
-            if stage == .activated {
+            if stage.isTerminal {
                 // Cleanup completed evidence before the terminal transition.
                 // If cleanup fails, this journal remains unresolved. Any
                 // terminal error is also latched because an atomic replace
@@ -1814,11 +1823,11 @@ final class WalletAccountCommitJournalStore {
                 )
             }
             try writeUnlocked(next)
-            if stage == .activated {
+            if stage.isTerminal {
                 let verified = try loadUnlocked()
                 guard
                     verified.count <= Self.retainedActivatedJournals,
-                    verified.allSatisfy({ $0.stage == .activated }),
+                    verified.allSatisfy({ $0.stage.isTerminal }),
                     verified.contains(where: {
                         Self.journalsMatch($0, next)
                     })
@@ -1829,7 +1838,7 @@ final class WalletAccountCommitJournalStore {
             }
             return next
         } catch {
-            if stage == .activated {
+            if stage.isTerminal {
                 recoveryGate
                     .latchRecoveryAfterAmbiguousWalletCommit()
             }
@@ -1883,7 +1892,7 @@ final class WalletAccountCommitJournalStore {
     func unresolved() throws -> [WalletAccountCommitJournal] {
         Self.lock.lock()
         defer { Self.lock.unlock() }
-        return try loadUnlocked().filter { $0.stage != .activated }
+        return try loadUnlocked().filter { !$0.stage.isTerminal }
     }
 
     private func loadUnlocked() throws -> [WalletAccountCommitJournal] {
@@ -2099,7 +2108,7 @@ final class WalletAccountCommitJournalStore {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
         let activated = try loadUnlocked()
-            .filter { $0.stage == .activated }
+            .filter { $0.stage.isTerminal }
             .sorted { $0.updatedAt > $1.updatedAt }
         for journal in activated.dropFirst(
             maximumCount
@@ -2119,6 +2128,11 @@ final class WalletAccountCommitJournalStore {
             .networkModelActivated,
             .activated,
         ]
+        if next == .abandoned {
+            // Only a recovery that proved the account row never reached Core
+            // Data abandons a journal. It writes no key material.
+            return [.prepared, .secretsPersisted].contains(current)
+        }
         guard
             let currentIndex = order.firstIndex(of: current),
             let nextIndex = order.firstIndex(of: next)

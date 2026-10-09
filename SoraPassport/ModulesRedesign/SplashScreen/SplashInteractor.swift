@@ -464,22 +464,25 @@ enum WalletStartupVerificationRecovery {
         let store = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
         let fileManager = FileManager.default
         if !fileManager.fileExists(atPath: storeURL.path) {
-            let retainedPaths = [storeURL, URL(fileURLWithPath: storeURL.path + "-wal"),
-                URL(fileURLWithPath: storeURL.path + "-shm"),
-                storeURL.deletingLastPathComponent().appendingPathComponent("WalletMigrationSafety")]
-            guard !retainedPaths.contains(where: { (try? fileManager.attributesOfItem(atPath: $0.path)) != nil }),
-                  try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
-                    keystore: keystore, hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
-                    snapshot: store.load())
-            else { throw UserStorageMigrationError.missingWalletStore }
-            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
-            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
-            let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
-            guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
-                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            let evidence = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+                storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
+                settings: settings, fileManager: fileManager, recoveryGate: gate,
+                loadWalletNetworkSnapshot: { try store.load() }).retainedWalletEvidenceKind()
+            guard evidence != .durable else { throw UserStorageMigrationError.missingWalletStore }
+            if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
+                keystore: keystore, hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: store.load()) {
+                var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+                defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+                let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+                guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+                    throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+                }
+                _ = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
+                // The existing explicit legacy-upgrade flow creates the first account.
             }
-            _ = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
-            // The existing explicit legacy-upgrade flow creates the first account.
+            // Otherwise only Keychain items survived (reinstall), or nothing
+            // did. Onboarding offers to restore them; nothing is changed here.
         } else {
             let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
@@ -494,7 +497,18 @@ enum WalletStartupVerificationRecovery {
             let selected = try SelectedWalletSettings.resolveSelection(accounts: accounts,
                 legacySelectedAddress: settings.value(of: AccountItem.self,
                     for: SettingsKey.selectedAccount.rawValue)?.identifier)
-            guard !accounts.isEmpty, let selected else {
+            // An empty store with only Keychain items (or nothing) left is a
+            // reinstall or a removed-last-account state: onboarding handles it.
+            if accounts.isEmpty {
+                try checkpoint()
+                guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+                    throw UserStorageMigrationError.interruptedMigration
+                }
+                try gate.requireMutableWalletAccess()
+                try marker.clearAfterVerifiedStartup(settings)
+                return true
+            }
+            guard let selected else {
                 throw UserStorageMigrationError.selectedAccountMismatch
             }
             // The outer lease excludes normal lifecycle operations. The private

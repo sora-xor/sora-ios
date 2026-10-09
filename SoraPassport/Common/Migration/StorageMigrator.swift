@@ -230,6 +230,14 @@ private struct UserStorageMigrationJournal: Codable {
     var recoveryMarker: WalletMigrationRecoveryMarker? = nil
 }
 
+/// What an earlier installation left behind when the wallet store is missing
+/// or empty. See `UserStorageMigrator.retainedWalletEvidenceKind()`.
+enum RetainedWalletEvidence: Equatable {
+    case none
+    case keychainOnly
+    case durable
+}
+
 /// Observes durable migration boundaries for retained-store restart qualification.
 /// The observer never authorizes migration or changes its outcome.
 enum UserStorageMigrationCheckpoint: String, CaseIterable {
@@ -714,10 +722,17 @@ final class UserStorageMigrator {
         }
 
         guard pathExistsNoFollow(storeURL) else {
-            guard !hasRetainedWalletEvidence() else {
+            switch retainedWalletEvidenceKind() {
+            case .durable:
                 throw UserStorageMigrationError.missingWalletStore
+            case .keychainOnly:
+                // Reinstall signature: only Keychain items survived. Nothing
+                // is migrated or written; onboarding offers to restore them.
+                Logger.shared.info("Wallet storage: keys from an earlier install were found")
+                return
+            case .none:
+                return
             }
-            return
         }
 
         // Core Data and SQLite follow symbolic links. Admit the complete live
@@ -1556,11 +1571,12 @@ final class UserStorageMigrator {
         let storageExists = pathExistsNoFollow(storeURL)
 
         guard storageExists else {
-            // Missing Core Data plus any retained selected-account, protected
-            // authentication/entropy, or activated network snapshot is an
+            // Missing Core Data plus any retained selected-account setting,
+            // migration backup or activated network snapshot is an
             // interrupted/lost-storage condition. Force the throwing path so
             // Core Data is never allowed to create a replacement empty store.
-            return hasRetainedWalletEvidence()
+            // Keychain items alone (reinstall) do not block onboarding.
+            return retainedWalletEvidenceKind() == .durable
         }
 
         guard storeBundleIsRegularNoFollow(at: storeURL) else {
@@ -1593,6 +1609,37 @@ final class UserStorageMigrator {
     }
 
     private func hasRetainedWalletEvidence() -> Bool {
+        retainedWalletEvidenceKind() != .none
+    }
+
+    /// What survives of an earlier installation when the live store is
+    /// missing or empty.
+    ///
+    /// - `.durable`: files or settings that only an installed wallet writes
+    ///   (migration backup, SQLite sidecars, wallet settings, watch-only
+    ///   markers, a network snapshot). These route to recovery.
+    /// - `.keychainOnly`: only Keychain items (PIN, wallet keys). iOS keeps
+    ///   them when the app is deleted, so this is the reinstall signature.
+    ///   Onboarding offers to restore them; nothing is deleted or changed.
+    /// - `.none`: a clean install.
+    func retainedWalletEvidenceKind() -> RetainedWalletEvidence {
+        if hasDurableWalletEvidence() {
+            return .durable
+        }
+        do {
+            if try keystore.checkKey(for: KeystoreTag.pincode.rawValue) ||
+                keystore.hasRetainedWalletMaterial() {
+                return .keychainOnly
+            }
+        } catch {
+            // An unreadable Keychain (locked device, system error) is never
+            // evidence of a clean install. It is retried on the next launch.
+            return .durable
+        }
+        return .none
+    }
+
+    private func hasDurableWalletEvidence() -> Bool {
         // A retained migration namespace may contain the only verified copy
         // of an installed wallet after the live SQLite file disappears. Even
         // an activated attempt is durable wallet evidence; it must never be
@@ -1620,31 +1667,6 @@ final class UserStorageMigrator {
             // authoritative installation evidence even when a payload no
             // longer decodes. Treating either as absent could route a retained
             // wallet to onboarding.
-            return true
-        }
-
-        do {
-            if try keystore.checkKey(
-                for: KeystoreTag.pincode.rawValue
-            ) {
-                // The PIN tag survives ordinary app upgrades and may also
-                // survive a reinstall. It is durable evidence that this is
-                // not a pristine wallet namespace, even if Core Data and the
-                // selected-account setting are unexpectedly absent.
-                return true
-            }
-        } catch {
-            // An unreadable PIN tag is protected installation evidence too.
-            return true
-        }
-
-        do {
-            if try keystore.hasRetainedWalletMaterial() {
-                return true
-            }
-        } catch {
-            // An unreadable protected-key inventory is evidence to preserve,
-            // never permission to proceed as a clean installation.
             return true
         }
 
@@ -2436,40 +2458,28 @@ final class UserStorageMigrator {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
 
-        var selectedAccounts = accounts.filter(\.isSelected)
-        guard selectedAccounts.count <= 1 else {
-            throw UserStorageMigrationError.selectedAccountMismatch
-        }
-
         if accounts.isEmpty {
-            // A retained selected-account setting with no matching database
-            // account is evidence of an unreadable/lost inventory, not a new
-            // wallet.
-            guard settingsSelectedAddress == nil else {
-                throw UserStorageMigrationError.selectedAccountMismatch
-            }
-            guard !hasRetainedWalletEvidence() else {
+            // An empty store beside settings, a migration backup or a network
+            // snapshot is evidence of an unreadable or lost inventory, not a
+            // new wallet. Keychain items alone (reinstall) are not: onboarding
+            // offers to restore them without changing them.
+            guard retainedWalletEvidenceKind() != .durable else {
                 throw UserStorageMigrationError.missingWalletStore
             }
-        } else if selectedAccounts.isEmpty {
+        } else {
             // Version 1 stored the selection only in UserDefaults. Later
-            // versions store it on CDAccountItem. Keep the legacy setting as a
-            // read-only fallback when the database has no authoritative
-            // selection, while never allowing a stale/unknown address.
-            guard
-                let settingsSelectedAddress,
-                uniqueAddresses.contains(settingsSelectedAddress),
-                accounts.filter({
-                    $0.address == settingsSelectedAddress
-                }).count == 1
-            else {
-                throw UserStorageMigrationError.selectedAccountMismatch
-            }
+            // versions store it on CDAccountItem. Resolve zero or several
+            // selected rows deterministically (the same rule the app uses at
+            // runtime), so a stale 2.x setting never locks the wallet.
+            let selectedAddress = SelectedWalletSettings.resolveSelection(
+                candidates: accounts.map { ($0.address, $0.order, $0.isSelected) },
+                legacySelectedAddress: settingsSelectedAddress
+            )
             accounts = accounts.map {
-                $0.replacingSelection($0.address == settingsSelectedAddress)
+                $0.replacingSelection($0.address == selectedAddress)
             }
-            selectedAccounts = accounts.filter(\.isSelected)
         }
+        let selectedAccounts = accounts.filter(\.isSelected)
 
         let manifest = UserStorageMigrationManifest(
             schemaVersion: 1,
