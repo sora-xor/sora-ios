@@ -79,6 +79,9 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         accountButton.configuration?.title = item.accountName
         accountButton.accessibilityLabel = item.accountName
         accountButton.accessibilityHint = WalletUX.text("Change account")
-        networkButton.isHidden = !SettingsManager.shared.nexusEnabled
+        networkButton.isHidden = !(
+            ProductSurfacePolicy.showsNexusPortfolio &&
+                SettingsManager.shared.nexusEnabled
+        )
     }
 }

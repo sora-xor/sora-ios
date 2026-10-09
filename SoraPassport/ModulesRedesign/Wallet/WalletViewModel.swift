@@ -417,7 +417,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
     @MainActor
     func showNetworks() {
-        guard SettingsManager.shared.nexusEnabled,
+        guard ProductSurfacePolicy.showsNexusPortfolio,
+              SettingsManager.shared.nexusEnabled,
               let source = view?.controller, let navigation = source.navigationController else { return }
         let picker = NexusPortfolioViewController(assetsProvider: assetsProvider, openSora2Experience: { [weak navigation] in
             navigation?.popToRootViewController(animated: true)

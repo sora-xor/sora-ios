@@ -12201,11 +12201,12 @@ final class WalletModernizationTests: XCTestCase {
     func testProductionMutationFlagsFailClosedWhenUnset() {
         let settings = InMemorySettingsManager()
 
-        XCTAssertTrue(settings.nexusEnabled)
+        // 3.9.0: every optional surface is off until PI publishes it.
+        XCTAssertFalse(settings.nexusEnabled)
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertTrue(settings.polkamarktEnabled)
+        XCTAssertFalse(settings.polkamarktEnabled)
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
-        XCTAssertTrue(settings.isTairaEnabled)
+        XCTAssertFalse(settings.isTairaEnabled)
     }
 
     func testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline() {
