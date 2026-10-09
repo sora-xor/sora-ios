@@ -2879,7 +2879,7 @@ final class ExtrinsicService {
             .enqueueOwnedAcquireOperation(lifecycle.operation)
     }
 
-    private func createLiveRuntimeOperations() -> (
+    func createLiveRuntimeOperations() -> (
         version: BaseOperation<RuntimeVersion>,
         metadata: BaseOperation<String>,
         identity: BaseOperation<Sora2LiveRuntime>,
@@ -2961,7 +2961,7 @@ final class ExtrinsicService {
     /// the runtime the connected node runs right now. When the app's metadata
     /// is behind a runtime upgrade, nothing is signed and the runtime sync
     /// service is asked to fetch the new metadata.
-    private func validateLiveSora2SigningRuntime(
+    func validateLiveSora2SigningRuntime(
         _ factory: RuntimeCoderFactoryProtocol,
         live: (
             version: BaseOperation<RuntimeVersion>,

@@ -364,6 +364,17 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   and `tairaDefaultVisible` as `true`. The production surface policy below
   keeps those features hidden in App Store builds anyway.
 
+**Chain sync on a fresh install** (`ec6a2cbf`)
+
+- On a fresh install, every chain sync in the first session failed with Core
+  Data error 133021 (uniqueness constraint conflict). PI lists
+  `wss://mof2.sora.org` as "Sora", the bundled list has the same URL as
+  "SORA Ministry of Finance 2", and the node store allows one row per URL.
+  With no chain saved, the runtime was not synced in that session.
+- The chain now keeps one node per URL, and the bundled name wins.
+  `ConfigService` keeps the bundled nodes and type registry; PI can only add
+  nodes at URLs that are not already bundled.
+
 **Production defaults and surfaces** (`2c9c1ad0`)
 
 - When nothing is stored, Taira, Nexus and Polkamarkt are now off until PI
@@ -456,6 +467,8 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   code image from the share sheet now asks for permission instead of
   failing.
 - Referral rewards load again on the Friends screen.
+- A fresh install connects to the chain and loads the network runtime in its
+  first session, without a restart.
 - No change to wallets, keys, addresses or stored account data.
 
 ### Verification (Xcode 27.0, SORA-Release-A, iOS 27)
