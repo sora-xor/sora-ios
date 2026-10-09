@@ -44,6 +44,13 @@ Each section covers one release task: what changed, why, and what users see.
   The status bar height comes from the scene's status bar manager. The
   network status banner falls back to the wallet window when a loading or PIN
   window is key.
+- External displays: only the iPhone's own application scene gets
+  `SceneDelegate`. An AirPlay Screen Mirroring or USB-C/HDMI display scene
+  gets no delegate, so the system simply mirrors the phone. The wallet's
+  windows never move to the external screen, and connecting or
+  disconnecting a display does not end an IrohaConnect session or leave the
+  phone blank. `SceneDelegate` and `AppDelegate` also ignore life-cycle and
+  URL events from any scene that is not the application scene (fix round).
 - `RetainedMigrationEvidenceHarness`: `bootstrap()` is still the first call at
   launch. Its evidence-only and authorized screens are created in the scene.
 - Tests: two `WalletUXTests` cases that need view-appearance callbacks now
@@ -75,9 +82,20 @@ Each section covers one release task: what changed, why, and what users see.
 - Job 1 builds the Debug app and tests, checks the scene manifest, and runs
   `SoraPassportTests` on a new iPhone 17 Pro simulator with the newest iOS
   runtime.
-- Job 2 compiles an unsigned Release app for devices and checks arm64, the
+- Job 2 builds the same tests in the Release configuration
+  (`ENABLE_TESTABILITY=YES`, unsigned), checks that the build carries
+  `-DF_RELEASE`, and runs `SoraPassportTests` on a new simulator. Code that
+  exists only under `#if F_RELEASE` (genesis pinning, production config and
+  node URLs, the production-only feature policy) is tested on every change,
+  as the retired "Full Release XCTest Closure" did (fix round).
+- Job 3 compiles an unsigned Release app for devices and checks arm64, the
   bundle ID `co.jp.soramitsu.sora`, the scene manifest, and that no static
   `.a` archives are embedded under `Frameworks/`.
+- Every CI build passes `-onlyUsePackageVersionsFromResolvedFile`, so it uses
+  exactly the Swift package versions pinned in the committed
+  `Package.resolved`. Without it, a build with fresh DerivedData re-resolved
+  and moved some pins to newer releases (seen locally: nanopb, swift-http-types,
+  swift-nio-http2), so CI would not test what ships (fix round).
 
 ### User-visible effects
 
@@ -104,3 +122,22 @@ Each section covers one release task: what changed, why, and what users see.
   `WalletRecoveryExporterTests` 12, `WalletRecoveryCapabilityGateTests` 11,
   others 38). The first run found 2 `WalletUXTests` cases failing because
   their windows had no scene; they pass after the fix above.
+
+### Fix round (review findings)
+
+- External displays (major): fixed as described above. New test
+  `WalletUXTests.testOnlyTheApplicationSceneHostsTheWallet` checks that only
+  the application role gets `SceneDelegate` and that an external-display
+  role gets no delegate.
+- Release-configuration tests in CI (minor): added as CI job 2 above.
+- Verification (Xcode 27.0, SORA-Release-A, iOS 27):
+  - Debug, `SoraPassportDev` and unsigned Release device builds succeed.
+  - The app launches to Splash, then onboarding, with no crash.
+  - `SoraPassportTests`, Debug: 327 tests, 0 failures.
+  - `SoraPassportTests`, Release configuration (built exactly as the new CI
+    job does, with pinned package versions): 327 tests, 0 failures.
+  - In one of two full Debug runs,
+    `WalletModernizationTests.testCancelledLifecycleAcquireOperationDoesNotLeakLease`
+    hit its 2-second timeout. It passed in the other full run, in the
+    Release run, and 50 of 50 times when run alone. This test predates this
+    change and does not touch scenes. It is listed as a possible CI flake.
