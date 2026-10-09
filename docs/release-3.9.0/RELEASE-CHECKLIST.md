@@ -205,16 +205,29 @@ existing wallet:
       button. Opening `irohaconnect://connect?...` from Safari does not open
       the app.
 - [ ] Friends screen: referral rewards load (or show an empty list).
+- [ ] Activity (live indexer): your own sends and swaps are listed, with
+      the note about incoming transfers above the list, in English and in
+      Japanese. No "could not load" state.
+- [ ] Over a 3.8.6 install that has a custom node: Settings > Nodes still
+      shows it under custom nodes, and the selected node is unchanged.
+- [ ] Pending-transfer recovery (its full pass has no unit test): send a
+      small amount, close the app from the app switcher right after
+      tapping Send, wait one minute and reopen. The transfer ends as
+      completed in Activity and is not sent twice. With two such transfers,
+      both resolve.
 
 ### Not done on purpose / open (owner decisions)
 
 - [ ] History: the deployed PI public query plan allows history filters
-      only on the exact signer `address`. The app's filter (signer OR
-      `dataFrom` OR `dataTo`, so that incoming transfers appear) is rejected,
-      so Activity shows its "could not load" state on the live indexer. A
-      signer-only fallback would hide incoming transfers, so it was not
-      added. Indexer owners: deploy a plan that indexes `dataTo` (receiver),
-      or decide that a signer-only history is acceptable.
+      only on the exact signer `address`. Since the i3 fix round the app
+      falls back to that signer-only filter and shows a calm note in
+      Activity ("Incoming transfers from other accounts may not appear in
+      Activity right now…"). Incoming transfers signed by others are missing
+      from Activity until the indexer serves the all-roles filter. Indexer
+      owners: deploy a public plan that accepts `address OR dataFrom OR
+      dataTo` (or indexes `dataTo`). The app tries the full filter again
+      every 30 minutes, so no app update is needed. Product owner: confirm
+      that the signer-only history with the note is acceptable for 3.9.0.
 - [ ] Polkamarkt keeps its runtime-130 contract pins (mutations are compiled
       off and the feature is hidden). Re-qualify against the live runtime
       before enabling it.
