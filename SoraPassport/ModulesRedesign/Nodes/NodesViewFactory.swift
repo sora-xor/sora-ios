@@ -43,7 +43,9 @@ final class NodesViewFactory: NodesViewFactoryProtocol {
         let presenter = NodesPresenter()
         presenter.localizationManager = LocalizationManager.shared
 
-        let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash())!
+        guard let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash()) else {
+            return nil
+        }
         let repository = ChainRepositoryFactory().createRepository()
         let interactor = NodesInteractor(settings: SettingsManager.shared,
                                          chain: chain,

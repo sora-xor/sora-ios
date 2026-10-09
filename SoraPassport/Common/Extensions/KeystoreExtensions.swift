@@ -98,8 +98,10 @@ extension KeystoreProtocol {
     /// Version 1.x retained this Iroha signing key beside seedEntropy. Prove
     /// ownership using the released SORA/iroha-keypair scrypt derivation before
     /// allowing the entropy to back a SORA2 wallet. Neither record is rewritten.
-    func verifyLegacyIrohaKeyIfPresent(entropy: Data) throws {
-        guard var retained = try loadIfKeyExists("privateKey") else { return }
+    func verifyLegacyIrohaKeyIfPresent(entropy: Data, diagnostic: WalletSecretDiagnostics? = nil) throws {
+        guard var retained = try WalletSecretDiagnostics.observe(.legacyIrohaKey, into: diagnostic, {
+            try loadIfKeyExists("privateKey")
+        }) else { return }
         defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
         guard retained.count == 32 else {
             throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
@@ -161,30 +163,107 @@ extension KeystoreProtocol {
     func fetchEntropyForAddress(
         _ address: String,
         activeSnapshot: WalletNetworkSnapshot,
-        recoveryGate: WalletRecoveryCapabilityGate
+        recoveryGate: WalletRecoveryCapabilityGate,
+        diagnostic: WalletSecretDiagnostics? = nil
     ) throws -> Data? {
         let tag = KeystoreTag.entropyTagForAddress(address)
-        if let scoped = try loadIfKeyExists(tag) {
+        if let scoped = try WalletSecretDiagnostics.observe(.scopedEntropy, into: diagnostic, {
+            try loadIfKeyExists(tag)
+        }) {
+            diagnostic?.snapshot.fallback = .scopedEntropy
             return scoped
         }
 
         return try fetchRetainedLegacyEntropyForAddress(
             address,
             activeSnapshot: activeSnapshot,
-            recoveryGate: recoveryGate
+            recoveryGate: recoveryGate,
+            diagnostic: diagnostic
         )
+    }
+
+    /// The database must be verified before the first network snapshot exists.
+    /// Prove the unsuffixed record against the exact retained SORA address here,
+    /// using the released default sr25519 derivation. This is a read-only
+    /// migration path: it never creates a scoped key or infers a new identity.
+    func fetchLegacyEntropyBeforeNetworkActivation(
+        for address: String,
+        recoveryGate: WalletRecoveryCapabilityGate,
+        diagnostic: WalletSecretDiagnostics? = nil
+    ) throws -> Data? {
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        guard try !WalletSecretDiagnostics.observe(.scopedEntropy, into: diagnostic, {
+            try checkKey(for: KeystoreTag.entropyTagForAddress(address))
+        }), try !WalletSecretDiagnostics.observe(.scopedSecret, into: diagnostic, {
+            try checkKey(for: KeystoreTag.secretKeyTagForAddress(address))
+        }), try !WalletSecretDiagnostics.observe(.scopedSeed, into: diagnostic, {
+            try checkKey(for: KeystoreTag.seedTagForAddress(address))
+        }) else {
+            diagnostic?.snapshot.fallback = .scopedConflict
+            return nil
+        }
+        guard try !WalletSecretDiagnostics.observe(.scopedDerivation, into: diagnostic, {
+            try checkKey(for: KeystoreTag.deriviationTagForAddress(address))
+        }) else {
+            diagnostic?.snapshot.fallback = .derivationConflict
+            return nil
+        }
+        guard try WalletSecretDiagnostics.observe(.globalEntropy, into: diagnostic, {
+            try checkKey(for: KeystoreTag.legacyEntropy.rawValue)
+        }) else {
+            diagnostic?.snapshot.fallback = .globalMissing
+            return nil
+        }
+        diagnostic?.snapshot.fallback = .provingGlobal
+
+        let networkType = SNAddressType(chain: .sora)
+        let publicKey = try SS58AddressFactory().accountId(
+            fromAddress: address, type: networkType
+        )
+        var entropy = try WalletSecretDiagnostics.observe(.globalEntropy, into: diagnostic) {
+            try fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        }
+        do {
+            try verifyLegacyIrohaKeyIfPresent(entropy: entropy, diagnostic: diagnostic)
+            let mnemonic = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: entropy)
+            guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(
+                mnemonic.allWords().count
+            ) else {
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+            }
+            try LegacySoraIdentityValidator.validate(
+                address: address,
+                publicKey: publicKey,
+                cryptoType: .sr25519,
+                networkType: networkType,
+                derivationPath: nil,
+                entropy: entropy,
+                rawSeed: nil,
+                secret: nil,
+                recoveryGate: recoveryGate
+            )
+            diagnostic?.snapshot.fallback = .resolvedGlobal
+            return entropy
+        } catch {
+            entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex)
+            throw error
+        }
     }
 
     private func fetchRetainedLegacyEntropyForAddress(
         _ address: String,
         activeSnapshot snapshot: WalletNetworkSnapshot?,
-        recoveryGate: WalletRecoveryCapabilityGate
+        recoveryGate: WalletRecoveryCapabilityGate,
+        diagnostic: WalletSecretDiagnostics? = nil
     ) throws -> Data? {
 
         // The oldest installations retained one unsuffixed entropy record.
         // Resolve it only through an already activated, exact SORA2 identity;
         // never copy it into a new Keychain tag or guess its owner.
+        diagnostic?.snapshot.snapshotPresent = snapshot != nil
         guard let snapshot else {
+            diagnostic?.snapshot.fallback = .noSnapshot
             return nil
         }
         let matchingWallets = snapshot.wallets.filter {
@@ -196,30 +275,48 @@ extension KeystoreProtocol {
                 $0.derivationVersion == 0 &&
                 $0.address == address
         }
-        guard
-            try !checkKey(
-                for: KeystoreTag.secretKeyTagForAddress(address)
-            ),
-            try !checkKey(for: KeystoreTag.seedTagForAddress(address)),
-            try !checkKey(
-                for: KeystoreTag.deriviationTagForAddress(address)
-            ),
-            matchingWallets.count == 1,
-            let wallet = matchingWallets.first,
-            wallet.secretSource == .mnemonicEntropy ||
-                wallet.secretSource == .legacyMnemonicEntropy,
-            matchingSoraAccounts.count == 1,
-            let soraAccount = matchingSoraAccounts.first,
-            try checkKey(for: KeystoreTag.legacyEntropy.rawValue)
-        else {
+        guard try !WalletSecretDiagnostics.observe(.scopedSecret, into: diagnostic, {
+            try checkKey(for: KeystoreTag.secretKeyTagForAddress(address))
+        }), try !WalletSecretDiagnostics.observe(.scopedSeed, into: diagnostic, {
+            try checkKey(for: KeystoreTag.seedTagForAddress(address))
+        }) else {
+            diagnostic?.snapshot.fallback = .scopedConflict
             return nil
         }
-
-        var legacyEntropy = try fetchKey(
-            for: KeystoreTag.legacyEntropy.rawValue
-        )
+        guard try !WalletSecretDiagnostics.observe(.scopedDerivation, into: diagnostic, {
+            try checkKey(for: KeystoreTag.deriviationTagForAddress(address))
+        }) else {
+            diagnostic?.snapshot.fallback = .derivationConflict
+            return nil
+        }
+        guard matchingWallets.count == 1, let wallet = matchingWallets.first else {
+            diagnostic?.snapshot.fallback = .snapshotIdentity
+            return nil
+        }
+        guard wallet.secretSource == .mnemonicEntropy || wallet.secretSource == .legacyMnemonicEntropy else {
+            diagnostic?.snapshot.fallback = .snapshotSource
+            return nil
+        }
+        guard matchingSoraAccounts.count == 1, let soraAccount = matchingSoraAccounts.first else {
+            diagnostic?.snapshot.fallback = .snapshotIdentity
+            return nil
+        }
+        guard try WalletSecretDiagnostics.observe(.globalEntropy, into: diagnostic, {
+            try checkKey(for: KeystoreTag.legacyEntropy.rawValue)
+        }) else {
+            diagnostic?.snapshot.fallback = .globalMissing
+            return nil
+        }
+        diagnostic?.snapshot.fallback = .provingGlobal
+        var legacyEntropy = try WalletSecretDiagnostics.observe(.globalEntropy, into: diagnostic) {
+            try fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        }
         do {
-            try verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy)
+            if let diagnostic {
+                try verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy, diagnostic: diagnostic)
+            } else {
+                try verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy)
+            }
             let mnemonic = try IRMnemonicCreator(language: .english)
                 .mnemonic(fromEntropy: legacyEntropy)
             guard
@@ -241,6 +338,7 @@ extension KeystoreProtocol {
                 secret: nil,
                 recoveryGate: recoveryGate
             )
+            diagnostic?.snapshot.fallback = .resolvedGlobal
             return legacyEntropy
         } catch {
             legacyEntropy.resetBytes(
@@ -271,10 +369,12 @@ extension KeystoreProtocol {
         try saveKey(data, with: tag)
     }
 
-    func fetchDeriviationForAddress(_ address: String) throws -> String? {
+    func fetchDeriviationForAddress(_ address: String, diagnostic: WalletSecretDiagnostics? = nil) throws -> String? {
         let tag = KeystoreTag.deriviationTagForAddress(address)
 
-        guard let data = try loadIfKeyExists(tag) else {
+        guard let data = try WalletSecretDiagnostics.observe(.scopedDerivation, into: diagnostic, {
+            try loadIfKeyExists(tag)
+        }) else {
             return nil
         }
 
