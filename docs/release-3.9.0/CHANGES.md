@@ -149,3 +149,116 @@ Each section covers one release task: what changed, why, and what users see.
     launches to Splash, then onboarding, on SORA-Release-A with no crash.
     `SoraPassportTests` passes in Debug (327 tests, 0 failures) and in the
     Release configuration, built as CI job 2 does (327 tests, 0 failures).
+
+## i2: SORA Card residue and dead code removed
+
+### Why
+
+- SORA Card (PayWings / Sumsub KYC / X1 on-ramp) is discontinued. Its code
+  was removed before this release, but strings, images, a KYC microphone
+  permission text, a config flag and the two vendored packages it brought
+  in (reCAPTCHA, JOSESwift) were still in the repository, and some of them
+  still shipped in the app.
+- The app also carried code and resources from the retired SORA v1 backend
+  and fully commented-out files. Less code means a smaller app, fewer
+  proprietary binaries and less to review.
+- Rule for this task: nothing that touches key storage, migration or
+  recovery was changed. Wallet keys, addresses and stored data are not read
+  or written by any of these changes.
+
+### What changed
+
+**SORA Card, KYC and fiat on-ramp residue** (`52a17f05`)
+
+- `Info.plist`: removed `NSMicrophoneUsageDescription` ("…to pass KYC").
+  Nothing in the app or its vendored binaries records audio.
+- PI indexer `mobileConfig`: the query no longer selects `soracard` and
+  `PIMobileConfig` no longer decodes it. The KMM `SoraConfig` initializer
+  still requires the argument, so the app passes `false`.
+- Deleted the SORA Card asset folder (KYC status art and card front,
+  9.1 MB) and the old More-menu card icon.
+- Deleted 40 unused SORA Card and X1 fiat on-ramp strings from all 33
+  `Localizable.strings` catalogs (including `ja`), and their entries in the
+  Middle Egyptian generator script. No new strings were added.
+
+**Vendored packages**
+
+- `VendorPackages/RecaptchaEnterprise` (Google binary, 9.5 MB, referenced
+  by nothing) deleted (`77f9d603`).
+- `JOSESwift` (the PayWings JWT/JWE dependency, statically linked into
+  `SoraPassport` and `SoraPassportDev` but imported by nothing) unlinked
+  and deleted (`7520a9f6`). Its only harness had already been retired
+  with the qualification scripts in i1.
+- `MPQRCoreSDK` (Mastercard EMV-QR dynamic framework with armv7/i386
+  slices and no dSYM) is no longer embedded in the app (`8c65fd97`). The
+  app linked `SSFQRService` only for two QR wire-format constants; it now
+  declares `SubstrateQRConstants` itself in `ScanQR/QRCommon.swift` with
+  the same values (`"substrate"`, `":"`) and links `SSFUtils` directly
+  instead. The vendored shared-features tree is unchanged. New
+  `AddressQRCodecTests` pins the address and receive QR formats, so QR
+  codes shown by 3.8.x and 3.9.0 stay readable by each other.
+- `SoraDocuments` (SORA v1 DID document helpers) unlinked from all four
+  targets and deleted, together with the SORA v1 API error layer that was
+  its only user (`2e901e32`). `Package.resolved` is unchanged by all of
+  these removals.
+- Kept on purpose: `SoraWalletBinary` (the embedded `sorawallet`
+  framework; `IrohaCrypto` links it by name), FLEX (already Dev-only) and
+  the `MPQRCoreSDK.xcframework` file in the vendored tree (no longer linked).
+
+**Dead code and files**
+
+- `dfc05f90`: nine compiled files that were 100 % commented out; files in no
+  target (a stale `AssetModel` duplicate, `VerificationState`, 171 KB of
+  stale Cuckoo mocks, four dead tests, a `.textClipping`, a copied test
+  `Info.plist`, the unreferenced `SoraPassport/de.lproj`, Generamba
+  templates). `GoogleService-Info-Staging.plist` is no longer copied into
+  the production app as a resource (the Staging configuration still
+  installs it through the Firebase setup phase, like every configuration).
+- `eb94ba48`: the SORA v1 FireMock network mock tree (49 Swift files,
+  Dev-only) and its 51 JSON fixtures, which were bundled into the
+  production app. FireMock is unlinked from `SoraPassportDev`; the test
+  targets still use it.
+- `e84dd362`: 33 unreferenced SORA v1-era types and six closed clusters
+  with no outside users (modal input presentation, staking-era
+  subscriptions, compact bar, skeleton cells, call-path table, Messages
+  toast module), plus twelve test files whose classes were empty. Every
+  file was checked for outside references (comments stripped) and all
+  targets compile without it.
+- `2e901e32`: the SORA v1 response envelope and request-error layer
+  (17 files) and `SoraDocuments`, as above.
+
+In total about 63,500 lines in 480 files were removed: about 19,400 of
+them vendored package code (211 files), the rest SORA Card PDFs, strings,
+mock fixtures and dead app code.
+
+### User-visible effects
+
+- None in the UI. The app no longer declares a microphone permission, and
+  the download is smaller (SORA Card PDFs, mock JSON and two embedded
+  frameworks, `MPQRCoreSDK` and `SoraDocuments`, are gone).
+- QR codes: unchanged format. Receive QR codes made by 3.9.0 scan in 3.8.x
+  and vice versa.
+- No change to wallets, keys, addresses, balances or stored data.
+
+### Verification (Xcode 27.0, SORA-Release-A, iOS 27)
+
+- After each commit: `SoraPassport` Debug with all test targets
+  (`build-for-testing`, pinned package versions) and `SoraPassportDev`
+  build successfully.
+- `AddressQRCodecTests`: 4 tests, 0 failures.
+- Final tree (`2e901e32`):
+  - `SoraPassportTests`, Debug: 331 tests, 0 failures (327 before plus the
+    4 new QR tests).
+  - `SoraPassportTests`, Release configuration, built as CI job 2 does:
+    331 tests, 0 failures.
+  - Unsigned Release build for `generic/platform=iOS` succeeds. Its
+    `Frameworks/` holds only FirebaseAnalytics, GoogleAdsOnDeviceConversion,
+    GoogleAppMeasurement(+IdentitySupport), blake2lib, libed25519,
+    sorawallet and sr25519lib: no `MPQRCoreSDK`, no `SoraDocuments`. The
+    bundle has no mock JSON, one `GoogleService-Info.plist`, and no
+    `NSMicrophoneUsageDescription`.
+  - The Debug app and the `SoraPassportDev` app launch on SORA-Release-A to
+    the onboarding screen with no crash.
+  - `Package.resolved` is unchanged.
+- Not run here: a manual QR round trip on devices (needs a wallet and a
+  camera). It is in RELEASE-CHECKLIST.md.
