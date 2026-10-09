@@ -1419,8 +1419,14 @@ final class WalletCloudBackupRecoveryService {
             do { return try encryption.getDecrypted(from: value, password: password) }
             catch { throw WalletCloudBackupRecoveryError.incorrectPassword }
         }
-        guard let verifier = try decrypt(backup.keyVerifier), verifier == account.address else {
-            throw WalletCloudBackupRecoveryError.incorrectPassword
+        // App Store 3.8.6 backups have no key verifier. Their password is
+        // proven by the authenticated decryption of each secret below, and the
+        // restored material must derive this exact account before anything is
+        // written (restoreMissingBackupMaterial).
+        if let keyVerifier = backup.keyVerifier, !keyVerifier.isEmpty {
+            guard try decrypt(keyVerifier) == account.address else {
+                throw WalletCloudBackupRecoveryError.incorrectPassword
+            }
         }
         var phrase = try decrypt(backup.encryptedMnemonicPhrase)
         defer { phrase = nil }

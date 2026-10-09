@@ -301,47 +301,68 @@ extension CloudStorageService {
         }
 
         let data = try await executeQueryForMedia(withFileId: fileId)
+        return try Self.openBackup(
+            data,
+            password: password,
+            expectedAddress: account.address,
+            encryptionService: encryptionService
+        )
+    }
 
+    /// Decrypts a backup file and proves the password.
+    ///
+    /// - With a key verifier (written by newer apps): it must decrypt to the
+    ///   backup address.
+    /// - Without one (App Store SORA 3.8.6 and earlier never wrote it): at
+    ///   least one secret field must be present, and every non-empty encrypted
+    ///   field must decrypt. The encryption is authenticated
+    ///   (XSalsa20-Poly1305), so a wrong password cannot decrypt.
+    ///
+    /// The caller must still check that the restored phrase, seed or JSON
+    /// derives `address` before saving anything.
+    public static func openBackup(
+        _ data: Data,
+        password: String,
+        expectedAddress: String? = nil,
+        encryptionService: EncryptionServiceProtocol = EncryptionService()
+    ) throws -> OpenBackupAccount {
         guard let account = try? JSONDecoder().decode(EcryptedBackupAccount.self, from: data) else {
             throw CloudStorageServiceError.incorectJson
         }
-
-        guard let _ = try? encryptionService.getDecrypted(
-            from: account.keyVerifier,
-            password: password
-        ) else {
-            throw CloudStorageServiceError.incorectPassword
+        if let expectedAddress, account.address != expectedAddress {
+            throw CloudStorageServiceError.notFound
         }
 
-        let passphrase = try? encryptionService.getDecrypted(
-            from: account.encryptedMnemonicPhrase,
-            password: password
-        )
-        let substrateDerivationPath = try? encryptionService.getDecrypted(
-            from: account.encryptedSubstrateDerivationPath,
-            password: password
-        )
-
-        var ethDerivationPath: String?
-
-        if let path = account.encryptedEthDerivationPath, !path.isEmpty {
-            guard let ethPath = try? encryptionService.getDecrypted(from: path, password: password) else {
+        func decrypt(_ value: String?) throws -> String? {
+            guard let value, !value.isEmpty else { return nil }
+            guard let decrypted = try? encryptionService.getDecrypted(from: value, password: password) else {
                 throw CloudStorageServiceError.incorectPassword
             }
-            ethDerivationPath = ethPath
+            return decrypted
         }
 
-        let encryptedSeed = account.encryptedSeed
-        let substrateSeed = try? encryptionService.getDecrypted(
-            from: encryptedSeed?.substrateSeed,
-            password: password
-        )
-        let ethereumSeed = try? encryptionService.getDecrypted(
-            from: encryptedSeed?.ethSeed,
-            password: password
-        )
+        if let keyVerifier = account.keyVerifier, !keyVerifier.isEmpty {
+            guard try decrypt(keyVerifier) == account.address else {
+                throw CloudStorageServiceError.incorectPassword
+            }
+        } else {
+            let hasSecret = [
+                account.encryptedMnemonicPhrase,
+                account.encryptedSeed?.substrateSeed,
+                account.json?.substrateJson,
+            ].contains { ($0 ?? "").isEmpty == false }
+            guard hasSecret else {
+                throw CloudStorageServiceError.incorectJson
+            }
+        }
 
-        let decodedAccount = OpenBackupAccount(
+        let passphrase = try decrypt(account.encryptedMnemonicPhrase)
+        let substrateDerivationPath = try decrypt(account.encryptedSubstrateDerivationPath)
+        let ethDerivationPath = try decrypt(account.encryptedEthDerivationPath)
+        let substrateSeed = try decrypt(account.encryptedSeed?.substrateSeed)
+        let ethereumSeed = try decrypt(account.encryptedSeed?.ethSeed)
+
+        return OpenBackupAccount(
             name: account.name,
             address: account.address,
             passphrase: passphrase,
@@ -361,8 +382,6 @@ extension CloudStorageService {
                 ethSeed: ethereumSeed
             )
         )
-
-        return decodedAccount
     }
 
     private func executeExtension(

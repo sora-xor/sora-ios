@@ -37,6 +37,12 @@ enum AccountCreateError: Error {
     case invalidKeystore
     case unsupportedNetwork
     case duplicated
+    /// This iPhone already has different saved keys for the same address.
+    /// Nothing was written; the existing items are left as they are.
+    case retainedKeyConflict
+    /// A Google Drive backup's phrase, seed or JSON does not derive the
+    /// address the backup was saved for. Nothing was written.
+    case backupIdentityMismatch
 }
 
 extension AccountCreateError: ErrorContentConvertible {
@@ -59,6 +65,18 @@ extension AccountCreateError: ErrorContentConvertible {
         case .duplicated:
             title = R.string.localizable.accountAlreadyImported(preferredLanguages: locale?.rLanguages)
             message = R.string.localizable.accountAlreadyImportedDescription(preferredLanguages: locale?.rLanguages)
+        case .retainedKeyConflict:
+            title = WalletUX.text("Keys already on this iPhone", language: locale?.rLanguages?.first)
+            message = WalletUX.text(
+                "This iPhone already has different saved keys for this wallet. Nothing was changed. Contact SORA support.",
+                language: locale?.rLanguages?.first
+            )
+        case .backupIdentityMismatch:
+            title = WalletUX.text("Backup not restored", language: locale?.rLanguages?.first)
+            message = WalletUX.text(
+                "This backup does not match the wallet it was saved for. Nothing was changed.",
+                language: locale?.rLanguages?.first
+            )
         case .invalidKeystore, .unsupportedNetwork:
             title = R.string.localizable.accountImportDefaultError(preferredLanguages: locale?.rLanguages)
             message = "" // TODO: no design
