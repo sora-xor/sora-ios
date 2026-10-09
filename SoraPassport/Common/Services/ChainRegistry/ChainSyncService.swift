@@ -223,9 +223,30 @@ final class ChainSyncService {
         for node in orderedNodes where nodesByURL[node.url] == nil {
             nodesByURL[node.url] = node
         }
+        // The uniqueness constraint covers custom nodes too. A user who added
+        // a node in an older release that 3.9.0 now bundles (for example
+        // ws.mof.sora.org when PI listed only mof2) keeps it as their custom
+        // node; it is not saved a second time as a default node. Connection
+        // candidates still include every bundled mainnet node.
+        let customNodes = matchingLocal?.customNodes
+        let customURLs = Set((customNodes ?? []).map(\.url))
+        for url in customURLs {
+            nodesByURL[url] = nil
+        }
         var availableNodes = Set(nodesByURL.values)
         if availableNodes.isEmpty {
-            availableNodes = matchingLocal?.nodes ?? []
+            availableNodes = (matchingLocal?.nodes ?? []).filter {
+                !customURLs.contains($0.url)
+            }
+        }
+        // The selected node is saved into the same row as the default or
+        // custom node with its URL. Use that entry's name, so saving does not
+        // rename the row (for example back to PI's "Sora" for mof2) and the
+        // next sync does not see a changed chain again.
+        let selectedNode = matchingLocal?.selectedNode.map { selected in
+            availableNodes.first { $0.url == selected.url }
+                ?? customNodes?.first { $0.url == selected.url }
+                ?? selected
         }
         let chain = ChainModel(
             chainId: chainId,
@@ -237,8 +258,8 @@ final class ChainSyncService {
             icon: matchingLocal?.icon,
             options: matchingLocal?.options,
             externalApi: matchingLocal?.externalApi,
-            selectedNode: matchingLocal?.selectedNode,
-            customNodes: matchingLocal?.customNodes,
+            selectedNode: selectedNode,
+            customNodes: customNodes,
             iosMinAppVersion: matchingLocal?.iosMinAppVersion
         )
         let whitelist = whitelistData.flatMap { try? JSONDecoder().decode([Whitelist].self, from: $0) }

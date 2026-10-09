@@ -184,7 +184,8 @@ final class ChainModelMapper {
         from model: ChainModel,
         context: NSManagedObjectContext
     ) {
-        let nodeEntities: [CDChainNode] = model.nodes.map { node in
+        let customNodeEntities = entity.customNodes as? Set<CDChainNode> ?? []
+        let nodeEntities: [CDChainNode] = model.nodes.compactMap { node in
             let nodeEntity: CDChainNode
 
             let maybeExistingEntity = entity.nodes?
@@ -192,6 +193,16 @@ final class ChainModelMapper {
 
             if let existingEntity = maybeExistingEntity {
                 nodeEntity = existingEntity
+            } else if let storedEntity = Self.storedNode(url: node.url, in: context) {
+                // The node URL is unique across the store. A row with this URL
+                // can already exist outside `nodes` (a selected node saved on
+                // its own by an older release). Reuse it instead of inserting a
+                // duplicate that would fail the save. A custom node row stays
+                // the user's custom node.
+                guard !customNodeEntities.contains(storedEntity) else {
+                    return nil
+                }
+                nodeEntity = storedEntity
             } else {
                 nodeEntity = CDChainNode(context: context)
             }
@@ -284,6 +295,11 @@ final class ChainModelMapper {
 
         if let existingEntity = maybeExistingEntity {
             nodeEntity = existingEntity
+        } else if let storedEntity = Self.storedNode(url: node.url, in: context) {
+            // A selected node outside `nodes` and `customNodes` is saved as
+            // its own row. Reuse that row on later saves instead of inserting
+            // a second row with the same unique URL.
+            nodeEntity = storedEntity
         } else {
             nodeEntity = CDChainNode(context: context)
         }
@@ -294,6 +310,18 @@ final class ChainModelMapper {
         nodeEntity.apiKeyName = node.apikey?.keyName
 
         entity.selectedNode = nodeEntity
+    }
+
+    /// The live (not deleted) node row with this URL, including rows inserted
+    /// earlier in the same save.
+    private static func storedNode(
+        url: URL,
+        in context: NSManagedObjectContext
+    ) -> CDChainNode? {
+        let request = NSFetchRequest<CDChainNode>(entityName: "CDChainNode")
+        request.predicate = NSPredicate(format: "url == %@", url as NSURL)
+        request.includesPendingChanges = true
+        return (try? context.fetch(request))?.first { !$0.isDeleted }
     }
 
     private func createExternalApi(from entity: CDChain) -> ChainModel.ExternalApiSet? {
