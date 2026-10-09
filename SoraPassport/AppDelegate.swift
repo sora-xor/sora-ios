@@ -85,9 +85,21 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         configurationForConnecting connectingSceneSession: UISceneSession,
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
+        Self.sceneConfiguration(for: connectingSceneSession.role)
+    }
+
+    /// Only the device's own application scene hosts the wallet. Any other
+    /// role (AirPlay mirroring, a USB-C/HDMI display) gets no delegate, so the
+    /// system mirrors the phone screen and never moves the wallet's windows
+    /// there or sends that scene's life-cycle events to the app.
+    static func sceneConfiguration(for role: UISceneSession.Role) -> UISceneConfiguration {
+        guard role.isSoraWalletScene else {
+            return UISceneConfiguration(name: nil, sessionRole: role)
+        }
+
         let configuration = UISceneConfiguration(
             name: "Default Configuration",
-            sessionRole: connectingSceneSession.role
+            sessionRole: role
         )
         configuration.delegateClass = SceneDelegate.self
         return configuration
@@ -100,6 +112,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// process: creating Splash starts wallet storage migration, so a scene
     /// that reconnects gets the existing windows moved to it instead.
     func attachRootWindow(to windowScene: UIWindowScene) -> UIWindow? {
+        guard windowScene.session.role.isSoraWalletScene else {
+            return nil
+        }
+
         if let window {
             reattachWindows(rootWindow: window, to: windowScene)
             return window
@@ -138,7 +154,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
-        guard let windowScene = scene as? UIWindowScene else {
+        guard let windowScene = scene as? UIWindowScene,
+              windowScene.session.role.isSoraWalletScene else {
             return
         }
         // Keep the app's own windows (root, PIN lock, loading and toast

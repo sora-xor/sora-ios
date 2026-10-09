@@ -23,7 +23,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions
     ) {
-        guard let windowScene = scene as? UIWindowScene, let appDelegate else {
+        // Defense in depth: AppDelegate gives this delegate only to the
+        // application role. A display scene must never take the wallet UI.
+        guard session.role.isSoraWalletScene,
+              let windowScene = scene as? UIWindowScene,
+              let appDelegate else {
             return
         }
 
@@ -36,24 +40,39 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
         // Never tear down Splash, the migration flow or any window here.
         appDelegate?.sceneDidDisconnect(scene)
         window = nil
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
         appDelegate?.sceneWillEnterForeground()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
         appDelegate?.sceneDidEnterBackground()
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
         handle(urlContexts: URLContexts)
     }
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
         handle(userActivity: userActivity)
     }
 
@@ -93,15 +112,28 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 // MARK: - Window scene helpers
 
+extension UISceneSession.Role {
+    /// True only for the device's own interactive application scene, the one
+    /// scene that may host wallet windows. External-display roles (AirPlay
+    /// mirroring, a wired display) are never used for wallet UI.
+    var isSoraWalletScene: Bool {
+        self == .windowApplication
+    }
+}
+
 extension UIApplication {
     /// The window scene that hosts the wallet UI: the root window's scene,
-    /// otherwise the foreground scene, otherwise any connected window scene.
+    /// otherwise the foreground application scene, otherwise any connected
+    /// application scene. External-display scenes are never returned.
     var soraWindowScene: UIWindowScene? {
-        if let scene = (delegate as? AppDelegate)?.window?.windowScene {
+        if let scene = (delegate as? AppDelegate)?.window?.windowScene,
+           scene.session.role.isSoraWalletScene {
             return scene
         }
 
-        let scenes = connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scenes = connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role.isSoraWalletScene }
         return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
     }
 
