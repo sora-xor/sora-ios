@@ -562,6 +562,10 @@ final class WalletUXTests: XCTestCase {
         let missingKeysController = WalletRecoveryViewController(reason: reason,
             diagnostic: WalletStartupDiagnostic.current(settings), onRetry: {})
         missingKeysController.loadViewIfNeeded()
+        // Restore actions follow facts (accounts whose keys are missing), not
+        // the recorded cause.
+        missingKeysController.apply(WalletRecoveryState.recovery(retryable: true, accountsMissingKeys: 1,
+            accountsWithPhrase: 0, retainedPinUsable: false).options)
         let restore = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
             .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" })
         XCTAssertFalse(restore.isHidden)
@@ -570,7 +574,7 @@ final class WalletUXTests: XCTestCase {
             .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" })
         XCTAssertFalse(restoreCloud.isHidden)
         XCTAssertTrue(restoreCloud.isEnabled)
-        XCTAssertEqual(restoreCloud.title(for: .normal), "Restore from Google Drive backup")
+        XCTAssertEqual(restoreCloud.title(for: .normal), WalletUX.text("Restore from Google Drive backup"))
         XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.notFound),
             "Backup not found")
         XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.notFound)
@@ -591,6 +595,8 @@ final class WalletUXTests: XCTestCase {
         let missingKeysWithoutRetry = WalletRecoveryViewController(reason: reason,
             diagnostic: WalletStartupDiagnostic.current(settings))
         missingKeysWithoutRetry.loadViewIfNeeded()
+        missingKeysWithoutRetry.apply(WalletRecoveryState.recovery(retryable: true, accountsMissingKeys: 1,
+            accountsWithPhrase: 0, retainedPinUsable: false).options)
         XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
             .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
         XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
@@ -719,7 +725,14 @@ final class WalletUXTests: XCTestCase {
             XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("WalletMigrationSafety").path))
             XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
         }
+        // A retained PIN alone is the reinstall signature (iOS keeps Keychain
+        // items when the app is deleted): no recovery, nothing written.
         try keychain.addKey(Data([1]), with: KeystoreTag.pincode.rawValue)
+        XCTAssertNoThrow(try migrator.performMigration())
+        XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data([1]))
+        // A retained wallet setting beside the empty store is still a lost inventory.
+        settings.set(value: true, for: SettingsKey.hasMigrated.rawValue)
         XCTAssertThrowsError(try migrator.performMigration()) { error in
             guard case UserStorageMigrationError.missingWalletStore = error else {
                 return XCTFail("Unexpected retained-wallet admission: \(error)")
@@ -777,7 +790,11 @@ final class WalletUXTests: XCTestCase {
             let presenter = WalletUXRootPresenterSpy()
             root.presenter = presenter
             root.decideModuleSynchroniously()
-            XCTAssertEqual(presenter.decisions, [.broken], kind)
+            // Keychain items alone (reinstall) lead to the welcome-back screen;
+            // settings or a network inventory without accounts stay in recovery.
+            XCTAssertEqual(presenter.decisions, kind == "pin" ? [.welcomeBack] : [.broken], kind)
+            XCTAssertEqual(try keychain.allKeyIdentifiers(), identifiersBefore, kind)
+            XCTAssertEqual(settings.walletMigrationRecoveryRequired, kind != "pin", kind)
         }
     }
 
@@ -1148,13 +1165,14 @@ private final class WalletUXSecurityLayerStub: SecurityLayerInteractorInputProto
 }
 
 private final class WalletUXRootPresenterSpy: RootInteractorOutputProtocol {
-    enum Decision: Equatable { case onboarding, legacyWalletUpgrade, localAuthentication, broken, pincodeSetup }
+    enum Decision: Equatable { case onboarding, legacyWalletUpgrade, localAuthentication, broken, pincodeSetup, welcomeBack }
     var decisions: [Decision] = []
     func didDecideOnboarding() { decisions.append(.onboarding) }
     func didDecideLegacyWalletUpgrade() { decisions.append(.legacyWalletUpgrade) }
     func didDecideLocalAuthentication() { decisions.append(.localAuthentication) }
     func didDecideBroken() { decisions.append(.broken) }
     func didDecidePincodeSetup() { decisions.append(.pincodeSetup) }
+    func didDecideWelcomeBack() { decisions.append(.welcomeBack) }
 }
 
 private final class WalletUXNoBiometry: BiometryAuthProtocol {
