@@ -1592,6 +1592,11 @@ enum WalletSecretSource: String, Codable {
     case rawSeed
     case legacySecret
     case watchOnly
+    /// The account row exists, but no signing material on this device proves
+    /// its address (keys missing, for example on a new iPhone, or keys that do
+    /// not match). The account stays visible and read-only; its Keychain items,
+    /// if any, are left untouched. Restoring its keys upgrades the source.
+    case signingUnavailable
 
     var supportsNexusDerivation: Bool {
         self == .mnemonicEntropy
@@ -4503,7 +4508,16 @@ final class WalletNetworkStore {
             proposedWallets.values.allSatisfy({ $0.count == 1 }),
             proposedAccounts.values.allSatisfy({ $0.count == 1 }),
             current.wallets.allSatisfy({ wallet in
-                proposedWallets[wallet.id]?.first == wallet
+                guard let proposedWallet = proposedWallets[wallet.id]?.first else {
+                    return false
+                }
+                if proposedWallet == wallet { return true }
+                // The only permitted rewrite: a read-only placeholder whose
+                // keys were restored and proven gets its real source.
+                return wallet.secretSource == .signingUnavailable &&
+                    proposedWallet.id == wallet.id &&
+                    proposedWallet.displayName == wallet.displayName &&
+                    proposedWallet.existingSoraAddress == wallet.existingSoraAddress
             }),
             current.accounts.allSatisfy({ account in
                 proposedAccounts[account.id]?.first == account
@@ -4543,16 +4557,25 @@ final class WalletNetworkStore {
                 }
                 continue
             }
-            let expectedNetworkIds: Set<NetworkId>
-            if currentWallets[wallet.id]?.count == 1 {
-                expectedNetworkIds = Set(
+            if currentWallets[wallet.id]?.first?.secretSource.supportsNexusDerivation == true {
+                // Retained children stay. Newly admitted children are added
+                // when the phrase is on this device; a read-only wallet keeps
+                // exactly its retained children until its keys are restored.
+                let retainedNetworkIds = Set(
                     (currentAccounts[wallet.id] ?? []).map(\.networkId)
-                ).union(admissionPolicy.admittedWalletNetworkIds)
-            } else {
-                expectedNetworkIds = admissionPolicy
-                    .admittedWalletNetworkIds
+                )
+                guard
+                    retainedNetworkIds.isSubset(of: proposedNetworkIds),
+                    proposedNetworkIds.isSubset(
+                        of: retainedNetworkIds.union(admissionPolicy.admittedWalletNetworkIds)
+                    )
+                else {
+                    throw WalletNetworkMigrationError
+                        .snapshotVerificationFailed
+                }
+                continue
             }
-            guard proposedNetworkIds == expectedNetworkIds else {
+            guard proposedNetworkIds == admissionPolicy.admittedWalletNetworkIds else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
             }
@@ -5274,30 +5297,12 @@ final class WalletNetworkModelMigrator {
 
         var identities: [WalletIdentity] = []
         var networkAccounts: [NetworkAccount] = []
+        // Wallets whose Nexus children were copied from the active snapshot
+        // instead of being re-derived (no derivable phrase on this device).
+        var preservedChildWalletIds = Set<String>()
         for account in accounts.sorted(by: { $0.order < $1.order }) {
-            let scopedEntropyTag = KeystoreTag.entropyTagForAddress(
-                account.address
-            )
-            var entropy: Data?
-            if let current {
-                // The migrator's injected store is the authority for this
-                // lifecycle transaction. Never resolve a retained global
-                // entropy record through a separately loaded default store.
-                entropy = try keystore.fetchEntropyForAddress(
-                    account.address,
-                    activeSnapshot: current,
-                    recoveryGate: recoveryGate
-                )
-            } else {
-                // Scoped credentials take precedence. The migration-only
-                // fallback below proves any retained global entropy against
-                // this exact account before the first snapshot is activated.
-                entropy = try keystore.loadIfKeyExists(scopedEntropyTag)
-            }
-            var rawSeed = try keystore.fetchSeedForAddress(account.address)
-            var legacySecret = try keystore.fetchSecretKeyForAddress(
-                account.address
-            )
+            let walletId = account.address
+            let storedWallet = current?.wallets.first(where: { $0.id == walletId })
             let watchOnlyKey = "wallet.watchOnly.\(account.address)"
             guard
                 !settings.allKeys().contains(watchOnlyKey) ||
@@ -5309,30 +5314,17 @@ final class WalletNetworkModelMigrator {
             }
             let isExplicitWatchOnly =
                 settings.bool(for: watchOnlyKey) == true
-            if
-                current == nil,
-                entropy == nil,
-                rawSeed == nil,
-                legacySecret == nil,
-                !isExplicitWatchOnly
-            {
-                guard account.cryptoType == .sr25519,
-                      account.networkType == SNAddressType(chain: .sora) else {
-                    throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
-                }
-                entropy = try keystore.fetchLegacyEntropyBeforeNetworkActivation(
-                    for: account.address,
-                    recoveryGate: recoveryGate
-                )
-            }
-            defer {
-                Self.wipeSensitive(&entropy)
-                Self.wipeSensitive(&rawSeed)
-                Self.wipeSensitive(&legacySecret)
-            }
+
+            var material = try resolveSigningMaterial(
+                for: account,
+                current: current,
+                isExplicitWatchOnly: isExplicitWatchOnly
+            )
+            defer { material.wipe() }
+
             guard
                 !isExplicitWatchOnly ||
-                    (entropy == nil && rawSeed == nil && legacySecret == nil)
+                    (material.entropy == nil && material.rawSeed == nil && material.secret == nil)
             else {
                 // Preserve the explicit account type. Conflicting protected evidence must
                 // enter recovery instead of silently enabling signing for a watch-only wallet.
@@ -5340,49 +5332,48 @@ final class WalletNetworkModelMigrator {
                     account.address
                 )
             }
-            guard
-                entropy != nil ||
-                    rawSeed != nil ||
-                    legacySecret != nil ||
-                    isExplicitWatchOnly
-            else {
-                // Missing or unreadable signing material must never be
-                // reclassified as watch-only during an upgrade.
-                throw WalletNetworkMigrationError.legacyIdentityMismatch(
-                    account.address
-                )
-            }
-            let retainedMnemonicSource: WalletSecretSource?
-            if let entropy {
-                let wordCount = try IRMnemonicCreator(language: .english)
-                    .mnemonic(fromEntropy: entropy)
-                    .allWords()
-                    .count
-                guard
-                    let source = WalletMnemonicWordPolicy
-                        .retainedSecretSource(forWordCount: wordCount)
-                else {
-                    throw WalletNetworkMigrationError.legacyIdentityMismatch(
-                        account.address
-                    )
+            // A watch-only declaration and the recorded source must agree in
+            // both directions. This is a contradiction between two durable
+            // records (not missing keys), so it stays fail-closed.
+            if let storedSource = storedWallet?.secretSource {
+                let storedWatchOnly = storedSource == .watchOnly
+                let storedSigning = storedSource != .watchOnly && storedSource != .signingUnavailable
+                guard (!storedWatchOnly || isExplicitWatchOnly), (!storedSigning || !isExplicitWatchOnly) else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
                 }
-                retainedMnemonicSource = source
-            } else {
-                retainedMnemonicSource = nil
             }
-            let source: WalletSecretSource = retainedMnemonicSource ?? (
-                rawSeed != nil
-                    ? .rawSeed
-                    : (legacySecret != nil ? .legacySecret : .watchOnly)
-            )
-            let walletId = account.address
 
-            try validateLegacyIdentity(
-                account,
-                entropy: entropy,
-                rawSeed: rawSeed,
-                secret: legacySecret
-            )
+            // Classify and prove this account. A missing or non-matching
+            // source makes only this account read-only; Keychain items are
+            // never changed. Transient Keychain or gate errors propagate.
+            var provenSource: WalletSecretSource?
+            if isExplicitWatchOnly {
+                try validateLegacyIdentity(account, entropy: nil, rawSeed: nil, secret: nil)
+                provenSource = .watchOnly
+            } else if material.hasAny {
+                do {
+                    let source = try Self.classify(material)
+                    try validateLegacyIdentity(
+                        account,
+                        entropy: material.entropy,
+                        rawSeed: material.rawSeed,
+                        secret: material.secret
+                    )
+                    provenSource = source
+                } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                    provenSource = nil
+                }
+            }
+
+            // The active snapshot records how a wallet was created. Keep that
+            // durable classification; only a read-only placeholder may be
+            // upgraded once its keys are restored.
+            let source: WalletSecretSource
+            if let storedWallet, storedWallet.secretSource != .signingUnavailable {
+                source = storedWallet.secretSource
+            } else {
+                source = provenSource ?? .signingUnavailable
+            }
 
             identities.append(
                 WalletIdentity(
@@ -5402,10 +5393,20 @@ final class WalletNetworkModelMigrator {
                 )
             )
 
+            let storedChildren = current?.accounts.filter {
+                $0.walletId == walletId && $0.networkId != .sora2
+            } ?? []
             guard
                 source.supportsNexusDerivation,
-                var derivationEntropy = entropy
+                provenSource?.supportsNexusDerivation == true,
+                var derivationEntropy = material.entropy
             else {
+                if !storedChildren.isEmpty {
+                    // No derivable phrase on this device now. Keep the
+                    // historical children exactly as recorded.
+                    networkAccounts.append(contentsOf: storedChildren)
+                    preservedChildWalletIds.insert(walletId)
+                }
                 continue
             }
             defer { Self.wipeSensitive(&derivationEntropy) }
@@ -5477,7 +5478,8 @@ final class WalletNetworkModelMigrator {
         if let current {
             try verifyExistingNexusChildren(
                 current,
-                against: snapshot
+                against: snapshot,
+                preservedChildWalletIds: preservedChildWalletIds
             )
         }
 
@@ -5505,6 +5507,90 @@ final class WalletNetworkModelMigrator {
 
     private static func wipeSensitive(_ value: inout Data) {
         value.resetBytes(in: value.startIndex ..< value.endIndex)
+    }
+
+    /// Signing material read for one account. Never written back.
+    private struct SigningMaterial {
+        var entropy: Data?
+        var rawSeed: Data?
+        var secret: Data?
+
+        var hasAny: Bool { entropy != nil || rawSeed != nil || secret != nil }
+
+        mutating func wipe() {
+            for keyPath in [\SigningMaterial.entropy, \SigningMaterial.rawSeed, \SigningMaterial.secret] {
+                if let count = self[keyPath: keyPath]?.count {
+                    self[keyPath: keyPath]?.resetBytes(in: 0 ..< count)
+                }
+                self[keyPath: keyPath] = nil
+            }
+        }
+    }
+
+    private func resolveSigningMaterial(
+        for account: AccountItem,
+        current: WalletNetworkSnapshot?,
+        isExplicitWatchOnly: Bool
+    ) throws -> SigningMaterial {
+        var material = SigningMaterial()
+        if let current {
+            // The migrator's injected store is the authority for this
+            // lifecycle transaction. Never resolve a retained global
+            // entropy record through a separately loaded default store.
+            do {
+                material.entropy = try keystore.fetchEntropyForAddress(
+                    account.address,
+                    activeSnapshot: current,
+                    recoveryGate: recoveryGate
+                )
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                // The retained global entropy does not prove this account.
+                // It stays untouched; this account has no global source.
+                material.entropy = nil
+            }
+        } else {
+            // Scoped credentials take precedence. The migration-only
+            // fallback below proves any retained global entropy against
+            // this exact account before the first snapshot is activated.
+            material.entropy = try keystore.loadIfKeyExists(
+                KeystoreTag.entropyTagForAddress(account.address)
+            )
+        }
+        material.rawSeed = try keystore.fetchSeedForAddress(account.address)
+        material.secret = try keystore.fetchSecretKeyForAddress(account.address)
+        if current == nil, !material.hasAny, !isExplicitWatchOnly,
+           account.cryptoType == .sr25519,
+           account.networkType == SNAddressType(chain: .sora) {
+            do {
+                material.entropy = try keystore.fetchLegacyEntropyBeforeNetworkActivation(
+                    for: account.address,
+                    recoveryGate: recoveryGate
+                )
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                material.entropy = nil
+            }
+        }
+        return material
+    }
+
+    /// The source the material can prove, before the identity check.
+    private static func classify(_ material: SigningMaterial) throws -> WalletSecretSource {
+        if let entropy = material.entropy,
+           WalletMnemonicWordPolicy.isDerivableEntropy(entropy) {
+            let wordCount = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: entropy)
+                .allWords()
+                .count
+            guard let source = WalletMnemonicWordPolicy
+                .retainedSecretSource(forWordCount: wordCount) else {
+                throw WalletNetworkMigrationError.invalidMnemonic
+            }
+            return source
+        }
+        // 3/6/9-word entropy (or no entropy): prove through seed or secret.
+        if material.rawSeed != nil { return .rawSeed }
+        if material.secret != nil { return .legacySecret }
+        throw WalletNetworkMigrationError.invalidMnemonic
     }
 
     private func verifyLegacyAccounts(
@@ -5575,7 +5661,8 @@ final class WalletNetworkModelMigrator {
 
     private func verifyExistingNexusChildren(
         _ current: WalletNetworkSnapshot,
-        against expected: WalletNetworkSnapshot
+        against expected: WalletNetworkSnapshot,
+        preservedChildWalletIds: Set<String> = []
     ) throws {
         let currentWallets = Dictionary(
             grouping: current.wallets,
@@ -5605,7 +5692,10 @@ final class WalletNetworkModelMigrator {
         for wallet in current.wallets {
             guard
                 let expectedWallet = expectedWallets[wallet.id]?.first,
-                expectedWallet.secretSource == wallet.secretSource
+                expectedWallet.secretSource == wallet.secretSource ||
+                    // A read-only placeholder is upgraded once restored keys
+                    // prove the address.
+                    wallet.secretSource == .signingUnavailable
             else {
                 // The active snapshot is durable evidence of whether this
                 // wallet is signing-capable and which retained source owns its
@@ -5619,6 +5709,24 @@ final class WalletNetworkModelMigrator {
 
             let storedChildren = current.accounts.filter {
                 $0.walletId == wallet.id && $0.networkId != .sora2
+            }
+            if preservedChildWalletIds.contains(wallet.id) {
+                // No derivable phrase on this device: the children were
+                // copied unchanged and must be exactly the stored ones.
+                let copiedChildren = expected.accounts.filter {
+                    $0.walletId == wallet.id && $0.networkId != .sora2
+                }
+                guard
+                    copiedChildren.count == storedChildren.count,
+                    storedChildren.allSatisfy({ child in
+                        expectedAccounts[child.id]?.first == child
+                    })
+                else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(
+                        wallet.existingSoraAddress
+                    )
+                }
+                continue
             }
             if !wallet.secretSource.supportsNexusDerivation {
                 guard storedChildren.isEmpty else {

@@ -602,11 +602,18 @@ enum WalletExplicitRemovalIdentityPolicy {
         var secret = try keystore.fetchSecretKeyForAddress(
             target.address
         )
-        var entropy = try keystore.fetchEntropyForAddress(
-            target.address,
-            activeSnapshot: snapshot,
-            recoveryGate: recoveryGate
-        )
+        var entropy: Data?
+        do {
+            entropy = try keystore.fetchEntropyForAddress(
+                target.address,
+                activeSnapshot: snapshot,
+                recoveryGate: recoveryGate
+            )
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            // Retained global entropy that does not prove this account is not
+            // its secret; it is never removed with it.
+            entropy = nil
+        }
         var rawSeed = try keystore.fetchSeedForAddress(
             target.address
         )
@@ -628,8 +635,7 @@ enum WalletExplicitRemovalIdentityPolicy {
             rawSeed = nil
         }
 
-        switch wallet.secretSource {
-        case .watchOnly:
+        if wallet.secretSource == .watchOnly {
             guard
                 isExplicitWatchOnly,
                 secret == nil,
@@ -639,47 +645,85 @@ enum WalletExplicitRemovalIdentityPolicy {
                 throw WalletNetworkMigrationError
                     .legacyIdentityMismatch(target.address)
             }
-        case .mnemonicEntropy, .legacyMnemonicEntropy:
-            guard
-                !isExplicitWatchOnly,
-                let entropy
-            else {
+            try LegacySoraIdentityValidator.validate(
+                address: target.address,
+                publicKey: target.publicKeyData,
+                cryptoType: target.cryptoType,
+                networkType: target.networkType,
+                derivationPath: derivationPath,
+                entropy: nil,
+                rawSeed: nil,
+                secret: nil,
+                recoveryGate: recoveryGate
+            )
+        } else {
+            guard !isExplicitWatchOnly else {
                 throw WalletNetworkMigrationError
                     .legacyIdentityMismatch(target.address)
+            }
+            do {
+                try Self.requireProvenSource(
+                    wallet.secretSource,
+                    target: target,
+                    entropy: entropy,
+                    rawSeed: rawSeed,
+                    secret: secret,
+                    derivationPath: derivationPath,
+                    recoveryGate: recoveryGate
+                )
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                // A read-only account (keys missing or not matching) can
+                // still be removed on the user's confirmed request. Its own
+                // Keychain items are removed as for any account; retained
+                // global entropy that does not prove it is kept.
+                return false
+            }
+        }
+
+        // The global 1.x entropy belongs to this account when it is the
+        // entropy that proved it: either directly (global-backed account) or
+        // through the scoped copy added for downgrade safety.
+        guard let entropy, try keystore.checkKey(for: KeystoreTag.legacyEntropy.rawValue) else {
+            return false
+        }
+        if !hasScopedEntropy { return true }
+        var global = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        defer { global.resetBytes(in: global.startIndex ..< global.endIndex) }
+        return LegacySoraIdentityValidator.constantTimeEqual(global, entropy)
+    }
+
+    private static func requireProvenSource(
+        _ source: WalletSecretSource,
+        target: AccountItem,
+        entropy: Data?,
+        rawSeed: Data?,
+        secret: Data?,
+        derivationPath: String?,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws {
+        switch source {
+        case .watchOnly, .signingUnavailable:
+            throw WalletNetworkMigrationError.legacyIdentityMismatch(target.address)
+        case .mnemonicEntropy, .legacyMnemonicEntropy:
+            guard let entropy else {
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(target.address)
             }
             let wordCount = try IRMnemonicCreator(language: .english)
                 .mnemonic(fromEntropy: entropy)
                 .allWords()
                 .count
-            guard
-                WalletMnemonicWordPolicy.retainedSecretSource(
-                    forWordCount: wordCount
-                ) == wallet.secretSource
-            else {
-                throw WalletNetworkMigrationError
-                    .legacyIdentityMismatch(target.address)
+            guard WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: wordCount) == source else {
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(target.address)
             }
         case .rawSeed:
-            guard
-                !isExplicitWatchOnly,
-                entropy == nil,
-                rawSeed != nil
-            else {
-                throw WalletNetworkMigrationError
-                    .legacyIdentityMismatch(target.address)
+            guard rawSeed != nil, entropy.map({ !WalletMnemonicWordPolicy.isDerivableEntropy($0) }) ?? true else {
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(target.address)
             }
         case .legacySecret:
-            guard
-                !isExplicitWatchOnly,
-                entropy == nil,
-                rawSeed == nil,
-                secret != nil
-            else {
-                throw WalletNetworkMigrationError
-                    .legacyIdentityMismatch(target.address)
+            guard rawSeed == nil, secret != nil, entropy.map({ !WalletMnemonicWordPolicy.isDerivableEntropy($0) }) ?? true else {
+                throw WalletNetworkMigrationError.legacyIdentityMismatch(target.address)
             }
         }
-
         try LegacySoraIdentityValidator.validate(
             address: target.address,
             publicKey: target.publicKeyData,
@@ -691,11 +735,6 @@ enum WalletExplicitRemovalIdentityPolicy {
             secret: secret,
             recoveryGate: recoveryGate
         )
-
-        let hasLegacyEntropy = try keystore.checkKey(
-            for: KeystoreTag.legacyEntropy.rawValue
-        )
-        return !hasScopedEntropy && entropy != nil && hasLegacyEntropy
     }
 }
 
