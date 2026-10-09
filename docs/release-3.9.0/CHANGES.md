@@ -130,6 +130,8 @@ Each section covers one release task: what changed, why, and what users see.
   the application role gets `SceneDelegate` and that an external-display
   role gets no delegate.
 - Release-configuration tests in CI (minor): added as CI job 2 above.
+- Pinned package versions in CI (minor): every CI `xcodebuild` call passes
+  `-onlyUsePackageVersionsFromResolvedFile`, as described above.
 - Verification (Xcode 27.0, SORA-Release-A, iOS 27):
   - Debug, `SoraPassportDev` and unsigned Release device builds succeed.
   - The app launches to Splash, then onboarding, with no crash.
@@ -140,4 +142,10 @@ Each section covers one release task: what changed, why, and what users see.
     `WalletModernizationTests.testCancelledLifecycleAcquireOperationDoesNotLeakLease`
     hit its 2-second timeout. It passed in the other full run, in the
     Release run, and 50 of 50 times when run alone. This test predates this
-    change and does not touch scenes. It is listed as a possible CI flake.
+    change and does not touch scenes. RELEASE-CHECKLIST.md lists it as a
+    possible CI flake.
+  - Checked again on a clean copy of branch commit `7520a9f6`, which
+    includes the later SORA Card and package-removal commits: the Debug app
+    launches to Splash, then onboarding, on SORA-Release-A with no crash.
+    `SoraPassportTests` passes in Debug (327 tests, 0 failures) and in the
+    Release configuration, built as CI job 2 does (327 tests, 0 failures).
