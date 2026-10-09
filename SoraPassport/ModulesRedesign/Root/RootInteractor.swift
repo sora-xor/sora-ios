@@ -332,6 +332,28 @@ enum LegacyWalletAccountCommitRecovery {
         let candidates = unresolved.isEmpty && marker.required
             ? journals.filter { $0.recoveryMarker == marker } : unresolved
         guard !candidates.isEmpty else { return false }
+        if !unresolved.isEmpty, !OrdinaryWalletAccountCommitRecovery.isLegacyFirstActivation(
+            journals: journals, candidates: candidates, keystore: keystore, settings: settings
+        ) {
+            // An ordinary create or import was interrupted. It is resolved
+            // from Core Data alone; no key material is written or deleted.
+            try requireMarkerUnchanged()
+            guard !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            let networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+            try OrdinaryWalletAccountCommitRecovery.resolve(
+                journals: unresolved, storeURL: storeURL, modelDirectory: modelDirectory,
+                keystore: keystore, settings: settings, journalStore: journalStore,
+                networkStore: networkStore, recoveryGate: gate)
+            try requireMarkerUnchanged()
+            if startupVerificationMarker == nil, marker.required,
+               marker.reason == WalletMigrationRecoveryMarker.accountCommitInterruptionReason {
+                try marker.clearAfterVerifiedLegacyAccountActivation(settings)
+                try recoveryGate.requireMutableWalletAccess()
+            }
+            return true
+        }
         guard journals.count == 1, candidates.count == 1,
               candidates[0].expectedExistingWalletIds.isEmpty,
               !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
