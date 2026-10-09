@@ -43,7 +43,7 @@ final class WebSocketServiceFactory {
 
     static func createNetworkStatusPresenter(localizationManager: LocalizationManagerProtocol)
         -> NetworkAvailabilityLayerInteractorOutputProtocol? {
-        guard let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable else {
+        guard let window = UIApplication.shared.soraStatusPresentableWindow else {
             return nil
         }
 

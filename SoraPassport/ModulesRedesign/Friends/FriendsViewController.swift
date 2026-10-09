@@ -149,7 +149,7 @@ final class FriendsViewController: UIViewController {
 
     /// Used to correction the distance to the top of the screen
     private var statusBarHeightCorrection: CGFloat {
-        UIApplication.shared.statusBarFrame.size.height + 10
+        UIApplication.shared.soraStatusBarHeight + 10
     }
 
     /// Used to correction the middle position of the pull-up controller

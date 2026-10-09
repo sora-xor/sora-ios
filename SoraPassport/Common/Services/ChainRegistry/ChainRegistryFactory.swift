@@ -135,7 +135,7 @@ final class ChainRegistryFactory {
             logger: Logger.shared
         )
 
-        let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable
+        let window = UIApplication.shared.soraStatusPresentableWindow
         let networkStatusPresenter = NetworkAvailabilityLayerPresenter()
         networkStatusPresenter.localizationManager = LocalizationManager.shared
         networkStatusPresenter.view = window

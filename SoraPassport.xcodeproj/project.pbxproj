@@ -90,6 +90,7 @@
 		0253FD0A2218A8C000D3AD49 /* PredicateExtensionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0253FD092218A8C000D3AD49 /* PredicateExtensionTests.swift */; };
 		02601CF2217A05D3006BD248 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02601CF1217A05D3006BD248 /* Constants.swift */; };
 		02623EB92178C0910011250E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EB82178C0910011250E /* AppDelegate.swift */; };
+		5CE4E0010000000000000002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE4E0010000000000000001 /* SceneDelegate.swift */; };
 		02623EC02178C0930011250E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02623EBF2178C0930011250E /* Assets.xcassets */; };
 		02623ED92178C0930011250E /* SoraPassportUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623ED82178C0930011250E /* SoraPassportUITests.swift */; };
 		E71D0A010000000000000003 /* RetainedMigrationEvidenceHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D0A010000000000000002 /* RetainedMigrationEvidenceHarness.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
@@ -216,6 +217,7 @@
 		06DB9929498D23D56F74A797 /* AccountCreateViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197729EDC5CA00B3E3BF /* AccountCreateViewFactory.swift */; };
 		06E1AFC4232D7134B9A3ECE8 /* EditFarmViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBC02B2C407300FB055C /* EditFarmViewFactory.swift */; };
 		06F01FDAF8BF3CB016BD8F78 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EB82178C0910011250E /* AppDelegate.swift */; };
+		5CE4E0010000000000000003 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE4E0010000000000000001 /* SceneDelegate.swift */; };
 		06F3E27003509DA17DBF666F /* completedReferendumsResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 843D543924FC5194000E0DE1 /* completedReferendumsResponse.json */; };
 		0730C1194C81CE750E26FDDE /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		073AEED88C0260663AC029B7 /* UpdateCustomerMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0253FD012217324A00D3AD49 /* UpdateCustomerMock.swift */; };
@@ -2870,6 +2872,7 @@
 		02601CFF217A1021006BD248 /* SoraPassport.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SoraPassport.release.xcconfig; sourceTree = "<group>"; };
 		02623EB52178C0910011250E /* SoraPassport.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoraPassport.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		02623EB82178C0910011250E /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		5CE4E0010000000000000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		02623EBF2178C0930011250E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		02623EC42178C0930011250E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		02623EC92178C0930011250E /* SoraPassportTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoraPassportTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4810,6 +4813,7 @@
 				02623EF92179D0B50011250E /* Common */,
 				8B8ED5C4295C4B47003D15A9 /* ModulesRedesign */,
 				02623EB82178C0910011250E /* AppDelegate.swift */,
+				5CE4E0010000000000000001 /* SceneDelegate.swift */,
 				02E319B021D4BAFA00B33B66 /* R.generated.swift */,
 				02623EBF2178C0930011250E /* Assets.xcassets */,
 				02623EC42178C0930011250E /* Info.plist */,
@@ -9608,6 +9612,7 @@
 				848A880B247C602B00B22C44 /* NSDecimalNumberHandler+Wallet.swift in Sources */,
 				0298790D218196BF0085E605 /* NetworkRequestModifier.swift in Sources */,
 				02623EB92178C0910011250E /* AppDelegate.swift in Sources */,
+				5CE4E0010000000000000002 /* SceneDelegate.swift in Sources */,
 				9441F92925C96CC300775559 /* CodableExtensions.swift in Sources */,
 				3603A3972917E1FD00DF6EFE /* PoolViewModelFactory.swift in Sources */,
 				9441F8F825C9699400775559 /* ManagedConnectionItemMapper.swift in Sources */,
@@ -10936,6 +10941,7 @@
 				6687FCAE57DED2DC97BEF9A4 /* NSDecimalNumberHandler+Wallet.swift in Sources */,
 				E716478022669A76C06EEB4B /* NetworkRequestModifier.swift in Sources */,
 				06F01FDAF8BF3CB016BD8F78 /* AppDelegate.swift in Sources */,
+				5CE4E0010000000000000003 /* SceneDelegate.swift in Sources */,
 				6A0BD6FFD0269069576CE232 /* CodableExtensions.swift in Sources */,
 				526B07828FEB903CD36D6029 /* PoolViewModelFactory.swift in Sources */,
 				29182A9E042AD2CFAD93311A /* ManagedConnectionItemMapper.swift in Sources */,

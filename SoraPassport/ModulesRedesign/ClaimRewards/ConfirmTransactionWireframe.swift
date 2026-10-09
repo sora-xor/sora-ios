@@ -44,7 +44,7 @@ final class ConfirmTransactionWireframe: ConfirmTransactionWireframeProtocol {
     var activityIndicatorWindow: UIWindow?
     
     func showActivityIndicator() {
-        activityIndicatorWindow = UIWindow(frame: UIScreen.main.bounds)
+        activityIndicatorWindow = UIWindow.makeSoraSceneWindow()
         activityIndicatorWindow?.windowLevel = UIWindow.Level.alert
         activityIndicatorWindow?.rootViewController = ActivityIndicatorViewController()
         activityIndicatorWindow?.isHidden = false

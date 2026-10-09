@@ -36,29 +36,34 @@ import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
 
-@UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+@main
+final class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    /// The process-wide root window. It is created once by
+    /// `attachRootWindow(to:)` and reached by many presenters through
+    /// `UIApplication.shared.delegate?.window`.
     var window: UIWindow?
+
+    private var migrationEvidenceDecision: RetainedMigrationEvidenceHarness.BootstrapDecision = .inactive
+    private var hasEnteredBackground = false
+    private var detachedSceneWindows: [UIWindow] = []
+    private weak var detachedKeyWindow: UIWindow?
 
     var isUnitTesting: Bool {
         return ProcessInfo.processInfo.arguments.contains("-UNITTEST")
     }
 
+    /// External URLs and universal links are routed only to the wallet UI,
+    /// never to the migration-evidence screen or to a unit-test host.
+    var acceptsExternalRoutes: Bool {
+        window != nil && migrationEvidenceDecision != .evidenceOnly
+    }
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        let migrationEvidenceDecision =
+        migrationEvidenceDecision =
             RetainedMigrationEvidenceHarness.shared.bootstrap()
         if migrationEvidenceDecision == .evidenceOnly {
-            let evidenceWindow = UIWindow(frame: UIScreen.main.bounds)
-            evidenceWindow.backgroundColor = .systemBackground
-            evidenceWindow.rootViewController =
-                RetainedMigrationEvidenceHarness.shared
-                    .makeEvidenceOnlyViewController()
-            window = evidenceWindow
-            RetainedMigrationEvidenceHarness.shared
-                .installStatusSurface(in: evidenceWindow)
-            evidenceWindow.makeKeyAndVisible()
             return true
         }
 
@@ -68,69 +73,121 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             #endif
 
             setupLanguage()
-            
-            let rootWindow = SoraWindow()
-            rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
-            window = rootWindow
-
-            SplashPresenterFactory.createSplashPresenter(with: rootWindow)
-
-            if migrationEvidenceDecision == .authorized {
-                RetainedMigrationEvidenceHarness.shared
-                    .installStatusSurface(in: rootWindow)
-            }
-
-            rootWindow.makeKeyAndVisible()
-
-            if let connectURL = launchOptions?[.url] as? URL,
-               IrohaConnectCoordinator.shared.canHandle(connectURL) {
-                IrohaConnectCoordinator.shared.handle(connectURL, in: rootWindow)
-            }
         }
 
         return true
     }
 
-    func applicationWillEnterForeground(_ application: UIApplication) {
+    // MARK: - Scene life cycle
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(
+            name: "Default Configuration",
+            sessionRole: connectingSceneSession.role
+        )
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
+    }
+
+    /// Shows the app's UI in `windowScene` and returns the root window, or nil
+    /// for a unit-test host.
+    ///
+    /// The root window and the Splash flow are created at most once per
+    /// process: creating Splash starts wallet storage migration, so a scene
+    /// that reconnects gets the existing windows moved to it instead.
+    func attachRootWindow(to windowScene: UIWindowScene) -> UIWindow? {
+        if let window {
+            reattachWindows(rootWindow: window, to: windowScene)
+            return window
+        }
+
+        if migrationEvidenceDecision == .evidenceOnly {
+            let evidenceWindow = UIWindow(windowScene: windowScene)
+            evidenceWindow.backgroundColor = .systemBackground
+            evidenceWindow.rootViewController =
+                RetainedMigrationEvidenceHarness.shared
+                    .makeEvidenceOnlyViewController()
+            window = evidenceWindow
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: evidenceWindow)
+            evidenceWindow.makeKeyAndVisible()
+            return evidenceWindow
+        }
+
         guard !isUnitTesting else {
+            return nil
+        }
+
+        let rootWindow = SoraWindow(windowScene: windowScene)
+        rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
+        window = rootWindow
+
+        SplashPresenterFactory.createSplashPresenter(with: rootWindow)
+
+        if migrationEvidenceDecision == .authorized {
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: rootWindow)
+        }
+
+        rootWindow.makeKeyAndVisible()
+        return rootWindow
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        guard let windowScene = scene as? UIWindowScene else {
+            return
+        }
+        // Keep the app's own windows (root, PIN lock, loading and toast
+        // overlays) so a later scene shows them unchanged. UIKit's private
+        // windows (keyboard, text effects) belong to the old scene.
+        detachedKeyWindow = windowScene.keyWindow
+        detachedSceneWindows = windowScene.windows.filter { candidate in
+            candidate === window ||
+                candidate is SoraWindow ||
+                candidate is SilentWindow ||
+                type(of: candidate) == UIWindow.self
+        }
+    }
+
+    func sceneWillEnterForeground() {
+        // UIKit also calls this when the scene first connects. Match the old
+        // applicationWillEnterForeground, which ran only after a background.
+        guard !isUnitTesting, hasEnteredBackground else {
             return
         }
         resumePendingNexusTransactions()
     }
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
+    func sceneDidEnterBackground() {
+        hasEnteredBackground = true
         IrohaConnectCoordinator.shared.applicationDidEnterBackground()
     }
 
-    func application(
-        _ app: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        if IrohaConnectCoordinator.shared.handle(url, in: window) {
-            return true
+    private func reattachWindows(rootWindow: UIWindow, to windowScene: UIWindowScene) {
+        let detachedWindows = detachedSceneWindows
+        let previousKeyWindow = detachedKeyWindow
+        detachedSceneWindows = []
+        detachedKeyWindow = nil
+
+        if rootWindow.windowScene !== windowScene {
+            rootWindow.windowScene = windowScene
         }
-        return GIDSignIn.sharedInstance.handle(url)
-    }
+        for detached in detachedWindows where detached !== rootWindow && detached.windowScene !== windowScene {
+            detached.windowScene = windowScene
+        }
 
-    func application(_ application: UIApplication,
-                     continue userActivity: NSUserActivity,
-                     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        rootWindow.makeKeyAndVisible()
 
-            if IrohaConnectCoordinator.shared.handle(url, in: window) {
-                return true
-            }
-
-            let isHandled = DeepLinkService.shared.handle(url: url)
-
-            if !isHandled {
-                Logger.shared.warning("Can't continue activity for url \(url)")
-            }
-
-            return isHandled
-        } else {
-            return false
+        // A PIN lock or loading window that was key stays key and on top.
+        if let previousKeyWindow,
+           previousKeyWindow !== rootWindow,
+           previousKeyWindow.windowScene === windowScene,
+           !previousKeyWindow.isHidden {
+            previousKeyWindow.makeKey()
         }
     }
 

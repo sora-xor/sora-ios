@@ -77,8 +77,9 @@ final class SoraWindow: UIWindow {
     }
 
     private func prepareStatusView() -> ApplicationStatusView {
-        let topMargin = UIApplication.shared.statusBarFrame.size.height
-        let width = UIApplication.shared.statusBarFrame.size.width
+        let statusBarFrame = windowScene?.statusBarManager?.statusBarFrame ?? .zero
+        let topMargin = statusBarFrame.height > 0 ? statusBarFrame.height : safeAreaInsets.top
+        let width = statusBarFrame.width > 0 ? statusBarFrame.width : bounds.width
         let height = topMargin + Constants.statusHeight
 
         let origin = CGPoint(x: 0.0, y: -height)

@@ -725,7 +725,7 @@ private extension MainTabBarViewFactory {
     
     static func createNetworkStatusPresenter(localizationManager: LocalizationManagerProtocol = LocalizationManager.shared)
     -> NetworkAvailabilityLayerInteractorOutputProtocol? {
-        guard let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable else {
+        guard let window = UIApplication.shared.soraStatusPresentableWindow else {
             return nil
         }
         
