@@ -788,13 +788,16 @@ final class SplashInteractor: SplashInteractorProtocol {
             do {
                 let accounts = try operation.extractNoCancellableResultData()
                 let store = try WalletNetworkStore()
+                let keystore = Keychain()
                 try Self.initializeWalletNetworksIfNeeded(
                     accounts: accounts,
                     selectedAddress: selectedAccount?.address,
                     store: store,
-                    keystore: Keychain(),
+                    keystore: keystore,
                     settings: settings
                 )
+                Self.addScopedCopiesIfNeeded(accounts: accounts, store: store, keystore: keystore)
+                self.repairSelectionIfNeeded(accounts: accounts, selectedAccount: selectedAccount)
 
                 DispatchQueue.main.async {
                     // The lossless Core Data and wallet-network migrations are
@@ -830,6 +833,53 @@ final class SplashInteractor: SplashInteractorProtocol {
         }
 
         OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+    }
+
+    /// Downgrade safety (see `LegacyGlobalEntropyScopedBackfill`). Best effort:
+    /// a failure is logged with a fixed code and retried at the next startup;
+    /// it never latches recovery.
+    static func addScopedCopiesIfNeeded(
+        accounts: [AccountItem],
+        store: WalletNetworkStore,
+        keystore: KeystoreProtocol,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) {
+        guard !accounts.isEmpty else { return }
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        do {
+            guard let snapshot = try store.load() else { return }
+            try LegacyGlobalEntropyScopedBackfill.run(
+                accounts: accounts,
+                snapshot: snapshot,
+                keystore: keystore,
+                recoveryGate: recoveryGate
+            )
+        } catch {
+            Logger.shared.warning(
+                "Wallet keys: scoped copies deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+            )
+        }
+    }
+
+    /// Core Data must hold exactly one selected row: App Store 3.8.6 reads
+    /// only that row, and signing requires the selection to be durable. Older
+    /// releases and interrupted writes can leave zero or several. Write the
+    /// resolved selection back (journal-free selection save; no key changes).
+    private func repairSelectionIfNeeded(accounts: [AccountItem], selectedAccount: AccountItem?) {
+        guard let selectedAccount,
+              SelectedWalletSettings.needsSelectionRepair(accounts: accounts) else { return }
+        let done = DispatchSemaphore(value: 0)
+        SelectedWalletSettings.shared.performSave(value: selectedAccount) { result in
+            if case let .failure(error) = result {
+                Logger.shared.warning(
+                    "Selected wallet repair deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+                )
+            }
+            done.signal()
+        }
+        done.wait()
     }
 
     static func initializeWalletNetworksIfNeeded(
