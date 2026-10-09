@@ -234,3 +234,57 @@ existing wallet:
 - [ ] FirebaseAnalytics stays linked (no code calls it; automatic collection
       runs). Removing it would change the App Privacy answers. Product and
       privacy owner to decide.
+
+## i4: Key safety, lockouts and recovery (core)
+
+### Product and security decisions (confirm before release)
+
+- [ ] "Restore wallets found on this iPhone" restores wallets left in the
+      Keychain after a reinstall when the user enters the PIN used on this
+      iPhone before. That is the same authority App Store 3.8.6 needed to
+      open the wallet. The failed-attempt counter (5 per install) lives in
+      UserDefaults, so a reinstall resets it; the device passcode still
+      protects the Keychain. Security owner: accept, or require the phrase.
+- [ ] Accounts whose keys are missing or do not match are read-only (G-full).
+      A corrupted account therefore no longer stops the app; it shows as
+      read-only until restored or removed. The Safe Mode UI task must show
+      a clear read-only badge and a restore action (domain API:
+      `UserStorageMigrator.restoreKeysForReadOnlyAccount`, signing error
+      `SigningWrapperError.keysNotOnThisDevice`).
+- [ ] "Set up this iPhone again" moves (never deletes) the wallet database,
+      migration backups, network model and commit journals into
+      `Documents/WalletSetAside/`. Nothing prunes that folder. Support owner:
+      agree how users are guided if they need data from it.
+
+### For the Safe Mode / UI task
+
+- [ ] Render the actions from `WalletRecoveryOptions` (see `WalletRecoveryState`)
+      in the §9.2 order, and translate every Safe Mode string into all
+      production locales. i4 added English and Japanese only; the existing
+      recovery screen still has older hard-coded English text.
+- [ ] Welcome back currently routes phrase and Google Drive restore to the
+      onboarding welcome screen; deep-link to the import screens.
+- [ ] Show a "SORA network only" note after importing a 15/18/21-word phrase
+      (no Nexus accounts for those lengths).
+- [ ] Show recovery phrases in a secure screen (no screenshots, no copy); i4
+      uses a plain alert.
+
+### Device QA
+
+- [ ] Reinstall: on 3.8.6 create or import a wallet, delete the app,
+      install 3.9.0. Expect "Welcome back"; "Restore wallets found on this
+      iPhone" with the old PIN restores the wallet with the same address and
+      balance; the app then asks for that PIN. Repeat and choose "Restore
+      with recovery phrase": the import succeeds (no "already imported").
+- [ ] New iPhone: back up a 3.8.6 phone to iCloud (or Finder, unencrypted),
+      restore it on another iPhone, install 3.9.0. The wallet opens; sending
+      shows "This account's keys are not on this iPhone…" until the account
+      is restored with its phrase.
+- [ ] Google Drive: restore a backup made by App Store 3.8.6 in onboarding
+      and on the recovery screen; a wrong password says so and changes
+      nothing.
+- [ ] Downgrade: on a TestFlight 3.9.0 build, upgrade a 1.x-era or
+      global-only wallet, then install App Store 3.8.6 over it. The wallet
+      opens and can send (it uses the new scoped `-secretKey`).
+- [ ] Kill the app right after tapping Import (twice, at different
+      moments); reopen. No recovery screen; importing again works.
