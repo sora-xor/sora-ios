@@ -317,9 +317,10 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
 - Before encoding any SORA2 extrinsic (fee estimate, prepare, submit), the
   extrinsic service reads `chain_getRuntimeVersion` and the node's metadata
   from the same live engine that supplies the nonce, era and genesis and
-  receives the signed bytes. The metadata is fetched once per runtime
-  version per process, and it is cached only after its `System.Version`
-  matches the reported version. `Sora2LiveRuntimeValidator` (modelled on
+  receives the signed bytes. The metadata hash is stored only after its
+  `System.Version` matches the reported version (since the fix round it is
+  kept across launches and also recorded by the runtime sync service; see
+  "Fix round" below). `Sora2LiveRuntimeValidator` (modelled on
   Android's `requireMutationRuntimeIdentity`, without its runtime-130 block)
   requires the local runtime to match the live spec version, transaction
   version and metadata hash.
@@ -521,3 +522,129 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   `ios_ci.yml`, run locally: 3.9.0 (2026101001), arm64, no harness, no
   IrohaConnect scheme, no removed locale, privacy declarations present.
   Without the Google secret, the Release build warns as designed.
+
+### Fix round (review findings)
+
+**Activity history on the deployed PI (major)** (`32fd6850`)
+
+- Why: the deployed PI's public query plan accepts history filters only
+  with an exact signer `address` outside any OR (checked on the live
+  indexer on 2026-10-10: the app's `address OR dataFrom OR dataTo` filter
+  gets HTTP 200 with `BAD_USER_INPUT`; `address` alone with the same type
+  filter and timestamp order is accepted). Every Activity page failed, and
+  Activity showed "could not load" with a Refresh that could never work.
+- When PI rejects the all-roles filter as an unsupported query (GraphQL
+  errors, or HTTP 400), the history walk restarts from page one with the
+  accepted signer-only filter. Outages and other errors are not treated as
+  a schema rejection. The choice is remembered for 30 minutes per app run,
+  then the full filter is tried again, so a fixed indexer is picked up
+  without an app update.
+- A signer-only page may contain only rows the account signed. Lookups of
+  pending transaction hashes keep the all-roles filter, which PI accepts
+  with an `id` filter.
+- Activity shows a calm note above the list, in English and Japanese:
+  "Incoming transfers from other accounts may not appear in Activity right
+  now. Your balances are not affected." The validated offline history cache
+  remembers which kind of page it holds (older entries count as complete).
+
+**Signing error messages** (`ddf3dc7e`)
+
+- The wallet-binding check (missing or mismatched SORA2 account row,
+  read-only account) now throws `signingAccountUnavailable`. Its message
+  offers Try again and restoring the account with its recovery phrase,
+  instead of "could not confirm the SORA network version". Other accounts
+  are not affected.
+- A node whose block zero is not SORA2 mainnet throws `unexpectedNetwork`.
+  A runtime that is not `sora-substrate`, is below the reviewed floor or has
+  no `System.Version` throws `unsupportedRuntime` instead of
+  `runtimeUpgradeInProgress`. Both show "The connected node does not match
+  the SORA network this app uses, so nothing was signed. Choose another node
+  and try again." and do not ask the runtime sync to refresh.
+
+**Live-runtime proofs and metadata replacement** (`84fb787c`)
+
+- The proven metadata hash per runtime version is kept across launches
+  (UserDefaults, SORA2 mainnet only, at most 16 versions; it is not wallet
+  data). Concurrent operations share one metadata download. The runtime
+  sync service records the proof when it saves metadata it downloaded from
+  the connected node and admitted for that version. After that, each fee
+  estimate, prepare and submit reads only `chain_getRuntimeVersion`, not
+  about 1.25 MB of metadata per launch.
+- A metadata replacement (stored copy differs from the node's for the same
+  version) is remembered per chain and version. Automatic retries keep
+  re-downloading instead of skipping the cached copy, and repeated requests
+  from signing while the replacement runs or waits for its retry no longer
+  cancel it and reset the backoff. The stored copy is still replaced only
+  after the download passes admission.
+
+**Node choices from older releases** (`fc336c65`)
+
+- Node rows have a store-wide unique URL. A custom node at a URL that 3.9.0
+  bundles (for example `wss://ws.mof.sora.org` added when PI listed only
+  mof2) stays the user's custom node and is not saved again as a default
+  node. The selected node is saved under the name of the default or custom
+  node with its URL, so saving no longer renames it back to PI's "Sora" and
+  the next sync sees no change (before, every sync rewrote the chain and
+  restarted its connection). The mapper reuses a row with the same URL that
+  an older release saved for a selected node on its own.
+
+**Smaller fixes**
+
+- Language: a stored localization this build does not ship falls back to
+  the same language without its region first (`es-CO` from 1.5.1 keeps
+  Spanish), then the device language, then English (`2bc2919f`).
+- The Info.plist script phase that injects the Google Sign-In client and
+  registers the IrohaConnect schemes now starts with `set -e`, so a failure
+  of the Google script fails the build even when it prints no `error:`
+  line (`60ebe419`).
+- New tests run the pending-transaction reconciler's decoder choice through
+  the bounded HTTPS transport: a block included under another runtime is
+  decoded with that block's metadata, mismatched metadata is refused, and
+  the current snapshot is reused only with a matching proof (`891a3959`).
+  The reconciler's full pass (one entry deferred while the others resolve)
+  still has no unit test: it reads the global wallet network store and
+  needs hand-encoded SORA2 event records. It is listed in
+  RELEASE-CHECKLIST.md.
+
+**User-visible effects**
+
+- Activity lists the account's own transactions again on the live indexer,
+  with a calm note that incoming transfers from other accounts may be
+  missing. Balances are read from the chain and are not affected.
+- Clearer messages when an account cannot sign on this device or the
+  selected node is not SORA2 mainnet.
+- Fewer downloads: after the first proof, sending no longer downloads the
+  network metadata on each launch.
+- Users who added a custom node in an older release keep it, and the chain
+  is no longer rewritten on every sync.
+- A Spanish (Colombia) choice from an old release stays Spanish.
+
+**Verification (Xcode 27.0, SORA-Release-A, iOS 27)**
+
+- New or extended tests: `ApplicationConfigTests` (node choices from older
+  releases, on a SQLite store that enforces the URL constraint),
+  `ShippedLocalizationTests` (regional variant), `Sora2LiveRuntimeTests`
+  (signing messages, proof persistence, one shared download, failed proof,
+  metadata replacement through `RuntimeSyncService`, recovery decoding),
+  `PIMobileConfigFallbackTests` (history fallback, accepted all-roles
+  filter, foreign rows refused, outage not mistaken for a schema change,
+  the Activity operation's coverage, translated note).
+- `SoraPassportTests`, Debug, live class skipped: 372 tests, 0 failures;
+  the history-operation test added afterwards passes in its class run (12
+  tests, 0 failures).
+- `SoraPassportTests`, Release configuration built as CI job 2 builds it:
+  372 tests, 0 failures.
+- Live-network test against `wss://ws.mof.sora.org` (2026-10-10, finalized
+  block 27,975,755): spec 133, transaction version 131, metadata
+  `ab22a2d4…`, `payment_queryInfo` partial fee 100018412589707326, submission
+  rejected only with 1010 "Inability to pay some fees". The extrinsic
+  service's operations downloaded and proved the metadata once (fresh
+  in-memory proof cache) and used the stored proof the second time.
+- Live PI checks (2026-10-10): `address OR dataFrom OR dataTo` with the type
+  filter and timestamp order is rejected (`BAD_USER_INPUT`); `address`
+  alone is accepted; the transaction-hash lookup (`id in` with the OR) is
+  accepted.
+- Builds: `SoraPassport` Debug (simulator), `SoraPassportDev` (simulator) and
+  unsigned `SoraPassport` Release for `generic/platform=iOS` succeed. The
+  Release build still warns that `SORA_GOOGLE_TOKEN_DEV` is not set, as
+  designed.
