@@ -17,6 +17,7 @@
 		B66B00012F5B000000000006 /* WalletUX.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000103 /* WalletUX.swift */; };
 		A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000110 /* IrohaConnectTests.swift */; };
 		B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000110 /* WalletUXTests.swift */; };
+		FA1C179D69061DA806EFAEC5 /* WalletKeySafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */; };
 		A10000E00000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		A10000090000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
 		A100000A0000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
@@ -2469,6 +2470,7 @@
 		B66B00012F5B000000000103 /* WalletUX.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUX.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000110 /* IrohaConnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectTests.swift; sourceTree = "<group>"; };
 		B66B00012F5B000000000110 /* WalletUXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUXTests.swift; sourceTree = "<group>"; };
+		B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletKeySafetyTests.swift; sourceTree = "<group>"; };
 		A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletMigrationRetainedDeviceEvidenceTests.swift; sourceTree = "<group>"; };
 		A10000150000000000000001 /* NexusWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWalletService.swift; sourceTree = "<group>"; };
 		A10000160000000000000001 /* PolkamarktRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktRuntime.swift; sourceTree = "<group>"; };
@@ -3942,6 +3944,7 @@
 			children = (
 				A66B00012F5B000000000110 /* IrohaConnectTests.swift */,
 				B66B00012F5B000000000110 /* WalletUXTests.swift */,
+				B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */,
 				A10000210000000000000001 /* WalletModernizationTests.swift */,
 				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
 				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
@@ -8852,6 +8855,7 @@
 			files = (
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
 				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
+				FA1C179D69061DA806EFAEC5 /* WalletKeySafetyTests.swift in Sources */,
 				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
 				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
