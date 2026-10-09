@@ -48,7 +48,7 @@ LITERALS = {
     "Substrate", "Polkadot", "Kusama", "Ethereum", "Google", "GitHub",
     "Google Drive", "Demeter", "ATM", "polkaswap",
     "Telegram", "Twitter", "YouTube", "Instagram", "Medium", "Wiki",
-    "Touch ID", "Face ID", "App Store", "SORA NET", "SORA Card", "EUR",
+    "Touch ID", "Face ID", "App Store", "SORA NET", "EUR",
     "x*y=k", "@SORAhappiness", "hex",
 }
 
@@ -657,7 +657,7 @@ def generate(check: bool) -> None:
         "asset.xor.platform", "asset.eth.plaform", "wallet.soranet", "wallet.erc20",
         "asset.details.val", "tabbar.polkaswap.title", "invite.code.left.hours",
         "invite.code.left.minutes", "invite.code.left.seconds",
-        "more.menu.sora.card.title", "pageTitle.Polkamarkt",
+        "pageTitle.Polkamarkt",
     }
 
     for key, english in entries:

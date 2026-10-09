@@ -918,7 +918,6 @@ struct PIMobileChainNode: Decodable, Equatable {
 struct PIMobileConfig: Decodable, Equatable {
     let blockExplorerUrl: URL
     let substrateTypesUrl: URL?
-    let soracard: Bool
     let nodes: [PIMobileChainNode]
     let nexusAvailable: Bool
     let nexusSendsAvailable: Bool
@@ -2132,7 +2131,7 @@ final class PIIndexerClient {
             query: """
             query MobileConfig {
               mobileConfig {
-                blockExplorerUrl substrateTypesUrl soracard
+                blockExplorerUrl substrateTypesUrl
                 nodes { name address }
                 nexusAvailable nexusSendsAvailable
                 polkamarktVisible polkamarktMutationsAvailable

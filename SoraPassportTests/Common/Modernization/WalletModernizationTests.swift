@@ -12331,7 +12331,6 @@ final class WalletModernizationTests: XCTestCase {
                 string: "https://sorametrics.org/tx/%7Btransaction%7D"
             )!,
             substrateTypesUrl: URL(string: "https://example.org/types.json"),
-            soracard: false,
             nodes: [
                 PIMobileChainNode(
                     name: "SORA",
@@ -12476,7 +12475,6 @@ final class WalletModernizationTests: XCTestCase {
                 string: "https://sorametrics.org/tx/%7Btransaction%7D"
             )!,
             substrateTypesUrl: URL(string: "https://example.org/types.json"),
-            soracard: false,
             nodes: [
                 PIMobileChainNode(
                     name: "SORA",

@@ -56,8 +56,6 @@
 	<string>Camera is used to capture QR code</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID authenticates IrohaConnect wallet connections and signatures.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app require the access to Microphone to pass KYC</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Load photos from library</string>
 	<key>SoraMigrationEvidenceAuthorizationKeyId</key>
