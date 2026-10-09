@@ -186,6 +186,8 @@ extension KeystoreProtocol {
     /// Prove the unsuffixed record against the exact retained SORA address here,
     /// using the released default sr25519 derivation. This is a read-only
     /// migration path: it never creates a scoped key or infers a new identity.
+    /// (Scoped copies are added later, add-only and only after the account is
+    /// active, by `LegacyGlobalEntropyScopedBackfill`.)
     func fetchLegacyEntropyBeforeNetworkActivation(
         for address: String,
         recoveryGate: WalletRecoveryCapabilityGate,
@@ -260,7 +262,8 @@ extension KeystoreProtocol {
 
         // The oldest installations retained one unsuffixed entropy record.
         // Resolve it only through an already activated, exact SORA2 identity;
-        // never copy it into a new Keychain tag or guess its owner.
+        // never guess its owner. This resolver itself never writes; the
+        // add-only scoped copies come from `LegacyGlobalEntropyScopedBackfill`.
         diagnostic?.snapshot.snapshotPresent = snapshot != nil
         guard let snapshot else {
             diagnostic?.snapshot.fallback = .noSnapshot

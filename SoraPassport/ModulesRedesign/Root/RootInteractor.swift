@@ -186,6 +186,9 @@ enum LegacyWalletUpgradeDisplayNameResolver {
 /// Activates the account model for an unsuffixed legacy entropy record without
 /// copying, normalizing, or replacing any secret. The normal importer remains
 /// responsible only for in-memory derivation and identity verification.
+/// After the upgrade is verified, `LegacyGlobalEntropyScopedBackfill` adds
+/// scoped copies (add-only) for downgrade safety; it never runs inside the
+/// journaled activation, whose recovery requires the scoped tags to be absent.
 enum LegacyWalletUpgradeSecretRetention {
     static func consumeWithoutPersisting(
         _ prepared: PreparedAccount,
@@ -983,6 +986,7 @@ extension RootInteractor: RootInteractorInputProtocol {
                             expectedDisplayName: username
                         )
                         self.legacyImportInteractor = nil
+                        self.addScopedCopiesAfterLegacyUpgrade(account)
                         self.decideModuleSynchroniously()
                     } catch {
                         self.failLegacyWalletUpgrade(error)
@@ -998,6 +1002,27 @@ extension RootInteractor: RootInteractorInputProtocol {
             }
         } catch {
             failLegacyWalletUpgrade(error)
+        }
+    }
+
+    /// Downgrade safety: give the upgraded account scoped `-entropy`,
+    /// `-seed` and `-secretKey` copies (add-only) so an App Store 3.8.6 build
+    /// that deletes `seedEntropy` cannot lose it. Best effort; it is retried
+    /// at every startup.
+    private func addScopedCopiesAfterLegacyUpgrade(_ account: AccountItem) {
+        do {
+            guard let snapshot = try legacyUpgradeSnapshotLoader(),
+                  let lease = WalletLifecycleCoordinator.shared.tryAcquire() else { return }
+            defer { lease.release() }
+            try LegacyGlobalEntropyScopedBackfill.run(
+                accounts: [account],
+                snapshot: snapshot,
+                keystore: keystore
+            )
+        } catch {
+            Logger.shared.warning(
+                "Wallet keys: scoped copies deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+            )
         }
     }
 
