@@ -46,6 +46,30 @@ private final class MixedKeychainAttributesFixture: KeystoreProtocol {
     }
 }
 
+/// Records only synthetic test operations; it also models a native Security
+/// failure before any secret can be read.
+private final class DiagnosticKeychainFixture: KeystoreProtocol {
+    let backing: KeystoreProtocol
+    var failedIdentifier: String?
+    var failureStatus: OSStatus = errSecInteractionNotAllowed
+    private(set) var checked: [String] = []
+    private(set) var fetched: [String] = []
+    init(_ backing: KeystoreProtocol) { self.backing = backing }
+    func addKey(_ key: Data, with identifier: String) throws { try backing.addKey(key, with: identifier) }
+    func updateKey(_ key: Data, with identifier: String) throws { try backing.updateKey(key, with: identifier) }
+    func deleteKey(for identifier: String) throws { try backing.deleteKey(for: identifier) }
+    func allKeyIdentifiers() throws -> [String] { try backing.allKeyIdentifiers() }
+    func checkKey(for identifier: String) throws -> Bool {
+        checked.append(identifier)
+        if identifier == failedIdentifier { throw KeystoreSystemError(status: failureStatus) }
+        return try backing.checkKey(for: identifier)
+    }
+    func fetchKey(for identifier: String) throws -> Data {
+        fetched.append(identifier)
+        return try backing.fetchKey(for: identifier)
+    }
+}
+
 private struct LiquidityBatchWireFixture {
     let call: JSON
     let registerCallName: String
@@ -456,6 +480,95 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertThrowsError(try Keychain.keyIdentifiers(fromKeychainAttributes: nil))
         XCTAssertThrowsError(try Keychain.keyIdentifiers(fromKeychainAttributes: "unreadable result"))
         XCTAssertThrowsError(try Keychain.keyIdentifiers(fromKeychainAttributes: [records[0], "invalid record"] as [Any]))
+
+        // Diagnostic collection must neither expand the existing queries nor
+        // turn an unattempted fallback into a missing-key assertion.
+        let observation = WalletSecretDiagnostics(origin: .liveInventory, schema: 2,
+            accountNumber: 1, accountCount: 1, cryptoType: 0, networkType: 69,
+            selected: true, watchOnly: false)
+        let unobserved = DiagnosticKeychainFixture(InMemoryKeychain())
+        let observed = DiagnosticKeychainFixture(InMemoryKeychain())
+        let gate = makeIsolatedRecoveryGate()
+        XCTAssertNil(try unobserved.fetchLegacyEntropyBeforeNetworkActivation(for: "synthetic-account", recoveryGate: gate))
+        XCTAssertNil(try observed.fetchLegacyEntropyBeforeNetworkActivation(for: "synthetic-account",
+            recoveryGate: gate, diagnostic: observation))
+        XCTAssertEqual(observed.checked, unobserved.checked)
+        XCTAssertEqual(observed.fetched, unobserved.fetched)
+        XCTAssertEqual(observation.snapshot.fallback, .globalMissing)
+        XCTAssertNil(observation.snapshot.outcomes[.legacyIrohaKey])
+        try observed.addKey(Data("//retained".utf8), with: KeystoreTag.deriviationTagForAddress("synthetic-account"))
+        let declined = WalletSecretDiagnostics(origin: .liveInventory, schema: 1,
+            accountNumber: 1, accountCount: 1, cryptoType: 0, networkType: 69,
+            selected: true, watchOnly: false)
+        XCTAssertNil(try observed.fetchLegacyEntropyBeforeNetworkActivation(for: "synthetic-account",
+            recoveryGate: gate, diagnostic: declined))
+        XCTAssertEqual(declined.snapshot.fallback, .derivationConflict)
+        XCTAssertNil(declined.snapshot.outcomes[.globalEntropy])
+
+        // The richest fixed-code context still fits the bounded persisted
+        // format. A saved manifest's flags are distinct from actual key reads.
+        let settings = InMemorySettingsManager()
+        settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+            for: KeystoreError.unexpectedFail))
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        let saved = WalletSecretDiagnostics(origin: .savedManifest, schema: 2,
+            accountNumber: 4096, accountCount: 4096, cryptoType: 255, networkType: 16383,
+            selected: false, watchOnly: false)
+        saved.snapshot.savedSecret = false
+        saved.snapshot.savedEntropy = false
+        saved.snapshot.savedSeed = false
+        saved.snapshot.snapshotPresent = true
+        saved.snapshot.failedOperation = .scopedDerivation
+        saved.snapshot.fallback = .snapshotIdentity
+        for operation in WalletSecretDiagnostics.Operation.allCases {
+            saved.snapshot.outcomes[operation] = .notChecked
+        }
+        let missing = UserStorageMigrationError.missingWalletSecret("synthetic-private-identifier")
+        do {
+            try WalletStartupDiagnostic.check(.databaseMigration) {
+                WalletStartupDiagnostic.retainSecretChecks(saved.snapshot, error: missing)
+                throw missing
+            }
+        } catch { WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings) }
+        let current = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+        XCTAssertEqual(current.secretChecks, saved.snapshot)
+        XCTAssertEqual(current.phase, .databaseMigration)
+        XCTAssertEqual(current.cause, .missingSecret)
+        XCTAssertTrue(current.userMessage.contains("manifest"))
+        XCTAssertFalse(current.summary.contains("synthetic-private-identifier"))
+        let serialized = try XCTUnwrap(settings.string(for: SettingsKey.walletStartupDiagnostic.rawValue))
+        XCTAssertLessThanOrEqual(serialized.utf8.count, 1_024)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(serialized.utf8)) as? [String: Any])
+        legacy.removeValue(forKey: "secretChecks")
+        legacy.removeValue(forKey: "recordedAt")
+        settings.set(value: String(decoding: try JSONSerialization.data(withJSONObject: legacy), as: UTF8.self),
+            for: SettingsKey.walletStartupDiagnostic.rawValue)
+        XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .missingSecret)
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        XCTAssertTrue(WalletStartupDiagnostic.current(settings)?.summary.contains("were not recorded") == true)
+
+        // A later check has its own context even if its cause matches a prior
+        // failure. A translated error also cannot reuse credential outcomes.
+        do { try WalletStartupDiagnostic.check(.networkSnapshot) { throw missing } }
+        catch { WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings) }
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.phase, .networkSnapshot)
+        do {
+            try WalletStartupDiagnostic.check(.databaseMigration) {
+                WalletStartupDiagnostic.retainSecretChecks(saved.snapshot, error: missing)
+                throw UserStorageMigrationError.backupVerificationFailed("synthetic-private-path")
+            }
+        } catch { WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings) }
+        XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .backupVerification)
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        try WalletStartupDiagnostic.check(.databaseMigration) {
+            WalletStartupDiagnostic.retainSecretChecks(saved.snapshot, error: missing)
+        }
+        WalletStartupDiagnostic.record(missing, phase: .selectedAccount, settings: settings)
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+
     }
 
     func testLegacyWalletStartupWithFrameworkKeychainObjectsPreservesSigning() throws {
@@ -10584,6 +10697,29 @@ final class WalletModernizationTests: XCTestCase {
                     let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
                     let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
                     let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    if version == .version2 && bytes == 16 {
+                        let failingKeys = DiagnosticKeychainFixture(keys)
+                        failingKeys.failedIdentifier = KeystoreTag.secretKeyTagForAddress(account.address)
+                        XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                            _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                                modelDirectory: UserStorageParams.modelDirectory, keystore: failingKeys,
+                                settings: settings, baseURL: directory, lifecycleCoordinator: coordinator)
+                        }, migration: { XCTFail("A Security error reached ordinary startup") }), .recoveryRequired)
+                        let failure = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+                        XCTAssertEqual(failure.phase, .databaseMigration)
+                        XCTAssertEqual(failure.cause, .keychainSystem)
+                        XCTAssertEqual(failure.systemCode, Int(errSecInteractionNotAllowed))
+                        XCTAssertEqual(failure.secretChecks?.failedOperation, .scopedSecret)
+                        XCTAssertEqual(failure.secretChecks?.outcomes[.scopedSecret], .failed)
+                        XCTAssertNil(failure.secretChecks?.outcomes[.scopedEntropy])
+                        XCTAssertNil(failure.secretChecks?.outcomes[.globalEntropy])
+                        XCTAssertTrue(failingKeys.fetched.isEmpty)
+                        XCTAssertFalse(failingKeys.checked.contains(KeystoreTag.legacyEntropy.rawValue))
+                        XCTAssertTrue(failure.userMessage.contains("Unlock this iPhone"))
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    }
                     XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
                         _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
                             storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
@@ -10592,6 +10728,30 @@ final class WalletModernizationTests: XCTestCase {
                     }, migration: { XCTFail("An absent signing credential reached ordinary startup") }), .recoveryRequired)
                     XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.phase, .databaseMigration)
                     XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .missingSecret)
+                    let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+                    let checks = try XCTUnwrap(diagnostic.secretChecks)
+                    XCTAssertEqual(checks.origin, .liveInventory)
+                    XCTAssertEqual(checks.schema, version == .version1 ? 1 : 2)
+                    XCTAssertEqual(checks.accountNumber, 1)
+                    XCTAssertEqual(checks.accountCount, 1)
+                    XCTAssertEqual(checks.cryptoType, Int(account.cryptoType.rawValue))
+                    XCTAssertEqual(checks.networkType, Int(account.networkType))
+                    XCTAssertTrue(checks.selectedPreferenceMatches)
+                    XCTAssertFalse(checks.watchOnly)
+                    for operation in [WalletSecretDiagnostics.Operation.scopedSecret, .scopedEntropy,
+                                      .scopedSeed, .scopedDerivation, .globalEntropy] {
+                        XCTAssertEqual(checks.outcomes[operation], .missing)
+                    }
+                    XCTAssertNil(checks.outcomes[.legacyIrohaKey])
+                    XCTAssertEqual(checks.fallback, .globalMissing)
+                    XCTAssertEqual(checks.snapshotPresent, false)
+                    XCTAssertNil(checks.failedOperation)
+                    XCTAssertNotNil(diagnostic.recordedAt)
+                    XCTAssertTrue(diagnostic.summary.contains("Attempted at:"))
+                    XCTAssertTrue(diagnostic.summary.contains("legacy_iroha_key=not_checked"))
+                    XCTAssertFalse(diagnostic.summary.contains(account.address))
+                    XCTAssertFalse(diagnostic.summary.contains(account.username))
+                    XCTAssertTrue(diagnostic.userMessage.contains("Restore existing wallet keys"))
                     XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
                     XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
                     let candidates = try database.accountsForMissingKeyRecovery(baseURL: directory,
