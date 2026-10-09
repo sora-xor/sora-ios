@@ -1,5 +1,9 @@
 OTHER_SWIFT_FLAGS = $(inherited) "-DF_TEST"
-MARKETING_VERSION = 3.8.7
+MARKETING_VERSION = 3.9.0
+// Build number: YYYYMMDDNN, greater than every earlier upload (highest
+// TestFlight build: 2026091402). CI passes SORA_IOS_BUILD_NUMBER (environment
+// or build setting); local builds default to the first 3.9.0 candidate.
+CURRENT_PROJECT_VERSION = $(SORA_IOS_BUILD_NUMBER:default=2026101001)
 
 SORA_APPLICATION_CONFIG = Test
 SORA_MINAMOTO_NETWORK_ID =
