@@ -12,6 +12,7 @@ import XCTest
 final class PIMobileConfigFallbackTests: XCTestCase {
     private final class StubProtocol: URLProtocol {
         static var responder: ((String) -> (status: Int, body: String))?
+        static var queryResponder: ((String, String) -> (status: Int, body: String))?
         static var operations: [String] = []
         private static let lock = NSLock()
 
@@ -28,11 +29,15 @@ final class PIMobileConfigFallbackTests: XCTestCase {
             let object = (try? JSONSerialization.jsonObject(with: body))
                 as? [String: Any]
             let operation = object?["operationName"] as? String ?? ""
+            let query = object?["query"] as? String ?? ""
             Self.lock.lock()
             Self.operations.append(operation)
             let responder = Self.responder
+            let queryResponder = Self.queryResponder
             Self.lock.unlock()
-            let (status, text) = responder?(operation) ?? (500, "{}")
+            let (status, text) = queryResponder?(operation, query)
+                ?? responder?(operation)
+                ?? (500, "{}")
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: status,
@@ -105,6 +110,7 @@ final class PIMobileConfigFallbackTests: XCTestCase {
 
     override func tearDown() {
         StubProtocol.responder = nil
+        StubProtocol.queryResponder = nil
         super.tearDown()
     }
 
@@ -212,5 +218,44 @@ final class PIMobileConfigFallbackTests: XCTestCase {
         XCTAssertFalse(
             PIIndexerClient.indicatesUnsupportedSchema(.invalidResponse)
         )
+    }
+
+    func testReferrerRewardsFallBackToIdentifierOrder() async throws {
+        let health = self.health
+        let referrer = "cnRuMQ4o6DRBVKZpzJdFDW4tg2tDN8MKfxagwX5sRYF9mytEC"
+        var orders: [String] = []
+        StubProtocol.queryResponder = { operation, query in
+            switch operation {
+            case "MobileHealth":
+                return (200, health)
+            case "MobileReferrerRewards":
+                if query.contains("TIMESTAMP_DESC") {
+                    orders.append("timestamp")
+                    // What the deployed public query plan answers.
+                    return (200, """
+                    {"errors":[{"message":"referrerRewards orderBy field timestamp is not supported by the public query plan",\
+                    "extensions":{"code":"BAD_USER_INPUT"}}],"data":null}
+                    """)
+                }
+                orders.append("id")
+                return (200, """
+                {"data":{"referrerRewards":{"nodes":[{"id":"r1","referral":"cnReferral",\
+                "referrer":"\(referrer)","blockHeight":"27974000","timestamp":1791571000,\
+                "amount":"1000"}],"pageInfo":{"hasNextPage":false,"hasPreviousPage":false,\
+                "startCursor":null,"endCursor":null},"totalCount":1}}}
+                """)
+            default:
+                return (500, "{}")
+            }
+        }
+
+        let rewards = try await client().allReferrerRewards(
+            address: referrer,
+            pageSize: 10,
+            maximumPages: 2
+        )
+
+        XCTAssertEqual(rewards.map(\.id), ["r1"])
+        XCTAssertEqual(orders, ["timestamp", "id"])
     }
 }

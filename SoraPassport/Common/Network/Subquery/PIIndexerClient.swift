@@ -2369,10 +2369,19 @@ final class PIIndexerClient {
         ).value
     }
 
+    /// The deployed PI's public query plan may not order referrer rewards by
+    /// timestamp. Totals do not depend on order, so `allReferrerRewards`
+    /// falls back to ID order.
+    enum ReferrerRewardOrder: String {
+        case newestFirst = "[TIMESTAMP_DESC, ID_DESC]"
+        case identifier = "[ID_DESC]"
+    }
+
     private func referrerRewardsRead(
         address: String,
         first: Int,
-        after: String?
+        after: String?,
+        order: ReferrerRewardOrder = .newestFirst
     ) async throws -> PIQualifiedRead<PIConnection<PIReferrerReward>> {
         let address = try validatedIdentifier(address)
         try validate(pageSize: first)
@@ -2391,7 +2400,7 @@ final class PIIndexerClient {
               referrerRewards(
                 first: $first
                 after: $after
-                orderBy: [TIMESTAMP_DESC, ID_DESC]
+                orderBy: \(order.rawValue)
                 filter: $filter
               ) {
                 nodes { id referral referrer blockHeight timestamp amount }
@@ -2431,16 +2440,30 @@ final class PIIndexerClient {
         pageSize: Int = 100,
         maximumPages: Int = 20
     ) async throws -> [PIReferrerReward] {
-        try await collectQualifiedPages(
-            pageSize: pageSize,
-            maximumPages: maximumPages,
-            itemIdentity: { $0.id }
-        ) { after in
-            try await self.referrerRewardsRead(
-                address: address,
-                first: pageSize,
-                after: after
-            )
+        func collect(
+            _ order: ReferrerRewardOrder
+        ) async throws -> [PIReferrerReward] {
+            try await collectQualifiedPages(
+                pageSize: pageSize,
+                maximumPages: maximumPages,
+                itemIdentity: { $0.id }
+            ) { after in
+                try await self.referrerRewardsRead(
+                    address: address,
+                    first: pageSize,
+                    after: after,
+                    order: order
+                )
+            }
+        }
+        do {
+            return try await collect(.newestFirst)
+        } catch let error as PIIndexerError where
+            Self.indicatesUnsupportedSchema(error)
+        {
+            // Cursors are tied to their ordering, so restart from the first
+            // page instead of continuing the rejected walk.
+            return try await collect(.identifier)
         }
     }
 
