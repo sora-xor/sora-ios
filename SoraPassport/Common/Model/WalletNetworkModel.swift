@@ -1599,11 +1599,23 @@ enum WalletSecretSource: String, Codable {
 }
 
 enum WalletMnemonicWordPolicy {
+    /// Nexus derivation (new-network child accounts) uses 12 or 24 words only.
     static let userImportWordCounts: Set<Int> = [12, 24]
+    /// SORA2 import and restore accept every BIP39 length that released apps
+    /// created or imported.
     static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]
+    /// Entropy lengths `IRMnemonicCreator.mnemonic(fromEntropy:)` accepts.
+    /// App Store 3.8.6 also imported 3/6/9-word phrases (4/8/12 bytes); those
+    /// entropy records are kept, but they are proven through the stored seed or
+    /// secret instead.
+    static let derivableEntropyByteCounts: Set<Int> = [16, 20, 24, 28, 32]
 
     static func isUserImportWordCount(_ count: Int) -> Bool {
         userImportWordCounts.contains(count)
+    }
+
+    static func isDerivableEntropy(_ entropy: Data) -> Bool {
+        derivableEntropyByteCounts.contains(entropy.count)
     }
 
     static func retainedSecretSource(
@@ -4931,7 +4943,20 @@ enum LegacySoraIdentityValidator {
 
         var sourceSeed: Data?
         defer { wipeSensitive(&sourceSeed) }
-        if let entropy {
+        // App Store 3.8.6 imported 3/6/9-word phrases and stored their 4/8/12
+        // byte entropy. That entropy cannot be expanded by the current mnemonic
+        // library. Keep it untouched and prove the account through its stored
+        // seed or secret instead. Without either, the account has no provable
+        // signing source on this device.
+        let provableEntropy: Data?
+        if let entropy, !entropy.isEmpty,
+           !WalletMnemonicWordPolicy.isDerivableEntropy(entropy),
+           rawSeed != nil || secret != nil {
+            provableEntropy = nil
+        } else {
+            provableEntropy = entropy
+        }
+        if let entropy = provableEntropy {
             guard !entropy.isEmpty else {
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
             }
@@ -4989,10 +5014,16 @@ enum LegacySoraIdentityValidator {
                     .deriveChildSeedFromParent(sourceSeed.miniSeed, chaincodeList: chaincodes)
             }
             defer { wipeSensitive(&expectedSecret) }
-            if let secret, expectedSecret != secret {
-                throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+            if let secret {
+                guard Self.storedSecret(secret, matches: expectedSecret, cryptoType: cryptoType) else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+                }
+                // Prove the stored secret itself with the signature challenge
+                // below. For sr25519 its nonce half may legitimately differ.
+                resolvedSecret = secret
+            } else {
+                resolvedSecret = expectedSecret
             }
-            resolvedSecret = expectedSecret
         }
 
         // Explicit watch-only accounts have no source from which a signing
@@ -5067,6 +5098,60 @@ enum LegacySoraIdentityValidator {
             signingSucceeded: true,
             behaviorPassed: true
         )
+    }
+
+    /// A stored secret matches a re-derived one when it encodes the same key.
+    ///
+    /// sr25519 secrets are 64 bytes: a 32-byte scalar and a 32-byte nonce.
+    /// Hard junctions derive both deterministically, but schnorrkel fills the
+    /// nonce of a soft junction (`/path`) from a random number generator, so
+    /// two derivations of the same soft path differ in bytes 32..<64. Compare
+    /// the scalar only; the caller then proves the stored 64 bytes with a
+    /// signature that verifies against the account public key.
+    /// ed25519 and ecdsa seeds are compared in full.
+    static func storedSecret(_ stored: Data, matches expected: Data, cryptoType: CryptoType) -> Bool {
+        switch cryptoType {
+        case .sr25519:
+            guard stored.count == 64, expected.count == 64 else { return false }
+            return constantTimeEqual(Data(stored.prefix(32)), Data(expected.prefix(32)))
+        case .ed25519, .ecdsa:
+            return constantTimeEqual(stored, expected)
+        }
+    }
+
+    static func constantTimeEqual(_ lhs: Data, _ rhs: Data) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        var difference: UInt8 = 0
+        for (left, right) in zip(lhs, rhs) { difference |= left ^ right }
+        return difference == 0
+    }
+
+    /// Errors that mean "this account's stored material does not prove its
+    /// address" (or cannot be decoded), as opposed to a transient Keychain,
+    /// file or recovery-gate failure that must be retried, never absorbed.
+    static func isAccountIdentityFailure(_ error: Error) -> Bool {
+        if error is KeystoreSystemError || error is KeystoreError ||
+            error is UserStorageMigrationError || error is DurableFileWriter.Failure ||
+            error is FileProtectionMetadata.Failure ||
+            error is WalletMigrationSafetyNamespaceAdmission.Failure {
+            return false
+        }
+        if let error = error as? WalletNetworkMigrationError {
+            switch error {
+            case .walletRecoveryRequired, .lifecycleMutationBusy, .snapshotVerificationFailed,
+                 .missingSnapshot, .missingSelectedWallet, .explicitRemovalTargetMissing,
+                 .explicitRemovalInventoryMismatch, .explicitRemovalSelectionMismatch:
+                return false
+            default:
+                return true
+            }
+        }
+        let system = error as NSError
+        if [NSCocoaErrorDomain, NSPOSIXErrorDomain, NSOSStatusErrorDomain, NSURLErrorDomain]
+            .contains(system.domain) {
+            return false
+        }
+        return true
     }
 
     private static func wipeSensitive(_ value: inout Data) {
