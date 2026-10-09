@@ -202,7 +202,7 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
         secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
                                  completionQueue: DispatchQueue.main
         ) { [weak self] (secret: SecretDataRepresentable?) -> Void in
-            self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 6) 
+            self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 0)
         }
     }
 

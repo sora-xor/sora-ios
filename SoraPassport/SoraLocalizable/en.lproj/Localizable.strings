@@ -1110,3 +1110,14 @@
 "Sending is paused while pending transfers need checking. Review the activity below before starting another transfer." = "Sending is paused while pending transfers need checking. Review the activity below before starting another transfer.";
 
 "Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh." = "Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh.";
+
+// Wallet opening and connection recovery
+"Opening wallet" = "Opening wallet";
+"Preparing wallet services…" = "Preparing wallet services…";
+"Try again" = "Try again";
+"Change node" = "Change node";
+"Check wallet again" = "Check wallet again";
+"Wallet verification needs attention. Check your saved wallet again." = "Wallet verification needs attention. Check your saved wallet again.";
+"Wallet services are not ready. Try again or choose another node." = "Wallet services are not ready. Try again or choose another node.";
+"Node settings are still loading. Try again." = "Node settings are still loading. Try again.";
+"Network unavailable. Retrying connection…" = "Network unavailable. Retrying connection…";

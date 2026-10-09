@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Build and test the isolated interrupted-upgrade recovery correction on an owned simulator."""
+import datetime
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+root = Path(__file__).resolve().parent
+source = root / 'account-activation-recovery-ios'
+output = Path(sys.argv[1]) if len(sys.argv) > 1 else root / 'account-activation-recovery-validation-1'
+output.mkdir(mode=0o700, exist_ok=True)
+derived = root / 'upgrade-retry-validation-1/DerivedData'
+record_path = output / 'run-observation.json'
+record = {'scope': 'Isolated Release simulator interrupted upgrade recovery validation', 'commands': [], 'status': 'running'}
+simulator = None
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+def save():
+    record_path.write_text(json.dumps(record, indent=2) + '\n')
+
+def snapshot():
+    paths = subprocess.check_output(['git', 'ls-files', '-z'], cwd=source).decode().split('\0')
+    return {name: hashlib.sha256((source / name).read_bytes()).hexdigest()
+            for name in paths if name and (source / name).is_file()}
+
+def command(label, args, allow_failure=False):
+    log = output / (label + '.log')
+    entry = {'label': label, 'arguments': args, 'cwd': str(source), 'startedAt': now(), 'log': str(log)}
+    record['commands'].append(entry)
+    save()
+    print(label, 'started', flush=True)
+    with log.open('w') as stream:
+        result = subprocess.run(args, cwd=source, stdout=stream, stderr=subprocess.STDOUT)
+    entry.update(exitCode=result.returncode, finishedAt=now())
+    save()
+    print(label, 'exit', result.returncode, flush=True)
+    if result.returncode and not allow_failure:
+        raise RuntimeError(label + ' failed; inspect ' + str(log))
+    return log.read_text()
+
+record['startedAt'] = now()
+record['sourceAtStart'] = snapshot()
+record['sourceRevision'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source).decode().strip()
+save()
+try:
+    simulator = command('create-simulator', ['/usr/bin/xcrun', 'simctl', 'create',
+        'SORA Legacy Activation Recovery 20260907', 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro',
+        'com.apple.CoreSimulator.SimRuntime.iOS-26-2']).strip()
+    record['ownedSimulator'] = simulator
+    save()
+    command('boot-simulator', ['/usr/bin/xcrun', 'simctl', 'boot', simulator])
+    command('boot-status', ['/usr/bin/xcrun', 'simctl', 'bootstatus', simulator, '-b'])
+    destination = 'platform=iOS Simulator,id=' + simulator + ',arch=arm64'
+    suites = ['WalletModernizationTests', 'WalletRecoveryCapabilityGateTests', 'WalletRecoveryExporterTests', 'WalletUXTests']
+    command('build', ['/usr/bin/xcodebuild', 'build-for-testing', '-project', str(source / 'SoraPassport.xcodeproj'),
+        '-scheme', 'SoraPassport', '-configuration', 'Release', '-destination', destination,
+        '-derivedDataPath', str(derived), '-resultBundlePath', str(output / 'build.xcresult'),
+        '-parallel-testing-enabled', 'NO', '-disableAutomaticPackageResolution', '-skipPackageUpdates',
+        '-clonedSourcePackagesDirPath', str(root / 'ReleaseTests2-DerivedData/SourcePackages'),
+        'SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE=sora-ios-nonpromoting-release-simulator-test-v1',
+        'SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION=test', 'CODE_SIGNING_ALLOWED=NO', 'CODE_SIGNING_REQUIRED=NO',
+        'ENABLE_TESTABILITY=YES', 'ONLY_ACTIVE_ARCH=YES', 'ARCHS=arm64', 'EXCLUDED_ARCHS=x86_64'] +
+        ['-only-testing:SoraPassportTests/' + suite for suite in suites])
+    assert snapshot() == record['sourceAtStart'], 'Source changed during build'
+    plans = [p for p in (derived / 'Build/Products').glob('*.xctestrun') if not p.name.startswith('HistoricalWriter-')]
+    assert len(plans) == 1, plans
+    record['testPlan'] = str(plans[0])
+    for label, tests, expected in [
+        ('focused-activation', ['WalletModernizationTests/testInterruptedLegacyAccountActivationResumesWithoutChangingKeys',
+            'WalletModernizationTests/testLegacyAccountActivationRecoveryPreservesUnverifiableEvidence'], 2),
+        ('wallet-regressions', suites, 247),
+    ]:
+        result_path = output / (label + '.xcresult')
+        command(label, ['/usr/bin/xcodebuild', 'test-without-building', '-xctestrun', str(plans[0]),
+            '-destination', destination, '-resultBundlePath', str(result_path), '-parallel-testing-enabled', 'NO'] +
+            ['-only-testing:SoraPassportTests/' + test for test in tests])
+        summary = json.loads(command(label + '-summary', ['/usr/bin/xcrun', 'xcresulttool', 'get', 'test-results',
+            'summary', '--path', str(result_path), '--compact']))
+        record[label] = summary
+        save()
+        assert summary.get('passedTests') == expected and summary.get('failedTests') == 0 and summary.get('skippedTests') == 0, summary
+    record['sourceAtEnd'] = snapshot()
+    assert record['sourceAtEnd'] == record['sourceAtStart'], 'Source changed during testing'
+    record['status'] = 'passed'
+except BaseException as error:
+    record.update(status='failed', failure=str(error))
+    raise
+finally:
+    if simulator:
+        command('shutdown-owned-simulator', ['/usr/bin/xcrun', 'simctl', 'shutdown', simulator], allow_failure=True)
+    record['finishedAt'] = now()
+    save()

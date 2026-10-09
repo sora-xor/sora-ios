@@ -1,0 +1,618 @@
+diff --git a/SoraPassport.xcodeproj/project.pbxproj b/SoraPassport.xcodeproj/project.pbxproj
+index 0e468575..32bc4936 100644
+--- a/SoraPassport.xcodeproj/project.pbxproj
++++ b/SoraPassport.xcodeproj/project.pbxproj
+@@ -3366,9 +3366,9 @@
+ 		A66A00012F5A000000000001 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/Localizable.strings; sourceTree = "<group>"; };
+ 		A66A00012F5A000000000002 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = akk; path = akk.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
+ 		A66A00012F5A000000000003 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+-		A66E00012F5C000000000001 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.strings"; sourceTree = "<group>"; };
+-		A66E00012F5C000000000002 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
+-		A66E00012F5C000000000003 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
++		A66E00012F5C000000000001 /* egy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy"; path = "egy.lproj/Localizable.strings"; sourceTree = "<group>"; };
++		A66E00012F5C000000000002 /* egy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy"; path = "egy.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
++		A66E00012F5C000000000003 /* egy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy"; path = "egy.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+ 		A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoSansEgyptianHieroglyphs-Regular.ttf"; sourceTree = "<group>"; };
+ 		A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoSansEgyptianHieroglyphs-OFL.txt"; sourceTree = "<group>"; };
+ 		3688A43C280F591900C1D16F /* SourceType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceType.swift; sourceTree = "<group>"; };
+@@ -8485,7 +8485,7 @@
+ 				ja,
+ 				pt,
+ 				akk,
+-				"egy-Egyp",
++				"egy",
+ 			);
+ 			mainGroup = 02623EAC2178C0910011250E;
+ 			packageReferences = (
+@@ -11507,7 +11507,7 @@
+ 				368463A92A40725D00B1F203 /* ja */,
+ 				368463AC2A40728300B1F203 /* pt */,
+ 				A66A00012F5A000000000001 /* akk */,
+-				A66E00012F5C000000000001 /* egy-Egyp */,
++				A66E00012F5C000000000001 /* egy */,
+ 			);
+ 			name = Localizable.strings;
+ 			sourceTree = "<group>";
+@@ -11544,7 +11544,7 @@
+ 				368463AA2A40725D00B1F203 /* ja */,
+ 				368463AD2A40728300B1F203 /* pt */,
+ 				A66A00012F5A000000000002 /* akk */,
+-				A66E00012F5C000000000002 /* egy-Egyp */,
++				A66E00012F5C000000000002 /* egy */,
+ 			);
+ 			name = Localizable.stringsdict;
+ 			sourceTree = "<group>";
+@@ -11581,7 +11581,7 @@
+ 				368463A82A40725D00B1F203 /* ja */,
+ 				368463AB2A40728300B1F203 /* pt */,
+ 				A66A00012F5A000000000003 /* akk */,
+-				A66E00012F5C000000000003 /* egy-Egyp */,
++				A66E00012F5C000000000003 /* egy */,
+ 			);
+ 			name = InfoPlist.strings;
+ 			sourceTree = "<group>";
+diff --git a/SoraPassport/Common/Extensions/LocalizationManager+Shared.swift b/SoraPassport/Common/Extensions/LocalizationManager+Shared.swift
+index e09f6b61..946b7881 100644
+--- a/SoraPassport/Common/Extensions/LocalizationManager+Shared.swift
++++ b/SoraPassport/Common/Extensions/LocalizationManager+Shared.swift
+@@ -57,4 +57,15 @@ extension LocalizationManagerProtocol {
+ extension LocalizationManager {
+     static let shared = LocalizationManager(settings: SettingsManager.shared,
+                                             key: SettingsKey.selectedLocalization.rawValue)
++        .preservingLegacyEgyptianSelection()
++
++    /// The old script-qualified bundle name was flagged by App Store validation.
++    /// Normalize only that saved choice before the shared manager reaches the UI.
++    @discardableResult
++    func preservingLegacyEgyptianSelection() -> LocalizationManager {
++        if selectedLocalization == "egy-Egyp", availableLocalizations.contains("egy") {
++            selectedLocalization = "egy"
++        }
++        return self
++    }
+ }
+diff --git a/SoraPassport/Fonts/NotoSansEgyptianHieroglyphs-OFL.txt b/SoraPassport/Fonts/NotoSansEgyptianHieroglyphs-OFL.txt
+index 68ab1125..791fd9e8 100644
+--- a/SoraPassport/Fonts/NotoSansEgyptianHieroglyphs-OFL.txt
++++ b/SoraPassport/Fonts/NotoSansEgyptianHieroglyphs-OFL.txt
+@@ -18,7 +18,7 @@ with others.
+ 
+ The OFL allows the licensed fonts to be used, studied, modified and
+ redistributed freely as long as they are not sold by themselves. The
+-fonts, including any derivative works, can be bundled, embedded,
++fonts, including any derivative works, can be bundled, embedded, 
+ redistributed and/or sold with any software provided that any reserved
+ names are not used by derivative works. The fonts and derivatives,
+ however, cannot be released under any other type of license. The
+diff --git a/SoraPassport/ModulesRedesign/Language/LanguagePresenter.swift b/SoraPassport/ModulesRedesign/Language/LanguagePresenter.swift
+index 95db84a3..3ea6d23a 100644
+--- a/SoraPassport/ModulesRedesign/Language/LanguagePresenter.swift
++++ b/SoraPassport/ModulesRedesign/Language/LanguagePresenter.swift
+@@ -35,7 +35,7 @@ final class LanguagePresenter {
+     private static let oldAkkadianCode = "akk"
+     private static let oldAkkadianTitle = "Old Akkadian"
+     private static let oldAkkadianNativeTitle = "lišānum akkadītum labīrtum"
+-    private static let middleEgyptianCode = "egy-Egyp"
++    private static let middleEgyptianCode = "egy"
+     private static let middleEgyptianTitle = "Middle Egyptian (Hieroglyphic)"
+     private static let middleEgyptianNativeTitle = "𓌃𓂧𓅱𓀁 𓈖 𓆎𓅓𓏏𓊖"
+ 
+diff --git a/SoraPassport/Scripts/generate-middle-egyptian-localization.py b/SoraPassport/Scripts/generate-middle-egyptian-localization.py
+index e638de13..287420a3 100755
+--- a/SoraPassport/Scripts/generate-middle-egyptian-localization.py
++++ b/SoraPassport/Scripts/generate-middle-egyptian-localization.py
+@@ -11,6 +11,7 @@ from __future__ import annotations
+ 
+ import argparse
+ import hashlib
++import json
+ import re
+ import unicodedata
+ from collections import Counter
+@@ -19,7 +20,8 @@ from pathlib import Path
+ 
+ APP_ROOT = Path(__file__).resolve().parents[1]
+ SOURCE = APP_ROOT / "SoraLocalizable/en.lproj/Localizable.strings"
+-TARGET = APP_ROOT / "SoraLocalizable/egy-Egyp.lproj/Localizable.strings"
++TARGET = APP_ROOT / "SoraLocalizable/egy.lproj/Localizable.strings"
++FALLBACK_SECTION = "/* Wallet and connected-app UX: English fallback for untranslated locales. */"
+ FONT = APP_ROOT / "Fonts/NotoSansEgyptianHieroglyphs-Regular.ttf"
+ FONT_LICENSE = APP_ROOT / "Fonts/NotoSansEgyptianHieroglyphs-OFL.txt"
+ FONT_SHA256 = "38a33a230624671eebedce95bd4237f7b3b2bb1fa25688ff959bed4070a1ea95"
+@@ -438,7 +440,17 @@ PHRASES = {
+ # Security-critical and meaning-dense messages get clause-level translations.
+ # Each is intentionally concise, but preserves the operative condition and
+ # consequence of its English source.
++# These two UX messages changed after the original catalog was generated.
++# Bind reviewed clauses to exact source text so later copy edits need review.
++REVIEWED_SOURCE_VALUES = {
++    'import.account.message': 'Choose Recovery phrase for your saved words, or Raw seed for a private seed you exported. Choose Google only if you previously saved a cloud backup.',
++    'onboarding.description': 'Send, receive, and swap assets on SORA. Create an account for a new recovery phrase, or import an account using a phrase you already have.',
++}
++
+ KEY_TRANSLATIONS = {
++    'import.account.message': 'stp ṯs mdw n sꜥnḫ n mdw.k sꜣw, r-pw prt štꜣ n prt štꜣ hꜣb.n.k r rwty. stp Google jr sꜣw.n.k šꜥt snnw Google m-bꜣḥ. jr nn šꜥt snnw Google, m stp Google',
++    'onboarding.description': 'hꜣb jḫt, šsp jḫt, dbꜣ jḫt ḥr SORA. ḳmꜣ ḥsb n ṯs mdw n sꜥnḫ mꜣw, r-pw jnj ḥsb r ẖnw m ṯs mdw wn n.k m-bꜣḥ',
++
+     "common.error.general.message": "jr.n ḥr smn btꜣ pn m pḥty nb. jr m wḥm m-ḫt",
+     "common.error.internal.error.body": "jr.n ḥr smn btꜣ pn m pḥty nb. jr m wḥm m-ḫt",
+     "connection.error.message": "mꜣꜣ dmḏ wꜣwt pt. jr m wḥm m-ḫt",
+@@ -568,6 +580,8 @@ def word_translation(word: str) -> str:
+ 
+ 
+ def translate_value(key: str, value: str, unknowns: Counter[str]) -> str:
++    if key in REVIEWED_SOURCE_VALUES and value != REVIEWED_SOURCE_VALUES[key]:
++        raise ValueError(f"English source changed for reviewed translation: {key}")
+     if key in KEY_TRANSLATIONS:
+         result = KEY_TRANSLATIONS[key]
+         # Clause-level translations include their format tokens explicitly.
+@@ -614,16 +628,55 @@ def translate_value(key: str, value: str, unknowns: Counter[str]) -> str:
+ 
+ 
+ def parse_catalog(path: Path) -> list[tuple[str, str]]:
++    return parse_catalog_text(path.read_text(encoding="utf-8"))
++
++
++def decoded_catalog_key(key: str) -> str:
++    # Compare escaped spellings as the same key; reject ambiguous escape forms.
++    try:
++        return json.loads('"' + key + '"')
++    except ValueError as error:
++        raise ValueError("unsupported catalog key escape") from error
++
++
++def parse_catalog_text(content: str) -> list[tuple[str, str]]:
+     entries: list[tuple[str, str]] = []
+-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
++    seen: set[str] = set()
++    for line_number, line in enumerate(content.splitlines(), 1):
+         match = STRING_RE.match(line)
+         if match:
+-            entries.append((match.group("key"), match.group("value")))
++            key, value = match.group("key"), match.group("value")
++            decoded_key = decoded_catalog_key(key)
++            if not decoded_key or decoded_key in seen:
++                raise ValueError(f"empty or duplicate catalog key on line {line_number}")
++            seen.add(decoded_key)
++            entries.append((key, value))
+         elif line.strip() and not line.lstrip().startswith(("//", "/*", "*", "*/")):
+             raise ValueError(f"unparsed source line {line_number}: {line}")
+     return entries
+ 
+ 
++def parse_source_catalog() -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
++    content = SOURCE.read_text(encoding="utf-8")
++    # Check duplicates across the boundary before parsing its two sections.
++    parse_catalog_text(content)
++    if content.splitlines().count(FALLBACK_SECTION) != 1:
++        raise ValueError("expected one explicit English fallback section")
++    core, fallback = content.split(FALLBACK_SECTION)
++    translated_entries = parse_catalog_text(core)
++    fallback_entries = parse_catalog_text(fallback)
++    if not translated_entries or not fallback_entries:
++        raise ValueError("empty translated or English fallback section")
++    for key, value in fallback_entries:
++        if key != value:
++            raise ValueError(f"English fallback must preserve its literal key: {key}")
++    if TARGET.exists():
++        retained_keys = {decoded_catalog_key(key) for key, _ in parse_catalog(TARGET)}
++        if retained_keys.intersection(decoded_catalog_key(key) for key, _ in fallback_entries):
++            raise ValueError("an existing Egyptian translation cannot become English fallback")
++    return translated_entries, fallback_entries
++
++
+ def placeholders(value: str) -> list[str]:
+     return sorted(FORMAT_RE.findall(value))
+ 
+@@ -642,7 +695,7 @@ def validate_bundled_font() -> None:
+ 
+ def generate(check: bool) -> None:
+     validate_bundled_font()
+-    entries = parse_catalog(SOURCE)
++    entries, fallback_entries = parse_source_catalog()
+     unknowns: Counter[str] = Counter()
+     rendered: list[str] = [
+         "/* Generated by generate-middle-egyptian-localization.py.",
+@@ -687,6 +740,7 @@ def generate(check: bool) -> None:
+         TARGET.write_text(content, encoding="utf-8")
+ 
+     print(f"validated {len(entries)} keys; {len(unknowns)} generic modern words")
++    print(f"validated {len(fallback_entries)} explicit English fallback keys")
+     if unknowns:
+         summary = ", ".join(f"{word}({count})" for word, count in unknowns.most_common())
+         print(f"review queue: {summary}")
+diff --git a/SoraPassport/Scripts/test-egyptian-localization.py b/SoraPassport/Scripts/test-egyptian-localization.py
+new file mode 100644
+index 00000000..e6c3c15f
+--- /dev/null
++++ b/SoraPassport/Scripts/test-egyptian-localization.py
+@@ -0,0 +1,254 @@
++#!/usr/bin/env python3
++"""Exercise the shipped Foundation manager and Egyptian packaging in isolation.
++
++Compiles the actual app extension, language model, settings implementation, and
++vendored localization manager. Only the app's SettingsKey enum is extracted to
++avoid compiling unrelated wallet code. No application or wallet store is opened.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import contextlib
++import json
++from pathlib import Path
++import re
++import subprocess
++import tempfile
++import unittest
++
++
++ROOT = Path(__file__).resolve().parents[2]
++APP = ROOT / "SoraPassport"
++EXTENSION = APP / "Common/Extensions/LocalizationManager+Shared.swift"
++
++
++class EgyptianLocalizationTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.temporary = tempfile.TemporaryDirectory(prefix="sora-egyptian-localization-")
++        cls.addClassCleanup(cls.temporary.cleanup)
++        cls.build = Path(cls.temporary.name)
++        settings = ROOT / "VendorPackages/shared-features-spm/Sources/SoraKeystore/Classes/UserDefaults"
++        cls.compile("-emit-library", "-emit-module", "-module-name", "SoraKeystore",
++                    *sorted(settings.glob("*.swift")), "-o", cls.build / "libSoraKeystore.dylib")
++        cls.compile("-emit-library", "-emit-module", "-module-name", "SoraFoundation",
++                    ROOT / "VendorPackages/SoraFoundation/SoraFoundation/Classes/Localization/LocalizationManager.swift",
++                    "-I", cls.build, "-L", cls.build, "-lSoraKeystore",
++                    "-o", cls.build / "libSoraFoundation.dylib")
++        settings_source = (APP / "Common/Extensions/SettingsExtension.swift").read_text()
++        declaration = re.search(r"enum SettingsKey: String \{[^}]+\}", settings_source)
++        if declaration is None:
++            raise AssertionError("SettingsKey declaration was not found")
++        (cls.build / "SettingsKey.swift").write_text(declaration.group() + "\n")
++        (cls.build / "main.swift").write_text(r'''
++import Foundation
++import SoraFoundation
++import SoraKeystore
++
++let mode = CommandLine.arguments[1]
++let settings = InMemorySettingsManager()
++let key = SettingsKey.selectedLocalization.rawValue
++let originalData = Data([7, 4, 1])
++settings.set(value: originalData, for: "retained-setting")
++let code = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "egy-Egyp"
++if mode != "fresh" { settings.set(value: code, for: key) }
++let available = mode == "unavailable" ? ["en"] : ["en", "egy", "akk", "ja", "ar"]
++let manager = LocalizationManager(settings: settings, key: key,
++    preferredLanguages: [code], availableLocalizations: available)
++let observer = NSObject()
++var notifications = 0
++manager.addObserver(with: observer) { _, _ in notifications += 1 }
++precondition(manager.preservingLegacyEgyptianSelection() === manager)
++let expected = mode == "unavailable" ? code : (code == "egy-Egyp" ? "egy" : code)
++precondition(manager.selectedLocalization == expected)
++precondition(manager.selectedLanguage.code == expected)
++precondition(manager.preferredLocalizations == [expected])
++precondition(settings.string(for: key) == expected)
++precondition(settings.data(for: "retained-setting") == originalData)
++precondition(Set(settings.allKeys()) == Set([key, "retained-setting"]))
++precondition(notifications == (mode != "fresh" && code == "egy-Egyp" && mode != "unavailable" ? 1 : 0))
++manager.preservingLegacyEgyptianSelection()
++let restarted = LocalizationManager(settings: settings, key: key,
++    preferredLanguages: ["en"], availableLocalizations: available)
++    .preservingLegacyEgyptianSelection()
++precondition(restarted.selectedLocalization == expected)
++precondition(notifications <= 1)
++if expected == "egy" {
++    precondition(!manager.isRightToLeft)
++    precondition(NSLocale.isoLanguageCodes.contains("egy"))
++    precondition(Locale(identifier: "egy").language.script?.identifier == "Egyp")
++    precondition(Bundle.preferredLocalizations(from: available, forPreferences: ["egy-Egyp"]) == ["egy"])
++    let path = CommandLine.arguments.last!
++    let bundle = Bundle(path: path)!
++    let title = bundle.localizedString(forKey: "change.language", value: nil, table: "Localizable")
++    precondition(title.unicodeScalars.contains { (0x13000...0x1342F).contains($0.value) })
++}
++print("passed")
++''')
++        cls.compile(EXTENSION, APP / "Common/Model/Sora/Language.swift",
++                    cls.build / "SettingsKey.swift", cls.build / "main.swift",
++                    "-I", cls.build, "-L", cls.build, "-lSoraKeystore", "-lSoraFoundation",
++                    "-Xlinker", "-rpath", "-Xlinker", cls.build,
++                    "-o", cls.build / "localization-test")
++
++    @classmethod
++    def compile(cls, *arguments):
++        result = subprocess.run(["xcrun", "swiftc", *map(str, arguments)],
++                                cwd=cls.build, capture_output=True, text=True, timeout=60)
++        if result.returncode:
++            raise AssertionError(result.stdout + result.stderr)
++
++    def check_manager(self, mode, code="egy-Egyp"):
++        result = subprocess.run([str(self.build / "localization-test"), mode, code,
++                                 str(APP / "SoraLocalizable/egy.lproj")],
++                                capture_output=True, text=True, timeout=10)
++        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
++        self.assertEqual(result.stdout.strip(), "passed")
++
++    def test_saved_legacy_choice_and_restart_keep_egyptian(self):
++        self.check_manager("saved")
++
++    def test_existing_languages_and_unknown_choice_are_not_rewritten(self):
++        for code in ["egy", "en", "ja", "akk", "ar", "unrecognized-custom"]:
++            with self.subTest(code=code):
++                self.check_manager("saved", code)
++
++    def test_missing_resources_do_not_discard_saved_choice(self):
++        self.check_manager("unavailable")
++
++    def test_fresh_install_matches_script_qualified_preference(self):
++        self.check_manager("fresh")
++
++    def test_shared_manager_normalizes_before_first_consumer(self):
++        source = EXTENSION.read_text()
++        self.assertRegex(source, r"static let shared = LocalizationManager\(settings: SettingsManager.shared,\s*"
++                                 r"key: SettingsKey.selectedLocalization.rawValue\)\s*"
++                                 r"\.preservingLegacyEgyptianSelection\(\)")
++
++    def test_bundle_and_project_use_one_language_only_identifier(self):
++        self.assertFalse((APP / "SoraLocalizable/egy-Egyp.lproj").exists())
++        project = ROOT / "SoraPassport.xcodeproj/project.pbxproj"
++        parsed = json.loads(subprocess.check_output(["plutil", "-convert", "json", "-o", "-", project]))
++        objects = parsed["objects"]
++        regions = objects[parsed["rootObject"]]["knownRegions"]
++        self.assertEqual(regions.count("egy"), 1)
++        self.assertNotIn("egy-Egyp", project.read_text())
++        for suffix in ["Localizable.strings", "Localizable.stringsdict", "InfoPlist.strings"]:
++            resource = APP / "SoraLocalizable/egy.lproj" / suffix
++            subprocess.run(["plutil", "-lint", str(resource)], check=True, capture_output=True)
++            references = [identifier for identifier, value in objects.items()
++                          if value.get("path") == "egy.lproj/" + suffix]
++            self.assertEqual(len(references), 1)
++            self.assertTrue(any(value.get("isa") == "PBXVariantGroup" and references[0] in value["children"]
++                                for value in objects.values()))
++        picker = (APP / "ModulesRedesign/Language/LanguagePresenter.swift").read_text()
++        self.assertIn('middleEgyptianCode = "egy"', picker)
++        self.assertIn('middleEgyptianTitle = "Middle Egyptian (Hieroglyphic)"', picker)
++        self.assertIn('middleEgyptianNativeTitle = "𓌃𓂧𓅱𓀁 𓈖 𓆎𓅓𓏏𓊖"', picker)
++
++    def test_generator_targets_packaged_resources_and_keeps_frozen_font(self):
++        generator = self.generator()
++        self.assertEqual(generator.TARGET, APP / "SoraLocalizable/egy.lproj/Localizable.strings")
++        generator.validate_bundled_font()
++
++    @staticmethod
++    def generator():
++        spec = importlib.util.spec_from_file_location("egyptian_generator", APP / "Scripts/generate-middle-egyptian-localization.py")
++        generator = importlib.util.module_from_spec(spec)
++        spec.loader.exec_module(generator)
++        return generator
++
++    @contextlib.contextmanager
++    def catalogs(self):
++        generator = self.generator()
++        with tempfile.TemporaryDirectory(prefix="sora-egyptian-catalog-") as temporary:
++            source = generator.SOURCE.read_text()
++            target = generator.TARGET.read_text()
++            generator.SOURCE = Path(temporary) / "en.strings"
++            generator.TARGET = Path(temporary) / "egy.strings"
++            generator.SOURCE.write_text(source)
++            generator.TARGET.write_text(target)
++            yield generator
++
++    def test_all_original_translations_and_explicit_fallback_validate(self):
++        generator = self.generator()
++        core, fallback = generator.parse_source_catalog()
++        self.assertEqual(len(core), 952)
++        self.assertEqual(len(fallback), 150)
++        self.assertTrue(all(key == value for key, value in fallback))
++        generator.generate(check=True)
++
++    def test_fallback_requires_exactly_one_declaration(self):
++        for marker_count in [0, 2]:
++            with self.subTest(marker_count=marker_count), self.catalogs() as generator:
++                content = generator.SOURCE.read_text()
++                content = content.replace(generator.FALLBACK_SECTION, (generator.FALLBACK_SECTION + "\n") * marker_count)
++                generator.SOURCE.write_text(content)
++                with self.assertRaises(ValueError):
++                    generator.generate(check=True)
++
++    def test_fallback_rejects_nonliteral_and_empty_keys(self):
++        for entry in ['"Fallback key" = "Different value";', '"" = "";']:
++            with self.subTest(entry=entry), self.catalogs() as generator:
++                generator.SOURCE.write_text(generator.SOURCE.read_text() + entry + "\n")
++                with self.assertRaises(ValueError):
++                    generator.generate(check=True)
++
++    def test_duplicate_fallback_and_core_override_are_rejected(self):
++        for duplicate_core in [False, True]:
++            with self.subTest(duplicate_core=duplicate_core), self.catalogs() as generator:
++                core, fallback = generator.parse_source_catalog()
++                key, value = (core if duplicate_core else fallback)[0]
++                generator.SOURCE.write_text(generator.SOURCE.read_text() + f'"{key}" = "{value}";\n')
++                with self.assertRaises(ValueError):
++                    generator.generate(check=True)
++
++    def test_escaped_duplicate_key_is_rejected(self):
++        with self.catalogs() as generator:
++            content = generator.SOURCE.read_text()
++            generator.SOURCE.write_text(content + r'"\u0049ndexed DPM pricing curve" = "Indexed DPM pricing curve";' + "\n")
++            with self.assertRaisesRegex(ValueError, "duplicate catalog key"):
++                generator.generate(check=True)
++
++    def test_reviewed_import_and_onboarding_source_changes_require_review(self):
++        for key in ["import.account.message", "onboarding.description"]:
++            with self.subTest(key=key), self.catalogs() as generator:
++                content = generator.SOURCE.read_text()
++                current = generator.REVIEWED_SOURCE_VALUES[key]
++                self.assertIn(current, content)
++                generator.SOURCE.write_text(content.replace(current, current + " Changed.", 1))
++                with self.assertRaisesRegex(ValueError, "English source changed"):
++                    generator.generate(check=True)
++
++    def test_existing_translation_cannot_be_reclassified_as_fallback(self):
++        with self.catalogs() as generator:
++            content = generator.SOURCE.read_text()
++            line = next(line for line in content.splitlines() if generator.STRING_RE.match(line))
++            key = generator.STRING_RE.match(line).group("key")
++            generator.SOURCE.write_text(content.replace(line + "\n", "", 1) + f'"{key}" = "{key}";\n')
++            with self.assertRaisesRegex(ValueError, "cannot become English fallback"):
++                generator.generate(check=True)
++
++    def test_missing_original_source_translation_is_rejected(self):
++        with self.catalogs() as generator:
++            content = generator.SOURCE.read_text()
++            line = next(line for line in content.splitlines() if generator.STRING_RE.match(line))
++            generator.SOURCE.write_text(content.replace(line + "\n", "", 1))
++            with self.assertRaises(SystemExit):
++                generator.generate(check=True)
++
++    def test_missing_or_changed_egyptian_translation_is_rejected(self):
++        for remove in [False, True]:
++            with self.subTest(remove=remove), self.catalogs() as generator:
++                content = generator.TARGET.read_text()
++                line = next(line for line in content.splitlines() if generator.STRING_RE.match(line))
++                key = generator.STRING_RE.match(line).group("key")
++                replacement = "" if remove else f'"{key}" = "Changed";'
++                generator.TARGET.write_text(content.replace(line, replacement, 1))
++                with self.assertRaises((SystemExit, ValueError)):
++                    generator.generate(check=True)
++
++
++if __name__ == "__main__":
++    unittest.main(verbosity=2)
+diff --git a/SoraPassport/SoraLocalizable/egy-Egyp.lproj/InfoPlist.strings b/SoraPassport/SoraLocalizable/egy.lproj/InfoPlist.strings
+similarity index 100%
+rename from SoraPassport/SoraLocalizable/egy-Egyp.lproj/InfoPlist.strings
+rename to SoraPassport/SoraLocalizable/egy.lproj/InfoPlist.strings
+diff --git a/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.strings b/SoraPassport/SoraLocalizable/egy.lproj/Localizable.strings
+similarity index 99%
+rename from SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.strings
+rename to SoraPassport/SoraLocalizable/egy.lproj/Localizable.strings
+index 6d30afee..b2aa60fa 100644
+--- a/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.strings
++++ b/SoraPassport/SoraLocalizable/egy.lproj/Localizable.strings
+@@ -798,7 +798,7 @@
+ "buy.crypto.buy.xor.banner.title" = "𓇋𓈖𓇋 𓅓 𓇋𓋴𓅱 XOR 𓇋𓐍𓏏";
+ "more.menu.sora.card.title" = "SORA Card";
+ "more.menu.sora.card.subtitle" = "𓐍𓂋𓊪 𓈖. 𓎡 𓈙𓂝𓏏 𓎛𓈖𓂝 IBAN 𓎛𓋴𓃀";
+-"import.account.message" = "𓋴𓏏𓊪 𓏏𓊪 𓈖 𓇋𓈖𓇋 𓂋 𓄡𓈖𓅱";
++"import.account.message" = "𓋴𓏏𓊪 𓍿𓋴 𓅓𓂧𓅱 𓈖 𓋴𓂝𓈖𓐍 𓈖 𓅓𓂧𓅱.𓎡 𓋴𓄿𓅱, 𓂋-𓊪𓅱 𓊪𓂋𓏏 𓈙𓏏𓄿 𓈖 𓊪𓂋𓏏 𓈙𓏏𓄿 𓉔𓄿𓃀.𓈖.𓎡 𓂋 𓂋𓅱𓏏𓇋. 𓋴𓏏𓊪 Google 𓇋𓂋 𓋴𓄿𓅱.𓈖.𓎡 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱 Google 𓅓-𓃀𓄿𓎛. 𓇋𓂋 𓈖𓈖 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱 Google, 𓅓 𓋴𓏏𓊪 Google";
+ "common.wrong.pin" = "𓈖 𓅓𓄿𓂝 PIN";
+ "asset.details.your.pools" = "𓈖. 𓎡 %s 𓈙𓅱 𓈖 𓅓𓅱";
+ "asset.details.liquid.balance" = "𓅓𓅱 𓎛𓆓 𓇋𓐍𓏏 𓈖𓏏𓏏";
+@@ -841,7 +841,7 @@
+ "create.backup.password.button.text" = "𓋴𓅓𓈖 𓅓𓂧𓅱 𓈖 𓅱𓈖 𓈖 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱";
+ "create.backup.password.is.secure" = "𓅓𓂧𓅱 𓈖 𓅱𓈖 𓅱𓈖 𓅱𓂋𓏏 𓋴𓄿𓅱";
+ "create.backup.password.matched" = "𓅓𓂧𓅱 𓈖 𓅱𓈖 𓅓𓇋";
+-"onboarding.description" = "SORA 𓅱𓈖 𓎛𓂋-𓍿𓋴 𓐍𓂋𓊪 𓂧𓅓𓆓𓏏 𓋴𓏏 𓇋𓂋𓇋𓅱 𓇋𓂋 𓅓𓂧𓅱 𓈖 𓂋𓆓𓇋𓏏 𓎛𓆓, 𓎛𓈖𓂝 𓈖𓃀 XOR 𓇋𓐍𓏏 𓈖𓃀𓅱 𓅱𓆓 𓎛𓂋 𓈖𓆑𓂋 𓅱𓂋𓏏 𓇋𓐍𓏏 𓈖𓆑𓂋 𓎛𓈖𓂝 𓃀𓄿𓎡𓅱 𓂋 𓅱𓈖 𓈎𓅓𓄿. 𓈙𓋴𓊪 XOR 𓅓𓇋 𓂋𓆓𓇋𓏏 𓎛𓆓 𓅱𓈖𓈖 𓈎𓂧 SORA 𓊪𓂋 𓎛𓆓 𓈖 𓏏𓄿.";
++"onboarding.description" = "𓉔𓄿𓃀 𓇋𓐍𓏏, 𓈙𓋴𓊪 𓇋𓐍𓏏, 𓂧𓃀𓄿 𓇋𓐍𓏏 𓎛𓂋 SORA. 𓈎𓅓𓄿 𓎛𓋴𓃀 𓈖 𓍿𓋴 𓅓𓂧𓅱 𓈖 𓋴𓂝𓈖𓐍 𓅓𓄿𓅱, 𓂋-𓊪𓅱 𓇋𓈖𓇋 𓎛𓋴𓃀 𓂋 𓄡𓈖𓅱 𓅓 𓍿𓋴 𓅓𓂧𓅱 𓅱𓈖 𓈖.𓎡 𓅓-𓃀𓄿𓎛";
+ "select.account.import" = "𓋴𓏏𓊪 𓎛𓋴𓃀 𓂋 𓇋𓈖𓇋 𓂋 𓄡𓈖𓅱";
+ "enter.password.title" = "𓂋𓂧𓇋 𓅓 𓄡𓈖𓅱 𓅓𓂧𓅱 𓈖 𓅱𓈖";
+ "enter.password.description" = "𓂋𓂧𓇋 𓅓 𓄡𓈖𓅱 𓅓𓂧𓅱 𓈖 𓅱𓈖 𓈖 𓈙𓂝𓏏 𓋴𓈖𓈖𓅱 𓈖 𓋴𓏏𓊪 𓎛𓋴𓃀 𓂋 𓇋𓈖𓇋 𓂋 𓄡𓈖𓅱";
+diff --git a/SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.stringsdict b/SoraPassport/SoraLocalizable/egy.lproj/Localizable.stringsdict
+similarity index 100%
+rename from SoraPassport/SoraLocalizable/egy-Egyp.lproj/Localizable.stringsdict
+rename to SoraPassport/SoraLocalizable/egy.lproj/Localizable.stringsdict
+diff --git a/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings b/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
+index 4799dc62..a6d0c374 100644
+--- a/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
++++ b/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
+@@ -963,7 +963,6 @@
+ "Time unavailable" = "Time unavailable";
+ "From %@ at %@ to %@ at %@. Vertical scale: 0%% to 100%%. Snapshots run from oldest to newest at equal spacing." = "From %@ at %@ to %@ at %@. Vertical scale: 0%% to 100%%. Snapshots run from oldest to newest at equal spacing.";
+ "Probability history will appear after at least two snapshots are indexed." = "Probability history will appear after at least two snapshots are indexed.";
+-"" = "";
+ "%@ units · Pending asset recovery" = "%@ units · Pending asset recovery";
+ "A signature can authorize an action in the requesting app. Sign only if you understand and agree to the complete message above." = "A signature can authorize an action in the requesting app. Sign only if you understand and agree to the complete message above.";
+ "Account" = "Account";
+diff --git a/docs/localization/middle-egyptian-hieroglyphs.md b/docs/localization/middle-egyptian-hieroglyphs.md
+index cfa75d1d..47b42bd6 100644
+--- a/docs/localization/middle-egyptian-hieroglyphs.md
++++ b/docs/localization/middle-egyptian-hieroglyphs.md
+@@ -1,9 +1,43 @@
+ # Middle Egyptian hieroglyphic localization policy
+ 
+-The `egy-Egyp` locale uses Classical Middle Egyptian written with Unicode
++The `egy` locale uses Classical Middle Egyptian written with Unicode
+ Egyptian Hieroglyphs. It is a product localization, not a claim that modern
+ wallet terminology occurs in an ancient inscription.
+ 
++## Bundle identifier and retained selections
++
++The bundle uses `egy.lproj`, the ISO 639-2 identifier for Ancient Egyptian.
++Apple's language-ID guidance permits this three-letter code, and Foundation
++recognizes `egy` with the inferred `Egyp` script. The previous `egy-Egyp.lproj`
++name produced an App Store localization warning. The shorter identifier keeps
++the hieroglyphic writing system, fonts, and “Middle Egyptian (Hieroglyphic)” picker
++option. The two copy updates described below separately synchronize earlier
++English changes.
++
++The app's shared localization manager converts a saved `egy-Egyp` selection to
++`egy` before any UI consumer reads it, and persists the normalized selection
++through the existing settings manager. Other saved languages are unchanged.
++The alias is retained in code for upgrades; do not ship a duplicate
++`egy-Egyp.lproj` directory. If `egy` resources are absent, the normalization
++leaves the existing preference untouched.
++
++Run the focused packaging and actual Foundation/localization-manager regression
++checks with `python3 SoraPassport/Scripts/test-egyptian-localization.py`.
++These local checks do not substitute for Apple's validation of a future archive.
++The packaging repair preserves the existing plural and InfoPlist resources.
++Two translation values are updated to match earlier English copy changes; the
++other 950 Egyptian entries remain unchanged. The generator
++fully validates the translated catalog and separately checks the English
++catalog's explicitly declared UX fallback section. Every fallback key must be
++its own literal English value; empty keys, duplicates, and moving an existing
++Egyptian translation into fallback are rejected. New UX text continues to use
++the existing English fallback without generating unreviewed Egyptian prose.
++
++References:
++
++- [Apple: Language and Locale IDs](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPInternational/LanguageandLocaleIDs/LanguageandLocaleIDs.html)
++- [Library of Congress: ISO 639-2 `egy`](https://www.loc.gov/standards/iso639-2/php/langcodes_name.php?code_ID=127)
++
+ ## Language and writing
+ 
+ - Grammar and vocabulary follow Middle Egyptian, the classical language of the
+@@ -63,18 +97,36 @@ Substrate, Polkadot, Kusama, Ethereum, Google, Telegram, and `x*y=k`.
+ ## Implementation safeguards
+ 
+ - `SoraPassport/Scripts/generate-middle-egyptian-localization.py` derives the
+-  catalog from the English key set and fails on missing keys, format-token
+-  drift, unknown modern words, or unprotected Latin prose.
++  catalog from the translated section of the English key set and fails on
++  missing keys, format-token drift, or unprotected Latin prose. Unrecognized
++  modern terms remain in its explicit review queue.
+ - Noto Sans Egyptian Hieroglyphs 2.002 is bundled as the fallback behind the
+   normal Sora UI typeface. The generator pins the font and its shipped SIL Open
+   Font License by SHA-256.
+ - Date-pattern syntax, format placeholders, protocol identifiers, and recovery
+   material are display data rather than Egyptian prose and are kept intact.
+ 
++## Reviewed import and onboarding copy
++
++`import.account.message` distinguishes retained recovery words from an exported
++private seed, and limits the Google choice to a previously saved Google backup.
++Its final negative instruction makes that restriction explicit: without a Google
++backup, do not choose Google. `onboarding.description` describes sending,
++receiving, and swapping, and distinguishes creating a new recovery phrase from
++importing an existing one. The generator binds both clauses to exact English
++source values; later English edits require their translations to be reviewed.
++
++These use the existing product glossary, including its modern Google-backup
++compound. The negative imperative `m` and “choose” `stp` are documented by the
++[Thesaurus Linguae Aegyptiae, lemma 64410](https://thesaurus-linguae-aegyptiae.de/lemma/64410)
++and [lemma 148070](https://thesaurus-linguae-aegyptiae.de/lemma/148070).
++These lexical references do not certify the modern product phrasing.
++
+ ## Review boundary
+ 
+-“Complete” means every shipped localization key has an Egyptian value and every
+-format token matches the English source. It does not make unattested modern
++“Complete” means every key in the translated catalog has an Egyptian value and
++every format token matches the English source. The explicitly declared UX
++fallback section remains English. This does not make unattested modern
+ compounds into attested ancient expressions. A publishing release should still
+ receive review by an Egyptologist who works directly with Middle Egyptian.
+ 
