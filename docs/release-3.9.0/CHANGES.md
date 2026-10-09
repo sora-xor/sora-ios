@@ -497,5 +497,27 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   same fee; `author_submitExtrinsic` rejected with exactly 1010 "Invalid
   Transaction: Inability to pay some fees (e.g. account balance too low)".
   This means the signature, genesis, era and runtime versions were all
-  accepted. The test is skipped unless the variable is set, and CI skips
-  the class.
+  accepted. The test also runs the extrinsic service's own live-runtime
+  operations twice (the second time from the cache) and checks that they
+  agree. It is skipped unless the variable is set, and CI skips the class.
+- In the app (Debug build, fresh install on SORA-Release-B): first launch
+  stores the chain with both bundled nodes once each, stores runtime 133/131
+  metadata (623,616 bytes) and logs "Did complete snapshot". Before the
+  chain-sync fix, the first session failed every chain sync with error
+  133021 and stored no runtime. Screenshot of the onboarding screen:
+  `scratchpad/screens/ios/i3-release-correctness/03-fresh-install-simB.png`.
+  A fee estimate in the UI was not exercised: it needs a wallet, and
+  simulator UI control was not available in this session. RELEASE-CHECKLIST
+  "Device QA" covers a real send.
+- Full suites (`SoraPassportTests`, live class skipped): Debug 357 tests, 0
+  failures. Release configuration (built as CI job 2 builds it): 357 tests.
+  The only failure in the first run was `testRemovedLocalesAreNotPackaged`,
+  because the reused DerivedData still held `akk.lproj`/`egy-Egyp.lproj`
+  from older builds. It passes after those stale folders are removed. CI
+  builds into fresh DerivedData.
+- Builds: `SoraPassport` Debug (simulator), `SoraPassportDev` (simulator) and
+  unsigned `SoraPassport` Release for `generic/platform=iOS` all succeed.
+  The Release app passes every "Check Release app bundle" step of
+  `ios_ci.yml`, run locally: 3.9.0 (2026101001), arm64, no harness, no
+  IrohaConnect scheme, no removed locale, privacy declarations present.
+  Without the Google secret, the Release build warns as designed.
