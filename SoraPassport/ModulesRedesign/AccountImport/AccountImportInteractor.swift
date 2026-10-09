@@ -49,7 +49,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
          eventCenter: EventCenterProtocol,
          cloudStorage: CloudStorageServiceProtocol? = nil,
          allowedMnemonicWordCounts: Set<Int> =
-             WalletMnemonicWordPolicy.userImportWordCounts,
+             WalletMnemonicWordPolicy.retainedSoraWordCounts,
          preparedAccountPersistence:
              ((PreparedAccount) throws -> Void)? = nil,
          lifecycleCoordinator: WalletLifecycleCoordinator = .shared
