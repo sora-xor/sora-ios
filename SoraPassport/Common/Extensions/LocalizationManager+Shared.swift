@@ -55,6 +55,32 @@ extension LocalizationManagerProtocol {
 }
 
 extension LocalizationManager {
-    static let shared = LocalizationManager(settings: SettingsManager.shared,
-                                            key: SettingsKey.selectedLocalization.rawValue)
+    static let shared: LocalizationManager = {
+        let manager = LocalizationManager(settings: SettingsManager.shared,
+                                          key: SettingsKey.selectedLocalization.rawValue)
+        manager.replaceUnavailableSelection()
+        return manager
+    }()
+
+    /// A tester build offered languages that 3.9.0 no longer ships (Old
+    /// Akkadian, Middle Egyptian). A stored choice that is not in this build
+    /// falls back to the best device language, or English.
+    func replaceUnavailableSelection(
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) {
+        guard !availableLocalizations.contains(selectedLocalization) else {
+            return
+        }
+        // A manager with no stored choice picks the best available
+        // localization for the device languages, or English.
+        let suggestion = LocalizationManager(
+            settings: InMemorySettingsManager(),
+            key: "selection",
+            preferredLanguages: preferredLanguages,
+            availableLocalizations: availableLocalizations
+        ).selectedLocalization
+        selectedLocalization = availableLocalizations.contains(suggestion)
+            ? suggestion
+            : "en"
+    }
 }

@@ -19669,7 +19669,9 @@ final class WalletModernizationTests: XCTestCase {
                 options: [.skipsHiddenFiles]
             )
             .filter { $0.pathExtension == "lproj" }
-        XCTAssertEqual(localeDirectories.count, 33)
+        // 31 catalogs in the source tree: akk and egy-Egyp were removed in
+        // 3.9.0.
+        XCTAssertEqual(localeDirectories.count, 31)
         for localeDirectory in localeDirectories {
             let strings = try String(
                 contentsOf: localeDirectory.appendingPathComponent(

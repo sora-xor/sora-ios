@@ -87,7 +87,6 @@
 	<string>$(SORA_TAIRA_RETIRED_GENESIS_HASH)</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>NotoSansEgyptianHieroglyphs-Regular.ttf</string>
 		<string>sora-Bold.otf</string>
 		<string>sora-ExtraBold.otf</string>
 		<string>sora-Regular.otf</string>

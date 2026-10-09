@@ -17,10 +17,6 @@
 		B66B00012F5B000000000006 /* WalletUX.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000103 /* WalletUX.swift */; };
 		A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000110 /* IrohaConnectTests.swift */; };
 		B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000110 /* WalletUXTests.swift */; };
-		A66F00012F5D000000000001 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */; };
-		A66F00012F5D000000000002 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */; };
-		A66F00012F5D000000000003 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
-		A66F00012F5D000000000004 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
 		A10000E00000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		A10000090000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
 		A100000A0000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
@@ -2940,14 +2936,6 @@
 		368463AB2A40728300B1F203 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		368463AC2A40728300B1F203 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/Localizable.strings; sourceTree = "<group>"; };
 		368463AD2A40728300B1F203 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = pt; path = pt.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
-		A66A00012F5A000000000001 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/Localizable.strings; sourceTree = "<group>"; };
-		A66A00012F5A000000000002 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = akk; path = akk.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
-		A66A00012F5A000000000003 /* akk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = akk; path = akk.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		A66E00012F5C000000000001 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		A66E00012F5C000000000002 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "egy-Egyp"; path = "egy-Egyp.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
-		A66E00012F5C000000000003 /* egy-Egyp */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "egy-Egyp"; path = "egy-Egyp.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
-		A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoSansEgyptianHieroglyphs-Regular.ttf"; sourceTree = "<group>"; };
-		A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoSansEgyptianHieroglyphs-OFL.txt"; sourceTree = "<group>"; };
 		3688A43C280F591900C1D16F /* SourceType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceType.swift; sourceTree = "<group>"; };
 		368CCC572BDFCEB4003C354F /* CDCWSingleValue+CoreDataCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDCWSingleValue+CoreDataCodable.swift"; sourceTree = "<group>"; };
 		368E2CA428F2FCA00071A324 /* BalanceProviderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceProviderFactory.swift; sourceTree = "<group>"; };
@@ -4351,8 +4339,6 @@
 		02787BED2182FC8B009D3ED6 /* Fonts */ = {
 			isa = PBXGroup;
 			children = (
-				A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */,
-				A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */,
 				55A85FEB27628BD300A6C6AC /* Sora-Light.otf */,
 				84FA009F226A1D57005DA950 /* sora-Bold.otf */,
 				84FA009D226A1D57005DA950 /* sora-ExtraBold.otf */,
@@ -7526,8 +7512,6 @@
 				"fi-FI",
 				ja,
 				pt,
-				akk,
-				"egy-Egyp",
 			);
 			mainGroup = 02623EAC2178C0910011250E;
 			packageReferences = (
@@ -7573,8 +7557,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A66F00012F5D000000000001 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */,
-				A66F00012F5D000000000003 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */,
 				84FA00A4226A1D57005DA950 /* sora-Regular.otf in Resources */,
 				84FA00A1226A1D57005DA950 /* sora-ExtraBold.otf in Resources */,
 				84FA00A2226A1D57005DA950 /* sora-SemiBold.otf in Resources */,
@@ -7625,8 +7607,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A66F00012F5D000000000002 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */,
-				A66F00012F5D000000000004 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */,
 				B4A820F3C18704BBBA58D27D /* sora-Regular.otf in Resources */,
 				1D2E863FA0F938D00511D1CF /* sora-ExtraBold.otf in Resources */,
 				3345BC8DE12AED181B21BD0E /* sora-SemiBold.otf in Resources */,
@@ -10105,8 +10085,6 @@
 				368463A62A40723E00B1F203 /* fi-FI */,
 				368463A92A40725D00B1F203 /* ja */,
 				368463AC2A40728300B1F203 /* pt */,
-				A66A00012F5A000000000001 /* akk */,
-				A66E00012F5C000000000001 /* egy-Egyp */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -10142,8 +10120,6 @@
 				368463A72A40723E00B1F203 /* fi-FI */,
 				368463AA2A40725D00B1F203 /* ja */,
 				368463AD2A40728300B1F203 /* pt */,
-				A66A00012F5A000000000002 /* akk */,
-				A66E00012F5C000000000002 /* egy-Egyp */,
 			);
 			name = Localizable.stringsdict;
 			sourceTree = "<group>";
@@ -10179,8 +10155,6 @@
 				368463A52A40723E00B1F203 /* fi-FI */,
 				368463A82A40725D00B1F203 /* ja */,
 				368463AB2A40728300B1F203 /* pt */,
-				A66A00012F5A000000000003 /* akk */,
-				A66E00012F5C000000000003 /* egy-Egyp */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";

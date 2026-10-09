@@ -898,7 +898,10 @@ final class WalletUXTests: XCTestCase {
 
     func testGeneratedStringsFallbackInTheShippedCatalogs() {
         XCTAssertEqual(R.string.localizable.commonFarms(preferredLanguages: ["de-DE"]), "Farms")
+        // 3.9.0 no longer ships Old Akkadian or Middle Egyptian; a stored
+        // choice of either falls back to English.
         XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["egy-Egyp"]), "m")
+        XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["akk"]), "m")
         XCTAssertEqual(R.string.localizable.inviteCodeLeftMinutes(preferredLanguages: ["ja"]), "分")
         XCTAssertEqual(R.string.localizable.approveTheIrohaConnectConnectionFor(
             "Sora", preferredLanguages: ["ja"]), "Approve the IrohaConnect connection for Sora")
