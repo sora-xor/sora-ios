@@ -45,3 +45,23 @@ extension ActivityErrorItem: Hashable {
         hasher.combine(ObjectIdentifier(self))
     }
 }
+
+/// A calm, non-interactive note shown above the activity list, for example
+/// when the indexer can list only operations this account signed.
+final class ActivityNoticeItem: ItemProtocol {
+    let text: String
+
+    init(text: String) {
+        self.text = text
+    }
+}
+
+extension ActivityNoticeItem: Hashable {
+    static func == (lhs: ActivityNoticeItem, rhs: ActivityNoticeItem) -> Bool {
+        return lhs === rhs
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+}

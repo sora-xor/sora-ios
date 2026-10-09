@@ -36,11 +36,20 @@ final class HistoryPage {
     let transactions: [Transaction]
     let errorMessage: String?
     let endReached: Bool
-    
-    init(transactions: [Transaction], endReached: Bool, errorMessage: String? = nil) {
+    /// The indexer listed only operations this account signed, so transfers
+    /// that others sent to it may be missing. Balances are not affected.
+    let mayOmitIncomingTransfers: Bool
+
+    init(
+        transactions: [Transaction],
+        endReached: Bool,
+        errorMessage: String? = nil,
+        mayOmitIncomingTransfers: Bool = false
+    ) {
         self.transactions = transactions
         self.endReached = endReached
         self.errorMessage = errorMessage
+        self.mayOmitIncomingTransfers = mayOmitIncomingTransfers
     }
 }
 
@@ -257,7 +266,13 @@ extension HistoryService: HistoryServiceProtocol {
                     })
                     
                     let endReached = response.errorMessage != nil ? true : response.endReached
-                    continuation.resume(with: .success(HistoryPage(transactions: transactionsItems, endReached: endReached, errorMessage: response.errorMessage)))
+                    continuation.resume(with: .success(HistoryPage(
+                        transactions: transactionsItems,
+                        endReached: endReached,
+                        errorMessage: response.errorMessage,
+                        mayOmitIncomingTransfers:
+                            queryOperation.historyCoverage == .signedByAccount
+                    )))
                     
                     transactionsItems.forEach { transaction in
                         if !self.transactions.map({ $0.base.txHash }).contains(transaction.base.txHash) {

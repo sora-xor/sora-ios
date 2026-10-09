@@ -929,3 +929,4 @@
 // Signing and activity status (3.9.0)
 "The connected node does not match the SORA network this app uses, so nothing was signed. Choose another node and try again." = "接続中のノードがこのアプリで使う SORA ネットワークと一致しないため、署名は行われていません。別のノードを選択して、もう一度お試しください。";
 "This account can't sign on this device right now, so nothing was signed. Your funds are not affected. Try again, or restore this account with its recovery phrase to send from it." = "このアカウントは現在この端末で署名できないため、署名は行われていません。資金には影響ありません。もう一度お試しいただくか、パスフレーズでこのアカウントを復元すると送金できます。";
+"Incoming transfers from other accounts may not appear in Activity right now. Your balances are not affected." = "他のアカウントからの受け取りは、現在アクティビティに表示されない場合があります。残高には影響ありません。";

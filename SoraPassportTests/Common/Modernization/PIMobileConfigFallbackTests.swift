@@ -13,6 +13,7 @@ final class PIMobileConfigFallbackTests: XCTestCase {
     private final class StubProtocol: URLProtocol {
         static var responder: ((String) -> (status: Int, body: String))?
         static var queryResponder: ((String, String) -> (status: Int, body: String))?
+        static var variablesResponder: ((String, [String: Any]) -> (status: Int, body: String)?)?
         static var operations: [String] = []
         private static let lock = NSLock()
 
@@ -30,12 +31,15 @@ final class PIMobileConfigFallbackTests: XCTestCase {
                 as? [String: Any]
             let operation = object?["operationName"] as? String ?? ""
             let query = object?["query"] as? String ?? ""
+            let variables = object?["variables"] as? [String: Any] ?? [:]
             Self.lock.lock()
             Self.operations.append(operation)
             let responder = Self.responder
             let queryResponder = Self.queryResponder
+            let variablesResponder = Self.variablesResponder
             Self.lock.unlock()
-            let (status, text) = queryResponder?(operation, query)
+            let (status, text) = variablesResponder?(operation, variables)
+                ?? queryResponder?(operation, query)
                 ?? responder?(operation)
                 ?? (500, "{}")
             let response = HTTPURLResponse(
@@ -96,11 +100,16 @@ final class PIMobileConfigFallbackTests: XCTestCase {
         """
     }
 
-    private func client() -> PIIndexerClient {
+    private func client(
+        historyShapeMemory: PIHistoryShapeMemory = PIHistoryShapeMemory()
+    ) -> PIIndexerClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubProtocol.self]
         configuration.urlCache = nil
-        return PIIndexerClient(session: URLSession(configuration: configuration))
+        return PIIndexerClient(
+            session: URLSession(configuration: configuration),
+            historyShapeMemory: historyShapeMemory
+        )
     }
 
     override func setUp() {
@@ -111,6 +120,7 @@ final class PIMobileConfigFallbackTests: XCTestCase {
     override func tearDown() {
         StubProtocol.responder = nil
         StubProtocol.queryResponder = nil
+        StubProtocol.variablesResponder = nil
         super.tearDown()
     }
 
@@ -257,5 +267,214 @@ final class PIMobileConfigFallbackTests: XCTestCase {
 
         XCTAssertEqual(rewards.map(\.id), ["r1"])
         XCTAssertEqual(orders, ["timestamp", "id"])
+    }
+
+    // MARK: - Activity history on the deployed PI
+
+    private static let historyAccount = "cnRuMQ4o6DRBVKZpzJdFDW4tg2tDN8MKfxagwX5sRYF9mytEC"
+
+    private static func historyElement(
+        id: String,
+        signer: String,
+        to: String
+    ) -> String {
+        """
+        {"id":"\(id)","type":"TRANSFER","timestamp":1791571000,\
+        "blockHash":"0x\(String(repeating: "cd", count: 32))","blockHeight":27974000,\
+        "module":"assets","method":"transfer","address":"\(signer)",\
+        "networkFee":"700000000000000","execution":{"success":true},\
+        "data":{"from":"\(signer)","to":"\(to)","amount":"1"},\
+        "dataFrom":"\(signer)","dataTo":"\(to)","dataAssets":[],"callNames":[],"calls":null}
+        """
+    }
+
+    private static func historyPage(_ elements: [String]) -> String {
+        """
+        {"data":{"historyElements":{"nodes":[\(elements.joined(separator: ","))],\
+        "pageInfo":{"hasNextPage":false,"hasPreviousPage":false,"startCursor":null,"endCursor":null},\
+        "totalCount":\(elements.count)}}}
+        """
+    }
+
+    /// What the deployed public query plan answers for the all-roles filter.
+    private static let rejectedHistoryFilter = """
+    {"errors":[{"message":"historyElements filter/orderBy combination is not backed by a bounded public storage plan",\
+    "extensions":{"code":"BAD_USER_INPUT"}}],"data":null}
+    """
+
+    func testHistoryFallsBackToSignerOnlyFilterTheDeployedPIAccepts() async throws {
+        let health = self.health
+        let account = Self.historyAccount
+        let lock = NSLock()
+        var filters: [[String: Any]] = []
+        StubProtocol.variablesResponder = { operation, variables in
+            switch operation {
+            case "MobileHealth":
+                return (200, health)
+            case "MobileHistory":
+                let filter = variables["filter"] as? [String: Any] ?? [:]
+                lock.lock()
+                filters.append(filter)
+                lock.unlock()
+                if filter["or"] != nil {
+                    return (200, Self.rejectedHistoryFilter)
+                }
+                let signer = (filter["address"] as? [String: Any])?["equalTo"] as? String
+                guard signer == account, filter["dataTo"] == nil, filter["dataFrom"] == nil else {
+                    return (200, Self.rejectedHistoryFilter)
+                }
+                return (200, Self.historyPage([
+                    Self.historyElement(
+                        id: "0x" + String(repeating: "ab", count: 32),
+                        signer: account,
+                        to: "cnOther"
+                    )
+                ]))
+            default:
+                return (500, "{}")
+            }
+        }
+        let memory = PIHistoryShapeMemory()
+        let indexer = client(historyShapeMemory: memory)
+
+        let first = try await indexer.qualifiedHistoryPageWithCoverage(
+            address: account,
+            first: 10,
+            page: 1
+        )
+        XCTAssertEqual(first.coverage, .signedByAccount)
+        XCTAssertEqual(first.read.value.values.count, 1)
+        XCTAssertEqual(first.read.qualification?.source, .live)
+        XCTAssertEqual(memory.preferredCoverage(), .signedByAccount)
+
+        // Later reads in this run use the accepted shape directly.
+        let second = try await indexer.qualifiedHistoryPageWithCoverage(
+            address: account,
+            first: 10,
+            page: 1
+        )
+        XCTAssertEqual(second.coverage, .signedByAccount)
+        lock.lock()
+        let sent = filters
+        lock.unlock()
+        XCTAssertEqual(sent.filter { $0["or"] != nil }.count, 1)
+        XCTAssertEqual(sent.filter { $0["address"] != nil }.count, 2)
+        // The type filter and timestamp order are kept.
+        XCTAssertTrue(sent.allSatisfy { $0["type"] != nil })
+
+        // The full shape is tried again after the retry interval.
+        XCTAssertEqual(
+            memory.preferredCoverage(
+                now: Date().addingTimeInterval(PIHistoryShapeMemory.retryInterval + 1)
+            ),
+            .allRoles
+        )
+    }
+
+    func testHistoryKeepsAllRolesWhenThePIAcceptsIt() async throws {
+        let health = self.health
+        let account = Self.historyAccount
+        StubProtocol.variablesResponder = { operation, variables in
+            switch operation {
+            case "MobileHealth":
+                return (200, health)
+            case "MobileHistory":
+                let filter = variables["filter"] as? [String: Any] ?? [:]
+                XCTAssertNotNil(filter["or"])
+                return (200, Self.historyPage([
+                    // An incoming transfer signed by someone else.
+                    Self.historyElement(
+                        id: "0x" + String(repeating: "ef", count: 32),
+                        signer: "cnSender",
+                        to: account
+                    )
+                ]))
+            default:
+                return (500, "{}")
+            }
+        }
+
+        let read = try await client().qualifiedHistoryPageWithCoverage(
+            address: account,
+            first: 10,
+            page: 1
+        )
+
+        XCTAssertEqual(read.coverage, .allRoles)
+        XCTAssertEqual(read.read.value.values.first?.dataTo, account)
+    }
+
+    func testSignerOnlyHistoryRejectsRowsSignedByOthers() async throws {
+        let health = self.health
+        let account = Self.historyAccount
+        StubProtocol.variablesResponder = { operation, variables in
+            switch operation {
+            case "MobileHealth":
+                return (200, health)
+            case "MobileHistory":
+                let filter = variables["filter"] as? [String: Any] ?? [:]
+                if filter["or"] != nil {
+                    return (200, Self.rejectedHistoryFilter)
+                }
+                return (200, Self.historyPage([
+                    Self.historyElement(
+                        id: "0x" + String(repeating: "ef", count: 32),
+                        signer: "cnSender",
+                        to: account
+                    )
+                ]))
+            default:
+                return (500, "{}")
+            }
+        }
+
+        do {
+            _ = try await client().qualifiedHistoryPageWithCoverage(
+                address: account,
+                first: 10,
+                page: 1
+            )
+            XCTFail("A signer-only page must list only rows the account signed")
+        } catch let error as PIIndexerError {
+            guard case .invalidChainIdentity = error else {
+                return XCTFail("\(error)")
+            }
+        }
+    }
+
+    func testHistoryOutageIsNotMistakenForAnOlderSchema() async throws {
+        let health = self.health
+        let memory = PIHistoryShapeMemory()
+        StubProtocol.variablesResponder = { operation, _ in
+            operation == "MobileHealth" ? (200, health) : (503, "{}")
+        }
+
+        do {
+            _ = try await client(historyShapeMemory: memory)
+                .qualifiedHistoryPageWithCoverage(
+                    address: Self.historyAccount,
+                    first: 10,
+                    page: 1
+                )
+            XCTFail("An unavailable PI must not produce history")
+        } catch {
+            XCTAssertEqual(memory.preferredCoverage(), .allRoles)
+        }
+    }
+
+    func testIncompleteHistoryNoticeIsCalmAndTranslated() {
+        XCTAssertEqual(
+            WalletUX.text(
+                "Incoming transfers from other accounts may not appear in Activity right now. Your balances are not affected.",
+                language: "ja"
+            ),
+            "他のアカウントからの受け取りは、現在アクティビティに表示されない場合があります。残高には影響ありません。"
+        )
+        let english = WalletUX.text(
+            "Incoming transfers from other accounts may not appear in Activity right now. Your balances are not affected.",
+            language: "en"
+        )
+        XCTAssertFalse(english.lowercased().contains("error"))
+        XCTAssertFalse(english.lowercased().contains("reinstall"))
     }
 }
