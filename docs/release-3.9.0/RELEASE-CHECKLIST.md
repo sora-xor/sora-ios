@@ -29,6 +29,12 @@ Human and operations actions for the release. Each task adds its items here.
       Archive the App Store build with that same Xcode.
 - [ ] Jenkins: disable the production-promotion and migration-evidence jobs.
       Their Jenkinsfiles were deleted.
+- [ ] Watch for one possibly flaky unit test:
+      `WalletModernizationTests.testCancelledLifecycleAcquireOperationDoesNotLeakLease`
+      timed out (2-second wait) once in several local full runs. It passed
+      on every rerun and 50 of 50 times alone. If it fails in CI, rerun the
+      job once; if it fails again, treat it as a real failure of the wallet
+      lifecycle lease and investigate before release.
 
 ### Archive
 
