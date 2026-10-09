@@ -148,16 +148,69 @@ struct WalletMigrationRecoveryMarker: Equatable, Codable {
         ].contains(reason ?? "")
     }
 
-    /// Older builds collapsed non-storage errors into this fixed reason. The
-    /// marker is only cleared after startup independently proves the installed
-    /// database, selected account, signing material and network identities.
+    /// Prefix and suffix of `UserStorageMigrationError.privacySafeRecoveryDescription`.
+    static let startupFailureReasonPrefix = "Wallet storage could not be verified safely ("
+    static let startupFailureReasonSuffix = "). Existing wallet data and recovery copies were preserved."
+
+    /// Every fixed startup code except `interrupted_migration`, which has its
+    /// own journal resolver. A retry only re-runs read-only verification; only a
+    /// complete proof clears the marker, by compare-and-set.
+    static let retryableStartupFailureCodes: Set<String> = [
+        "unexpected_failure",
+        "missing_wallet_secret",
+        "empty_wallet_secret",
+        "backup_verification_failed",
+        "account_inventory_mismatch",
+        "selected_account_mismatch",
+        "missing_wallet_store",
+        "unknown_store_version",
+        "unavailable_model",
+        "incomplete_migration_path",
+        "insufficient_storage",
+    ]
+
+    /// Gate latches caused by a journal that could not be read or a terminal
+    /// journal write that could not be read back. Both are usually transient
+    /// (locked device, I/O). Startup verification re-proves every journal.
+    static let retryableJournalReadReasons: Set<String> = [
+        "The wallet account commit journal could not be verified. Existing wallet material was preserved.",
+        "A terminal wallet account commit could not be verified. Existing wallet material was preserved.",
+    ]
+
+    /// The fixed code inside a privacy-safe startup reason, if the reason has
+    /// exactly that format.
+    var startupFailureCode: String? {
+        guard let reason,
+              reason.hasPrefix(Self.startupFailureReasonPrefix),
+              reason.hasSuffix(Self.startupFailureReasonSuffix),
+              reason.count > Self.startupFailureReasonPrefix.count + Self.startupFailureReasonSuffix.count
+        else { return nil }
+        let code = String(reason.dropFirst(Self.startupFailureReasonPrefix.count)
+            .dropLast(Self.startupFailureReasonSuffix.count))
+        guard !code.isEmpty, code.allSatisfy({ $0 == "_" || ("a"..."z").contains($0) }) else { return nil }
+        return code
+    }
+
+    /// Markers that startup may retry. Transient Keychain, disk and journal
+    /// failures must never become a permanent lockout.
+    var isRetryableStartupFailure: Bool {
+        guard required, generation == reasonGeneration, !isDatabaseInterruption,
+              !isLegacyAccountCommitInterruption else { return false }
+        if let code = startupFailureCode {
+            return Self.retryableStartupFailureCodes.contains(code)
+        }
+        return Self.retryableJournalReadReasons.contains(reason ?? "")
+    }
+
+    /// Kept for existing callers: a retryable startup failure. The marker is
+    /// only cleared after startup independently proves the installed database,
+    /// selected account, signing material and network identities.
     var isStartupVerificationFailure: Bool {
-        required && generation == reasonGeneration && reason ==
-            "Wallet storage could not be verified safely (unexpected_failure). Existing wallet data and recovery copies were preserved."
+        isRetryableStartupFailure
     }
 
     func requireUnchangedForStartupVerification(_ settings: SettingsManagerProtocol) throws {
-        guard isStartupVerificationFailure, Self.capture(settings) == self else {
+        guard isRetryableStartupFailure, Self.capture(settings) == self else {
             throw WalletNetworkMigrationError.walletRecoveryRequired
         }
     }
