@@ -3,6 +3,7 @@
 
 import Foundation
 import XCTest
+import sorawallet
 @testable import SoraPassport
 
 /// The deployed PI indexer may run an older schema without the
@@ -460,6 +461,48 @@ final class PIMobileConfigFallbackTests: XCTestCase {
         } catch {
             XCTAssertEqual(memory.preferredCoverage(), .allRoles)
         }
+    }
+
+    /// The Activity pipeline (validated history operation) reports that a
+    /// page lists only operations the account signed, and still maps it.
+    func testHistoryOperationReportsSignerOnlyCoverage() throws {
+        let health = self.health
+        let account = Self.historyAccount
+        let blockHash = "0x" + String(repeating: "cd", count: 32)
+        StubProtocol.variablesResponder = { operation, variables in
+            switch operation {
+            case "MobileHealth":
+                return (200, health)
+            case "MobileHistory":
+                let filter = variables["filter"] as? [String: Any] ?? [:]
+                if filter["or"] != nil {
+                    return (200, Self.rejectedHistoryFilter)
+                }
+                return (200, Self.historyPage([
+                    Self.historyElement(
+                        id: "0x" + String(repeating: "ab", count: 32),
+                        signer: account,
+                        to: "cnOther"
+                    )
+                ]))
+            default:
+                return (500, "{}")
+            }
+        }
+        let operation = SubqueryHistoryOperation<TxHistoryResult<TxHistoryItem>>(
+            address: account,
+            count: 10,
+            page: 1,
+            filter: nil,
+            client: client(),
+            canonicalBlockHash: { _ in blockHash }
+        )
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        guard case let .success(page) = operation.result else {
+            return XCTFail("\(String(describing: operation.result))")
+        }
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(operation.historyCoverage, .signedByAccount)
     }
 
     func testIncompleteHistoryNoticeIsCalmAndTranslated() {
