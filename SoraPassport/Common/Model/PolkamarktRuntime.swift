@@ -6,6 +6,7 @@ import CryptoKit
 import Foundation
 import RobinHood
 import SoraKeystore
+import SSFModels
 import SSFUtils
 
 enum PolkamarktRuntimeContract {
@@ -19,6 +20,12 @@ enum PolkamarktRuntimeContract {
         "57f0fe7623f2b93b34faecfc66d6c5da96d54e1b"
     static let webContractSourceFileCount = 22
     static let webContractBranch = "ui-updates"
+    /// The runtime the Polkamarkt contract was reviewed against. Polkamarkt
+    /// mutations are compiled off (`ProductionMutationQualification`) and
+    /// the feature is hidden in production, so these pins apply only to
+    /// `PolkamarktRuntimeValidator`. Ordinary SORA2 transactions are checked
+    /// against the live chain runtime (`Sora2LiveRuntimeValidator`), never
+    /// against these values.
     static let specVersion: UInt32 = 130
     static let transactionVersion: UInt32 = 130
     static let metadataFileSHA256 =
@@ -26,7 +33,7 @@ enum PolkamarktRuntimeContract {
 
     /// Canonical identity of the exact metadata object used by the extrinsic
     /// encoder. Keeping this calculation shared prevents an ordinary SORA2
-    /// send and a Polkamarkt mutation from applying different runtime gates.
+    /// send and a Polkamarkt mutation from computing different identities.
     static func signingMetadataSHA256(
         for factory: RuntimeCoderFactoryProtocol
     ) throws -> String {
@@ -35,13 +42,33 @@ enum PolkamarktRuntimeContract {
         return rawMetadataSHA256(metadataEncoder.encode())
     }
 
+    /// SHA-256 of `"0x" + lowercase hex(metadata) + "\n"`, the form in which
+    /// metadata files were reviewed. Hashes the hex in chunks instead of
+    /// building one large string, because current metadata exceeds 600 KB.
     static func rawMetadataSHA256(_ metadata: Data) -> String {
-        let metadataHex = "0x" + metadata
-            .map { String(format: "%02x", $0) }
-            .joined()
-        return Data(
-            SHA256.hash(data: Data((metadataHex + "\n").utf8))
-        ).map { String(format: "%02x", $0) }.joined()
+        let digits = Array("0123456789abcdef".utf8)
+        var hasher = SHA256()
+        hasher.update(data: Data("0x".utf8))
+        let chunkSize = 32 * 1_024
+        var buffer = [UInt8]()
+        buffer.reserveCapacity(chunkSize * 2)
+        var offset = metadata.startIndex
+        while offset < metadata.endIndex {
+            let end = metadata.index(
+                offset,
+                offsetBy: chunkSize,
+                limitedBy: metadata.endIndex
+            ) ?? metadata.endIndex
+            buffer.removeAll(keepingCapacity: true)
+            for byte in metadata[offset ..< end] {
+                buffer.append(digits[Int(byte >> 4)])
+                buffer.append(digits[Int(byte & 0x0f)])
+            }
+            hasher.update(data: buffer)
+            offset = end
+        }
+        hasher.update(data: Data("\n".utf8))
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     static func wireMetadataSHA256(_ metadataHex: String) -> String? {
@@ -822,6 +849,22 @@ final class PolkamarktRPCClient {
         try await call(
             RPCMethod.getRuntimeMetadata,
             parameters: Optional<[String]>.none
+        )
+    }
+
+    /// Metadata of the runtime that produced `blockHash`.
+    func metadataHex(at blockHash: String) async throws -> String {
+        try await call(
+            RPCMethod.getRuntimeMetadata,
+            parameters: [blockHash]
+        )
+    }
+
+    /// Runtime version that produced `blockHash`.
+    func runtimeVersion(at blockHash: String) async throws -> RuntimeVersion {
+        try await call(
+            RPCMethod.getRuntimeVersion,
+            parameters: [blockHash]
         )
     }
 

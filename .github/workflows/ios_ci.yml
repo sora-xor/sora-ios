@@ -106,7 +106,8 @@ jobs:
             -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
             -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
             -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests.xcresult" \
-            -only-testing:SoraPassportTests
+            -only-testing:SoraPassportTests \
+            -skip-testing:SoraPassportTests/Sora2MainnetLiveSigningTests
 
       - name: Upload test results
         if: always()
@@ -207,7 +208,8 @@ jobs:
             -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
             -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
             -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests-Release.xcresult" \
-            -only-testing:SoraPassportTests
+            -only-testing:SoraPassportTests \
+            -skip-testing:SoraPassportTests/Sora2MainnetLiveSigningTests
 
       - name: Upload test results
         if: always()
