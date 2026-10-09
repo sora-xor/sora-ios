@@ -157,6 +157,16 @@ final class WalletUXTests: XCTestCase {
         XCTAssertFalse(restoreCloud.isHidden)
         XCTAssertTrue(restoreCloud.isEnabled)
         XCTAssertEqual(restoreCloud.title(for: .normal), "Restore from Google Drive backup")
+        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.notFound),
+            "Backup not found")
+        XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.notFound)
+            .contains("again to choose another Google account"))
+        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.authorizationCanceled),
+            "Google sign-in canceled")
+        XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.authorizationCanceled)
+            .contains("No wallet keys were changed"))
+        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.incorrectPassword),
+            "Wallet keys not restored")
         XCTAssertTrue(try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UILabel }
             .first { $0.accessibilityIdentifier == "wallet-recovery-cloud-status" }).isHidden)
         let missingKeysRetry = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
