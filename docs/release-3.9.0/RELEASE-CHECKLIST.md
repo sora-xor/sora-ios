@@ -80,3 +80,49 @@ existing wallet:
       phone keeps showing and controlling the wallet. Stop mirroring or
       unplug: the phone is unchanged and the IrohaConnect session is still
       connected.
+
+## i2: SORA Card residue and dead code removed
+
+### App Store Connect
+
+- [ ] Privacy nutrition label: SORA Card and its KYC are gone. If the label
+      still declares KYC data (identity documents, photos, name, address,
+      etc.), remove those data types. `SoraPassport/PrivacyInfo.xcprivacy`
+      declares no collected data, so there is no code change.
+- [ ] After the first TestFlight upload, confirm App Store Connect sends no
+      ITMS-90683 "missing purpose string" email for the microphone. The
+      microphone usage text was removed because nothing records audio.
+- [ ] Export compliance (see "Legal decisions"): JOSESwift (JWE/RSA/AES) is
+      no longer linked into the app. Tell legal, as it reduces the
+      encryption in the binary.
+
+### Archive
+
+- [ ] `Payload/SoraPassport.app/Frameworks/` must not contain
+      `MPQRCoreSDK.framework` or a `SoraDocuments` framework.
+
+### Device QA (QR codes)
+
+- [ ] Receive: open Receive, show the QR code, and scan it from another
+      phone running 3.8.6 (Send > scan). The address and the asset match.
+- [ ] Scan: in 3.9.0, scan a receive QR code shown by 3.8.6, with and
+      without an amount. Address, asset and amount are filled in correctly.
+
+### Not done on purpose (owner decisions)
+
+- [ ] Leftover SORA Card SDK tokens on upgraded phones (Keychain or
+      UserDefaults items under unknown SDK service names) are not cleaned
+      up: any Keychain deletion code risks wallet keys. They are inert.
+- [ ] `FirebaseMessaging` is linked but unused (no push code). Unlinking it
+      would stop FCM auto-init (an installation/token fetch at launch).
+      Product/privacy owner to decide; the change is a pbxproj edit only.
+- [ ] Unused images (for example `KatanaGirl`, 1.6 MB, and some old
+      PIN/profile icons) are left for the UI redesign owner, who may reuse
+      some of them.
+- [ ] `SoraLocalizable/de.lproj`, `it.lproj` and `nn-NO.lproj` exist but are
+      not in the project, so they never ship. Localization owner to add or
+      delete them.
+- [ ] Legal: `RecaptchaEnterprise` (Google) and `MPQRCoreSDK` (Mastercard)
+      binaries remain in the public git history. `MPQRCoreSDK.xcframework`
+      is also still in `VendorPackages/shared-features-spm/Binaries`, but it
+      is no longer linked or shipped.
