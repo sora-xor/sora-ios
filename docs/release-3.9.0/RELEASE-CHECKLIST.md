@@ -99,7 +99,9 @@ existing wallet:
 ### Archive
 
 - [ ] `Payload/SoraPassport.app/Frameworks/` must not contain
-      `MPQRCoreSDK.framework` or a `SoraDocuments` framework.
+      `MPQRCoreSDK.framework` (it was the only embedded framework removed
+      in i2; `SoraDocuments` was static code and never had a framework
+      there).
 
 ### Device QA (QR codes)
 

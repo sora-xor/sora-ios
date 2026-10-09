@@ -197,9 +197,11 @@ Each section covers one release task: what changed, why, and what users see.
   instead. The vendored shared-features tree is unchanged. New
   `AddressQRCodecTests` pins the address and receive QR formats, so QR
   codes shown by 3.8.x and 3.9.0 stay readable by each other.
-- `SoraDocuments` (SORA v1 DID document helpers) unlinked from all four
-  targets and deleted, together with the SORA v1 API error layer that was
-  its only user (`2e901e32`). `Package.resolved` is unchanged by all of
+- `SoraDocuments` (SORA v1 DID document helpers, a static SwiftPM
+  library) unlinked from all four targets and deleted, together with the
+  SORA v1 API error layer that was its only user (`2e901e32`). It was
+  never an embedded framework, so this removes compiled code, not a file
+  in `Frameworks/`. `Package.resolved` is unchanged by all of
   these removals.
 - Kept on purpose: `SoraWalletBinary` (the embedded `sorawallet`
   framework; `IrohaCrypto` links it by name), FLEX (already Dev-only) and
@@ -226,16 +228,21 @@ Each section covers one release task: what changed, why, and what users see.
   targets compile without it.
 - `2e901e32`: the SORA v1 response envelope and request-error layer
   (17 files) and `SoraDocuments`, as above.
+- Review fix: the unused test helper `DummyNetworkMock` is deleted. Its
+  default fixture, `emptyResponse.json`, went away with the mock JSON
+  above, so any future use would have failed. `NetworkMockManager` still
+  uses FireMock in the test targets.
 
-In total about 63,500 lines in 480 files were removed: about 19,400 of
-them vendored package code (211 files), the rest SORA Card PDFs, strings,
-mock fixtures and dead app code.
+In total about 63,500 lines were removed across 484 files (436 of them
+deleted): about 19,400 of those lines are vendored package code (211
+files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
 
 ### User-visible effects
 
 - None in the UI. The app no longer declares a microphone permission, and
-  the download is smaller (SORA Card PDFs, mock JSON and two embedded
-  frameworks, `MPQRCoreSDK` and `SoraDocuments`, are gone).
+  the download is smaller: the SORA Card PDFs, the mock JSON and the
+  embedded `MPQRCoreSDK` dynamic framework are gone, and the
+  `SoraDocuments` static code is no longer linked.
 - QR codes: unchanged format. Receive QR codes made by 3.9.0 scan in 3.8.x
   and vice versa.
 - No change to wallets, keys, addresses, balances or stored data.
@@ -254,11 +261,16 @@ mock fixtures and dead app code.
   - Unsigned Release build for `generic/platform=iOS` succeeds. Its
     `Frameworks/` holds only FirebaseAnalytics, GoogleAdsOnDeviceConversion,
     GoogleAppMeasurement(+IdentitySupport), blake2lib, libed25519,
-    sorawallet and sr25519lib: no `MPQRCoreSDK`, no `SoraDocuments`. The
+    sorawallet and sr25519lib: no `MPQRCoreSDK`. The
     bundle has no mock JSON, one `GoogleService-Info.plist`, and no
     `NSMicrophoneUsageDescription`.
   - The Debug app and the `SoraPassportDev` app launch on SORA-Release-A to
     the onboarding screen with no crash.
   - `Package.resolved` is unchanged.
+- Review fix round (`DummyNetworkMock` removal, doc wording): the
+  `SoraPassport` scheme with all test targets and `SoraPassportDev` build;
+  `SoraPassportTests` Debug: 331 tests, 0 failures; the unsigned Release
+  device build succeeds with the same eight frameworks; the Debug app
+  launches to onboarding with no crash.
 - Not run here: a manual QR round trip on devices (needs a wallet and a
   camera). It is in RELEASE-CHECKLIST.md.
