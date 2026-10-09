@@ -289,6 +289,9 @@ actor PIValidatedHistoryCache {
         let endCursor: String?
         let endReached: Bool
         let elements: [PIHistoryElement]
+        /// Absent in entries saved before 3.9.0 added the signer-only
+        /// fallback; those were all-roles reads.
+        var coverage: PIHistoryCoverage? = nil
     }
 
     private struct Envelope: Codable {
@@ -347,6 +350,7 @@ actor PIValidatedHistoryCache {
         endCursor: String?,
         endReached: Bool,
         elements: [PIHistoryElement],
+        coverage: PIHistoryCoverage = .allRoles,
         savedAt: Date = Date()
     ) {
         guard isUsableDirectory() else {
@@ -362,7 +366,8 @@ actor PIValidatedHistoryCache {
             indexedCheckpointHash: indexedCheckpointHash,
             endCursor: endCursor,
             endReached: endReached,
-            elements: elements
+            elements: elements,
+            coverage: coverage
         )
         guard
             Self.isStructurallyValid(
@@ -673,6 +678,22 @@ public final class SubqueryHistoryOperation<ResultType>:
     private let client: PIIndexerClient
     private let filter: ((TxHistoryItem) -> KotlinBoolean)?
     private let canonicalBlockHash: PIHistoryBlockHashResolver
+    private let coverageLock = NSLock()
+    private var resultCoverage: PIHistoryCoverage = .allRoles
+
+    /// The account roles the returned page covers. Read it after the
+    /// operation finished.
+    var historyCoverage: PIHistoryCoverage {
+        coverageLock.lock()
+        defer { coverageLock.unlock() }
+        return resultCoverage
+    }
+
+    private func setHistoryCoverage(_ coverage: PIHistoryCoverage) {
+        coverageLock.lock()
+        resultCoverage = coverage
+        coverageLock.unlock()
+    }
 
     public convenience init(
         address: String,
@@ -717,11 +738,12 @@ public final class SubqueryHistoryOperation<ResultType>:
             throw PIIndexerError.paginationLimit
         }
         do {
-            let qualified = try await client.qualifiedHistoryPage(
+            let pageRead = try await client.qualifiedHistoryPageWithCoverage(
                 address: address,
                 first: count,
                 page: page
             )
+            let qualified = pageRead.read
             guard
                 let qualification = qualified.qualification,
                 qualification.source == .live
@@ -758,8 +780,10 @@ public final class SubqueryHistoryOperation<ResultType>:
                     health.latestIndexedBlockHash,
                 endCursor: response.pageInfo.endCursor,
                 endReached: !response.pageInfo.hasNextPage,
-                elements: values
+                elements: values,
+                coverage: pageRead.coverage
             )
+            setHistoryCoverage(pageRead.coverage)
             return try makeResult(
                 values,
                 endCursor: response.pageInfo.endCursor,
@@ -777,6 +801,7 @@ public final class SubqueryHistoryOperation<ResultType>:
                 throw error
             }
             try Task.checkCancellation()
+            setHistoryCoverage(cached.coverage ?? .allRoles)
             return try makeResult(
                 cached.elements,
                 endCursor: cached.endCursor,

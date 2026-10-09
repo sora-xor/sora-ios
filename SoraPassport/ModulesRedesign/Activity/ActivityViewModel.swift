@@ -111,6 +111,12 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         return snapshot
     }
 
+    static var incompleteHistoryNotice: String {
+        WalletUX.text(
+            "Incoming transfers from other accounts may not appear in Activity right now. Your balances are not affected."
+        )
+    }
+
     private func contentSection(with items: [ActivitySectionItem]) -> [ActivitySection] {
         return [ActivitySection(items: items)]
     }
@@ -124,9 +130,16 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             }
             
             view?.stopAnimating()
-            
+
+            // The indexer could list only operations this account signed.
+            // Say so calmly, so a missing incoming transfer is not taken for
+            // missing funds.
+            let notice: [ActivitySection] = pageNumber == 0 && page.mayOmitIncomingTransfers
+                ? contentSection(with: [.notice(ActivityNoticeItem(text: Self.incompleteHistoryNotice))])
+                : []
+
             if pageNumber == 0 && page.transactions.isEmpty && page.errorMessage == nil {
-                sections = []
+                sections = notice
                 snapshot = createSnapshot()
                 setupEmptyLabel?()
                 return
@@ -165,6 +178,8 @@ extension ActivityViewModel: ActivityViewModelProtocol {
                 let spacerItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: visibleHeight > 30 ? CGFloat(visibleHeight) : 30))
                 sections.append(contentsOf: contentSection(with: [spacerItem]))
             }
+
+            sections.insert(contentsOf: notice, at: 0)
 
             updateSections(with: sections)
             

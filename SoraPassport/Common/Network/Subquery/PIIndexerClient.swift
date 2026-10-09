@@ -1387,6 +1387,60 @@ private actor PIResponseCache {
     }
 }
 
+/// Which account roles a PI history read covers.
+enum PIHistoryCoverage: String, Codable, Equatable {
+    /// Operations the account signed, and transfers it sent or received.
+    case allRoles
+    /// Only operations the account signed. The deployed PI's public query
+    /// plan requires an exact `address` match outside any OR and rejects the
+    /// all-roles filter, so transfers that others sent to the account are not
+    /// listed. Balances are read from the chain and are not affected.
+    case signedByAccount
+}
+
+/// Remembers, for this app run, that PI rejected the all-roles history
+/// filter, so later reads use the accepted shape directly instead of being
+/// rejected first. The all-roles filter is tried again after a while, so an
+/// upgraded indexer is picked up without an app update.
+final class PIHistoryShapeMemory {
+    static let shared = PIHistoryShapeMemory()
+    static let retryInterval: TimeInterval = 30 * 60
+
+    private let lock = NSLock()
+    private var allRolesRejectedAt: Date?
+
+    func preferredCoverage(now: Date = Date()) -> PIHistoryCoverage {
+        lock.lock()
+        defer { lock.unlock() }
+        guard
+            let rejectedAt = allRolesRejectedAt,
+            now.timeIntervalSince(rejectedAt) < Self.retryInterval,
+            now >= rejectedAt
+        else {
+            return .allRoles
+        }
+        return .signedByAccount
+    }
+
+    func rememberAllRolesRejected(now: Date = Date()) {
+        lock.lock()
+        allRolesRejectedAt = now
+        lock.unlock()
+    }
+
+    func reset() {
+        lock.lock()
+        allRolesRejectedAt = nil
+        lock.unlock()
+    }
+}
+
+/// One history page and the account roles it covers.
+struct PIHistoryPageRead {
+    let read: PIQualifiedRead<PIConnection<PIHistoryElement>>
+    let coverage: PIHistoryCoverage
+}
+
 final class PIIndexerClient {
     static let endpoint = URL(string: "https://pi.soramitsu.io/graphql")!
     static let soraMainnetGenesis =
@@ -1394,6 +1448,7 @@ final class PIIndexerClient {
 
     private let endpoint: URL
     private let session: URLSession
+    private let historyShapeMemory: PIHistoryShapeMemory
     private let cache = PIResponseCache()
     private let decoder: JSONDecoder
     private static let maximumRequestBytes = 256 * 1024
@@ -1402,8 +1457,13 @@ final class PIIndexerClient {
     static let maximumHistoryPages = 20
     private let maximumPageSize = 100
 
-    init(endpoint: URL = PIIndexerClient.endpoint, session: URLSession? = nil) {
+    init(
+        endpoint: URL = PIIndexerClient.endpoint,
+        session: URLSession? = nil,
+        historyShapeMemory: PIHistoryShapeMemory = .shared
+    ) {
         self.endpoint = endpoint
+        self.historyShapeMemory = historyShapeMemory
         if let session {
             self.session = session
         } else {
@@ -2501,6 +2561,58 @@ final class PIIndexerClient {
         page: Int,
         maximumPages: Int = maximumHistoryPages
     ) async throws -> PIQualifiedRead<PIConnection<PIHistoryElement>> {
+        try await qualifiedHistoryPageWithCoverage(
+            address: address,
+            first: first,
+            page: page,
+            maximumPages: maximumPages
+        ).read
+    }
+
+    /// Like `qualifiedHistoryPage`, and reports which account roles the page
+    /// covers. When the deployed PI rejects the all-roles filter (HTTP 200
+    /// with GraphQL errors, or HTTP 400), the whole walk restarts from page
+    /// one with the signer-only filter it accepts: cursors belong to the
+    /// filter they were issued for.
+    func qualifiedHistoryPageWithCoverage(
+        address: String,
+        first: Int,
+        page: Int,
+        maximumPages: Int = maximumHistoryPages
+    ) async throws -> PIHistoryPageRead {
+        let result = try await withHistoryCoverageFallback { coverage in
+            try await self.walkHistoryPage(
+                address: address,
+                first: first,
+                page: page,
+                maximumPages: maximumPages,
+                coverage: coverage
+            )
+        }
+        return PIHistoryPageRead(read: result.value, coverage: result.coverage)
+    }
+
+    private func withHistoryCoverageFallback<Value>(
+        _ read: (PIHistoryCoverage) async throws -> Value
+    ) async throws -> (value: Value, coverage: PIHistoryCoverage) {
+        let preferred = historyShapeMemory.preferredCoverage()
+        do {
+            return (try await read(preferred), preferred)
+        } catch let error as PIIndexerError where
+            preferred == .allRoles && Self.indicatesUnsupportedSchema(error)
+        {
+            historyShapeMemory.rememberAllRolesRejected()
+            return (try await read(.signedByAccount), .signedByAccount)
+        }
+    }
+
+    private func walkHistoryPage(
+        address: String,
+        first: Int,
+        page: Int,
+        maximumPages: Int,
+        coverage: PIHistoryCoverage
+    ) async throws -> PIQualifiedRead<PIConnection<PIHistoryElement>> {
         try Self.validateHistoryPage(page, maximumPages: maximumPages)
         try validate(pageSize: first)
 
@@ -2515,7 +2627,8 @@ final class PIIndexerClient {
             let read = try await historyRead(
                 address: address,
                 first: first,
-                after: cursor
+                after: cursor,
+                coverage: coverage
             )
             guard let qualification = read.qualification else {
                 throw PIIndexerError.missingChainIdentityCapability
@@ -2596,11 +2709,40 @@ final class PIIndexerClient {
         address: String,
         first: Int,
         after: String?,
-        transactionHashes: [String]? = nil
+        transactionHashes: [String]? = nil,
+        coverage: PIHistoryCoverage = .allRoles
     ) async throws -> PIQualifiedRead<PIConnection<PIHistoryElement>> {
         let address = try validatedIdentifier(address)
         try validate(pageSize: first)
         try Self.validateHistoryPagination(after: after)
+        var filter: [String: Any?] = [
+            "id": transactionHashes.map { ["in": $0] },
+            "type": [
+                "in": [
+                    "CALL",
+                    "TRANSFER",
+                    "SWAP",
+                    "LIQUIDITY",
+                    "REFERRAL",
+                    "REWARD"
+                ]
+            ]
+        ]
+        switch coverage {
+        case .allRoles:
+            // Bind public timestamp-ordered history to every exact account
+            // role PI indexes. Incoming transfers and synthetic bridge mints
+            // may identify the wallet only through dataFrom/dataTo.
+            filter["or"] = [
+                ["address": ["equalTo": address]],
+                ["dataFrom": ["equalTo": address]],
+                ["dataTo": ["equalTo": address]],
+            ]
+        case .signedByAccount:
+            // The shape the deployed public query plan accepts: exact
+            // signer equality outside any OR, ordered by timestamp.
+            filter["address"] = ["equalTo": address]
+        }
         struct Payload: Decodable { let historyElements: PIConnection<PIHistoryElement> }
         let result: PIQualifiedRead<Payload> = try await executeQualified(
             operationName: "MobileHistory",
@@ -2629,27 +2771,7 @@ final class PIIndexerClient {
             variables: compact([
                 "first": first,
                 "after": after,
-                // Bind public timestamp-ordered history to every exact account
-                // role PI indexes. Incoming transfers and synthetic bridge
-                // mints may identify the wallet only through dataFrom/dataTo.
-                "filter": compact([
-                    "or": [
-                        ["address": ["equalTo": address]],
-                        ["dataFrom": ["equalTo": address]],
-                        ["dataTo": ["equalTo": address]],
-                    ],
-                    "id": transactionHashes.map { ["in": $0] },
-                    "type": [
-                        "in": [
-                            "CALL",
-                            "TRANSFER",
-                            "SWAP",
-                            "LIQUIDITY",
-                            "REFERRAL",
-                            "REWARD"
-                        ]
-                    ]
-                ])
+                "filter": compact(filter)
             ]),
             // History has a separate account-bound cache that is persisted
             // only after canonical SORA RPC block-hash validation. Reusing a
@@ -2673,6 +2795,15 @@ final class PIIndexerClient {
                         Set($0)
                     }
                 )
+                if coverage == .signedByAccount {
+                    // The signer-only filter returns only rows this account
+                    // signed.
+                    guard payload.historyElements.values.allSatisfy({
+                        $0.address == address
+                    }) else {
+                        throw PIIndexerError.invalidChainIdentity
+                    }
+                }
                 try Self.validateResponseHeights(
                     payload.historyElements.values.map(\.blockHeight),
                     qualification: qualification
@@ -2763,20 +2894,23 @@ final class PIIndexerClient {
         pageSize: Int = 100,
         maximumPages: Int = 20
     ) async throws -> PIQualifiedRead<[PIHistoryElement]> {
-        try await collectQualifiedPagesRead(
-            pageSize: pageSize,
-            maximumPages: maximumPages,
-            itemIdentity: {
-                PIHistoryCheckpointValidator
-                    .canonicalHistoryIdentifier($0.id) ?? ""
+        try await withHistoryCoverageFallback { coverage in
+            try await self.collectQualifiedPagesRead(
+                pageSize: pageSize,
+                maximumPages: maximumPages,
+                itemIdentity: {
+                    PIHistoryCheckpointValidator
+                        .canonicalHistoryIdentifier($0.id) ?? ""
+                }
+            ) { after in
+                try await self.historyRead(
+                    address: address,
+                    first: pageSize,
+                    after: after,
+                    coverage: coverage
+                )
             }
-        ) { after in
-            try await self.historyRead(
-                address: address,
-                first: pageSize,
-                after: after
-            )
-        }
+        }.value
     }
 
     func markets(

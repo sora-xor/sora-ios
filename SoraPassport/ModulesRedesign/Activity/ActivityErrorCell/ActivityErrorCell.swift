@@ -97,3 +97,56 @@ extension ActivityErrorCell: CellProtocol {
     }
 }
 
+
+/// Shows an `ActivityNoticeItem`: informational text only, no action.
+final class ActivityNoticeCell: SoramitsuTableViewCell {
+
+    private let containerView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.cornerMask = .top
+        view.sora.cornerRadius = .extraLarge
+        return view
+    }()
+
+    private let noticeLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.paragraphM
+        label.sora.textColor = .fgSecondary
+        label.sora.alignment = .center
+        label.sora.numberOfLines = 0
+        return label
+    }()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        contentView.addSubview(containerView)
+        contentView.addSubview(noticeLabel)
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            noticeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            noticeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            noticeLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            noticeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+extension ActivityNoticeCell: CellProtocol {
+    func set(item: ItemProtocol) {
+        guard let item = item as? ActivityNoticeItem else {
+            assertionFailure("Incorect type of item")
+            return
+        }
+
+        noticeLabel.sora.text = item.text
+        accessibilityLabel = item.text
+    }
+}
