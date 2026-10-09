@@ -42,11 +42,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera is used to capture QR code</string>
+	<string>SORA Wallet uses the camera to scan QR codes.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID authenticates IrohaConnect wallet connections and signatures.</string>
+	<string>SORA Wallet uses Face ID to unlock your wallet and confirm sensitive actions.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SORA Wallet saves a QR code image to your photos when you choose Save Image.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Load photos from library</string>
+	<string>SORA Wallet reads a QR code from a photo you choose.</string>
 	<key>SoraMigrationEvidenceAuthorizationKeyId</key>
 	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID)</string>
 	<key>SoraMigrationEvidenceAuthorizationPublicKeyX963Base64</key>

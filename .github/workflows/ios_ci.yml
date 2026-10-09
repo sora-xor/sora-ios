@@ -281,6 +281,16 @@ jobs:
             echo "::error::IrohaConnect URL scheme registered in Release"
             exit 1
           fi
+          # Privacy: required-reason API declarations and permission strings.
+          for category in UserDefaults FileTimestamp DiskSpace SystemBootTime; do
+            grep -q "NSPrivacyAccessedAPICategory${category}" "${app}/PrivacyInfo.xcprivacy"
+          done
+          test -f "${app}/Frameworks/sorawallet.framework/PrivacyInfo.xcprivacy"
+          plutil -extract NSPhotoLibraryAddUsageDescription raw -o - "${app}/Info.plist" >/dev/null
+          if plutil -extract NSMicrophoneUsageDescription raw -o - "${app}/Info.plist" >/dev/null 2>&1; then
+            echo "::error::Unused microphone permission string"
+            exit 1
+          fi
           # Removed tester-only locales.
           if [ -e "${app}/akk.lproj" ] || [ -e "${app}/egy-Egyp.lproj" ]; then
             echo "::error::Removed locales are packaged"

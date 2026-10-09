@@ -110,3 +110,86 @@ final class ShippedLocalizationTests: XCTestCase {
         XCTAssertEqual(manager.selectedLocalization, "ru")
     }
 }
+
+/// Privacy manifest and permission strings shipped with 3.9.0.
+final class PrivacyDeclarationTests: XCTestCase {
+    private func manifest(at url: URL) throws -> [String: Any] {
+        let data = try Data(contentsOf: url)
+        return try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil)
+                as? [String: Any]
+        )
+    }
+
+    private func accessedCategories(_ manifest: [String: Any]) -> Set<String> {
+        let types = manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]] ?? []
+        return Set(types.compactMap { $0["NSPrivacyAccessedAPIType"] as? String })
+    }
+
+    func testAppManifestDeclaresEveryRequiredReasonAPIInUse() throws {
+        let url = try XCTUnwrap(
+            Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy")
+        )
+        let app = try manifest(at: url)
+        XCTAssertEqual(
+            accessedCategories(app),
+            [
+                "NSPrivacyAccessedAPICategoryUserDefaults",
+                "NSPrivacyAccessedAPICategoryFileTimestamp",
+                "NSPrivacyAccessedAPICategoryDiskSpace",
+                "NSPrivacyAccessedAPICategorySystemBootTime"
+            ]
+        )
+        XCTAssertEqual(app["NSPrivacyTracking"] as? Bool, false)
+        let collected = (app["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? [])
+        XCTAssertFalse(collected.isEmpty)
+        for item in collected {
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, false)
+        }
+    }
+
+    func testEmbeddedWalletFrameworkHasItsOwnManifest() throws {
+        let url = try XCTUnwrap(Bundle.main.privateFrameworksURL)
+            .appendingPathComponent("sorawallet.framework/PrivacyInfo.xcprivacy")
+        let framework = try manifest(at: url)
+        XCTAssertEqual(
+            accessedCategories(framework),
+            [
+                "NSPrivacyAccessedAPICategoryUserDefaults",
+                "NSPrivacyAccessedAPICategorySystemBootTime"
+            ]
+        )
+    }
+
+    func testPermissionStringsMatchWhatTheAppUses() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        XCTAssertNil(info["NSMicrophoneUsageDescription"])
+        for key in [
+            "NSCameraUsageDescription",
+            "NSFaceIDUsageDescription",
+            "NSPhotoLibraryUsageDescription",
+            "NSPhotoLibraryAddUsageDescription"
+        ] {
+            let value = info[key] as? String ?? ""
+            XCTAssertTrue(value.hasPrefix("SORA Wallet "), key)
+            for language in ["en", "ja"] {
+                guard
+                    let path = Bundle.main.path(forResource: language, ofType: "lproj"),
+                    let bundle = Bundle(path: path)
+                else {
+                    return XCTFail("Missing \(language).lproj")
+                }
+                let localized = bundle.localizedString(
+                    forKey: key,
+                    value: nil,
+                    table: "InfoPlist"
+                )
+                XCTAssertNotEqual(localized, key, "\(language) \(key)")
+                if language == "en" {
+                    XCTAssertEqual(localized, value, key)
+                }
+            }
+        }
+    }
+}
