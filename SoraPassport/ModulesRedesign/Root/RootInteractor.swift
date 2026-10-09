@@ -580,6 +580,23 @@ enum LegacyWalletAccountCommitRecovery {
         }
     }
 
+    /// Every account row, read-only. Used by the ordinary commit resolver.
+    static func readAllAccounts(storeURL: URL, modelDirectory: String) throws -> [AccountItem] {
+        let model = try accountModel(modelDirectory: modelDirectory)
+        try validateStoreFiles(storeURL)
+        guard FileManager.default.fileExists(atPath: storeURL.path) else { return [] }
+        return try withContext(storeURL: storeURL, model: model, writable: false) { context in
+            let request = NSFetchRequest<CDAccountItem>(entityName: "CDAccountItem")
+            request.returnsObjectsAsFaults = false
+            return try context.fetch(request).map { entity in
+                guard (0...255).contains(Int(entity.cryptoType)), (0...255).contains(Int(entity.networkType)) else {
+                    throw UserStorageMigrationError.accountInventoryMismatch
+                }
+                return try AccountItemMapper().transform(entity: entity)
+            }
+        }
+    }
+
     private static func readAccounts(storeURL: URL, model: NSManagedObjectModel) throws -> [AccountItem] {
         try validateStoreFiles(storeURL)
         guard FileManager.default.fileExists(atPath: storeURL.path) else { return [] }
@@ -813,16 +830,25 @@ extension RootInteractor: RootInteractorInputProtocol {
                 let hasProtectedWalletMaterial =
                     try keystore.hasRetainedWalletMaterial()
 
-                if hasProtectedWalletMaterial ||
-                    hasRetainedWalletSettings ||
+                if hasRetainedWalletSettings ||
                     hasWatchOnlyWallet ||
-                    hasInventoriedWallets ||
-                    pincodeExists {
+                    hasInventoriedWallets {
+                    // Settings or a network inventory exist, but no account
+                    // row: the wallet database was lost or is unreadable.
                     let error = WalletIntegrityError.selectedAccountMissing
                     settings.setWalletMigrationRecovery(
                         reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
                     )
                     presenter?.didDecideBroken()
+                    return
+                }
+
+                if hasProtectedWalletMaterial || pincodeExists {
+                    // Only Keychain items survived: the app was deleted and
+                    // installed again (iOS keeps Keychain items), or every
+                    // account was removed in an older release. Offer to
+                    // restore them; nothing is deleted or changed here.
+                    presenter?.didDecideWelcomeBack()
                     return
                 }
 

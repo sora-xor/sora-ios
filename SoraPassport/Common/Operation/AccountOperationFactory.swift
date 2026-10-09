@@ -91,47 +91,70 @@ final class PreparedAccount {
         derivation = derivationPath?.data(using: .utf8)
     }
 
+    /// Saves the account's secrets with add-only writes.
+    ///
+    /// iOS keeps Keychain items when the app is deleted, and older releases
+    /// left items behind when an account was removed. When a tag for this
+    /// address already exists, it is adopted only if it holds the same key
+    /// (for sr25519 secrets: the same scalar, see
+    /// `LegacySoraIdentityValidator.storedSecret`). Adopted items are never
+    /// rewritten. If any existing item differs, nothing is written at all and
+    /// `retainedKeyConflict` is thrown; the existing items stay as they are.
     func persist(to keystore: KeystoreProtocol) throws {
         stateLock.lock()
         guard !isConsumed else {
             stateLock.unlock()
             throw AccountCreateError.duplicated
         }
+        let secretTag = KeystoreTag.secretKeyTagForAddress(account.address)
+        let derivationTag = KeystoreTag.deriviationTagForAddress(account.address)
         let optionalMaterial: [(String, Data)?] = [
-            Optional((
-                KeystoreTag.secretKeyTagForAddress(account.address),
-                secretKey
-            )),
+            Optional((secretTag, secretKey)),
             entropy.map {
                 (KeystoreTag.entropyTagForAddress(account.address), $0)
             },
-            derivation.map {
-                (
-                    KeystoreTag.deriviationTagForAddress(account.address),
-                    $0
-                )
-            },
+            derivation.map { (derivationTag, $0) },
             seed.map {
                 (KeystoreTag.seedTagForAddress(account.address), $0)
             },
         ]
         let material = optionalMaterial.compactMap { $0 }
         do {
-            guard try material.allSatisfy({
-                try !keystore.checkKey(for: $0.0)
-            }) else {
-                throw AccountCreateError.duplicated
+            // A retained derivation path for this address must equal the
+            // requested one (an absent request path equals no retained tag).
+            if derivation == nil, try keystore.checkKey(for: derivationTag) {
+                var retained = try keystore.fetchKey(for: derivationTag)
+                defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+                guard retained.isEmpty else {
+                    throw AccountCreateError.retainedKeyConflict
+                }
+            }
+            var absent: [(String, Data)] = []
+            for (tag, value) in material {
+                guard try keystore.checkKey(for: tag) else {
+                    absent.append((tag, value))
+                    continue
+                }
+                var retained = try keystore.fetchKey(for: tag)
+                defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+                let matches = tag == secretTag
+                    ? LegacySoraIdentityValidator.storedSecret(
+                        retained, matches: value, cryptoType: account.cryptoType)
+                    : LegacySoraIdentityValidator.constantTimeEqual(retained, value)
+                guard matches else {
+                    throw AccountCreateError.retainedKeyConflict
+                }
             }
             var written: [String] = []
             do {
-                for (tag, value) in material {
+                for (tag, value) in absent {
                     try keystore.addKey(value, with: tag)
                     written.append(tag)
                 }
             } catch {
-                // Every tag was proven absent under the lifecycle lease, so
-                // removing only tags written by this failed attempt cannot
-                // delete an installed wallet.
+                // Each of these tags was proven absent under the lifecycle
+                // lease, so removing only tags written by this failed attempt
+                // cannot delete an installed or adopted item.
                 for tag in written.reversed() {
                     try? keystore.deleteKey(for: tag)
                 }

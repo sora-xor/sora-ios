@@ -68,4 +68,8 @@ extension RootPresenter: RootInteractorOutputProtocol {
     func didDecideBroken() {
         wireframe.showBroken(on: view)
     }
+
+    func didDecideWelcomeBack() {
+        wireframe.showWelcomeBack(on: view)
+    }
 }

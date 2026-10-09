@@ -43,6 +43,8 @@ protocol RootWireframeProtocol: AnyObject {
     )
     func showBroken(on view: UIWindow)
     func showPincodeSetup(on view: UIWindow)
+    /// Keychain items from an earlier install, and no wallet database.
+    func showWelcomeBack(on view: UIWindow)
 }
 
 protocol RootInteractorInputProtocol: AnyObject {
@@ -57,6 +59,7 @@ protocol RootInteractorOutputProtocol: AnyObject {
     func didDecideLocalAuthentication()
     func didDecideBroken()
     func didDecidePincodeSetup()
+    func didDecideWelcomeBack()
 }
 
 protocol RootPresenterFactoryProtocol: AnyObject {

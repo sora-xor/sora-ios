@@ -145,6 +145,8 @@
 		030CCAD1D9C52DEA71A3236A /* PriceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666CBC929056E420098F4AC /* PriceCell.swift */; };
 		033E33E64EC2D97F6E9D5849 /* SSFUtils in Frameworks */ = {isa = PBXBuildFile; productRef = 74E247FA60FD5E8357238C87 /* SSFUtils */; };
 		0361483F5A8B240B8AA27B61 /* InconsistentStateMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */; };
+		2CDD62BDF4AFAF446E92DEBD /* WalletRecoveryOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */; };
+		B1C960879F03A1D2F017E2D0 /* WalletKeySafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5851377C99649922C92E298 /* WalletKeySafety.swift */; };
 		038D2D64AF0217B1612DCB80 /* InputPincodePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3662C4B32987C6B1002FABC8 /* InputPincodePresenter.swift */; };
 		039D890FED219D3D413319B7 /* FarmDetailsViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6EA42B1CD6B000002EE3 /* FarmDetailsViewModelProtocol.swift */; };
 		03DA114BB22C43223D92D137 /* AssetTransactionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FAE2BA05B57005A44BC /* AssetTransactionData.swift */; };
@@ -1178,6 +1180,8 @@
 		60A0F95CB5704874E84558F2 /* RuntimeSyncEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B498286F019500A472E2 /* RuntimeSyncEvents.swift */; };
 		60A8E95F793B09B9B0926B4F /* Cuckoo in Frameworks */ = {isa = PBXBuildFile; productRef = AD598849D4B70320914B8CF0 /* Cuckoo */; };
 		60AAFDC9270EEEDB00916408 /* InconsistentStateMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */; };
+		484E6D59134A9EEDE73C1355 /* WalletRecoveryOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */; };
+		9B5D6B7335ECE0E900A6903C /* WalletKeySafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5851377C99649922C92E298 /* WalletKeySafety.swift */; };
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
 		60CE93F74051F6FE1983A4C1 /* ChainStorage+Decodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497DFC25EF925900FD4F14 /* ChainStorage+Decodable.swift */; };
 		6160CCA9938E7A0197866DF0 /* QRCommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CEAD882B94938900D532E0 /* QRCommon.swift */; };
@@ -3228,6 +3232,8 @@
 		605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeumorphismButton.swift; sourceTree = "<group>"; };
 		605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = NeomorphismButton.xib; sourceTree = "<group>"; };
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
+		96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletRecoveryOptions.swift; sourceTree = "<group>"; };
+		D5851377C99649922C92E298 /* WalletKeySafety.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletKeySafety.swift; sourceTree = "<group>"; };
 		60AAFDC6270EEEDB00916408 /* Migrating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Migrating.swift; sourceTree = "<group>"; };
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
 		7A19A88A0B3814538E7C55BA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -6131,6 +6137,8 @@
 				94D4B66328C0B7DB007F98EB /* StorageMigrator+Sync.swift */,
 				94D4B66128C0AC6A007F98EB /* UserStorageVersion.swift */,
 				60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */,
+				96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */,
+				D5851377C99649922C92E298 /* WalletKeySafety.swift */,
 				60AAFDC6270EEEDB00916408 /* Migrating.swift */,
 				9447675528D9FADC00EC8F74 /* SelectedAccountMigrationPolicy.swift */,
 				9447675328D9F9E400EC8F74 /* SelectedAccountMigration.xcmappingmodel */,
@@ -8417,6 +8425,8 @@
 				022C4556220F4804005B6FEC /* Withable.swift in Sources */,
 				364BB46C292A3B9500DE90A6 /* ConfirmSupplyLiquidityViewModel.swift in Sources */,
 				60AAFDC9270EEEDB00916408 /* InconsistentStateMigrator.swift in Sources */,
+				484E6D59134A9EEDE73C1355 /* WalletRecoveryOptions.swift in Sources */,
+				9B5D6B7335ECE0E900A6903C /* WalletKeySafety.swift in Sources */,
 				94497DCA25EF89A700FD4F14 /* SlashingSpans.swift in Sources */,
 				026AEA1B21A7CB46002EEB67 /* ErrorPresentable+AlertText.swift in Sources */,
 				36CEAD892B94938900D532E0 /* QRCommon.swift in Sources */,
@@ -9614,6 +9624,8 @@
 				14CFD5A98FE1C68CA3DC9EE5 /* Withable.swift in Sources */,
 				DE61FBCF3091B5900FF73BD4 /* ConfirmSupplyLiquidityViewModel.swift in Sources */,
 				0361483F5A8B240B8AA27B61 /* InconsistentStateMigrator.swift in Sources */,
+				2CDD62BDF4AFAF446E92DEBD /* WalletRecoveryOptions.swift in Sources */,
+				B1C960879F03A1D2F017E2D0 /* WalletKeySafety.swift in Sources */,
 				AE3E6321A8175FC40F9DEF8F /* SlashingSpans.swift in Sources */,
 				9E1F1853AF8ABC260BAC1EAB /* ErrorPresentable+AlertText.swift in Sources */,
 				6160CCA9938E7A0197866DF0 /* QRCommon.swift in Sources */,
