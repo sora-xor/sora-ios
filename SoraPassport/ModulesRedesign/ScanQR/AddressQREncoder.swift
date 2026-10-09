@@ -1,6 +1,5 @@
 import Foundation
 import IrohaCrypto
-import SSFQRService
 
 open class AddressQREncoder: AddressQREncodable {
     let separator: String
