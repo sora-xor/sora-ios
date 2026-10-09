@@ -128,3 +128,96 @@ existing wallet:
       binaries remain in the public git history. `MPQRCoreSDK.xcframework`
       is also still in `VendorPackages/shared-features-spm/Binaries`, but it
       is no longer linked or shipped.
+
+## i3: Live-runtime signing, indexer tolerance, flags, version, privacy
+
+### Archive and build settings
+
+- [ ] Build number: pass `SORA_IOS_BUILD_NUMBER=<YYYYMMDDNN>` (environment
+      or build setting) to `xcodebuild archive`; `CURRENT_PROJECT_VERSION`
+      is derived from it. It must be greater than `2026091402` and greater
+      than every earlier 3.9.0 upload. Without it, the default is
+      `2026101001` (fine for the first candidate only).
+- [ ] Google Sign-In client (keeps existing Google Drive backups visible):
+      the archive job must supply `SORA_GOOGLE_TOKEN_DEV` and
+      `SORA_GOOGLE_URL_SCHEME_DEV` with exactly the values App Store 3.8.6
+      shipped (the Jenkins credential of that name, or `env-vars.sh` on the
+      build machine). A Release archive fails without them.
+      - Verify once: compare `GIDClientID` and `CFBundleURLTypes[0]` of the
+        3.9.0 archive with the 3.8.6 IPA
+        (`unzip -p SORA.ipa 'Payload/*.app/Info.plist' | plutil -p -`).
+        They must be identical.
+      - Do not set `SORA_GOOGLE_TOKEN` or `SORA_IOS_GOOGLE_TOKEN_PROD` to a
+        different client; the build fails if they differ.
+- [ ] Do not pass `SORA_EVIDENCE_HARNESS_CONDITION` to the App Store
+      archive. Check that `strings Payload/SoraPassport.app/SoraPassport |
+      grep keychain-baseline-v3.sealed` prints nothing.
+- [ ] Migration-evidence QA builds (`SoraPassportMigrationEvidence*`
+      schemes, Release configuration) now need
+      `SORA_EVIDENCE_HARNESS_CONDITION=SORA_MIGRATION_EVIDENCE_HARNESS` on
+      the command line. Such builds must never be uploaded.
+- [ ] The archive's `Info.plist` has no `iroha`/`irohaconnect` URL scheme and
+      the app bundle has no `akk.lproj` or `egy-Egyp.lproj`. CI checks both on
+      its fresh Release build. A local incremental build can keep stale
+      `.lproj` folders from older builds, so archive from a clean build
+      folder.
+
+### App Store Connect
+
+- [ ] App Privacy answers: `PrivacyInfo.xcprivacy` now declares crash data
+      and other diagnostic data (Crashlytics, app functionality), and product
+      interaction and device ID (Firebase Analytics automatic collection,
+      analytics). None of it is linked to identity or used for tracking.
+      Generate the Privacy Report from the archive (Organizer > Generate
+      Privacy Report) and make the App Privacy answers match it. They should
+      match the 3.8.6 answers, minus any SORA Card/KYC data (see i2).
+- [ ] Watch the upload email for ITMS-91053 (missing required-reason
+      declarations) and ITMS-91061 (SDK without a privacy manifest; the
+      statically linked Kingfisher 6.3.1 and Starscream 4.0.12 have none).
+      The app manifest covers their API use; if Apple still flags them,
+      upgrade them or add manifests.
+- [ ] Review notes: prediction markets, the Taira testnet and IrohaConnect
+      are not part of this version.
+
+### Release day
+
+- [ ] Before submitting, run the live signing test once more against
+      mainnet. A runtime upgrade happened three times in September/October.
+      `TEST_RUNNER_SORA_LIVE_NETWORK_TESTS=1 xcodebuild test -project
+      SoraPassport.xcodeproj -scheme SoraPassport -destination
+      'platform=iOS Simulator,name=<iPhone>' -only-testing:SoraPassportTests/Sora2MainnetLiveSigningTests`.
+      It must end with "rejected 1010 Inability to pay some fees". If it
+      fails with `unresolvedType`, a runtime upgrade renamed a type that the
+      bundled `runtime-sora.json` must alias (as was done for `Index`).
+
+### Device QA
+
+- [ ] Over an existing 3.8.6 wallet with a small XOR balance: open Send, wait
+      for the network fee, send a small amount to your own second account,
+      and check it in the history and on the explorer. Repeat a swap.
+- [ ] Share a receive QR code and choose Save Image: the permission prompt
+      shows "SORA Wallet saves a QR code image to your photos…" (Japanese on
+      a Japanese phone) and the image is saved.
+- [ ] Scan a QR code from a photo: the prompt shows the new photo-library
+      text.
+- [ ] Settings shows no "Test networks / Taira" section. Explore shows no
+      "Prediction markets" button. The account header shows no network
+      button. Opening `irohaconnect://connect?...` from Safari does not open
+      the app.
+- [ ] Friends screen: referral rewards load (or show an empty list).
+
+### Not done on purpose / open (owner decisions)
+
+- [ ] History: the deployed PI public query plan allows history filters
+      only on the exact signer `address`. The app's filter (signer OR
+      `dataFrom` OR `dataTo`, so that incoming transfers appear) is rejected,
+      so Activity shows its "could not load" state on the live indexer. A
+      signer-only fallback would hide incoming transfers, so it was not
+      added. Indexer owners: deploy a plan that indexes `dataTo` (receiver),
+      or decide that a signer-only history is acceptable.
+- [ ] Polkamarkt keeps its runtime-130 contract pins (mutations are compiled
+      off and the feature is hidden). Re-qualify against the live runtime
+      before enabling it.
+- [ ] FirebaseAnalytics stays linked (no code calls it; automatic collection
+      runs). Removing it would change the App Privacy answers. Product and
+      privacy owner to decide.

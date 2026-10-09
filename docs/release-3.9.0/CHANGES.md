@@ -274,3 +274,215 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   launches to onboarding with no crash.
 - Not run here: a manual QR round trip on devices (needs a wallet and a
   camera). It is in RELEASE-CHECKLIST.md.
+
+## i3: Live-runtime signing, indexer tolerance, flags, version, privacy
+
+### Why
+
+- Every SORA2 transaction failed on mainnet. The app accepted only runtime
+  130 (spec and transaction version 130 plus one pinned metadata hash) in
+  six places. Mainnet moved to 132 on about 28 September and to 133 (transaction
+  version 131) on about 7 October. Fee estimates, transfers, swaps, referral
+  and claim calls all stopped, the new runtime metadata was never stored, and
+  the runtime snapshot was never rebuilt.
+- The deployed PI indexer (`pi.soramitsu.io`) can lag behind the schema the
+  app expects. It may reject the whole `mobileConfig` query when it does not
+  know the feature-flag fields, and its public query plan rejects referrer
+  rewards ordered by timestamp.
+- Taira testnet, Polkamarkt and the Nexus portfolio were visible by default
+  in production. IrohaConnect (a new pairing and signing deep link) was
+  enabled.
+- Version 3.8.7 already has TestFlight builds. Two tester-only locales
+  (Old Akkadian, Middle Egyptian) were in the production language picker,
+  and `egy-Egyp` triggered ITMS-90176.
+- The QA migration-evidence harness, which can read every wallet key item,
+  was compiled into App Store builds. The privacy manifest left out
+  required-reason APIs that the app uses. A photo-library permission string
+  was missing.
+- Release builds could silently switch to a different Google Sign-In client,
+  which would hide existing Google Drive backups.
+
+### What changed
+
+**Signing against the live chain runtime** (`2535b6a3`)
+
+- Runtime admission (`ReviewedSoraRuntimeSnapshotAdmission.validate`, used
+  by the runtime sync service, the snapshot factory and the hot-boot factory)
+  accepts any SORA2 mainnet runtime at or above the reviewed floor (spec
+  130). The metadata bytes must declare, in their own `System.Version`
+  constant, the spec name `sora-substrate` and exactly the spec and
+  transaction versions they are stored under. The chain is still pinned by
+  genesis hash, and the type-registry pins are unchanged. Metadata for
+  runtime 133 is now stored and the snapshot is rebuilt.
+- Before encoding any SORA2 extrinsic (fee estimate, prepare, submit), the
+  extrinsic service reads `chain_getRuntimeVersion` and the node's metadata
+  from the same live engine that supplies the nonce, era and genesis and
+  receives the signed bytes. The metadata is fetched once per runtime
+  version per process, and it is cached only after its `System.Version`
+  matches the reported version. `Sora2LiveRuntimeValidator` (modelled on
+  Android's `requireMutationRuntimeIdentity`, without its runtime-130 block)
+  requires the local runtime to match the live spec version, transaction
+  version and metadata hash.
+  - If the app's metadata is behind a runtime upgrade, nothing is signed.
+    The error is `runtimeUpgradeInProgress`, and the runtime sync service is
+    asked to fetch the live runtime. If the metadata differs for the same
+    version, the stored copy is replaced only after the new download passes
+    admission; it is never deleted first.
+  - Send screens show a calm message in English or Japanese: "The SORA
+    network was just upgraded. The app is updating its network data. Please
+    try again in a few seconds."
+- Pending-transaction recovery: recovery contexts accept any runtime from
+  the floor up, so contexts written at runtime 130 stay valid. The status
+  reconciler no longer uses the Polkamarkt runtime pin. It decodes events
+  with the runtime that produced the inclusion block: the current snapshot
+  when it is that exact, proven runtime, otherwise that block's own
+  metadata. One entry that cannot be resolved yet no longer blocks the
+  others.
+- The runtime-130 pins remain only for Polkamarkt, whose mutations stay
+  compiled off.
+- `runtime-sora.json` gains `"Index": "u32"`. Runtime 133 renamed the nonce
+  type to `Nonce`, and the encoder failed with `unresolvedType("Index")`.
+  The compact encoding of a nonce does not depend on its integer width, so
+  bytes for earlier runtimes are unchanged. The reviewed size and SHA-256
+  pins for this bundled file are updated (136,971 bytes, `7a96f47a…`).
+- Wallet keys, addresses and derivation are not touched. sr25519, SS58
+  prefix 69, genesis pinning and the production signing path are unchanged.
+
+**PI indexer tolerance** (`2ac54ecc`, `b46970e7`)
+
+- `mobileConfig`: when the deployed schema rejects the feature-flag query
+  (GraphQL errors with HTTP 200, or HTTP 400), the app reads the base fields
+  (`blockExplorerUrl`, `substrateTypesUrl`, `nodes`) with a
+  schema-compatible query and turns every optional feature off. Network and
+  server failures are not hidden: the app quietly keeps the bundled nodes
+  and types, as before. No error is shown.
+- Referrer rewards: if ordering by timestamp is rejected, the app reloads
+  them ordered by ID. Rewards are summed per referral, so the order does not
+  matter.
+- The live indexer was checked on 2026-10-10. It now serves the full
+  `mobileConfig`, but it also returns `polkamarktVisible`, `nexusAvailable`
+  and `tairaDefaultVisible` as `true`. The production surface policy below
+  keeps those features hidden in App Store builds anyway.
+
+**Production defaults and surfaces** (`2c9c1ad0`)
+
+- When nothing is stored, Taira, Nexus and Polkamarkt are now off until PI
+  publishes them. Before, all three were on, which applied to every App
+  Store 3.8.6 user.
+- `ProductSurfacePolicy` (compile-time, `F_RELEASE`): App Store builds never
+  show the Taira testnet switch, Polkamarkt (Explore button, tab push and
+  More menu route) or the Nexus portfolio (account network button, wallet
+  route and More menu route). It applies only at these UI entry points.
+  `NexusNetworkAdmissionPolicy`, derivation, migration and
+  pending-transaction reconciliation are unchanged.
+- IrohaConnect: `canHandle` returns false in App Store builds, so links and
+  QR codes are ignored. The `iroha`/`irohaconnect` URL schemes are no longer
+  in `Info.plist`. The new script `register-irohaconnect-url-schemes.sh`
+  adds them to the built Info.plist for non-Release configurations only.
+  The Google Sign-In URL type stays at index 0.
+
+**Locales** (`55516b6a`)
+
+- `akk.lproj`, `egy-Egyp.lproj`, the Noto Sans Egyptian Hieroglyphs font and
+  its licence, the font's `UIAppFonts` entry, project references, the
+  picker's special titles, the generator script and the two localization
+  notes are removed. SoraUIKit no longer adds the hieroglyph font to every
+  font's cascade list.
+- A tester whose stored language is a removed locale gets the best shipped
+  device language at startup, or English.
+
+**Version** (`f04967eb`)
+
+- `MARKETING_VERSION = 3.9.0` in all five xcconfigs.
+- `CURRENT_PROJECT_VERSION = $(SORA_IOS_BUILD_NUMBER:default=2026101001)`
+  in each xcconfig. CI passes `SORA_IOS_BUILD_NUMBER` as an environment
+  variable or build setting. The ten target-level `CURRENT_PROJECT_VERSION
+  = 4` overrides are removed.
+
+**Migration-evidence harness** (`15510df2`)
+
+- The harness is compiled only under `SORA_MIGRATION_EVIDENCE_HARNESS`.
+  Debug, Dev, Test and Staging set it through
+  `SORA_EVIDENCE_HARNESS_CONDITION`; Release does not.
+- Release builds get an inert stub: `bootstrap()` is always `.inactive`, and
+  every hook does nothing. Call sites are unchanged.
+
+**Privacy** (`e6584e45`)
+
+- `PrivacyInfo.xcprivacy` declares FileTimestamp `C617.1`, DiskSpace
+  `E174.1` and SystemBootTime `35F9.1`, in addition to UserDefaults
+  `CA92.1`. Collected data now lists crash and diagnostic data (Crashlytics)
+  and product interaction and device ID (Firebase Analytics automatic
+  collection). None of it is linked to the user or used for tracking.
+- The embedded `sorawallet.framework` has its own manifest (UserDefaults,
+  SystemBootTime).
+- `Info.plist` adds `NSPhotoLibraryAddUsageDescription`, which the share
+  sheet's Save Image needs. The camera, Face ID and photo-library strings are
+  clearer; Face ID unlocks the wallet and is not only for IrohaConnect. The
+  English and Japanese `InfoPlist.strings`, which override Info.plist, use
+  the same text. Other locales keep their existing translations. The
+  microphone string had already been removed in i2.
+
+**Google Sign-In continuity** (`1d9eaf13`)
+
+- For Release, `inject-google-signin-info-plist.sh` takes `GIDClientID` and
+  the callback scheme only from `SORA_GOOGLE_TOKEN_DEV` and
+  `SORA_GOOGLE_URL_SCHEME_DEV`, the build settings that App Store 3.8.6
+  used. It fails if another Google setting holds a different client, fails
+  an archive when those settings are missing, and checks that the scheme is
+  the reversed client ID. A plain Release build without them (the CI compile
+  check) warns and must not be distributed.
+
+**CI** (`.github/workflows/ios_ci.yml`)
+
+- The live-network test class is skipped in both test jobs.
+- The Release bundle check now also requires version 3.9.0, a numeric build
+  number above 2026091402, no harness code, no IrohaConnect URL scheme, no
+  removed locale, the four required-reason categories, the sorawallet
+  manifest, the photo-library add string and no microphone string.
+
+### User-visible effects
+
+- Sending, swapping and every other SORA2 transaction work again on the
+  current mainnet runtime, and keep working across future runtime upgrades
+  without an app update. Right after an upgrade, a send can briefly show
+  "The SORA network was just upgraded…"; trying again a few seconds later
+  works.
+- Prediction markets, the Taira testnet switch and the network portfolio
+  are not shown in the App Store app. IrohaConnect links do not open it.
+- The language list no longer offers Old Akkadian or Middle Egyptian.
+  Testers who had chosen one see their device language, or English.
+- Clearer permission prompts for camera, Face ID and photos. Saving a QR
+  code image from the share sheet now asks for permission instead of
+  failing.
+- Referral rewards load again on the Friends screen.
+- No change to wallets, keys, addresses or stored account data.
+
+### Verification (Xcode 27.0, SORA-Release-A, iOS 27)
+
+- New tests:
+  - `Sora2LiveRuntimeTests` (11) use real mainnet runtime 133 metadata
+    (`Fixtures/Modernization/sora2-metadata-spec133.scale`, SHA-256
+    `e7b2459c…`, the hash the audit reported). They cover admission,
+    version binding, the metadata round trip (the re-encoded metadata hash
+    equals the node's), live validation, the recovery-context floor,
+    transfer encoding and the translated message.
+  - `PIMobileConfigFallbackTests` (6) drive the PI client through a stubbed
+    URL protocol: old schema, HTTP 400, current schema, unavailable PI, and
+    the referrer-reward order fallback.
+  - `ProductSurfacePolicyTests`, `ShippedLocalizationTests` and
+    `PrivacyDeclarationTests` run in Debug and in the Release configuration.
+- Live-network test `Sora2MainnetLiveSigningTests`, run on the simulator on
+  2026-10-10 against `wss://ws.mof.sora.org` with
+  `TEST_RUNNER_SORA_LIVE_NETWORK_TESTS=1`. It uses the app's admission,
+  snapshot and bundled types, live-runtime validator, extrinsic assembly and
+  sr25519 signer, with a throwaway in-memory key, never a user key. Result:
+  live runtime spec 133, transaction version 131, metadata
+  `ab22a2d4…` (hex form) matching the app's computation;
+  `payment_queryInfo` decoded (partial fee 100018412589707326, about 0.1
+  XOR), `payment_queryFeeDetails` decoded into the app's model with the
+  same fee; `author_submitExtrinsic` rejected with exactly 1010 "Invalid
+  Transaction: Inability to pay some fees (e.g. account balance too low)".
+  This means the signature, genesis, era and runtime versions were all
+  accepted. The test is skipped unless the variable is set, and CI skips
+  the class.
