@@ -141,6 +141,12 @@ private struct UserStorageMigrationAccount: Codable, Equatable {
     let hasEntropy: Bool
     let hasSeed: Bool
     let derivationPath: String?
+    /// True when no material on this device proves the account (missing or
+    /// not matching). The account stays read-only; its Keychain items are not
+    /// changed. Optional so manifests written by earlier builds still decode.
+    var signingUnavailable: Bool? = nil
+
+    var isSigningUnavailable: Bool { signingUnavailable == true }
 
     func replacingSelection(_ isSelected: Bool) -> Self {
         Self(
@@ -154,7 +160,8 @@ private struct UserStorageMigrationAccount: Codable, Equatable {
             hasSecretKey: hasSecretKey,
             hasEntropy: hasEntropy,
             hasSeed: hasSeed,
-            derivationPath: derivationPath
+            derivationPath: derivationPath,
+            signingUnavailable: signingUnavailable
         )
     }
 }
@@ -193,6 +200,8 @@ private struct UserStorageMigrationManifest: Codable, Equatable {
                     source.hasEntropy == destination.hasEntropy &&
                     source.hasSeed == destination.hasSeed &&
                     source.derivationPath == destination.derivationPath
+                // `signingUnavailable` is a projection of Keychain state, not
+                // database inventory; a resumed attempt does not compare it.
             }
     }
 }
@@ -485,6 +494,92 @@ final class UserStorageMigrator {
         defer { lease.release() }
         let (marker, gate) = try missingKeyRecoveryGate(baseURL: baseURL)
         let accounts = try readMissingKeyRecoveryAccounts(gate: gate)
+        try addMissingMaterial(
+            to: accounts, address: address, expectedAccount: expectedAccount,
+            entropy: entropy, rawSeed: rawSeed, secret: secret,
+            derivationPath: derivationPath, gate: gate,
+            requireAuthority: { try marker.requireUnchangedForStartupVerification(self.settings) },
+            checkpoint: checkpoint
+        )
+        // Never delete a proven recovery source after a later interruption.
+    }
+
+    /// Restores the keys of one read-only account while the app is in normal
+    /// use (no recovery marker): for example a new iPhone where the database
+    /// came from an iCloud backup but `ThisDeviceOnly` keys did not. Add-only,
+    /// and only when the account has no `-entropy`, `-seed` or `-secretKey`
+    /// item. The network model is rebuilt so the account can sign again.
+    func restoreKeysForReadOnlyAccount(
+        address: String, expectedAccount: AccountItem?, entropy: Data?, rawSeed: Data?,
+        secret: Data?, derivationPath: String,
+        networkStore: WalletNetworkStore? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        try recoveryGate.requireMutableWalletAccess()
+        let accounts = try readMissingKeyRecoveryAccounts(gate: recoveryGate)
+        try addMissingMaterial(
+            to: accounts, address: address, expectedAccount: expectedAccount,
+            entropy: entropy, rawSeed: rawSeed, secret: secret,
+            derivationPath: derivationPath, gate: recoveryGate,
+            requireAuthority: { try self.recoveryGate.requireMutableWalletAccess() },
+            checkpoint: {}
+        )
+        // Rebuild the network model from the database so the account's
+        // read-only placeholder is replaced by its proven source.
+        let current = try verifiedCurrentAccounts()
+        let selected = try SelectedWalletSettings.resolveSelection(
+            accounts: current,
+            legacySelectedAddress: settings.value(of: AccountItem.self,
+                for: SettingsKey.selectedAccount.rawValue)?.identifier)
+        let store = try networkStore ?? WalletNetworkStore(recoveryGate: recoveryGate)
+        try WalletNetworkModelMigrator(
+            keystore: keystore, store: store, settings: settings,
+            lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: recoveryGate),
+            recoveryGate: recoveryGate
+        ).migrate(accounts: current, selectedAddress: selected?.address, lifecycleLease: nil)
+    }
+
+    /// Phrase form of `restoreKeysForReadOnlyAccount`.
+    func restoreKeysForReadOnlyAccount(
+        address: String, mnemonic phrase: String, derivationPath: String,
+        networkStore: WalletNetworkStore? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
+            fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+            throw WalletNetworkMigrationError.invalidMnemonic
+        }
+        var entropy = mnemonic.entropy()
+        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        try restoreKeysForReadOnlyAccount(address: address, expectedAccount: nil, entropy: entropy,
+            rawSeed: nil, secret: nil, derivationPath: derivationPath,
+            networkStore: networkStore, lifecycleCoordinator: lifecycleCoordinator)
+    }
+
+    /// Every account row of the installed database (public metadata only),
+    /// readable while a retryable recovery marker is set.
+    func recoveryInventory(
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws -> [AccountItem] {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let (marker, gate) = try missingKeyRecoveryGate(baseURL: baseURL)
+        let accounts = try readMissingKeyRecoveryAccounts(gate: gate)
+        try marker.requireUnchangedForStartupVerification(settings)
+        return accounts
+    }
+
+    private func addMissingMaterial(
+        to accounts: [AccountItem], address: String, expectedAccount: AccountItem?,
+        entropy: Data?, rawSeed: Data?, secret: Data?, derivationPath: String,
+        gate: WalletRecoveryCapabilityGate,
+        requireAuthority: () throws -> Void,
+        checkpoint: () throws -> Void
+    ) throws {
         guard let account = accounts.first(where: { $0.address == address }),
               settings.bool(for: "wallet.watchOnly.\(address)") != true,
               entropy != nil || rawSeed != nil || secret != nil else {
@@ -518,12 +613,12 @@ final class UserStorageMigrator {
             publicKey: account.publicKeyData, cryptoType: account.cryptoType,
             networkType: account.networkType, derivationPath: path,
             entropy: entropy, rawSeed: rawSeed, secret: secret, recoveryGate: gate)
-        try marker.requireUnchangedForStartupVerification(settings)
+        try requireAuthority()
         if existingPath == nil, let path {
             try keystore.addKey(Data(path.utf8), with: KeystoreTag.deriviationTagForAddress(address))
         }
         try checkpoint()
-        try marker.requireUnchangedForStartupVerification(settings)
+        try requireAuthority()
         try gate.requireMutableWalletAccess()
         if let entropy {
             try keystore.addKey(entropy, with: KeystoreTag.entropyTagForAddress(address))
@@ -532,7 +627,6 @@ final class UserStorageMigrator {
         } else if let secret {
             try keystore.addKey(secret, with: KeystoreTag.secretKeyTagForAddress(address))
         }
-        // Never delete a proven recovery source after a later interruption.
     }
 
     private func missingKeyRecoveryGate(baseURL: URL?) throws
@@ -2226,7 +2320,14 @@ final class UserStorageMigrator {
                     var secret = try WalletSecretDiagnostics.observe(.scopedSecret, into: observation) {
                         try keystore.loadIfKeyExists(KeystoreTag.secretKeyTagForAddress(address))
                     }
-                    var entropy = try fetchEntropyForAddress(address, diagnostic: observation)
+                    var entropy: Data?
+                    do {
+                        entropy = try fetchEntropyForAddress(address, diagnostic: observation)
+                    } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                        // Retained global entropy that does not prove this
+                        // address belongs to another account. Leave it as is.
+                        entropy = nil
+                    }
                     var seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
                         try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
                     }
@@ -2261,25 +2362,39 @@ final class UserStorageMigrator {
                         // signer or discard either side of the evidence during migration.
                         throw UserStorageMigrationError.accountInventoryMismatch
                     }
-                    guard
-                        secret != nil ||
-                            entropy != nil ||
-                            seed != nil ||
-                            isExplicitWatchOnly
-                    else {
-                        throw UserStorageMigrationError.missingWalletSecret(address)
+                    // One account without provable keys must not lock out the
+                    // others. It is recorded as read-only and its Keychain
+                    // items, if any, stay untouched. Keychain read errors were
+                    // thrown above and are retried, never absorbed here.
+                    var signingUnavailable = false
+                    if isExplicitWatchOnly {
+                        try LegacySoraIdentityValidator.validate(
+                            address: address, publicKey: publicKey, cryptoType: cryptoType,
+                            networkType: networkType, derivationPath: derivation,
+                            entropy: nil, rawSeed: nil, secret: nil, recoveryGate: recoveryGate
+                        )
+                    } else if secret == nil, entropy == nil, seed == nil {
+                        signingUnavailable = true
+                    } else {
+                        do {
+                            try LegacySoraIdentityValidator.validate(
+                                address: address,
+                                publicKey: publicKey,
+                                cryptoType: cryptoType,
+                                networkType: networkType,
+                                derivationPath: derivation,
+                                entropy: entropy,
+                                rawSeed: seed,
+                                secret: secret,
+                                recoveryGate: recoveryGate
+                            )
+                        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                            signingUnavailable = true
+                        }
                     }
-                    try LegacySoraIdentityValidator.validate(
-                        address: address,
-                        publicKey: publicKey,
-                        cryptoType: cryptoType,
-                        networkType: networkType,
-                        derivationPath: derivation,
-                        entropy: entropy,
-                        rawSeed: seed,
-                        secret: secret,
-                        recoveryGate: recoveryGate
-                    )
+                    if signingUnavailable {
+                        Logger.shared.warning("Wallet account inventory: one account is read-only on this device")
+                    }
 
                     let selectedPropertyExists = object.entity.propertiesByName["isSelected"] != nil
                     let isSelected: Bool
@@ -2300,7 +2415,8 @@ final class UserStorageMigrator {
                         hasSecretKey: secret != nil,
                         hasEntropy: entropy != nil,
                         hasSeed: seed != nil,
-                        derivationPath: derivation
+                        derivationPath: derivation,
+                        signingUnavailable: signingUnavailable ? true : nil
                     )
                 }
             } catch {
@@ -2405,6 +2521,10 @@ final class UserStorageMigrator {
                             !account.hasSeed)
                 else {
                     throw UserStorageMigrationError.accountInventoryMismatch
+                }
+                if account.isSigningUnavailable {
+                    // Read-only on this device; nothing to re-read.
+                    continue
                 }
                 guard
                     account.hasSecretKey ||

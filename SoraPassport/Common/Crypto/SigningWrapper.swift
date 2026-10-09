@@ -40,6 +40,23 @@ enum SigningWrapperError: Error {
     case missingNetworkSnapshot
     case identityMismatch
     case signatureVerificationFailed
+    /// No key on this device proves the account (missing, for example on a
+    /// new iPhone, or not matching). The account is read-only here. Nothing
+    /// was signed and no Keychain item was changed.
+    case keysNotOnThisDevice
+}
+
+extension SigningWrapperError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .keysNotOnThisDevice:
+            return WalletUX.text(
+                "This account's keys are not on this iPhone, so it can't send. Your funds are not affected. Restore the account with its recovery phrase or Google Drive backup to send from it."
+            )
+        default:
+            return nil
+        }
+    }
 }
 
 /// Resolves legacy SORA2 signing material without writing or normalizing the
@@ -244,11 +261,17 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         try WalletRecoveryCapabilityGate.shared
             .requireMutableWalletAccess()
         try validateSelectedSora2Identity()
-        guard var secretKey = try LegacySoraSecretResolver.resolve(
-            account: account,
-            keystore: keystore
-        ) else {
-            throw SigningWrapperError.missingSecretKey
+        let resolved: Data?
+        do {
+            resolved = try LegacySoraSecretResolver.resolve(
+                account: account,
+                keystore: keystore
+            )
+        } catch SigningWrapperError.identityMismatch {
+            throw SigningWrapperError.keysNotOnThisDevice
+        }
+        guard var secretKey = resolved else {
+            throw SigningWrapperError.keysNotOnThisDevice
         }
         defer {
             secretKey.resetBytes(
@@ -296,8 +319,14 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
             throw SigningWrapperError.missingSelectedAccount
         }
 
+        let snapshot = try WalletNetworkStore().load()
+        if snapshot?.wallets.first(where: { $0.id == account.address })?
+            .secretSource == .signingUnavailable {
+            // Read-only on this device. Do not touch the Keychain.
+            throw SigningWrapperError.keysNotOnThisDevice
+        }
         guard
-            let snapshot = try WalletNetworkStore().load(),
+            let snapshot,
             snapshot.schemaVersion ==
                 WalletNetworkSnapshot.currentSchemaVersion,
             snapshot.selectedWalletId == account.address,
@@ -333,24 +362,30 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
             entropy = nil
             rawSeed = nil
         }
-        try LegacySoraIdentityValidator.validate(
-            address: account.address,
-            publicKey: account.publicKeyData,
-            cryptoType: account.cryptoType,
-            networkType: account.networkType,
-            derivationPath:
-                try keystore.fetchDeriviationForAddress(account.address),
-            entropy: entropy,
-            rawSeed: rawSeed,
-            secret: secret,
-            recoveryGate: .shared
-        )
         guard
             secret != nil ||
                 entropy != nil ||
                 rawSeed != nil
         else {
-            throw SigningWrapperError.missingSecretKey
+            throw SigningWrapperError.keysNotOnThisDevice
+        }
+        do {
+            try LegacySoraIdentityValidator.validate(
+                address: account.address,
+                publicKey: account.publicKeyData,
+                cryptoType: account.cryptoType,
+                networkType: account.networkType,
+                derivationPath:
+                    try keystore.fetchDeriviationForAddress(account.address),
+                entropy: entropy,
+                rawSeed: rawSeed,
+                secret: secret,
+                recoveryGate: .shared
+            )
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            // The stored keys do not prove this account. They stay as they
+            // are; the account is read-only on this device.
+            throw SigningWrapperError.keysNotOnThisDevice
         }
     }
 }
