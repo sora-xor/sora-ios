@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import UIKit
 import RobinHood
 import SoraKeystore
 import SSFUtils
@@ -351,9 +352,35 @@ enum WalletStorageStartupOutcome: Equatable {
 }
 
 enum WalletStorageStartup {
+    /// Runs startup storage checks. A retryable failure (transient Keychain,
+    /// disk or journal error) is retried automatically, up to
+    /// `maximumAttempts` runs in total, before the recovery screen is shown.
+    /// Every retry is the same read-only verification a relaunch performs.
     static func run(
         settings: SettingsManagerProtocol,
         accountCommitRecovery: (() throws -> Void)? = nil,
+        maximumAttempts: Int = 3,
+        retryDelay: (Int) -> Void = { attempt in Thread.sleep(forTimeInterval: 0.3 * Double(attempt)) },
+        migration: () throws -> Void
+    ) -> WalletStorageStartupOutcome {
+        var outcome = runOnce(settings: settings, accountCommitRecovery: accountCommitRecovery,
+                              migration: migration)
+        var attempt = 1
+        while outcome == .recoveryRequired, accountCommitRecovery != nil, attempt < maximumAttempts {
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            guard marker.isRetryableStartupFailure || marker.isLegacyAccountCommitInterruption else { break }
+            retryDelay(attempt)
+            attempt += 1
+            Logger.shared.info("Wallet startup: automatic retry \(attempt) of \(maximumAttempts)")
+            outcome = runOnce(settings: settings, accountCommitRecovery: accountCommitRecovery,
+                              migration: migration)
+        }
+        return outcome
+    }
+
+    private static func runOnce(
+        settings: SettingsManagerProtocol,
+        accountCommitRecovery: (() throws -> Void)?,
         migration: () throws -> Void
     ) -> WalletStorageStartupOutcome {
         WalletStartupDiagnostic.retainSecretChecks(nil)
@@ -552,6 +579,7 @@ final class SplashInteractor: SplashInteractorProtocol {
     private let migrationStateLock = NSLock()
     private var didStartStorageMigration = false
     private var isAwaitingStorageRetry = false
+    private var protectedDataObserver: NSObjectProtocol?
     private let storageMigrationQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.name = "co.jp.soramitsu.sora.storage-migration"
@@ -649,6 +677,29 @@ final class SplashInteractor: SplashInteractorProtocol {
         NexusTransactionRuntime.shared.prepareForWalletStorageMigration()
         Sora2PendingSubmissionRecoveryRuntime.shared
             .prepareForWalletStorageMigration()
+
+        // Wallet keys use WhenUnlockedThisDeviceOnly and the migration files
+        // use complete protection. Before the first unlock (for example a
+        // background or prewarmed launch) both are unreadable; wait instead of
+        // recording a failure.
+        guard UIApplication.shared.isProtectedDataAvailable else {
+            Logger.shared.info("Wallet storage: waiting for the device to be unlocked")
+            protectedDataObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                if let observer = self.protectedDataObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                    self.protectedDataObserver = nil
+                }
+                self.storageMigrationQueue.addOperation { [weak self] in
+                    self?.performStorageMigration()
+                }
+            }
+            return
+        }
 
         storageMigrationQueue.addOperation { [weak self] in
             self?.performStorageMigration()

@@ -1312,9 +1312,15 @@ final class UserStorageMigrator {
     }
 
     private func resumeInterruptedMigrationIfProven() throws {
-        let attempts = try migrationAttempts(in: migrationSafetyDirectory())
+        var attempts = try migrationAttempts(in: migrationSafetyDirectory())
         guard attempts.count <= Self.maximumMigrationAttempts else {
             throw UserStorageMigrationError.interruptedMigration
+        }
+        var setAsideAny = false
+        attempts = try attempts.filter { attempt in
+            let setAside = try setAsideUnverifiedFailedAttemptIfAllowed(attempt)
+            setAsideAny = setAsideAny || setAside
+            return !setAside
         }
         var unfinished: [(URL, UserStorageMigrationJournal)] = []
         for attempt in attempts {
@@ -1338,6 +1344,11 @@ final class UserStorageMigrator {
                  journal.recoveryMarker == migrationRecoveryMarker) {
                 unfinished.append((attempt, journal))
             }
+        }
+        if unfinished.isEmpty, setAsideAny {
+            // The only unfinished attempt failed before its backup copy was
+            // verified, so the live store was never replaced. Start afresh.
+            return
         }
         guard unfinished.count == 1 else {
             throw UserStorageMigrationError.interruptedMigration
@@ -1439,9 +1450,44 @@ final class UserStorageMigrator {
         )
     }
 
+    /// A failed attempt whose backup copy was verified may be re-proved and
+    /// resumed under a retryable startup marker. A failure reason is a fixed
+    /// code; every retryable code qualifies, because the retry re-checks the
+    /// retained backup, the live inventory and every key before continuing.
+    /// A transient failure (I/O, a locked device, a full disk) while copying
+    /// or verifying the backup leaves a failed attempt without verified
+    /// artifacts. The live store is replaced only after that verification, so
+    /// it is unchanged. Under a retryable startup marker such an attempt is
+    /// moved (never deleted) to `WalletMigrationSuperseded/<id>` beside the
+    /// store, and a fresh attempt runs. Returns true if it was moved.
+    private func setAsideUnverifiedFailedAttemptIfAllowed(_ attempt: URL) throws -> Bool {
+        guard migrationRecoveryMarker?.isRetryableStartupFailure == true else { return false }
+        let journalURL = attempt.appendingPathComponent("journal.json")
+        guard pathExistsNoFollow(journalURL),
+              let journal = try? readBoundedJSON(UserStorageMigrationJournal.self, at: journalURL,
+                                                maximumBytes: Self.maximumJournalBytes),
+              journal.migrationID.uuidString == attempt.lastPathComponent,
+              journal.state == .failed,
+              journal.safetyArtifacts == nil,
+              journal.failureReason.map(WalletMigrationRecoveryMarker.retryableStartupFailureCodes.contains) == true,
+              journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker,
+              journal.sourceVersion == compatibleVersionForStoreMetadata(
+                NSPersistentStoreCoordinator.metadata(at: storeURL) ?? [:])?.rawValue,
+              storeBundleIsRegularNoFollow(at: storeURL)
+        else { return false }
+        let supersededRoot = storeURL.deletingLastPathComponent()
+            .appendingPathComponent("WalletMigrationSuperseded", isDirectory: true)
+        try fileManager.createDirectory(at: supersededRoot, withIntermediateDirectories: true)
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        try fileManager.moveItem(at: attempt, to: supersededRoot.appendingPathComponent(attempt.lastPathComponent))
+        Logger.shared.info("Wallet migration outcome: unverified failed attempt set aside; retrying")
+        return true
+    }
+
     private func isRecoverableStartupFailure(_ journal: UserStorageMigrationJournal) -> Bool {
-        migrationRecoveryMarker?.isStartupVerificationFailure == true &&
-            journal.state == .failed && journal.failureReason == "unexpected_failure" &&
+        migrationRecoveryMarker?.isRetryableStartupFailure == true &&
+            journal.state == .failed &&
+            journal.failureReason.map(WalletMigrationRecoveryMarker.retryableStartupFailureCodes.contains) == true &&
             journal.safetyArtifacts?.count == 3 &&
             (journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker)
     }
