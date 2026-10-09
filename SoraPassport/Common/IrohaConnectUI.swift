@@ -12,6 +12,11 @@ final class IrohaConnectCoordinator {
     private init() {}
 
     func canHandle(_ url: URL) -> Bool {
+        // IrohaConnect is not part of App Store builds (3.9.0); links are
+        // ignored there and its URL schemes are not registered.
+        guard ProductSurfacePolicy.acceptsIrohaConnect else {
+            return false
+        }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return false
         }

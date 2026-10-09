@@ -540,8 +540,9 @@ extension SettingsManagerProtocol {
         set { set(value: newValue, for: SettingsKey.walletNetworkStoreVersion.rawValue) }
     }
 
-    /// Taira is on by default for the tester release. Once the user changes
-    /// this value, future remote defaults must not override their choice.
+    /// Taira is off unless the user turns it on, or PI publishes a remote
+    /// default (3.9.0 production default: off). Once the user changes this
+    /// value, future remote defaults must not override their choice.
     var isTairaEnabled: Bool {
         get {
             switch atomicTairaExplicitPreference {
@@ -563,7 +564,7 @@ extension SettingsManagerProtocol {
                 case let .value(remoteDefault):
                     return remoteDefault
                 case .absent:
-                    return true
+                    return false
                 case .malformed:
                     return false
                 }
@@ -587,8 +588,9 @@ extension SettingsManagerProtocol {
         }
     }
 
+    /// Off until PI explicitly publishes `nexusAvailable`.
     var nexusEnabled: Bool {
-        get { bool(for: SettingsKey.nexusEnabled.rawValue) ?? true }
+        get { bool(for: SettingsKey.nexusEnabled.rawValue) ?? false }
         set { set(value: newValue, for: SettingsKey.nexusEnabled.rawValue) }
     }
 
@@ -605,8 +607,9 @@ extension SettingsManagerProtocol {
         set { set(value: newValue, for: SettingsKey.nexusSendsEnabled.rawValue) }
     }
 
+    /// Off until PI explicitly publishes `polkamarktVisible`.
     var polkamarktEnabled: Bool {
-        get { bool(for: SettingsKey.polkamarktEnabled.rawValue) ?? true }
+        get { bool(for: SettingsKey.polkamarktEnabled.rawValue) ?? false }
         set { set(value: newValue, for: SettingsKey.polkamarktEnabled.rawValue) }
     }
 
@@ -754,6 +757,30 @@ final class ProductionRemoteCapabilitySession: @unchecked Sendable {
         stateLock.unlock()
         return permitted
     }
+}
+
+/// Which optional product surfaces a build may show at all. App Store
+/// (Release, `F_RELEASE`) builds hide the Taira testnet switch, Polkamarkt
+/// prediction markets and the Nexus network portfolio, and do not accept
+/// IrohaConnect links, whatever PI or stored settings say. Other builds keep
+/// them for testers; PI and stored settings still decide there.
+///
+/// Apply this only at UI entry points. It must not change runtime, key,
+/// migration or network-admission policy (`NexusNetworkAdmissionPolicy`):
+/// hiding a surface never touches Nexus or Taira journals, and pending
+/// transactions are still reconciled.
+enum ProductSurfacePolicy {
+    #if F_RELEASE
+    static let showsTairaSettings = false
+    static let showsPolkamarkt = false
+    static let showsNexusPortfolio = false
+    static let acceptsIrohaConnect = false
+    #else
+    static let showsTairaSettings = true
+    static let showsPolkamarkt = true
+    static let showsNexusPortfolio = true
+    static let acceptsIrohaConnect = true
+    #endif
 }
 
 enum ProductionMutationQualification {
