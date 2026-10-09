@@ -19,7 +19,8 @@ Human and operations actions for the release. Each task adds its items here.
 - [ ] GitHub branch protection: remove the old required checks
       "Modernization Source Contract", "Full Release XCTest Closure" and
       "Unsigned Release Device Compile". Require "Build and unit tests
-      (simulator)" and "Unsigned Release device compile" from `iOS CI`.
+      (simulator)", "Unit tests, Release configuration (simulator)" and
+      "Unsigned Release device compile" from `iOS CI`.
 - [ ] Confirm that `/Applications/Xcode_27.0.app` exists on the GitHub
       `macos-26` runner image. If it does not, the "Select Xcode" step fails
       and lists the installed versions; set `DEVELOPER_DIR` in
@@ -33,6 +34,10 @@ Human and operations actions for the release. Each task adds its items here.
 
 - [ ] Archive with plain `xcodebuild archive` (or Xcode Organizer). No
       qualification mode variables are needed any more.
+- [ ] Pass `-onlyUsePackageVersionsFromResolvedFile` to `xcodebuild archive`
+      (as CI does) and confirm `git status` shows no change to
+      `Package.resolved` afterwards, so the archive uses the pinned
+      dependency versions that CI tested.
 - [ ] Pass the build number explicitly: `CURRENT_PROJECT_VERSION` must be
       greater than `2026091402` (format `YYYYMMDDNN`, e.g. `2026101001`).
       `MARKETING_VERSION` must be `3.9.0`.
@@ -63,3 +68,9 @@ existing wallet:
       devices).
 - [ ] Google Drive backup: sign in, back up, and restore a backup made by
       3.8.6.
+- [ ] External display: with the wallet open (and with an IrohaConnect
+      session active, if possible), start AirPlay Screen Mirroring or plug
+      in a USB-C/HDMI display. The TV or monitor mirrors the phone; the
+      phone keeps showing and controlling the wallet. Stop mirroring or
+      unplug: the phone is unchanged and the IrohaConnect session is still
+      connected.
