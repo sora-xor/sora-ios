@@ -1,7 +1,8 @@
 name: iOS CI
 
-# Lean CI: build the app, run the unit tests on an iOS simulator, and compile
-# an unsigned Release build for devices. No signing, no uploads, no secrets.
+# Lean CI: build the app and run the unit tests on an iOS simulator in both the
+# Debug and the Release configuration, and compile an unsigned Release build
+# for devices. No signing, no uploads, no secrets.
 
 on:
   pull_request:
@@ -26,6 +27,10 @@ env:
   # If the runner image does not have this path, the "Select Xcode" step lists
   # the installed versions; update this line to the newest 26.x/27.x path.
   DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  # Every build uses exactly the package versions pinned in
+  # SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  # (-onlyUsePackageVersionsFromResolvedFile), so CI never drifts to newer
+  # dependency releases.
   # Simulator model used for tests (needs an iOS 26+ runtime).
   SIMULATOR_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
 
@@ -79,7 +84,8 @@ jobs:
             -scheme SoraPassport \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
-            -derivedDataPath "${RUNNER_TEMP}/DerivedData"
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile
           # Simulator builds are ad-hoc signed ("Sign to Run Locally"), which
           # keeps the Keychain entitlement the wallet tests rely on.
 
@@ -108,6 +114,107 @@ jobs:
         with:
           name: SoraPassportTests-${{ github.sha }}
           path: ${{ runner.temp }}/SoraPassportTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-tests:
+    # The same unit tests in the Release configuration, so code under
+    # `#if F_RELEASE` (genesis pinning, production config and node URLs,
+    # production-only feature policy) is compiled and tested on every change.
+    name: Unit tests, Release configuration (simulator)
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "${DEVELOPER_DIR}" ]; then
+            echo "::error::Pinned Xcode not found at ${DEVELOPER_DIR}. Installed:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          case "$(xcrun --sdk iphonesimulator --show-sdk-version)" in
+            26.*|27.*) ;;
+            *) echo "::error::iOS SDK too old"; exit 1 ;;
+          esac
+
+      - name: Create simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="$(xcrun simctl list runtimes --json | python3 -c '
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)["runtimes"]
+                      if r.get("platform") == "iOS" and r.get("isAvailable")]
+          runtimes.sort(key=lambda r: [int(p) for p in r["version"].split(".")])
+          print(runtimes[-1]["identifier"] if runtimes else "")
+          ')"
+          test -n "${runtime}"
+          udid="$(xcrun simctl create sora-ci-release "${SIMULATOR_DEVICE_TYPE}" "${runtime}")"
+          echo "Simulator ${udid} (${runtime})"
+          echo "SIMULATOR_UDID=${udid}" >> "${GITHUB_ENV}"
+
+      - name: Build Release app and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ENABLE_TESTABILITY lets the tests use @testable import against the
+          # optimized Release build; nothing is signed, archived or uploaded.
+          xcodebuild build-for-testing \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile \
+            ENABLE_TESTABILITY=YES \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Check Release compilation conditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The Release build must carry the production flag (F_RELEASE).
+          grep -q -- '-DF_RELEASE' SoraPassport/Configs/SoraPassport.release.xcconfig
+          settings="$(xcodebuild -showBuildSettings \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile 2>/dev/null)"
+          flags="$(printf '%s\n' "${settings}" | grep -E '^ *OTHER_SWIFT_FLAGS = ' || true)"
+          echo "${flags}"
+          case "${flags}" in
+            *-DF_RELEASE*) ;;
+            *) echo "::error::Release build lacks -DF_RELEASE"; exit 1 ;;
+          esac
+
+      - name: Run unit tests (Release)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test-without-building \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests-Release.xcresult" \
+            -only-testing:SoraPassportTests
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoraPassportTests-Release-${{ github.sha }}
+          path: ${{ runner.temp }}/SoraPassportTests-Release.xcresult
           if-no-files-found: ignore
           retention-days: 14
 
@@ -144,6 +251,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Check Release app bundle
