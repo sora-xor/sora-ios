@@ -32,6 +32,22 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
     private static let xorAssetId =
         "0x0200000000000000000000000000000000000000000000000000000000000000"
 
+    private final class FixedRuntimeService: SoraPassport.RuntimeCodingServiceProtocol {
+        let factory: RuntimeCoderFactoryProtocol
+
+        init(factory: RuntimeCoderFactoryProtocol) {
+            self.factory = factory
+        }
+
+        func fetchCoderFactoryOperation(
+            with _: TimeInterval,
+            closure _: SoraPassport.RuntimeMetadataClosure?
+        ) -> BaseOperation<RuntimeCoderFactoryProtocol> {
+            let factory = self.factory
+            return ClosureOperation { factory }
+        }
+    }
+
     private struct QueryInfo: Decodable {
         let partialFee: String
         let dispatchClass: String
@@ -133,6 +149,37 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
             metadata: snapshot.metadata
         )
         try Sora2LiveRuntimeValidator.validate(factory: factory, live: live)
+
+        // 3b. The extrinsic service's own live-runtime operations (the ones
+        //     every fee estimate, prepare and submit depends on) agree, and
+        //     the second run uses the per-runtime cache.
+        let service = ExtrinsicService(
+            address: try SS58AddressFactory().address(
+                fromAccountId: Data(repeating: 0x42, count: 32),
+                type: Chain.sora.addressType()
+            ),
+            cryptoType: .sr25519,
+            runtimeRegistry: FixedRuntimeService(factory: factory),
+            engine: source,
+            operationManager: OperationManager()
+        )
+        for _ in 0 ..< 2 {
+            let operations = service.createLiveRuntimeOperations()
+            OperationQueue().addOperations(
+                operations.all,
+                waitUntilFinished: true
+            )
+            guard case let .success(serviceLive) = operations.identity.result else {
+                return XCTFail("Live runtime operations failed: \(String(describing: operations.identity.result))")
+            }
+            XCTAssertEqual(serviceLive, live)
+            XCTAssertNoThrow(
+                try service.validateLiveSora2SigningRuntime(
+                    factory,
+                    live: operations
+                )
+            )
+        }
 
         // 4. Throwaway key, generated in memory only.
         var seed = Data(count: 32)
