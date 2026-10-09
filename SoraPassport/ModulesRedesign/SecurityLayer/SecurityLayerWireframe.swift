@@ -43,7 +43,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
              // Loading and authentication windows can temporarily be key. The
              // app delegate owns the flow that must survive reauthentication.
              (UIApplication.shared.delegate as? AppDelegate)?.window ??
-                 UIApplication.shared.windows.first { $0 is SoraWindow }
+                 UIApplication.shared.soraWindowScene?.windows.first { $0 is SoraWindow }
          },
          pinFactory: @escaping (ScreenAuthorizationWireframeProtocol) -> PinSetupViewProtocol? = {
              PinViewFactory.createRedesignScreenAuthorizationView(with: $0, cancellable: false)

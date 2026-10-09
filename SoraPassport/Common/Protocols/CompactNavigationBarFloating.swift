@@ -146,7 +146,7 @@ extension CompactNavigationBarFloating where Self: UIViewController {
                 return barView
             }
 
-            let statusBarHeight = UIApplication.shared.statusBarFrame.height
+            let statusBarHeight = UIApplication.shared.soraStatusBarHeight
             let compactBarHeight = statusBarHeight + CompactNavigationBarFloatingConstants.defaultCompactBarHeight
             let barFrame = CGRect(origin: .zero, size: CGSize(width: view.bounds.width,
                                                               height: compactBarHeight))

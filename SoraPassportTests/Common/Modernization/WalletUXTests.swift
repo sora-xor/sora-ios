@@ -15,7 +15,7 @@ final class WalletUXTests: XCTestCase {
     @MainActor
     func testAuthenticatedWalletOpeningRetriesLateServicesAndLeavesPIN() async throws {
         let previousWindow = UIApplication.shared.keyWindow
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
         defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
         let wallet = UIViewController()
         var attempts = 0
@@ -43,7 +43,7 @@ final class WalletUXTests: XCTestCase {
     @MainActor
     func testWalletOpeningStopsWaitingAndOffersRetryAndNodes() async throws {
         let previousWindow = UIApplication.shared.keyWindow
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
         defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
         var attempts = 0
         var ready = false
@@ -131,6 +131,21 @@ final class WalletUXTests: XCTestCase {
         presenter.didDecideUnreachableNodesAllertPresentation()
         XCTAssertEqual(view.alerts, 0)
         XCTAssertEqual(view.statuses, [WalletUX.text("Network unavailable. Retrying connection…")])
+    }
+
+    /// The app uses the UIScene life cycle, so UIKit shows only windows that
+    /// belong to a window scene; appearance callbacks never run otherwise.
+    @MainActor
+    private func makeSceneHostedWindow(frame: CGRect) -> UIWindow {
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: frame)
+        }
+        window.frame = frame
+        return window
     }
 
     @MainActor
