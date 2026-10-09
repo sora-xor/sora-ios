@@ -57,7 +57,6 @@
 		01ADCA901EC5CDBE9EDD2B83 /* MenuTitleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5599B6CE2924D0CE00567396 /* MenuTitleItem.swift */; };
 		01D35DCFA4DB085225B6A02A /* WarningCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0A2A2BA3CA00439ADE /* WarningCell.swift */; };
 		0200347A21C8DA77001A6A53 /* ReachabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200347921C8DA77001A6A53 /* ReachabilityManager.swift */; };
-		0208CEBC217E5DC20043FCD7 /* DummyNetworkMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208CEBB217E5DC20043FCD7 /* DummyNetworkMock.swift */; };
 		0208CED2217EF8670043FCD7 /* RTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208CED1217EF8670043FCD7 /* RTests.swift */; };
 		0208CEDA217F046F0043FCD7 /* ApplicationConfigs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208CED9217F046F0043FCD7 /* ApplicationConfigs.swift */; };
 		0208CEDC217F04D80043FCD7 /* appConfig.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0208CEDB217F04D80043FCD7 /* appConfig.plist */; };
@@ -2482,7 +2481,6 @@
 		A10000120000000000000001 /* WalletNetworkModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkModel.swift; sourceTree = "<group>"; };
 		0200346721C78A43001A6A53 /* GoogleService-Info-Dev.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info-Dev.plist"; sourceTree = "<group>"; };
 		0200347921C8DA77001A6A53 /* ReachabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityManager.swift; sourceTree = "<group>"; };
-		0208CEBB217E5DC20043FCD7 /* DummyNetworkMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DummyNetworkMock.swift; sourceTree = "<group>"; };
 		0208CED1217EF8670043FCD7 /* RTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RTests.swift; sourceTree = "<group>"; };
 		0208CED9217F046F0043FCD7 /* ApplicationConfigs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationConfigs.swift; sourceTree = "<group>"; };
 		0208CEDB217F04D80043FCD7 /* appConfig.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = appConfig.plist; sourceTree = "<group>"; };
@@ -3933,7 +3931,6 @@
 				0208CEDD217F11980043FCD7 /* Config */,
 				0208CED0217EF8560043FCD7 /* Rswift */,
 				945A578025DE8AD9003E4023 /* Scale */,
-				0208CEB8217E5CC70043FCD7 /* Network */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -3949,14 +3946,6 @@
 				C20000020000000000000001 /* AddressQRCodecTests.swift */,
 			);
 			path = Modernization;
-			sourceTree = "<group>";
-		};
-		0208CEB8217E5CC70043FCD7 /* Network */ = {
-			isa = PBXGroup;
-			children = (
-				0208CEBB217E5DC20043FCD7 /* DummyNetworkMock.swift */,
-			);
-			path = Network;
 			sourceTree = "<group>";
 		};
 		0208CED0217EF8560043FCD7 /* Rswift */ = {
@@ -8873,7 +8862,6 @@
 				02601CF2217A05D3006BD248 /* Constants.swift in Sources */,
 				026AEA4D21B11356002EEB67 /* IdentityRestorationOperationTests.swift in Sources */,
 				84E8DEBA225DC76C00640754 /* WalletTests.swift in Sources */,
-				0208CEBC217E5DC20043FCD7 /* DummyNetworkMock.swift in Sources */,
 				026AEA4B21B10FE7002EEB67 /* IdentityCreationOperationTests.swift in Sources */,
 				0253FD0A2218A8C000D3AD49 /* PredicateExtensionTests.swift in Sources */,
 				5E2855522A33498D0054BA92 /* KeystoreExportWrapperTests.swift in Sources */,
