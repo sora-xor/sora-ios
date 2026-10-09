@@ -271,6 +271,21 @@ jobs:
           esac
           # Must exceed the highest TestFlight build of the 3.8.7 train.
           test "${build_number}" -gt 2026091402
+          # App Store builds compile the migration-evidence harness out.
+          if strings "${app}/SoraPassport" | grep -q 'keychain-baseline-v3.sealed'; then
+            echo "::error::Migration-evidence harness compiled into Release"
+            exit 1
+          fi
+          # IrohaConnect URL schemes are not registered in App Store builds.
+          if plutil -extract CFBundleURLTypes json -o - "${app}/Info.plist" | grep -q irohaconnect; then
+            echo "::error::IrohaConnect URL scheme registered in Release"
+            exit 1
+          fi
+          # Removed tester-only locales.
+          if [ -e "${app}/akk.lproj" ] || [ -e "${app}/egy-Egyp.lproj" ]; then
+            echo "::error::Removed locales are packaged"
+            exit 1
+          fi
           # App Store Connect rejects static archives inside Frameworks/.
           if find "${app}/Frameworks" -name '*.a' 2>/dev/null | grep -q .; then
             echo "::error::Static library archives found in Frameworks/"
