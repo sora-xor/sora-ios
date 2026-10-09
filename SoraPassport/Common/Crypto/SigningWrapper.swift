@@ -72,7 +72,9 @@ enum LegacySoraSecretResolver {
         defer { wipeSensitive(&entropy) }
         var sourceSeed: Data?
         defer { wipeSensitive(&sourceSeed) }
-        if let entropy {
+        // 3/6/9-word entropy (App Store 3.8.6 imports) cannot be expanded;
+        // the stored seed backs those accounts.
+        if let entropy, WalletMnemonicWordPolicy.isDerivableEntropy(entropy) {
             let mnemonic = try IRMnemonicCreator(language: .english)
                 .mnemonic(fromEntropy: entropy)
             var phrase = mnemonic.toString()
