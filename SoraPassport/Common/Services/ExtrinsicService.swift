@@ -71,6 +71,12 @@ enum ExtrinsicServiceError: Error {
     /// The connected node already runs a newer runtime than the metadata the
     /// app holds. The runtime sync service is fetching it; nothing was signed.
     case runtimeUpgradeInProgress(spec: UInt32, transaction: UInt32)
+    /// The signing account is not bound to a verified SORA2 account on this
+    /// device (missing or mismatched network row, or a read-only account).
+    /// Nothing was signed; this is not a network or runtime problem.
+    case signingAccountUnavailable
+    /// The connected node is not SORA2 mainnet (block zero differs).
+    case unexpectedNetwork
 }
 
 extension ExtrinsicServiceError: LocalizedError {
@@ -89,9 +95,17 @@ extension ExtrinsicServiceError: LocalizedError {
             return WalletUX.text(
                 "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds."
             )
-        case .unsupportedRuntime, .unsupportedRuntimeMetadata:
+        case .unsupportedRuntimeMetadata:
             return WalletUX.text(
                 "The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment."
+            )
+        case .unsupportedRuntime, .unexpectedNetwork:
+            return WalletUX.text(
+                "The connected node does not match the SORA network this app uses, so nothing was signed. Choose another node and try again."
+            )
+        case .signingAccountUnavailable:
+            return WalletUX.text(
+                "This account can't sign on this device right now, so nothing was signed. Your funds are not affected. Try again, or restore this account with its recovery phrase to send from it."
             )
         default:
             return nil
@@ -225,7 +239,16 @@ enum Sora2LiveRuntimeValidator {
         } catch {
             throw ExtrinsicServiceError.unsupportedRuntimeMetadata
         }
-        let declared = try Sora2RuntimeIdentity.declared(by: metadata)
+        let declared: Sora2RuntimeIdentity
+        do {
+            declared = try Sora2RuntimeIdentity.declared(by: metadata)
+        } catch {
+            // No readable `System.Version`: not a SORA2 runtime.
+            throw ExtrinsicServiceError.unsupportedRuntime(
+                spec: version.specVersion,
+                transaction: version.transactionVersion
+            )
+        }
         guard
             declared.specName == Sora2RuntimeIdentity.reviewedSpecName,
             declared.specVersion == version.specVersion,
@@ -397,9 +420,20 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
         }
 
         init(from decoder: Decoder) throws {
+            declared.specVersion >= Sora2RuntimeIdentity.minimumSpecVersion
+        else {
+            // Not a SORA2 runtime this app can sign for. Waiting for a
+            // runtime sync would not change that.
+            throw ExtrinsicServiceError.unsupportedRuntime(
+                spec: declared.specVersion,
+                transaction: declared.transactionVersion
+            )
+        }
+        guard
             let container = try decoder.container(keyedBy: CodingKeys.self)
             value = try container.decode(Value.self, forKey: .result)
         }
+            // The runtime changed between the two reads.
     }
 
     private let sourceEngine: JSONRPCEngine
@@ -2754,7 +2788,14 @@ final class ExtrinsicService {
                 try addressFactory.address(
                     fromAccountId: matchingNetworkAccounts[0].publicKey,
                     type: addressType
-                ) == currentAddress,
+                ) == currentAddress
+            else {
+                // The account is not bound to one verified SORA2 account row
+                // on this device. Nothing is signed; other accounts are not
+                // affected.
+                throw ExtrinsicServiceError.signingAccountUnavailable
+            }
+            guard
                 PolkamarktRuntimeContract.matchesReviewedGenesisHash(
                     signingGenesisHash
                 ),
@@ -2767,7 +2808,11 @@ final class ExtrinsicService {
                 case let .mortal(period, phase) = hashAndEra.era,
                 period == UInt64(
                     Sora2SubmissionRecoveryContext.reviewedEraPeriod
-                ),
+                )
+            else {
+                throw ExtrinsicServiceError.unexpectedNetwork
+            }
+            guard
                 phase == UInt64(
                     hashAndEra.blockNumber %
                         Sora2SubmissionRecoveryContext.reviewedEraPeriod

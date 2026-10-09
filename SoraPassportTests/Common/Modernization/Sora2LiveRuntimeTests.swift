@@ -420,6 +420,34 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         )
     }
 
+    func testSigningMessagesSeparateAccountAndNodeProblemsFromUpgrades() {
+        let upgrade = ExtrinsicServiceError.runtimeUserMessage(
+            for: ExtrinsicServiceError.runtimeUpgradeInProgress(spec: 134, transaction: 131)
+        )
+        let account = ExtrinsicServiceError.runtimeUserMessage(
+            for: ExtrinsicServiceError.signingAccountUnavailable
+        )
+        let node = ExtrinsicServiceError.runtimeUserMessage(
+            for: ExtrinsicServiceError.unexpectedNetwork
+        )
+        let foreignRuntime = ExtrinsicServiceError.runtimeUserMessage(
+            for: ExtrinsicServiceError.unsupportedRuntime(spec: 1, transaction: 1)
+        )
+        XCTAssertNotNil(account)
+        XCTAssertNotNil(node)
+        XCTAssertEqual(node, foreignRuntime)
+        XCTAssertNotEqual(account, upgrade)
+        XCTAssertNotEqual(node, upgrade)
+        let nodeKey = "The connected node does not match the SORA network this app uses, so nothing was signed. Choose another node and try again."
+        let accountKey = "This account can't sign on this device right now, so nothing was signed. Your funds are not affected. Try again, or restore this account with its recovery phrase to send from it."
+        XCTAssertEqual(node, WalletUX.text(nodeKey))
+        XCTAssertEqual(account, WalletUX.text(accountKey))
+        for key in [nodeKey, accountKey] {
+            XCTAssertEqual(WalletUX.text(key, language: "en"), key)
+            XCTAssertNotEqual(WalletUX.text(key, language: "ja"), key)
+        }
+    }
+
     private func assertError<T>(
         _ expression: @autoclosure () throws -> T,
         isUpgrade: Bool,
