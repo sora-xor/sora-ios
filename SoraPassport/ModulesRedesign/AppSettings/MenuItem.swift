@@ -84,6 +84,7 @@ class MenuItem: SoramitsuView {
         setupSubviews()
         setupConstrains()
         setupGestureRecognizer()
+        SoramitsuUI.updates.addObserver(self)
     }
 
     private func setupSubviews() {
@@ -123,5 +124,14 @@ class MenuItem: SoramitsuView {
 
     @objc func didSwitch() {
         onSwitch?(switcher.isOn)
+    }
+}
+
+extension MenuItem: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette) else { return }
+        switcher.onTintColor = NeonTokens.current.cyan
+        arrow.image = R.image.iconSmallArrow()?.imageFlippedForRightToLeftLayoutDirection()
+            .tinted(with: SoramitsuUI.shared.theme.palette.color(.accentTertiary))
     }
 }

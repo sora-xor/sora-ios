@@ -138,14 +138,22 @@ final class WelcomeViewController: SoramitsuViewController {
     }()
     
     let linkDecorator = LinkDecoratorFactory.termsDecorator()
+    /// The terms text with its link markers removed, and the links found in
+    /// it; kept so the label can be re-coloured after a theme change.
+    private var termsContent: (text: String, links: [(URL, NSRange)])?
     
     func decorate(label: NantesLabel) {
         label.delegate = self
         label.linkAttributes = [
             NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
         ]
-        var text = label.text ?? ""
-        let links: [(URL, NSRange)] = linkDecorator.links(inText: &text)
+        if termsContent == nil {
+            var text = label.text ?? ""
+            let links = linkDecorator.links(inText: &text)
+            termsContent = (text, links)
+        }
+        let text = termsContent?.text ?? ""
+        let links = termsContent?.links ?? []
         
         let attributedText = SoramitsuTextItem(text: text,
                                      fontData: FontType.textXS,
@@ -168,6 +176,7 @@ final class WelcomeViewController: SoramitsuViewController {
         setupView()
         setupConstraints()
         presenter.setup()
+        SoramitsuUI.updates.addObserver(self)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -250,5 +259,13 @@ extension WelcomeViewController: OnboardingMainViewProtocol {
     func hideLoading() {
         googleButton.isUserInteractionEnabled = true
         loadingView.isHidden = true
+    }
+}
+
+extension WelcomeViewController: SoramitsuObserver {
+    /// The terms label is plain attributed text: re-colour it with the theme.
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette), isViewLoaded else { return }
+        decorate(label: termsLabel)
     }
 }
