@@ -35,6 +35,7 @@
 		C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000020000000000000001 /* AddressQRCodecTests.swift */; };
 		C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000008000000000000000A /* ProductSurfacePolicyTests.swift */; };
 		C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */; };
+		21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */; };
 		1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */; };
 		C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */; };
 		C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */; };
@@ -1278,6 +1279,7 @@
 		724689528E0854696FB6663B /* SSFSingleValueCache in Frameworks */ = {isa = PBXBuildFile; productRef = 73701839B8A34ED80921D042 /* SSFSingleValueCache */; };
 		7281B5789FCD693829CEB363 /* SoramitsuNumpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AC2EE02979B26D00AD7732 /* SoramitsuNumpadView.swift */; };
 		7323E91D91D7445094E09248 /* ChainSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */; };
+		743CD907C09DE1702DFBE92F /* AssetWhitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */; };
 		7331FC531831355C7A95758E /* RedesignWalletViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF59F29155DC000D0DCCF /* RedesignWalletViewFactory.swift */; };
 		7337E04ED1C194C43025C727 /* SwiftyBeaver in Frameworks */ = {isa = PBXBuildFile; productRef = 3FE2187DADE60349516C6774 /* SwiftyBeaver */; };
 		7390B9A7C342C6D23BC29F1D /* BalanceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34F9A2BA056FB005A44BC /* BalanceData.swift */; };
@@ -1310,7 +1312,6 @@
 		7997FCC5CD6F6E76C40154AB /* MoreMenuViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF42862293BB29700590F92 /* MoreMenuViewFactory.swift */; };
 		7A27C34BEC81C5F156A08373 /* CapitalCache.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 36E350042BA0920A005A44BC /* CapitalCache.xcdatamodeld */; };
 		7A41600B1D7214A36E108DDE /* EnterPasswordItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A781A2A319DB300A6DDF9 /* EnterPasswordItem.swift */; };
-		7A6FAAD9F9BE42BA2DEC8031 /* WhitelistOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440FBB026974EBF00ADC68E /* WhitelistOperationFactory.swift */; };
 		7A72FDF78EA6C74C4D02FFF3 /* FriendsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4500E3C38424775159499D0D /* FriendsViewFactory.swift */; };
 		7A7478B2DDACD0E4E3DB4705 /* MoreMenuWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF42864293BB2A500590F92 /* MoreMenuWireframe.swift */; };
 		7A7AA7107D49CBB577507645 /* AssetsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDAE28EC8A140080A41C /* AssetsCell.swift */; };
@@ -1597,7 +1598,6 @@
 		A10000650000000000000001 /* NetworkMockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A575725DE852B003E4023 /* NetworkMockManager.swift */; };
 		9440709326DCDB2A00666306 /* AssetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440709226DCDB2900666306 /* AssetManager.swift */; };
 		9440709926DCDB3C00666306 /* AssetInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440709826DCDB3C00666306 /* AssetInfo.swift */; };
-		9440FBB126974EC000ADC68E /* WhitelistOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440FBB026974EBF00ADC68E /* WhitelistOperationFactory.swift */; };
 		9441D2A22678FD0700FDD374 /* ExtrinsicProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441D2A12678FD0700FDD374 /* ExtrinsicProcessing.swift */; };
 		9441D2A82679010E00FDD374 /* RuntimeMetadata+Internal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441D2A72679010E00FDD374 /* RuntimeMetadata+Internal.swift */; };
 		9441D2AE2679049700FDD374 /* SubstrateAlias.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441D2AD2679049700FDD374 /* SubstrateAlias.swift */; };
@@ -1823,6 +1823,7 @@
 		947E1F92268B2650006C5A70 /* ImageProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947E1F91268B264F006C5A70 /* ImageProcessing.swift */; };
 		9481B466286EFC2200A472E2 /* SpecVersionSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */; };
 		9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */; };
+		5F5945137FD17E482F41767E /* AssetWhitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */; };
 		9481B468286EFC2200A472E2 /* ChainRegistryFacade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B460286EFC2000A472E2 /* ChainRegistryFacade.swift */; };
 		9481B469286EFC2200A472E2 /* SpecVersionSubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B461286EFC2000A472E2 /* SpecVersionSubscriptionFactory.swift */; };
 		9481B46A286EFC2200A472E2 /* RuntimeFilesOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B462286EFC2000A472E2 /* RuntimeFilesOperationFactory.swift */; };
@@ -2484,6 +2485,7 @@
 		C20000020000000000000001 /* AddressQRCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressQRCodecTests.swift; sourceTree = "<group>"; };
 		C3000008000000000000000A /* ProductSurfacePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductSurfacePolicyTests.swift; sourceTree = "<group>"; };
 		C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIMobileConfigFallbackTests.swift; sourceTree = "<group>"; };
+		E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetWhitelistTests.swift; sourceTree = "<group>"; };
 		238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstrateStoreMigrationTests.swift; sourceTree = "<group>"; };
 		C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2MainnetLiveSigningTests.swift; sourceTree = "<group>"; };
 		C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2LiveRuntimeTests.swift; sourceTree = "<group>"; };
@@ -3385,7 +3387,6 @@
 		9437130226C28DA800BBE2CD /* SplashInteractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashInteractor.swift; sourceTree = "<group>"; };
 		9440709226DCDB2900666306 /* AssetManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetManager.swift; sourceTree = "<group>"; };
 		9440709826DCDB3C00666306 /* AssetInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetInfo.swift; sourceTree = "<group>"; };
-		9440FBB026974EBF00ADC68E /* WhitelistOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhitelistOperationFactory.swift; sourceTree = "<group>"; };
 		9441D2A12678FD0700FDD374 /* ExtrinsicProcessing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtrinsicProcessing.swift; sourceTree = "<group>"; };
 		9441D2A72679010E00FDD374 /* RuntimeMetadata+Internal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "RuntimeMetadata+Internal.swift"; sourceTree = "<group>"; };
 		9441D2AD2679049700FDD374 /* SubstrateAlias.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SubstrateAlias.swift; sourceTree = "<group>"; };
@@ -3608,6 +3609,7 @@
 		947E1F91268B264F006C5A70 /* ImageProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessing.swift; sourceTree = "<group>"; };
 		9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpecVersionSubscription.swift; sourceTree = "<group>"; };
 		9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainSyncService.swift; sourceTree = "<group>"; };
+		9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetWhitelist.swift; sourceTree = "<group>"; };
 		9481B460286EFC2000A472E2 /* ChainRegistryFacade.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainRegistryFacade.swift; sourceTree = "<group>"; };
 		9481B461286EFC2000A472E2 /* SpecVersionSubscriptionFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpecVersionSubscriptionFactory.swift; sourceTree = "<group>"; };
 		9481B462286EFC2000A472E2 /* RuntimeFilesOperationFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RuntimeFilesOperationFactory.swift; sourceTree = "<group>"; };
@@ -3954,6 +3956,7 @@
 				C20000020000000000000001 /* AddressQRCodecTests.swift */,
 				C3000008000000000000000A /* ProductSurfacePolicyTests.swift */,
 				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
+				E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */,
 				238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */,
 				C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */,
 				C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */,
@@ -6581,7 +6584,6 @@
 				94D4B66B28C75F55007F98EB /* StorageRequest.swift */,
 				94D4B66928C75AF8007F98EB /* LocalStorageRequestFactory.swift */,
 				9441F98C25C970BA00775559 /* ScaleDecoderOperation.swift */,
-				9440FBB026974EBF00ADC68E /* WhitelistOperationFactory.swift */,
 			);
 			path = Operation;
 			sourceTree = "<group>";
@@ -6968,6 +6970,7 @@
 				9481B460286EFC2000A472E2 /* ChainRegistryFacade.swift */,
 				9481B464286EFC2100A472E2 /* ChainRegistryFactory.swift */,
 				9481B45F286EFC1F00A472E2 /* ChainSyncService.swift */,
+				9A9B75F4EFF0ADF3CE9007A3 /* AssetWhitelist.swift */,
 				9481B462286EFC2000A472E2 /* RuntimeFilesOperationFactory.swift */,
 				9481B45E286EFC1E00A472E2 /* SpecVersionSubscription.swift */,
 				9481B461286EFC2000A472E2 /* SpecVersionSubscriptionFactory.swift */,
@@ -7784,6 +7787,7 @@
 				94562D84266A2FF600205338 /* AssetTransactionData+Values.swift in Sources */,
 				364D64C32A96191400072106 /* Sequence+Async.swift in Sources */,
 				9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */,
+				5F5945137FD17E482F41767E /* AssetWhitelist.swift in Sources */,
 				9441FBF125CC035700775559 /* StorageSubscriptionProtocols.swift in Sources */,
 				5599B6D1292570ED00567396 /* SettingsInformationFactory.swift in Sources */,
 				364526B128C4D13400260340 /* SelectedNodeChangedEvent.swift in Sources */,
@@ -7825,7 +7829,6 @@
 				8B362601296F1813007B9525 /* ChangeAccountViewFactory.swift in Sources */,
 				36FE0FE42955B52100117E82 /* RecipientAddressCell.swift in Sources */,
 				02E3199B21D2AEAE00B33B66 /* NetworkDataError+TextConvertible.swift in Sources */,
-				9440FBB126974EC000ADC68E /* WhitelistOperationFactory.swift in Sources */,
 				945A571A25DE7F63003E4023 /* RuntimeRegistryService.swift in Sources */,
 				36069F0D2A2BA3CA00439ADE /* WarningItem.swift in Sources */,
 				8BF428792940A66E00590F92 /* LanguageItem.swift in Sources */,
@@ -8866,6 +8869,7 @@
 				C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */,
 				C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */,
 				C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */,
+				21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */,
 				1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */,
 				C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */,
 				C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */,
@@ -8985,6 +8989,7 @@
 				32F905A39F280F6ADD041C3F /* AssetTransactionData+Values.swift in Sources */,
 				C1E68DAE704BB0288B839B2E /* Sequence+Async.swift in Sources */,
 				7323E91D91D7445094E09248 /* ChainSyncService.swift in Sources */,
+				743CD907C09DE1702DFBE92F /* AssetWhitelist.swift in Sources */,
 				CC8627942FB8B7F5E44ECC31 /* StorageSubscriptionProtocols.swift in Sources */,
 				1B7E0644FE89206A95BB4BF5 /* SettingsInformationFactory.swift in Sources */,
 				8499A7B04FD6675ADB8EEED6 /* SelectedNodeChangedEvent.swift in Sources */,
@@ -9026,7 +9031,6 @@
 				2CD072957AC4511185493777 /* ChangeAccountViewFactory.swift in Sources */,
 				CE7590A5F726DDDFC5354F7B /* RecipientAddressCell.swift in Sources */,
 				F007B7013B31114A42C267C0 /* NetworkDataError+TextConvertible.swift in Sources */,
-				7A6FAAD9F9BE42BA2DEC8031 /* WhitelistOperationFactory.swift in Sources */,
 				CA8EA5595FB152E265A8956A /* RuntimeRegistryService.swift in Sources */,
 				3F16A2CF85A11E0113501C2C /* WarningItem.swift in Sources */,
 				58C8BC14257681502E2E3E35 /* LanguageItem.swift in Sources */,
