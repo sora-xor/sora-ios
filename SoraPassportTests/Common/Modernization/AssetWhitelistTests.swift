@@ -236,6 +236,77 @@ final class AssetWhitelistTests: XCTestCase {
         XCTAssertNotNil(listed(chain)[WalletAssetId.xor.rawValue])
     }
 
+    /// The first launch after an update has no saved last-good list. If it cannot reach the
+    /// whitelist server, the old bundled list hides tokens it predates (VXOR, for example).
+    /// The user's order and visibility for such a token must survive that pass, so the token
+    /// comes back where it was, visible, once the live list arrives.
+    func testBundledFirstPassKeepsTheOrderAndVisibilityOfTokensItLacks() throws {
+        let xor = WalletAssetId.xor.rawValue
+        let val = WalletAssetId.val.rawValue
+        let pswap = WalletAssetId.pswap.rawValue
+        let vxor = "0x006a271832f44c93bd8692584d85415f0f3dccef9748fecd129442c8edcb4361"
+        let store = makeStore()
+        XCTAssertNil(store.current().entry(for: vxor), "the bundled list predates VXOR")
+        let network = [
+            onChain(xor, symbol: "XOR", name: "SORA"),
+            onChain(val, symbol: "VAL", name: "SORA Validator Token"),
+            onChain(vxor, symbol: "VXOR", name: "Vested XOR"),
+            onChain(pswap, symbol: "PSWAP", name: "Polkaswap")
+        ]
+        let saved = AccountSettings(visibleAssetIds: [xor, val, vxor], orderedAssetIds: [xor, val, vxor, pswap])
+
+        // First launch after the update, whitelist server unreachable.
+        let firstPass = try sync(
+            networkAssets: network,
+            remote: .failure(NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)),
+            store: store
+        )
+        XCTAssertNil(listed(firstPass)[vxor])
+        let shown = AssetManager.arrangedAssets(firstPass.chainAssets.map(\.asset), settings: saved)
+        XCTAssertEqual(shown.map(\.assetId), [xor, val, pswap])
+        let selection = AssetManager.savedSelection(for: shown, keeping: saved)
+        XCTAssertEqual(selection.ordered, [xor, val, vxor, pswap], "VXOR keeps its place")
+        XCTAssertEqual(Set(selection.visible), [xor, val, vxor], "VXOR stays visible")
+        let afterFirstPass = AccountSettings(visibleAssetIds: selection.visible, orderedAssetIds: selection.ordered)
+
+        // The live list arrives, later in the session or on the next launch.
+        let live = try json([
+            entry(xor, symbol: "XOR", name: "SORA"),
+            entry(val, symbol: "VAL", name: "SORA Validator Token"),
+            entry(vxor, symbol: "VXOR", name: "Vested XOR"),
+            entry(pswap, symbol: "PSWAP", name: "Polkaswap")
+        ])
+        let secondPass = try sync(networkAssets: network, remote: .success(live), store: store)
+        let arranged = AssetManager.arrangedAssets(secondPass.chainAssets.map(\.asset), settings: afterFirstPass)
+        XCTAssertEqual(arranged.map(\.assetId), [xor, val, vxor, pswap])
+        XCTAssertEqual(arranged.first { $0.assetId == vxor }?.visible, true)
+        XCTAssertEqual(arranged.first { $0.assetId == pswap }?.visible, false)
+        let resaved = AssetManager.savedSelection(for: arranged, keeping: afterFirstPass)
+        XCTAssertEqual(resaved.ordered, [xor, val, vxor, pswap])
+        XCTAssertEqual(Set(resaved.visible), [xor, val, vxor])
+    }
+
+    /// Before the chain is loaded the asset list is empty. Saving then used to erase the
+    /// user's whole order and visibility.
+    func testSavingWithNoListedAssetsKeepsTheSavedChoice() {
+        let saved = AccountSettings(
+            visibleAssetIds: [WalletAssetId.xor.rawValue, spoofId],
+            orderedAssetIds: [WalletAssetId.val.rawValue, WalletAssetId.xor.rawValue, spoofId]
+        )
+        let selection = AssetManager.savedSelection(for: [], keeping: saved)
+        XCTAssertEqual(selection.ordered, saved.orderedAssetIds)
+        XCTAssertEqual(selection.visible, saved.visibleAssetIds)
+
+        // The user hides XOR and moves VAL last while the token is missing: their change
+        // is saved, and the missing token keeps its place after XOR.
+        var xorInfo = onChain(WalletAssetId.xor.rawValue, symbol: "XOR", name: "SORA")
+        xorInfo.visible = false
+        let edited = [xorInfo, onChain(WalletAssetId.val.rawValue, symbol: "VAL", name: "VAL")]
+        let afterEdit = AssetManager.savedSelection(for: edited, keeping: saved)
+        XCTAssertEqual(afterEdit.ordered, [WalletAssetId.xor.rawValue, spoofId, WalletAssetId.val.rawValue])
+        XCTAssertEqual(afterEdit.visible, [WalletAssetId.val.rawValue, spoofId])
+    }
+
     func testPredefinedAssetIds() {
         XCTAssertTrue(AssetWhitelist.isPredefinedAsset(WalletAssetId.xor.rawValue))
         XCTAssertTrue(AssetWhitelist.isPredefinedAsset(WalletAssetId.xst.rawValue))
