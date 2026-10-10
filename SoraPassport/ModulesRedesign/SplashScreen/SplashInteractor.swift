@@ -368,7 +368,11 @@ enum WalletStorageStartup {
         var attempt = 1
         while outcome == .recoveryRequired, accountCommitRecovery != nil, attempt < maximumAttempts {
             let marker = WalletMigrationRecoveryMarker.capture(settings)
-            guard marker.isRetryableStartupFailure || marker.isLegacyAccountCommitInterruption else { break }
+            // An interrupted database migration is retried too: its resume
+            // runs only after the retained backup, inventory and keys are
+            // proven again (product decision: 3 attempts before options).
+            guard marker.isRetryableStartupFailure || marker.isLegacyAccountCommitInterruption ||
+                marker.isDatabaseInterruption else { break }
             retryDelay(attempt)
             attempt += 1
             Logger.shared.info("Wallet startup: automatic retry \(attempt) of \(maximumAttempts)")
