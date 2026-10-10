@@ -32,20 +32,25 @@ import Foundation
 import CoreData
 import RobinHood
 
+enum ChainModelMapperError: Error {
+    /// A stored chain row without its id or name (the store was damaged).
+    case incompleteChain
+}
+
+/// Rows that are incomplete are skipped (assets, nodes) or reported as an error (a chain)
+/// instead of crashing the app, as in App Store 3.8.6.
 final class ChainModelMapper {
     var entityIdentifierFieldName: String { #keyPath(CDChain.chainId) }
 
     typealias DataProviderModel = ChainModel
     typealias CoreDataEntity = CDChain
 
-    // TODO: replace precondition failure to optional
-    private func createAsset(from entity: CDAssetInfo, chainId: String) -> AssetModel {
+    private func createAsset(from entity: CDAssetInfo, chainId: String) -> AssetModel? {
         guard
             let id = entity.assetId,
-//            let chainId = entity.identifier,
             let symbol = entity.symbol
         else {
-            preconditionFailure()
+            return nil
         }
 
         return AssetModel(
@@ -65,10 +70,11 @@ final class ChainModelMapper {
         )
     }
 
-    private func createChainAsset(from entity: CDChainAsset, parentChain: ChainModel) -> ChainAssetModel {
+    private func createChainAsset(from entity: CDChainAsset, parentChain: ChainModel) -> ChainAssetModel? {
         guard let assetId = entity.assetId,
-              let asset = entity.asset else {
-            preconditionFailure()
+              let assetEntity = entity.asset,
+              let asset = createAsset(from: assetEntity, chainId: parentChain.chainId) else {
+            return nil
         }
         let staking: StakingType?
         if let entityStaking = entity.staking {
@@ -84,12 +90,15 @@ final class ChainModelMapper {
             staking: staking,
             purchaseProviders: purchaseProviders,
             type: createChainAssetModelType(from: entity.type),
-            asset: createAsset(from: asset, chainId: parentChain.chainId),
+            asset: asset,
             chain: parentChain
         )
     }
 
-    private func createChainNode(from entity: CDChainNode) -> ChainNodeModel {
+    private func createChainNode(from entity: CDChainNode) -> ChainNodeModel? {
+        guard let url = entity.url, let name = entity.name else {
+            return nil
+        }
         let apiKey: ChainNodeModel.ApiKey?
 
         if let queryName = entity.apiQueryName, let keyName = entity.apiKeyName {
@@ -99,8 +108,8 @@ final class ChainModelMapper {
         }
 
         return ChainNodeModel(
-            url: entity.url!,
-            name: entity.name!,
+            url: url,
+            name: name,
             apikey: apiKey
         )
     }
@@ -219,8 +228,10 @@ final class ChainModelMapper {
 
         if let oldNodes = entity.nodes as? Set<CDChainNode> {
             for oldNode in oldNodes {
-                if !existingNodeIds.contains(oldNode.url!) {
+                // A row without a URL cannot be used; it goes like any row not in the model.
+                guard let url = oldNode.url, existingNodeIds.contains(url) else {
                     context.delete(oldNode)
+                    continue
                 }
             }
         }
@@ -261,8 +272,10 @@ final class ChainModelMapper {
 
         if let oldNodes = entity.customNodes as? Set<CDChainNode> {
             for oldNode in oldNodes {
-                if !existingNodeIds.contains(oldNode.url!) {
+                // A row without a URL cannot be used; it goes like any row not in the model.
+                guard let url = oldNode.url, existingNodeIds.contains(url) else {
                     context.delete(oldNode)
+                    continue
                 }
             }
         }
@@ -377,6 +390,9 @@ final class ChainModelMapper {
 
 extension ChainModelMapper: CoreDataMapperProtocol {
     func transform(entity: CDChain) throws -> ChainModel {
+        guard let chainId = entity.chainId, let chainName = entity.name else {
+            throw ChainModelMapperError.incompleteChain
+        }
         let nodes: [ChainNodeModel] = entity.nodes?.compactMap { anyNode in
             guard let node = anyNode as? CDChainNode else {
                 return nil
@@ -398,11 +414,7 @@ extension ChainModelMapper: CoreDataMapperProtocol {
             customNodesSet = Set(nodes)
         }
 
-        var selectedNode: ChainNodeModel?
-
-        if let selectedNodeEntity = entity.selectedNode {
-            selectedNode = createChainNode(from: selectedNodeEntity)
-        }
+        let selectedNode = entity.selectedNode.flatMap { createChainNode(from: $0) }
 
         let types: ChainModel.TypesSettings?
 
@@ -437,9 +449,9 @@ extension ChainModelMapper: CoreDataMapperProtocol {
         let externalApiSet = createExternalApi(from: entity)
 
         let chainModel = ChainModel(
-            chainId: entity.chainId!,
+            chainId: chainId,
             parentId: entity.parentId,
-            name: entity.name!,
+            name: chainName,
             nodes: Set(nodes),
             addressPrefix: UInt16(bitPattern: entity.addressPrefix),
             types: types,

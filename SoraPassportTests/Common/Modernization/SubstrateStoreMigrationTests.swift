@@ -384,6 +384,61 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         XCTAssertFalse(SubstrateStoreMigrator.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_100)))
     }
 
+    /// 3.8.6 (`fe184e06`) stopped crashing on incomplete asset rows. Such rows are
+    /// skipped now too, and a chain row without an id is an error, not a crash.
+    func testIncompleteRowsAreSkippedInsteadOfCrashing() throws {
+        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: appModelURL))
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        try coordinator.addPersistentStore(ofType: NSInMemoryStoreType, configurationName: nil, at: nil, options: nil)
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+
+        var mapped: ChainModel?
+        var brokenChainError: Error?
+        context.performAndWait {
+            let chain = CDChain(context: context)
+            chain.chainId = Seed.chainId
+            chain.name = "SORA"
+            chain.addressPrefix = 69
+
+            let goodInfo = CDAssetInfo(context: context)
+            goodInfo.assetId = WalletAssetId.xor.rawValue
+            goodInfo.identifier = WalletAssetId.xor.rawValue
+            goodInfo.symbol = "XOR"
+            goodInfo.name = "SORA"
+            goodInfo.precision = "18"
+            let good = CDChainAsset(context: context)
+            good.assetId = WalletAssetId.xor.rawValue
+            good.asset = goodInfo
+
+            let noSymbolInfo = CDAssetInfo(context: context)
+            noSymbolInfo.assetId = WalletAssetId.val.rawValue
+            noSymbolInfo.identifier = WalletAssetId.val.rawValue
+            noSymbolInfo.name = "VAL"
+            noSymbolInfo.precision = "18"
+            let noSymbol = CDChainAsset(context: context)
+            noSymbol.assetId = WalletAssetId.val.rawValue
+            noSymbol.asset = noSymbolInfo
+
+            let noInfo = CDChainAsset(context: context)
+            noInfo.assetId = WalletAssetId.pswap.rawValue
+
+            chain.assets = NSSet(array: [good, noSymbol, noInfo])
+            mapped = try? ChainModelMapper().transform(entity: chain)
+
+            let broken = CDChain(context: context)
+            broken.name = "No id"
+            do {
+                _ = try ChainModelMapper().transform(entity: broken)
+            } catch {
+                brokenChainError = error
+            }
+        }
+
+        XCTAssertEqual(try XCTUnwrap(mapped).assets.map(\.assetId), [WalletAssetId.xor.rawValue])
+        XCTAssertNotNil(brokenChainError)
+    }
+
     private static let appStore386ModelBase64: [String] = [
         "YnBsaXN0MDDUAAEAAgADAAQABQAGAAcAClgkdmVyc2lvblkkYXJjaGl2ZXJUJHRvcFgkb2JqZWN0cxIAAYagXxAPTlNLZXllZEFy",
         "Y2hpdmVy0QAIAAlUcm9vdIABrxDxAAsADAAZADkAOgA7ADwAPQA+AD8AQABBAEIAQwBEAEUARgBcAGAAZwB5AHoAewB8AH0AfgB/",
