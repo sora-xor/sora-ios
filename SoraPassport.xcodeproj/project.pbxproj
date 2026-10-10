@@ -35,6 +35,7 @@
 		C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000020000000000000001 /* AddressQRCodecTests.swift */; };
 		C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000008000000000000000A /* ProductSurfacePolicyTests.swift */; };
 		C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */; };
+		1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */; };
 		C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */; };
 		C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */; };
 		A10000070000000000000001 /* PIAsyncOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000140000000000000001 /* PIAsyncOperation.swift */; };
@@ -2483,6 +2484,7 @@
 		C20000020000000000000001 /* AddressQRCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressQRCodecTests.swift; sourceTree = "<group>"; };
 		C3000008000000000000000A /* ProductSurfacePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductSurfacePolicyTests.swift; sourceTree = "<group>"; };
 		C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIMobileConfigFallbackTests.swift; sourceTree = "<group>"; };
+		238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstrateStoreMigrationTests.swift; sourceTree = "<group>"; };
 		C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2MainnetLiveSigningTests.swift; sourceTree = "<group>"; };
 		C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2LiveRuntimeTests.swift; sourceTree = "<group>"; };
 		A10000140000000000000001 /* PIAsyncOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIAsyncOperation.swift; sourceTree = "<group>"; };
@@ -3298,6 +3300,7 @@
 		847527402362DE9F0028D871 /* DeviceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfo.swift; sourceTree = "<group>"; };
 		847527442362F0920028D871 /* InvitationCheckData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationCheckData.swift; sourceTree = "<group>"; };
 		8476CA7A25F0C895003EEAE1 /* SubstrateDataModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = SubstrateDataModel.xcdatamodel; sourceTree = "<group>"; };
+		56E5D4C39315F9801D77FFB8 /* SubstrateDataModel 2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "SubstrateDataModel 2.xcdatamodel"; sourceTree = "<group>"; };
 		8476CA9625F0C8E3003EEAE1 /* ChainStorageIdFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainStorageIdFactory.swift; sourceTree = "<group>"; };
 		847A17A22375796E003BA71A /* RoundedCellControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundedCellControlView.swift; sourceTree = "<group>"; };
 		847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleWithAccessoryView.swift; sourceTree = "<group>"; };
@@ -3951,6 +3954,7 @@
 				C20000020000000000000001 /* AddressQRCodecTests.swift */,
 				C3000008000000000000000A /* ProductSurfacePolicyTests.swift */,
 				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
+				238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */,
 				C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */,
 				C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */,
 			);
@@ -8862,6 +8866,7 @@
 				C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */,
 				C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */,
 				C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */,
+				1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */,
 				C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */,
 				C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */,
 				9431D55226305306001E5C85 /* UserDataStorageTestFacade.swift in Sources */,
@@ -11972,9 +11977,10 @@
 		8476CA7925F0C895003EEAE1 /* SubstrateDataModel.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				56E5D4C39315F9801D77FFB8 /* SubstrateDataModel 2.xcdatamodel */,
 				8476CA7A25F0C895003EEAE1 /* SubstrateDataModel.xcdatamodel */,
 			);
-			currentVersion = 8476CA7A25F0C895003EEAE1 /* SubstrateDataModel.xcdatamodel */;
+			currentVersion = 56E5D4C39315F9801D77FFB8 /* SubstrateDataModel 2.xcdatamodel */;
 			path = SubstrateDataModel.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
