@@ -338,8 +338,12 @@ existing wallet:
 
 ### Before archiving
 
-- [ ] Refresh the bundled asset whitelist (not done in this task: no
-      downloads were allowed). Download
+- [ ] **Release blocker.** Refresh the bundled asset whitelist (not done
+      in this task: no downloads were allowed). On the first launch after
+      the update there is no saved list yet; if the whitelist server is
+      slow or unreachable, the bundled list decides which tokens are
+      listed, and today it hides every token newer than 2.3.1 (VXOR, for
+      example) until the live list arrives. Download
       `https://whitelist.polkaswap2.io/whitelist.json`, check it is a JSON
       array that lists XOR (`0x0200000000…`), replace
       `SoraPassport/Resources/whitelist.json`, and review the diff (new and
@@ -356,6 +360,16 @@ existing wallet:
       there.
 - [ ] Upgrade from the 3.9.0 TestFlight build `2026091402` with a contact
       and a selected node: both are kept.
+- [ ] Upgrade from App Store 3.8.4 (or any 3.0.1 to 3.8.4) with a contact,
+      a selected custom node and an unmarked pool favourite: all three are
+      kept after installing 3.9.0.
+- [ ] First launch without the whitelist server: on 3.8.6, make a token
+      that is not in the bundled list visible and move it up the list (with
+      today's bundled list, VXOR; after the refresh above, use a debug build
+      with the old list or a token listed after the refresh). Block
+      `whitelist.polkaswap2.io`, install 3.9.0 and launch: the token is not
+      listed. Unblock and relaunch: the token is back, visible, in the same
+      place.
 - [ ] Whitelist outage: block `whitelist.polkaswap2.io` (proxy or DNS) and
       launch a fresh install. The asset list shows only whitelisted and
       predefined assets (XOR, VAL, PSWAP, XST, XSTUSD, TBCD, KUSD, …), with
@@ -382,3 +396,8 @@ existing wallet:
 - A downgrade from 3.9.0 to a 3.9.0 TestFlight build that predates this
   change wipes the chain store (contacts, nodes, favourites) because those
   builds use `.removeStore`. Expire or replace those TestFlight builds.
+- A chain store that fails on three launches in a row while readable is
+  renamed to `Documents/CoreData/SubstrateDataModel-unreadable-<date>.sqlite`
+  (with side files) and a new store is used. It holds contacts, node
+  choices, pool favourites and caches, no key material. Support can ignore
+  such files; they are never deleted by the app.
