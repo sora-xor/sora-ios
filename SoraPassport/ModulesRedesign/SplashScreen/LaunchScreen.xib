@@ -34,7 +34,7 @@
                 </imageView>
             </subviews>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
-            <color key="backgroundColor" red="0.96470588235294119" green="0.94901960784313721" blue="0.94901960784313721" alpha="1" colorSpace="calibratedRGB"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
             <constraints>
                 <constraint firstItem="7bQ-uU-4wL" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="2Ij-q3-Vj3"/>
                 <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerY" secondItem="iN0-l3-epB" secondAttribute="centerY" constant="-2" id="74L-rv-iey"/>
@@ -47,6 +47,9 @@
         </view>
     </objects>
     <resources>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
         <image name="from soramitsu" width="190" height="53"/>
         <image name="sora (text part)" width="94" height="38"/>
         <image name="sora sign" width="80" height="80"/>
