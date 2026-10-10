@@ -34,6 +34,7 @@ import Darwin
 import Foundation
 import IrohaCrypto
 import SoraKeystore
+import SSFCrypto
 import SSFUtils
 
 protocol StorageMigrating {
@@ -477,21 +478,48 @@ final class UserStorageMigrator {
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         checkpoint: () throws -> Void = {}
     ) throws {
-        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
-            fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
-        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
-            throw WalletNetworkMigrationError.invalidMnemonic
-        }
-        var entropy = mnemonic.entropy()
-        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        var material = try Self.knownAddressPhraseMaterial(phrase, derivationPath: derivationPath)
+        defer { material.wipe() }
         try restoreMissingBackupMaterial(address: address, expectedAccount: nil,
-            entropy: entropy, rawSeed: nil, secret: nil, derivationPath: derivationPath,
+            entropy: material.entropy, rawSeed: material.rawSeed, secret: nil, derivationPath: derivationPath,
             baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
     }
 
-    /// All supplied backup sources must agree with the retained identity. Only
-    /// one absent source is committed, with the richest source preferred; the
-    /// subsequent ordinary startup still owns full verification and activation.
+    /// The entropy of a phrase entered to restore an account whose address is
+    /// already known. 12–24 words; 3/6/9-word phrases from App Store 3.8.6
+    /// are accepted too, with their mini seed, because their short entropy
+    /// cannot be expanded later. The restore itself proves the address.
+    struct KnownAddressPhraseMaterial {
+        var entropy: Data
+        var rawSeed: Data?
+
+        mutating func wipe() {
+            entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex)
+            if let count = rawSeed?.count { rawSeed?.resetBytes(in: 0 ..< count) }
+        }
+    }
+
+    static func knownAddressPhraseMaterial(_ phrase: String, derivationPath: String) throws
+        -> KnownAddressPhraseMaterial {
+        let normalized = phrase.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: normalized)
+        let count = mnemonic.allWords().count
+        guard WalletMnemonicWordPolicy.knownAddressRestoreWordCounts.contains(count) else {
+            throw WalletNetworkMigrationError.invalidMnemonic
+        }
+        var rawSeed: Data?
+        if WalletMnemonicWordPolicy.retainedShortWordCounts.contains(count) {
+            let junction = derivationPath.isEmpty ? nil : try SubstrateJunctionFactory().parse(path: derivationPath)
+            rawSeed = try SeedFactory().deriveSeed(from: normalized, password: junction?.password ?? "").seed.miniSeed
+        }
+        return KnownAddressPhraseMaterial(entropy: mnemonic.entropy(), rawSeed: rawSeed)
+    }
+
+    /// All supplied backup sources must agree with the retained identity.
+    /// Every supplied source is added (all were absent), then the derived
+    /// `-seed` and `-secretKey` (add-only, `WalletScopedKeyCompletion`), so the
+    /// account can also sign in App Store 3.8.6. The subsequent ordinary
+    /// startup still owns full verification and activation.
     func restoreMissingBackupMaterial(
         address: String, expectedAccount: AccountItem?, entropy: Data?, rawSeed: Data?,
         secret: Data?, derivationPath: String, baseURL: URL? = nil,
@@ -555,15 +583,10 @@ final class UserStorageMigrator {
         networkStore: WalletNetworkStore? = nil,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared
     ) throws {
-        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
-            fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
-        guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
-            throw WalletNetworkMigrationError.invalidMnemonic
-        }
-        var entropy = mnemonic.entropy()
-        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
-        try restoreKeysForReadOnlyAccount(address: address, expectedAccount: nil, entropy: entropy,
-            rawSeed: nil, secret: nil, derivationPath: derivationPath,
+        var material = try Self.knownAddressPhraseMaterial(phrase, derivationPath: derivationPath)
+        defer { material.wipe() }
+        try restoreKeysForReadOnlyAccount(address: address, expectedAccount: nil, entropy: material.entropy,
+            rawSeed: material.rawSeed, secret: nil, derivationPath: derivationPath,
             networkStore: networkStore, lifecycleCoordinator: lifecycleCoordinator)
     }
 
@@ -628,12 +651,28 @@ final class UserStorageMigrator {
         try checkpoint()
         try requireAuthority()
         try gate.requireMutableWalletAccess()
-        if let entropy {
-            try keystore.addKey(entropy, with: KeystoreTag.entropyTagForAddress(address))
-        } else if let rawSeed {
-            try keystore.addKey(rawSeed, with: KeystoreTag.seedTagForAddress(address))
-        } else if let secret {
-            try keystore.addKey(secret, with: KeystoreTag.secretKeyTagForAddress(address))
+        // Phrase first, then seed, then secret: an interrupted restore leaves
+        // the richest source, and the startup backfill completes the rest.
+        for (value, tag, isSecret) in [
+            (entropy, KeystoreTag.entropyTagForAddress(address), false),
+            (rawSeed, KeystoreTag.seedTagForAddress(address), false),
+            (secret, KeystoreTag.secretKeyTagForAddress(address), true),
+        ] {
+            guard let value else { continue }
+            try requireAuthority()
+            guard try WalletScopedKeyWrite.addIfAbsent(
+                value, tag: tag, isSecret: isSecret, cryptoType: account.cryptoType, keystore: keystore
+            ) != .differs else {
+                throw UserStorageMigrationError.accountInventoryMismatch
+            }
+        }
+        // App Store 3.8.6 signs only with `-secretKey`: add it (and the seed
+        // of a phrase) when the restore supplied only a phrase or seed.
+        try requireAuthority()
+        if try WalletScopedKeyCompletion.addMissingCopies(
+            for: account, keystore: keystore, recoveryGate: gate
+        ) == .conflict {
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
     }
 

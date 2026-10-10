@@ -176,24 +176,195 @@ enum OrdinaryWalletAccountCommitRecovery {
     }
 }
 
-// MARK: - Scoped copies for accounts backed only by the global entropy
+// MARK: - Scoped copies (downgrade safety)
 
-/// Adds scoped `<address>-entropy`, `-seed` and `-secretKey` items for SORA2
-/// accounts whose secret lives only in the unsuffixed 1.x `seedEntropy`.
+/// Derives the scoped items released writers stored for an account
+/// (2.x and App Store 3.8.6 `AccountOperationFactory`): a phrase gives the
+/// mini seed (with the path's password), and the seed gives the secret
+/// through the path's junctions. Pure; nothing is read or written.
+enum WalletScopedKeyDerivation {
+    struct Material {
+        /// The mini seed derived from a phrase, or the stored raw seed.
+        var seed: Data
+        var secret: Data
+
+        mutating func wipe() {
+            seed.resetBytes(in: seed.startIndex ..< seed.endIndex)
+            secret.resetBytes(in: secret.startIndex ..< secret.endIndex)
+        }
+    }
+
+    /// Returns nil when there is nothing to derive from: no phrase entropy
+    /// the mnemonic library can expand (3/6/9-word entropy cannot be) and no
+    /// raw seed.
+    static func derive(
+        cryptoType: CryptoType,
+        derivationPath: String?,
+        entropy: Data?,
+        rawSeed: Data?
+    ) throws -> Material? {
+        let path = derivationPath ?? ""
+        let junction = path.isEmpty ? nil : try SubstrateJunctionFactory().parse(path: path)
+        let chaincodes = junction?.chaincodes ?? []
+        var seed: Data
+        if let entropy, WalletMnemonicWordPolicy.isDerivableEntropy(entropy) {
+            var phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+            defer { phrase.removeAll(keepingCapacity: false) }
+            seed = try SeedFactory().deriveSeed(from: phrase, password: junction?.password ?? "").seed.miniSeed
+        } else if let rawSeed, !rawSeed.isEmpty {
+            seed = rawSeed
+        } else {
+            return nil
+        }
+        let secret: Data
+        switch cryptoType {
+        case .sr25519:
+            secret = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: chaincodes)
+                .privateKey().rawData()
+        case .ed25519:
+            secret = try Ed25519KeypairFactory().deriveChildSeedFromParent(seed.miniSeed, chaincodeList: chaincodes)
+        case .ecdsa:
+            secret = try EcdsaKeypairFactory().deriveChildSeedFromParent(seed.miniSeed, chaincodeList: chaincodes)
+        }
+        return Material(seed: seed, secret: secret)
+    }
+}
+
+/// Adds the missing `<address>-seed` and `<address>-secretKey` items of an
+/// account whose own scoped phrase or seed proves it.
 ///
-/// App Store 3.8.6 (and any rollback build made from its code) deletes
-/// `seedEntropy` on every launch with a selected account, and wipes settings
-/// when the selected account has no `-secretKey`. Scoped copies keep these
-/// accounts signable if such a build ever runs over this data again.
+/// App Store 3.8.6 signs only with `-secretKey` and wipes its settings when
+/// the selected account has none. Accounts restored by phrase or seed in
+/// 3.9.0, and writes interrupted by a kill, can lack it. Rules:
+/// - add-only (`addKey`), never update or delete;
+/// - the stored items and the derived ones must prove the account (address,
+///   public key and a signature) before anything is written;
+/// - the seed is written before the secret, and each write is read back;
+/// - an existing item that differs stops without writing.
+enum WalletScopedKeyCompletion {
+    enum Outcome: Equatable {
+        /// `-secretKey` already exists; nothing to add.
+        case complete
+        /// These tags were added, in this order.
+        case added([String])
+        /// No scoped phrase or seed to derive from (for example a secret-only
+        /// or a global-only account, or no keys at all).
+        case nothingToDeriveFrom
+        /// The stored items do not prove the account, or an existing item
+        /// differs. Nothing was written.
+        case conflict
+    }
+
+    static func addMissingCopies(
+        for account: AccountItem,
+        keystore: KeystoreProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws -> Outcome {
+        let address = account.address
+        let secretTag = KeystoreTag.secretKeyTagForAddress(address)
+        let seedTag = KeystoreTag.seedTagForAddress(address)
+        guard try !keystore.checkKey(for: secretTag) else { return .complete }
+        var storedEntropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(address))
+        var storedSeed = try keystore.loadIfKeyExists(seedTag)
+        defer {
+            if let count = storedEntropy?.count { storedEntropy?.resetBytes(in: 0 ..< count) }
+            if let count = storedSeed?.count { storedSeed?.resetBytes(in: 0 ..< count) }
+        }
+        let derivationPath = try keystore.fetchDeriviationForAddress(address)
+        let derivable = storedEntropy.map(WalletMnemonicWordPolicy.isDerivableEntropy) == true
+        guard var derived = try WalletScopedKeyDerivation.derive(
+            cryptoType: account.cryptoType,
+            derivationPath: derivationPath,
+            entropy: storedEntropy,
+            rawSeed: storedSeed
+        ) else {
+            return .nothingToDeriveFrom
+        }
+        defer { derived.wipe() }
+        do {
+            try LegacySoraIdentityValidator.validate(
+                address: address,
+                publicKey: account.publicKeyData,
+                cryptoType: account.cryptoType,
+                networkType: account.networkType,
+                derivationPath: derivationPath,
+                entropy: storedEntropy,
+                rawSeed: storedSeed ?? (derivable ? derived.seed : nil),
+                secret: derived.secret,
+                recoveryGate: recoveryGate
+            )
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            return .conflict
+        }
+
+        var plan: [(String, Data, Bool)] = []
+        if storedSeed == nil, derivable {
+            plan.append((seedTag, derived.seed, false))
+        }
+        plan.append((secretTag, derived.secret, true))
+        var added: [String] = []
+        for (tag, value, isSecret) in plan {
+            try recoveryGate.requireAuthorizedLifecycleContinuation()
+            switch try WalletScopedKeyWrite.addIfAbsent(
+                value, tag: tag, isSecret: isSecret, cryptoType: account.cryptoType, keystore: keystore
+            ) {
+            case .added: added.append(tag)
+            case .alreadyMatching: continue
+            case .differs: return added.isEmpty ? .conflict : .added(added)
+            }
+        }
+        return added.isEmpty ? .complete : .added(added)
+    }
+}
+
+/// One add-only write, read back.
+enum WalletScopedKeyWrite {
+    enum Outcome {
+        case added
+        case alreadyMatching
+        case differs
+    }
+
+    static func addIfAbsent(
+        _ value: Data,
+        tag: String,
+        isSecret: Bool,
+        cryptoType: CryptoType,
+        keystore: KeystoreProtocol
+    ) throws -> Outcome {
+        if try keystore.checkKey(for: tag) {
+            var existing = try keystore.fetchKey(for: tag)
+            defer { existing.resetBytes(in: existing.startIndex ..< existing.endIndex) }
+            let matches = isSecret
+                ? LegacySoraIdentityValidator.storedSecret(existing, matches: value, cryptoType: cryptoType)
+                : LegacySoraIdentityValidator.constantTimeEqual(existing, value)
+            return matches ? .alreadyMatching : .differs
+        }
+        try keystore.addKey(value, with: tag)
+        var stored = try keystore.fetchKey(for: tag)
+        defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
+        guard LegacySoraIdentityValidator.constantTimeEqual(stored, value) else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        return .added
+    }
+}
+
+/// Startup backfill for downgrade safety: every signing account ends up with
+/// a scoped `<address>-secretKey` (and, for phrase accounts, `-seed`), which
+/// is what App Store 3.8.6 needs if it ever runs over this data again.
 ///
-/// Rules:
-/// - add-only (`addKey`), never update or delete; the global items
-///   (`seedEntropy`, `privateKey`, `userName`) are never touched;
-/// - the material is proven against the account before anything is written,
-///   and each write is read back;
-/// - written in the order entropy, seed, secret, so an interrupted run leaves
-///   the phrase first and the next launch continues from the scoped entropy;
-/// - an existing item that differs stops that account without writing.
+/// - Accounts backed only by the unsuffixed 1.x `seedEntropy` (sr25519,
+///   default path) get `-entropy`, `-seed` and `-secretKey`, in that order,
+///   so an interrupted run leaves the phrase first. 3.8.6 deletes
+///   `seedEntropy` on every launch with a selected account.
+/// - Accounts with a scoped phrase or seed but no `-secretKey` (restored by
+///   phrase or seed, any crypto type or path, or an interrupted write) get the
+///   missing `-seed` and `-secretKey` (`WalletScopedKeyCompletion`).
+///
+/// Add-only, proven before writing, read back; the global items
+/// (`seedEntropy`, `privateKey`, `userName`) are never touched; an existing
+/// item that differs stops that account without writing.
 enum LegacyGlobalEntropyScopedBackfill {
     struct Result: Equatable {
         var completed: [String] = []
@@ -211,10 +382,9 @@ enum LegacyGlobalEntropyScopedBackfill {
         var result = Result()
         for account in accounts {
             guard
-                account.cryptoType == .sr25519,
-                account.networkType == SNAddressType(chain: .sora),
                 let wallet = snapshot.wallets.first(where: { $0.id == account.address }),
-                wallet.secretSource == .mnemonicEntropy || wallet.secretSource == .legacyMnemonicEntropy
+                wallet.secretSource != .watchOnly,
+                wallet.secretSource != .signingUnavailable
             else { continue }
 
             let entropyTag = KeystoreTag.entropyTagForAddress(account.address)
@@ -223,13 +393,26 @@ enum LegacyGlobalEntropyScopedBackfill {
             let hasEntropy = try keystore.checkKey(for: entropyTag)
             let hasSeed = try keystore.checkKey(for: seedTag)
             let hasSecret = try keystore.checkKey(for: secretTag)
-            guard !(hasEntropy && hasSeed && hasSecret),
-                  try !keystore.checkKey(for: KeystoreTag.deriviationTagForAddress(account.address))
+            guard !hasSecret else { continue }
+
+            if hasEntropy || hasSeed {
+                switch try WalletScopedKeyCompletion.addMissingCopies(
+                    for: account, keystore: keystore, recoveryGate: recoveryGate
+                ) {
+                case .added: result.completed.append(account.address)
+                case .conflict: result.conflicts.append(account.address)
+                case .complete, .nothingToDeriveFrom: break
+                }
+                continue
+            }
+
+            // Only the unsuffixed 1.x entropy can back this account.
+            guard
+                account.cryptoType == .sr25519,
+                account.networkType == SNAddressType(chain: .sora),
+                wallet.secretSource == .mnemonicEntropy || wallet.secretSource == .legacyMnemonicEntropy,
+                try !keystore.checkKey(for: KeystoreTag.deriviationTagForAddress(account.address))
             else { continue }
-            // Without a scoped phrase, only a fully global-backed account is
-            // eligible. A scoped seed or secret without scoped entropy belongs
-            // to another history and is left alone.
-            guard hasEntropy || (!hasSeed && !hasSecret) else { continue }
 
             var resolved: Data?
             do {
@@ -245,15 +428,10 @@ enum LegacyGlobalEntropyScopedBackfill {
                 continue
             }
             defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
-            var phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
-            defer { phrase.removeAll(keepingCapacity: false) }
-            var seed = try SeedFactory().deriveSeed(from: phrase, password: "").seed.miniSeed
-            defer { seed.resetBytes(in: seed.startIndex ..< seed.endIndex) }
-            var secret = try SR25519KeypairFactory()
-                .createKeypairFromSeed(seed, chaincodeList: [])
-                .privateKey()
-                .rawData()
-            defer { secret.resetBytes(in: secret.startIndex ..< secret.endIndex) }
+            guard var derived = try WalletScopedKeyDerivation.derive(
+                cryptoType: .sr25519, derivationPath: nil, entropy: entropy, rawSeed: nil
+            ) else { continue }
+            defer { derived.wipe() }
 
             do {
                 try LegacySoraIdentityValidator.validate(
@@ -263,8 +441,8 @@ enum LegacyGlobalEntropyScopedBackfill {
                     networkType: account.networkType,
                     derivationPath: nil,
                     entropy: entropy,
-                    rawSeed: seed,
-                    secret: secret,
+                    rawSeed: derived.seed,
+                    secret: derived.secret,
                     recoveryGate: recoveryGate
                 )
             } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
@@ -273,25 +451,15 @@ enum LegacyGlobalEntropyScopedBackfill {
             }
 
             var stopped = false
-            for (tag, value, isSecret) in [(entropyTag, entropy, false), (seedTag, seed, false), (secretTag, secret, true)] {
+            for (tag, value, isSecret) in [
+                (entropyTag, entropy, false), (seedTag, derived.seed, false), (secretTag, derived.secret, true),
+            ] {
                 try recoveryGate.requireAuthorizedLifecycleContinuation()
-                if try keystore.checkKey(for: tag) {
-                    var existing = try keystore.fetchKey(for: tag)
-                    defer { existing.resetBytes(in: existing.startIndex ..< existing.endIndex) }
-                    let matches = isSecret
-                        ? LegacySoraIdentityValidator.storedSecret(existing, matches: value, cryptoType: .sr25519)
-                        : LegacySoraIdentityValidator.constantTimeEqual(existing, value)
-                    guard matches else {
-                        stopped = true
-                        break
-                    }
-                    continue
-                }
-                try keystore.addKey(value, with: tag)
-                var stored = try keystore.fetchKey(for: tag)
-                defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
-                guard LegacySoraIdentityValidator.constantTimeEqual(stored, value) else {
-                    throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
+                if try WalletScopedKeyWrite.addIfAbsent(
+                    value, tag: tag, isSecret: isSecret, cryptoType: .sr25519, keystore: keystore
+                ) == .differs {
+                    stopped = true
+                    break
                 }
             }
             if stopped {

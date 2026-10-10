@@ -132,9 +132,15 @@ class BaseAccountImportInteractor {
         let expectedAddress = account.address
 
         if backupAccountTypes.contains(.passphrase) || (account.passphrase ?? "").isEmpty == false {
+            // A backup restores a known address, so the 3/6/9-word phrases App
+            // Store 3.8.6 accepted are allowed here (never for a new import).
+            // `requireAddress` below proves the phrase derives that address;
+            // such a wallet is SORA2-only (its short entropy is kept with the
+            // seed and secret, as 3.8.6 stored it).
             guard
                 let mnemonic = try? mnemonicCreator.mnemonic(fromList: account.passphrase ?? ""),
-                allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
+                allowedMnemonicWordCounts.contains(mnemonic.allWords().count) ||
+                    WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count)
             else {
                 presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
                 return
