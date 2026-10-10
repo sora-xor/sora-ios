@@ -115,10 +115,19 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 extension UISceneSession.Role {
     /// True only for the device's own interactive application scene, the one
-    /// scene that may host wallet windows. External-display roles (AirPlay
-    /// mirroring, a wired display) are never used for wallet UI.
+    /// scene that may host wallet windows: the standard application role, or
+    /// the Assistive Access application role on iOS 26+ (if the system ever
+    /// uses it for this app, the wallet must still appear rather than a blank
+    /// screen). External-display roles (AirPlay mirroring, a wired display)
+    /// are never used for wallet UI.
     var isSoraWalletScene: Bool {
-        self == .windowApplication
+        if self == .windowApplication {
+            return true
+        }
+        if #available(iOS 26.0, *), self == .windowAssistiveAccessApplication {
+            return true
+        }
+        return false
     }
 }
 
