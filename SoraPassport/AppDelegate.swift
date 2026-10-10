@@ -88,10 +88,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Self.sceneConfiguration(for: connectingSceneSession.role)
     }
 
-    /// Only the device's own application scene hosts the wallet. Any other
-    /// role (AirPlay mirroring, a USB-C/HDMI display) gets no delegate, so the
-    /// system mirrors the phone screen and never moves the wallet's windows
-    /// there or sends that scene's life-cycle events to the app.
+    /// Only the device's own interactive application scene hosts the wallet
+    /// (the application role, or the Assistive Access application role on
+    /// iOS 26+). Any other role (AirPlay mirroring, a USB-C/HDMI display)
+    /// gets no delegate, so the system mirrors the phone screen and never
+    /// moves the wallet's windows there or sends that scene's life-cycle
+    /// events to the app.
     static func sceneConfiguration(for role: UISceneSession.Role) -> UISceneConfiguration {
         guard role.isSoraWalletScene else {
             return UISceneConfiguration(name: nil, sessionRole: role)

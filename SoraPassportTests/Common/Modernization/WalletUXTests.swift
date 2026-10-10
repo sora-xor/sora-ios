@@ -124,8 +124,9 @@ final class WalletUXTests: XCTestCase {
     }
 
     /// AirPlay mirroring or a wired display must never receive the wallet
-    /// windows or its life-cycle events: only the application role gets
-    /// SceneDelegate, and every other role is left to system mirroring.
+    /// windows or its life-cycle events: only the interactive application
+    /// roles get SceneDelegate, and every other role is left to system
+    /// mirroring.
     @MainActor
     func testOnlyTheApplicationSceneHostsTheWallet() {
         let application = AppDelegate.sceneConfiguration(for: .windowApplication)
@@ -138,6 +139,15 @@ final class WalletUXTests: XCTestCase {
 
         XCTAssertTrue(UISceneSession.Role.windowApplication.isSoraWalletScene)
         XCTAssertFalse(UISceneSession.Role.windowExternalDisplayNonInteractive.isSoraWalletScene)
+
+        // An Assistive Access scene is interactive: it must show the wallet,
+        // never a blank screen.
+        if #available(iOS 26.0, *) {
+            let assistive = AppDelegate.sceneConfiguration(for: .windowAssistiveAccessApplication)
+            XCTAssertTrue(assistive.delegateClass == SceneDelegate.self)
+            XCTAssertEqual(assistive.role, .windowAssistiveAccessApplication)
+            XCTAssertTrue(UISceneSession.Role.windowAssistiveAccessApplication.isSoraWalletScene)
+        }
 
         if let walletScene = UIApplication.shared.soraWindowScene {
             XCTAssertEqual(walletScene.session.role, .windowApplication)
