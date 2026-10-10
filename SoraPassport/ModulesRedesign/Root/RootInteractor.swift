@@ -86,13 +86,40 @@ enum LegacyWalletUpgradePolicy {
         return true
     }
 
+    /// `isCandidate`, where retained 1.x material that does not prove itself
+    /// (for example a `privateKey` that `seedEntropy` does not derive, or
+    /// entropy that is not a 12–24 word phrase) means "not a candidate"
+    /// instead of an error. Its items stay untouched; the user continues with
+    /// Welcome back or onboarding (restore with the recovery phrase). A
+    /// Keychain read error still throws and is retried.
+    static func isProvenCandidate(
+        keystore: KeystoreProtocol,
+        hasWatchOnlyWallet: Bool,
+        snapshot: WalletNetworkSnapshot?
+    ) throws -> Bool {
+        do {
+            guard try isCandidate(
+                keystore: keystore,
+                hasWatchOnlyWallet: hasWatchOnlyWallet,
+                snapshot: snapshot
+            ) else { return false }
+            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+            guard WalletMnemonicWordPolicy.isDerivableEntropy(entropy) else { return false }
+            let words = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords().count
+            return WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(words)
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            return false
+        }
+    }
+
     static func shouldDeferStorageMigration(
         storeExists: Bool,
         keystore: KeystoreProtocol,
         hasWatchOnlyWallet: Bool,
         snapshot: WalletNetworkSnapshot?
     ) throws -> Bool {
-        try !storeExists && isCandidate(
+        try !storeExists && isProvenCandidate(
             keystore: keystore,
             hasWatchOnlyWallet: hasWatchOnlyWallet,
             snapshot: snapshot
@@ -746,7 +773,7 @@ final class RootInteractor {
     private func isLegacyWalletUpgradeCandidate(
         snapshot: WalletNetworkSnapshot?
     ) throws -> Bool {
-        try LegacyWalletUpgradePolicy.isCandidate(
+        try LegacyWalletUpgradePolicy.isProvenCandidate(
             keystore: keystore,
             hasWatchOnlyWallet:
                 settings.hasRetainedWatchOnlyWallet(),
