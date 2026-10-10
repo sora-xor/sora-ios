@@ -50,6 +50,7 @@ final class ChainSyncService {
     let eventCenter: EventCenterProtocol
     let retryStrategy: ReconnectionStrategyProtocol
     let operationQueue: OperationQueue
+    let whitelistStore: AssetWhitelistStoring
     let logger: LoggerProtocol?
 
     private(set) var retryAttempt: Int = 0
@@ -66,6 +67,7 @@ final class ChainSyncService {
         eventCenter: EventCenterProtocol,
         operationQueue: OperationQueue,
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
+        whitelistStore: AssetWhitelistStoring = AssetWhitelistStore.shared,
         logger: LoggerProtocol? = nil
     ) {
         self.typesUrl = typesUrl
@@ -75,6 +77,7 @@ final class ChainSyncService {
         self.eventCenter = eventCenter
         self.operationQueue = operationQueue
         self.retryStrategy = retryStrategy
+        self.whitelistStore = whitelistStore
         self.logger = logger
     }
 
@@ -95,13 +98,16 @@ final class ChainSyncService {
         executeSync()
     }
 
-    private func executeSync(whitelistData: Data? = nil, refreshWhitelist: Bool = true) {
+    private func executeSync(whitelist remoteWhitelist: AssetWhitelist? = nil, refreshWhitelist: Bool = true) {
         let localFetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
         let processingOperation: BaseOperation<SyncChanges> = ClosureOperation {
             let localChains = try localFetchOperation.extractNoCancellableResultData()
             let chainId = Chain.sora.genesisHash()
-            // A remote whitelist is optional metadata. Its outage must not
-            // prevent the local chain and its working nodes from being saved.
+            // The remote whitelist can be slow or down. Its outage must not
+            // prevent the local chain and its working nodes from being saved,
+            // and must not let unvetted assets in: until it arrives, the last
+            // good list (or the bundled one) decides which assets are listed.
+            let whitelist = remoteWhitelist ?? self.whitelistStore.current()
             let defaultChain = Self.preparedChain(
                 chainId: chainId,
                 addressPrefix: ApplicationConfig.shared.addressType,
@@ -110,7 +116,7 @@ final class ChainSyncService {
                 typesURL: self.typesUrl,
                 local: localChains.first { $0.chainId == chainId },
                 assets: AssetManager.networkAssets,
-                whitelistData: whitelistData
+                whitelist: whitelist
             )
 
             let remoteChains: [ChainModel] = [defaultChain]
@@ -185,10 +191,10 @@ final class ChainSyncService {
         operation.completionBlock = { [weak self] in
             guard let self = self else { return }
             if let data = try? operation.extractNoCancellableResultData(),
-               (try? JSONDecoder().decode([Whitelist].self, from: data)) != nil {
+               let whitelist = self.whitelistStore.acceptRemote(data) {
                 // Fetch the current local chain again, preserving a node choice
                 // made while the optional HTTP request was in flight.
-                self.executeSync(whitelistData: data, refreshWhitelist: false)
+                self.executeSync(whitelist: whitelist, refreshWhitelist: false)
             } else {
                 self.complete(result: bootstrapResult)
             }
@@ -204,7 +210,7 @@ final class ChainSyncService {
         typesURL: URL?,
         local: ChainModel?,
         assets: [AssetInfo],
-        whitelistData: Data?
+        whitelist: AssetWhitelist
     ) -> ChainModel {
         let matchingLocal = local?.chainId == chainId && local?.addressPrefix == addressPrefix ? local : nil
         // One node per URL: the store has a uniqueness constraint on the node
@@ -262,12 +268,14 @@ final class ChainSyncService {
             customNodes: customNodes,
             iosMinAppVersion: matchingLocal?.iosMinAppVersion
         )
-        let whitelist = whitelistData.flatMap { try? JSONDecoder().decode([Whitelist].self, from: $0) }
+        // Fail closed: on-chain names and symbols can be chosen by anyone, so an asset
+        // is listed only when the whitelist admits it, including assets kept from the
+        // local store (they may have been saved unfiltered by an earlier build).
         let retainedAssets = assets.isEmpty ? (matchingLocal?.assets.compactMap { $0.asset } ?? []) : assets
         let chainAssets = retainedAssets.compactMap { originalAsset -> ChainAssetModel? in
+            guard whitelist.admits(assetId: originalAsset.assetId) else { return nil }
             var asset = originalAsset
-            if let whitelist = whitelist {
-                guard let listed = whitelist.first(where: { $0.assetId == asset.assetId }) else { return nil }
+            if let listed = whitelist.entry(for: asset.assetId) {
                 asset.icon = listed.icon
                 asset.name = listed.name
                 asset.symbol = listed.symbol

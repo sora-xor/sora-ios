@@ -151,10 +151,14 @@ class ApplicationConfigTests: XCTestCase {
             }
         }
         let queue = OperationQueue()
+        let whitelistDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: whitelistDirectory) }
+        let whitelistStore = AssetWhitelistStore(directory: whitelistDirectory, bundledURL: R.file.whitelistJson())
         let service = ChainSyncService(
             typesUrl: nil, assetsUrl: URL(string: "https://metadata.invalid/whitelist"),
             dataFetchFactory: fetchFactory, repository: AnyDataProviderRepository(repository),
-            eventCenter: EventCenter(), operationQueue: queue
+            eventCenter: EventCenter(), operationQueue: queue, whitelistStore: whitelistStore
         )
         service.syncUp()
         wait(for: [requestedWhitelist], timeout: 3)
@@ -165,10 +169,13 @@ class ApplicationConfigTests: XCTestCase {
         let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
         let local = configuredChain(selected: custom, custom: [custom])
         local.assets = [ChainAssetModel(assetId: AssetInfo.xor.assetId, type: .normal, asset: .xor, chain: local)]
-        for unavailableWhitelist in [nil, Data("invalid metadata".utf8)] as [Data?] {
+        // Without the remote whitelist the bundled list (or, if even that is
+        // unreadable, the predefined assets) decides; XOR stays listed.
+        XCTAssertNil(AssetWhitelist.decode(Data("invalid metadata".utf8), source: .remote))
+        for unavailableWhitelist in [whitelistStore.current(), AssetWhitelist.empty] {
             let synced = ChainSyncService.preparedChain(
                 chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
-                typesURL: nil, local: local, assets: [], whitelistData: unavailableWhitelist
+                typesURL: nil, local: local, assets: [], whitelist: unavailableWhitelist
             )
             XCTAssertEqual(synced.selectedNode, custom)
             XCTAssertEqual(synced.customNodes, [custom])
@@ -180,13 +187,13 @@ class ApplicationConfigTests: XCTestCase {
         }
         let cold = ChainSyncService.preparedChain(
             chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
-            typesURL: nil, local: nil, assets: [.xor], whitelistData: nil
+            typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
         )
         XCTAssertEqual(cold.nodes.count, 2)
         XCTAssertEqual(cold.assets.count, 1)
         let different = ChainSyncService.preparedChain(
             chainId: "other-genesis", addressPrefix: 42, name: "Other", nodes: [],
-            typesURL: nil, local: local, assets: [], whitelistData: nil
+            typesURL: nil, local: local, assets: [], whitelist: .empty
         )
         XCTAssertTrue(different.nodes.isEmpty)
         XCTAssertNil(different.selectedNode)
@@ -199,7 +206,7 @@ class ApplicationConfigTests: XCTestCase {
         let extra = ChainNodeModel(url: URL(string: "wss://extra.sora.example")!, name: "Extra", apikey: nil)
         let merged = ChainSyncService.preparedChain(
             chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [renamedMof2, extra],
-            typesURL: nil, local: nil, assets: [.xor], whitelistData: nil
+            typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
         )
         XCTAssertEqual(merged.nodes.count, 3)
         XCTAssertEqual(Set(merged.nodes.map(\.url)).count, merged.nodes.count)
@@ -479,7 +486,7 @@ private final class ChainTestStore {
             typesURL: nil,
             local: local,
             assets: [.xor],
-            whitelistData: nil
+            whitelist: .empty
         )
     }
 }
