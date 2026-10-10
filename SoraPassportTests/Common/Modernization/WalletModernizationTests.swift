@@ -11053,8 +11053,14 @@ final class WalletModernizationTests: XCTestCase {
                     try database.restoreKeysForReadOnlyAccount(address: account.address,
                         mnemonic: "  \n" + phrase.replacingOccurrences(of: " ", with: "  ") + "\n",
                         derivationPath: "", networkStore: networkStore, lifecycleCoordinator: readOnlyCoordinator)
+                    // The phrase, then the derived seed and secret (add-only),
+                    // so App Store 3.8.6 can sign for the account too.
                     var expected = originals
+                    let restoredSeed = try retainedEntropySeed(entropy)
                     expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    expected[KeystoreTag.seedTagForAddress(account.address)] = restoredSeed
+                    expected[KeystoreTag.secretKeyTagForAddress(account.address)] = try SR25519KeypairFactory()
+                        .createKeypairFromSeed(restoredSeed, chaincodeList: []).privateKey().rawData()
                     XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
                     // The restored source replaces the read-only placeholder.
                     let restored = try XCTUnwrap(networkStore.load())
@@ -11191,7 +11197,11 @@ final class WalletModernizationTests: XCTestCase {
             XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
             try database.restoreMissingEntropy(address: account.address, mnemonic: phrase,
                 derivationPath: path, baseURL: directory, lifecycleCoordinator: coordinator)
+            // The phrase, then the seed and secret derived with the retained
+            // path (hard junctions only, so the secret is deterministic).
             expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+            expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+            expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
             XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
             XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
             for _ in 0..<2 {
@@ -11567,11 +11577,20 @@ final class WalletModernizationTests: XCTestCase {
                     let database = self.missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
                     try WalletCloudBackupRecoveryService.restore(data: payload, password: password,
                         account: account, migrator: database, baseURL: directory, lifecycleCoordinator: coordinator)
+                    // Every supplied source is added, then the derived seed
+                    // and secret (add-only), so App Store 3.8.6, which signs
+                    // only with `-secretKey`, can sign for the account too.
                     var expected = original
                     switch format {
-                    case "seed": expected[KeystoreTag.seedTagForAddress(account.address)] = seed
-                    case "json": expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
-                    default: expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    case "seed":
+                        expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    case "json":
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    default:
+                        expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                        expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
                     }
                     XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), expected)
                     XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
