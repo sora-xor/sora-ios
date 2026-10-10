@@ -1520,7 +1520,44 @@ final class UserStorageMigrator {
         try recoveryGate.requireAuthorizedLifecycleContinuation()
         try fileManager.moveItem(at: attempt, to: supersededRoot.appendingPathComponent(attempt.lastPathComponent))
         Logger.shared.info("Wallet migration outcome: unverified failed attempt set aside; retrying")
+        pruneSupersededAttempts(in: supersededRoot)
         return true
+    }
+
+    /// Superseded attempts kept for support. A failure that repeats (a full
+    /// disk, a copy that never verifies) would otherwise leave a partial store
+    /// copy on every retry.
+    static let retainedSupersededAttempts = 3
+
+    /// Keeps the newest `retainedSupersededAttempts`. Only directories whose
+    /// journal shows an unverified failed attempt are removed: such an attempt
+    /// never replaced the live store, so its partial copy is never the only
+    /// copy of anything. Anything else is left alone. Best effort.
+    private func pruneSupersededAttempts(in root: URL) {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: []
+        ) else { return }
+        var unverified: [(url: URL, updatedAt: Date)] = []
+        for entry in entries {
+            let values = try? entry.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard values?.isDirectory == true, values?.isSymbolicLink != true,
+                  UUID(uuidString: entry.lastPathComponent) != nil,
+                  let journal = try? readBoundedJSON(UserStorageMigrationJournal.self,
+                      at: entry.appendingPathComponent("journal.json"), maximumBytes: Self.maximumJournalBytes),
+                  journal.migrationID.uuidString == entry.lastPathComponent,
+                  journal.state == .failed, journal.safetyArtifacts == nil,
+                  journal.updatedAt.timeIntervalSince1970.isFinite
+            else { continue }
+            unverified.append((entry, journal.updatedAt))
+        }
+        let excess = unverified.sorted { $0.updatedAt > $1.updatedAt }.dropFirst(Self.retainedSupersededAttempts)
+        for attempt in excess {
+            do {
+                try fileManager.removeItem(at: attempt.url)
+            } catch {
+                Logger.shared.warning("Wallet migration outcome: superseded attempt kept (prune failed)")
+            }
+        }
     }
 
     private func isRecoverableStartupFailure(_ journal: UserStorageMigrationJournal) -> Bool {
