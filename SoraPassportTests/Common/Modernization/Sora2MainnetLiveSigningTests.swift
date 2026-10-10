@@ -276,7 +276,7 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
     /// LIVE NETWORK TEST, gated like the signing test. Reads live mainnet
     /// storage that the wallet shows (XOR balances, Demeter farming,
     /// liquidity pools) and decodes it with the app's own models and the live
-    /// runtime metadata. Runtime 132 renamed the balances fields, and every
+    /// runtime metadata. Runtime 124 renamed the balances fields, and every
     /// XOR balance then read as zero; a rename like that fails here before
     /// users see it.
     func testWalletStorageDecodesWithTheLiveMainnetRuntime() async throws {

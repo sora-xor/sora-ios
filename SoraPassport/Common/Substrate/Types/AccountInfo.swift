@@ -105,11 +105,12 @@ extension AccountData {
     var available: BigUInt { free > locked ? free - locked : 0 }
 
     /// Decodes `System.Account` balances in both layouts SORA2 has used.
-    /// Up to runtime 130 the balances pallet stored `free, reserved,
-    /// misc_frozen, fee_frozen`. Runtime 132 and later store `free, reserved,
-    /// frozen, flags`, where `frozen` is the amount that free plus reserved
-    /// may not drop below. Without this, every XOR balance read as zero and
-    /// the send flow could not read the recipient's account on runtime 133.
+    /// Up to runtime 119 the balances pallet stored `free, reserved,
+    /// misc_frozen, fee_frozen`. Runtime 124 (May 2026) and later store
+    /// `free, reserved, frozen, flags`, where `frozen` is the amount that
+    /// free plus reserved may not drop below. Without this, every XOR
+    /// balance read as zero and the send flow could not read the
+    /// recipient's account.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: BalancesLayoutKeys.self)
         let free = try container.decode(StringCodable<BigUInt>.self, forKey: .free).wrappedValue
