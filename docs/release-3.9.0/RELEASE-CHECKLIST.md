@@ -193,9 +193,20 @@ existing wallet:
       It must end with "rejected 1010 Inability to pay some fees". If it
       fails with `unresolvedType`, a runtime upgrade renamed a type that the
       bundled `runtime-sora.json` must alias (as was done for `Index`).
+- [ ] The same command also runs
+      `testWalletStorageDecodesWithTheLiveMainnetRuntime`, which decodes live
+      XOR balances, Demeter farming and pool storage with the app's models.
+      It must pass too. If it fails with `keyNotFound`, a runtime upgrade
+      renamed a field that a wallet model reads, as runtime 124 did for the
+      balances layout. Fix the model before release.
 
 ### Device QA
 
+- [ ] XOR balance: over an existing 3.8.6 wallet that holds XOR, the wallet
+      shows the same XOR balance as the explorer. Before the recheck fix,
+      every XOR balance read as 0 on the current network. An account with
+      frozen XOR (for example, bonded or locked) shows a lower transferable
+      amount on Send than its free balance.
 - [ ] Over an existing 3.8.6 wallet with a small XOR balance: open Send, wait
       for the network fee, send a small amount to your own second account,
       and check it in the history and on the explorer. Repeat a swap.
@@ -214,7 +225,8 @@ existing wallet:
       Japanese. No "could not load" state.
 - [ ] Over a 3.8.6 install that has a custom node: Settings > Nodes still
       shows it under custom nodes, and the selected node is unchanged.
-- [ ] Pending-transfer recovery (its full pass has no unit test): send a
+- [ ] Pending-transfer recovery (the full pass now has a unit test over a
+      stubbed node; this checks it on a device): send a
       small amount, close the app from the app switcher right after
       tapping Send, wait one minute and reopen. The transfer ends as
       completed in Activity and is not sent twice. With two such transfers,
@@ -232,6 +244,12 @@ existing wallet:
       dataTo` (or indexes `dataTo`). The app tries the full filter again
       every 30 minutes, so no app update is needed. Product owner: confirm
       that the signer-only history with the note is acceptable for 3.9.0.
+- [ ] Support: App Store 3.8.6 has the same XOR balance model as the
+      candidate had before the recheck fix, with an older version of the
+      decoding library. On a device with 3.8.6 and a funded wallet, check
+      whether it shows the right XOR balance on the current network
+      (runtime 124 and later). If it shows 0, brief support before release:
+      funds are safe on chain, and 3.9.0 shows the balance again.
 - [ ] Polkamarkt keeps its runtime-130 contract pins (mutations are compiled
       off and the feature is hidden). Re-qualify against the live runtime
       before enabling it.
