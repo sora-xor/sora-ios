@@ -45,6 +45,11 @@ final class SecurityLayerInteractor {
     private let currentDate: () -> Date
 
     private var canEnterPincode: Bool {
+        // While this install's PIN is not set yet (onboarding that started
+        // from Welcome back), `pincode` is an earlier install's PIN: asking
+        // for it on return from the background could stop a user who does
+        // not remember it, with no way on.
+        guard !WalletPendingPinSetup.isPending(settings) else { return false }
         do {
             let hasPincode = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
             return hasPincode

@@ -987,3 +987,6 @@
 "Restore them now" = "今すぐ復元する";
 "Continue without them" = "復元せずに続ける";
 "Create or import an account" = "アカウントを作成またはインポート";
+"Your earlier PIN was not saved" = "以前の PIN を保存できませんでした";
+"SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now." = "SORA は以前使っていた PIN のコピーを保管し、新しい PIN を設定した後も、この iPhone で見つかったウォレットをその PIN で復元できるようにしています。コピーを保存できなかったため、何も変更されていません。もう一度お試しいただくか、見つかったウォレットを今すぐ復元してください。";
+"SORA could not save a copy of the PIN you used before. Nothing was changed. Try again." = "以前使っていた PIN のコピーを保存できませんでした。何も変更されていません。もう一度お試しください。";
