@@ -11,22 +11,12 @@ public enum InputFieldState {
         return self == .success || self == .fail
     }
 
-    var borderColor: SoramitsuColor {
-        switch self {
-        case .`default`: return .bgSurfaceVariant
-        case .focused: return .fgPrimary
-        case .success: return .statusSuccess
-        case .fail: return .statusError
-        case .disabled: return .fgPrimary
-        }
-    }
-
     var descriptionColor: SoramitsuColor {
         switch self {
         case .`default`, .focused: return .fgSecondary
         case .success: return .statusSuccess
         case .fail: return .statusError
-        case .disabled: return .fgPrimary
+        case .disabled: return .fgTertiary
         }
     }
 }
@@ -138,14 +128,8 @@ public final class InputFieldConfiguration<Type: InputField>: SoramitsuViewConfi
     }
 
     func updateView() {
-        if isEnabled {
-            owner?.stackView.layer.borderColor = style.palette.color(state.borderColor).cgColor
-            owner?.stackView.backgroundColor = style.palette.color(.bgSurface)
-            owner?.descriptionLabel.sora.textColor = state.descriptionColor
-        } else {
-            owner?.stackView.layer.borderColor = style.palette.color(state.borderColor).withAlphaComponent(0.04).cgColor
-            owner?.stackView.backgroundColor = style.palette.color(.fgPrimary).withAlphaComponent(0.04)
-            owner?.descriptionLabel.sora.textColor = .custom(uiColor: style.palette.color(state.descriptionColor).withAlphaComponent(0.04))
-        }
+        guard let owner else { return }
+        NeonInputStyle.apply(to: owner.stackView, state: state, isEnabled: isEnabled, cornerRadius: 16)
+        owner.descriptionLabel.sora.textColor = state.descriptionColor
     }
 }

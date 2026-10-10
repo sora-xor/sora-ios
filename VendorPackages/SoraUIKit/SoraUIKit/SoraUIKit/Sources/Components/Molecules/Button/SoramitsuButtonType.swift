@@ -101,7 +101,8 @@ public enum SoramitsuButtonType {
 
     var tintColor: SoramitsuColor {
         switch self {
-        case .filled: return .custom(uiColor: .white)
+        // Ink on neon in dark, white on accent in light (spec §2.6).
+        case .filled: return .fgInverted
 
         case .bleached(let style):
             switch style {

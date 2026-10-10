@@ -10,7 +10,7 @@ public enum Radius {
 	case large
     /// 24
 	case extraLarge
-    /// 32
+    /// 24 (cards)
     case max
 	case circle
     case custom(CGFloat)
