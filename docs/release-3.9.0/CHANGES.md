@@ -1852,3 +1852,75 @@ components, `0d8d6344` cards, shadows, buttons, inputs and backdrops,
 `e9e43a3d` WalletUX and Safe Mode screens, `fa6071bf` launch screen,
 splash and low-storage panel, `14af4171` tests, `42bef7dd` main-thread
 appearance read, `fd24cc65` live re-colouring of toggles and terms text.
+
+## Fix: crash when typing the recovery phrase with the Japanese kana keyboard
+
+### Why
+
+- Typing quickly into the recovery phrase field (Welcome → Import account →
+  Passphrase) with the Japanese kana keyboard crashed the app:
+  `NSInvalidArgumentException` "-[__NSCFString
+  replaceCharactersInRange:withString:]: Range or index out of bounds" in
+  `InputHandler.didReceiveReplacement`, called from
+  `ImportAccountViewController.textView(_:shouldChangeTextIn:replacementText:)`.
+  Found during i6 (see RELEASE-CHECKLIST.md). Japanese users import with
+  that keyboard.
+- Cause: UIKit computes the edit range against the text the field shows.
+  The delegate passed that range to the input handler, which applies it to
+  its own `value`. While a keyboard composes, the two differ:
+  `InputTextView` rewrites its text on every change, which drops the marked
+  range, so UIKit inserts the composition again. Recorded on the simulator:
+  the field showed "aab" while the handler held "ab", and the next key came
+  with range {3, 0}. The account-name field passed ranges the same way.
+
+### What changed
+
+- New `InputHandling.didReceiveReplacement(_:for:displayedText:)`
+  (`SoraPassport/Common/Extensions/ViewModel/InputHandling+TextInput.swift`).
+  While the field shows the handler's value, the edit is forwarded
+  unchanged. Otherwise the field's text with the edit applied (the range
+  clamped to that text) is offered to the handler as its whole new value,
+  so the handler's own character set, length limit and processor still
+  decide what it keeps. If UIKit would not produce the same text, the
+  delegate returns `false` and the field shows the handler's value again,
+  as after any rejected edit.
+- Used by every `InputHandler`-backed text delegate: the phrase and seed
+  text view of `ImportAccountViewController` (and its unused text-field
+  delegate) and the account-name field of `SetupAccountNameViewController`.
+- Unchanged: the vendored `InputHandler` and `InputTextView`, the phrase
+  handler's settings (a–z and whitespace, 250 characters, runs of
+  whitespace collapsed), mnemonic validation, derivation and key handling,
+  and the x86_64 autotest bypass in these delegates.
+
+### User-visible effects
+
+- No crash. The phrase field still takes only a–z and whitespace; kana
+  committed from the kana keyboard is dropped. The phrase that is imported
+  is the text the field shows.
+- Known, pre-existing, not changed here: when the kana keyboard composes
+  Latin letters from a hardware keyboard, a letter can go missing, because
+  `InputTextView` rewrites its text mid-composition (typing "abandon
+  ability able" gave "aandonabilityable"; the kana keyboard also turns
+  spaces into conversion, as in any app). Use the English keyboard for the
+  phrase.
+
+### Verification (Xcode 27.0, new iPhone 17 Pro simulators, iOS 27)
+
+- Before the fix, with the Japanese kana keyboard: typing "abandon ability
+  able" into the phrase field crashed with the same exception and stack as
+  the report (`acceptCurrentCandidateIfSelected` → `InputTextView` →
+  `ImportAccountViewController` → `InputHandler.didReceiveReplacement`).
+  The new tests for the phrase field and the account-name field failed
+  with the same exception.
+- After the fix: the same typing does not crash. After 確定 the field and
+  the handler hold the same text (checked with temporary logging, not
+  committed). With the English keyboard the phrase is typed as before.
+- New `InputHandlingReplacementTests` (10 tests): a replay of the
+  recorded kana sequence, a committed kana candidate the handler never saw
+  (direct and through real marked text), ordinary typing still filtered
+  (digits, capitals, double spaces, 250-character limit, backspace), a
+  committed Japanese account name, and the helper alone (unchanged
+  forwarding, UTF-16 ranges, filters kept, out-of-range ranges clamped).
+- `SoraPassport` Debug build-for-testing and `SoraPassportDev` Debug
+  simulator build succeed. `SoraPassportTests` (live class skipped):
+  476 tests, 0 failures (466 before plus the 10 new ones).
