@@ -38,6 +38,7 @@ import SSFCloudStorage
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -45,9 +46,11 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol,
-         cloudStorage: CloudStorageServiceProtocol? = nil) {
+         cloudStorage: CloudStorageServiceProtocol? = nil,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.lifecycleCoordinator = lifecycleCoordinator
 
         super.init(accountOperationFactory: accountOperationFactory,
                    accountRepository: accountRepository,
@@ -62,7 +65,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         _ importOperation: BaseOperation<PreparedAccount>,
         completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
     ) {
-        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
+        let lifecycleCoordinator = self.lifecycleCoordinator
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()
         importOperation.addDependency(lifecycleOperation)
@@ -133,7 +136,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         _ importOperation: BaseOperation<PreparedAccount>,
         completion: ((Result<AccountItem?, Error>?) -> Void)?
     ) {
-        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
+        let lifecycleCoordinator = self.lifecycleCoordinator
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()
         importOperation.addDependency(lifecycleOperation)
@@ -152,6 +155,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     by: prepared.account.address,
                     options: RepositoryFetchOptions()
                 )
+                let selection = self.settings
                 checkOperation.completionBlock = {
                     defer {
                         prepared.discard()
@@ -159,9 +163,12 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     }
                     let result: Result<AccountItem?, Error>
                     do {
-                        if try checkOperation
-                            .extractNoCancellableResultData() != nil
-                        {
+                        // An account already in the wallet is a duplicate,
+                        // unless its keys are not on this iPhone: then the
+                        // import restores them in place (same rule as the
+                        // insert that follows).
+                        if let existing = try checkOperation.extractNoCancellableResultData(),
+                           try !selection.restoresKeysInPlace(existing: existing, imported: prepared.account) {
                             throw AccountCreateError.duplicated
                         }
                         result = .success(prepared.account)

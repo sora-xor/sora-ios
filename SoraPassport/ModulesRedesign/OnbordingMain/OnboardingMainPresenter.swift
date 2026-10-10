@@ -91,7 +91,8 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
             self.view?.hideLoading()
             switch outcome {
             case .success(let result):
-                let accounts = result.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
+                // Accounts whose keys are not on this iPhone stay listed.
+                let accounts = result.filter { !WalletDriveBackupList.hidesBackup(of: $0.address) }
                 if accounts.isEmpty {
                     self.wireframe.showSignup(from: self.view, isGoogleBackupSelected: true)
                 } else {

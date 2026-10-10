@@ -1150,3 +1150,21 @@ enum WalletAccountAddresses {
         return Set(try operation.extractNoCancellableResultData().map(\.address))
     }
 }
+
+// MARK: - Google Drive backup lists
+
+/// Google Drive backup lists hide the accounts recorded as backed up from
+/// this iPhone (`ApplicationConfig.backupedAccountAddresses`). That record
+/// comes back with an iCloud restore while the keys do not: an account whose
+/// keys are not on this iPhone stays in the list, so its backup can restore
+/// them (in place, add-only). A Keychain read error lists it too.
+enum WalletDriveBackupList {
+    static func hidesBackup(
+        of address: String,
+        backedUpAddresses: [String] = ApplicationConfig.shared.backupedAccountAddresses,
+        keystore: KeystoreProtocol = Keychain()
+    ) -> Bool {
+        guard backedUpAddresses.contains(address) else { return false }
+        return (try? keystore.hasScopedSigningMaterial(for: address)) == true
+    }
+}

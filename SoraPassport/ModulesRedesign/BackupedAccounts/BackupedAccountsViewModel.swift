@@ -55,8 +55,8 @@ final class BackupedAccountsViewModel {
     private func createSnapshot() -> BackupedAccountsSnapshot {
         var snapshot = BackupedAccountsSnapshot()
 
-        let backedUpAddresses = ApplicationConfig.shared.backupedAccountAddresses
-        let accounts = backedUpAddresses.isEmpty ? backedUpAccounts : backedUpAccounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
+        // Accounts whose keys are not on this iPhone stay listed.
+        let accounts = backedUpAccounts.filter { !WalletDriveBackupList.hidesBackup(of: $0.address) }
         
         let sections = [ contentSection(with: accounts) ]
         snapshot.appendSections(sections)
