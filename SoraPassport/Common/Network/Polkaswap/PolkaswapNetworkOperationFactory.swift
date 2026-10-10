@@ -32,9 +32,6 @@ import SSFUtils
 import Foundation
 import Kingfisher
 
-let xorDexID: UInt32 = 0
-let xstusdDexID: UInt32 = 1
-
 struct SwapValues: Decodable, Equatable {
     let amount: String
     let route: [String]
@@ -53,7 +50,6 @@ enum FilterMode: String, CaseIterable {
 
 protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
     var engine: JSONRPCEngine { get }
-    func dexId(for baseAssetId: String) -> UInt32
     func createIsSwapPossibleOperation(dexId: UInt32,
                                        from fromAssetId: String,
                                        to toAssetId: String) -> JSONRPCOperation<[JSONAny], Bool>
@@ -77,18 +73,8 @@ protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
     func isPairEnabled(dexId: UInt32, assetId: String, tokenAddress: String) -> JSONRPCOperation<[JSONAny], Bool>
 }
 
+/// DEX ids come from `DexInfoService`, which reads them from the chain.
 final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol {
-    func dexId(for baseAssetId: String) -> UInt32 {
-        if baseAssetId == WalletAssetId.xor.rawValue || baseAssetId == WalletAssetId.kxor {
-            return xorDexID
-        } else if baseAssetId == WalletAssetId.xstusd.rawValue {
-            return xstusdDexID
-        } else {
-            assert(false)
-            return 0
-        }
-    }
-
     let engine: JSONRPCEngine
 
     init(engine: JSONRPCEngine) {

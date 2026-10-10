@@ -35,6 +35,7 @@
 		C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000020000000000000001 /* AddressQRCodecTests.swift */; };
 		C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000008000000000000000A /* ProductSurfacePolicyTests.swift */; };
 		C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */; };
+		57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */; };
 		21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */; };
 		1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */; };
 		C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */; };
@@ -1066,6 +1067,7 @@
 		554C5CC328D0B6E900AEF6AC /* SwapQuoteAmountsFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F1610F28C89E7B00EF6FF3 /* SwapQuoteAmountsFactoryTests.swift */; };
 		555E01CB3FA1A744CFD1D74C /* AppSettingsCardCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 553069E7290BD3C700F265A3 /* AppSettingsCardCell.swift */; };
 		556980BC2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 556980BB2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift */; };
+		D043EDED93B71238C24B7FAD /* DexInfoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E034FA71154F763A8BDBC29B /* DexInfoService.swift */; };
 		556980DE279C235E0012D207 /* PolkaswapLiquiditySourceSelectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 556980DD279C235E0012D207 /* PolkaswapLiquiditySourceSelectorModel.swift */; };
 		55714919278D9D5800282886 /* JSONAny.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55714918278D9D5700282886 /* JSONAny.swift */; };
 		5599B6CF2924D0CE00567396 /* MenuTitleItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5599B6CE2924D0CE00567396 /* MenuTitleItem.swift */; };
@@ -2215,6 +2217,7 @@
 		CD0FE336B2EDF744CCC1EFA9 /* StorageSubscriptionContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FBE425CC035100775559 /* StorageSubscriptionContainer.swift */; };
 		CD62447E657825F28A3528A1 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = ED467EA3F5597C9AC25A4C1A /* Lottie */; };
 		CDC0C85CC6557CE2933E2D6F /* PolkaswapNetworkOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 556980BB2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift */; };
+		4EA1016097C17395B08EC982 /* DexInfoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E034FA71154F763A8BDBC29B /* DexInfoService.swift */; };
 		CE0488572BD354FE76F23C94 /* SendAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA8082A08E15700806A5B /* SendAssetView.swift */; };
 		CE48814DBBBB87316875A70F /* MarketCapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB672A7BCBE500603361 /* MarketCapService.swift */; };
 		CE7590A5F726DDDFC5354F7B /* RecipientAddressCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE22955B52100117E82 /* RecipientAddressCell.swift */; };
@@ -2483,6 +2486,7 @@
 		C20000020000000000000001 /* AddressQRCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressQRCodecTests.swift; sourceTree = "<group>"; };
 		C3000008000000000000000A /* ProductSurfacePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductSurfacePolicyTests.swift; sourceTree = "<group>"; };
 		C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIMobileConfigFallbackTests.swift; sourceTree = "<group>"; };
+		B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DexInfoServiceTests.swift; sourceTree = "<group>"; };
 		E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetWhitelistTests.swift; sourceTree = "<group>"; };
 		238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstrateStoreMigrationTests.swift; sourceTree = "<group>"; };
 		C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2MainnetLiveSigningTests.swift; sourceTree = "<group>"; };
@@ -3135,6 +3139,7 @@
 		553069E7290BD3C700F265A3 /* AppSettingsCardCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsCardCell.swift; sourceTree = "<group>"; };
 		553069E9290BD4AF00F265A3 /* AppSettingsCardItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsCardItem.swift; sourceTree = "<group>"; };
 		556980BB2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkaswapNetworkOperationFactory.swift; sourceTree = "<group>"; };
+		E034FA71154F763A8BDBC29B /* DexInfoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DexInfoService.swift; sourceTree = "<group>"; };
 		556980DD279C235E0012D207 /* PolkaswapLiquiditySourceSelectorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkaswapLiquiditySourceSelectorModel.swift; sourceTree = "<group>"; };
 		55714918278D9D5700282886 /* JSONAny.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONAny.swift; sourceTree = "<group>"; };
 		5599B6CE2924D0CE00567396 /* MenuTitleItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuTitleItem.swift; sourceTree = "<group>"; };
@@ -3953,6 +3958,7 @@
 				C20000020000000000000001 /* AddressQRCodecTests.swift */,
 				C3000008000000000000000A /* ProductSurfacePolicyTests.swift */,
 				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
+				B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */,
 				E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */,
 				238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */,
 				C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */,
@@ -6041,6 +6047,7 @@
 			isa = PBXGroup;
 			children = (
 				556980BB2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift */,
+				E034FA71154F763A8BDBC29B /* DexInfoService.swift */,
 			);
 			path = Polkaswap;
 			sourceTree = "<group>";
@@ -8033,6 +8040,7 @@
 				02CFE82E218B3F310032259A /* RootControllerAnimationCoordinator.swift in Sources */,
 				3666CBDD2905B7030098F4AC /* ActivityContentViewModel.swift in Sources */,
 				556980BC2795D6EF0012D207 /* PolkaswapNetworkOperationFactory.swift in Sources */,
+				D043EDED93B71238C24B7FAD /* DexInfoService.swift in Sources */,
 				3661C8AA28490E9500660434 /* UIScreen+Size.swift in Sources */,
 				94497DD725EF89A700FD4F14 /* StorageCodingPath.swift in Sources */,
 				36165530291DAB9800060A8D /* PoolDetailsViewFactory.swift in Sources */,
@@ -8864,6 +8872,7 @@
 				C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */,
 				C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */,
 				C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */,
+				57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */,
 				21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */,
 				1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */,
 				C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */,
@@ -9234,6 +9243,7 @@
 				DB8A192B0CE581B97805DB22 /* RootControllerAnimationCoordinator.swift in Sources */,
 				D8EACA3233AA7173659B540B /* ActivityContentViewModel.swift in Sources */,
 				CDC0C85CC6557CE2933E2D6F /* PolkaswapNetworkOperationFactory.swift in Sources */,
+				4EA1016097C17395B08EC982 /* DexInfoService.swift in Sources */,
 				900891C6C88DBE22EF5F6A19 /* UIScreen+Size.swift in Sources */,
 				2D1BCC66F5FA87703A5D0CB0 /* StorageCodingPath.swift in Sources */,
 				BCB5B760330775B766BD5ED2 /* PoolDetailsViewFactory.swift in Sources */,

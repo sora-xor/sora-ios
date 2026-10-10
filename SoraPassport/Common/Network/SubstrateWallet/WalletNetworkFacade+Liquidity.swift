@@ -39,7 +39,11 @@ extension WalletNetworkFacade {
     
     func createLiquidityPairIfNeeded(_ info: TransferInfo) throws -> BaseOperation<String>? {
 
-        let dexId = info.context?[TransactionContextKeys.dex] ?? "0"
+        // The DEX id is set by LiquidityTransferInfoFactory from the chain's DEX list.
+        guard let dexId = info.context?[TransactionContextKeys.dex],
+              let dexIdValue = UInt32(dexId) else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
         let assetIdA: String = info.source
         let assetIdB: String = info.destination
 
@@ -62,7 +66,7 @@ extension WalletNetworkFacade {
 
         // isPairEnabled
         let isPairEnabledOperation = self.polkaswapNetworkOperationFactory.isPairEnabled(
-            dexId: UInt32(dexId) ?? 0,
+            dexId: dexIdValue,
             assetId: assetIdA,
             tokenAddress: assetIdB
         )
