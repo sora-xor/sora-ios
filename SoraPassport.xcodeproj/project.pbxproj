@@ -3305,6 +3305,7 @@
 		847527442362F0920028D871 /* InvitationCheckData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationCheckData.swift; sourceTree = "<group>"; };
 		8476CA7A25F0C895003EEAE1 /* SubstrateDataModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = SubstrateDataModel.xcdatamodel; sourceTree = "<group>"; };
 		56E5D4C39315F9801D77FFB8 /* SubstrateDataModel 2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "SubstrateDataModel 2.xcdatamodel"; sourceTree = "<group>"; };
+		C2EDCA3A994D600252912461 /* SubstrateDataModel 0.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "SubstrateDataModel 0.xcdatamodel"; sourceTree = "<group>"; };
 		8476CA9625F0C8E3003EEAE1 /* ChainStorageIdFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainStorageIdFactory.swift; sourceTree = "<group>"; };
 		847A17A22375796E003BA71A /* RoundedCellControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundedCellControlView.swift; sourceTree = "<group>"; };
 		847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleWithAccessoryView.swift; sourceTree = "<group>"; };
@@ -11985,6 +11986,7 @@
 		8476CA7925F0C895003EEAE1 /* SubstrateDataModel.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				C2EDCA3A994D600252912461 /* SubstrateDataModel 0.xcdatamodel */,
 				56E5D4C39315F9801D77FFB8 /* SubstrateDataModel 2.xcdatamodel */,
 				8476CA7A25F0C895003EEAE1 /* SubstrateDataModel.xcdatamodel */,
 			);

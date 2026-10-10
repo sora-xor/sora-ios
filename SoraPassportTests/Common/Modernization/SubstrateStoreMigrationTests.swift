@@ -8,17 +8,21 @@ import XCTest
 @testable import SoraPassport
 
 /// App Store 3.8.6 added `CDConfig`, `CDMetadataVersion` and `CDNode` to
-/// `SubstrateDataModel`. Earlier 3.9.0 builds had the 10-entity model and opened
-/// the store with `.removeStore`, so updating from 3.8.6 deleted contacts, node
-/// choices and pool favourites. These tests write stores with the shipped
-/// models and open them through the production configuration.
+/// `SubstrateDataModel`; App Store 3.0.1 to 3.8.4 had `CDSingleValue` as well. Earlier
+/// 3.9.0 builds had the 10-entity model and opened the store with `.removeStore`, so
+/// updating deleted contacts, node choices and pool favourites. These tests write
+/// stores with the shipped models and open them through the production configuration.
 final class SubstrateStoreMigrationTests: XCTestCase {
     private var directory: URL!
+    private var defaultsSuite: String!
+    private var defaults: UserDefaults!
 
     override func setUpWithError() throws {
         directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("SubstrateStoreMigrationTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defaultsSuite = "SubstrateStoreMigrationTests-\(UUID().uuidString)"
+        defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
     }
 
     override func tearDownWithError() throws {
@@ -29,6 +33,32 @@ final class SubstrateStoreMigrationTests: XCTestCase {
             )
             try? FileManager.default.removeItem(at: directory)
         }
+        if let defaultsSuite {
+            defaults?.removePersistentDomain(forName: defaultsSuite)
+        }
+    }
+
+    private func prepare(
+        fileManager: FileManager = .default,
+        metadataReader: @escaping SubstrateStoreMigrator.MetadataReader = SubstrateStoreMigrator.defaultMetadataReader
+    ) -> SubstrateStorePreparation {
+        SubstrateStoreMigrator.prepare(
+            storeURL: storeURL,
+            modelURL: appModelURL,
+            defaults: defaults,
+            fileManager: fileManager,
+            retryDelays: [0.01],
+            metadataReader: metadataReader,
+            logger: nil
+        )
+    }
+
+    private var deferredLaunches: Int {
+        defaults.integer(forKey: SubstrateStoreMigrator.deferredLaunchesKey)
+    }
+
+    private func sqliteError(_ code: Int, cocoaCode: Int = NSFileReadUnknownError) -> NSError {
+        NSError(domain: NSCocoaErrorDomain, code: cocoaCode, userInfo: ["NSSQLiteErrorDomain": code])
     }
 
     // MARK: - Models
@@ -59,6 +89,36 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         return try XCTUnwrap(NSManagedObjectModel(contentsOf: url))
     }
 
+    /// Entity version hashes of `SubstrateDataModel.xcdatamodel/contents` at App Store
+    /// 3.8.4 (identical at 3.0.1 to 3.8.3), compiled independently of the project with
+    /// `xcrun momc` (Xcode 27.0; .mom SHA-256
+    /// 7acfb94270027da666c961401f1a388a39cd55cd1a6736f0181215ad578db77d). They guard the
+    /// v0 model: if v0 ever differs from what 3.0.1 to 3.8.4 shipped, the tests below fail.
+    private static let appStore384EntityHashes: [String: String] = [
+        "CDAssetInfo": "ek9nXmEaFDAqxNvC9vl9PHluo0SakWaa2iuOFg/EBrM=",
+        "CDChain": "ptsVoTHt11BxCl1yfUuSoXD4HPMwrxHAUdb8D4GLIQ0=",
+        "CDChainAsset": "OHHI+YI1HElQudRS0CMggxXE/YnZgxJRKoYoq4dAUCA=",
+        "CDChainNode": "ss/vV1rML8kMdjwg0WBlnN+nUfbimb+iS858b2UC5co=",
+        "CDChainStorageItem": "tl1izvM2Yua6zVUkbOKhur324LSAxJOj9/M+5iRiFa4=",
+        "CDContactItem": "a1f9E6n04Dw2O8avnrKh71ChA215v4tanvXG60z6M3k=",
+        "CDPhishingItem": "rLQn++gZqmY/EmPOCkDFxCvVXhp2Hs+ZYah6D4p9JIk=",
+        "CDPoolInfo": "hEuAjrKJLt918HappjonrF0irkbPd79RdF6CaAsNmcM=",
+        "CDRuntimeMetadataItem": "CGuttoYz6KhasSha4sSps8HjFd5rhiv1F74+leS1THo=",
+        "CDSingleValue": "3iSXKzgKe1y2R3cYoN6SbuQLDXDz0KO+1pglbRx79yg=",
+        "CDTransactionHistoryItem": "PQiuj6Au3xngx3RffSI+e2biywb41TjJxq1I9/CwX9U="
+    ]
+
+    /// The bundled v0 model, after checking it is the one App Store 3.0.1 to 3.8.4 shipped.
+    private func appStore384Model() throws -> NSManagedObjectModel {
+        let model = try bundledVersion("SubstrateDataModel 0")
+        XCTAssertEqual(
+            model.entityVersionHashesByName.mapValues { $0.base64EncodedString() },
+            Self.appStore384EntityHashes,
+            "SubstrateDataModel 0 must stay identical to App Store 3.0.1 to 3.8.4"
+        )
+        return model
+    }
+
     private func unrelatedModel() -> NSManagedObjectModel {
         let entity = NSEntityDescription()
         entity.name = "CDSomethingElse"
@@ -84,7 +144,11 @@ final class SubstrateStoreMigrationTests: XCTestCase {
     }
 
     /// Writes the user data that the 3.8.6 store holds, with that model.
-    private func writeStore(model: NSManagedObjectModel, includes386Entities: Bool) throws {
+    private func writeStore(
+        model: NSManagedObjectModel,
+        includes386Entities: Bool,
+        includesSingleValue: Bool = false
+    ) throws {
         let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
         let store = try coordinator.addPersistentStore(
             ofType: NSSQLiteStoreType,
@@ -124,6 +188,12 @@ final class SubstrateStoreMigrationTests: XCTestCase {
             pool.setValue(WalletAssetId.val.rawValue, forKey: "targetAssetId")
             pool.setValue(false, forKey: "isFavorite")
             pool.setValue(Int64(3), forKey: "order")
+
+            if includesSingleValue {
+                let value = NSEntityDescription.insertNewObject(forEntityName: "CDSingleValue", into: context)
+                value.setValue("runtime-version", forKey: "identifier")
+                value.setValue(Data([1, 2, 3]), forKey: "payload")
+            }
 
             if includes386Entities {
                 let node = NSEntityDescription.insertNewObject(forEntityName: "CDNode", into: context)
@@ -237,6 +307,13 @@ final class SubstrateStoreMigrationTests: XCTestCase {
 
         let v1 = try bundledVersion("SubstrateDataModel")
         XCTAssertEqual(v1.entities.count, 10)
+        let v0 = try appStore384Model()
+        XCTAssertEqual(v0.entities.count, 11)
+        // v0 is v1 plus CDSingleValue; every other entity is unchanged.
+        XCTAssertEqual(
+            v0.entityVersionHashesByName.filter { $0.key != "CDSingleValue" },
+            v1.entityVersionHashesByName
+        )
         XCTAssertEqual(try bundledVersion("SubstrateDataModel 2").entityVersionHashesByName,
                        appStore386.entityVersionHashesByName)
     }
@@ -247,7 +324,8 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         let setup = SubstrateDataStorageFacade.makeConfiguration(
             modelURL: appModelURL,
             databaseDirectory: directory,
-            databaseName: storeURL.lastPathComponent
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
         )
 
         XCTAssertEqual(setup.preparation, .ready, "a 3.8.6 store needs no migration")
@@ -268,7 +346,8 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         let setup = SubstrateDataStorageFacade.makeConfiguration(
             modelURL: appModelURL,
             databaseDirectory: directory,
-            databaseName: storeURL.lastPathComponent
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
         )
 
         XCTAssertEqual(setup.preparation, .migrated)
@@ -281,7 +360,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         XCTAssertTrue(storeOpens(with: try appStore386Model()))
         // A second launch has nothing to do.
         XCTAssertEqual(
-            SubstrateStoreMigrator.prepare(storeURL: storeURL, modelURL: appModelURL, logger: nil),
+            prepare(),
             .ready
         )
     }
@@ -303,7 +382,8 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         let setup = SubstrateDataStorageFacade.makeConfiguration(
             modelURL: appModelURL,
             databaseDirectory: directory,
-            databaseName: storeURL.lastPathComponent
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
         )
 
         XCTAssertEqual(setup.preparation, .removedIncompatible)
@@ -321,7 +401,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         try Data(repeating: 0x5A, count: 4096).write(to: storeURL)
 
         XCTAssertEqual(
-            SubstrateStoreMigrator.prepare(storeURL: storeURL, modelURL: appModelURL, logger: nil),
+            prepare(),
             .removedIncompatible
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
@@ -335,11 +415,13 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         let setup = SubstrateDataStorageFacade.makeConfiguration(
             modelURL: appModelURL,
             databaseDirectory: directory,
-            databaseName: storeURL.lastPathComponent
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
         )
 
         XCTAssertEqual(setup.preparation, .deferred)
         XCTAssertFalse(isPersistent(setup.configuration), "this session must not touch the store")
+        XCTAssertEqual(deferredLaunches, 0, "a file that cannot be opened is never counted towards moving it aside")
         let service = open(setup.configuration)
         XCTAssertTrue(fetch("CDContactItem", in: service).isEmpty)
         try service.close()
@@ -351,7 +433,8 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         let next = SubstrateDataStorageFacade.makeConfiguration(
             modelURL: appModelURL,
             databaseDirectory: directory,
-            databaseName: storeURL.lastPathComponent
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
         )
         XCTAssertEqual(next.preparation, .migrated)
         let service2 = open(next.configuration)
@@ -361,7 +444,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
 
     func testNoStoreYetIsReady() {
         XCTAssertEqual(
-            SubstrateStoreMigrator.prepare(storeURL: storeURL, modelURL: appModelURL, logger: nil),
+            prepare(),
             .ready
         )
     }
@@ -382,6 +465,219 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         )
         XCTAssertTrue(SubstrateStoreMigrator.isTransient(nested))
         XCTAssertFalse(SubstrateStoreMigrator.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_100)))
+
+        // Core Data wraps SQLite failures in the generic Cocoa read error 256. The SQLite
+        // code decides: a corrupt or foreign file is permanent, not "try again later".
+        XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(11)), .permanent, "256 + SQLITE_CORRUPT")
+        XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(26)), .permanent, "256 + SQLITE_NOTADB")
+        XCTAssertEqual(
+            SubstrateStoreMigrator.classify(sqliteError(11, cocoaCode: NSFileWriteUnknownError)),
+            .permanent
+        )
+        let wrapped = NSError(
+            domain: NSCocoaErrorDomain,
+            code: NSFileReadUnknownError,
+            userInfo: [NSUnderlyingErrorKey: NSError(domain: "NSSQLiteErrorDomain", code: 11)]
+        )
+        XCTAssertEqual(SubstrateStoreMigrator.classify(wrapped), .permanent)
+        XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(13)), .noSpace)
+        XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(10)), .transient)
+        XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(5)), .transient, "SQLITE_BUSY")
+        XCTAssertEqual(SubstrateStoreMigrator.classify(nested), .noSpace)
+        XCTAssertEqual(
+            SubstrateStoreMigrator.classify(NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnknownError)),
+            .transient,
+            "a bare Cocoa read error with no SQLite code can pass"
+        )
+    }
+
+    /// App Store 3.0.1 to 3.8.4 had an 11-entity model with `CDSingleValue`. A user who
+    /// updates straight from one of them keeps contacts, nodes and pool favourites.
+    func testAppStore384StoreIsMigratedNotWiped() throws {
+        try writeStore(model: try appStore384Model(), includes386Entities: false, includesSingleValue: true)
+
+        let setup = SubstrateDataStorageFacade.makeConfiguration(
+            modelURL: appModelURL,
+            databaseDirectory: directory,
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
+        )
+
+        XCTAssertEqual(setup.preparation, .migrated)
+        XCTAssertTrue(isPersistent(setup.configuration))
+        let service = open(setup.configuration)
+        try assertUserDataSurvived(in: service)
+        XCTAssertTrue(fetch("CDConfig", in: service).isEmpty)
+        try service.close()
+
+        // The store is now in the 3.8.6 schema: 3.8.6 opens it, and the next launch has
+        // nothing to do.
+        XCTAssertTrue(storeOpens(with: try appStore386Model()))
+        XCTAssertEqual(prepare(), .ready)
+    }
+
+    /// A -wal file without its database (left by an interrupted removal) is removed
+    /// before a new store is created, so SQLite cannot replay old pages into it.
+    func testSideFilesWithoutTheirDatabaseAreRemoved() throws {
+        let wal = storeURL.path + "-wal"
+        let shm = storeURL.path + "-shm"
+        try Data(repeating: 0x37, count: 512).write(to: URL(fileURLWithPath: wal))
+        try Data(repeating: 0x00, count: 512).write(to: URL(fileURLWithPath: shm))
+
+        XCTAssertEqual(prepare(), .ready)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: wal))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: shm))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    private final class FailingRemovalFileManager: FileManager {
+        var failingSuffix: String?
+
+        override func removeItem(atPath path: String) throws {
+            if let failingSuffix, path.hasSuffix(failingSuffix) {
+                throw NSError(domain: NSPOSIXErrorDomain, code: Int(EBUSY))
+            }
+            try super.removeItem(atPath: path)
+        }
+    }
+
+    /// Side files go first: if one cannot be removed, the database stays, and the next
+    /// launch removes the whole store instead of creating a new database beside an old WAL.
+    func testUnusableStoreKeepsItsDatabaseUntilItsSideFilesAreGone() throws {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: unrelatedModel())
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: storeURL,
+            options: nil
+        )
+        try coordinator.remove(store)
+        let wal = storeURL.path + "-wal"
+        try Data(repeating: 0x37, count: 512).write(to: URL(fileURLWithPath: wal))
+
+        let fileManager = FailingRemovalFileManager()
+        fileManager.failingSuffix = "-wal"
+        XCTAssertEqual(prepare(fileManager: fileManager), .deferred)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path), "the database must outlive its WAL")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: wal))
+
+        XCTAssertEqual(prepare(), .removedIncompatible)
+        for suffix in ["", "-wal", "-shm"] {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path + suffix))
+        }
+        XCTAssertEqual(deferredLaunches, 0)
+    }
+
+    /// Core Data can report a corrupt store as the generic Cocoa error 256 with
+    /// SQLITE_CORRUPT inside. That is not "try again later": the store is replaced, as
+    /// `.removeStore` did, instead of a temporary store on every launch.
+    func testCorruptStoreBehindAGenericCocoaErrorIsRemoved() throws {
+        try writeStore(model: try bundledVersion("SubstrateDataModel"), includes386Entities: false)
+
+        let result = prepare(metadataReader: { _ in throw self.sqliteError(11) })
+
+        XCTAssertEqual(result, .removedIncompatible)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    /// A readable store that keeps failing with a temporary-looking error is retried within
+    /// the launch, then on the next launches; on the third launch in a row it is renamed
+    /// aside (never deleted) and a new store is used.
+    func testStoreThatKeepsFailingIsMovedAsideOnTheThirdLaunch() throws {
+        try writeStore(model: try bundledVersion("SubstrateDataModel"), includes386Entities: false)
+        let original = try Data(contentsOf: storeURL)
+        var reads = 0
+        let failing: SubstrateStoreMigrator.MetadataReader = { _ in
+            reads += 1
+            throw self.sqliteError(10)
+        }
+
+        XCTAssertEqual(prepare(metadataReader: failing), .deferred)
+        XCTAssertEqual(reads, 2, "one quick retry within the launch")
+        XCTAssertEqual(deferredLaunches, 1)
+        XCTAssertEqual(try Data(contentsOf: storeURL), original)
+
+        XCTAssertEqual(prepare(metadataReader: failing), .deferred)
+        XCTAssertEqual(deferredLaunches, 2)
+        XCTAssertEqual(try Data(contentsOf: storeURL), original)
+
+        XCTAssertEqual(prepare(metadataReader: failing), .movedAside)
+        XCTAssertEqual(deferredLaunches, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        let aside = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.hasPrefix("SubstrateDataModel-unreadable-") && $0.hasSuffix(".sqlite") }
+        XCTAssertEqual(aside.count, 1)
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(try XCTUnwrap(aside.first))), original)
+
+        // The next launch starts a new store.
+        let setup = SubstrateDataStorageFacade.makeConfiguration(
+            modelURL: appModelURL,
+            databaseDirectory: directory,
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
+        )
+        XCTAssertEqual(setup.preparation, .ready)
+        XCTAssertTrue(isPersistent(setup.configuration))
+    }
+
+    /// A store that looks like a known version but cannot be migrated is renamed aside with
+    /// its data, not deleted.
+    func testKnownStoreThatCannotBeMigratedIsMovedAsideNotDeleted() throws {
+        // Metadata of a real v1 store, reported for a file whose pages are damaged.
+        let v1Directory = directory.appendingPathComponent("v1", isDirectory: true)
+        try FileManager.default.createDirectory(at: v1Directory, withIntermediateDirectories: true)
+        let v1Store = v1Directory.appendingPathComponent("SubstrateDataModel.sqlite")
+        let v1Coordinator = NSPersistentStoreCoordinator(managedObjectModel: try bundledVersion("SubstrateDataModel"))
+        try v1Coordinator.remove(try v1Coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType, configurationName: nil, at: v1Store, options: nil
+        ))
+        let v1Metadata = try SubstrateStoreMigrator.defaultMetadataReader(v1Store)
+
+        var damaged = Data("SQLite format 3\u{0}".utf8)
+        damaged.append(Data(repeating: 0x5A, count: 8176))
+        try damaged.write(to: storeURL)
+        let original = try Data(contentsOf: storeURL)
+
+        // Opening it for the migration fails with SQLITE_NOTADB.
+        XCTAssertEqual(prepare(metadataReader: { _ in v1Metadata }), .movedAside)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        let aside = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.hasPrefix("SubstrateDataModel-unreadable-") && $0.hasSuffix(".sqlite") }
+        XCTAssertEqual(aside.count, 1)
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(try XCTUnwrap(aside.first))), original)
+        XCTAssertEqual(prepare(), .ready)
+    }
+
+    /// A launch that succeeds clears the count, so only failures in a row add up.
+    func testASuccessfulLaunchResetsTheCount() throws {
+        try writeStore(model: try bundledVersion("SubstrateDataModel"), includes386Entities: false)
+
+        XCTAssertEqual(prepare(metadataReader: { _ in throw self.sqliteError(5) }), .deferred)
+        XCTAssertEqual(prepare(metadataReader: { _ in throw self.sqliteError(5) }), .deferred)
+        XCTAssertEqual(deferredLaunches, 2)
+        XCTAssertEqual(prepare(), .migrated)
+        XCTAssertEqual(deferredLaunches, 0)
+        XCTAssertEqual(prepare(metadataReader: { _ in throw self.sqliteError(5) }), .deferred)
+        XCTAssertEqual(deferredLaunches, 1)
+    }
+
+    /// A full disk is the user's to fix and loses nothing; it never moves the store aside.
+    func testFullDiskNeverMovesTheStoreAside() throws {
+        try writeStore(model: try bundledVersion("SubstrateDataModel"), includes386Entities: false)
+        let original = try Data(contentsOf: storeURL)
+        var reads = 0
+
+        for _ in 0..<5 {
+            XCTAssertEqual(prepare(metadataReader: { _ in
+                reads += 1
+                throw self.sqliteError(13)
+            }), .deferred)
+        }
+
+        XCTAssertEqual(reads, 5, "no quick retries for a full disk")
+        XCTAssertEqual(deferredLaunches, 0)
+        XCTAssertEqual(try Data(contentsOf: storeURL), original)
+        XCTAssertEqual(prepare(), .migrated)
     }
 
     /// 3.8.6 (`fe184e06`) stopped crashing on incomplete asset rows. Such rows are
