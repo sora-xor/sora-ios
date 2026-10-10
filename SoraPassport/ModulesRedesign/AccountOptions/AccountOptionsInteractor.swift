@@ -193,7 +193,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             with: RepositoryFetchOptions()
         )
         inventoryOperation.addDependency(lifecycleOperation)
-        let identityPreflightOperation: BaseOperation<Bool> =
+        let identityPreflightOperation: BaseOperation<WalletExplicitRemovalPlan> =
             ClosureOperation {
                 _ = try lifecycleOperation
                     .extractNoCancellableResultData()
@@ -328,7 +328,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     .requireAuthorizedLifecycleContinuation()
                 let networkSnapshot = try recordRemovalOperation
                     .extractNoCancellableResultData()
-                let removesRetainedLegacyEntropy =
+                let removalPlan =
                     try identityPreflightOperation
                         .extractNoCancellableResultData()
                 _ = try forgetOperation.extractNoCancellableResultData()
@@ -344,8 +344,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     self.finishExplicitRemoval(
                         accounts: accounts,
                         lifecycleLease: lifecycleLease,
-                        removesRetainedLegacyEntropy:
-                            removesRetainedLegacyEntropy
+                        plan: removalPlan
                     )
                     return
                 }
@@ -368,8 +367,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                         self.finishExplicitRemoval(
                             accounts: accounts,
                             lifecycleLease: lifecycleLease,
-                            removesRetainedLegacyEntropy:
-                                removesRetainedLegacyEntropy
+                            plan: removalPlan
                         )
                     } catch {
                         self.enterDeletionRecovery(
@@ -536,9 +534,29 @@ private final class WalletPendingDeletionPreflightOperation:
     }
 }
 
+/// What an explicit, confirmed account removal may delete from the Keychain.
+struct WalletExplicitRemovalPlan: Equatable {
+    /// The account's own `<address>-*` items proved its address (or it is an
+    /// explicit watch-only account without any). Only then are they removed
+    /// with it. Otherwise the account is read-only here, and removing it
+    /// removes only its account row and network entries; its items stay in
+    /// the Keychain untouched.
+    let removesOwnKeyMaterial: Bool
+    /// The unsuffixed 1.x `seedEntropy` (with `userName`) derives exactly
+    /// this account: sr25519, default path, no `-deriv` item, address and
+    /// signature proven. Only that account can resolve through it, so only
+    /// then is it removed with it.
+    let removesRetainedLegacyEntropy: Bool
+
+    static let keepKeychain = WalletExplicitRemovalPlan(
+        removesOwnKeyMaterial: false, removesRetainedLegacyEntropy: false)
+}
+
 /// Pure identity/material policy used by the lifecycle-gated account deletion
 /// flow and its retained-wallet regression tests. It performs no writes.
 enum WalletExplicitRemovalIdentityPolicy {
+    /// Whether removal also removes the global 1.x entropy (see
+    /// `WalletExplicitRemovalPlan.removesRetainedLegacyEntropy`).
     static func verify(
         accounts: [AccountItem],
         expectedAccount: AccountItem,
@@ -548,6 +566,20 @@ enum WalletExplicitRemovalIdentityPolicy {
         settings: SettingsManagerProtocol,
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> Bool {
+        try plan(accounts: accounts, expectedAccount: expectedAccount, walletId: walletId,
+                 snapshot: snapshot, keystore: keystore, settings: settings,
+                 recoveryGate: recoveryGate).removesRetainedLegacyEntropy
+    }
+
+    static func plan(
+        accounts: [AccountItem],
+        expectedAccount: AccountItem,
+        walletId: String,
+        snapshot: WalletNetworkSnapshot,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws -> WalletExplicitRemovalPlan {
         let matchingAccounts = accounts.filter {
             $0.identifier == walletId
         }
@@ -596,9 +628,6 @@ enum WalletExplicitRemovalIdentityPolicy {
         let isExplicitWatchOnly =
             settings.bool(for: watchOnlyKey) == true
 
-        let hasScopedEntropy = try keystore.checkKey(
-            for: KeystoreTag.entropyTagForAddress(target.address)
-        )
         var secret = try keystore.fetchSecretKeyForAddress(
             target.address
         )
@@ -656,40 +685,124 @@ enum WalletExplicitRemovalIdentityPolicy {
                 secret: nil,
                 recoveryGate: recoveryGate
             )
-        } else {
-            guard !isExplicitWatchOnly else {
-                throw WalletNetworkMigrationError
-                    .legacyIdentityMismatch(target.address)
-            }
-            do {
-                try Self.requireProvenSource(
-                    wallet.secretSource,
-                    target: target,
-                    entropy: entropy,
-                    rawSeed: rawSeed,
-                    secret: secret,
-                    derivationPath: derivationPath,
-                    recoveryGate: recoveryGate
-                )
-            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-                // A read-only account (keys missing or not matching) can
-                // still be removed on the user's confirmed request. Its own
-                // Keychain items are removed as for any account; retained
-                // global entropy that does not prove it is kept.
-                return false
-            }
+            return WalletExplicitRemovalPlan(removesOwnKeyMaterial: true, removesRetainedLegacyEntropy: false)
         }
+        guard !isExplicitWatchOnly else {
+            throw WalletNetworkMigrationError
+                .legacyIdentityMismatch(target.address)
+        }
+        do {
+            try Self.requireProvenSource(
+                wallet.secretSource,
+                target: target,
+                entropy: entropy,
+                rawSeed: rawSeed,
+                secret: secret,
+                derivationPath: derivationPath,
+                recoveryGate: recoveryGate
+            )
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            // A read-only account (keys missing or not matching) can still
+            // be removed on the user's confirmed request. Material that does
+            // not prove it is quarantined: it stays in the Keychain, as do
+            // the PIN and the global 1.x items.
+            return .keepKeychain
+        }
+        return WalletExplicitRemovalPlan(
+            removesOwnKeyMaterial: true,
+            removesRetainedLegacyEntropy: try globalEntropyBelongsOnly(
+                to: target,
+                walletId: walletId,
+                accounts: accounts,
+                derivationPath: derivationPath,
+                keystore: keystore,
+                recoveryGate: recoveryGate
+            )
+        )
+    }
 
-        // The global 1.x entropy belongs to this account when it is the
-        // entropy that proved it: either directly (global-backed account) or
-        // through the scoped copy added for downgrade safety.
-        guard let entropy, try keystore.checkKey(for: KeystoreTag.legacyEntropy.rawValue) else {
+    /// The global `seedEntropy` derives exactly one address: sr25519 with the
+    /// default path. It belongs to `target` only when that address is the
+    /// target's, proven with a signature. Equal bytes under another path or
+    /// crypto type (the same phrase imported again) are not ownership.
+    private static func globalEntropyBelongsOnly(
+        to target: AccountItem,
+        walletId: String,
+        accounts: [AccountItem],
+        derivationPath: String?,
+        keystore: KeystoreProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws -> Bool {
+        guard
+            target.cryptoType == .sr25519,
+            target.networkType == SNAddressType(chain: .sora),
+            (derivationPath ?? "").isEmpty,
+            try !keystore.checkKey(for: KeystoreTag.deriviationTagForAddress(target.address)),
+            try keystore.checkKey(for: KeystoreTag.legacyEntropy.rawValue)
+        else {
             return false
         }
-        if !hasScopedEntropy { return true }
         var global = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
         defer { global.resetBytes(in: global.startIndex ..< global.endIndex) }
-        return LegacySoraIdentityValidator.constantTimeEqual(global, entropy)
+        guard WalletMnemonicWordPolicy.isDerivableEntropy(global) else { return false }
+        do {
+            try LegacySoraIdentityValidator.validate(
+                address: target.address,
+                publicKey: target.publicKeyData,
+                cryptoType: .sr25519,
+                networkType: target.networkType,
+                derivationPath: nil,
+                entropy: global,
+                rawSeed: nil,
+                secret: nil,
+                recoveryGate: recoveryGate
+            )
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            return false
+        }
+        // No remaining account may resolve through it. It derives only the
+        // target's address, and addresses are unique, so this holds; it is
+        // checked anyway.
+        return !accounts.contains { $0.identifier != walletId && $0.address == target.address }
+    }
+
+    /// The Keychain part of a confirmed removal, as `plan` allows: the
+    /// account's own items only when they proved it; the PIN only with the
+    /// last account and only when that account's keys proved it (as before
+    /// this release); the global `seedEntropy` and `userName` only when they
+    /// derive exactly this account. Everything else is left untouched.
+    static func removeKeychainItems(
+        plan: WalletExplicitRemovalPlan,
+        address: String,
+        isLastAccount: Bool,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol
+    ) throws {
+        if plan.removesOwnKeyMaterial {
+            try keystore.deleteWalletMaterial(for: address)
+            if isLastAccount {
+                try keystore.deleteKeysIfExist(for: [KeystoreTag.pincode.rawValue])
+            }
+        }
+        if plan.removesRetainedLegacyEntropy {
+            try keystore.deleteKeysIfExist(
+                for: [
+                    KeystoreTag.legacyEntropy.rawValue,
+                    KeystoreTag.legacyUsername.rawValue,
+                ]
+            )
+            settings.removeValue(
+                for: KeystoreTag.legacyUsername.rawValue
+            )
+            guard
+                settings.anyValue(
+                    for: KeystoreTag.legacyUsername.rawValue
+                ) == nil
+            else {
+                throw WalletNetworkMigrationError
+                    .explicitRemovalInventoryMismatch
+            }
+        }
     }
 
     private static func requireProvenSource(
@@ -742,36 +855,37 @@ extension AccountOptionsInteractor: EventVisitorProtocol {}
 
 private extension AccountOptionsInteractor {
 
-    /// Proves that the exact protected material about to be deleted still
-    /// derives the installed SORA2 identity. Missing or unreadable material is
-    /// a recovery condition, never permission to remove an account.
+    /// Decides what the confirmed removal may delete. Only material that
+    /// proves the installed SORA2 identity is removed with the account. For a
+    /// read-only account (keys missing or not matching) only the account row
+    /// and its network entries are removed; its Keychain items, the PIN and
+    /// the global 1.x items stay. Unreadable material (a Keychain error)
+    /// throws, and nothing is removed.
     ///
-    /// The return value identifies the oldest supported layout, where the
-    /// wallet owns the single unsuffixed `seedEntropy` tag. Cleanup may remove
-    /// that tag only after this proof and the explicit-removal journal commit.
+    /// The unsuffixed `seedEntropy` is removed only when it derives exactly
+    /// this account, after this proof and the explicit-removal journal commit.
     func verifyExplicitRemovalIdentity(
         accounts: [AccountItem],
         walletId: String
-    ) throws -> Bool {
+    ) throws -> WalletExplicitRemovalPlan {
         try WalletRecoveryCapabilityGate.shared
             .requireAuthorizedLifecycleContinuation()
         guard let snapshot = try WalletNetworkStore().load() else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
-        let removesRetainedLegacyEntropy =
-            try WalletExplicitRemovalIdentityPolicy.verify(
-                accounts: accounts,
-                expectedAccount: account,
-                walletId: walletId,
-                snapshot: snapshot,
-                keystore: keystore,
-                settings: settings
-            )
+        let plan = try WalletExplicitRemovalIdentityPolicy.plan(
+            accounts: accounts,
+            expectedAccount: account,
+            walletId: walletId,
+            snapshot: snapshot,
+            keystore: keystore,
+            settings: settings
+        )
         _ = try MigrationAccountCompletionStore.contains(
             accountAddress: account.address,
             settings: settings
         )
-        return removesRetainedLegacyEntropy
+        return plan
     }
 
     func verifyAndCommitExplicitRemovalMetadata(
@@ -863,7 +977,7 @@ private extension AccountOptionsInteractor {
     func finishExplicitRemoval(
         accounts: [AccountItem],
         lifecycleLease: WalletLifecycleLease,
-        removesRetainedLegacyEntropy: Bool
+        plan: WalletExplicitRemovalPlan
     ) {
         do {
             try WalletRecoveryCapabilityGate.shared
@@ -883,14 +997,13 @@ private extension AccountOptionsInteractor {
             }
 
         guard !accounts.isEmpty else {
-            cleanData(lifecycleLease: lifecycleLease)
+            cleanData(lifecycleLease: lifecycleLease, plan: plan)
             return
         }
         do {
             try cleanKeystore(
                 leavingPin: true,
-                removesRetainedLegacyEntropy:
-                    removesRetainedLegacyEntropy
+                plan: plan
             )
         } catch {
             enterDeletionRecovery(
@@ -924,15 +1037,26 @@ private extension AccountOptionsInteractor {
         }
     }
 
+    /// Removes what `plan` allows. The account's own items go only when they
+    /// proved it; the global `seedEntropy` and `userName` only when they
+    /// derive exactly this account; the PIN only with the last account, and
+    /// only when that account's keys proved it (as before this release).
+    /// Unproven material is left in the Keychain untouched.
     func cleanKeystore(
         leavingPin: Bool = true,
-        removesRetainedLegacyEntropy: Bool = false
+        plan: WalletExplicitRemovalPlan
     ) throws {
         try WalletRecoveryCapabilityGate.shared
             .requireAuthorizedLifecycleContinuation()
         let address = account.address
+        try WalletExplicitRemovalIdentityPolicy.removeKeychainItems(
+            plan: plan,
+            address: address,
+            isLastAccount: !leavingPin,
+            keystore: keystore,
+            settings: settings
+        )
         if leavingPin {
-            try keystore.deleteWalletMaterial(for: address)
             try MigrationAccountCompletionStore.remove(
                 accountAddress: address,
                 settings: settings
@@ -943,27 +1067,6 @@ private extension AccountOptionsInteractor {
                 throw WalletNetworkMigrationError
                     .explicitRemovalInventoryMismatch
             }
-            if removesRetainedLegacyEntropy {
-                try keystore.deleteKeysIfExist(
-                    for: [
-                        KeystoreTag.legacyEntropy.rawValue,
-                        KeystoreTag.legacyUsername.rawValue,
-                    ]
-                )
-                settings.removeValue(
-                    for: KeystoreTag.legacyUsername.rawValue
-                )
-                guard
-                    settings.anyValue(
-                        for: KeystoreTag.legacyUsername.rawValue
-                    ) == nil
-                else {
-                    throw WalletNetworkMigrationError
-                        .explicitRemovalInventoryMismatch
-                }
-            }
-        } else {
-            try keystore.deleteAll(for: address)
         }
     }
 
@@ -990,11 +1093,12 @@ private extension AccountOptionsInteractor {
         try? userDataFacade.databaseService.drop()
     }
 
-    func cleanData(lifecycleLease: WalletLifecycleLease) {
-        // The user explicitly confirmed deletion of the final account, so
-        // clearing its PIN/global legacy import keys is intentional here.
+    func cleanData(lifecycleLease: WalletLifecycleLease, plan: WalletExplicitRemovalPlan) {
+        // The user explicitly confirmed deletion of the final account. Its
+        // proven keys and the PIN go with it; anything not proven to belong
+        // to it stays in the Keychain (the next launch offers Welcome back).
         do {
-            try cleanKeystore(leavingPin: false)
+            try cleanKeystore(leavingPin: false, plan: plan)
             try cleanSettings()
             try cleanCoreData()
         } catch {

@@ -40,10 +40,14 @@ enum SigningWrapperError: Error {
     case missingNetworkSnapshot
     case identityMismatch
     case signatureVerificationFailed
-    /// No key on this device proves the account (missing, for example on a
-    /// new iPhone, or not matching). The account is read-only here. Nothing
-    /// was signed and no Keychain item was changed.
+    /// No key for the account is on this device (for example a new
+    /// iPhone). The account is read-only here. Nothing was signed and no
+    /// Keychain item was changed. Importing the account's phrase or Google
+    /// Drive backup restores its keys in place.
     case keysNotOnThisDevice
+    /// Keys for the account are on this device but do not prove it. They are
+    /// left untouched; the account is read-only here. Nothing was signed.
+    case keysNotVerified
 }
 
 extension SigningWrapperError: LocalizedError {
@@ -51,7 +55,11 @@ extension SigningWrapperError: LocalizedError {
         switch self {
         case .keysNotOnThisDevice:
             return WalletUX.text(
-                "This account's keys are not on this iPhone, so it can't send. Your funds are not affected. Restore the account with its recovery phrase or Google Drive backup to send from it."
+                "This account's keys are not on this iPhone, so it can't send. Your funds are not affected. To send from it, import this account again with its recovery phrase or Google Drive backup."
+            )
+        case .keysNotVerified:
+            return WalletUX.text(
+                "The keys saved for this account on this iPhone could not be verified, so it can't send. They have not been changed, and your funds are not affected. Contact SORA support."
             )
         default:
             return nil
@@ -268,7 +276,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
                 keystore: keystore
             )
         } catch SigningWrapperError.identityMismatch {
-            throw SigningWrapperError.keysNotOnThisDevice
+            throw SigningWrapperError.keysNotVerified
         }
         guard var secretKey = resolved else {
             throw SigningWrapperError.keysNotOnThisDevice
@@ -322,8 +330,10 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         let snapshot = try WalletNetworkStore().load()
         if snapshot?.wallets.first(where: { $0.id == account.address })?
             .secretSource == .signingUnavailable {
-            // Read-only on this device. Do not touch the Keychain.
-            throw SigningWrapperError.keysNotOnThisDevice
+            // Read-only on this device. Read no secret.
+            throw try keystore.hasScopedSigningMaterial(for: account.address)
+                ? SigningWrapperError.keysNotVerified
+                : SigningWrapperError.keysNotOnThisDevice
         }
         guard
             let snapshot,
@@ -385,7 +395,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
             // The stored keys do not prove this account. They stay as they
             // are; the account is read-only on this device.
-            throw SigningWrapperError.keysNotOnThisDevice
+            throw SigningWrapperError.keysNotVerified
         }
     }
 }

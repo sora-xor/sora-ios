@@ -87,6 +87,15 @@ extension KeystoreProtocol {
         try deleteKeyIfExists(for: KeystoreTag.entropyTagForAddress(address))
     }
 
+    /// True when the address has any scoped item a signer can use:
+    /// `-entropy`, `-seed` or `-secretKey` (a `-deriv` item alone is not one).
+    /// Read-only; no secret is loaded.
+    func hasScopedSigningMaterial(for address: String) throws -> Bool {
+        try checkKey(for: KeystoreTag.entropyTagForAddress(address)) ||
+            checkKey(for: KeystoreTag.seedTagForAddress(address)) ||
+            checkKey(for: KeystoreTag.secretKeyTagForAddress(address))
+    }
+
     func loadIfKeyExists(_ tag: String) throws -> Data? {
         guard try checkKey(for: tag) else {
             return nil
