@@ -486,10 +486,12 @@ enum LegacyGlobalEntropyScopedBackfill {
 /// - Welcome back (no wallet on this install yet): the `pincode` item is
 ///   still the earlier install's PIN.
 /// - After setup: onboarding has replaced `pincode` with this install's PIN.
-///   Before it does, `preserveEarlierInstallPin` keeps a copy of the earlier
+///   Before it does, `keepEarlierInstallPin` keeps a copy of the earlier
 ///   PIN (add-only), and only those copies unlock retained wallets. This
 ///   install's PIN alone never does: it was chosen by whoever set up this
-///   install, not by the owner of the retained wallets.
+///   install, not by the owner of the retained wallets. Keeping the copy is
+///   a precondition for leaving Welcome back and for setting a new PIN over
+///   an existing one (`PinSetupInteractor`); there is no limit on copies.
 ///
 /// Wrong PINs lead to waits of 1, 5, 15 and then 30 minutes after the third
 /// failure, as on the normal PIN screen. There is no permanent lock; the
@@ -499,7 +501,6 @@ enum WalletRetainedPinGate {
     static let failureCountKey = "wallet.retainedPinFailures"
     static let lockedUntilKey = "wallet.retainedPinLockedUntil"
     static let earlierInstallPinTagPrefix = "earlierInstallPin-"
-    static let maximumEarlierInstallPins = 4
 
     enum Scope: Equatable {
         case welcomeBack
@@ -510,6 +511,9 @@ enum WalletRetainedPinGate {
         case noRetainedPin
         case incorrectPin(attemptsBeforeWait: Int)
         case locked(until: Date)
+        /// A copy of the earlier install's PIN could not be saved or read
+        /// back. Nothing that would replace that PIN may continue.
+        case earlierPinNotKept
     }
 
     static func cooldown(afterFailures count: Int) -> TimeInterval {
@@ -554,13 +558,17 @@ enum WalletRetainedPinGate {
         hasRetainedPin(keystore: keystore, scope: scope)
     }
 
+    /// Returns true when the PIN matched the current `pincode` item (on
+    /// Welcome back: the PIN the app will ask for after the restore), false
+    /// when it matched only a copy kept from an earlier install.
+    @discardableResult
     static func verify(
         _ pin: String,
         keystore: KeystoreProtocol,
         settings: SettingsManagerProtocol,
         scope: Scope = .welcomeBack,
         now: Date = Date()
-    ) throws {
+    ) throws -> Bool {
         if let until = lockedUntil(settings: settings, now: now) {
             throw Failure.locked(until: until)
         }
@@ -569,12 +577,14 @@ enum WalletRetainedPinGate {
         var entered = Data(pin.utf8)
         defer { entered.resetBytes(in: entered.startIndex ..< entered.endIndex) }
         var matched = false
+        var matchedCurrentPin = false
         if !entered.isEmpty {
             for tag in tags {
                 var stored = try keystore.fetchKey(for: tag)
                 defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
                 if LegacySoraIdentityValidator.constantTimeEqual(stored, entered) {
                     matched = true
+                    if tag == KeystoreTag.pincode.rawValue { matchedCurrentPin = true }
                 }
             }
         }
@@ -591,13 +601,14 @@ enum WalletRetainedPinGate {
         }
         settings.removeValue(for: failureCountKey)
         settings.removeValue(for: lockedUntilKey)
+        return matchedCurrentPin
     }
 
     /// Keeps a copy of the current `pincode` (the earlier install's PIN while
-    /// no wallet exists) before onboarding replaces it, so wallets that stay
-    /// in the Keychain can still be restored with that PIN later. Add-only
-    /// and read back; an identical copy is not added twice. Returns true when
-    /// a copy was added.
+    /// no wallet exists) before anything replaces it, so wallets that stay in
+    /// the Keychain can still be restored with that PIN later. Add-only and
+    /// read back; an identical copy is not added twice, and every distinct
+    /// PIN gets its own copy. Returns true when a copy was added.
     @discardableResult
     static func preserveEarlierInstallPin(keystore: KeystoreProtocol) throws -> Bool {
         guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return false }
@@ -605,12 +616,7 @@ enum WalletRetainedPinGate {
         defer { current.resetBytes(in: current.startIndex ..< current.endIndex) }
         guard !current.isEmpty else { return false }
         let existing = try earlierInstallPinTags(keystore: keystore)
-        for tag in existing {
-            var stored = try keystore.fetchKey(for: tag)
-            defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
-            if LegacySoraIdentityValidator.constantTimeEqual(stored, current) { return false }
-        }
-        guard existing.count < maximumEarlierInstallPins else { return false }
+        if try hasCopy(of: current, among: existing, keystore: keystore) { return false }
         var index = 1
         while existing.contains("\(earlierInstallPinTagPrefix)\(index)") { index += 1 }
         let tag = "\(earlierInstallPinTagPrefix)\(index)"
@@ -621,6 +627,81 @@ enum WalletRetainedPinGate {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
         return true
+    }
+
+    /// The precondition for replacing `pincode` (leaving Welcome back for
+    /// onboarding, or setting a new PIN over an existing one): a copy equal
+    /// to the current `pincode` is stored and reads back. Throws
+    /// `earlierPinNotKept` otherwise; the caller must then stop. Without a
+    /// `pincode` (or with an empty one, which no PIN entry can match) there
+    /// is nothing to keep.
+    static func keepEarlierInstallPin(keystore: KeystoreProtocol) throws {
+        do {
+            guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return }
+            _ = try preserveEarlierInstallPin(keystore: keystore)
+            var current = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
+            defer { current.resetBytes(in: current.startIndex ..< current.endIndex) }
+            guard try current.isEmpty ||
+                    hasCopy(of: current, among: earlierInstallPinTags(keystore: keystore), keystore: keystore)
+            else { throw Failure.earlierPinNotKept }
+        } catch let failure as Failure {
+            throw failure
+        } catch {
+            Logger.shared.warning(
+                "Wallet keys: earlier PIN not kept (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))")
+            throw Failure.earlierPinNotKept
+        }
+    }
+
+    private static func hasCopy(of pin: Data, among tags: [String], keystore: KeystoreProtocol) throws -> Bool {
+        var found = false
+        for tag in tags {
+            var stored = try keystore.fetchKey(for: tag)
+            defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
+            if LegacySoraIdentityValidator.constantTimeEqual(stored, pin) { found = true }
+        }
+        return found
+    }
+}
+
+/// Onboarding that starts from Welcome back keeps the earlier install's
+/// `pincode` until the user sets the PIN of this install, and onboarding
+/// saves the account before it shows PIN setup. If the app stops in between,
+/// the next launch must not ask for the earlier PIN (there is no "forgot
+/// PIN" on that screen): while this flag is set, Root routes to PIN setup
+/// instead of PIN entry. The earlier PIN is already kept as a copy
+/// (`WalletRetainedPinGate.keepEarlierInstallPin`), so the found wallets
+/// stay restorable with it. Cleared only when PIN setup has saved the new PIN.
+enum WalletPendingPinSetup {
+    static let settingsKey = "wallet.pinSetupPendingAfterWelcomeBack"
+
+    static func isPending(_ settings: SettingsManagerProtocol) -> Bool {
+        settings.bool(for: settingsKey) == true
+    }
+
+    static func begin(_ settings: SettingsManagerProtocol) {
+        settings.set(value: true, for: settingsKey)
+    }
+
+    static func finish(_ settings: SettingsManagerProtocol) {
+        settings.removeValue(for: settingsKey)
+    }
+
+    /// Leaving Welcome back for onboarding (restore with a phrase or Google
+    /// Drive, or set up again). Keeps a copy of the earlier PIN first and
+    /// throws (leaving nothing changed but an added copy) when it cannot.
+    static func leaveWelcomeBack(keystore: KeystoreProtocol, settings: SettingsManagerProtocol) throws {
+        try WalletRetainedPinGate.keepEarlierInstallPin(keystore: keystore)
+        begin(settings)
+    }
+
+    /// After "Restore wallets found on this iPhone" on Welcome back. When the
+    /// PIN the user entered is this install's `pincode`, the restored wallets
+    /// open with it. When it matched only a copy from an earlier install, the
+    /// app would ask for a `pincode` the user did not prove: ask for a new
+    /// PIN instead (PIN setup keeps the current one as a copy first).
+    static func settleAfterWelcomeBackRestore(matchedCurrentPin: Bool, settings: SettingsManagerProtocol) {
+        matchedCurrentPin ? finish(settings) : begin(settings)
     }
 }
 

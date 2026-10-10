@@ -1143,3 +1143,6 @@
 "Restore them now" = "Restore them now";
 "Continue without them" = "Continue without them";
 "Create or import an account" = "Create or import an account";
+"Your earlier PIN was not saved" = "Your earlier PIN was not saved";
+"SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now." = "SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now.";
+"SORA could not save a copy of the PIN you used before. Nothing was changed. Try again." = "SORA could not save a copy of the PIN you used before. Nothing was changed. Try again.";

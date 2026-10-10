@@ -57,6 +57,12 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
         controller is PinSetupViewProtocol || controller.children.contains(where: containsRootPincode)
     }
 
+    /// Welcome back shows no wallet, and the `pincode` it would ask for is
+    /// an earlier install's PIN; it has its own PIN-gated actions.
+    private func showsWelcomeBack(_ controller: UIViewController) -> Bool {
+        controller is WalletWelcomeBackViewController || controller.children.contains(where: showsWelcomeBack)
+    }
+
     func showSecuringOverlay() {
         if authorizationWindow != nil { return }
         guard let root = windowProvider()?.rootViewController,
@@ -70,7 +76,8 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
 
     func showAuthorization() {
         guard authorizationWindow == nil, let window = windowProvider(),
-              let root = window.rootViewController, !containsRootPincode(root) else { return }
+              let root = window.rootViewController, !containsRootPincode(root),
+              !showsWelcomeBack(root) else { return }
         let lockWindow: UIWindow
         if let scene = window.windowScene {
             lockWindow = UIWindow(windowScene: scene)

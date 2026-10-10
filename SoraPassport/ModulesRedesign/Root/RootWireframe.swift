@@ -1002,6 +1002,8 @@ enum WalletPinPrompt {
                 minutes)
         case .noRetainedPin?:
             return WalletUX.text("No PIN from an earlier install was found. Use your recovery phrase or Google Drive backup.")
+        case .earlierPinNotKept?:
+            return WalletUX.text("SORA could not save a copy of the PIN you used before. Nothing was changed. Try again.")
         case nil:
             if let error = error as? AccountCreateError, case .retainedKeyConflict = error {
                 return WalletUX.text("This iPhone already has different saved keys for this wallet. Nothing was changed. Contact SORA support.")
@@ -1221,8 +1223,8 @@ enum WalletRetainedWalletRestoreFlow {
                 let keychain = Keychain()
                 let outcome: Outcome
                 do {
-                    try WalletRetainedPinGate.verify(pin, keystore: keychain, settings: SettingsManager.shared,
-                                                     scope: scope)
+                    let matchedCurrentPin = try WalletRetainedPinGate.verify(
+                        pin, keystore: keychain, settings: SettingsManager.shared, scope: scope)
                     if scope == .welcomeBack {
                         // Wallets that are not restored now (one fails, or
                         // the user adds others later) stay restorable from
@@ -1239,6 +1241,13 @@ enum WalletRetainedWalletRestoreFlow {
                         selectedWalletSettings: SelectedWalletSettings.shared
                     )
                     if !result.restored.isEmpty {
+                        if scope == .welcomeBack {
+                            // A PIN that matched only an earlier copy is not
+                            // the PIN the app asks for next: set a new one
+                            // first (PIN setup keeps the current one).
+                            WalletPendingPinSetup.settleAfterWelcomeBackRestore(
+                                matchedCurrentPin: matchedCurrentPin, settings: SettingsManager.shared)
+                        }
                         outcome = .restored(count: result.restored.count, failed: result.failedAddresses.count)
                     } else if let error = result.firstError {
                         outcome = .nothingRestored(message: WalletPinPrompt.message(for: error))
@@ -1422,24 +1431,30 @@ final class WalletWelcomeBackViewController: UIViewController {
 
     /// Onboarding ends by setting a new PIN, which replaces the PIN of the
     /// earlier install. While wallets found on this iPhone are not restored,
-    /// offer to restore them first, and keep a copy of the earlier PIN
-    /// (add-only) so they can still be restored with it later from Add
-    /// account.
-    private func leaveForOnboarding() {
+    /// offer to restore them first. Leaving requires a stored copy of the
+    /// earlier PIN (add-only, read back) so they can still be restored with
+    /// it later from Add account; if it cannot be kept, the user stays here
+    /// with Try again, Restore them now or Contact support. It also marks
+    /// the PIN of this install as not set yet, so a stop before PIN setup
+    /// leads back to PIN setup rather than to the earlier PIN.
+    func leaveForOnboarding() {
         let proceed: () -> Void = { [weak self] in
             guard let self else { return }
             self.setBusy(true)
+            let keystore = self.keystore
+            let settings = self.settings
             DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    try WalletRetainedPinGate.preserveEarlierInstallPin(keystore: Keychain())
-                } catch {
-                    Logger.shared.warning(
-                        "Wallet keys: earlier PIN not kept (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
-                    )
+                let result = Result {
+                    try WalletPendingPinSetup.leaveWelcomeBack(keystore: keystore, settings: settings)
                 }
                 DispatchQueue.main.async {
                     self.setBusy(false)
-                    self.onContinueToOnboarding()
+                    switch result {
+                    case .success:
+                        self.onContinueToOnboarding()
+                    case .failure:
+                        self.showEarlierPinNotKept()
+                    }
                 }
             }
         }
@@ -1456,6 +1471,26 @@ final class WalletWelcomeBackViewController: UIViewController {
         })
         alert.addAction(UIAlertAction(title: WalletUX.text("Continue without them"), style: .default) { _ in
             proceed()
+        })
+        alert.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showEarlierPinNotKept() {
+        let alert = UIAlertController(
+            title: WalletUX.text("Your earlier PIN was not saved"),
+            message: WalletUX.text("SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now."),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("Try again"), style: .default) { [weak self] _ in
+            self?.leaveForOnboarding()
+        })
+        if options.canRestoreExistingKeys {
+            alert.addAction(UIAlertAction(title: WalletUX.text("Restore them now"), style: .default) { [weak self] _ in
+                self?.restoreFoundWallets()
+            })
+        }
+        alert.addAction(UIAlertAction(title: WalletUX.text("Contact support"), style: .default) { [weak self] _ in
+            self?.openSupport()
         })
         alert.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
         present(alert, animated: true)

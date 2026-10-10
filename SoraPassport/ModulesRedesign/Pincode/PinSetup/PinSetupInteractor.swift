@@ -46,16 +46,25 @@ class PinSetupInteractor {
     private(set) var secretManager: SecretStoreManagerProtocol
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
+    /// Set for the setup flow (not for changing the PIN after entering it):
+    /// a `pincode` that already exists there is an earlier install's PIN
+    /// (Welcome back), and a copy of it is kept before it is replaced.
+    private let earlierPinKeystore: KeystoreProtocol?
+    private let recoveryGate: WalletRecoveryCapabilityGate
 
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
          biometryAuth: BiometryAuthProtocol,
-         config: ApplicationConfigProtocol
+         config: ApplicationConfigProtocol,
+         earlierPinKeystore: KeystoreProtocol? = nil,
+         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.config = config
+        self.earlierPinKeystore = earlierPinKeystore
+        self.recoveryGate = recoveryGate
     }
 
     private(set) var pincode: String?
@@ -80,8 +89,12 @@ class PinSetupInteractor {
     private func submitPincode() {
         guard state == .submitingPincode, let currentPincode = pincode else { return }
         do {
-            try WalletRecoveryCapabilityGate.shared
-                .requireAuthorizedLifecycleContinuation()
+            try recoveryGate.requireAuthorizedLifecycleContinuation()
+            if let earlierPinKeystore {
+                // Never replace an earlier install's PIN without a copy:
+                // wallets still in the Keychain are restored with it.
+                try WalletRetainedPinGate.keepEarlierInstallPin(keystore: earlierPinKeystore)
+            }
         } catch {
             pincode = nil
             state = .waitingPincode
@@ -89,9 +102,15 @@ class PinSetupInteractor {
             return
         }
 
+        let settingsManager = self.settingsManager
         secretManager.saveSecret(currentPincode,
                                  for: KeystoreTag.pincode.rawValue,
-                                 completionQueue: DispatchQueue.main) { _ -> Void in
+                                 completionQueue: DispatchQueue.main) { saved -> Void in
+                                    if saved {
+                                        // This install's PIN is set; Root
+                                        // asks for it from now on.
+                                        WalletPendingPinSetup.finish(settingsManager)
+                                    }
                                     self.completeSetup()
         }
     }

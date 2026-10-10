@@ -916,7 +916,11 @@ extension RootInteractor: RootInteractorInputProtocol {
             // The wallet model remains dual-readable for rollback/recovery and
             // a successful import is not permission to delete its source.
 
-            if pincodeExists {
+            // After Welcome back, `pincode` is still the earlier install's
+            // PIN until PIN setup saves this install's PIN. Onboarding saves
+            // the account first, so a stop in between must lead back to PIN
+            // setup, not to a PIN entry the user may not be able to answer.
+            if pincodeExists, !WalletPendingPinSetup.isPending(settings) {
                 presenter?.didDecideLocalAuthentication()
             } else {
                 presenter?.didDecidePincodeSetup()

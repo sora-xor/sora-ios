@@ -84,7 +84,8 @@ final class PinViewFactory {
         let interactor = PinSetupInteractor(secretManager: KeychainManager.shared,
                                             settingsManager: SettingsManager.shared,
                                             biometryAuth: BiometryAuth(),
-                                            config: config as ApplicationConfigProtocol
+                                            config: config as ApplicationConfigProtocol,
+                                            earlierPinKeystore: Keychain()
         )
 
         pinSetupView.presenter = presenter
