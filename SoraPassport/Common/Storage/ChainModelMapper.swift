@@ -33,12 +33,15 @@ import CoreData
 import RobinHood
 
 enum ChainModelMapperError: Error {
-    /// A stored chain row without its id or name (the store was damaged).
+    /// A chain object without its id. Core Data does not return stored rows that lack
+    /// required text (it logs "missing mandatory text data" and skips them), so this is
+    /// only reachable for an object built in memory.
     case incompleteChain
 }
 
-/// Rows that are incomplete are skipped (assets, nodes) or reported as an error (a chain)
-/// instead of crashing the app, as in App Store 3.8.6.
+/// Rows that are incomplete are skipped (assets, nodes) instead of crashing the app, as in
+/// App Store 3.8.6. A chain without a name is read with an empty name, so the next chain
+/// sync sees a changed chain and writes the name again (see `ChainStoreRepair`).
 final class ChainModelMapper {
     var entityIdentifierFieldName: String { #keyPath(CDChain.chainId) }
 
@@ -390,9 +393,10 @@ final class ChainModelMapper {
 
 extension ChainModelMapper: CoreDataMapperProtocol {
     func transform(entity: CDChain) throws -> ChainModel {
-        guard let chainId = entity.chainId, let chainName = entity.name else {
+        guard let chainId = entity.chainId else {
             throw ChainModelMapperError.incompleteChain
         }
+        let chainName = entity.name ?? ""
         let nodes: [ChainNodeModel] = entity.nodes?.compactMap { anyNode in
             guard let node = anyNode as? CDChainNode else {
                 return nil

@@ -691,6 +691,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
 
         var mapped: ChainModel?
         var brokenChainError: Error?
+        var unnamedName: String?
         context.performAndWait {
             let chain = CDChain(context: context)
             chain.chainId = Seed.chainId
@@ -729,10 +730,152 @@ final class SubstrateStoreMigrationTests: XCTestCase {
             } catch {
                 brokenChainError = error
             }
+
+            let unnamed = CDChain(context: context)
+            unnamed.chainId = "unnamed"
+            unnamed.addressPrefix = 69
+            unnamedName = (try? ChainModelMapper().transform(entity: unnamed))?.name
         }
 
         XCTAssertEqual(try XCTUnwrap(mapped).assets.map(\.assetId), [WalletAssetId.xor.rawValue])
         XCTAssertNotNil(brokenChainError)
+        XCTAssertEqual(unnamedName, "", "a row without a name is read, so the next sync can write the name again")
+    }
+
+    private final class StoreFacade: StorageFacadeProtocol {
+        let databaseService: CoreDataServiceProtocol
+
+        init(service: CoreDataServiceProtocol) {
+            databaseService = service
+        }
+
+        func createRepository<T, U>(
+            filter: NSPredicate?,
+            sortDescriptors: [NSSortDescriptor],
+            mapper: AnyCoreDataMapper<T, U>
+        ) -> CoreDataRepository<T, U> where T: Identifiable, U: NSManagedObject {
+            CoreDataRepository(databaseService: databaseService, mapper: mapper, filter: filter,
+                               sortDescriptors: sortDescriptors)
+        }
+    }
+
+    private final class SyncObserver: EventVisitorProtocol {
+        let expectation: XCTestExpectation
+        init(_ expectation: XCTestExpectation) { self.expectation = expectation }
+        func processChainSyncDidComplete(event _: ChainSyncDidComplete) { expectation.fulfill() }
+    }
+
+    private final class OfflineDataFactory: DataOperationFactoryProtocol {
+        func fetchData(from _: URL) -> BaseOperation<Data> {
+            ClosureOperation { throw NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet) }
+        }
+    }
+
+    private func fetchChains(
+        _ repository: CoreDataRepository<ChainModel, CDChain>,
+        on queue: OperationQueue
+    ) throws -> [ChainModel] {
+        let fetch = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        queue.addOperations([fetch], waitUntilFinished: true)
+        return try XCTUnwrap(fetch.result).get()
+    }
+
+    /// A chain row that lost its name to store damage is skipped by every Core Data fetch but
+    /// keeps its unique chain id, so the chain sync could neither read nor insert the chain and
+    /// the app never connected. The sync now makes such a row readable and writes the name
+    /// again. A row without an id is left in place; it does not block the chain.
+    func testDamagedChainRowsDoNotStopTheChainSync() throws {
+        let setup = SubstrateDataStorageFacade.makeConfiguration(
+            modelURL: appModelURL,
+            databaseDirectory: directory,
+            databaseName: storeURL.lastPathComponent,
+            defaults: defaults
+        )
+        let service = open(setup.configuration)
+        let repository = ChainRepositoryFactory(storageFacade: StoreFacade(service: service)).createRepository()
+        let queue = OperationQueue()
+        let soraId = Chain.sora.genesisHash()
+        // Node URLs are unique across the store, so each chain gets its own.
+        let chains = [(soraId, Seed.defaultNode), ("other-chain", Seed.customNode)].map { chainId, url in
+            ChainModel(chainId: chainId, name: "Chain",
+                       nodes: [ChainNodeModel(url: url, name: "Node", apikey: nil)], addressPrefix: 69,
+                       icon: nil, selectedNode: nil, customNodes: nil, iosMinAppVersion: nil)
+        }
+        let save = repository.saveOperation({ chains }, { [] })
+        queue.addOperations([save], waitUntilFinished: true)
+        XCTAssertNoThrow(try XCTUnwrap(save.result).get())
+
+        // Damage the rows below Core Data's validation, as a broken store could.
+        let damaged = expectation(description: "damage rows")
+        service.performAsync { context, error in
+            XCTAssertNil(error)
+            context?.performAndWait {
+                for (predicate, property) in [
+                    (NSPredicate(format: "chainId == %@", soraId), "name"),
+                    (NSPredicate(format: "chainId == %@", "other-chain"), "chainId")
+                ] {
+                    let request = NSBatchUpdateRequest(entityName: "CDChain")
+                    request.predicate = predicate
+                    request.propertiesToUpdate = [property: NSExpression(forConstantValue: nil)]
+                    do {
+                        _ = try context?.execute(request)
+                    } catch {
+                        XCTFail("batch update failed: \(error)")
+                    }
+                }
+                context?.reset()
+            }
+            damaged.fulfill()
+        }
+        wait(for: [damaged], timeout: 10)
+
+        // Core Data skips rows that lack required text (and logs it); the fetch itself
+        // does not fail, but the SORA chain cannot be read or inserted again.
+        XCTAssertEqual(try fetchChains(repository, on: queue).map(\.chainId), [])
+        XCTAssertEqual(storedChainRows(in: service), 2)
+
+        // The production chain sync now completes and writes the name again.
+        let eventCenter = EventCenter()
+        let finished = expectation(description: "chain sync")
+        finished.assertForOverFulfill = false
+        let observer = SyncObserver(finished)
+        eventCenter.add(observer: observer, dispatchIn: nil)
+        let sync = ChainSyncService(
+            typesUrl: nil,
+            assetsUrl: nil,
+            dataFetchFactory: OfflineDataFactory(),
+            repository: AnyDataProviderRepository(repository),
+            eventCenter: eventCenter,
+            operationQueue: queue,
+            whitelistStore: AssetWhitelistStore(directory: directory, bundledURL: nil, logger: nil),
+            storeRepair: ChainStoreRepair(databaseService: service, logger: nil)
+        )
+        sync.syncUp()
+        wait(for: [finished], timeout: 10)
+        queue.waitUntilAllOperationsAreFinished()
+        withExtendedLifetime(observer) {}
+
+        let repaired = try fetchChains(repository, on: queue)
+        XCTAssertEqual(repaired.map(\.chainId), [soraId])
+        XCTAssertEqual(repaired.first?.name, Chain.sora.rawValue)
+
+        // The row without an id is left in place, not deleted.
+        XCTAssertEqual(storedChainRows(in: service), 2)
+        try service.close()
+    }
+
+    /// Counts chain rows without loading them, so rows Core Data would skip count too.
+    private func storedChainRows(in service: CoreDataServiceProtocol) -> Int {
+        let counted = expectation(description: "count chain rows")
+        var count = -1
+        service.performAsync { context, _ in
+            let request = NSFetchRequest<NSManagedObjectID>(entityName: "CDChain")
+            request.resultType = .managedObjectIDResultType
+            count = (try? context?.count(for: request)) ?? -1
+            counted.fulfill()
+        }
+        wait(for: [counted], timeout: 10)
+        return count
     }
 
     private static let appStore386ModelBase64: [String] = [
