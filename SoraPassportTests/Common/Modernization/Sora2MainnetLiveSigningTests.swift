@@ -129,24 +129,10 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
 
         // 3. App admission and snapshot with the bundled SORA2 type registry,
         //    then the app's live-runtime check (versions + metadata hash).
-        let snapshot = try RuntimeSnapshotFactory.makeOwnTypesSnapshot(
-            chainId: genesis,
-            runtimeMetadataItem: SoraPassport.RuntimeMetadataItem(
-                chain: genesis,
-                version: version.specVersion,
-                txVersion: version.transactionVersion,
-                metadata: try Data(hexStringSSF: metadataHex),
-                resolver: nil
-            ),
-            ownTypes: try ReviewedSoraRuntimeSnapshotAdmission
-                .loadReviewedChainTypes(),
-            dataHasher: .twox256
-        )
-        let factory = RuntimeCoderFactory(
-            catalog: snapshot.typeRegistryCatalog,
-            specVersion: snapshot.specVersion,
-            txVersion: snapshot.txVersion,
-            metadata: snapshot.metadata
+        let factory = try liveFactory(
+            genesis: genesis,
+            version: version,
+            metadataHex: metadataHex
         )
         try Sora2LiveRuntimeValidator.validate(factory: factory, live: live)
 
@@ -285,6 +271,183 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
                 reason
             )
         }
+    }
+
+    /// LIVE NETWORK TEST, gated like the signing test. Reads live mainnet
+    /// storage that the wallet shows (XOR balances, Demeter farming,
+    /// liquidity pools) and decodes it with the app's own models and the live
+    /// runtime metadata. Runtime 132 renamed the balances fields, and every
+    /// XOR balance then read as zero; a rename like that fails here before
+    /// users see it.
+    func testWalletStorageDecodesWithTheLiveMainnetRuntime() async throws {
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["SORA_LIVE_NETWORK_TESTS"] == "1",
+            "Live-network test. Set TEST_RUNNER_SORA_LIVE_NETWORK_TESTS=1 to run it."
+        )
+
+        let source = WebSocketEngine(
+            connectionName: nil,
+            url: Self.node,
+            reachabilityManager: nil,
+            reconnectionStrategy: nil,
+            autoconnect: false
+        )
+        let rpc = PolkamarktRPCClient(
+            engine: Sora2BoundedHTTPJSONRPCEngine(sourceEngine: source)
+        )
+        let genesis = try await rpc.reviewedGenesisHash()
+        let blockHash = try await rpc.finalizedHead()
+        let version = try await rpc.runtimeVersion(at: blockHash)
+        let metadataHex = try await rpc.metadataHex(at: blockHash)
+        _ = try Sora2LiveRuntimeValidator.liveRuntime(
+            version: version,
+            metadataHex: metadataHex
+        )
+        let factory = try liveFactory(
+            genesis: genesis,
+            version: version,
+            metadataHex: metadataHex
+        )
+
+        // XOR balances (System.Account), as the wallet and the subscription
+        // models read them.
+        let accounts: [AccountInfo?] = try await decodeLivePage(
+            .account, factory: factory, at: blockHash, count: 300
+        )
+        XCTAssertEqual(accounts.count, 300)
+        XCTAssertTrue(accounts.contains { ($0?.data.free ?? 0) > 0 })
+        XCTAssertTrue(accounts.allSatisfy { info in
+            info.map { $0.data.locked <= $0.data.free } ?? false
+        })
+        let dynamicAccounts: [DyAccountInfo?] = try await decodeLivePage(
+            .account, factory: factory, at: blockHash, count: 50
+        )
+        XCTAssertTrue(dynamicAccounts.allSatisfy { $0 != nil })
+
+        // Demeter farming and liquidity pools.
+        let userFarms: [[UserFarmInfo]?] = try await decodeLivePage(
+            .demeterFarmingUserInfo, factory: factory, at: blockHash, count: 50
+        )
+        let farmPools: [[FarmedPoolInfo]?] = try await decodeLivePage(
+            .demeterFarmingPools, factory: factory, at: blockHash, count: 50
+        )
+        let farmTokens: [FarmedTokenInfo?] = try await decodeLivePage(
+            .demeterFarmingTokenInfo, factory: factory, at: blockHash, count: 50
+        )
+        let userPools: [[AssetId]?] = try await decodeLivePage(
+            .userPools, factory: factory, at: blockHash, count: 50
+        )
+        for (name, count) in [
+            ("UserInfos", userFarms.count),
+            ("Pools", farmPools.count),
+            ("TokenInfos", farmTokens.count),
+            ("AccountPools", userPools.count)
+        ] {
+            XCTAssertGreaterThan(count, 0, "No live \(name) entries were read")
+        }
+        XCTAssertTrue(userFarms.allSatisfy { $0 != nil })
+        XCTAssertTrue(farmPools.allSatisfy { $0 != nil })
+        XCTAssertTrue(farmTokens.allSatisfy { $0 != nil })
+        XCTAssertTrue(userPools.allSatisfy { $0 != nil })
+        print(
+            "SoraLiveStorage spec=\(version.specVersion) " +
+                "accounts=\(accounts.count) " +
+                "funded=\(accounts.filter { ($0?.data.free ?? 0) > 0 }.count) " +
+                "withFrozen=\(accounts.filter { ($0?.data.locked ?? 0) > 0 }.count) " +
+                "userFarms=\(userFarms.count) farmPools=\(farmPools.count) " +
+                "farmTokens=\(farmTokens.count) userPools=\(userPools.count)"
+        )
+    }
+
+    /// The app's admission and snapshot for the live runtime, with the
+    /// bundled SORA2 type registry.
+    private func liveFactory(
+        genesis: String,
+        version: RuntimeVersion,
+        metadataHex: String
+    ) throws -> RuntimeCoderFactory {
+        let snapshot = try RuntimeSnapshotFactory.makeOwnTypesSnapshot(
+            chainId: genesis,
+            runtimeMetadataItem: SoraPassport.RuntimeMetadataItem(
+                chain: genesis,
+                version: version.specVersion,
+                txVersion: version.transactionVersion,
+                metadata: try Data(hexStringSSF: metadataHex),
+                resolver: nil
+            ),
+            ownTypes: try ReviewedSoraRuntimeSnapshotAdmission
+                .loadReviewedChainTypes(),
+            dataHasher: .twox256
+        )
+        return RuntimeCoderFactory(
+            catalog: snapshot.typeRegistryCatalog,
+            specVersion: snapshot.specVersion,
+            txVersion: snapshot.txVersion,
+            metadata: snapshot.metadata
+        )
+    }
+
+    /// Reads one page of a storage map at `blockHash` and decodes every
+    /// value with the app's storage decoding operation.
+    private func decodeLivePage<T: Decodable>(
+        _ path: SoraPassport.StorageCodingPath,
+        factory: RuntimeCoderFactoryProtocol,
+        at blockHash: String,
+        count: Int
+    ) async throws -> [T?] {
+        let prefix = try StorageKeyFactory().key(from: path)
+            .toHex(includePrefix: true)
+        let keyList = try await rawCall(
+            "state_getKeysPaged",
+            [prefix, count, prefix, blockHash]
+        )
+        let keys = try XCTUnwrap(keyList as? [String])
+        guard !keys.isEmpty else {
+            return []
+        }
+        let changeSets = try await rawCall(
+            "state_queryStorageAt",
+            [keys, blockHash]
+        )
+        let sets = try XCTUnwrap(changeSets as? [[String: Any]])
+        let changes = try XCTUnwrap(sets.first?["changes"] as? [[Any]])
+        let dataList: [Data?] = try changes.map { change in
+            guard let value = change.last as? String else {
+                return nil
+            }
+            return try Data(hexStringSSF: value)
+        }
+        let operation = StorageFallbackDecodingListOperation<T>(
+            path: path,
+            dataList: dataList
+        )
+        operation.codingFactory = factory
+        operation.start()
+        return try XCTUnwrap(operation.result).get()
+    }
+
+    /// A raw JSON-RPC read for key listing, which the app's bounded
+    /// transport does not offer.
+    private func rawCall(_ method: String, _ parameters: [Any]) async throws -> Any {
+        var request = URLRequest(
+            url: try Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(for: Self.node)
+        )
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": parameters
+        ])
+        let (data, _) = try await URLSession(
+            configuration: .ephemeral
+        ).data(for: request)
+        let object = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        return try XCTUnwrap(object["result"], "\(method): \(object)")
     }
 
     /// Runs one request on the given engine. `JSONRPCOperation.main` waits
