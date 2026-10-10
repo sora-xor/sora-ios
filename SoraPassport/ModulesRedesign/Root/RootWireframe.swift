@@ -170,7 +170,7 @@ final class RootWireframe: RootWireframeProtocol {
 /// account commit and is retained after success for dual-read recovery.
 final class LegacyWalletUpgradeViewController: UIViewController {
     private let onConfirm: () -> Void
-    private let continueButton = UIButton(type: .system)
+    private let continueButton = WalletSafeMode.button(.safe, title: WalletUX.text("Upgrade wallet"))
     private let statusLabel = UILabel()
     private let progress = UIActivityIndicatorView(style: .medium)
     private var didConfirm = false
@@ -185,74 +185,112 @@ final class LegacyWalletUpgradeViewController: UIViewController {
         nil
     }
 
+    /// Safe Mode (spec §9.2 U3): calm copy, verified assurances only, one
+    /// Safe action. The technical description moved behind
+    /// "What happens during the upgrade?".
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        WalletSafeMode.installBackdrop(in: view)
 
         let titleLabel = UILabel()
-        titleLabel.font = .preferredFont(forTextStyle: .title2)
-        titleLabel.numberOfLines = 0
-        titleLabel.text = "Protect and upgrade your wallet"
+        WalletSafeMode.title(titleLabel, WalletUX.text("Upgrade your wallet"))
 
         let bodyLabel = UILabel()
-        bodyLabel.font = .preferredFont(forTextStyle: .body)
-        bodyLabel.textColor = .secondaryLabel
-        bodyLabel.numberOfLines = 0
-        bodyLabel.text = [
-            "SORA found a wallet created by an older app version.",
-            "Continue only when you are ready. SORA will verify the protected recovery entropy, derive the same deterministic SORA account, and commit it through the interruption-safe wallet journal.",
-            "The original Keychain entry will not be deleted or replaced in this release. If any check fails, the app will stop in recovery mode instead of creating another wallet."
-        ].joined(separator: "\n\n")
+        WalletSafeMode.body(bodyLabel)
+        bodyLabel.text = WalletUX.text("This version moves your wallet to a safer storage format. It only takes a moment.")
 
-        continueButton.setTitle(
-            "Continue protected upgrade",
-            for: .normal
-        )
+        // Both facts hold for this flow: the 1.x entropy stays in its
+        // original Keychain item, and any failed check routes to recovery.
+        let assurances = UIStackView(arrangedSubviews: [
+            Self.assurance(WalletUX.text("Your original keys are not deleted or replaced")),
+            Self.assurance(WalletUX.text("If a check fails, SORA stops safely and shows your options"))
+        ])
+        assurances.axis = .vertical
+        assurances.spacing = 12
+
         continueButton.accessibilityIdentifier =
             RetainedMigrationEvidenceHarness
                 .continueUpgradeAccessibilityIdentifier
-        continueButton.titleLabel?.font = .preferredFont(
-            forTextStyle: .headline
-        )
         continueButton.addTarget(
             self,
             action: #selector(confirmUpgrade),
             for: .touchUpInside
         )
 
-        statusLabel.font = .preferredFont(forTextStyle: .footnote)
-        statusLabel.textColor = .secondaryLabel
-        statusLabel.numberOfLines = 0
-        statusLabel.textAlignment = .center
+        let detailsButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("What happens during the upgrade?"))
+        detailsButton.addTarget(self, action: #selector(showUpgradeDetails), for: .touchUpInside)
 
+        WalletSafeMode.detail(statusLabel)
         progress.hidesWhenStopped = true
+        progress.color = WalletUX.tokens.cyan
 
         let stack = UIStackView(
             arrangedSubviews: [
+                WalletSafeMode.centered(WalletSafeMode.shieldEmblem()),
                 titleLabel,
                 bodyLabel,
+                assurances,
                 continueButton,
                 progress,
                 statusLabel,
+                detailsButton,
             ]
         )
         stack.axis = .vertical
         stack.spacing = 20
+        stack.setCustomSpacing(28, after: assurances)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.leadingAnchor,
-                constant: 24
-            ),
-            stack.trailingAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.trailingAnchor,
-                constant: -24
-            ),
-            stack.centerYAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.centerYAnchor
-            ),
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: scrollView.contentLayoutGuide.topAnchor, constant: 32),
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
+            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48),
+            stack.centerYAnchor.constraint(equalTo: scrollView.frameLayoutGuide.centerYAnchor).prioritized(.defaultLow),
         ])
+    }
+
+    /// A row with a cyan check and `text.primary` copy (spec §7.17).
+    static func assurance(_ text: String) -> UIView {
+        let icon = UIImageView(image: UIImage(systemName: "checkmark.circle"))
+        icon.tintColor = WalletUX.tokens.cyan
+        icon.contentMode = .scaleAspectFit
+        icon.setContentHuggingPriority(.required, for: .horizontal)
+        icon.setContentCompressionResistancePriority(.required, for: .horizontal)
+        icon.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        icon.isAccessibilityElement = false
+        let label = UILabel()
+        label.text = text
+        label.numberOfLines = 0
+        label.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: FontType.textM.font)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = WalletUX.tokens.textPrimary
+        let row = UIStackView(arrangedSubviews: [icon, label])
+        row.spacing = 12
+        row.alignment = .firstBaseline
+        return row
+    }
+
+    @objc private func showUpgradeDetails() {
+        let alert = UIAlertController(
+            title: WalletUX.text("What happens during the upgrade?"),
+            message: [
+                WalletUX.text("SORA found a wallet created by an older app version."),
+                WalletUX.text("SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions."),
+                WalletUX.text("The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet.")
+            ].joined(separator: "\n\n"),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
+        present(alert, animated: true)
     }
 
     @objc private func confirmUpgrade() {
@@ -262,8 +300,7 @@ final class LegacyWalletUpgradeViewController: UIViewController {
         didConfirm = true
         continueButton.isEnabled = false
         progress.startAnimating()
-        statusLabel.text =
-            "Verifying and preserving your wallet. Do not delete the app."
+        statusLabel.text = WalletUX.text("Updating your wallet. Keep SORA open until this finishes.")
         onConfirm()
     }
 }
@@ -279,14 +316,17 @@ final class WalletRecoveryViewController: UIViewController {
     private let diagnostic: WalletStartupDiagnostic?
     private let onRetry: (() -> Void)?
     private let onSetAside: (() -> Void)?
-    private let retryButton = UIButton(type: .system)
-    private let restoreKeysButton = UIButton(type: .system)
-    private let restoreCloudBackupButton = UIButton(type: .system)
-    private let showPhraseButton = UIButton(type: .system)
-    private let setUpAgainButton = UIButton(type: .system)
+    // Safe Mode action order (spec §9.2 U6): one Safe action, then
+    // secondary restore options, then quieter text actions.
+    private let retryButton = WalletSafeMode.button(.safe, title: WalletUX.text("Try again"))
+    private let restoreKeysButton = WalletSafeMode.button(.secondary, title: WalletUX.text("Restore existing wallet keys"))
+    private let restoreCloudBackupButton = WalletSafeMode.button(
+        .secondary, title: WalletUX.text("Restore from Google Drive backup"))
+    private let showPhraseButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Show my recovery phrase"))
+    private let setUpAgainButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Set up this iPhone again"))
     private let cloudRecoveryStatusLabel = UILabel()
     private var didRetry = false
-    private let exportButton = UIButton(type: .system)
+    private let exportButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Create protected recovery export"))
     private let exportProgress = UIActivityIndicatorView(style: .medium)
     private let exportStatusLabel = UILabel()
     private var isExporting = false
@@ -309,81 +349,64 @@ final class WalletRecoveryViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        WalletSafeMode.installBackdrop(in: view)
         view.accessibilityIdentifier =
             RetainedMigrationEvidenceHarness.recoveryAccessibilityIdentifier
 
         let titleLabel = UILabel()
-        titleLabel.font = .preferredFont(forTextStyle: .title2)
-        titleLabel.text = "Wallet recovery"
-        titleLabel.numberOfLines = 0
+        WalletSafeMode.title(titleLabel, WalletUX.text("We paused to keep your wallet safe"))
 
-        retryButton.setTitle(WalletUX.text("Try again"), for: .normal)
         retryButton.accessibilityIdentifier = "wallet-recovery-retry"
-        retryButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         retryButton.isHidden = onRetry == nil
         retryButton.addTarget(self, action: #selector(retryWalletVerification), for: .touchUpInside)
 
         // Restore actions are shown from facts (accounts whose keys are
         // missing), not from the cause recorded by the latest check.
-        restoreKeysButton.setTitle(WalletUX.text("Restore existing wallet keys"), for: .normal)
         restoreKeysButton.accessibilityIdentifier = "wallet-recovery-restore-keys"
         restoreKeysButton.isHidden = true
         restoreKeysButton.addTarget(self, action: #selector(chooseKeyRecoveryAccount), for: .touchUpInside)
 
-        restoreCloudBackupButton.setTitle(WalletUX.text("Restore from Google Drive backup"), for: .normal)
         restoreCloudBackupButton.accessibilityIdentifier = "wallet-recovery-restore-cloud-backup"
         restoreCloudBackupButton.isHidden = true
         restoreCloudBackupButton.addTarget(self, action: #selector(chooseCloudRecoveryAccount), for: .touchUpInside)
 
-        showPhraseButton.setTitle(WalletUX.text("Show my recovery phrase"), for: .normal)
         showPhraseButton.accessibilityIdentifier = "wallet-recovery-show-phrase"
         showPhraseButton.isHidden = true
         showPhraseButton.addTarget(self, action: #selector(showRecoveryPhrase), for: .touchUpInside)
 
-        setUpAgainButton.setTitle(WalletUX.text("Set up this iPhone again"), for: .normal)
         setUpAgainButton.accessibilityIdentifier = "wallet-recovery-set-up-again"
         setUpAgainButton.isHidden = onSetAside == nil
         setUpAgainButton.addTarget(self, action: #selector(confirmSetUpAgain), for: .touchUpInside)
-        cloudRecoveryStatusLabel.font = .preferredFont(forTextStyle: .footnote)
-        cloudRecoveryStatusLabel.textColor = .secondaryLabel
-        cloudRecoveryStatusLabel.numberOfLines = 0
+        WalletSafeMode.detail(cloudRecoveryStatusLabel)
         cloudRecoveryStatusLabel.isHidden = true
         cloudRecoveryStatusLabel.accessibilityIdentifier = "wallet-recovery-cloud-status"
 
         let bodyLabel = UILabel()
-        bodyLabel.font = .preferredFont(forTextStyle: .body)
-        bodyLabel.textColor = .secondaryLabel
-        bodyLabel.numberOfLines = 0
+        WalletSafeMode.body(bodyLabel)
         bodyLabel.text = [
             diagnostic?.userMessage ?? WalletUX.text("SORA could not verify the wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account."),
             WalletUX.text("SORA stopped before changing anything and did not delete or replace any wallet data. Try again, restore with your recovery phrase or Google Drive backup, or contact SORA support with the app version shown below. Never share your recovery phrase.")
         ].compactMap { $0 }.joined(separator: "\n\n")
 
         let diagnosticLabel = UILabel()
-        diagnosticLabel.font = .preferredFont(forTextStyle: .footnote)
-        diagnosticLabel.textColor = .secondaryLabel
-        diagnosticLabel.numberOfLines = 0
+        WalletSafeMode.technical(diagnosticLabel)
         diagnosticLabel.accessibilityIdentifier = "wallet-recovery-diagnostic"
         diagnosticLabel.text = diagnostic?.summary ?? "No detailed check was recorded by the previous build. Tap Try again to collect the current failure."
 
         let versionLabel = UILabel()
-        versionLabel.font = .preferredFont(forTextStyle: .footnote)
-        versionLabel.textColor = .tertiaryLabel
+        WalletSafeMode.technical(versionLabel)
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         versionLabel.text = "SORA \(version) (\(build))"
 
-        let supportButton = UIButton(type: .system)
-        supportButton.setTitle("Open SORA support", for: .normal)
+        let supportButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Contact support"))
         supportButton.addTarget(
             self,
             action: #selector(openSupport),
             for: .touchUpInside
         )
 
-        let detailsButton = UIButton(type: .system)
-        detailsButton.setTitle("Copy recovery details", for: .normal)
+        let detailsButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Copy recovery details"))
         detailsButton.accessibilityIdentifier = "wallet-recovery-copy-details"
         detailsButton.addTarget(
             self,
@@ -391,16 +414,9 @@ final class WalletRecoveryViewController: UIViewController {
             for: .touchUpInside
         )
 
-        exportButton.setTitle(
-            "Create protected recovery export",
-            for: .normal
-        )
         exportButton.accessibilityIdentifier =
             RetainedMigrationEvidenceHarness
                 .recoveryExportAccessibilityIdentifier
-        exportButton.titleLabel?.font = .preferredFont(
-            forTextStyle: .headline
-        )
         exportButton.addTarget(
             self,
             action: #selector(confirmRecoveryExport),
@@ -408,45 +424,61 @@ final class WalletRecoveryViewController: UIViewController {
         )
 
         exportProgress.hidesWhenStopped = true
+        exportProgress.color = WalletUX.tokens.cyan
 
-        exportStatusLabel.font = .preferredFont(forTextStyle: .footnote)
+        WalletSafeMode.detail(exportStatusLabel)
+        exportStatusLabel.isHidden = true
         exportStatusLabel.accessibilityIdentifier =
             RetainedMigrationEvidenceHarness
                 .recoveryExportSuccessAccessibilityIdentifier
-        exportStatusLabel.textColor = .secondaryLabel
-        exportStatusLabel.numberOfLines = 0
-        exportStatusLabel.textAlignment = .center
 
-        let backupHelpButton = UIButton(type: .system)
-        backupHelpButton.setTitle("Recovery export help", for: .normal)
+        let backupHelpButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Recovery export help"))
         backupHelpButton.addTarget(
             self,
             action: #selector(showBackupHelp),
             for: .touchUpInside
         )
 
+        // Technical details: the code and version, never in the title or body.
+        let technicalCard = GlassView()
+        technicalCard.fill = .solid
+        technicalCard.shape = .rounded(16)
+        let technicalStack = UIStackView(arrangedSubviews: [diagnosticLabel, versionLabel])
+        technicalStack.axis = .vertical
+        technicalStack.spacing = 8
+        technicalStack.translatesAutoresizingMaskIntoConstraints = false
+        technicalCard.contentView.addSubview(technicalStack)
+        NSLayoutConstraint.activate([
+            technicalStack.leadingAnchor.constraint(equalTo: technicalCard.contentView.leadingAnchor, constant: 16),
+            technicalStack.trailingAnchor.constraint(equalTo: technicalCard.contentView.trailingAnchor, constant: -16),
+            technicalStack.topAnchor.constraint(equalTo: technicalCard.contentView.topAnchor, constant: 14),
+            technicalStack.bottomAnchor.constraint(equalTo: technicalCard.contentView.bottomAnchor, constant: -14)
+        ])
+
         let stack = UIStackView(
             arrangedSubviews: [
+                WalletSafeMode.centered(WalletSafeMode.shieldEmblem()),
                 titleLabel,
+                bodyLabel,
                 retryButton,
                 restoreKeysButton,
                 restoreCloudBackupButton,
                 cloudRecoveryStatusLabel,
                 showPhraseButton,
                 setUpAgainButton,
-                bodyLabel,
-                diagnosticLabel,
-                versionLabel,
-                supportButton,
-                detailsButton,
                 exportButton,
                 exportProgress,
                 exportStatusLabel,
-                backupHelpButton
+                supportButton,
+                backupHelpButton,
+                detailsButton,
+                technicalCard
             ]
         )
         stack.axis = .vertical
-        stack.spacing = 20
+        stack.spacing = 12
+        stack.setCustomSpacing(20, after: titleLabel)
+        stack.setCustomSpacing(24, after: bodyLabel)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let scrollView = UIScrollView()
@@ -905,6 +937,7 @@ final class WalletRecoveryViewController: UIViewController {
         exportProgress.startAnimating()
         exportStatusLabel.text =
             "Verifying preserved files. Wallet data and Keychain will not be changed."
+        exportStatusLabel.isHidden = false
 
         let exporter = WalletRecoveryExporter()
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -931,6 +964,7 @@ final class WalletRecoveryViewController: UIViewController {
             "Protected export created.",
             "Keychain secrets remain only on this device."
         ].joined(separator: " ")
+        exportStatusLabel.isHidden = false
         RetainedMigrationEvidenceHarness.shared
             .recordRecoveryArchiveExport(url)
 
@@ -951,6 +985,7 @@ final class WalletRecoveryViewController: UIViewController {
         exportProgress.stopAnimating()
         exportStatusLabel.text =
             "No recovery package was published."
+        exportStatusLabel.isHidden = false
 
         let alert = UIAlertController(
             title: "Recovery export stopped safely",
@@ -1037,6 +1072,8 @@ enum WalletPinPrompt {
 final class WalletRecoveryPhraseViewController: UIViewController {
     private var entries: [WalletRecoveryPhraseReveal.Entry]
     private let wordsLabel = UILabel()
+    /// Opaque card holding the words; hidden with them.
+    private let wordsCard = GlassView()
     private let hiddenLabel = UILabel()
     private var observers: [NSObjectProtocol] = []
 
@@ -1056,18 +1093,17 @@ final class WalletRecoveryPhraseViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        // Secrets sit on opaque surfaces: no aurora, blur or glow behind the
+        // words (spec §7.18).
+        view.backgroundColor = WalletUX.page
         view.accessibilityIdentifier = "wallet-recovery-phrase"
 
         let titleLabel = UILabel()
-        titleLabel.font = .preferredFont(forTextStyle: .title2)
-        titleLabel.numberOfLines = 0
-        titleLabel.text = WalletUX.text("Your recovery phrase")
+        WalletSafeMode.title(titleLabel, WalletUX.text("Your recovery phrase"))
+        titleLabel.textAlignment = .natural
 
         let warningLabel = UILabel()
-        warningLabel.font = .preferredFont(forTextStyle: .body)
-        warningLabel.textColor = .secondaryLabel
-        warningLabel.numberOfLines = 0
+        WalletSafeMode.body(warningLabel, alignment: .natural)
         warningLabel.text = [
             WalletUX.text("Write these words down in order and keep them offline. Anyone with them can take your funds."),
             R.string.localizable.screenshotAlertText(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages),
@@ -1075,21 +1111,29 @@ final class WalletRecoveryPhraseViewController: UIViewController {
 
         wordsLabel.font = .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
                                                 weight: .regular)
+        wordsLabel.textColor = WalletUX.tokens.textPrimary
         wordsLabel.numberOfLines = 0
         wordsLabel.accessibilityIdentifier = "wallet-recovery-phrase-words"
-        hiddenLabel.font = .preferredFont(forTextStyle: .body)
-        hiddenLabel.textColor = .secondaryLabel
-        hiddenLabel.numberOfLines = 0
+        wordsCard.fill = .solid
+        wordsCard.border = .safe
+        wordsCard.shape = .rounded(16)
+        wordsLabel.translatesAutoresizingMaskIntoConstraints = false
+        wordsCard.contentView.addSubview(wordsLabel)
+        NSLayoutConstraint.activate([
+            wordsLabel.leadingAnchor.constraint(equalTo: wordsCard.contentView.leadingAnchor, constant: 20),
+            wordsLabel.trailingAnchor.constraint(equalTo: wordsCard.contentView.trailingAnchor, constant: -20),
+            wordsLabel.topAnchor.constraint(equalTo: wordsCard.contentView.topAnchor, constant: 18),
+            wordsLabel.bottomAnchor.constraint(equalTo: wordsCard.contentView.bottomAnchor, constant: -18)
+        ])
+        WalletSafeMode.body(hiddenLabel, alignment: .natural)
         hiddenLabel.text = WalletUX.text("The words are hidden while the screen is being recorded or shared.")
         hiddenLabel.isHidden = true
 
-        let doneButton = UIButton(type: .system)
-        doneButton.setTitle(WalletUX.text("Done"), for: .normal)
-        doneButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        let doneButton = WalletSafeMode.button(.safe, title: WalletUX.text("Done"))
         doneButton.accessibilityIdentifier = "wallet-recovery-phrase-done"
         doneButton.addTarget(self, action: #selector(done), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, wordsLabel, hiddenLabel, doneButton])
+        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, wordsCard, hiddenLabel, doneButton])
         stack.axis = .vertical
         stack.spacing = 20
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -1146,6 +1190,7 @@ final class WalletRecoveryPhraseViewController: UIViewController {
             wordsLabel.text = nil
         }
         wordsLabel.isHidden = !visible
+        wordsCard.isHidden = !visible
         hiddenLabel.isHidden = visible || UIApplication.shared.applicationState != .active
     }
 
@@ -1288,8 +1333,10 @@ final class WalletWelcomeBackViewController: UIViewController {
     private let settings: SettingsManagerProtocol
     private let onContinueToOnboarding: () -> Void
     private let onWalletsRestored: () -> Void
-    private let restoreFoundButton = UIButton(type: .system)
-    private let showPhraseButton = UIButton(type: .system)
+    private let restoreFoundButton = WalletSafeMode.button(.safe,
+                                                           title: WalletUX.text("Restore wallets found on this iPhone"))
+    private let showPhraseButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Show my recovery phrase"))
+    private var phraseButton: WalletNeonButton?
     private let statusLabel = UILabel()
     private let progress = UIActivityIndicatorView(style: .medium)
     private var isBusy = false
@@ -1314,54 +1361,47 @@ final class WalletWelcomeBackViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        WalletSafeMode.installBackdrop(in: view)
         view.accessibilityIdentifier = "wallet-welcome-back"
 
         let titleLabel = UILabel()
-        titleLabel.font = .preferredFont(forTextStyle: .title2)
-        titleLabel.numberOfLines = 0
-        titleLabel.text = WalletUX.text("Welcome back")
+        WalletSafeMode.title(titleLabel, WalletUX.text("Welcome back"))
 
         let bodyLabel = UILabel()
-        bodyLabel.font = .preferredFont(forTextStyle: .body)
-        bodyLabel.textColor = .secondaryLabel
-        bodyLabel.numberOfLines = 0
+        WalletSafeMode.body(bodyLabel)
         bodyLabel.text = WalletUX.text("We found SORA data from an earlier install on this iPhone. Choose how to continue. Nothing will be deleted.")
 
-        restoreFoundButton.setTitle(WalletUX.text("Restore wallets found on this iPhone"), for: .normal)
-        restoreFoundButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         restoreFoundButton.accessibilityIdentifier = "wallet-welcome-back-restore-found"
         restoreFoundButton.isHidden = true
         restoreFoundButton.addTarget(self, action: #selector(restoreFoundWallets), for: .touchUpInside)
 
         let phraseButton = makeButton(WalletUX.text("Restore with recovery phrase"),
                                       identifier: "wallet-welcome-back-phrase")
+        self.phraseButton = phraseButton
         let driveButton = makeButton(WalletUX.text("Restore from Google Drive"),
                                      identifier: "wallet-welcome-back-drive")
-        showPhraseButton.setTitle(WalletUX.text("Show my recovery phrase"), for: .normal)
         showPhraseButton.accessibilityIdentifier = "wallet-welcome-back-show-phrase"
         showPhraseButton.isHidden = true
         showPhraseButton.addTarget(self, action: #selector(showPhrase), for: .touchUpInside)
-        let setUpButton = UIButton(type: .system)
-        setUpButton.setTitle(WalletUX.text("Set up this iPhone again"), for: .normal)
+        let setUpButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Set up this iPhone again"))
         setUpButton.accessibilityIdentifier = "wallet-welcome-back-set-up-again"
         setUpButton.addTarget(self, action: #selector(confirmSetUpAgain), for: .touchUpInside)
-        let supportButton = UIButton(type: .system)
-        supportButton.setTitle(WalletUX.text("Contact support"), for: .normal)
+        let supportButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Contact support"))
         supportButton.addTarget(self, action: #selector(openSupport), for: .touchUpInside)
 
-        statusLabel.font = .preferredFont(forTextStyle: .footnote)
-        statusLabel.textColor = .secondaryLabel
-        statusLabel.numberOfLines = 0
-        statusLabel.textAlignment = .center
+        WalletSafeMode.detail(statusLabel)
         progress.hidesWhenStopped = true
+        progress.color = WalletUX.tokens.cyan
 
         let stack = UIStackView(arrangedSubviews: [
+            WalletSafeMode.centered(WalletSafeMode.shieldEmblem()),
             titleLabel, bodyLabel, restoreFoundButton, phraseButton, driveButton,
             showPhraseButton, setUpButton, supportButton, progress, statusLabel,
         ])
         stack.axis = .vertical
-        stack.spacing = 20
+        stack.spacing = 12
+        stack.setCustomSpacing(20, after: titleLabel)
+        stack.setCustomSpacing(24, after: bodyLabel)
         stack.translatesAutoresizingMaskIntoConstraints = false
         let scrollView = UIScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -1381,9 +1421,8 @@ final class WalletWelcomeBackViewController: UIViewController {
         refreshOptions()
     }
 
-    private func makeButton(_ title: String, identifier: String) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
+    private func makeButton(_ title: String, identifier: String) -> WalletNeonButton {
+        let button = WalletSafeMode.button(.secondary, title: title)
         button.accessibilityIdentifier = identifier
         // Phrase and Google Drive restore use the onboarding import screens,
         // which adopt matching keys already on this iPhone.
@@ -1406,6 +1445,9 @@ final class WalletWelcomeBackViewController: UIViewController {
         self.options = options
         restoreFoundButton.isHidden = !options.canRestoreExistingKeys
         showPhraseButton.isHidden = !options.canShowPhraseAfterPin
+        // One Safe action per screen: the phrase restore leads when no
+        // wallet on this iPhone can be restored with the PIN.
+        phraseButton?.neonStyle = options.canRestoreExistingKeys ? .secondary : .safe
     }
 
     private func setBusy(_ busy: Bool, status: String? = nil) {

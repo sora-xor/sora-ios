@@ -1146,3 +1146,22 @@
 "Your earlier PIN was not saved" = "Your earlier PIN was not saved";
 "SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now." = "SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now.";
 "SORA could not save a copy of the PIN you used before. Nothing was changed. Try again." = "SORA could not save a copy of the PIN you used before. Nothing was changed. Try again.";
+
+// SORA Neon Safe Mode screens: upgrade, recovery, low storage (3.9.0)
+"Upgrade wallet" = "Upgrade wallet";
+"Upgrade your wallet" = "Upgrade your wallet";
+"This version moves your wallet to a safer storage format. It only takes a moment." = "This version moves your wallet to a safer storage format. It only takes a moment.";
+"Your original keys are not deleted or replaced" = "Your original keys are not deleted or replaced";
+"If a check fails, SORA stops safely and shows your options" = "If a check fails, SORA stops safely and shows your options";
+"What happens during the upgrade?" = "What happens during the upgrade?";
+"SORA found a wallet created by an older app version." = "SORA found a wallet created by an older app version.";
+"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions.";
+"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet.";
+"Updating your wallet. Keep SORA open until this finishes." = "Updating your wallet. Keep SORA open until this finishes.";
+"We paused to keep your wallet safe" = "We paused to keep your wallet safe";
+"Copy recovery details" = "Copy recovery details";
+"Create protected recovery export" = "Create protected recovery export";
+"Recovery export help" = "Recovery export help";
+"Free up some space" = "Free up some space";
+"Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed." = "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed.";
+"Check again" = "Check again";
