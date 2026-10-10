@@ -80,6 +80,10 @@ existing wallet:
       phone keeps showing and controlling the wallet. Stop mirroring or
       unplug: the phone is unchanged and the IrohaConnect session is still
       connected.
+- [ ] Optional, Assistive Access (iOS 26+): add SORA to Assistive Access
+      (Settings > Accessibility > Assistive Access), start it and open
+      SORA. The wallet appears (PIN entry or onboarding), not a blank
+      screen. Exit Assistive Access: the wallet opens normally.
 
 ## i2: SORA Card residue and dead code removed
 

@@ -150,6 +150,36 @@ Each section covers one release task: what changed, why, and what users see.
     `SoraPassportTests` passes in Debug (327 tests, 0 failures) and in the
     Release configuration, built as CI job 2 does (327 tests, 0 failures).
 
+### Fix round 2 (same review findings, rechecked on the current branch)
+
+- External displays (major): rechecked against the code. Only interactive
+  application scenes get `SceneDelegate`; an external-display scene
+  (`windowExternalDisplayNonInteractive`) gets a configuration with no
+  delegate, so the system mirrors the phone. `SceneDelegate`,
+  `attachRootWindow(to:)`, both `sceneDidDisconnect` handlers and
+  `soraWindowScene` ignore any scene that is not an application scene.
+- New in this round: the Assistive Access application role
+  (`windowAssistiveAccessApplication`, iOS 26+) is now treated as an
+  application scene too, as the review suggested. If iOS ever connects the
+  app in that role, the wallet appears instead of a blank screen with no
+  way forward. External displays are unchanged.
+  `WalletUXTests.testOnlyTheApplicationSceneHostsTheWallet` covers it.
+- Release-configuration tests in CI (minor): rechecked. CI job 2
+  ("Unit tests, Release configuration (simulator)") builds with
+  `-configuration Release ENABLE_TESTABILITY=YES CODE_SIGNING_ALLOWED=NO`,
+  checks `-DF_RELEASE`, and runs `SoraPassportTests`. No change needed.
+- Verification on a clean copy of branch commit `1d33a4d6` (all of i1 to i6
+  plus this fix), Xcode 27.0, SORA-Release-A (iOS 27):
+  - Debug, `SoraPassportDev` and unsigned Release device builds succeed.
+  - The Debug app launches with no crash (this simulator already has a
+    wallet, so it opens at PIN entry) and survives going to the background
+    and back.
+  - `SoraPassportTests`, Debug: 466 tests, 0 failures (`WalletUXTests` 30).
+  - `SoraPassportTests`, Release configuration, built exactly as CI job 2
+    does (`OTHER_SWIFT_FLAGS = -DF_RELEASE`): 466 tests, 0 failures.
+  - `Sora2MainnetLiveSigningTests` needs the live network and is skipped
+    in both runs, as in CI.
+
 ## i2: SORA Card residue and dead code removed
 
 ### Why
