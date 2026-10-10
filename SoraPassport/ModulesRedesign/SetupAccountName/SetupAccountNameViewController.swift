@@ -170,7 +170,9 @@ extension SetupAccountNameViewController: UITextFieldDelegate {
             return true
         }
 
-        let shouldApply = viewModel.inputHandler.didReceiveReplacement(string, for: range)
+        let shouldApply = viewModel.inputHandler.didReceiveReplacement(string,
+                                                                       for: range,
+                                                                       displayedText: textField.text ?? "")
 
         if !shouldApply, textField.text != viewModel.inputHandler.value {
             textField.text = viewModel.inputHandler.value

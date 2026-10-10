@@ -150,7 +150,9 @@ extension ImportAccountViewController: UITextFieldDelegate {
             return true
         }
         
-        let shouldApply = viewModel.inputHandler.didReceiveReplacement(string, for: range)
+        let shouldApply = viewModel.inputHandler.didReceiveReplacement(string,
+                                                                       for: range,
+                                                                       displayedText: textField.text ?? "")
         
         if !shouldApply, textField.text != viewModel.inputHandler.value {
             textField.text = viewModel.inputHandler.normalizedValue
@@ -171,7 +173,9 @@ extension ImportAccountViewController: InputTextViewDelegate {
             return false
         }
 
-        let shouldApply = model.inputHandler.didReceiveReplacement(text, for: range)
+        let shouldApply = model.inputHandler.didReceiveReplacement(text,
+                                                                   for: range,
+                                                                   displayedText: textView.text ?? "")
 
         if !shouldApply, textView.text != model.inputHandler.value {
             textView.text = model.inputHandler.normalizedValue

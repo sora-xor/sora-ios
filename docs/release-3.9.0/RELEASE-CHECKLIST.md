@@ -468,11 +468,14 @@ existing wallet:
 
 ### Open defect found during this task (pre-existing)
 
-- [ ] Fix before release: typing quickly into the recovery phrase field
-      with the Japanese kana keyboard crashed the app on the iOS 27
+- [ ] Fixed, needs device QA: typing quickly into the recovery phrase
+      field with the Japanese kana keyboard crashed the app on the iOS 27
       simulator (`NSInvalidArgumentException` in
       `InputHandler.didReceiveReplacement`, called from
       `ImportAccountViewController.textView(_:shouldChangeTextIn:replacementText:)`;
-      the range from the keyboard is beyond the handler's value). Not
-      caused by the UI changes; reported for a separate fix. Japanese
-      users import with that keyboard.
+      the range from the keyboard is beyond the handler's value). See
+      CHANGES.md, "Fix: crash when typing the recovery phrase with the
+      Japanese kana keyboard". On a physical iPhone, with the kana keyboard
+      (and a hardware keyboard, if available), type quickly into the phrase
+      field and confirm with 確定: no crash. Then import a phrase with the
+      English keyboard: the import succeeds as before.
