@@ -819,7 +819,6 @@
 		36DB19C229EDDA9100B3E3BF /* OnboardingMainProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19B729EDDA9100B3E3BF /* OnboardingMainProtocol.swift */; };
 		36DB19C329EDDA9100B3E3BF /* OnboardingMainInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19B829EDDA9100B3E3BF /* OnboardingMainInteractor.swift */; };
 		36DB19C529EDEB9F00B3E3BF /* OnboardingMainPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19C429EDEB9F00B3E3BF /* OnboardingMainPresenter.swift */; };
-		36DB33D42C29BAE500058E71 /* String+Kensetsu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */; };
 		36DBFE0628FC48C600735535 /* ZeroBalanceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DBFE0428FC48C600735535 /* ZeroBalanceCell.swift */; };
 		36DBFE0728FC48C600735535 /* ZeroBalanceItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DBFE0528FC48C600735535 /* ZeroBalanceItem.swift */; };
 		36E00BB029DB2DAD0023D8BD /* AssetProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E00BAF29DB2DAD0023D8BD /* AssetProvider.swift */; };
@@ -2263,7 +2262,6 @@
 		D7D9892C961A69C3BECE53EE /* ClaimRewardsItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A213F2B32C5750091DDE8 /* ClaimRewardsItemFactory.swift */; };
 		D7E4486C28C5B8F2478BE2CF /* TransactionHistoryItem+Extrinsic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F93A25C96D0500775559 /* TransactionHistoryItem+Extrinsic.swift */; };
 		D7EE75FC22BA9E9AC5111D54 /* ConfirmRemoveLiquidityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3635B7242936F99D00B2B728 /* ConfirmRemoveLiquidityViewModel.swift */; };
-		D8A01E75C23F9A51DD4299FC /* String+Kensetsu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */; };
 		D8CE6762C3E20C00D29B1DF6 /* EditFarmItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */; };
 		D8EACA3233AA7173659B540B /* ActivityContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666CBDC2905B7030098F4AC /* ActivityContentViewModel.swift */; };
 		D8FE3843D3FB17BE9B6FB8EB /* MainTabBarInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */; };
@@ -3034,7 +3032,6 @@
 		36DB19B729EDDA9100B3E3BF /* OnboardingMainProtocol.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnboardingMainProtocol.swift; sourceTree = "<group>"; };
 		36DB19B829EDDA9100B3E3BF /* OnboardingMainInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnboardingMainInteractor.swift; sourceTree = "<group>"; };
 		36DB19C429EDEB9F00B3E3BF /* OnboardingMainPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnboardingMainPresenter.swift; sourceTree = "<group>"; };
-		36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Kensetsu.swift"; sourceTree = "<group>"; };
 		36DBFE0428FC48C600735535 /* ZeroBalanceCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZeroBalanceCell.swift; sourceTree = "<group>"; };
 		36DBFE0528FC48C600735535 /* ZeroBalanceItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZeroBalanceItem.swift; sourceTree = "<group>"; };
 		36E00BAF29DB2DAD0023D8BD /* AssetProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetProvider.swift; sourceTree = "<group>"; };
@@ -4434,7 +4431,6 @@
 				5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */,
 				5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */,
 				364D64C22A96191400072106 /* Sequence+Async.swift */,
-				36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */,
 			);
 			path = Foundation;
 			sourceTree = "<group>";
@@ -7870,7 +7866,6 @@
 				3645269528C1286E00260340 /* NodesPresenter.swift in Sources */,
 				945A576B25DE8701003E4023 /* TimeInterval+Time.swift in Sources */,
 				0292035E219B188900D9BACD /* InvitedUserData.swift in Sources */,
-				36DB33D42C29BAE500058E71 /* String+Kensetsu.swift in Sources */,
 				9481B482286EFC6000A472E2 /* WebSocketEngine+Connection.swift in Sources */,
 				366D53C129527A4C0094CE36 /* ContactCell.swift in Sources */,
 				9441F92B25C96CC300775559 /* CryptoType+Keystore.swift in Sources */,
@@ -9072,7 +9067,6 @@
 				0645D71277E5CC23EDF7347A /* NodesPresenter.swift in Sources */,
 				C60636356361A5772AA72237 /* TimeInterval+Time.swift in Sources */,
 				52080536667203F79C33B76C /* InvitedUserData.swift in Sources */,
-				D8A01E75C23F9A51DD4299FC /* String+Kensetsu.swift in Sources */,
 				ABC7CA5D8186D0FEA7C605D8 /* WebSocketEngine+Connection.swift in Sources */,
 				160CD2F2EAC6CAC59501E466 /* ContactCell.swift in Sources */,
 				8A7D6CCC7CC2636A8C3B3C1C /* CryptoType+Keystore.swift in Sources */,

@@ -353,16 +353,18 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     }
     
     func choiсeBaseAssetButtonTapped() {
+        // Pools are created on the XOR and XSTUSD DEXes. KXOR is not the base asset of
+        // any DEX on chain, so a supply with it fails after the fee is charged (as in
+        // App Store 3.8.6, it is not offered).
         guard let assetManager = assetManager,
               let fiatService = fiatService,
-              let xorAsset = assetManager.assetInfo(for: WalletAssetId.xor.rawValue),
-              let xstUsdAsset = assetManager.assetInfo(for: WalletAssetId.xstusd.rawValue),
-              let kxorAsset = assetManager.assetInfo(for: WalletAssetId.kxor)
+              let xorAsset = assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
         else { return }
 
-        var acceptableAssets = [xorAsset, kxorAsset]
-        
-        if secondAssetId != WalletAssetId.xst.rawValue {
+        var acceptableAssets = [xorAsset]
+
+        if secondAssetId != WalletAssetId.xst.rawValue,
+           let xstUsdAsset = assetManager.assetInfo(for: WalletAssetId.xstusd.rawValue) {
             acceptableAssets.append(xstUsdAsset)
         }
         
@@ -387,8 +389,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         guard
             let assetManager = assetManager,
             let fiatService = fiatService,
-            let ethAsset = assetManager.assetInfo(for: WalletAssetId.eth),
-            var assets = assetManager.getAssetList()?.filter({ asset in
+            let assets = assetManager.getAssetList()?.filter({ asset in
                 let assetId = asset.identifier
                 
                 let assetFilter = assetId != firstAssetId
@@ -397,10 +398,6 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                 
                 return assetFilter && !unAcceptableAssetIds.contains(assetId)
             }) else { return }
-        
-        if firstAssetId == WalletAssetId.kxor {
-            assets = [ ethAsset ]
-        }
 
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
