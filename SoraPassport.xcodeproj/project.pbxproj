@@ -956,7 +956,6 @@
 		4252920FB9AE432AEB925D4D /* SubqueryConfigInfoOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36477A4429AF8BC8005EDAD4 /* SubqueryConfigInfoOperation.swift */; };
 		4290AB04B94DC870DD904AA9 /* LocalTransactionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */; };
 		42A1E030C9B246B1B516214C /* WalletQRCoderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949C789525D3EB1C00E260B9 /* WalletQRCoderFactory.swift */; };
-		42C4DD7CAA80D465D489C5E7 /* NeumorphismButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */; };
 		42C64B713C99617AF5AF5E50 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 553069E3290AF86600F265A3 /* MenuItem.swift */; };
 		42D0C01AC5DA452401F94FE4 /* RuntimeDispatchInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9ED25C9823700775559 /* RuntimeDispatchInfo.swift */; };
 		430924B347D654E7FAC8CAD7 /* ChainAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481B4AB28748A7B00A472E2 /* ChainAsset.swift */; };
@@ -1175,8 +1174,6 @@
 		60076BB8678821F69C08FAAB /* ActivityEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D7B6612219C1E300171A91 /* ActivityEvents.swift */; };
 		60094FA696F6A77EEBB6DA31 /* SwitcherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD1B2A02BCCD003C71A4 /* SwitcherView.swift */; };
 		60101736A325A680931A53CB /* ExtrinsicProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441D2A12678FD0700FDD374 /* ExtrinsicProcessing.swift */; };
-		605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */; };
-		605AA53126FE72DA00E7FD12 /* NeomorphismButton.xib in Resources */ = {isa = PBXBuildFile; fileRef = 605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */; };
 		60645B6E9B8BC007DEB87BAF /* UserData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02920353219AA68800D9BACD /* UserData.swift */; };
 		606A900DCDFA8BDCB03C28BB /* Reachability in Frameworks */ = {isa = PBXBuildFile; productRef = BF5804908577C1E7FE1982DB /* Reachability */; };
 		607F02EDC4D616F80C9352FF /* ExploreItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB622A73938D00603361 /* ExploreItemFactory.swift */; };
@@ -1354,7 +1351,6 @@
 		81C7EDB761DFECDD93BF747C /* PoolListCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B5D2919B23200CD3E9E /* PoolListCell.swift */; };
 		81CD7A1E009D05BAAE80CDCD /* BackupedAccountItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A77EE2A30DC6800A6DDF9 /* BackupedAccountItem.swift */; };
 		81FAEAD81C674176D4C33843 /* AssetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDB128ECB5390080A41C /* AssetViewModel.swift */; };
-		8200ADD88BE82099F0CE71E7 /* NeomorphismButton.xib in Resources */ = {isa = PBXBuildFile; fileRef = 605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */; };
 		822910ACFABF18D6904A6B70 /* VotesData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0292035A219AA9B300D9BACD /* VotesData.swift */; };
 		826068E4B710B11F21FF91FF /* ChildSubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949B457D262890770081BB37 /* ChildSubscriptionFactory.swift */; };
 		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
@@ -1788,7 +1784,6 @@
 		94497F1125F2532800FD4F14 /* Header.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497F1025F2532600FD4F14 /* Header.swift */; };
 		94497F1C25F7C45100FD4F14 /* Int+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497F1B25F7C44D00FD4F14 /* Int+Hex.swift */; };
 		94497F5D25F9154500FD4F14 /* MigrationWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497F5C25F9154200FD4F14 /* MigrationWireframe.swift */; };
-		944A8F83263C017200BF44EF /* SoraButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944A8F82263C017000BF44EF /* SoraButton.swift */; };
 		94562D84266A2FF600205338 /* AssetTransactionData+Values.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94562D83266A2FF600205338 /* AssetTransactionData+Values.swift */; };
 		945A56D725DE7A7E003E4023 /* TypeRegistryPrepared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A56D625DE7A7D003E4023 /* TypeRegistryPrepared.swift */; };
 		945A56DD25DE7C99003E4023 /* CDRuntimeMetadataItem+CoreDataCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A56DC25DE7C98003E4023 /* CDRuntimeMetadataItem+CoreDataCodable.swift */; };
@@ -2245,7 +2240,6 @@
 		D31B22179033FC536E8B5ECA /* String+Size.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32245180223165C2001E487A /* String+Size.swift */; };
 		D32A60D17C36E6550AF2257F /* PairRegisterCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E023F522823E1A40070304B /* PairRegisterCall.swift */; };
 		D499106682B0768E0CD343F3 /* EventCodingPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406839B267908E1005F520D /* EventCodingPath.swift */; };
-		D4BAB4BD885DAC9497689C35 /* SoraButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944A8F82263C017000BF44EF /* SoraButton.swift */; };
 		D4C3830F2A8AC25D36D8FB82 /* MoreMenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55063DB9290158B1008782E1 /* MoreMenuItem.swift */; };
 		D525FB68FD6EBBCECEF85B27 /* NodesCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364526A428C2AFC400260340 /* NodesCell.swift */; };
 		D5379505B6375312F213DEBE /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */; };
@@ -3237,8 +3231,6 @@
 		5ED216EF2948892D0052C740 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		5ED216F02948892D0052C740 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5ED216F12948892D0052C740 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeumorphismButton.swift; sourceTree = "<group>"; };
-		605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = NeomorphismButton.xib; sourceTree = "<group>"; };
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
 		96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletRecoveryOptions.swift; sourceTree = "<group>"; };
 		D5851377C99649922C92E298 /* WalletKeySafety.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletKeySafety.swift; sourceTree = "<group>"; };
@@ -3577,7 +3569,6 @@
 		94497F1025F2532600FD4F14 /* Header.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Header.swift; sourceTree = "<group>"; };
 		94497F1B25F7C44D00FD4F14 /* Int+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Int+Hex.swift"; sourceTree = "<group>"; };
 		94497F5C25F9154200FD4F14 /* MigrationWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationWireframe.swift; sourceTree = "<group>"; };
-		944A8F82263C017000BF44EF /* SoraButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoraButton.swift; sourceTree = "<group>"; };
 		94562D83266A2FF600205338 /* AssetTransactionData+Values.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AssetTransactionData+Values.swift"; sourceTree = "<group>"; };
 		945A56D625DE7A7D003E4023 /* TypeRegistryPrepared.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TypeRegistryPrepared.swift; sourceTree = "<group>"; };
 		945A56DC25DE7C98003E4023 /* CDRuntimeMetadataItem+CoreDataCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDRuntimeMetadataItem+CoreDataCodable.swift"; sourceTree = "<group>"; };
@@ -4027,7 +4018,6 @@
 		022C453A220CAC88005B6FEC /* View */ = {
 			isa = PBXGroup;
 			children = (
-				605AA52D26FE5FD000E7FD12 /* Neumorphism */,
 				840932492346451F0013C871 /* ApplicationStatusView */,
 				10F6D02225344E5600EB64CD /* LinkView */,
 				022C455B22106CF4005B6FEC /* ProfileButton.swift */,
@@ -4038,7 +4028,6 @@
 				847A17A22375796E003BA71A /* RoundedCellControlView.swift */,
 				847A17A623759E2D003BA71A /* RoundedCellControlView+Inspectable.swift */,
 				847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */,
-				944A8F82263C017000BF44EF /* SoraButton.swift */,
 				364D64C42A962A3A00072106 /* ItemProtocol.swift */,
 			);
 			path = View;
@@ -6134,15 +6123,6 @@
 			path = SoraLocalizable;
 			sourceTree = "<group>";
 		};
-		605AA52D26FE5FD000E7FD12 /* Neumorphism */ = {
-			isa = PBXGroup;
-			children = (
-				605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */,
-				605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */,
-			);
-			path = Neumorphism;
-			sourceTree = "<group>";
-		};
 		60AAFDC3270EEEDB00916408 /* Migration */ = {
 			isa = PBXGroup;
 			children = (
@@ -7585,7 +7565,6 @@
 				5ED216E1294888090052C740 /* whitelist.json in Resources */,
 				84FA00A3226A1D57005DA950 /* sora-Bold.otf in Resources */,
 				5ED216DF294888090052C740 /* runtime-default.json in Resources */,
-				605AA53126FE72DA00E7FD12 /* NeomorphismButton.xib in Resources */,
 				5ED216F22948892D0052C740 /* InfoPlist.strings in Resources */,
 				5ED216DE294888090052C740 /* runtime-sora.json in Resources */,
 				5ED216D7294886AA0052C740 /* Localizable.strings in Resources */,
@@ -7635,7 +7614,6 @@
 				107262EA8CF3ED7F2E410208 /* whitelist.json in Resources */,
 				0FBAF3138B04646919D430A3 /* sora-Bold.otf in Resources */,
 				0469434EC855F2A7DBFB019C /* runtime-default.json in Resources */,
-				8200ADD88BE82099F0CE71E7 /* NeomorphismButton.xib in Resources */,
 				63061B5B7FDE478A72EE883F /* InfoPlist.strings in Resources */,
 				07DD634B7FE88A962F201419 /* runtime-sora.json in Resources */,
 				14261DB3AEBA5BD92AF42080 /* Localizable.strings in Resources */,
@@ -7962,7 +7940,6 @@
 				364526C328C7D62B00260340 /* SubqueryApyInfoOperation.swift in Sources */,
 				9441FAFD25CADE4B00775559 /* DerivationPathConstants.swift in Sources */,
 				364E6E962B1CB80900002EE3 /* SegmentItem.swift in Sources */,
-				605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */,
 				3652E10C2A6A918D0073AFBA /* CreateAccountService.swift in Sources */,
 				5E9774F32A31AE040047BCA2 /* AccountExportInteractor.swift in Sources */,
 				36E34FDD2BA07329005A44BC /* Logger.swift in Sources */,
@@ -8694,7 +8671,6 @@
 				36BB9B212AF37EB4002A000D /* RecentActivityItemService.swift in Sources */,
 				944929A729083EB000897A56 /* AccountTableViewCell.swift in Sources */,
 				9441FB1725CAE33500775559 /* AccountConfirmProtocols.swift in Sources */,
-				944A8F83263C017200BF44EF /* SoraButton.swift in Sources */,
 				36ACC968286A04DA00DA98EC /* InputRewardAmountType.swift in Sources */,
 				36B239A52A94F86200F0357A /* ExploreAssetView.swift in Sources */,
 				9441F9F525C9823800775559 /* RPCMethod.swift in Sources */,
@@ -9165,7 +9141,6 @@
 				93FF82D8AFB809EC1F8C2342 /* SubqueryApyInfoOperation.swift in Sources */,
 				434D109DB211328EC700C80B /* DerivationPathConstants.swift in Sources */,
 				D2BEAFE8CFC7110B7F417DD0 /* SegmentItem.swift in Sources */,
-				42C4DD7CAA80D465D489C5E7 /* NeumorphismButton.swift in Sources */,
 				EB7BB9F181B0E858682C0466 /* CreateAccountService.swift in Sources */,
 				9FEF26BA83048CBEBE11E91A /* AccountExportInteractor.swift in Sources */,
 				5847480060A29DB64D6B72FA /* Logger.swift in Sources */,
@@ -9897,7 +9872,6 @@
 				C3DDFA9DE0FDDD2C7961E38E /* RecentActivityItemService.swift in Sources */,
 				A535DAD85FA8F517789C8A55 /* AccountTableViewCell.swift in Sources */,
 				E1780544073F8CA8B3876AA5 /* AccountConfirmProtocols.swift in Sources */,
-				D4BAB4BD885DAC9497689C35 /* SoraButton.swift in Sources */,
 				4D3B3B5CA4B9D379CE03E54F /* InputRewardAmountType.swift in Sources */,
 				4554FCAF5441A5CD17386A5D /* ExploreAssetView.swift in Sources */,
 				3EFA8A950C1FE312F2A8101A /* RPCMethod.swift in Sources */,
