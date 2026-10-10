@@ -394,7 +394,7 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertNotNil(signedPayloads.first?.range(of: versions))
     }
 
-    // MARK: - Balances layout (runtime 132 and later)
+    // MARK: - Balances layout (runtime 124 and later)
 
     /// SCALE bytes of a runtime 133 `System.Account` value: nonce, consumers,
     /// providers, sufficients (u32 each), then `free, reserved, frozen,
@@ -418,12 +418,12 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         return data
     }
 
-    /// Runtime 132 replaced `misc_frozen, fee_frozen` with `frozen, flags` in
+    /// Runtime 124 replaced `misc_frozen, fee_frozen` with `frozen, flags` in
     /// the balances pallet. Decoding `System.Account` into the app's model
-    /// failed for every account on runtime 133, so XOR balances read as zero
-    /// and the send flow could not read the recipient's account. Both layouts
-    /// must decode, and the spendable amount must never exceed what the
-    /// chain allows.
+    /// failed for every account (seen on runtime 133), so XOR balances read
+    /// as zero and the send flow could not read the recipient's account. Both
+    /// layouts must decode, and the spendable amount must never exceed what
+    /// the chain allows.
     func testSystemAccountDecodesTheRuntime133BalancesLayout() throws {
         let factory = try factory()
         let xor = BigUInt(10).power(18)
@@ -482,7 +482,7 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertEqual(dynamic.data.available, 3 * xor / 2)
     }
 
-    /// The layout of runtime 130 and earlier still decodes as before, and the
+    /// The layout of runtime 119 and earlier still decodes as before, and the
     /// model keeps encoding it, so nothing that reads stored values changes.
     func testAccountDataKeepsTheEarlierBalancesLayout() throws {
         let legacy = Data(

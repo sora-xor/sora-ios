@@ -52,8 +52,8 @@ extension DyAccountData {
     var locked: BigUInt { max(miscFrozen, feeFrozen) }
     var available: BigUInt { free > locked ? free - locked : 0 }
 
-    /// Accepts the balances layout of SORA2 runtime 130 and earlier
-    /// (`misc_frozen`, `fee_frozen`) and of runtime 132 and later (`frozen`,
+    /// Accepts the balances layout of SORA2 runtime 119 and earlier
+    /// (`misc_frozen`, `fee_frozen`) and of runtime 124 and later (`frozen`,
     /// `flags`); see `AccountData.init(from:)`.
     init(from decoder: Decoder) throws {
         let data = try AccountData(from: decoder)
