@@ -1440,12 +1440,15 @@ final class WalletCloudBackupRecoveryService {
             if let count = secret?.count { secret?.resetBytes(in: 0..<count) }
         }
         if let phrase, !phrase.isEmpty {
-            guard let mnemonic = try? IRMnemonicCreator(language: .english)
-                .mnemonic(fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " ")),
-                WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+            // 3/6/9-word phrases (App Store 3.8.6) are accepted here with
+            // their seed: the address is known and the restore proves it.
+            guard var material = try? UserStorageMigrator.knownAddressPhraseMaterial(phrase, derivationPath: path)
+            else {
                 throw WalletCloudBackupRecoveryError.invalidBackup
             }
-            entropy = mnemonic.entropy()
+            entropy = material.entropy
+            seed = material.rawSeed
+            material.wipe()
         }
         if let seedString = try decrypt(backup.encryptedSeed?.substrateSeed), !seedString.isEmpty {
             guard let decoded = try? Data(hexStringSSF: seedString), [32, 64].contains(decoded.count) else {

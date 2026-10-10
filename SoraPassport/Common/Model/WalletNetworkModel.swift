@@ -1614,6 +1614,15 @@ enum WalletMnemonicWordPolicy {
     /// entropy records are kept, but they are proven through the stored seed or
     /// secret instead.
     static let derivableEntropyByteCounts: Set<Int> = [16, 20, 24, 28, 32]
+    /// 3/6/9-word phrases App Store 3.8.6 accepted. They are never accepted
+    /// for a new import; they are accepted only to restore a wallet whose
+    /// address is already known (a Google Drive backup, or an account that is
+    /// already in the wallet), and only after the phrase derives that address.
+    /// Such wallets are SORA2-only (`rawSeed`): the seed and secret are stored
+    /// beside the short entropy, as 3.8.6 did.
+    static let retainedShortWordCounts: Set<Int> = [3, 6, 9]
+    /// Every length a restore of a known address accepts.
+    static let knownAddressRestoreWordCounts = retainedSoraWordCounts.union(retainedShortWordCounts)
 
     static func isUserImportWordCount(_ count: Int) -> Bool {
         userImportWordCounts.contains(count)
