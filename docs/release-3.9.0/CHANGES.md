@@ -722,15 +722,16 @@ out of them, and that one rollback path could lose a key:
   recorded source and Nexus children of a known wallet, and a wallet seen
   for the first time without keys gets the new `signingUnavailable`
   source. Keychain read errors still propagate and are retried.
-- Signing a read-only account fails with `keysNotOnThisDevice` before any
-  Keychain read: "This account's keys are not on this iPhone, so it can't
-  send. Your funds are not affected. Restore the account with its recovery
-  phrase or Google Drive backup to send from it."
+- Signing a read-only account fails with `keysNotOnThisDevice` (keys
+  missing) or, since the fix round, `keysNotVerified` (keys present but not
+  matching) before any secret is used. See the fix round for the messages.
 - `restoreKeysForReadOnlyAccount` (phrase, seed or secret) adds the missing
   keys while the app is in normal use: add-only, proven first, and the
   network model is rebuilt (the placeholder becomes the proven source and
   Nexus children are added). This is the domain API for the Safe Mode UI.
-- A read-only account can be removed on the user's confirmed request.
+- A read-only account can be removed on the user's confirmed request. Since
+  the fix round this removes only its account row and network entries; its
+  Keychain items stay (see "Fix round").
 - Watch-only contradictions (a watch-only marker beside signing keys or a
   signing source) stay fail-closed.
 
@@ -768,7 +769,8 @@ out of them, and that one rollback path could lose a key:
   that earlier 3.9.0 candidates latched for this state.
 - Root routes a Keychain-only install to a new **Welcome back** screen:
   - "Restore wallets found on this iPhone", after the PIN used on this
-    iPhone before (5 attempts per install). Only wallets whose own items
+    iPhone before (wrong PINs lead to short waits, never a permanent lock;
+    see the fix round). Only wallets whose own items
     prove their tagged SORA address are restored (phrase, seed or JSON
     secret; sr25519, ed25519, ecdsa), through the normal journaled insert.
     Their items are adopted as they are; only absent scoped copies are
@@ -828,8 +830,9 @@ out of them, and that one rollback path could lose a key:
   entropy), stopping at any item that differs. `seedEntropy`, `privateKey`
   and `userName` are never touched. Failures are logged and retried at the
   next launch; recovery is never latched.
-- Removing such an account still removes the global entropy with it, as
-  before.
+- Removing such an account removes the global entropy with it only when
+  the entropy derives exactly that account (fix round; before the fix round
+  equal bytes under another path or crypto type also counted).
 
 ### Key-safety invariants (how each is kept)
 
@@ -841,8 +844,10 @@ out of them, and that one rollback path could lose a key:
 - Addresses, public keys and derivation (sr25519, SS58 prefix 69,
   mini-seed, junction parsing) are unchanged; the soft-junction rule only
   changes how a stored secret is compared.
-- Files are moved, never deleted: superseded attempts and "Set up this
-  iPhone again".
+- Files are moved, never deleted, by "Set up this iPhone again". Superseded
+  attempts are moved; since the fix round only the newest three are kept
+  (older unverified failed attempts, which never replaced the live store,
+  are pruned).
 - The Core Data model is unchanged, so App Store 3.8.6 can still open the
   store; the selection repair keeps exactly one selected row for it.
 - Production signing, genesis pinning and address-prefix checks are
@@ -925,3 +930,137 @@ backups, `dcda8416` welcome back / adoption / set aside / recovery options,
 `dc94149c` interrupted imports, `34c9e4f9` scoped copies and selection
 repair, `76c62f3f` transient retries, `d65fb6e8` tests, `d9fb0d47` restart
 fix.
+
+### Fix round (review findings)
+
+Reviewers checked every line against the key-safety invariants. Each
+finding was verified against the code; all were real and are fixed.
+
+**Blocker: an abandoned import journal blocked database recovery**
+
+- `LegacyWalletAccountCommitRecovery` counted `abandoned` journals as
+  unresolved. Every later startup took the ordinary-recovery branch, which
+  refuses while a database attempt is unfinished. So a later launch killed
+  during its first safety backup latched `(interrupted_migration)` for good:
+  the automatic retries and Try again repeated the same refusal. Abandoned
+  journals are now terminal there too (and are never re-bound to a marker).
+  Test: abandoned and activated journals plus a killed backup copy now
+  start `.ready`, twice.
+
+**Account removal never deletes keys it did not prove** (major)
+
+- Removal used to delete a read-only account's own `<address>-*` items, and
+  for the last account the PIN, `seedEntropy` and `userName` too, even when
+  none of them proved the account. Now `WalletExplicitRemovalPlan` decides:
+  - the account's own items go only when they proved it;
+  - the PIN goes only with the last account, and only when that account's
+    keys proved it (as before this release);
+  - `seedEntropy` and `userName` go only when the global entropy derives
+    exactly this account: sr25519, default path, no `-deriv` item, address
+    and signature proven. Equal bytes under another path or crypto type
+    (the same phrase imported again) are not ownership, so removing that
+    second account no longer deletes the 1.x wallet's only key.
+  - A read-only account is removed as a row and network entries only; its
+    items stay quarantined in the Keychain. After removing the last
+    read-only account, the next launch is a Welcome back.
+
+**Restoring a read-only account in the app** (major)
+
+- On a new iPhone (files from iCloud, keys not), importing the phrase,
+  seed or Google Drive backup of an account that is already in the wallet
+  used to fail with "Account already imported". When none of that
+  account's keys are on the iPhone, the import now restores them in place:
+  add-only, after the material proved the address, then the network model
+  is rebuilt and the account selected. An account that has keys, or is
+  watch-only, is still a duplicate.
+- `WalletAccountKeyAvailability` reports per account, from the keys:
+  available, watch-only, keys missing, or keys present but not verified.
+- Signing messages: missing keys: "This account's keys are not on this
+  iPhone, so it can't send. Your funds are not affected. To send from it,
+  import this account again with its recovery phrase or Google Drive
+  backup." Keys that do not match: "The keys saved for this account on this
+  iPhone could not be verified, so it can't send. They have not been
+  changed, and your funds are not affected. Contact SORA support."
+
+**Every signing account gets `-secretKey` (downgrade safety)** (major)
+
+- A restore (recovery screen, Drive, or in the app) now writes every
+  supplied item and then the derived `-seed` and `-secretKey` (add-only, in
+  the order phrase, seed, secret, read back), for any crypto type and path.
+  The startup backfill now also completes accounts with a scoped phrase or
+  seed but no `-secretKey` (for example restored by an earlier candidate,
+  or interrupted). App Store 3.8.6 signs only with `-secretKey` and wipes
+  its settings when the selected account has none.
+
+**Welcome back and leaving it**
+
+- A 1.x wallet backed only by `seedEntropy` is now found on Welcome back
+  (proven like the explicit upgrade, including the Iroha `privateKey`), and
+  restoring it adds its scoped copies.
+- 1.x items that do not prove themselves (for example a `privateKey` that
+  `seedEntropy` does not derive) are "not a 1.x upgrade" instead of an
+  error, so Splash and Root go to Welcome back, not to a recovery screen
+  that "Set up this iPhone again" could not leave. Nothing is changed.
+- "Restore wallets found on this iPhone" restores each wallet on its own,
+  skips wallets already in the wallet, and reports a partial result
+  accurately ("Some wallets were restored"); the wallets restored stay and
+  the app continues to them.
+- Onboarding ends by setting a new PIN over the earlier install's PIN.
+  Before leaving Welcome back (phrase, Drive, set up again, or restoring
+  found wallets), the app now keeps a copy of the earlier PIN
+  (`earlierInstallPin-N`, add-only, read back) and, while found wallets are
+  not restored, asks first ("Restore the wallets found on this iPhone
+  first?"). Afterwards, Add account offers "Restore wallets found on this
+  iPhone" when such wallets remain; only the earlier PIN unlocks them, never
+  this install's new PIN alone.
+- Wrong PINs lead to waits of 1, 5, 15 and then 30 minutes after the third
+  failure, as on the normal PIN screen, instead of a permanent lock.
+- The confirmation texts now say exactly what happens on each screen.
+
+**Recovery screen and set aside**
+
+- "Set up this iPhone again" undoes its moves if one move fails ("Nothing
+  was changed"). If a move cannot be undone, the folder is marked
+  `INCOMPLETE`, the message says so, and Try again continues in the same
+  folder.
+- Recovery phrases are shown on a dedicated screen instead of an alert: the
+  standard screenshot warning, words hidden while the app is inactive (app
+  switcher) or the screen is recorded or mirrored.
+- "SORA never deletes wallet keys from this iPhone's Keychain" now reads
+  "Recovery never deletes wallet keys from this iPhone's Keychain" (account
+  removal does delete proven keys).
+
+**Other fixes**
+
+- A key conflict (or any key-write failure) during an import now closes
+  the import's journal as `abandoned` before Core Data is touched, so the
+  calm "Nothing was changed" no longer latches recovery for the rest of the
+  session.
+- A JSON import over retained items that carry a path (a wallet created
+  with `//0`, then reinstalled) is adopted when the retained phrase or seed,
+  read with that path, and the JSON secret all prove the account.
+- 3/6/9-word phrases (App Store 3.8.6) are accepted to restore a known
+  address only (Drive backup in onboarding or on the recovery screen, or a
+  phrase on the recovery screen), after proof; the short entropy is stored
+  with the seed and secret, as 3.8.6 did. New imports still refuse them.
+- An interrupted database migration is retried automatically too (3 runs
+  in total, proof-gated).
+- Superseded migration attempts are capped at the newest 3.
+
+**Tests**: 14 new tests in `WalletKeySafetyTests` (one per finding,
+including the abandoned-journal blocker, removal with the same phrase
+under //1 and as ed25519, read-only removal keeping every item,
+restore-then-3.8.6 signing, in-place restore on a new iPhone, Welcome back
+with a global-only 1.x wallet, unproven 1.x items, superseded pruning,
+partial restores, set-aside rollback and reuse, JSON over a path, the
+earlier PIN after onboarding, a 6-word 3.8.6 Drive backup, signing
+messages); updated tests for the PIN waits, the restore result, the
+conflict journal, and restore expectations that now include the derived
+seed and secret.
+
+**Verification (fix round)**: `SoraPassportTests` on SORA-Release-A
+(Debug, live mainnet class skipped): 415 tests, 0 failures. `SoraPassport`
+Debug, `SoraPassportDev` and unsigned `SoraPassport` Release for
+`generic/platform=iOS` build. On SORA-Release-B the new build opened an
+existing wallet (left by the i4 simulator check) straight to the PIN
+screen: no recovery screen, no crash.

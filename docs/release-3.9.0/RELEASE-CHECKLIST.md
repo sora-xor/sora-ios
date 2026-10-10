@@ -242,19 +242,31 @@ existing wallet:
 - [ ] "Restore wallets found on this iPhone" restores wallets left in the
       Keychain after a reinstall when the user enters the PIN used on this
       iPhone before. That is the same authority App Store 3.8.6 needed to
-      open the wallet. The failed-attempt counter (5 per install) lives in
-      UserDefaults, so a reinstall resets it; the device passcode still
-      protects the Keychain. Security owner: accept, or require the phrase.
+      open the wallet. Wrong PINs lead to waits of 1, 5, 15 and 30 minutes
+      (state in UserDefaults, so a reinstall resets it; the device passcode
+      still protects the Keychain). Before onboarding replaces that PIN, a
+      copy is kept in the Keychain (`earlierInstallPin-N`, add-only, at most
+      4) so wallets not restored yet stay restorable from Add account with
+      the earlier PIN; this install's new PIN alone never unlocks them.
+      Removing the last account does not delete these copies. Security
+      owner: accept, or require the phrase.
 - [ ] Accounts whose keys are missing or do not match are read-only (G-full).
       A corrupted account therefore no longer stops the app; it shows as
-      read-only until restored or removed. The Safe Mode UI task must show
-      a clear read-only badge and a restore action (domain API:
-      `UserStorageMigrator.restoreKeysForReadOnlyAccount`, signing error
-      `SigningWrapperError.keysNotOnThisDevice`).
+      read-only until restored or removed. Importing the account's phrase,
+      seed or Drive backup restores missing keys in place. Removing a
+      read-only account removes only its row; its Keychain items, the PIN
+      and the 1.x items stay. The Safe Mode UI task must show a clear
+      read-only badge and a restore action (domain API:
+      `WalletAccountKeyAvailability`, `restoreKeysForReadOnlyAccount`,
+      signing errors `keysNotOnThisDevice` / `keysNotVerified`).
 - [ ] "Set up this iPhone again" moves (never deletes) the wallet database,
       migration backups, network model and commit journals into
-      `Documents/WalletSetAside/`. Nothing prunes that folder. Support owner:
-      agree how users are guided if they need data from it.
+      `Documents/WalletSetAside/`. Nothing prunes that folder; a folder with
+      an `INCOMPLETE` file is one whose moves could not all be undone (a
+      retry continues in it). Superseded failed migration attempts in
+      `Documents/CoreData/WalletMigrationSuperseded/` are capped at the
+      newest 3. Support owner: agree how users are guided if they need data
+      from these folders.
 
 ### For the Safe Mode / UI task
 
@@ -266,8 +278,10 @@ existing wallet:
       onboarding welcome screen; deep-link to the import screens.
 - [ ] Show a "SORA network only" note after importing a 15/18/21-word phrase
       (no Nexus accounts for those lengths).
-- [ ] Show recovery phrases in a secure screen (no screenshots, no copy); i4
-      uses a plain alert.
+- [ ] Restyle the recovery-phrase screen (`WalletRecoveryPhraseViewController`:
+      screenshot warning, words hidden in the app switcher and while the
+      screen is captured) and the "Restore wallets found on this iPhone"
+      entry in Add account to the SORA Neon design.
 
 ### Device QA
 
@@ -278,8 +292,19 @@ existing wallet:
       with recovery phrase": the import succeeds (no "already imported").
 - [ ] New iPhone: back up a 3.8.6 phone to iCloud (or Finder, unencrypted),
       restore it on another iPhone, install 3.9.0. The wallet opens; sending
-      shows "This account's keys are not on this iPhone…" until the account
-      is restored with its phrase.
+      shows "This account's keys are not on this iPhone…". Add account →
+      import that account's phrase: it is restored in place (same name,
+      no "already imported") and can send.
+- [ ] Reinstall with two wallets: restore one with its phrase from Welcome
+      back (answer "Continue without them"), set a new PIN, then Add account
+      → "Restore wallets found on this iPhone" with the earlier PIN restores
+      the other one.
+- [ ] Remove a read-only account (and, separately, the last account when it
+      is read-only): the Keychain keeps its items; the next launch of the
+      last-account case shows Welcome back.
+- [ ] Downgrade after a restore: on TestFlight 3.9.0 restore an account
+      created with a path (//1) or from a seed, then install App Store 3.8.6
+      over it: it opens and can send from that account.
 - [ ] Google Drive: restore a backup made by App Store 3.8.6 in onboarding
       and on the recovery screen; a wrong password says so and changes
       nothing.
