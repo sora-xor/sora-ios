@@ -44,18 +44,6 @@ protocol PoolsServiceInputProtocol: AnyObject {
     func loadPools(currentAsset: AssetInfo) -> [PoolInfo]
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo]
     func appendDelegate(delegate: PoolsServiceOutput)
-    
-    func isPairEnabled(
-        baseAssetId: String,
-        targetAssetId: String,
-        accountId: String,
-        completion: @escaping (Bool) -> Void)
-    
-    func isPairPresentedInNetwork(
-        baseAssetId: String,
-        targetAssetId: String,
-        accountId: String,
-        completion: @escaping (Bool) -> Void)
 }
 
 struct PoolNetworkState: Equatable, Sendable {
@@ -136,6 +124,9 @@ final class AccountPoolsService {
     }
     
     func setup() {
+        // Read the chain's DEX ids early, so liquidity screens for KUSD or VXOR
+        // based pools find them without waiting.
+        DexInfoService.shared.prefetch()
         unsubscribePoolsReserves()
         subscribeAccountPool(baseAssetId: WalletAssetId.xor.rawValue)
         subscribeAccountPool(baseAssetId: WalletAssetId.xstusd.rawValue)
@@ -295,22 +286,6 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         return PoolNetworkState(isPresented: state.0, isEnabled: state.1)
     }
     
-    func checkIsPairExists(baseAsset: String, targetAsset: String, completion: @escaping (Bool) -> Void) {
-        let dexId = polkaswapOperationFactory.dexId(for: baseAsset)
-        let operation = polkaswapOperationFactory.isPairEnabled(
-            dexId: dexId,
-            assetId: baseAsset,
-            tokenAddress: targetAsset
-        )
-        operation.completionBlock = {
-            DispatchQueue.main.async {
-                let isAvailable = ( try? operation.extractResultData() ) ?? false
-                completion(isAvailable)
-            }
-        }
-        operationManager.enqueue(operations: [operation], in: .blockAfter)
-    }
-    
     func loadPools(currentAsset: AssetInfo) -> [PoolInfo] {
         return currentPools.filter { $0.baseAssetId == currentAsset.assetId || $0.targetAssetId == currentAsset.assetId }
     }
@@ -406,64 +381,6 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         currentPools = pools
         operationManager.enqueue(operations: [localSaveOperation], in: .transient)
     }
-    
-    func isPairEnabled(
-        baseAssetId: String,
-        targetAssetId: String,
-        accountId: String,
-        completion: @escaping (Bool) -> Void) {
-            if currentPools.first(
-                where: { $0.accountId == accountId &&
-                    $0.baseAssetId == baseAssetId &&
-                    $0.targetAssetId == targetAssetId }) != nil {
-                completion(true)
-                return
-            }
-            
-            let dexId = polkaswapOperationFactory.dexId(for: baseAssetId)
-            let operation = polkaswapOperationFactory.isPairEnabled(
-                dexId: dexId,
-                assetId: baseAssetId,
-                tokenAddress: targetAssetId
-            )
-            operation.completionBlock = {
-                DispatchQueue.main.async {
-                    let isAvailable = ( try? operation.extractResultData() ) ?? false
-                    completion(isAvailable)
-                }
-            }
-            operationManager.enqueue(operations: [operation], in: .blockAfter)
-    }
-    
-    func isPairPresentedInNetwork(
-        baseAssetId: String,
-        targetAssetId: String,
-        accountId: String,
-        completion: @escaping (Bool) -> Void) {
-            if currentPools.first(
-                where: { $0.accountId == accountId &&
-                    $0.baseAssetId == baseAssetId &&
-                    $0.targetAssetId == targetAssetId }) != nil {
-                completion(true)
-                return
-            }
-            
-            let operationQueue = OperationQueue()
-            operationQueue.qualityOfService = .utility
-            
-            guard let operation = try? polkaswapOperationFactory.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
-                completion(false)
-                return
-            }
-            operation.completionBlock = {
-                DispatchQueue.main.async {
-                    let reserves = try? operation.extractResultData()
-                    completion(reserves?.underlyingValue != nil)
-                }
-            }
-
-            operationManager.enqueue(operations: [operation], in: .blockAfter)
-        }
 }
 
 extension AccountPoolsService {
@@ -487,7 +404,10 @@ extension AccountPoolsService {
     }
 
     private func loadPairAvailability(baseAssetId: String, targetAssetId: String) async throws -> Bool {
-        let dexId = polkaswapOperationFactory.dexId(for: baseAssetId)
+        // A pair can only be enabled on the DEX whose base asset this is.
+        guard let dexId = await DexInfoService.shared.dexId(forBaseAssetId: baseAssetId) else {
+            return false
+        }
         let operation = polkaswapOperationFactory.isPairEnabled(
             dexId: dexId,
             assetId: baseAssetId,
