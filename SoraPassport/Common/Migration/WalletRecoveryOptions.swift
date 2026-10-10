@@ -182,7 +182,16 @@ enum WalletLocalStateSetAside {
 
     enum Failure: Error {
         case markerChanged
+        /// Some files were moved to `folder` and the others could not be
+        /// moved back. Nothing was deleted; the wallet settings and the
+        /// recovery marker were left as they were. A retry continues in the
+        /// same folder.
+        case incomplete(folder: URL)
     }
+
+    /// Written into a set-aside folder whose moves did not all complete, and
+    /// removed when they do. A retry reuses that folder.
+    static let incompleteMarkerName = "INCOMPLETE"
 
     /// Non-secret UserDefaults keys that describe the installed wallet.
     static func walletSettingKeys(in settings: SettingsManagerProtocol) -> [String] {
@@ -206,7 +215,8 @@ enum WalletLocalStateSetAside {
         paths: Paths,
         fileManager: FileManager = .default,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
-        closeDatabase: () -> Void = {}
+        closeDatabase: () -> Void = {},
+        beforeMove: (URL) throws -> Void = { _ in }
     ) throws -> URL {
         let lease = lifecycleCoordinator.acquire()
         defer { lease.release() }
@@ -216,7 +226,10 @@ enum WalletLocalStateSetAside {
         }
         closeDatabase()
 
-        let folder = paths.setAsideRootURL.appendingPathComponent(
+        // Continue an earlier incomplete attempt in its own folder, so the
+        // earlier data is never split across folders.
+        let reused = incompleteFolder(in: paths.setAsideRootURL, fileManager: fileManager)
+        let folder = reused ?? paths.setAsideRootURL.appendingPathComponent(
             "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
 
@@ -230,9 +243,13 @@ enum WalletLocalStateSetAside {
             }
         }
         let plist = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
-        try plist.write(to: folder.appendingPathComponent("wallet-settings.plist"), options: [.atomic])
+        let settingsName = reused == nil ? "wallet-settings.plist" : "wallet-settings-\(UUID().uuidString).plist"
+        try plist.write(to: folder.appendingPathComponent(settingsName), options: [.atomic])
 
-        // 2. Move (rename) the wallet files. Never delete.
+        // 2. Move (rename) the wallet files. Never delete. If one move
+        // fails, the moves already done are undone, so the install is left as
+        // it was; if that is not possible, the folder is marked incomplete
+        // and the error says so.
         let coreData = folder.appendingPathComponent("CoreData", isDirectory: true)
         try fileManager.createDirectory(at: coreData, withIntermediateDirectories: true)
         var moves: [(URL, URL)] = ["", "-wal", "-shm", "-journal"].map { suffix in
@@ -247,8 +264,44 @@ enum WalletLocalStateSetAside {
             moves.append((sora.appendingPathComponent(name, isDirectory: true),
                            folder.appendingPathComponent(name, isDirectory: true)))
         }
-        for (source, destination) in moves where exists(source) {
-            try fileManager.moveItem(at: source, to: destination)
+        var done: [(URL, URL)] = []
+        do {
+            for (source, plannedDestination) in moves where exists(source) {
+                // In a reused folder an item of the same name may already be
+                // there from the earlier attempt; keep both.
+                let destination = exists(plannedDestination)
+                    ? plannedDestination.deletingLastPathComponent().appendingPathComponent(
+                        plannedDestination.lastPathComponent + "." + UUID().uuidString)
+                    : plannedDestination
+                try beforeMove(source)
+                try fileManager.moveItem(at: source, to: destination)
+                done.append((source, destination))
+            }
+        } catch {
+            var restored = true
+            for (source, destination) in done.reversed() {
+                do {
+                    try fileManager.moveItem(at: destination, to: source)
+                } catch {
+                    restored = false
+                }
+            }
+            guard restored else {
+                try? Data("Some wallet files were moved here and others were not. Nothing was deleted.".utf8)
+                    .write(to: folder.appendingPathComponent(incompleteMarkerName), options: [.atomic])
+                Logger.shared.warning("Wallet storage: set-aside incomplete; earlier data kept in place")
+                throw Failure.incomplete(folder: folder)
+            }
+            if reused == nil {
+                // Everything is back in place. The new folder holds only the
+                // settings copy written above; remove it so a retry starts
+                // clean.
+                try? fileManager.removeItem(at: folder)
+            }
+            throw error
+        }
+        if exists(folder.appendingPathComponent(incompleteMarkerName)) {
+            try? fileManager.removeItem(at: folder.appendingPathComponent(incompleteMarkerName))
         }
 
         // 3. Remove the wallet settings that were copied above.
@@ -273,6 +326,14 @@ enum WalletLocalStateSetAside {
         }
         Logger.shared.info("Wallet storage: earlier data set aside on request; Keychain unchanged")
         return folder
+    }
+
+    private static func incompleteFolder(in root: URL, fileManager: FileManager) -> URL? {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return nil }
+        return entries.sorted { $0.lastPathComponent < $1.lastPathComponent }.first { entry in
+            exists(entry.appendingPathComponent(incompleteMarkerName))
+        }
     }
 
     private static func exists(_ url: URL) -> Bool {
