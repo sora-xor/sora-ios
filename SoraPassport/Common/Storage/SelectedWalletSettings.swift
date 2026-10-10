@@ -64,6 +64,50 @@ protocol SelectedWalletSettingsProtocol: AnyObject {
     )
     func performSetup(completionClosure: @escaping (Result<AccountItem?, Error>) -> Void)
     func save(value: AccountItem)
+    /// True when importing `imported` restores the keys of `existing` (an
+    /// account already in the wallet) in place instead of being a duplicate.
+    /// The same rule `performInsertAndSelect` applies, so an import screen
+    /// can tell before it asks for a name.
+    func restoresKeysInPlace(existing: AccountItem, imported: AccountItem) throws -> Bool
+}
+
+extension SelectedWalletSettingsProtocol {
+    func restoresKeysInPlace(existing: AccountItem, imported: AccountItem) throws -> Bool { false }
+}
+
+/// An account already in the wallet takes an import of its own phrase, seed
+/// or backup as a key restore when none of its keys are on this device (a
+/// new iPhone restored from an iCloud backup, or keys never saved here), it
+/// is not watch-only, and the imported material derives the same public key
+/// and type. The material has already proved this address (`PreparedAccount`)
+/// and the restore is add-only. Anything else is a duplicate.
+enum WalletReadOnlyAccountKeyRestore {
+    static func applies(existing: AccountItem, imported: AccountItem,
+                        keystore: KeystoreProtocol?, settings: SettingsManagerProtocol?) throws -> Bool {
+        try applies(address: existing.address, publicKey: existing.publicKeyData,
+                    cryptoType: existing.cryptoType, networkType: existing.networkType,
+                    imported: imported, keystore: keystore, settings: settings)
+    }
+
+    static func applies(existing: ManagedAccountItem, imported: AccountItem,
+                        keystore: KeystoreProtocol?, settings: SettingsManagerProtocol?) throws -> Bool {
+        try applies(address: existing.address, publicKey: existing.publicKeyData,
+                    cryptoType: existing.cryptoType, networkType: existing.networkType,
+                    imported: imported, keystore: keystore, settings: settings)
+    }
+
+    private static func applies(address: String, publicKey: Data, cryptoType: CryptoType,
+                                networkType: SNAddressType, imported: AccountItem,
+                                keystore: KeystoreProtocol?, settings: SettingsManagerProtocol?) throws -> Bool {
+        guard let keystore,
+              address == imported.address,
+              publicKey == imported.publicKeyData,
+              cryptoType == imported.cryptoType,
+              networkType == imported.networkType,
+              settings?.allKeys().contains("wallet.watchOnly.\(imported.address)") != true
+        else { return false }
+        return try !keystore.hasScopedSigningMaterial(for: imported.address)
+    }
 }
 
 enum SelectedWalletSettingsError: LocalizedError {
@@ -227,6 +271,11 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         self.recoveryGate = recoveryGate
 
         super.init(storageFacade: storageFacade)
+    }
+
+    func restoresKeysInPlace(existing: AccountItem, imported: AccountItem) throws -> Bool {
+        try WalletReadOnlyAccountKeyRestore.applies(existing: existing, imported: imported,
+                                                    keystore: keystore, settings: legacySettings)
     }
 
     override func performSetup(completionClosure: @escaping (Result<AccountItem?, Error>) -> Void) {
@@ -428,14 +477,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     // imported phrase, seed or backup restores them in place:
                     // add-only, after the material proved this address
                     // (PreparedAccount). Otherwise it is a duplicate, as before.
-                    let watchOnlyKey = "wallet.watchOnly.\(value.address)"
-                    guard
-                        let keystore,
-                        existing.publicKeyData == value.publicKeyData,
-                        existing.cryptoType == value.cryptoType,
-                        existing.networkType == value.networkType,
-                        legacySettings?.allKeys().contains(watchOnlyKey) != true,
-                        try !keystore.hasScopedSigningMaterial(for: value.address)
+                    guard try WalletReadOnlyAccountKeyRestore.applies(
+                        existing: existing, imported: value,
+                        keystore: keystore, settings: legacySettings)
                     else {
                         throw AccountCreateError.duplicated
                     }
