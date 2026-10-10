@@ -1064,3 +1064,156 @@ Debug, `SoraPassportDev` and unsigned `SoraPassport` Release for
 `generic/platform=iOS` build. On SORA-Release-B the new build opened an
 existing wallet (left by the i4 simulator check) straight to the PIN
 screen: no recovery screen, no crash.
+
+### Fix round 2 (review findings)
+
+Six findings: three blockers and three majors. Each one was checked
+against the code, all six were real, and all six are fixed. Two of them
+corrected statements made in the first fix round; those corrections are
+noted below.
+
+**Blocker: Welcome back's actions did nothing; the 1.x upgrade never ran**
+
+- `SplashWireframe.showRoot` created the Root module as a local, and
+  `RootInteractor.presenter` is weak. Once launch routing returned, the
+  presenter, wireframe and interactor were released. Two things broke:
+  - Welcome back's "Restore with recovery phrase", "Restore from Google
+    Drive", "Set up this iPhone again" and "Continue without them" did
+    nothing, because they captured the wireframe weakly.
+  - The 1.x "Continue protected upgrade" button started its spinner but
+    never called the upgrade, because it captured the presenter weakly.
+  This was in place since 1c2f46fc.
+- The fix: `RootPresenterFactory` now keeps the module on the window
+  (`SoraWindow.rootModule`) until the next startup replaces it. The Welcome
+  back closures also capture the wireframe strongly. The wireframe holds no
+  state and does not own the controller, so this creates no cycle.
+
+**Blocker: a stop between the import and PIN setup asked for the forgotten earlier PIN**
+
+- Onboarding saves the account before it shows PIN setup. After Welcome
+  back, `pincode` is still the earlier install's PIN. If the app stopped
+  between those two steps, the next launch asked for that PIN, and the PIN
+  screen has no "forgot PIN" option.
+- Leaving Welcome back now records `wallet.pinSetupPendingAfterWelcomeBack`
+  in settings. While it is set and an account exists, Root opens PIN setup
+  instead of PIN entry. PIN setup clears the flag only after the new PIN
+  has been saved.
+- The same applies when "Restore wallets found on this iPhone" on Welcome
+  back succeeds with a PIN that matched only a copy kept from an earlier
+  install. The app would otherwise ask for a `pincode` the user never
+  proved, so it asks for a new PIN instead.
+- Returning from the background no longer asks for the earlier install's
+  PIN in two places, where a user who does not remember it would be stuck:
+  - while the new PIN is pending;
+  - on Welcome back, which has its own PIN-gated actions.
+
+**Major: the earlier PIN could be overwritten without a copy**
+
+- Before, leaving Welcome back only logged a failure to save the copy, and
+  stopped adding copies once 4 existed. Onboarding then overwrote
+  `pincode`.
+- Keeping the copy is now a precondition, enforced by
+  `WalletRetainedPinGate.keepEarlierInstallPin`:
+  - The copy is add-only, read back, and compared.
+  - Every distinct PIN gets its own copy; the limit is gone.
+  - If the copy cannot be kept, Welcome back stays open. It shows "Your
+    earlier PIN was not saved" with Try again, Restore them now, Contact
+    support and Cancel.
+- `PinSetupInteractor` applies the same check before it saves a PIN over
+  an existing `pincode` during setup. Changing the PIN after entering it is
+  not affected. If the check fails, it stops and the earlier PIN stays
+  unchanged.
+- Correction to the first fix round: the earlier PIN copies are not capped
+  at 4.
+
+**Major: a briefly unreadable migration folder could still lock the wallet**
+
+- The shared gate's namespace probe treats any read error as "unfinished
+  or unverifiable" and latches a database-interruption marker. Startup then
+  found no unfinished attempt and threw `interrupted_migration` on every
+  run, so the automatic retries and Try again could not clear it.
+- Now, when the marker is a database interruption and nothing is left to
+  resume, the marker is cleared by compare-and-set. "Nothing left to
+  resume" means there is no attempt, or every attempt re-verifies as
+  activated and is not bound to this marker. Before clearing, startup
+  proves the following:
+  - the live store is the current schema;
+  - its inventory can be read;
+  - every key it names is present, except for accounts that are already
+    read-only.
+  An older store goes through the ordinary journaled migration.
+- An attempt whose backup verification hit a read error records
+  `interrupted_migration` and has no verified artifacts, so it never
+  replaced the live store. Under that marker it is now moved to
+  `WalletMigrationSuperseded` and a fresh attempt runs, as already happened
+  for retryable codes.
+
+**Major: Add account could not restore a read-only account's keys**
+
+- `AddAccountImportInteractor` rejected every address that already had a
+  row before the import ran, so the in-place restore from the first fix
+  round could not be reached from the app.
+- The rule now lives in one place,
+  `WalletReadOnlyAccountKeyRestore.applies`, and validation and insert both
+  use it (`SelectedWalletSettingsProtocol.restoresKeysInPlace`). An
+  existing account counts as restorable only when all of these hold:
+  - it is not watch-only;
+  - it has the same public key and type as the imported material;
+  - none of its keys are on this iPhone.
+  Any other existing account is still a duplicate.
+- The Google Drive lists in onboarding, Add account, and the "other
+  backups" sheet hid every address recorded in `backupedAccountAddresses`.
+  That record comes back with an iCloud restore, but the keys do not. The
+  lists now hide an address only when its keys are on this iPhone
+  (`WalletDriveBackupList`).
+- Correction to the first fix round: "Restoring a read-only account in the
+  app" now works from Add account → Import and from Google Drive. Before,
+  only the domain path worked.
+
+**User-visible effects**
+
+- Welcome back's phrase, Google Drive and set-up actions open onboarding.
+  The 1.x upgrade confirmation runs the upgrade.
+- If the app stops after a phrase import that started from Welcome back,
+  the next launch asks the user to set a PIN, not to enter the earlier one.
+- In the rare case that the earlier PIN cannot be saved, Welcome back
+  explains it and offers Try again, instead of continuing.
+- On a new iPhone restored from iCloud, Add account → Import, or the Google
+  Drive list, restores a read-only account's keys.
+
+**New strings** (English and Japanese):
+- "Your earlier PIN was not saved"
+- the explanation shown under it
+- "SORA could not save a copy of the PIN you used before. Nothing was
+  changed. Try again."
+
+**Tests**: 9 new tests in `WalletKeySafetyTests`:
+- Welcome back actions through `RootPresenterFactory` reach onboarding
+  after launch routing returns.
+- The 1.x confirm button and the import completion reach the module. This
+  test fails without the `rootModule` retention.
+- Welcome back → import → stop → PIN setup → new PIN, with the other found
+  wallet still restorable with the earlier PIN.
+- PIN copies are kept with no limit, and a failing Keychain stops both
+  Welcome back and PIN setup.
+- There is no resume PIN prompt while the new PIN is pending or on Welcome
+  back.
+- A marker latched by the gate on a verified namespace, and the same
+  marker with no attempt, both reach `.ready`.
+- An attempt interrupted during backup verification is set aside and
+  retried.
+- Add account → Import with the real `AccountImportPresenter` and
+  `AddAccountImportInteractor` restores a read-only account. Importing the
+  same phrase again is a duplicate.
+- The Drive list filter.
+
+**Verification (fix round 2)**:
+- `SoraPassportTests` on SORA-Release-A, Debug, with
+  `Sora2MainnetLiveSigningTests` skipped: 424 tests, 0 failures.
+- With `rootModule` retention removed, the new 1.x-confirmation test fails.
+- These builds succeed: `SoraPassport` Debug, `SoraPassportDev`, and
+  unsigned `SoraPassport` Release for `generic/platform=iOS`.
+- On SORA-Release-B, a real reinstall over Keychain items from an earlier
+  install showed Welcome back. Tapping "Restore with recovery phrase", then
+  "Continue without them", opened onboarding. Screenshots are in
+  `scratchpad/screens/ios/i4-fix2/`.
