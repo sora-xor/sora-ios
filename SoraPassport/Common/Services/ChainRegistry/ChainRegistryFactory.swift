@@ -109,6 +109,7 @@ final class ChainRegistryFactory {
             repository: AnyDataProviderRepository(chainRepository),
             eventCenter: EventCenter.shared,
             operationQueue: OperationManagerFacade.runtimeBuildingQueue,
+            storeRepair: ChainStoreRepair(databaseService: repositoryFacade.databaseService),
             logger: Logger.shared
         )
 

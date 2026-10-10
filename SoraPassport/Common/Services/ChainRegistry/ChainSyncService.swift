@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import CoreData
 import Foundation
 import RobinHood
 import SSFUtils
@@ -35,6 +36,65 @@ import SoraKeystore
 
 protocol ChainSyncServiceProtocol {
     func syncUp()
+}
+
+protocol ChainStoreRepairing {
+    /// Makes damaged chain rows readable again so the chain sync can overwrite them.
+    func repairDamagedChainRows()
+}
+
+/// Core Data does not return a stored row whose required text is missing: it logs "missing
+/// mandatory text data" and skips the row. A chain row whose name was lost to store damage
+/// is therefore invisible to every fetch, yet still holds the chain id, so the chain sync
+/// can neither read it nor insert the chain again (the id is unique). The chain would never
+/// load. This gives such rows an empty name, below Core Data's validation, so the next fetch
+/// returns them and the sync writes the real name. A row without a chain id is left alone:
+/// it is never returned and does not block the chain.
+final class ChainStoreRepair: ChainStoreRepairing {
+    private let databaseService: CoreDataServiceProtocol
+    private let logger: LoggerProtocol?
+
+    init(databaseService: CoreDataServiceProtocol, logger: LoggerProtocol? = Logger.shared) {
+        self.databaseService = databaseService
+        self.logger = logger
+    }
+
+    func repairDamagedChainRows() {
+        let done = DispatchSemaphore(value: 0)
+        databaseService.performAsync { [logger] context, _ in
+            defer { done.signal() }
+            // Batch updates exist only for SQLite stores (not for the in-memory store a
+            // session uses when the chain store could not be opened).
+            guard let context,
+                  let stores = context.persistentStoreCoordinator?.persistentStores,
+                  !stores.isEmpty,
+                  stores.allSatisfy({ $0.type == NSSQLiteStoreType }) else {
+                return
+            }
+            let request = NSBatchUpdateRequest(entityName: String(describing: CDChain.self))
+            request.predicate = NSPredicate(
+                format: "%K != nil AND %K == nil",
+                #keyPath(CDChain.chainId),
+                #keyPath(CDChain.name)
+            )
+            request.propertiesToUpdate = [#keyPath(CDChain.name): ""]
+            request.resultType = .updatedObjectIDsResultType
+            do {
+                let result = try context.execute(request) as? NSBatchUpdateResult
+                guard let ids = result?.result as? [NSManagedObjectID], !ids.isEmpty else {
+                    return
+                }
+                NSManagedObjectContext.mergeChanges(
+                    fromRemoteContextSave: [NSUpdatedObjectsKey: ids],
+                    into: [context]
+                )
+                logger?.warning("Chain store: \(ids.count) chain row(s) without a name were made readable")
+            } catch {
+                logger?.warning("Chain store: damaged chain rows could not be repaired now")
+            }
+        }
+        done.wait()
+    }
 }
 
 final class ChainSyncService {
@@ -51,6 +111,7 @@ final class ChainSyncService {
     let retryStrategy: ReconnectionStrategyProtocol
     let operationQueue: OperationQueue
     let whitelistStore: AssetWhitelistStoring
+    let storeRepair: ChainStoreRepairing?
     let logger: LoggerProtocol?
 
     private(set) var retryAttempt: Int = 0
@@ -68,6 +129,7 @@ final class ChainSyncService {
         operationQueue: OperationQueue,
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
         whitelistStore: AssetWhitelistStoring = AssetWhitelistStore.shared,
+        storeRepair: ChainStoreRepairing? = nil,
         logger: LoggerProtocol? = nil
     ) {
         self.typesUrl = typesUrl
@@ -78,6 +140,7 @@ final class ChainSyncService {
         self.operationQueue = operationQueue
         self.retryStrategy = retryStrategy
         self.whitelistStore = whitelistStore
+        self.storeRepair = storeRepair
         self.logger = logger
     }
 
@@ -99,7 +162,11 @@ final class ChainSyncService {
     }
 
     private func executeSync(whitelist remoteWhitelist: AssetWhitelist? = nil, refreshWhitelist: Bool = true) {
+        let repairOperation = ClosureOperation<Void> { [storeRepair] in
+            storeRepair?.repairDamagedChainRows()
+        }
         let localFetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        localFetchOperation.addDependency(repairOperation)
         let processingOperation: BaseOperation<SyncChanges> = ClosureOperation {
             let localChains = try localFetchOperation.extractNoCancellableResultData()
             let chainId = Chain.sora.genesisHash()
@@ -182,7 +249,7 @@ final class ChainSyncService {
         }
 
         operationQueue.addOperations([
-            localFetchOperation, processingOperation, localSaveOperation, mapOperation
+            repairOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
         ], waitUntilFinished: false)
     }
 
