@@ -81,6 +81,7 @@
 		0253FCEF22159ADD00D3AD49 /* DateFormatter+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0253FCEE22159ADD00D3AD49 /* DateFormatter+Sections.swift */; };
 		0253FD0A2218A8C000D3AD49 /* PredicateExtensionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0253FD092218A8C000D3AD49 /* PredicateExtensionTests.swift */; };
 		CAC9F20ECB68F197095A35A8 /* InputHandlingReplacementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01C9C599AC3605E5B64F82 /* InputHandlingReplacementTests.swift */; };
+		3694127AB8B2749CEBBC7859 /* InputTextViewMarkedTextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39FACEF99AD5115383C6CE1 /* InputTextViewMarkedTextTests.swift */; };
 		02601CF2217A05D3006BD248 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02601CF1217A05D3006BD248 /* Constants.swift */; };
 		02623EB92178C0910011250E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EB82178C0910011250E /* AppDelegate.swift */; };
 		5CE4E0010000000000000002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE4E0010000000000000001 /* SceneDelegate.swift */; };
@@ -2518,6 +2519,7 @@
 		0253FCEE22159ADD00D3AD49 /* DateFormatter+Sections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DateFormatter+Sections.swift"; sourceTree = "<group>"; };
 		0253FD092218A8C000D3AD49 /* PredicateExtensionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredicateExtensionTests.swift; sourceTree = "<group>"; };
 		AA01C9C599AC3605E5B64F82 /* InputHandlingReplacementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputHandlingReplacementTests.swift; sourceTree = "<group>"; };
+		A39FACEF99AD5115383C6CE1 /* InputTextViewMarkedTextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextViewMarkedTextTests.swift; sourceTree = "<group>"; };
 		02601CF1217A05D3006BD248 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		02601CFD217A0F94006BD248 /* SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SoraPassport.debug.xcconfig; sourceTree = "<group>"; };
 		02601CFF217A1021006BD248 /* SoraPassport.release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SoraPassport.release.xcconfig; sourceTree = "<group>"; };
@@ -4542,6 +4544,7 @@
 				02CFA4E021898DCC000E9483 /* DecimalExtensionTests.swift */,
 				0253FD092218A8C000D3AD49 /* PredicateExtensionTests.swift */,
 				AA01C9C599AC3605E5B64F82 /* InputHandlingReplacementTests.swift */,
+				A39FACEF99AD5115383C6CE1 /* InputTextViewMarkedTextTests.swift */,
 				8409324523453BA80013C871 /* DecimalOperationsTest.swift */,
 			);
 			path = Extension;
@@ -8873,6 +8876,7 @@
 				026AEA4B21B10FE7002EEB67 /* IdentityCreationOperationTests.swift in Sources */,
 				0253FD0A2218A8C000D3AD49 /* PredicateExtensionTests.swift in Sources */,
 				CAC9F20ECB68F197095A35A8 /* InputHandlingReplacementTests.swift in Sources */,
+				3694127AB8B2749CEBBC7859 /* InputTextViewMarkedTextTests.swift in Sources */,
 				5E2855522A33498D0054BA92 /* KeystoreExportWrapperTests.swift in Sources */,
 				8409324623453BA80013C871 /* DecimalOperationsTest.swift in Sources */,
 				945A575925DE852D003E4023 /* NetworkBaseTests.swift in Sources */,
