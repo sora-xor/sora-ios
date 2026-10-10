@@ -43,9 +43,12 @@ final class ThemeManager {
 	/// overrides do not affect. `UITraitCollection.current` can be
 	/// unspecified at cold launch or reflect an override.
 	private var currentSystemTheme: SoramitsuThemeType {
-		let screenStyle = UIApplication.shared.connectedScenes
-			.compactMap { $0 as? UIWindowScene }
-			.first?.screen.traitCollection.userInterfaceStyle
+		// UIKit scene state is main-thread only; elsewhere use the current traits.
+		let screenStyle = Thread.isMainThread
+			? UIApplication.shared.connectedScenes
+				.compactMap { $0 as? UIWindowScene }
+				.first?.screen.traitCollection.userInterfaceStyle
+			: nil
 		switch screenStyle ?? UITraitCollection.current.userInterfaceStyle {
 		case .dark:
 			return .dark
