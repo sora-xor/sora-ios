@@ -37,9 +37,15 @@ enum SubstrateStorePreparation: Equatable {
     case ready
     /// The store was written by an earlier model version and was migrated in place.
     case migrated
-    /// The store matched no model version this build knows, or was not a database.
-    /// It was removed, which is what earlier releases did with every model change.
+    /// The store matched no model version this build knows, was not a database, or
+    /// SQLite reported it as corrupt. It was removed, which is what earlier releases did
+    /// with every model change.
     case removedIncompatible
+    /// The store could not be opened on `maximumDeferredLaunches` launches in a row
+    /// although its file was readable and the disk was not full, or it is from a known
+    /// version but could not be migrated. It was renamed aside (never deleted) and a new,
+    /// empty store is used from now on.
+    case movedAside
     /// The store could not be read or migrated for a reason that can pass: the
     /// device has not been unlocked since it started, the disk is full, or an I/O
     /// error. The store is left untouched and this session uses a temporary
@@ -49,63 +55,149 @@ enum SubstrateStorePreparation: Equatable {
 
 /// Opens the chain, node, contact and pool store across releases.
 ///
-/// `SubstrateDataModel.xcdatamodeld` keeps every shipped schema:
-/// - `SubstrateDataModel` (v1, 10 entities): 2.x to 3.8.5 and the 3.9.0 TestFlight builds;
-/// - `SubstrateDataModel 2` (v2, current): an exact copy of App Store 3.8.6, which added
-///   `CDConfig`, `CDMetadataVersion` and `CDNode`.
+/// `SubstrateDataModel.xcdatamodeld` keeps every shipped 3.x schema:
+/// - `SubstrateDataModel 0` (v0, 11 entities): App Store 3.0.1 to 3.8.4, with `CDSingleValue`;
+/// - `SubstrateDataModel` (v1, 10 entities): App Store 3.8.5 and the 3.9.0 TestFlight builds;
+/// - `SubstrateDataModel 2` (v2, current): an exact copy of App Store 3.8.6 (also 3.8.7 to
+///   3.8.9), which added `CDConfig`, `CDMetadataVersion` and `CDNode`.
 ///
 /// Before 3.9.0 the store was opened with RobinHood's `.removeStore`, which deleted it
 /// whenever its schema differed from the app's (and whenever its metadata could not be
-/// read, for example before the first unlock). An upgrade from 3.8.6 therefore lost the
-/// user's contacts, custom and selected nodes and pool favourites. Now a store from any
-/// known version is migrated in place (lightweight migration), and a store is removed only
-/// when it is provably not usable. The store holds no key material.
+/// read, for example before the first unlock). An upgrade therefore lost the user's
+/// contacts, custom and selected nodes and pool favourites. Now a store from any known
+/// version is migrated in place (lightweight migration), and a store is removed only when
+/// it is provably not usable. Stores from 2.x (before 3.0.1) have a different layout and
+/// were already reset by 3.0.1; they are still reset. The store holds no key material.
 enum SubstrateStoreMigrator {
     static let migrationOptions: [AnyHashable: Any] = [
         NSMigratePersistentStoresAutomaticallyOption: true,
         NSInferMappingModelAutomaticallyOption: true
     ]
 
+    /// Launches in a row on which a readable store kept failing before it is moved aside.
+    static let maximumDeferredLaunches = 3
+    static let deferredLaunchesKey = "SubstrateStoreMigrator.deferredLaunches"
+    /// Pauses before the second and third attempt within one launch, for a store that is
+    /// readable but busy or reported an I/O error.
+    static let defaultRetryDelays: [TimeInterval] = [0.25, 0.5]
+
+    typealias MetadataReader = (URL) throws -> [String: Any]
+
+    static let defaultMetadataReader: MetadataReader = { url in
+        try NSPersistentStoreCoordinator.metadataForPersistentStore(
+            ofType: NSSQLiteStoreType,
+            at: url,
+            options: nil
+        )
+    }
+
+    /// Why a launch could not use the store.
+    enum DeferralReason: Equatable {
+        /// The file cannot be opened at all (before the first unlock) or the bundled
+        /// model is missing. Never counted: the store is never moved aside for this.
+        case notReadable
+        /// The disk is full. Never counted: the user can free space and nothing is lost.
+        case noSpace
+        /// The file is readable but opening or migrating it failed with a temporary
+        /// error (busy, I/O). Retried within the launch and counted across launches.
+        case failing
+    }
+
+    private enum Attempt {
+        case done(SubstrateStorePreparation)
+        case deferred(DeferralReason)
+    }
+
+    /// `defaults` keeps the count of launches in a row that could not use a readable
+    /// store; pass `nil` to never count (and so never move the store aside).
     static func prepare(
         storeURL: URL,
         modelURL: URL,
+        defaults: UserDefaults?,
         fileManager: FileManager = .default,
+        retryDelays: [TimeInterval] = defaultRetryDelays,
+        metadataReader: MetadataReader = defaultMetadataReader,
         logger: LoggerProtocol? = Logger.shared
     ) -> SubstrateStorePreparation {
+        func attemptOnce() -> Attempt {
+            attempt(
+                storeURL: storeURL,
+                modelURL: modelURL,
+                fileManager: fileManager,
+                metadataReader: metadataReader,
+                logger: logger
+            )
+        }
+
+        var outcome = attemptOnce()
+        for delay in retryDelays {
+            guard case .deferred(.failing) = outcome else { break }
+            Thread.sleep(forTimeInterval: delay)
+            outcome = attemptOnce()
+        }
+
+        switch outcome {
+        case let .done(result):
+            defaults?.removeObject(forKey: deferredLaunchesKey)
+            return result
+        case .deferred(.notReadable):
+            logger?.warning("Substrate store: not readable now; using a temporary store")
+            return .deferred
+        case .deferred(.noSpace):
+            logger?.warning("Substrate store: the disk is full; using a temporary store")
+            return .deferred
+        case .deferred(.failing):
+            guard let defaults else {
+                logger?.warning("Substrate store: could not be opened now; using a temporary store")
+                return .deferred
+            }
+            let launches = defaults.integer(forKey: deferredLaunchesKey) + 1
+            if launches >= maximumDeferredLaunches,
+               moveAside(storeURL: storeURL, fileManager: fileManager, logger: logger) {
+                defaults.removeObject(forKey: deferredLaunchesKey)
+                return .movedAside
+            }
+            defaults.set(launches, forKey: deferredLaunchesKey)
+            logger?.warning("Substrate store: could not be opened now (launch \(launches)); using a temporary store")
+            return .deferred
+        }
+    }
+
+    private static func attempt(
+        storeURL: URL,
+        modelURL: URL,
+        fileManager: FileManager,
+        metadataReader: MetadataReader,
+        logger: LoggerProtocol?
+    ) -> Attempt {
         guard fileManager.fileExists(atPath: storeURL.path) else {
-            return .ready
+            // A -wal, -shm or -journal file without its database is left over from an
+            // interrupted removal. SQLite could replay it into the new store, so remove
+            // it first. It cannot be opened without the database it belonged to.
+            return removeStore(at: storeURL, fileManager: fileManager, logger: logger, result: .ready)
         }
 
         guard let currentModel = NSManagedObjectModel(contentsOf: modelURL) else {
             logger?.error("Substrate store: the bundled model could not be loaded")
-            return .deferred
+            return .deferred(.notReadable)
         }
 
         let metadata: [String: Any]
         do {
-            metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
-                ofType: NSSQLiteStoreType,
-                at: storeURL,
-                options: nil
-            )
+            metadata = try metadataReader(storeURL)
         } catch {
             switch databaseHeaderState(at: storeURL) {
             case .unreadable:
-                logger?.warning("Substrate store: not readable now; using a temporary store")
-                return .deferred
+                return .deferred(.notReadable)
             case .notDatabase:
                 return removeStore(at: storeURL, fileManager: fileManager, logger: logger)
             case .database:
-                if isTransient(error) {
-                    logger?.warning("Substrate store: metadata not readable now; using a temporary store")
-                    return .deferred
-                }
-                return removeStore(at: storeURL, fileManager: fileManager, logger: logger)
+                return outcome(of: error, storeURL: storeURL, fileManager: fileManager, logger: logger)
             }
         }
 
         if currentModel.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata) {
-            return .ready
+            return .done(.ready)
         }
 
         let isKnownVersion = knownModels(in: modelURL).contains {
@@ -125,13 +217,32 @@ enum SubstrateStoreMigrator {
             )
             try? coordinator.remove(store)
             logger?.info("Substrate store: migrated to the current model")
-            return .migrated
+            return .done(.migrated)
         } catch {
-            if isTransient(error) {
-                logger?.warning("Substrate store: migration did not finish; using a temporary store")
-                return .deferred
+            // A store from a known version holds the user's contacts and node choices. If
+            // it cannot be migrated for a reason that will not pass, keep it aside instead
+            // of deleting it; remove it only if it cannot be moved.
+            if classify(error) == .permanent,
+               moveAside(storeURL: storeURL, fileManager: fileManager, logger: logger) {
+                return .done(.movedAside)
             }
+            return outcome(of: error, storeURL: storeURL, fileManager: fileManager, logger: logger)
+        }
+    }
+
+    private static func outcome(
+        of error: Error,
+        storeURL: URL,
+        fileManager: FileManager,
+        logger: LoggerProtocol?
+    ) -> Attempt {
+        switch classify(error) {
+        case .permanent:
             return removeStore(at: storeURL, fileManager: fileManager, logger: logger)
+        case .noSpace:
+            return .deferred(.noSpace)
+        case .transient:
+            return .deferred(.failing)
         }
     }
 
@@ -166,24 +277,47 @@ enum SubstrateStoreMigrator {
         return header == Data("SQLite format 3\u{0}".utf8) ? .database : .notDatabase
     }
 
-    /// Errors that say "not now" rather than "never": locked or protected files, a full
-    /// disk, I/O and busy databases. Core Data reports SQLite result codes in
-    /// `NSSQLiteErrorDomain`; extended codes keep the primary code in the low byte.
+    enum ErrorClass: Equatable {
+        /// The store itself is unusable (corrupt, not a database, a schema error).
+        case permanent
+        /// The disk or quota is full.
+        case noSpace
+        /// Busy, locked, protected or an I/O error: it can pass.
+        case transient
+    }
+
+    /// Core Data wraps SQLite failures in generic Cocoa errors (for example 256 for
+    /// any read failure) and reports the SQLite result code in `NSSQLiteErrorDomain`.
+    /// When a SQLite code is present it decides, because it is the specific report:
+    /// SQLITE_CORRUPT and SQLITE_NOTADB are permanent whatever the wrapper says.
+    /// Extended codes keep the primary code in the low byte.
+    static func classify(_ error: Error) -> ErrorClass {
+        let chain = flattened(error)
+        let sqliteCodes = chain.compactMap { sqliteCode(of: $0) }.map { $0 & 0xFF }
+
+        if sqliteCodes.contains(where: { permanentSQLiteCodes.contains($0) }) {
+            return .permanent
+        }
+        if sqliteCodes.contains(sqliteFull) || chain.contains(where: { isNoSpace($0) }) {
+            return .noSpace
+        }
+        if !sqliteCodes.isEmpty {
+            return sqliteCodes.contains(where: { transientSQLiteCodes.contains($0) }) ? .transient : .permanent
+        }
+        let isTransientFileError = chain.contains { transientCodes[$0.domain]?.contains($0.code) == true }
+        return isTransientFileError ? .transient : .permanent
+    }
+
+    /// "Not now" rather than "never".
     static func isTransient(_ error: Error) -> Bool {
+        classify(error) != .permanent
+    }
+
+    private static func flattened(_ error: Error) -> [NSError] {
+        var result: [NSError] = []
         var pending: [NSError] = [error as NSError]
-        var visited = 0
-        while let next = pending.popLast(), visited < 16 {
-            visited += 1
-            if transientCodes[next.domain]?.contains(next.code) == true {
-                return true
-            }
-            if let sqliteCode = next.userInfo["NSSQLiteErrorDomain"] as? Int,
-               transientSQLiteCodes.contains(sqliteCode & 0xFF) {
-                return true
-            }
-            if next.domain == "NSSQLiteErrorDomain", transientSQLiteCodes.contains(next.code & 0xFF) {
-                return true
-            }
+        while let next = pending.popLast(), result.count < 16 {
+            result.append(next)
             if let underlying = next.userInfo[NSUnderlyingErrorKey] as? NSError {
                 pending.append(underlying)
             }
@@ -191,43 +325,114 @@ enum SubstrateStoreMigrator {
                 pending.append(contentsOf: detailed)
             }
         }
-        return false
+        return result
     }
 
+    private static func sqliteCode(of error: NSError) -> Int? {
+        if error.domain == sqliteErrorDomain {
+            return error.code
+        }
+        return (error.userInfo[sqliteErrorDomain] as? NSNumber)?.intValue
+    }
+
+    private static func isNoSpace(_ error: NSError) -> Bool {
+        switch error.domain {
+        case NSPOSIXErrorDomain:
+            return error.code == Int(ENOSPC) || error.code == Int(EDQUOT)
+        case NSCocoaErrorDomain:
+            return error.code == NSFileWriteOutOfSpaceError
+        default:
+            return false
+        }
+    }
+
+    private static let sqliteErrorDomain = "NSSQLiteErrorDomain"
+
     private static let transientCodes: [String: Set<Int>] = [
-        NSPOSIXErrorDomain: [
-            Int(EPERM), Int(EIO), Int(EAGAIN), Int(EACCES), Int(EBUSY), Int(ENOSPC), Int(EDQUOT)
-        ],
+        NSPOSIXErrorDomain: [Int(EPERM), Int(EIO), Int(EAGAIN), Int(EACCES), Int(EBUSY)],
         NSCocoaErrorDomain: [
             NSFileLockingError,
             NSFileReadUnknownError,
             NSFileReadNoPermissionError,
             NSFileWriteUnknownError,
-            NSFileWriteNoPermissionError,
-            NSFileWriteOutOfSpaceError
+            NSFileWriteNoPermissionError
         ]
     ]
 
-    /// SQLITE_PERM, SQLITE_BUSY, SQLITE_LOCKED, SQLITE_IOERR, SQLITE_FULL,
-    /// SQLITE_CANTOPEN, SQLITE_AUTH.
-    private static let transientSQLiteCodes: Set<Int> = [3, 5, 6, 10, 13, 14, 23]
+    /// SQLITE_CORRUPT, SQLITE_NOTADB.
+    private static let permanentSQLiteCodes: Set<Int> = [11, 26]
+    /// SQLITE_FULL.
+    private static let sqliteFull = 13
+    /// SQLITE_PERM, SQLITE_BUSY, SQLITE_LOCKED, SQLITE_IOERR, SQLITE_CANTOPEN, SQLITE_AUTH.
+    private static let transientSQLiteCodes: Set<Int> = [3, 5, 6, 10, 14, 23]
+
+    /// The files that make up one SQLite store, side files first: the database is
+    /// removed or moved last, so a failure never leaves a side file without it.
+    private static let storeFileSuffixes = ["-wal", "-shm", "-journal", ""]
 
     private static func removeStore(
         at storeURL: URL,
         fileManager: FileManager,
-        logger: LoggerProtocol?
-    ) -> SubstrateStorePreparation {
+        logger: LoggerProtocol?,
+        result: SubstrateStorePreparation = .removedIncompatible
+    ) -> Attempt {
         let path = storeURL.path
-        for suffix in ["", "-wal", "-shm"] where fileManager.fileExists(atPath: path + suffix) {
+        var removedAny = false
+        for suffix in storeFileSuffixes where fileManager.fileExists(atPath: path + suffix) {
             do {
                 try fileManager.removeItem(atPath: path + suffix)
+                removedAny = true
             } catch {
                 logger?.warning("Substrate store: an unusable store could not be removed now")
-                return .deferred
+                return .deferred(.failing)
             }
         }
-        logger?.warning("Substrate store: removed a store that no known model can open")
-        return .removedIncompatible
+        if removedAny {
+            logger?.warning(
+                result == .ready
+                    ? "Substrate store: removed side files left without their database"
+                    : "Substrate store: removed a store that no known model can open"
+            )
+        }
+        return .done(result)
+    }
+
+    /// Renames the store files to `<name>-unreadable-<date>.<ext>` beside it. Nothing is
+    /// deleted. If one rename fails, the renames already done are undone.
+    static func moveAside(storeURL: URL, fileManager: FileManager, logger: LoggerProtocol?) -> Bool {
+        let directory = storeURL.deletingLastPathComponent()
+        let base = storeURL.deletingPathExtension().lastPathComponent
+        let ext = storeURL.pathExtension
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        var asideName = "\(base)-unreadable-\(formatter.string(from: Date()))"
+        let isTaken: (String) -> Bool = { name in
+            storeFileSuffixes.contains {
+                fileManager.fileExists(atPath: directory.appendingPathComponent("\(name).\(ext)").path + $0)
+            }
+        }
+        if isTaken(asideName) {
+            asideName += "-\(UUID().uuidString.prefix(8))"
+        }
+        let aside = directory.appendingPathComponent("\(asideName).\(ext)")
+
+        var moved: [String] = []
+        for suffix in storeFileSuffixes where fileManager.fileExists(atPath: storeURL.path + suffix) {
+            do {
+                try fileManager.moveItem(atPath: storeURL.path + suffix, toPath: aside.path + suffix)
+                moved.append(suffix)
+            } catch {
+                for done in moved.reversed() {
+                    try? fileManager.moveItem(atPath: aside.path + done, toPath: storeURL.path + done)
+                }
+                logger?.warning("Substrate store: the failing store could not be moved aside now")
+                return false
+            }
+        }
+        logger?.warning("Substrate store: a store that kept failing was moved aside; starting a new one")
+        return true
     }
 }
 
@@ -247,7 +452,8 @@ class SubstrateDataStorageFacade: StorageFacadeProtocol {
         let setup = Self.makeConfiguration(
             modelURL: modelURL!,
             databaseDirectory: baseURL!,
-            databaseName: "\(modelName).sqlite"
+            databaseName: "\(modelName).sqlite",
+            defaults: .standard
         )
         preparation = setup.preparation
         databaseService = CoreDataService(configuration: setup.configuration)
@@ -259,13 +465,17 @@ class SubstrateDataStorageFacade: StorageFacadeProtocol {
         modelURL: URL,
         databaseDirectory: URL,
         databaseName: String,
-        fileManager: FileManager = .default
+        defaults: UserDefaults?,
+        fileManager: FileManager = .default,
+        retryDelays: [TimeInterval] = SubstrateStoreMigrator.defaultRetryDelays
     ) -> (configuration: CoreDataServiceConfiguration, preparation: SubstrateStorePreparation) {
         let storeURL = databaseDirectory.appendingPathComponent(databaseName)
         let preparation = SubstrateStoreMigrator.prepare(
             storeURL: storeURL,
             modelURL: modelURL,
-            fileManager: fileManager
+            defaults: defaults,
+            fileManager: fileManager,
+            retryDelays: retryDelays
         )
 
         guard preparation != .deferred else {
