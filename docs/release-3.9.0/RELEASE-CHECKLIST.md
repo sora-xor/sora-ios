@@ -245,11 +245,18 @@ existing wallet:
       open the wallet. Wrong PINs lead to waits of 1, 5, 15 and 30 minutes
       (state in UserDefaults, so a reinstall resets it; the device passcode
       still protects the Keychain). Before onboarding replaces that PIN, a
-      copy is kept in the Keychain (`earlierInstallPin-N`, add-only, at most
-      4) so wallets not restored yet stay restorable from Add account with
-      the earlier PIN; this install's new PIN alone never unlocks them.
+      copy is kept in the Keychain (`earlierInstallPin-N`, add-only, one per
+      distinct PIN, no limit) so wallets not restored yet stay restorable
+      from Add account with the earlier PIN; this install's new PIN alone
+      never unlocks them. Keeping the copy is required before Welcome back
+      continues to onboarding and before PIN setup replaces an existing PIN.
       Removing the last account does not delete these copies. Security
       owner: accept, or require the phrase.
+- [ ] Until this install's PIN is set after Welcome back
+      (`wallet.pinSetupPendingAfterWelcomeBack` in UserDefaults), the app
+      opens PIN setup instead of PIN entry and does not ask for the earlier
+      PIN when it returns from the background. The flag is set only from
+      Welcome back, which has no account rows. Security owner: accept.
 - [ ] Accounts whose keys are missing or do not match are read-only (G-full).
       A corrupted account therefore no longer stops the app; it shows as
       read-only until restored or removed. Importing the account's phrase,
@@ -313,3 +320,16 @@ existing wallet:
       opens and can send (it uses the new scoped `-secretKey`).
 - [ ] Kill the app right after tapping Import (twice, at different
       moments); reopen. No recovery screen; importing again works.
+- [ ] Welcome back actions (fix round 2): after a reinstall, tap each of
+      "Restore with recovery phrase", "Restore from Google Drive" and "Set
+      up this iPhone again" (from a fresh Welcome back each time). Each one
+      opens onboarding.
+- [ ] Stop before PIN setup: from Welcome back, restore with a phrase, then
+      kill the app on the PIN setup screen. Reopening shows PIN setup, not
+      the earlier PIN. After the new PIN is set, Add account → "Restore
+      wallets found on this iPhone" still accepts the earlier PIN.
+- [ ] 1.x upgrade: on a 1.x-era install, "Continue protected upgrade"
+      completes and opens the wallet. It must not spin forever.
+- [ ] New iPhone from iCloud: Add account → Import with the phrase of a
+      read-only account, and Add account → Google Drive with its backup, each
+      restore the keys. The account is not reported as already imported.
