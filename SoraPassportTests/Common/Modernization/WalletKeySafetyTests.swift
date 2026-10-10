@@ -9,6 +9,7 @@ import SoraKeystore
 import SSFCloudStorage
 import SSFCrypto
 import SSFUtils
+import SoraFoundation
 import UIKit
 import XCTest
 @testable import SoraPassport
@@ -366,12 +367,20 @@ private final class Installation {
         return outcome
     }
 
-    func rootDecision(selected: AccountItem?) throws -> [KeySafetyRootPresenterSpy.Decision] {
+    func rootInteractor(
+        selected: AccountItem?,
+        legacyImporter: AccountImportInteractorInputProtocol? = nil
+    ) throws -> RootInteractor {
         let store = try networkStore()
-        let root = RootInteractor(settings: settings, keystore: keychain, migrators: [],
+        return RootInteractor(settings: settings, keystore: keychain, migrators: [],
             securityLayerInteractor: KeySafetySecurityLayerStub(), networkAvailabilityLayerInteractor: nil,
             legacyUpgradeSelectedAccount: { selected }, legacyUpgradeSnapshotLoader: { try store.load() },
-            legacyUpgradeUnresolvedCommitLoader: { [] })
+            legacyUpgradeUnresolvedCommitLoader: { [] },
+            legacyUpgradeInteractorFactory: { _, _, _, _ in legacyImporter })
+    }
+
+    func rootDecision(selected: AccountItem?) throws -> [KeySafetyRootPresenterSpy.Decision] {
+        let root = try rootInteractor(selected: selected)
         let spy = KeySafetyRootPresenterSpy()
         root.presenter = spy
         root.decideModuleSynchroniously()
@@ -380,8 +389,9 @@ private final class Installation {
 
     /// `SelectedWalletSettings` over an in-memory Core Data stack whose
     /// network synchronizer writes this installation's snapshot.
-    func selectedWalletSettings(accounts: [AccountItem] = []) throws -> SelectedWalletSettings {
-        let facade = UserDataStorageTestFacade()
+    func selectedWalletSettings(accounts: [AccountItem] = [],
+                                facade: UserDataStorageTestFacade = UserDataStorageTestFacade()) throws
+        -> SelectedWalletSettings {
         if !accounts.isEmpty {
             let repository: CoreDataRepository<AccountItem, CDAccountItem> =
                 facade.createRepository(mapper: AnyCoreDataMapper(AccountItemMapper()))
@@ -2021,4 +2031,466 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertNotEqual(SigningWrapperError.keysNotOnThisDevice.localizedDescription,
                           SigningWrapperError.keysNotVerified.localizedDescription)
     }
+
+    // MARK: Second review round
+
+    private func spinRunLoop(until condition: () -> Bool, timeout: TimeInterval = 10) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+    }
+
+    /// Welcome back's phrase, Google Drive and set-up actions run after
+    /// launch routing has returned. Through the production factory, the Root
+    /// module stays alive (`SoraWindow.rootModule`) and the action opens
+    /// onboarding; before, the wireframe was already released and the tap
+    /// did nothing.
+    func testWelcomeBackActionsOpenOnboardingAfterLaunchRoutingReturns() throws {
+        let device = try Installation()
+        try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try device.keychain.base.addKey(Data("135790".utf8), with: KeystoreTag.pincode.rawValue)
+        let window = SoraWindow(frame: UIScreen.main.bounds)
+        try autoreleasepool {
+            let presenter = RootPresenterFactory.createPresenter(
+                with: window, interactor: try device.rootInteractor(selected: nil),
+                wireframe: RootWireframe(keystore: device.keychain, settings: device.settings))
+            presenter.loadOnLaunch()
+        }
+        XCTAssertNotNil(window.rootModule)
+        let welcome = try XCTUnwrap((window.rootViewController as? UINavigationController)?
+            .viewControllers.first as? WalletWelcomeBackViewController)
+        welcome.leaveForOnboarding()
+        spinRunLoop { window.rootViewController is WelcomeBackgroundViewController }
+        XCTAssertTrue(window.rootViewController is WelcomeBackgroundViewController)
+        // Leaving kept a copy of the earlier PIN and marked this install's
+        // PIN as not set yet.
+        XCTAssertEqual(device.keychain.added, ["\(WalletRetainedPinGate.earlierInstallPinTagPrefix)1"])
+        XCTAssertTrue(WalletPendingPinSetup.isPending(device.settings))
+        XCTAssertFalse(device.keychain.changedExistingItems)
+    }
+
+    /// The 1.x upgrade confirmation and its import completion reach the Root
+    /// module after launch routing has returned.
+    func testLegacyUpgradeConfirmationRunsTheUpgradeAfterLaunchRoutingReturns() throws {
+        let device = try Installation()
+        try HistoricalWriter.version1(phrase: phrase(entropy: 0x12, bytes: 20), keystore: device.keychain.base)
+        let importer = LegacyUpgradeImportSpy()
+        let window = SoraWindow(frame: UIScreen.main.bounds)
+        try autoreleasepool {
+            let presenter = RootPresenterFactory.createPresenter(
+                with: window, interactor: try device.rootInteractor(selected: nil, legacyImporter: importer),
+                wireframe: RootWireframe(keystore: device.keychain, settings: device.settings))
+            presenter.loadOnLaunch()
+        }
+        let confirmation = try XCTUnwrap((window.rootViewController as? UINavigationController)?
+            .viewControllers.first as? LegacyWalletUpgradeViewController)
+        confirmation.loadViewIfNeeded()
+        var stack: [UIView] = [confirmation.view]
+        var continueButton: UIButton?
+        while let view = stack.popLast() {
+            if let button = view as? UIButton,
+               button.accessibilityIdentifier == RetainedMigrationEvidenceHarness.continueUpgradeAccessibilityIdentifier {
+                continueButton = button
+            }
+            stack.append(contentsOf: view.subviews)
+        }
+        try XCTUnwrap(continueButton).sendActions(for: .touchUpInside)
+        XCTAssertEqual(importer.requests.count, 1)
+        XCTAssertEqual(importer.requests.first?.mnemonic.split(separator: " ").count, 15)
+        // The completion reaches the module as well: a failure opens recovery.
+        importer.completions.first?(.failure(WalletIntegrityError.legacyWalletUpgradeVerificationFailed))
+        XCTAssertTrue((window.rootViewController as? UINavigationController)?.viewControllers.first
+            is WalletRecoveryViewController)
+        XCTAssertTrue(device.keychain.added.isEmpty)
+        XCTAssertFalse(device.keychain.changedExistingItems)
+    }
+
+    /// Welcome back, then the phrase import commits, then the app stops
+    /// before PIN setup: the next launch asks for a new PIN, not the earlier
+    /// one. PIN setup then keeps the earlier PIN (already kept) and the other
+    /// found wallet stays restorable with it.
+    func testAStopBetweenTheImportAndPinSetupAfterWelcomeBackLeadsBackToPinSetup() throws {
+        let device = try Installation()
+        let retained = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        let other = try HistoricalWriter.phraseImport(phrase(entropy: 0x62, bytes: 16), keystore: device.keychain.base)
+        try device.keychain.base.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+        try WalletPendingPinSetup.leaveWelcomeBack(keystore: device.keychain, settings: device.settings)
+        let imported = try device.importPhrase(phrase12, into: device.selectedWalletSettings())
+        XCTAssertEqual(imported.address, retained.address)
+
+        let restarted = try device.copy()
+        XCTAssertEqual(try restarted.rootDecision(selected: imported), [.pincodeSetup])
+
+        let saved = expectation(description: "PIN saved")
+        let output = PinSetupOutputSpy()
+        output.onSave = { saved.fulfill() }
+        let interactor = PinSetupInteractor(secretManager: KeystoreSecretManager(restarted.keychain),
+            settingsManager: restarted.settings, biometryAuth: KeySafetyNoBiometry(),
+            config: ApplicationConfig.shared, earlierPinKeystore: restarted.keychain,
+            recoveryGate: restarted.isolatedGate())
+        interactor.presenter = output
+        interactor.process(pin: "222222")
+        wait(for: [saved], timeout: 10)
+        XCTAssertTrue(output.errors.isEmpty)
+        XCTAssertEqual(try restarted.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("222222".utf8))
+        XCTAssertFalse(WalletPendingPinSetup.isPending(restarted.settings))
+        XCTAssertEqual(try restarted.rootDecision(selected: imported), [.localAuthentication])
+        // Only `pincode` was replaced; nothing was added (the copy existed).
+        XCTAssertEqual(restarted.keychain.updated, [KeystoreTag.pincode.rawValue])
+        XCTAssertEqual(restarted.keychain.deleted, [])
+        XCTAssertEqual(restarted.keychain.added, [])
+        XCTAssertNoThrow(try WalletRetainedPinGate.verify("111111", keystore: restarted.keychain,
+            settings: restarted.settings, scope: .afterSetup))
+        XCTAssertThrowsError(try WalletRetainedPinGate.verify("222222", keystore: restarted.keychain,
+            settings: restarted.settings, scope: .afterSetup))
+        XCTAssertEqual(WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: restarted.keychain,
+            existingAddresses: [imported.address], recoveryGate: restarted.isolatedGate()).map(\.address),
+            [other.address])
+    }
+
+    /// Leaving Welcome back needs a stored copy of the earlier PIN. Every
+    /// distinct PIN gets one (no limit); when the copy cannot be saved,
+    /// Welcome back stays, PIN setup stops, and the earlier PIN is unchanged.
+    func testTheEarlierPinMustBeKeptBeforeItCanBeReplacedWithoutALimit() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        for (index, pin) in ["111111", "222222", "333333", "444444"].enumerated() {
+            try device.keychain.base.addKey(Data(pin.utf8),
+                with: "\(WalletRetainedPinGate.earlierInstallPinTagPrefix)\(index + 1)")
+        }
+        try device.keychain.base.addKey(Data("555555".utf8), with: KeystoreTag.pincode.rawValue)
+        try WalletPendingPinSetup.leaveWelcomeBack(keystore: device.keychain, settings: device.settings)
+        XCTAssertEqual(device.keychain.added, ["\(WalletRetainedPinGate.earlierInstallPinTagPrefix)5"])
+        try WalletPendingPinSetup.leaveWelcomeBack(keystore: device.keychain, settings: device.settings)
+        XCTAssertEqual(device.keychain.added.count, 1, "An identical copy is not added twice")
+        XCTAssertFalse(device.keychain.changedExistingItems)
+        // Welcome back restore: the PIN of `pincode` keeps it; a PIN that only
+        // matched an earlier copy asks for a new PIN first.
+        XCTAssertTrue(try WalletRetainedPinGate.verify("555555", keystore: device.keychain, settings: device.settings))
+        XCTAssertFalse(try WalletRetainedPinGate.verify("111111", keystore: device.keychain, settings: device.settings))
+        WalletPendingPinSetup.settleAfterWelcomeBackRestore(matchedCurrentPin: true, settings: device.settings)
+        XCTAssertEqual(try device.rootDecision(selected: account), [.localAuthentication])
+        WalletPendingPinSetup.settleAfterWelcomeBackRestore(matchedCurrentPin: false, settings: device.settings)
+        XCTAssertEqual(try device.rootDecision(selected: account), [.pincodeSetup])
+
+        // A Keychain that cannot add: nothing continues.
+        let failing = AddFailingKeychain()
+        try HistoricalWriter.phraseImport(phrase12, keystore: failing.base)
+        try failing.base.addKey(Data("777777".utf8), with: KeystoreTag.pincode.rawValue)
+        let settings = InMemorySettingsManager()
+        XCTAssertThrowsError(try WalletPendingPinSetup.leaveWelcomeBack(keystore: failing, settings: settings)) {
+            XCTAssertEqual($0 as? WalletRetainedPinGate.Failure, .earlierPinNotKept)
+        }
+        XCTAssertFalse(WalletPendingPinSetup.isPending(settings))
+        var continued = false
+        let controller = WalletWelcomeBackViewController(keystore: failing, settings: settings,
+            onContinueToOnboarding: { continued = true }, onWalletsRestored: {})
+        controller.leaveForOnboarding()
+        spinRunLoop(until: { continued }, timeout: 2)
+        XCTAssertFalse(continued)
+        XCTAssertFalse(WalletPendingPinSetup.isPending(settings))
+
+        let output = PinSetupOutputSpy()
+        let interactor = PinSetupInteractor(secretManager: KeystoreSecretManager(failing),
+            settingsManager: settings, biometryAuth: KeySafetyNoBiometry(), config: ApplicationConfig.shared,
+            earlierPinKeystore: failing, recoveryGate: WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }))
+        interactor.presenter = output
+        interactor.process(pin: "888888")
+        XCTAssertEqual(output.errors.compactMap { $0 as? WalletRetainedPinGate.Failure }, [.earlierPinNotKept])
+        XCTAssertEqual(try failing.fetchKey(for: KeystoreTag.pincode.rawValue), Data("777777".utf8))
+        XCTAssertEqual(WalletPinPrompt.message(for: WalletRetainedPinGate.Failure.earlierPinNotKept),
+                       WalletUX.text("SORA could not save a copy of the PIN you used before. Nothing was changed. Try again."))
+    }
+
+    /// While this install's PIN is not set yet, or on Welcome back, returning
+    /// from the background does not ask for the earlier install's PIN.
+    func testNoResumePinIsAskedForWhileTheNewPinIsPendingOrOnWelcomeBack() {
+        let keychain = InMemoryKeychain()
+        try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
+        let settings = InMemorySettingsManager()
+        var date = Date(timeIntervalSince1970: 1_000)
+        let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
+            keystore: keychain, pincodeDelay: 300, currentDate: { date })
+        let output = SecurityLayerOutputSpy()
+        interactor.presenter = output
+        func backgroundAndReturn() {
+            interactor.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
+            date.addTimeInterval(301)
+            interactor.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
+        }
+        WalletPendingPinSetup.begin(settings)
+        backgroundAndReturn()
+        XCTAssertEqual(output.authorizationRequests, 0)
+        WalletPendingPinSetup.finish(settings)
+        backgroundAndReturn()
+        XCTAssertEqual(output.authorizationRequests, 1)
+
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UINavigationController(rootViewController:
+            WalletWelcomeBackViewController(keystore: keychain, settings: settings,
+                                            onContinueToOnboarding: {}, onWalletsRestored: {}))
+        var pinScreens = 0
+        let wireframe = SecurityLayerWireframe(windowProvider: { window }, pinFactory: { _ in pinScreens += 1; return nil })
+        wireframe.showAuthorization()
+        XCTAssertNil(wireframe.authorizationWindow)
+        XCTAssertEqual(pinScreens, 0)
+    }
+
+    /// A read error while the shared gate probed the migration namespace
+    /// latched "unfinished or unverifiable". Once every attempt verifies as
+    /// finished, startup proves the store and keys and clears it.
+    func testAGateLatchedMigrationMarkerIsClearedOnceEveryAttemptVerifies() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try KeySafetyStore.write([account], to: device.storeURL)
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: device.storeURL))
+        let unreadable = WalletRecoveryCapabilityGate(settings: device.settings,
+            unresolvedMigrationJournal: { true }, unresolvedWalletCommitJournal: { false })
+        XCTAssertThrowsError(try unreadable.requireMutableWalletAccess())
+        XCTAssertTrue(WalletMigrationRecoveryMarker.capture(device.settings).isDatabaseInterruption)
+        let keys = try device.keychain.bytes()
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertEqual(try device.keychain.bytes(), keys)
+        XCTAssertFalse(device.keychain.changedExistingItems)
+
+        // The same kind of marker before any database attempt existed.
+        let early = try Installation()
+        let earlyAccount = try HistoricalWriter.phraseImport(phrase12, keystore: early.keychain.base)
+        try KeySafetyStore.write([earlyAccount], to: early.storeURL)
+        early.settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+            .privacySafeRecoveryDescription(for: UserStorageMigrationError.interruptedMigration))
+        XCTAssertTrue(WalletMigrationRecoveryMarker.capture(early.settings).isDatabaseInterruption)
+        XCTAssertEqual(try early.startup(), .ready)
+        XCTAssertFalse(early.settings.walletMigrationRecoveryRequired)
+        XCTAssertFalse(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: early.storeURL))
+        XCTAssertFalse(early.keychain.changedExistingItems)
+    }
+
+    /// A read that failed while the backup copy was being verified records
+    /// `interrupted_migration`. That attempt never replaced the store: it is
+    /// set aside and a fresh attempt runs, instead of every launch stopping.
+    func testAnAttemptInterruptedWhileVerifyingItsBackupIsSetAsideAndRetried() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try KeySafetyStore.write([account], to: device.storeURL)
+        let keys = try device.keychain.bytes()
+        let failing = try device.migrator(afterCopy: { _ in throw UserStorageMigrationError.interruptedMigration })
+        XCTAssertEqual(WalletStorageStartup.run(settings: device.settings) {
+            try failing.migrateAtStartup(lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: device.gate()),
+                                         hasUnresolvedAccountCommit: { false })
+        }, .recoveryRequired)
+        XCTAssertTrue(WalletMigrationRecoveryMarker.capture(device.settings).isDatabaseInterruption)
+        let safety = device.directory.appendingPathComponent("WalletMigrationSafety")
+        let failedAttempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: safety,
+            includingPropertiesForKeys: nil).first)
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: device.directory
+            .appendingPathComponent("WalletMigrationSuperseded")
+            .appendingPathComponent(failedAttempt.lastPathComponent).path))
+        XCTAssertFalse(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: device.storeURL))
+        XCTAssertEqual(try device.keychain.bytes(), keys)
+    }
+
+    /// Add account → Import with the phrase of an account that is in the
+    /// wallet without its keys (new iPhone from an iCloud backup): the real
+    /// presenter and interactor accept it and restore its keys in place.
+    func testAddAccountImportRestoresTheKeysOfAReadOnlyAccount() throws {
+        let original = try Installation()
+        let first = try HistoricalWriter.phraseImport(phrase12, username: "First", order: 0, isSelected: true,
+                                                      keystore: original.keychain.base)
+        let secondPhrase = try phrase(entropy: 0x45, bytes: 16)
+        let second = try HistoricalWriter.phraseImport(secondPhrase, username: "Second", order: 1, isSelected: false,
+                                                       keystore: original.keychain.base)
+        try KeySafetyStore.write([first, second], to: original.storeURL)
+        XCTAssertEqual(try original.startup(), .ready)
+        let restored = try Installation()
+        try FileManager.default.removeItem(at: restored.directory)
+        try FileManager.default.copyItem(at: original.directory, to: restored.directory)
+        XCTAssertEqual(try restored.startup(), .ready)
+
+        let facade = UserDataStorageTestFacade()
+        let selection = try restored.selectedWalletSettings(accounts: [first, second], facade: facade)
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> =
+            facade.createRepository(mapper: AnyCoreDataMapper(AccountItemMapper()))
+        let interactor = AddAccountImportInteractor(
+            accountOperationFactory: AccountOperationFactory(keystore: restored.keychain,
+                                                             recoveryGate: restored.isolatedGate()),
+            accountRepository: AnyDataProviderRepository(repository), operationManager: OperationManager(),
+            settings: selection, keystoreImportService: KeystoreImportService(logger: Logger.shared),
+            eventCenter: EventCenter(), lifecycleCoordinator: restored.coordinator)
+        let presenter = AccountImportPresenter(sourceType: .mnemonic, config: ApplicationConfig.shared)
+        let wireframe = AccountImportWireframeSpy()
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+        interactor.presenter = presenter
+        presenter.setup()
+        presenter.sourceViewModel?.inputHandler.changeValue(to: secondPhrase)
+        presenter.proceed()
+        spinRunLoop { wireframe.proceeded > 0 || !wireframe.errors.isEmpty }
+        XCTAssertEqual(wireframe.proceeded, 1)
+        XCTAssertTrue(wireframe.errors.isEmpty, "\(wireframe.errors)")
+
+        // The name step imports through the same interactor.
+        let imported = expectation(description: "imported")
+        var result: Result<AccountItem, Error>?
+        interactor.importAccountWithMnemonic(request: AccountImportMnemonicRequest(mnemonic: secondPhrase,
+            username: "Name step", networkType: .sora, derivationPath: "", cryptoType: .sr25519)) {
+            result = $0
+            imported.fulfill()
+        }
+        wait(for: [imported], timeout: 20)
+        let account = try XCTUnwrap(result).get()
+        XCTAssertEqual(account.address, second.address)
+        XCTAssertEqual(account.username, "Second")
+        XCTAssertEqual(Set(restored.keychain.added), [KeystoreTag.secretKeyTagForAddress(second.address),
+            KeystoreTag.entropyTagForAddress(second.address), KeystoreTag.seedTagForAddress(second.address)])
+        XCTAssertFalse(restored.keychain.changedExistingItems)
+
+        // Now that its keys are here, the same phrase is a duplicate again.
+        presenter.proceed()
+        spinRunLoop { !wireframe.errors.isEmpty }
+        XCTAssertEqual(wireframe.proceeded, 1)
+        guard case AccountCreateError.duplicated? = wireframe.errors.first as? AccountCreateError else {
+            return XCTFail("\(wireframe.errors)")
+        }
+    }
+
+    /// Google Drive lists keep an account recorded as backed up when its keys
+    /// are not on this iPhone (that record comes back with an iCloud restore).
+    func testDriveBackupListsKeepAccountsWhoseKeysAreNotOnThisIPhone() throws {
+        let keychain = AddOnlyRecordingKeychain()
+        let withKeys = try HistoricalWriter.phraseImport(phrase12, keystore: keychain.base)
+        let keyless = try HistoricalWriter.phraseImport(phrase(entropy: 0x46, bytes: 16), keystore: InMemoryKeychain())
+        let recorded = [withKeys.address, keyless.address]
+        XCTAssertTrue(WalletDriveBackupList.hidesBackup(of: withKeys.address, backedUpAddresses: recorded,
+                                                        keystore: keychain))
+        XCTAssertFalse(WalletDriveBackupList.hidesBackup(of: keyless.address, backedUpAddresses: recorded,
+                                                         keystore: keychain))
+        XCTAssertFalse(WalletDriveBackupList.hidesBackup(of: withKeys.address, backedUpAddresses: [],
+                                                         keystore: keychain))
+        XCTAssertTrue(keychain.added.isEmpty)
+    }
+}
+
+// MARK: - Second review round doubles
+
+/// Reads work; every write fails (a Keychain that is busy or will not save).
+private final class AddFailingKeychain: KeystoreProtocol {
+    let base = InMemoryKeychain()
+    func addKey(_ key: Data, with identifier: String) throws { throw KeystoreError.unexpectedFail }
+    func updateKey(_ key: Data, with identifier: String) throws { throw KeystoreError.unexpectedFail }
+    func fetchKey(for identifier: String) throws -> Data { try base.fetchKey(for: identifier) }
+    func checkKey(for identifier: String) throws -> Bool { try base.checkKey(for: identifier) }
+    func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
+    func deleteKey(for identifier: String) throws { throw KeystoreError.unexpectedFail }
+}
+
+/// `KeychainManager` over a test Keychain (`saveSecret` adds or updates).
+private final class KeystoreSecretManager: SecretStoreManagerProtocol {
+    let keystore: KeystoreProtocol
+    init(_ keystore: KeystoreProtocol) { self.keystore = keystore }
+
+    func loadSecret(for identifier: String, completionQueue: DispatchQueue,
+                    completionBlock: @escaping (SecretDataRepresentable?) -> Void) {
+        let data = try? keystore.fetchKey(for: identifier)
+        completionQueue.async { completionBlock(data) }
+    }
+
+    func saveSecret(_ secret: SecretDataRepresentable, for identifier: String, completionQueue: DispatchQueue,
+                    completionBlock: @escaping (Bool) -> Void) {
+        var saved = false
+        if let data = secret.asSecretData() { saved = (try? keystore.saveKey(data, with: identifier)) != nil }
+        completionQueue.async { completionBlock(saved) }
+    }
+
+    func removeSecret(for identifier: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        completionQueue.async { completionBlock(false) }
+    }
+
+    func checkSecret(for identifier: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        let exists = checkSecret(for: identifier)
+        completionQueue.async { completionBlock(exists) }
+    }
+
+    func checkSecret(for identifier: String) -> Bool { (try? keystore.checkKey(for: identifier)) ?? false }
+}
+
+private final class KeySafetyNoBiometry: BiometryAuthProtocol {
+    var availableBiometryType: AvailableBiometryType { .none }
+    func authenticate(localizedReason: String, completionQueue: DispatchQueue,
+                      completionBlock: @escaping (Bool) -> Void) {
+        completionQueue.async { completionBlock(false) }
+    }
+}
+
+private final class PinSetupOutputSpy: PinSetupInteractorOutputProtocol {
+    var onSave: (() -> Void)?
+    var errors: [Error] = []
+    func didSavePin() { onSave?() }
+    func didStartWaitingBiometryDecision(type: AvailableBiometryType, completionBlock: @escaping (Bool) -> Void) {
+        completionBlock(false)
+    }
+    func didChangeState(from: PinSetupInteractor.PinSetupState) {}
+    func didReceiveConfigError(_ error: Error) { errors.append(error) }
+}
+
+private final class SecurityLayerOutputSpy: SecurityLayerInteractorOutputProtocol {
+    var authorizationRequests = 0
+    func didDecideSecurePresentation() {}
+    func didDecideUnsecurePresentation() {}
+    func didDecideRequestAuthorization() { authorizationRequests += 1 }
+}
+
+/// Records the 1.x upgrade's import request; the test completes it.
+private final class LegacyUpgradeImportSpy: AccountImportInteractorInputProtocol {
+    var requests: [AccountImportMnemonicRequest] = []
+    var completions: [(Result<AccountItem, Error>?) -> Void] = []
+    func setup() {}
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest,
+                                   completion: ((Result<AccountItem, Error>?) -> Void)?) {
+        requests.append(request)
+        if let completion { completions.append(completion) }
+    }
+    func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Error>?) -> Void)?) {}
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest,
+                                   completion: ((Result<AccountItem, Error>?) -> Void)?) {}
+    func validateAccountWithMnemonic(request: AccountImportMnemonicRequest,
+                                     completion: ((Result<AccountItem?, Error>?) -> Void)?) {}
+    func validateAccountWithSeed(request: AccountImportSeedRequest,
+                                 completion: ((Result<AccountItem?, Error>?) -> Void)?) {}
+    func validateAccountWithKeystore(request: AccountImportKeystoreRequest,
+                                     completion: ((Result<AccountItem?, Error>?) -> Void)?) {}
+    func deriveMetadataFromKeystore(_ keystore: String) {}
+    func importBackedupAccount(request: AccountImportBackedupRequest) {}
+}
+
+private final class AccountImportWireframeSpy: AccountImportWireframeProtocol {
+    var proceeded = 0
+    var errors: [Error] = []
+    func proceed(from view: AccountImportViewProtocol?, sourceType: AccountImportSource, cryptoType: CryptoType,
+                 networkType: Chain, sourceViewModel: InputViewModelProtocol, usernameViewModel: InputViewModelProtocol,
+                 passwordViewModel: InputViewModelProtocol?, derivationPathViewModel: InputViewModelProtocol?) {
+        proceeded += 1
+    }
+    func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
+        errors.append(error)
+        return true
+    }
+    func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?,
+                 completion: @escaping () -> Void) -> Bool {
+        errors.append(error)
+        return true
+    }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {}
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?,
+                 completion: @escaping () -> Void) {}
+    func present(viewModel: AlertPresentableViewModel, style: UIAlertController.Style,
+                 from view: ControllerBackedProtocol?) {}
 }
