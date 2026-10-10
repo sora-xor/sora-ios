@@ -1251,13 +1251,15 @@ users depend on:
 
 **Versioned chain store** (`45e6c338`)
 
-- `SubstrateDataModel.xcdatamodeld` has two versions: `SubstrateDataModel`
-  (v1, unchanged, the candidate's model) and `SubstrateDataModel 2` (v2,
-  current), a byte-for-byte copy of the 3.8.6 model.
+- `SubstrateDataModel.xcdatamodeld` has three versions (v0 was added in
+  the fix round below): `SubstrateDataModel 0` (v0, App Store 3.0.1 to
+  3.8.4), `SubstrateDataModel` (v1, unchanged, the model of 3.8.5 and the
+  candidate) and `SubstrateDataModel 2` (v2, current), a byte-for-byte copy
+  of the 3.8.6 model.
 - Before the store is opened, `SubstrateStoreMigrator` reads its metadata:
   - no store, or a v2 store (every 3.8.6 store): opened as is;
-  - a v1 store (2.x to 3.8.5 and the 3.9.0 TestFlight builds): migrated in
-    place with lightweight migration;
+  - a v0 store (3.0.1 to 3.8.4) or a v1 store (3.8.5 and the 3.9.0
+    TestFlight builds): migrated in place with lightweight migration;
   - a store that matches no known version, or a file that is not a SQLite
     database: removed together with its `-wal` and `-shm` files (the same
     end state as `.removeStore`; the store holds no key material);
@@ -1319,9 +1321,8 @@ users depend on:
 
 **Chain store crash guard** (`af3b65a0`)
 
-- Incomplete asset and node rows are skipped; a chain row without an id or
-  name is reported as an error. Pruning node rows no longer force-unwraps
-  their URL.
+- Incomplete asset and node rows are skipped. Pruning node rows no longer
+  force-unwraps their URL. (Chain rows: see the fix round below.)
 
 **Alerts on the main thread** (`39189a1c`)
 
@@ -1406,3 +1407,161 @@ users depend on:
 `45e6c338` versioned chain store, `89e49a12` fail-closed whitelist,
 `7d9d4cf9` KXOR, `5d8bfbc1` DEX ids from the chain, `af3b65a0` mapper crash
 guard, `39189a1c` alerts on the main thread.
+
+### Fix round (review findings)
+
+Every finding was checked against the code and the tags. All were real
+except the mechanism in the chain-row finding (see below); all are fixed.
+
+**Stores from App Store 3.0.1 to 3.8.4 were still wiped** (two majors and
+one minor, the same finding)
+
+- The code comment and the notes above said v1 covered "2.x to 3.8.5". It
+  covers 3.8.5 and the TestFlight builds only. Tags 3.0.1 to 3.8.4 all
+  ship one 11-entity model: v1 plus `CDSingleValue`, which `db5d2dcd`
+  removed in 3.8.5. Such a store matched no known version and was removed,
+  so a user updating straight from 3.8.4 or older lost contacts, nodes and
+  pool favourites.
+- `SubstrateDataModel 0` is now an exact copy of that model
+  (`git show 3.8.4:` and `git show 3.0.1:` of the model are identical) and
+  is part of the version group in `project.pbxproj`. Lightweight migration
+  to v2 drops `CDSingleValue` (an unused cache) and adds the three 3.8.6
+  entities; every other entity is unchanged. The migrated store is in the
+  3.8.6 schema.
+- Stores from 2.x (before 3.0.1) are still reset, as 3.0.1 already did.
+  Their layout differs (no chain tables, optional asset ids that are
+  required now, no uniqueness constraints), so an in-place migration could
+  fail or carry rows the 3.x code does not expect. Their only user data
+  would be contacts from 2021–22.
+- Comments, the notes above and the checklist are corrected.
+
+**Side files are removed before the database** (minor)
+
+- Removal used to delete `SubstrateDataModel.sqlite` first. If deleting
+  `-wal` then failed, the next launch found no database and created a new
+  one beside the old WAL. Now `-wal`, `-shm` and `-journal` go first and
+  the database last, and side files found without their database are
+  removed before a new store is created. If one cannot be removed, the
+  launch uses the temporary store and the next launch tries again.
+
+**A corrupt store behind a generic Cocoa error** (minor)
+
+- Errors are now classified by the SQLite result code when Core Data
+  reports one, before the generic Cocoa codes (Core Data wraps read
+  failures in 256). SQLITE_CORRUPT and SQLITE_NOTADB are permanent, so
+  such a store is replaced as `.removeStore` did instead of running on a
+  temporary store forever. SQLITE_FULL (and ENOSPC, EDQUOT, out of space)
+  is its own class.
+
+**Deferred sessions are bounded** (minor)
+
+- A store whose file is readable but that fails with a temporary-looking
+  error (busy, I/O) is retried twice within the launch (0.25 s, then
+  0.5 s). If it still fails, the launch is counted. On the third launch in
+  a row the store is renamed aside to
+  `SubstrateDataModel-unreadable-<UTC date>.sqlite` (with its side files;
+  nothing is deleted) and a new store is used. Any launch that opens the
+  store resets the count.
+- Not counted, so never moved aside: a file that cannot be opened at all
+  (before the first unlock) and a full disk. Both pass by themselves, and
+  freeing space loses nothing.
+- A store from a known version that cannot be migrated for a permanent
+  reason is renamed aside the same way instead of being deleted.
+- Not done: switching a running session from the temporary store to the
+  real one. Repositories and the chain observer hold the Core Data
+  context; replacing it mid-session would leave the chain registry
+  watching the old context, so node changes would stop taking effect
+  until restart. The app has no background modes, so it is not launched
+  before the first unlock; a deferred session now needs a full disk or a
+  repeated I/O error, and edits in such a session could not be saved to
+  the real store either. Each deferred launch is logged with its reason.
+
+**Damaged chain rows** (minor; different mechanism, same dead end)
+
+- The finding said `fetchAll` fails for a chain row without a name. It
+  does not: Core Data never returns a stored row that lacks required text
+  (it logs "missing mandatory text data" and skips the row), so the fetch
+  succeeds without it. A test showed the real problem: the hidden SORA row
+  keeps its unique chain id, so the chain sync can neither read it nor
+  insert the chain again, the save leaves the row as it was, and the chain
+  never loads.
+- New `ChainStoreRepair` runs before each chain sync. It gives chain rows
+  that have an id but no name an empty name with a batch update (below
+  Core Data's validation), so the next fetch returns them and the sync
+  writes the real name. It only runs on SQLite stores. A row without an
+  id is left in place; it is never returned and does not block the chain.
+- The mapper reads a chain without a name with an empty name instead of
+  throwing.
+
+**The first chain sync no longer erases the user's token choices** (major
+and minor, the same finding)
+
+- On the first launch after the update there is no saved last-good
+  whitelist. If the whitelist server has not answered yet, the old bundled
+  list decides, and it lacks newer tokens such as VXOR. `AssetManager`
+  then rebuilt the saved order and visible list from that shorter list and
+  saved it, so such a token came back hidden and at the end of the list.
+- `AssetManager` now keeps saved ids that are missing from the current
+  list: each keeps its place after the id it followed, and stays visible
+  if it was. A missing token is hidden only while it is missing. This also
+  stops a save before the chain is loaded (empty list) from erasing the
+  whole order.
+- When the chain's set of listed assets changes after setup (the live
+  whitelist arrives), `AssetManager` rebuilds its list on the main queue,
+  so screens that read the list again show the token in the same session.
+- Refreshing the bundled `whitelist.json` is now a release blocker in the
+  checklist (no downloads were allowed here).
+
+### User-visible effects (fix round)
+
+- Updating straight from App Store 3.0.1 to 3.8.4 keeps contacts, the
+  chosen and custom nodes and pool favourites.
+- A token that is missing from the bundled whitelist on a first offline
+  launch is hidden only until the live list arrives. It comes back in its
+  place and visible; the user does not have to turn it on again.
+- A chain store that keeps failing no longer leaves the app on a temporary
+  store forever; after three launches it is set aside and a new one is
+  used. Contacts and node choices in it are not deleted, but the app no
+  longer shows them.
+- No change to wallets, keys, addresses or account data. No new strings.
+
+### Verification (fix round, Xcode 27.0, SORA-Release-A, iOS 27)
+
+- `SubstrateStoreMigrationTests` (18): new tests for a 3.8.4 store (v0
+  hashes checked against an independent `momc` compile of
+  `git show 3.8.4:`, store migrated, contact, nodes and favourite kept,
+  3.8.6 opens it afterwards); side files without a database; a database
+  kept until its `-wal` can be removed; SQLITE_CORRUPT inside Cocoa 256
+  removed; a failing readable store deferred twice and moved aside on the
+  third launch with its bytes intact; a successful launch resets the
+  count; a full disk never moves the store aside; a known store that
+  cannot be migrated is moved aside; a nameless SORA row and an id-less
+  row in a real SQLite store, then the production chain sync with
+  `ChainStoreRepair` restores the chain and leaves the id-less row.
+- `AssetWhitelistTests` (9): a bundled-only first pass without VXOR,
+  then a pass with the live list, keeps VXOR's place and visibility
+  through `AssetManager`'s arrange and save steps; saving with no listed
+  assets keeps the saved choice.
+- Full `SoraPassportTests` (Debug, `Sora2MainnetLiveSigningTests`
+  skipped): 460 tests, 0 failures (449 before, 11 new).
+- Simulator upgrade (SORA-Release-B): a store written with the
+  independently compiled 3.8.4 model (a contact, an unmarked pool
+  favourite, a selected custom node, a `CDSingleValue` row) replaced the
+  app's chain store; the new build was installed over it and launched. The
+  store gained the 3.8.6 tables, lost `CDSingleValue`, and kept the
+  contact, the favourite flag and the selected custom node; the chain sync
+  rewrote the chain row. No crash report. The app opened to that
+  simulator's existing Welcome back screen; the network banner is expected
+  because the fixture's custom node is a made-up address. Screenshot:
+  `scratchpad/screens/ios/i5-port-386/upgrade-384-launch.png`.
+- Builds: `SoraPassport` Debug (simulator, with tests), `SoraPassportDev`
+  (simulator) and unsigned `SoraPassport` Release for `generic/platform=iOS`
+  succeed; both app bundles contain `SubstrateDataModel 0.mom`,
+  `SubstrateDataModel.mom` and `SubstrateDataModel 2.mom`.
+
+### Commits (fix round)
+
+`388648d5` 3.0.1–3.8.4 stores, side-file order, error classes, bounded
+deferral; `002141e8` chain row repair; `d7bab53b` token order and
+visibility kept.
+
