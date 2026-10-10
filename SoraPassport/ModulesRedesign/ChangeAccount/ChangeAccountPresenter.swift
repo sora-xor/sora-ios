@@ -212,13 +212,71 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
     }
 
     private func addOrCreateAccount() {
-        guard let view = view?.controller else {
+        guard let controller = view?.controller else {
             return
         }
+        let existing = Set(accounts.map(\.address))
+        // Wallets an earlier install left in the Keychain stay restorable
+        // after setup with that install's PIN (see `WalletRetainedPinGate`).
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let retained = WalletRecoveryStateProbe.retainedWalletsAfterSetup(
+                keystore: Keychain(), existingAddresses: existing)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard !retained.isEmpty else {
+                    self.showAddAccountStart(from: controller)
+                    return
+                }
+                let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+                sheet.addAction(UIAlertAction(title: WalletUX.text("Restore wallets found on this iPhone"),
+                                              style: .default) { [weak self] _ in
+                    self?.restoreRetainedWallets(from: controller)
+                })
+                sheet.addAction(UIAlertAction(title: WalletUX.text("Create or import an account"),
+                                              style: .default) { [weak self] _ in
+                    self?.showAddAccountStart(from: controller)
+                })
+                sheet.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
+                if let popover = sheet.popoverPresentationController {
+                    popover.sourceView = controller.view
+                    popover.sourceRect = CGRect(x: controller.view.bounds.midX, y: controller.view.bounds.maxY,
+                                                width: 0, height: 0)
+                }
+                controller.present(sheet, animated: true)
+            }
+        }
+    }
 
-        wireframe?.showStart(from: view) { [weak self] in
+    private func showAddAccountStart(from controller: UIViewController) {
+        wireframe?.showStart(from: controller) { [weak self] in
             self?.getAccounts()
             self?.serviceCoordinator.checkMigration()
+        }
+    }
+
+    private func restoreRetainedWallets(from controller: UIViewController) {
+        let eventCenter = self.eventCenter
+        WalletRetainedWalletRestoreFlow.run(on: controller, scope: .afterSetup, setBusy: { busy in
+            controller.view.isUserInteractionEnabled = !busy
+        }) { [weak self] outcome in
+            switch outcome {
+            case let .restored(count, failed):
+                let finish = { [weak self] in
+                    eventCenter.notify(with: SelectedAccountChanged())
+                    self?.getAccounts()
+                }
+                if failed == 0 {
+                    finish()
+                } else {
+                    controller.present(WalletRetainedWalletRestoreFlow.partialAlert(
+                        restored: count, failed: failed, onOK: finish), animated: true)
+                }
+            case let .nothingRestored(message):
+                let alert = UIAlertController(title: WalletUX.text("Nothing was changed"), message: message,
+                                              preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
+                controller.present(alert, animated: true)
+            }
         }
     }
     

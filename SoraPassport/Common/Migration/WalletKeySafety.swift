@@ -480,46 +480,147 @@ enum LegacyGlobalEntropyScopedBackfill {
 
 // MARK: - Retained PIN
 
-/// Checks a PIN against the `pincode` Keychain item kept from an earlier
-/// install. Failed attempts are counted; after `maximumFailures` the PIN path
-/// is closed for this install and the recovery phrase or a Google Drive backup
-/// is required instead.
+/// Checks a PIN against the PIN of an earlier install, before restoring the
+/// wallets that install left in the Keychain or showing their phrases.
+///
+/// - Welcome back (no wallet on this install yet): the `pincode` item is
+///   still the earlier install's PIN.
+/// - After setup: onboarding has replaced `pincode` with this install's PIN.
+///   Before it does, `preserveEarlierInstallPin` keeps a copy of the earlier
+///   PIN (add-only), and only those copies unlock retained wallets. This
+///   install's PIN alone never does: it was chosen by whoever set up this
+///   install, not by the owner of the retained wallets.
+///
+/// Wrong PINs lead to waits of 1, 5, 15 and then 30 minutes after the third
+/// failure, as on the normal PIN screen. There is no permanent lock; the
+/// recovery phrase and Google Drive backup stay available throughout.
 enum WalletRetainedPinGate {
-    static let maximumFailures = 5
+    static let failuresBeforeWait = 3
     static let failureCountKey = "wallet.retainedPinFailures"
+    static let lockedUntilKey = "wallet.retainedPinLockedUntil"
+    static let earlierInstallPinTagPrefix = "earlierInstallPin-"
+    static let maximumEarlierInstallPins = 4
+
+    enum Scope: Equatable {
+        case welcomeBack
+        case afterSetup
+    }
 
     enum Failure: Error, Equatable {
         case noRetainedPin
-        case incorrectPin(remainingAttempts: Int)
-        case locked
+        case incorrectPin(attemptsBeforeWait: Int)
+        case locked(until: Date)
     }
 
-    static func hasRetainedPin(keystore: KeystoreProtocol) -> Bool {
-        (try? keystore.checkKey(for: KeystoreTag.pincode.rawValue)) == true
+    static func cooldown(afterFailures count: Int) -> TimeInterval {
+        switch count {
+        case ..<failuresBeforeWait: return 0
+        case failuresBeforeWait: return 60
+        case failuresBeforeWait + 1: return 5 * 60
+        case failuresBeforeWait + 2: return 15 * 60
+        default: return 30 * 60
+        }
     }
 
-    static func isLocked(settings: SettingsManagerProtocol) -> Bool {
-        (settings.integer(for: failureCountKey) ?? 0) >= maximumFailures
+    static func earlierInstallPinTags(keystore: KeystoreProtocol) throws -> [String] {
+        try keystore.allKeyIdentifiers().filter { $0.hasPrefix(earlierInstallPinTagPrefix) }.sorted()
     }
 
-    static func isUsable(keystore: KeystoreProtocol, settings: SettingsManagerProtocol) -> Bool {
-        hasRetainedPin(keystore: keystore) && !isLocked(settings: settings)
+    private static func candidateTags(scope: Scope, keystore: KeystoreProtocol) throws -> [String] {
+        var tags = try earlierInstallPinTags(keystore: keystore)
+        if scope == .welcomeBack, try keystore.checkKey(for: KeystoreTag.pincode.rawValue) {
+            tags.insert(KeystoreTag.pincode.rawValue, at: 0)
+        }
+        return tags
     }
 
-    static func verify(_ pin: String, keystore: KeystoreProtocol, settings: SettingsManagerProtocol) throws {
-        guard !isLocked(settings: settings) else { throw Failure.locked }
-        guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { throw Failure.noRetainedPin }
-        var stored = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
-        defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
+    static func hasRetainedPin(keystore: KeystoreProtocol, scope: Scope = .welcomeBack) -> Bool {
+        (try? candidateTags(scope: scope, keystore: keystore).isEmpty == false) == true
+    }
+
+    /// When a wait is running, its end.
+    static func lockedUntil(settings: SettingsManagerProtocol, now: Date = Date()) -> Date? {
+        guard let value = settings.integer(for: lockedUntilKey) else { return nil }
+        let until = Date(timeIntervalSince1970: TimeInterval(value))
+        return until > now ? until : nil
+    }
+
+    /// A PIN path exists (a wait, if running, ends by itself).
+    static func isUsable(
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        scope: Scope = .welcomeBack
+    ) -> Bool {
+        hasRetainedPin(keystore: keystore, scope: scope)
+    }
+
+    static func verify(
+        _ pin: String,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        scope: Scope = .welcomeBack,
+        now: Date = Date()
+    ) throws {
+        if let until = lockedUntil(settings: settings, now: now) {
+            throw Failure.locked(until: until)
+        }
+        let tags = try candidateTags(scope: scope, keystore: keystore)
+        guard !tags.isEmpty else { throw Failure.noRetainedPin }
         var entered = Data(pin.utf8)
         defer { entered.resetBytes(in: entered.startIndex ..< entered.endIndex) }
-        guard !entered.isEmpty, LegacySoraIdentityValidator.constantTimeEqual(stored, entered) else {
+        var matched = false
+        if !entered.isEmpty {
+            for tag in tags {
+                var stored = try keystore.fetchKey(for: tag)
+                defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
+                if LegacySoraIdentityValidator.constantTimeEqual(stored, entered) {
+                    matched = true
+                }
+            }
+        }
+        guard matched else {
             let failures = (settings.integer(for: failureCountKey) ?? 0) + 1
             settings.set(value: failures, for: failureCountKey)
-            guard failures < maximumFailures else { throw Failure.locked }
-            throw Failure.incorrectPin(remainingAttempts: maximumFailures - failures)
+            let wait = cooldown(afterFailures: failures)
+            guard wait > 0 else {
+                throw Failure.incorrectPin(attemptsBeforeWait: failuresBeforeWait - failures)
+            }
+            let until = now.addingTimeInterval(wait)
+            settings.set(value: Int(until.timeIntervalSince1970.rounded(.up)), for: lockedUntilKey)
+            throw Failure.locked(until: until)
         }
         settings.removeValue(for: failureCountKey)
+        settings.removeValue(for: lockedUntilKey)
+    }
+
+    /// Keeps a copy of the current `pincode` (the earlier install's PIN while
+    /// no wallet exists) before onboarding replaces it, so wallets that stay
+    /// in the Keychain can still be restored with that PIN later. Add-only
+    /// and read back; an identical copy is not added twice. Returns true when
+    /// a copy was added.
+    @discardableResult
+    static func preserveEarlierInstallPin(keystore: KeystoreProtocol) throws -> Bool {
+        guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return false }
+        var current = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
+        defer { current.resetBytes(in: current.startIndex ..< current.endIndex) }
+        guard !current.isEmpty else { return false }
+        let existing = try earlierInstallPinTags(keystore: keystore)
+        for tag in existing {
+            var stored = try keystore.fetchKey(for: tag)
+            defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
+            if LegacySoraIdentityValidator.constantTimeEqual(stored, current) { return false }
+        }
+        guard existing.count < maximumEarlierInstallPins else { return false }
+        var index = 1
+        while existing.contains("\(earlierInstallPinTagPrefix)\(index)") { index += 1 }
+        let tag = "\(earlierInstallPinTagPrefix)\(index)"
+        try keystore.addKey(current, with: tag)
+        var stored = try keystore.fetchKey(for: tag)
+        defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
+        guard LegacySoraIdentityValidator.constantTimeEqual(stored, current) else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        return true
     }
 }
 
@@ -533,6 +634,10 @@ struct RetainedKeychainWallet: Equatable {
     let networkType: SNAddressType
     let derivationPath: String?
     let hasPhrase: Bool
+    /// Backed only by the unsuffixed 1.x `seedEntropy` (sr25519, default
+    /// path), proven like the explicit 1.x upgrade, including the retained
+    /// Iroha `privateKey` when present. Restoring it adds scoped copies.
+    var usesGlobalEntropy = false
 }
 
 /// Finds wallets an earlier install left in the Keychain (iOS keeps Keychain
@@ -540,12 +645,21 @@ struct RetainedKeychainWallet: Equatable {
 ///
 /// A wallet is adoptable only when its own `<address>-entropy`, `-seed` or
 /// `-secretKey` proves the SORA address it is tagged with (same checks as an
-/// upgrade, including the signature challenge). Anything that does not prove
-/// its address is ignored and left untouched.
+/// upgrade, including the signature challenge), or when the unsuffixed 1.x
+/// `seedEntropy` proves its default-path address. Anything that does not
+/// prove its address is ignored and left untouched.
 enum RetainedKeychainWalletDiscovery {
     struct Inventory: Equatable {
         var adoptable: [RetainedKeychainWallet] = []
         var unprovableAddressCount = 0
+    }
+
+    /// The outcome of restoring several wallets. Each wallet is restored on
+    /// its own; one failure does not undo or stop the others.
+    struct RestoreResult {
+        var restored: [AccountItem] = []
+        var failedAddresses: [String] = []
+        var firstError: Error?
     }
 
     private static let scopedSuffixes = ["-secretKey", "-entropy", "-seed"]
@@ -570,7 +684,63 @@ enum RetainedKeychainWalletDiscovery {
                 inventory.unprovableAddressCount += 1
             }
         }
+        // A wallet backed only by the 1.x `seedEntropy`. When scoped items
+        // exist for its address, those decide (above).
+        switch try proveGlobalEntropy(keystore: keystore, recoveryGate: recoveryGate) {
+        case let .proven(wallet) where !addresses.contains(wallet.address) &&
+            !existingAddresses.contains(wallet.address):
+            inventory.adoptable.append(wallet)
+        case .unprovable:
+            inventory.unprovableAddressCount += 1
+        case .proven, .absent:
+            break
+        }
         return inventory
+    }
+
+    enum GlobalEntropyProof: Equatable {
+        case absent
+        case unprovable
+        case proven(RetainedKeychainWallet)
+    }
+
+    /// Proves the unsuffixed `seedEntropy` the way the explicit 1.x upgrade
+    /// does: a 12–24 word phrase, the retained Iroha `privateKey` (if any)
+    /// derived from it, and the sr25519 default-path SORA address with a
+    /// signature. Keychain read errors propagate (retry).
+    static func proveGlobalEntropy(
+        keystore: KeystoreProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws -> GlobalEntropyProof {
+        guard try keystore.checkKey(for: KeystoreTag.legacyEntropy.rawValue) else { return .absent }
+        var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        guard WalletMnemonicWordPolicy.isDerivableEntropy(entropy) else { return .unprovable }
+        do {
+            let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+            guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+                return .unprovable
+            }
+            try keystore.verifyLegacyIrohaKeyIfPresent(entropy: entropy)
+            guard var derived = try WalletScopedKeyDerivation.derive(
+                cryptoType: .sr25519, derivationPath: nil, entropy: entropy, rawSeed: nil
+            ) else { return .unprovable }
+            defer { derived.wipe() }
+            let soraType = SNAddressType(chain: .sora)
+            let publicKey = try SR25519KeypairFactory()
+                .createKeypairFromSeed(derived.seed, chaincodeList: []).publicKey().rawData()
+            let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: soraType)
+            try LegacySoraIdentityValidator.validate(
+                address: address, publicKey: publicKey, cryptoType: .sr25519, networkType: soraType,
+                derivationPath: nil, entropy: entropy, rawSeed: nil, secret: nil, recoveryGate: recoveryGate
+            )
+            return .proven(RetainedKeychainWallet(
+                address: address, publicKey: publicKey, cryptoType: .sr25519, networkType: soraType,
+                derivationPath: nil, hasPhrase: true, usesGlobalEntropy: true
+            ))
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            return .unprovable
+        }
     }
 
     /// Proves one tagged address. Keychain read errors propagate (retry);
@@ -589,13 +759,9 @@ enum RetainedKeychainWalletDiscovery {
         var seed = try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
         var secret = try keystore.loadIfKeyExists(KeystoreTag.secretKeyTagForAddress(address))
         defer {
-            for index in [0, 1, 2] {
-                switch index {
-                case 0: if let count = entropy?.count { entropy?.resetBytes(in: 0 ..< count) }
-                case 1: if let count = seed?.count { seed?.resetBytes(in: 0 ..< count) }
-                default: if let count = secret?.count { secret?.resetBytes(in: 0 ..< count) }
-                }
-            }
+            if let count = entropy?.count { entropy?.resetBytes(in: 0 ..< count) }
+            if let count = seed?.count { seed?.resetBytes(in: 0 ..< count) }
+            if let count = secret?.count { secret?.resetBytes(in: 0 ..< count) }
         }
         let derivationPath = try keystore.fetchDeriviationForAddress(address)
         guard entropy != nil || seed != nil || secret != nil else { return nil }
@@ -688,12 +854,25 @@ enum RetainedKeychainWalletDiscovery {
         keystore: KeystoreProtocol,
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> PreparedAccount {
+        let factory = AccountOperationFactory(keystore: keystore, recoveryGate: recoveryGate)
+        let operation: BaseOperation<PreparedAccount>
+        if wallet.usesGlobalEntropy {
+            guard try proveGlobalEntropy(keystore: keystore, recoveryGate: recoveryGate) == .proven(wallet) else {
+                throw AccountCreateError.retainedKeyConflict
+            }
+            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+            operation = factory.prepareAccountOperation(
+                request: AccountCreationRequest(username: username, type: .sora, derivationPath: "",
+                                                cryptoType: .sr25519),
+                mnemonic: try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+            )
+            return try finish(operation, for: wallet)
+        }
         guard let proven = try prove(address: wallet.address, keystore: keystore, recoveryGate: recoveryGate),
               proven == wallet else {
             throw AccountCreateError.retainedKeyConflict
         }
-        let factory = AccountOperationFactory(keystore: keystore, recoveryGate: recoveryGate)
-        let operation: BaseOperation<PreparedAccount>
         var entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(wallet.address))
         defer { if let count = entropy?.count { entropy?.resetBytes(in: 0 ..< count) } }
         if let phraseEntropy = entropy, WalletMnemonicWordPolicy.isDerivableEntropy(phraseEntropy) {
@@ -739,6 +918,13 @@ enum RetainedKeychainWalletDiscovery {
                 recoveryGate: recoveryGate
             )
         }
+        return try finish(operation, for: wallet)
+    }
+
+    private static func finish(
+        _ operation: BaseOperation<PreparedAccount>,
+        for wallet: RetainedKeychainWallet
+    ) throws -> PreparedAccount {
         operation.start()
         let prepared = try operation.extractNoCancellableResultData()
         guard prepared.account.address == wallet.address,
@@ -752,9 +938,11 @@ enum RetainedKeychainWalletDiscovery {
 
 // MARK: - Show the recovery phrase after the PIN
 
-/// Reads the recovery phrase of accounts whose scoped phrase entropy is on
-/// this device and proves the account address, after the retained PIN is
-/// verified. Read-only.
+/// Reads the recovery phrase of accounts whose phrase entropy is on this
+/// device and proves the account address, after a retained PIN is verified.
+/// The phrase comes from the account's scoped `-entropy`, or, for a 1.x
+/// account (sr25519, default path) without one, from `seedEntropy`.
+/// Read-only.
 enum WalletRecoveryPhraseReveal {
     struct Entry: Equatable {
         let address: String
@@ -779,9 +967,10 @@ enum WalletRecoveryPhraseReveal {
         accounts: [AccountItem],
         keystore: KeystoreProtocol,
         settings: SettingsManagerProtocol,
+        scope: WalletRetainedPinGate.Scope = .welcomeBack,
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> [Entry] {
-        try WalletRetainedPinGate.verify(pin, keystore: keystore, settings: settings)
+        try WalletRetainedPinGate.verify(pin, keystore: keystore, settings: settings, scope: scope)
         return try accounts.compactMap { account in
             guard let words = try phraseWords(for: account, keystore: keystore, recoveryGate: recoveryGate) else {
                 return nil
@@ -795,18 +984,25 @@ enum WalletRecoveryPhraseReveal {
         keystore: KeystoreProtocol,
         recoveryGate: WalletRecoveryCapabilityGate
     ) throws -> [String]? {
-        guard var entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address)),
-              WalletMnemonicWordPolicy.isDerivableEntropy(entropy) else {
+        let derivationPath = try keystore.fetchDeriviationForAddress(account.address)
+        var entropy: Data
+        if let scoped = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address)) {
+            entropy = scoped
+        } else if account.cryptoType == .sr25519, (derivationPath ?? "").isEmpty,
+                  let global = try keystore.loadIfKeyExists(KeystoreTag.legacyEntropy.rawValue) {
+            entropy = global
+        } else {
             return nil
         }
         defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+        guard WalletMnemonicWordPolicy.isDerivableEntropy(entropy) else { return nil }
         do {
             try LegacySoraIdentityValidator.validate(
                 address: account.address,
                 publicKey: account.publicKeyData,
                 cryptoType: account.cryptoType,
                 networkType: account.networkType,
-                derivationPath: try keystore.fetchDeriviationForAddress(account.address),
+                derivationPath: derivationPath,
                 entropy: entropy,
                 rawSeed: nil,
                 secret: nil,
@@ -823,12 +1019,16 @@ enum WalletRecoveryPhraseReveal {
 
 extension RetainedKeychainWalletDiscovery {
     /// Adds account rows for proven retained wallets, through the normal
-    /// journaled insert. Each wallet's retained items are adopted (they match);
-    /// only absent scoped copies are added. The first wallet ends up selected.
-    /// Call from a background queue.
+    /// journaled insert. Each wallet's retained items are adopted (they
+    /// match); only absent scoped copies are added. Wallets are restored one
+    /// by one: a failure is recorded and the others still run, and wallets
+    /// already restored stay. The first wallet restored last ends up
+    /// selected. Pass the addresses already in the wallet as `existing`: they
+    /// are skipped. Call from a background queue.
     @discardableResult
     static func restore(
         _ wallets: [RetainedKeychainWallet],
+        existing existingAddresses: Set<String> = [],
         keystore: KeystoreProtocol,
         selectedWalletSettings: SelectedWalletSettingsProtocol,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
@@ -838,29 +1038,115 @@ extension RetainedKeychainWalletDiscovery {
                 ? WalletUX.text("Restored wallet")
                 : "\(WalletUX.text("Restored wallet")) \(index + 1)"
         }
-    ) throws -> [AccountItem] {
-        var restored: [AccountItem] = []
-        for (index, wallet) in wallets.enumerated().reversed() {
-            let prepared = try preparedAccount(
-                for: wallet, username: username(index), keystore: keystore, recoveryGate: recoveryGate)
-            let lease = lifecycleCoordinator.acquire()
-            let finished = DispatchSemaphore(value: 0)
-            var outcome: Result<AccountItem, Error> = .failure(AccountCreateError.retainedKeyConflict)
-            selectedWalletSettings.performInsertAndSelect(
-                prepared: prepared,
-                persistSecrets: {
-                    try recoveryGate.requireAuthorizedLifecycleContinuation()
-                    try prepared.persist(to: keystore)
-                },
-                lifecycleLease: lease
-            ) { result in
-                outcome = result
-                finished.signal()
+    ) -> RestoreResult {
+        var result = RestoreResult()
+        for (index, wallet) in wallets.enumerated().reversed() where !existingAddresses.contains(wallet.address) {
+            do {
+                let prepared = try preparedAccount(
+                    for: wallet, username: username(index), keystore: keystore, recoveryGate: recoveryGate)
+                let lease = lifecycleCoordinator.acquire()
+                let finished = DispatchSemaphore(value: 0)
+                var outcome: Result<AccountItem, Error> = .failure(AccountCreateError.retainedKeyConflict)
+                selectedWalletSettings.performInsertAndSelect(
+                    prepared: prepared,
+                    persistSecrets: {
+                        try recoveryGate.requireAuthorizedLifecycleContinuation()
+                        try prepared.persist(to: keystore)
+                    },
+                    lifecycleLease: lease
+                ) { insertResult in
+                    outcome = insertResult
+                    finished.signal()
+                }
+                finished.wait()
+                lease.release()
+                result.restored.append(try outcome.get())
+            } catch {
+                result.failedAddresses.append(wallet.address)
+                if result.firstError == nil { result.firstError = error }
+                Logger.shared.warning(
+                    "Wallet keys: a retained wallet was not restored (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+                )
             }
-            finished.wait()
-            lease.release()
-            restored.append(try outcome.get())
         }
-        return restored
+        return result
+    }
+}
+
+// MARK: - Per-account key availability
+
+/// Whether an account can sign on this device, decided from its keys (not
+/// only from the recorded source). Read-only; used to show an account as
+/// read-only and to choose the restore action.
+enum WalletAccountKeyAvailability: Equatable {
+    /// Its keys on this device prove the account.
+    case available
+    /// An explicit watch-only account.
+    case watchOnly
+    /// No key for it is on this device (for example a new iPhone).
+    /// Importing its phrase or Google Drive backup restores it in place.
+    case keysMissing
+    /// Keys are present but do not prove it. They are left untouched.
+    case keysNotVerified
+
+    var isReadOnlyOnThisDevice: Bool { self != .available }
+
+    static func status(
+        for account: AccountItem,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        activeSnapshot: WalletNetworkSnapshot?,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws -> WalletAccountKeyAvailability {
+        if settings.bool(for: "wallet.watchOnly.\(account.address)") == true { return .watchOnly }
+        var entropy: Data?
+        do {
+            if let activeSnapshot {
+                entropy = try keystore.fetchEntropyForAddress(
+                    account.address, activeSnapshot: activeSnapshot, recoveryGate: recoveryGate)
+            } else {
+                entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+            }
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            entropy = nil
+        }
+        var seed = try keystore.fetchSeedForAddress(account.address)
+        var secret = try keystore.fetchSecretKeyForAddress(account.address)
+        defer {
+            if let count = entropy?.count { entropy?.resetBytes(in: 0 ..< count) }
+            if let count = seed?.count { seed?.resetBytes(in: 0 ..< count) }
+            if let count = secret?.count { secret?.resetBytes(in: 0 ..< count) }
+        }
+        guard entropy != nil || seed != nil || secret != nil else { return .keysMissing }
+        do {
+            try LegacySoraIdentityValidator.validate(
+                address: account.address,
+                publicKey: account.publicKeyData,
+                cryptoType: account.cryptoType,
+                networkType: account.networkType,
+                derivationPath: try keystore.fetchDeriviationForAddress(account.address),
+                entropy: entropy,
+                rawSeed: seed,
+                secret: secret,
+                recoveryGate: recoveryGate
+            )
+            return .available
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            return .keysNotVerified
+        }
+    }
+}
+
+// MARK: - Account addresses in the wallet database
+
+enum WalletAccountAddresses {
+    /// The addresses of every account row. Call from a background queue.
+    static func current(storageFacade: StorageFacadeProtocol = UserDataStorageFacade.shared) throws -> Set<String> {
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> = storageFacade.createRepository(
+            filter: nil, sortDescriptors: [], mapper: AnyCoreDataMapper(AccountItemMapper()))
+        let operation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        let queue = OperationQueue()
+        queue.addOperations([operation], waitUntilFinished: true)
+        return Set(try operation.extractNoCancellableResultData().map(\.address))
     }
 }

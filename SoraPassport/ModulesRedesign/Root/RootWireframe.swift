@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import SoraFoundation
 import SoraKeystore
 import SoraUIKit
 
@@ -734,7 +735,7 @@ final class WalletRecoveryViewController: UIViewController {
     @objc private func confirmSetUpAgain() {
         guard !didRetry, !isExporting, !isRestoringKeys, let onSetAside else { return }
         let marker = WalletMigrationRecoveryMarker.capture(SettingsManager.shared)
-        WalletSetUpAgainConfirmation.present(on: self) { [weak self] in
+        WalletSetUpAgainConfirmation.present(on: self, movesWalletData: true) { [weak self] in
             guard let self else { return }
             self.setKeyRecoveryBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
@@ -752,6 +753,11 @@ final class WalletRecoveryViewController: UIViewController {
                     case .success:
                         self.didRetry = true
                         onSetAside()
+                    case .failure(WalletLocalStateSetAside.Failure.incomplete):
+                        self.showKeyRecoveryError(
+                            WalletUX.text("Some earlier wallet files were moved to a separate folder on this iPhone and the others were left in place. Nothing was deleted. Try again, or contact SORA support."),
+                            title: WalletUX.text("Could not set up this iPhone again")
+                        )
                     case .failure:
                         self.showKeyRecoveryError(
                             WalletUX.text("Nothing was changed. Try again, or contact SORA support."),
@@ -810,7 +816,7 @@ final class WalletRecoveryViewController: UIViewController {
 
     @objc private func showBackupHelp() {
         let instructions = [
-            WalletUX.text("SORA never deletes wallet keys from this iPhone's Keychain."),
+            WalletUX.text("Recovery never deletes wallet keys from this iPhone's Keychain."),
             "Keep any existing recovery phrase or encrypted JSON backup offline.",
             "A protected recovery export contains public wallet metadata but no phrase, seed, private key, PIN, signed payload, or Keychain item.",
             "Keychain secrets stay only on this device.",
@@ -972,10 +978,14 @@ enum WalletPinPrompt {
 
     static func message(for error: Error) -> String {
         switch error as? WalletRetainedPinGate.Failure {
-        case let .incorrectPin(remaining)?:
-            return WalletUX.format("That PIN is not correct. Attempts left: %d.", remaining)
-        case .locked?:
-            return WalletUX.text("Too many attempts. Use your recovery phrase or Google Drive backup instead.")
+        case let .incorrectPin(attemptsBeforeWait)?:
+            return WalletUX.format("That PIN is not correct. Attempts left before a short wait: %d.",
+                                   attemptsBeforeWait)
+        case let .locked(until)?:
+            let minutes = max(1, Int((until.timeIntervalSinceNow / 60).rounded(.up)))
+            return WalletUX.format(
+                "Too many attempts. Try again in %d min, or use your recovery phrase or Google Drive backup.",
+                minutes)
         case .noRetainedPin?:
             return WalletUX.text("No PIN from an earlier install was found. Use your recovery phrase or Google Drive backup.")
         case nil:
@@ -986,7 +996,9 @@ enum WalletPinPrompt {
         }
     }
 
-    /// Shows recovery phrases once. The words are not copied anywhere.
+    /// Shows recovery phrases on a protected screen. The words are not
+    /// copied anywhere and are hidden while the app is in the background or
+    /// the screen is being recorded or mirrored.
     static func presentPhrases(_ entries: [WalletRecoveryPhraseReveal.Entry], on controller: UIViewController) {
         guard !entries.isEmpty else {
             let alert = UIAlertController(title: WalletUX.text("Recovery phrase not shown"),
@@ -996,28 +1008,159 @@ enum WalletPinPrompt {
             controller.present(alert, animated: true)
             return
         }
-        let text = entries.map { entry in
-            let words = entry.words.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
-            let name = entry.name.isEmpty ? String(entry.address.prefix(8)) + "…" : entry.name
-            return "\(name)\n\(words)"
-        }.joined(separator: "\n\n")
+        let screen = WalletRecoveryPhraseViewController(entries: entries)
+        screen.modalPresentationStyle = .fullScreen
+        controller.present(screen, animated: true)
+    }
+}
+
+/// Shows recovery phrases after the PIN. Not an alert: an alert's text can
+/// end up in the app switcher snapshot. The words are hidden while the app is
+/// inactive or the screen is captured, and a screenshot shows the standard
+/// warning.
+final class WalletRecoveryPhraseViewController: UIViewController {
+    private var entries: [WalletRecoveryPhraseReveal.Entry]
+    private let wordsLabel = UILabel()
+    private let hiddenLabel = UILabel()
+    private var observers: [NSObjectProtocol] = []
+
+    init(entries: [WalletRecoveryPhraseReveal.Entry]) {
+        self.entries = entries
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        view.accessibilityIdentifier = "wallet-recovery-phrase"
+
+        let titleLabel = UILabel()
+        titleLabel.font = .preferredFont(forTextStyle: .title2)
+        titleLabel.numberOfLines = 0
+        titleLabel.text = WalletUX.text("Your recovery phrase")
+
+        let warningLabel = UILabel()
+        warningLabel.font = .preferredFont(forTextStyle: .body)
+        warningLabel.textColor = .secondaryLabel
+        warningLabel.numberOfLines = 0
+        warningLabel.text = [
+            WalletUX.text("Write these words down in order and keep them offline. Anyone with them can take your funds."),
+            R.string.localizable.screenshotAlertText(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages),
+        ].joined(separator: "\n\n")
+
+        wordsLabel.font = .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize,
+                                                weight: .regular)
+        wordsLabel.numberOfLines = 0
+        wordsLabel.accessibilityIdentifier = "wallet-recovery-phrase-words"
+        hiddenLabel.font = .preferredFont(forTextStyle: .body)
+        hiddenLabel.textColor = .secondaryLabel
+        hiddenLabel.numberOfLines = 0
+        hiddenLabel.text = WalletUX.text("The words are hidden while the screen is being recorded or shared.")
+        hiddenLabel.isHidden = true
+
+        let doneButton = UIButton(type: .system)
+        doneButton.setTitle(WalletUX.text("Done"), for: .normal)
+        doneButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        doneButton.accessibilityIdentifier = "wallet-recovery-phrase-done"
+        doneButton.addTarget(self, action: #selector(done), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, wordsLabel, hiddenLabel, doneButton])
+        stack.axis = .vertical
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 32),
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
+            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48),
+        ])
+
+        let center = NotificationCenter.default
+        observers = [
+            center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.setWordsVisible(false)
+            },
+            center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.updateVisibility()
+            },
+            center.addObserver(forName: UIScreen.capturedDidChangeNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.updateVisibility()
+            },
+            center.addObserver(forName: UIApplication.userDidTakeScreenshotNotification, object: nil, queue: .main) {
+                [weak self] _ in self?.warnAboutScreenshot()
+            },
+        ]
+        updateVisibility()
+    }
+
+    private var isCaptured: Bool {
+        view.window?.windowScene?.screen.isCaptured ?? UIScreen.main.isCaptured
+    }
+
+    private func updateVisibility() {
+        setWordsVisible(UIApplication.shared.applicationState == .active && !isCaptured)
+    }
+
+    private func setWordsVisible(_ visible: Bool) {
+        if visible {
+            wordsLabel.text = entries.map { entry in
+                let words = entry.words.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+                let name = entry.name.isEmpty ? String(entry.address.prefix(8)) + "…" : entry.name
+                return "\(name)\n\(words)"
+            }.joined(separator: "\n\n")
+        } else {
+            wordsLabel.text = nil
+        }
+        wordsLabel.isHidden = !visible
+        hiddenLabel.isHidden = visible || UIApplication.shared.applicationState != .active
+    }
+
+    private func warnAboutScreenshot() {
+        let languages = LocalizationManager.shared.selectedLocale.rLanguages
         let alert = UIAlertController(
-            title: WalletUX.text("Your recovery phrase"),
-            message: WalletUX.text("Write these words down in order and keep them offline. Anyone with them can take your funds.")
-                + "\n\n" + text,
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: WalletUX.text("Done"), style: .default))
-        controller.present(alert, animated: true)
+            title: R.string.localizable.screenshotAlertTitle(preferredLanguages: languages),
+            message: R.string.localizable.screenshotAlertText(preferredLanguages: languages),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
+        present(alert, animated: true)
+    }
+
+    @objc private func done() {
+        wordsLabel.text = nil
+        entries = []
+        dismiss(animated: true)
     }
 }
 
 enum WalletSetUpAgainConfirmation {
     /// Two confirmations, as for other actions that change local wallet data.
-    static func present(on controller: UIViewController, onConfirm: @escaping () -> Void) {
+    /// `movesWalletData`: the recovery screen moves this install's wallet
+    /// database aside; Welcome back has none and only starts onboarding.
+    static func present(on controller: UIViewController, movesWalletData: Bool,
+                        onConfirm: @escaping () -> Void) {
         let first = UIAlertController(
             title: WalletUX.text("Set up this iPhone again?"),
-            message: WalletUX.text("SORA will start fresh on this iPhone. Wallet keys in this iPhone's Keychain are not deleted, and the earlier wallet data is kept in a separate folder. Wallets whose keys are on this iPhone can be restored with the PIN you used before, and any wallet with its recovery phrase or a Google Drive backup."),
+            message: movesWalletData
+                ? WalletUX.text("SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted, and the earlier wallet data is moved to a separate folder on this iPhone. On the next screen you can restore the wallets whose keys are on this iPhone with the PIN you used before, or any wallet with its recovery phrase or Google Drive backup.")
+                : WalletUX.text("SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup, and the wallets found on this iPhone from Add account with the PIN you used before."),
             preferredStyle: .alert
         )
         first.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
@@ -1035,6 +1178,81 @@ enum WalletSetUpAgainConfirmation {
             controller.present(second, animated: true)
         })
         controller.present(first, animated: true)
+    }
+}
+
+/// "Restore wallets found on this iPhone": the PIN of the earlier install,
+/// then every proven retained wallet that is not in the wallet yet is
+/// restored on its own (`RetainedKeychainWalletDiscovery.restore`). Used by
+/// Welcome back and, once a wallet exists, by Add account.
+enum WalletRetainedWalletRestoreFlow {
+    enum Outcome {
+        case restored(count: Int, failed: Int)
+        case nothingRestored(message: String)
+    }
+
+    static func run(
+        on controller: UIViewController,
+        scope: WalletRetainedPinGate.Scope,
+        setBusy: @escaping (Bool) -> Void,
+        completion: @escaping (Outcome) -> Void
+    ) {
+        WalletPinPrompt.present(on: controller, message: WalletUX.text(
+            "Enter the PIN you used for SORA on this iPhone. Wallets whose saved keys match their address will be restored."
+        )) { pin in
+            setBusy(true)
+            DispatchQueue.global(qos: .userInitiated).async {
+                var pin = pin
+                defer { pin.removeAll(keepingCapacity: false) }
+                let keychain = Keychain()
+                let outcome: Outcome
+                do {
+                    try WalletRetainedPinGate.verify(pin, keystore: keychain, settings: SettingsManager.shared,
+                                                     scope: scope)
+                    if scope == .welcomeBack {
+                        // Wallets that are not restored now (one fails, or
+                        // the user adds others later) stay restorable from
+                        // Add account with this same PIN.
+                        _ = try? WalletRetainedPinGate.preserveEarlierInstallPin(keystore: keychain)
+                    }
+                    let existing = try WalletAccountAddresses.current()
+                    let inventory = try RetainedKeychainWalletDiscovery.inventory(
+                        keystore: keychain, excluding: existing)
+                    let result = RetainedKeychainWalletDiscovery.restore(
+                        inventory.adoptable,
+                        existing: existing,
+                        keystore: keychain,
+                        selectedWalletSettings: SelectedWalletSettings.shared
+                    )
+                    if !result.restored.isEmpty {
+                        outcome = .restored(count: result.restored.count, failed: result.failedAddresses.count)
+                    } else if let error = result.firstError {
+                        outcome = .nothingRestored(message: WalletPinPrompt.message(for: error))
+                    } else {
+                        outcome = .nothingRestored(message: WalletUX.text(
+                            "No wallet on this iPhone could be verified. Use your recovery phrase or Google Drive backup."))
+                    }
+                } catch {
+                    outcome = .nothingRestored(message: WalletPinPrompt.message(for: error))
+                }
+                DispatchQueue.main.async {
+                    setBusy(false)
+                    completion(outcome)
+                }
+            }
+        }
+    }
+
+    /// The alert for a partial restore. The restored wallets stay.
+    static func partialAlert(restored: Int, failed: Int, onOK: @escaping () -> Void) -> UIAlertController {
+        let alert = UIAlertController(
+            title: WalletUX.text("Some wallets were restored"),
+            message: WalletUX.format(
+                "Restored: %d. Not restored: %d. The keys of the others were not changed; you can try again from Add account, or restore them with their recovery phrase or Google Drive backup.",
+                restored, failed),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default) { _ in onOK() })
+        return alert
     }
 }
 
@@ -1167,16 +1385,57 @@ final class WalletWelcomeBackViewController: UIViewController {
 
     @objc private func continueToOnboarding() {
         guard !isBusy else { return }
-        onContinueToOnboarding()
+        leaveForOnboarding()
     }
 
     @objc private func confirmSetUpAgain() {
         guard !isBusy else { return }
-        WalletSetUpAgainConfirmation.present(on: self) { [weak self] in
+        WalletSetUpAgainConfirmation.present(on: self, movesWalletData: false) { [weak self] in
             // Nothing is moved here: there is no wallet database. The Keychain
-            // items stay and this screen is offered again until a wallet exists.
-            self?.onContinueToOnboarding()
+            // items stay.
+            self?.leaveForOnboarding()
         }
+    }
+
+    /// Onboarding ends by setting a new PIN, which replaces the PIN of the
+    /// earlier install. While wallets found on this iPhone are not restored,
+    /// offer to restore them first, and keep a copy of the earlier PIN
+    /// (add-only) so they can still be restored with it later from Add
+    /// account.
+    private func leaveForOnboarding() {
+        let proceed: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.setBusy(true)
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try WalletRetainedPinGate.preserveEarlierInstallPin(keystore: Keychain())
+                } catch {
+                    Logger.shared.warning(
+                        "Wallet keys: earlier PIN not kept (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+                    )
+                }
+                DispatchQueue.main.async {
+                    self.setBusy(false)
+                    self.onContinueToOnboarding()
+                }
+            }
+        }
+        guard options.canRestoreExistingKeys else {
+            proceed()
+            return
+        }
+        let alert = UIAlertController(
+            title: WalletUX.text("Restore the wallets found on this iPhone first?"),
+            message: WalletUX.text("Wallets saved on this iPhone can be restored now with the PIN you used before. If you continue without them, their keys stay on this iPhone, and you can restore them later from Add account with that PIN, or with their recovery phrase or Google Drive backup."),
+            preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("Restore them now"), style: .default) { [weak self] _ in
+            self?.restoreFoundWallets()
+        })
+        alert.addAction(UIAlertAction(title: WalletUX.text("Continue without them"), style: .default) { _ in
+            proceed()
+        })
+        alert.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
+        present(alert, animated: true)
     }
 
     @objc private func openSupport() {
@@ -1185,36 +1444,23 @@ final class WalletWelcomeBackViewController: UIViewController {
 
     @objc private func restoreFoundWallets() {
         guard !isBusy, options.canRestoreExistingKeys else { return }
-        WalletPinPrompt.present(on: self, message: WalletUX.text(
-            "Enter the PIN you used for SORA on this iPhone. Wallets whose saved keys match their address will be restored."
-        )) { [weak self] pin in
+        WalletRetainedWalletRestoreFlow.run(on: self, scope: .welcomeBack, setBusy: { [weak self] busy in
+            self?.setBusy(busy, status: busy ? WalletUX.text("Checking the keys saved on this iPhone…") : nil)
+        }) { [weak self] outcome in
             guard let self else { return }
-            self.setBusy(true, status: WalletUX.text("Checking the keys saved on this iPhone…"))
-            DispatchQueue.global(qos: .userInitiated).async {
-                var pin = pin
-                defer { pin.removeAll(keepingCapacity: false) }
-                let keychain = Keychain()
-                let result = Result { () -> [AccountItem] in
-                    try WalletRetainedPinGate.verify(pin, keystore: keychain, settings: SettingsManager.shared)
-                    let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain)
-                    return try RetainedKeychainWalletDiscovery.restore(
-                        inventory.adoptable,
-                        keystore: keychain,
-                        selectedWalletSettings: SelectedWalletSettings.shared
-                    )
-                }
-                DispatchQueue.main.async {
-                    self.setBusy(false)
-                    switch result {
-                    case let .success(accounts) where !accounts.isEmpty:
-                        self.onWalletsRestored()
-                    case .success:
-                        self.showError(WalletUX.text("No wallet on this iPhone could be verified. Use your recovery phrase or Google Drive backup."))
-                    case let .failure(error):
-                        self.showError(WalletPinPrompt.message(for: error))
-                    }
-                    self.refreshOptions()
-                }
+            switch outcome {
+            case let .restored(_, failed) where failed == 0:
+                self.onWalletsRestored()
+            case let .restored(count, failed):
+                // Some wallets are in; continue to them. The others stay in
+                // the Keychain and can be restored from Add account.
+                self.present(WalletRetainedWalletRestoreFlow.partialAlert(restored: count, failed: failed) {
+                    [weak self] in
+                    self?.onWalletsRestored()
+                }, animated: true)
+            case let .nothingRestored(message):
+                self.showError(message)
+                self.refreshOptions()
             }
         }
     }
