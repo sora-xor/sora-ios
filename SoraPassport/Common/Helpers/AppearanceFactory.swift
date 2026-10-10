@@ -30,26 +30,14 @@
 
 import Foundation
 import UIKit
-import SoraUI
 
 import SoraUIKit
 
 struct AppearanceFactory {
     static func applyGlobalAppearance() {
         configureGlobalNavigationBar()
-        configureButtons()
         configureSearchBar()
         configureTabBarItem()
-    }
-
-    private static func configureButtons() {
-        SoraButton.appearance().titleFont = .styled(for: .button)
-        SoraButton.appearance().cornerRadius = 12.0
-        SoraButton.appearance().shadowOpacity = 0
-
-        GrayCopyButton.appearance().titleFont = .styled(for: .paragraph2)
-        GrayCopyButton.appearance().cornerRadius = 24.0
-        GrayCopyButton.appearance().shadowOpacity = 0
     }
 
     private static func configureSearchBar() {
