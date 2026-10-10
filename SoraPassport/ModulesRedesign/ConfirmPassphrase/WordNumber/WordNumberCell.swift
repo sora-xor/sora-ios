@@ -164,8 +164,6 @@ extension WordNumberCell: SoramitsuTableViewCellProtocol {
             let view = WalletUX.button(variant) { [weak self] in
                 self?.wordNumberItem?.tryHandler?(variant)
             }
-            view.configuration?.baseBackgroundColor = WalletUX.surface
-            view.configuration?.background.backgroundColor = WalletUX.surface
             buttonsStackView.addArrangedSubview(view)
         }
 

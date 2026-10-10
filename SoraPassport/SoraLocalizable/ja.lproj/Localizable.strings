@@ -990,3 +990,22 @@
 "Your earlier PIN was not saved" = "以前の PIN を保存できませんでした";
 "SORA keeps a copy of the PIN you used before, so the wallets found on this iPhone can still be restored with it after you set a new PIN. The copy could not be saved, so nothing was changed. Try again, or restore the found wallets now." = "SORA は以前使っていた PIN のコピーを保管し、新しい PIN を設定した後も、この iPhone で見つかったウォレットをその PIN で復元できるようにしています。コピーを保存できなかったため、何も変更されていません。もう一度お試しいただくか、見つかったウォレットを今すぐ復元してください。";
 "SORA could not save a copy of the PIN you used before. Nothing was changed. Try again." = "以前使っていた PIN のコピーを保存できませんでした。何も変更されていません。もう一度お試しください。";
+
+// SORA Neon Safe Mode screens: upgrade, recovery, low storage (3.9.0)
+"Upgrade wallet" = "ウォレットをアップグレード";
+"Upgrade your wallet" = "ウォレットのアップグレード";
+"This version moves your wallet to a safer storage format. It only takes a moment." = "このバージョンでは、ウォレットをより安全な保存形式に移行します。すぐに終わります。";
+"Your original keys are not deleted or replaced" = "元のキーは削除も置き換えもされません";
+"If a check fails, SORA stops safely and shows your options" = "確認に失敗した場合、SORA は安全に停止し、次に取れる方法を表示します";
+"What happens during the upgrade?" = "アップグレード中に行われること";
+"SORA found a wallet created by an older app version." = "以前のバージョンのアプリで作成されたウォレットが見つかりました。";
+"SORA checks the recovery data saved by the older version, derives the same SORA account from it, and saves that account in a way that survives interruptions." = "SORA は以前のバージョンが保存した復元用データを確認し、そこから同じ SORA アカウントを導出して、中断しても失われない方法でそのアカウントを保存します。";
+"The original Keychain entry is not deleted or replaced in this release. If any check fails, SORA stops and shows your recovery options instead of creating another wallet." = "元のキーチェーン項目は、このリリースでは削除も置き換えもされません。確認に失敗した場合、SORA は別のウォレットを作成せずに停止し、復元の方法を表示します。";
+"Updating your wallet. Keep SORA open until this finishes." = "ウォレットを更新しています。完了するまで SORA を開いたままにしてください。";
+"We paused to keep your wallet safe" = "ウォレットを守るため一時停止しました";
+"Copy recovery details" = "復元用の詳細をコピー";
+"Create protected recovery export" = "保護された復元用エクスポートを作成";
+"Recovery export help" = "復元用エクスポートのヘルプ";
+"Free up some space" = "空き容量を確保してください";
+"Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed." = "この iPhone のストレージに空きを作ってから、もう一度確認してください。アカウントとキーは変更されていません。";
+"Check again" = "もう一度確認";
