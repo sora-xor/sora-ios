@@ -331,9 +331,13 @@ enum LegacyWalletAccountCommitRecovery {
             startupVerificationMarker: startupVerificationMarker)
         var journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
         let journals = try journalStore.journalsForLegacyRecovery()
-        let unresolved = journals.filter { $0.stage != .activated }
+        // Activated and abandoned journals are finished. Counting an abandoned
+        // journal here would send every later startup into the ordinary
+        // branch below, which refuses to run while a database attempt is
+        // unfinished, so that attempt could never be resumed.
+        let unresolved = journals.filter { !$0.stage.isTerminal }
         let candidates = unresolved.isEmpty && marker.required
-            ? journals.filter { $0.recoveryMarker == marker } : unresolved
+            ? journals.filter { $0.recoveryMarker == marker && $0.stage != .abandoned } : unresolved
         guard !candidates.isEmpty else { return false }
         if !unresolved.isEmpty, !OrdinaryWalletAccountCommitRecovery.isLegacyFirstActivation(
             journals: journals, candidates: candidates, keystore: keystore, settings: settings
