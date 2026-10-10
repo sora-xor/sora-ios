@@ -99,7 +99,12 @@ extension InputTextView: UITextViewDelegate {
     }
     
     public func textViewDidChange(_ textView: UITextView) {
-        self.textView.sora.text = textView.text
+        // Rewriting the text while a keyboard composes (Japanese kana, Chinese pinyin) drops the
+        // marked range the keyboard still holds, so UIKit inserts the composition again or loses
+        // characters. UIKit calls this again when the composition is committed.
+        if textView.markedTextRange == nil {
+            self.textView.sora.text = textView.text
+        }
         delegate?.textViewDidChange(textView)
         let fixedWidth = textView.frame.size.width
         let newSize = textView.sizeThatFits(CGSize(width: fixedWidth, height: CGFloat.greatestFiniteMagnitude))

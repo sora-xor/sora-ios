@@ -1934,3 +1934,45 @@ appearance read, `fd24cc65` live re-colouring of toggles and terms text.
 - `SoraPassport` Debug build-for-testing and `SoraPassportDev` Debug
   simulator build succeed. `SoraPassportTests` (live class skipped):
   476 tests, 0 failures (466 before plus the 10 new ones).
+
+## Fix: letters lost while a keyboard composes in the recovery phrase field
+
+- Why: the "Known, pre-existing" item of the kana crash fix above. With the
+  Japanese kana keyboard and a hardware keyboard, "abandon ability able"
+  typed into the phrase field became "aandonabilityable" (Safari:
+  "abandonabilityable"). `InputTextView.textViewDidChange(_:)` copied the
+  text into `SoramitsuTextView.sora.text` on every change, which reassigns
+  `attributedText` and drops the marked range the keyboard still holds, so
+  UIKit inserted the composition again ("a" → "aab") or lost letters. That
+  mismatch also produced the out-of-range ranges behind the crash.
+- What changed (SoraUIKit only):
+  - `InputTextView` skips the `sora.text` sync while the text view has
+    marked text. UIKit calls `textViewDidChange(_:)` again when the
+    composition is committed, and the sync runs then. The delegate call and
+    the height update still run on every change.
+  - `SoramitsuTextViewConfiguration` now always sets the view's `font`,
+    `textColor` and `typingAttributes`, also when `text` is nil. Marked text
+    is drawn with them until it is committed; before, it could get UIKit's
+    defaults (no font, `labelColor` instead of `fgPrimary`), for example in
+    an empty field. The `attributedText` (link) path is unchanged.
+  - Unchanged: `InputHandler`, `didReceiveReplacement(_:for:displayedText:)`,
+    the phrase handler's filters, mnemonic validation, derivation and key
+    handling.
+- Not changed: the kana keyboard turns a space into conversion, as in any
+  app, so the English keyboard is still the one to type a phrase with. A
+  theme or text-size change in the middle of a composition still rewrites
+  the text.
+- Verification (Xcode 27.0, new iPhone 17 Pro simulator, iOS 27):
+  - New `InputTextViewMarkedTextTests` (3 tests, field in a window of the
+    app's scene): the marked range survives `textViewDidChange(_:)`;
+    "abandon" and "ability" composed key by key keep every letter and reach
+    `sora.text` on commit; marked text has the field's font and `fgPrimary`
+    in light and dark, with and without a dynamic text style, in an empty,
+    filled and emptied field and after a theme switch. With the old code
+    they fail ("abandon" became "aabandon"); with only the `InputTextView`
+    change, marked text in an empty field had no font and `labelColor`.
+  - `SoraPassport` Debug build-for-testing succeeds. `SoraPassportTests`
+    (live class skipped) on a freshly booted simulator: 479 tests, 0
+    failures (476 before plus the 3 new ones).
+  - Pending: typing "abandon" quickly with the kana keyboard on the
+    simulator (simulator access was not granted during this session).
