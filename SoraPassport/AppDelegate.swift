@@ -138,7 +138,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             return nil
         }
 
+        // The device appearance is known once the scene is connected. Read it
+        // before the first screen is built, then make system UI (alerts,
+        // keyboards, sheets, Liquid Glass) follow the in-app theme.
+        SoramitsuUI.shared.refreshSystemTheme()
         let rootWindow = SoraWindow(windowScene: windowScene)
+        SoramitsuUI.shared.applyInterfaceStyle(to: rootWindow)
         rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
         window = rootWindow
 

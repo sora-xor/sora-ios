@@ -59,7 +59,8 @@ final class ActivityViewFactory: ActivityViewFactoryProtocol {
 
         let view = ActivityViewController(viewModel: viewModel)
         view.localizationManager = localizationManager
-        view.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        view.backgroundColor = .custom(uiColor: .clear)
         viewModel.view = view
         
         return view

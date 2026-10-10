@@ -3,6 +3,7 @@
 
 import UIKit
 import GoogleSignIn
+import SoraUIKit
 
 /// Hosts the wallet UI in the app's single window scene.
 ///
@@ -162,9 +163,14 @@ extension UIWindow {
     /// with `init(frame:)` is never displayed in a scene-based app, so a
     /// frame-based window is used only when no scene is connected (tests).
     static func makeSoraSceneWindow() -> UIWindow {
+        let window: UIWindow
         if let scene = UIApplication.shared.soraWindowScene {
-            return UIWindow(windowScene: scene)
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: UIScreen.main.bounds)
         }
-        return UIWindow(frame: UIScreen.main.bounds)
+        // Overlays (loading, toasts) follow the in-app theme too.
+        SoramitsuUI.shared.applyInterfaceStyle(to: window)
+        return window
     }
 }

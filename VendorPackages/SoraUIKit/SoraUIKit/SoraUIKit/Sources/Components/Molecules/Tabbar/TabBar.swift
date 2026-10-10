@@ -23,23 +23,61 @@ public class TabBar: UITabBar {
         return button
     }()
 
+    /// The centre swap disc (spec §7.11): `cta.swap` gradient, glyph in ink
+    /// (white in light), static `glow.swap`. The only persistent glow on the
+    /// main screens. Never pulses.
     public lazy var middleButton: ImageButton = {
         let middleButton = ImageButton(size: CGSize(width: 56, height: 56))
         middleButton.sora.cornerRadius = .circle
-        middleButton.sora.backgroundColor = .additionalPolkaswap
+        middleButton.sora.backgroundColor = .custom(uiColor: .clear)
         return middleButton
+    }()
+
+    /// The disc fill sits behind the button (the button's own image view
+    /// must stay on top of it).
+    private let swapFill: NeonGradientView = {
+        let fill = NeonGradientView()
+        fill.layer.masksToBounds = true
+        fill.translatesAutoresizingMaskIntoConstraints = false
+        return fill
+    }()
+
+    private let middleGlow: GlowHostView = {
+        let glow = GlowHostView()
+        glow.shape = .capsule
+        glow.translatesAutoresizingMaskIntoConstraints = false
+        return glow
+    }()
+
+    /// Top hairline of the notched bar (iOS 16–25 only).
+    private let topLine: CAShapeLayer = {
+        let line = CAShapeLayer()
+        line.fillColor = nil
+        line.lineWidth = 1
+        return line
     }()
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
 
         addSubview(coverButton)
+        addSubview(middleGlow)
+        addSubview(swapFill)
         addSubview(middleButton)
         addSubview(middleButtonTitleLabel)
         
         let titleWidth = UIScreen.main.bounds.width / 5
 
         NSLayoutConstraint.activate([
+            middleGlow.leadingAnchor.constraint(equalTo: middleButton.leadingAnchor),
+            middleGlow.trailingAnchor.constraint(equalTo: middleButton.trailingAnchor),
+            middleGlow.topAnchor.constraint(equalTo: middleButton.topAnchor),
+            middleGlow.bottomAnchor.constraint(equalTo: middleButton.bottomAnchor),
+            swapFill.leadingAnchor.constraint(equalTo: middleButton.leadingAnchor),
+            swapFill.trailingAnchor.constraint(equalTo: middleButton.trailingAnchor),
+            swapFill.topAnchor.constraint(equalTo: middleButton.topAnchor),
+            swapFill.bottomAnchor.constraint(equalTo: middleButton.bottomAnchor),
+
             middleButton.centerXAnchor.constraint(equalTo: centerXAnchor),
             middleButton.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -21),
             
@@ -54,6 +92,7 @@ public class TabBar: UITabBar {
         ])
         
         SoramitsuUI.updates.addObserver(self)
+        applyNeonStyle()
     }
 
     required init?(coder: NSCoder) {
@@ -62,11 +101,20 @@ public class TabBar: UITabBar {
 
     private var shapeLayer: CAShapeLayer?
 
+    /// The notched chrome under the items. Not drawn on iOS 26+: it would
+    /// paint over the system Liquid Glass bar (spec §4.3.4).
     private func addShape() {
+        guard !NeonChrome.usesLiquidGlass else {
+            shapeLayer?.removeFromSuperlayer()
+            shapeLayer = nil
+            topLine.removeFromSuperlayer()
+            return
+        }
+        let tokens = NeonTokens.current
         let shapeLayer = CAShapeLayer()
         shapeLayer.path = createPath()
         shapeLayer.strokeColor = UIColor.clear.cgColor
-        shapeLayer.fillColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).cgColor
+        shapeLayer.fillColor = (tokens.isDark ? tokens.layer1 : tokens.surface).cgColor
         shapeLayer.lineWidth = 0
 
         if let oldShapeLayer = self.shapeLayer {
@@ -74,12 +122,51 @@ public class TabBar: UITabBar {
         } else {
             self.layer.insertSublayer(shapeLayer, at: 0)
         }
-
         self.shapeLayer = shapeLayer
+
+        topLine.path = createTopEdgePath()
+        topLine.strokeColor = tokens.hairline.cgColor
+        if topLine.superlayer == nil {
+            layer.insertSublayer(topLine, above: shapeLayer)
+        }
     }
 
     public override func draw(_ rect: CGRect) {
         self.addShape()
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        swapFill.layer.cornerRadius = swapFill.bounds.height / 2
+    }
+
+    private func applyNeonStyle() {
+        let tokens = NeonTokens.current
+        swapFill.apply(tokens.ctaSwap)
+        middleButton.sora.tintColor = .custom(uiColor: tokens.onAccent)
+        middleGlow.configure(tokens.glowSwap)
+        middleButtonTitleLabel.sora.textColor = .fgSecondary
+        if let shapeLayer {
+            shapeLayer.fillColor = (tokens.isDark ? tokens.layer1 : tokens.surface).cgColor
+            topLine.strokeColor = tokens.hairline.cgColor
+        }
+        setNeedsDisplay()
+    }
+
+    private func createTopEdgePath() -> CGPath {
+        let height: CGFloat = 32.0
+        let path = UIBezierPath()
+        let centerWidth = self.frame.width / 2
+        path.move(to: CGPoint(x: 0, y: 0.5))
+        path.addLine(to: CGPoint(x: (centerWidth - height), y: 0.5))
+        path.addCurve(to: CGPoint(x: centerWidth, y: height + 0.5),
+                      controlPoint1: CGPoint(x: (centerWidth - height), y: 0.5),
+                      controlPoint2: CGPoint(x: centerWidth - height, y: height + 0.5))
+        path.addCurve(to: CGPoint(x: (centerWidth + height), y: 0.5),
+                      controlPoint1: CGPoint(x: centerWidth + height, y: height + 0.5),
+                      controlPoint2: CGPoint(x: (centerWidth + height), y: 0.5))
+        path.addLine(to: CGPoint(x: self.frame.width, y: 0.5))
+        return path.cgPath
     }
 
     func createPath() -> CGPath {
@@ -119,8 +206,8 @@ public class TabBar: UITabBar {
 
 extension TabBar: SoramitsuObserver {
     public func styleDidChange(options: UpdateOptions) {
-        guard let shapeLayer = shapeLayer else { return }
-        shapeLayer.fillColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).cgColor
+        guard options.contains(.palette) else { return }
+        applyNeonStyle()
     }
 }
 

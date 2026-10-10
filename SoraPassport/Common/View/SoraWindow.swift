@@ -30,6 +30,7 @@
 
 import UIKit
 import SoraUI
+import SoraUIKit
 #if F_DEV && canImport(FLEX)
 import FLEX
 #endif
@@ -43,6 +44,30 @@ final class SoraWindow: UIWindow {
     }
 
     private var statusView: ApplicationStatusView?
+
+    override init(windowScene: UIWindowScene) {
+        super.init(windowScene: windowScene)
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    /// "System" theme: follow the device appearance while the app is open
+    /// (for example the automatic sunset switch).
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            SoramitsuUI.shared.refreshSystemTheme()
+        }
+    }
 
     /// The Root module of the latest startup. Nothing else keeps it alive
     /// once launch routing has returned, but its screens call back into it
@@ -204,5 +229,12 @@ extension UIWindow {
             return controller
         }
         return nil
+    }
+}
+
+extension SoraWindow: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette) else { return }
+        backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
     }
 }

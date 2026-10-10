@@ -71,7 +71,8 @@ class MenuItem: SoramitsuView {
 
     let switcher: UISwitch = {
         let switcher = UISwitch(frame: .zero)
-        switcher.onTintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+        // SORA Neon toggle: the on-track is cyan (spec §7.8).
+        switcher.onTintColor = NeonTokens.current.cyan
         return switcher
     }()
 
