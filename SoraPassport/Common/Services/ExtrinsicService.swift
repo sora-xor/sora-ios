@@ -2216,6 +2216,7 @@ final class Sora2PendingSubmissionReconciler {
     private let runtimeService: RuntimeCodingServiceProtocol
     private let engine: JSONRPCEngine
     private let liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache
+    private let loadWalletNetworkSnapshot: () throws -> WalletNetworkSnapshot?
     private var canonicalBlockCache: [Int: CanonicalBlock] = [:]
     private var decodingFactories: [RuntimeKey: RuntimeCoderFactoryProtocol] = [:]
     private var recoveryHashes = Set<String>()
@@ -2224,13 +2225,17 @@ final class Sora2PendingSubmissionReconciler {
         store: Sora2PendingSubmissionStore,
         engine: JSONRPCEngine,
         runtimeService: RuntimeCodingServiceProtocol,
-        liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared
+        liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared,
+        walletNetworkSnapshot: @escaping () throws -> WalletNetworkSnapshot? = {
+            try WalletNetworkStore().load()
+        }
     ) {
         self.store = store
         self.engine = Sora2BoundedHTTPJSONRPCEngine.wrapping(engine)
         rpc = PolkamarktRPCClient(engine: self.engine)
         self.runtimeService = runtimeService
         self.liveRuntimeIdentityCache = liveRuntimeIdentityCache
+        loadWalletNetworkSnapshot = walletNetworkSnapshot
     }
 
     func reconcileStatusOnly() async throws {
@@ -2247,18 +2252,31 @@ final class Sora2PendingSubmissionReconciler {
         guard !qualified.isEmpty else {
             return
         }
-        guard let snapshot = try WalletNetworkStore().load() else {
+        guard let snapshot = try loadWalletNetworkSnapshot() else {
             throw Sora2PendingRecoveryError.unavailable
         }
-        for pending in qualified {
-            try validateWalletBinding(pending, snapshot: snapshot)
+        // An entry whose wallet binding fails (its account was removed, or
+        // its row no longer matches) stays pending and protected. It must not
+        // keep the other accounts' entries from being resolved.
+        var deferredEntry = false
+        let bound = qualified.filter { pending in
+            do {
+                try validateWalletBinding(pending, snapshot: snapshot)
+                return true
+            } catch {
+                deferredEntry = true
+                return false
+            }
+        }
+        guard !bound.isEmpty else {
+            throw Sora2PendingRecoveryError.unavailable
         }
 
         let finalized = try await rpc.finalizedBlockNumber()
         guard let finalizedHeight = Int(exactly: finalized) else {
             throw Sora2PendingRecoveryError.unavailable
         }
-        let ordered = qualified.sorted { lhs, rhs in
+        let ordered = bound.sorted { lhs, rhs in
             let lhsExpired = lhs.recoveryContext.map {
                 finalizedHeight >= $0.eraDeathBlockExclusive
             } ?? false
@@ -2290,7 +2308,6 @@ final class Sora2PendingSubmissionReconciler {
         // context is valid only for it), so every read below is bound to
         // mainnet. The runtime may have been upgraded since signing: events
         // are decoded with the runtime that produced the inclusion block.
-        var deferredEntry = false
         for pending in selected {
             try Task.checkCancellation()
             guard let context = pending.recoveryContext else {

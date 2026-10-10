@@ -640,7 +640,8 @@ final class Sora2LiveRuntimeTests: XCTestCase {
     private func reconciler(
         runtimeService: SoraPassport.RuntimeCodingServiceProtocol,
         proofs: Sora2LiveRuntimeIdentityCache,
-        directory: URL
+        directory: URL,
+        walletNetworkSnapshot: @escaping () throws -> WalletNetworkSnapshot? = { nil }
     ) throws -> Sora2PendingSubmissionReconciler {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [RPCStubProtocol.self]
@@ -652,7 +653,8 @@ final class Sora2LiveRuntimeTests: XCTestCase {
                 session: URLSession(configuration: configuration)
             ),
             runtimeService: runtimeService,
-            liveRuntimeIdentityCache: proofs
+            liveRuntimeIdentityCache: proofs,
+            walletNetworkSnapshot: walletNetworkSnapshot
         )
     }
 
@@ -757,6 +759,203 @@ final class Sora2LiveRuntimeTests: XCTestCase {
             directory: directory
         ).decodingFactory(atBlock: block)
         XCTAssertEqual(RPCStubProtocol.calls("state_getMetadata").count, 1)
+    }
+
+    // MARK: - Pending recovery pass
+
+    /// A pending transfer whose account is no longer in the wallet store (for
+    /// example, removed while the transfer was pending) cannot be bound to a
+    /// wallet. It stays pending and protected, and the other accounts'
+    /// pending transfers are still resolved from the chain.
+    func testPendingRecoveryPassResolvesOtherAccountsWhenOneEntryHasNoWallet()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+
+        let genesis = try XCTUnwrap(
+            Sora2PendingSubmissionStore.normalizedHash(
+                PIIndexerClient.soraMainnetGenesis
+            )
+        )
+        func blockHash(_ number: Int) -> String {
+            number == 0 ? genesis : String(format: "%064x", number)
+        }
+        func blockNumber(ofHash hash: String) -> Int? {
+            guard let normalized = Sora2PendingSubmissionStore.normalizedHash(hash) else {
+                return nil
+            }
+            return normalized == genesis ? 0 : Int(normalized, radix: 16)
+        }
+        // Era 128 ..< 192 (64 blocks); the chain is finalized well past it,
+        // and no block contains either transfer.
+        let birthBlock = 128
+        let period = Sora2SubmissionRecoveryContext.reviewedEraPeriod
+        let finalizedHeight = 300
+        let zeroRoot = "0x" + String(repeating: "0", count: 64)
+        func header(_ number: Int) -> String {
+            #"{"parentHash":"0x\#(blockHash(max(number - 1, 0)))","number":"0x\#(String(number, radix: 16))","stateRoot":"\#(zeroRoot)","extrinsicsRoot":"\#(zeroRoot)","digest":{"logs":[]}}"#
+        }
+        RPCStubProtocol.reset { method, params in
+            switch method {
+            case "chain_getFinalizedHead":
+                return "\"0x\(blockHash(finalizedHeight))\""
+            case "chain_getHeader":
+                return header(finalizedHeight)
+            case "chain_getBlockHash":
+                guard let number = params.first as? Int else { return nil }
+                return "\"0x\(blockHash(number))\""
+            case "chain_getBlock":
+                guard
+                    let hash = params.first as? String,
+                    let number = blockNumber(ofHash: hash)
+                else {
+                    return nil
+                }
+                return #"{"block":{"header":\#(header(number)),"extrinsics":[]}}"#
+            default:
+                return nil
+            }
+        }
+
+        let addressFactory = SS58AddressFactory()
+        let keptKey = Data(repeating: 0x21, count: 32)
+        let removedKey = Data(repeating: 0x43, count: 32)
+        let kept = try addressFactory.address(
+            fromAccountId: keptKey,
+            type: Chain.sora.addressType()
+        )
+        let removed = try addressFactory.address(
+            fromAccountId: removedKey,
+            type: Chain.sora.addressType()
+        )
+        func context(
+            account: String,
+            key: Data,
+            hash: String
+        ) -> Sora2SubmissionRecoveryContext {
+            Sora2SubmissionRecoveryContext(
+                schemaVersion: Sora2SubmissionRecoveryContext.currentSchemaVersion,
+                walletId: account,
+                accountId: key.toHex(includePrefix: false).lowercased(),
+                publicKey: key.toHex(includePrefix: false).lowercased(),
+                transactionHash: hash,
+                genesisHash: genesis,
+                specVersion: 133,
+                transactionVersion: 131,
+                metadataSHA256: Self.fixtureHexLineSHA256,
+                eraBirthBlock: birthBlock,
+                eraDeathBlockExclusive: birthBlock + period,
+                eraPeriod: period,
+                eraPhase: birthBlock % period,
+                eraBirthBlockHash: blockHash(birthBlock)
+            )
+        }
+        let keptHash = String(repeating: "a1", count: 32)
+        let removedHash = String(repeating: "b2", count: 32)
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        // The entry that cannot be bound is the older one, so it would be
+        // looked at first.
+        let removedPending = try store.stage(
+            account: removed,
+            hash: removedHash,
+            recoveryContext: context(account: removed, key: removedKey, hash: removedHash)
+        )
+        try store.update(removedPending, state: .submissionUnknown)
+        let keptPending = try store.stage(
+            account: kept,
+            hash: keptHash,
+            recoveryContext: context(account: kept, key: keptKey, hash: keptHash)
+        )
+        try store.update(keptPending, state: .submissionUnknown)
+
+        // Only the kept account is in the wallet store.
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: kept,
+            wallets: [
+                WalletIdentity(
+                    id: kept,
+                    displayName: "Kept",
+                    existingSoraAddress: kept,
+                    secretSource: .rawSeed
+                )
+            ],
+            accounts: [
+                NetworkAccount(
+                    walletId: kept,
+                    networkId: .sora2,
+                    derivationVersion: 0,
+                    publicKey: keptKey,
+                    address: kept
+                )
+            ],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        let reconciler = try reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory,
+            walletNetworkSnapshot: { snapshot }
+        )
+
+        do {
+            try await reconciler.reconcileStatusOnly()
+            XCTFail("The pass must report the entry it could not resolve")
+        } catch {
+            guard case Sora2PendingRecoveryError.unavailable = error else {
+                return XCTFail("\(error)")
+            }
+        }
+
+        let entries = try store.all()
+        let keptEntry = try XCTUnwrap(entries.first { $0.id == keptPending.id })
+        XCTAssertEqual(keptEntry.terminalResolution?.kind, .expiredNotIncluded)
+        XCTAssertEqual(keptEntry.terminalResolution?.finalizedHeight, finalizedHeight)
+        let removedEntry = try XCTUnwrap(entries.first { $0.id == removedPending.id })
+        XCTAssertNil(removedEntry.terminalResolution)
+        XCTAssertEqual(removedEntry.state, .submissionUnknown)
+        XCTAssertFalse(removedEntry.isPrunable)
+        // The whole era was scanned once for the bound entry.
+        XCTAssertEqual(
+            Set(RPCStubProtocol.calls("chain_getBlock")).count,
+            period + 1
+        )
+
+        // With no entry that can be bound, nothing is read from the chain.
+        let unbound = try self.reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory,
+            walletNetworkSnapshot: {
+                WalletNetworkSnapshot(
+                    schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                    selectedWalletId: nil,
+                    wallets: [],
+                    accounts: [],
+                    createdAt: Date(timeIntervalSince1970: 1)
+                )
+            }
+        )
+        RPCStubProtocol.reset { _, _ in nil }
+        do {
+            try await unbound.reconcileStatusOnly()
+            XCTFail("An entry without a wallet must stay unresolved")
+        } catch {
+            guard case Sora2PendingRecoveryError.unavailable = error else {
+                return XCTFail("\(error)")
+            }
+        }
+        XCTAssertTrue(RPCStubProtocol.calls("chain_getFinalizedHead").isEmpty)
+        XCTAssertNil(
+            try XCTUnwrap(store.all().first { $0.id == removedPending.id })
+                .terminalResolution
+        )
     }
 
     private func assertError<T>(
