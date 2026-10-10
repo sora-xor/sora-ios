@@ -302,6 +302,16 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   `SoraPassportTests` Debug: 331 tests, 0 failures; the unsigned Release
   device build succeeds with the same eight frameworks; the Debug app
   launches to onboarding with no crash.
+- Recheck after i3-i6 landed (clean export of `188e0b9c`, nothing else in
+  the build): no SORA Card, KYC, microphone, `soracard` query field,
+  reCAPTCHA, JOSESwift, SoraDocuments, SSFQRService or mock-fixture
+  residue came back. `SoraPassport` Debug with all test targets,
+  `SoraPassportDev` Debug and the unsigned Release device build succeed;
+  `SoraPassportTests` Debug: 476 tests, 0 failures (the 4
+  `AddressQRCodecTests` included). The Release app still embeds only the
+  same eight frameworks (no `MPQRCoreSDK`), and the Debug app opens to the
+  PIN screen over an existing wallet with no crash. No code change was
+  needed.
 - Not run here: a manual QR round trip on devices (needs a wallet and a
   camera). It is in RELEASE-CHECKLIST.md.
 
