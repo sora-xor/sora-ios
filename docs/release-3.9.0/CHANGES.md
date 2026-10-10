@@ -689,6 +689,140 @@ files), the rest SORA Card PDFs, strings, mock fixtures and dead app code.
   Release build still warns that `SORA_GOOGLE_TOKEN_DEV` is not set, as
   designed.
 
+### Recheck on the current branch (second run, 2026-10-10)
+
+The workflow was run again. The i3 changes were already on the branch, so
+this round checked them against everything that landed afterwards (i4 to
+i6 and the two kana fixes) on a clean copy of the branch, and drove the app
+on a simulator for the first time. It found and fixed two defects.
+
+**XOR balances read as zero (critical)** (`b68ad974`, `3b3ff988`)
+
+- Why: runtime 124 (6 May 2026, block 26,009,453) changed the balances
+  pallet's account data from `free, reserved, misc_frozen, fee_frozen` to
+  `free, reserved, frozen, flags`. An archive node shows the old layout up
+  to runtime 119 and the new one from 124 to 133. The app decodes
+  `System.Account` with the live metadata into `AccountData`, which
+  required `miscFrozen` and `feeFrozen`, so decoding failed for every
+  account. On runtime 133 the app log showed
+  `keyNotFound 'miscFrozen'` right after the asset list loaded. The wallet
+  reads the XOR balance only from `System.Account`
+  (`fetchBalanceInfoForAssets`), so every XOR balance showed as 0. Send
+  then reported an insufficient balance, and its recipient read
+  (`transferMetadataOperation`) failed. The earlier rounds tested signing
+  and fees, which do not read this storage.
+- What changed: `AccountData` and `DyAccountData` decode both layouts. In
+  the new layout, only the part of `frozen` that the reserved balance does
+  not cover locks free balance, and never more than `free`. The app
+  therefore never shows more XOR as transferable than the chain allows.
+  `available` now stops at zero instead of trapping when a lock is larger
+  than the free balance. Mainnet has such an account: 1.29 XOR free and 100
+  XOR frozen. Encoding keeps the earlier keys. Other tokens are read
+  through `assets_usableBalance` and were not affected.
+- App Store 3.8.6 has the same `AccountData` model but an older version of
+  the decoding library (the remote `shared-features-spm` package). Whether
+  it reads XOR balances correctly on the current network was not checked;
+  see RELEASE-CHECKLIST.md.
+
+**Pending-transfer recovery: one account no longer holds back the others
+(major)** (`a8856103`)
+
+- Why: the recovery pass checked every pending entry's wallet binding
+  first and stopped the whole pass when one failed. That happens, for
+  example, when an account is removed while its transfer is pending. The
+  other accounts' pending transfers then stayed unresolved, and so did a
+  pending legacy migration, which waits for this pass.
+- What changed: an entry that cannot be bound stays pending and protected
+  and is skipped. The others are resolved from the chain, and the pass
+  still reports that something was deferred. The wallet store read can be
+  injected, so the full pass now has the unit test that the fix round
+  listed as missing.
+
+**Live storage check** (`1495f99b`)
+
+- `Sora2MainnetLiveSigningTests.testWalletStorageDecodesWithTheLiveMainnetRuntime`
+  is a live-network test. Like the signing test it is gated, and CI skips
+  its class. It reads a page of live `System.Account`, Demeter farming
+  (`UserInfos`, `Pools`, `TokenInfos`) and `PoolXYK.AccountPools` values at
+  the finalized head. It decodes them with the app's models and the live
+  metadata, so a runtime upgrade that renames a field the wallet reads
+  fails here before users see it.
+
+**Rechecked, no change needed**
+
+- No SORA2 path pins runtime 130: admission, the live-runtime validator,
+  recovery contexts, runtime sync and the reconciler all check against the
+  live runtime. The 130 pins are left only in `PolkamarktRuntime.swift`,
+  where mutations stay compiled off. `runtime-sora.json` matches its pins
+  (136,971 bytes, `7a96f47a…`). Mainnet is still on spec 133, transaction
+  version 131.
+- PI on 2026-10-10: `mobileConfig` serves the full schema. History still
+  rejects the all-roles filter (`BAD_USER_INPUT`) and accepts `address`
+  alone, so the signer-only fallback is still needed.
+- Unchanged since i3 and as described above: the production surfaces, the
+  IrohaConnect gate and URL schemes, the locales (31, no `akk` or
+  `egy-Egyp`), version 3.9.0 (2026101001), the harness compile condition,
+  the privacy manifest (i4 to i6 use no new required-reason API), the
+  Info.plist strings and the Google Sign-In script.
+
+**User-visible effects**
+
+- XOR balances show the real amount again on the current SORA network, and
+  frozen XOR is not counted as transferable. Send no longer reports an
+  insufficient balance for funded accounts and can read the recipient's
+  account again.
+- Pending transfers of other accounts are resolved even when one account's
+  transfer cannot be.
+
+**Verification (Xcode 27.0, iOS 27, clean copy of branch commit `1495f99b`)**
+
+- New tests in `Sora2LiveRuntimeTests`:
+  `testSystemAccountDecodesTheRuntime133BalancesLayout` (runtime 133
+  fixture; with the previous model it fails with `keyNotFound
+  'miscFrozen'`), `testAccountDataKeepsTheEarlierBalancesLayout`, and
+  `testPendingRecoveryPassResolvesOtherAccountsWhenOneEntryHasNoWallet`
+  (full pass over a stubbed node; with the previous pass the bound entry
+  stays unresolved).
+- `SoraPassportTests`, Debug, live class skipped: 482 tests, 0 failures.
+- `SoraPassportTests`, Release configuration built as CI job 2 builds it:
+  482 tests, 0 failures.
+- Live network, SORA-Release-A, `wss://ws.mof.sora.org`:
+  - Signing test (finalized block 27,983,611): spec 133, transaction
+    version 131, metadata `ab22a2d4…`, `payment_queryInfo` partial fee
+    100018412589707326, submission rejected only with 1010 "Inability to
+    pay some fees".
+  - Storage test: 300 accounts (13 funded, 1 with frozen XOR), 50
+    `UserInfos`, 31 `Pools`, 12 `TokenInfos` and 50 `AccountPools` values,
+    all decoded.
+- In the app (Debug build, SORA-Release-B, over an earlier test install):
+  - "Welcome back" appeared. "Continue without restoring" was chosen, then
+    a throwaway phrase was imported with a test PIN. The phrase was typed
+    with the English keyboard.
+  - Before the fix, the log showed the `miscFrozen` decoding failure; with
+    the fix it is gone, the runtime snapshot completes, and the wallet
+    loads.
+  - With this unfunded account, Send shows "残高不足" (insufficient
+    balance) and no fee. A real send needs funds and stays in Device QA.
+  - Screenshots: `scratchpad/screens/ios/i3-release-correctness-retry/`.
+- Builds: `SoraPassport` Debug (simulator, all test targets),
+  `SoraPassportDev` (simulator) and unsigned `SoraPassport` Release for
+  `generic/platform=iOS` succeed. The Release app passes every "Check
+  Release app bundle" step of `ios_ci.yml`, run locally: 3.9.0
+  (2026101001), arm64, no harness, no IrohaConnect scheme, no removed
+  locale. Without the Google secret the Release build warns, as designed.
+- The full runs used `1495f99b`. After the comment-only commit `3b3ff988`,
+  the Debug and Release device builds were repeated and the i3 test classes
+  were run again (53 tests, 0 failures).
+
+**Commits**
+
+- `a8856103` Resolve other accounts' pending transfers when one cannot be
+  bound
+- `b68ad974` Read XOR balances in the runtime 132+ balances layout (the
+  runtime number in this message is wrong; see `3b3ff988`)
+- `1495f99b` Check live mainnet storage against the app's models
+- `3b3ff988` Name runtime 124 as the start of the new balances layout
+
 ## i4: Key safety, lockouts and recovery (core)
 
 ### Why
