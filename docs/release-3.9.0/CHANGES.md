@@ -1217,3 +1217,192 @@ noted below.
   install showed Welcome back. Tapping "Restore with recovery phrase", then
   "Continue without them", opened onboarding. Screenshots are in
   `scratchpad/screens/ios/i4-fix2/`.
+
+## i5: Port of the App Store 3.8.6 commits
+
+### Why
+
+App Store 3.8.6 (`354f176c`) has 13 commits that the 3.9.0 candidate did
+not have (`git log 4bf5209b..354f176c`). Five of them change behaviour that
+users depend on:
+
+- **Chain store wiped on upgrade.** 3.8.6 added `CDConfig`,
+  `CDMetadataVersion` and `CDNode` to `SubstrateDataModel`. The candidate
+  had the older 10-entity model and opened the store with RobinHood's
+  `.removeStore`, so updating from 3.8.6 deleted the user's contacts,
+  custom and selected nodes, pool favourites and caches. `.removeStore` also
+  deleted the store whenever its metadata could not be read, for example on
+  a launch before the first unlock.
+- **Asset whitelist failed open.** Until `whitelist.polkaswap2.io`
+  answered (and whenever it failed), every on-chain asset was listed with
+  its on-chain name and symbol, and such assets stayed in the stored chain.
+  Anyone can register a SORA asset with any name, so spoofed tokens could
+  appear. 3.8.6 listed only whitelisted assets.
+- **DEX ids hard-coded to 0 and 1.** Mainnet `DEXManager.DEXInfos` has
+  0 (XOR), 1 (XSTUSD), 2 (KUSD) and 3 (base `0x006a2718…`). Pairs that only
+  exist on DEX 2 or 3 were reported as unavailable, and liquidity sent DEX
+  "1" for every non-XOR base.
+- **KXOR offered as a liquidity base.** KXOR is not a DEX base on chain; a
+  supply with it fails after the fee is charged.
+- **A damaged chain row crashed every launch** (`preconditionFailure` in
+  `ChainModelMapper`).
+
+### What changed
+
+**Versioned chain store** (`45e6c338`)
+
+- `SubstrateDataModel.xcdatamodeld` has two versions: `SubstrateDataModel`
+  (v1, unchanged, the candidate's model) and `SubstrateDataModel 2` (v2,
+  current), a byte-for-byte copy of the 3.8.6 model.
+- Before the store is opened, `SubstrateStoreMigrator` reads its metadata:
+  - no store, or a v2 store (every 3.8.6 store): opened as is;
+  - a v1 store (2.x to 3.8.5 and the 3.9.0 TestFlight builds): migrated in
+    place with lightweight migration;
+  - a store that matches no known version, or a file that is not a SQLite
+    database: removed together with its `-wal` and `-shm` files (the same
+    end state as `.removeStore`; the store holds no key material);
+  - a store that cannot be read or migrated now (locked before the first
+    unlock, disk full, I/O, busy): left untouched, and this session uses a
+    temporary in-memory store. The next launch tries again.
+- The store is then opened with `.ignore` and the migration options.
+- After the migration the store is in the 3.8.6 schema, so App Store 3.8.6
+  opens it after a downgrade without wiping it. A downgrade to a 3.9.0
+  TestFlight build from before this change still wipes it (that build has
+  `.removeStore`).
+
+**Fail-closed asset whitelist** (`89e49a12`)
+
+- Every chain-sync pass applies a whitelist: the fresh remote list, else
+  the last remote list that decoded (saved in
+  `Application Support/AssetWhitelist/whitelist.json`), else the bundled
+  `whitelist.json`. Assets kept from the stored chain are filtered too.
+  Listed assets take the list's name, symbol and icon.
+- A downloaded list is used and saved only if it decodes and lists XOR; an
+  empty, truncated or HTML response keeps the last good list. Entries that
+  do not decode are skipped.
+- The bundled list dates from 2.3.1 and lacks XST, TBCD and KUSD (XST and
+  TBCD are shown by default). When the bundled list is the source (or no
+  list is readable), the protocol's predefined assets
+  (`0x02` + 16-bit code + zeros, which no account can register) stay listed
+  with their on-chain names. With a remote or last-good list the rule is
+  strict.
+- The saved list is public data and uses
+  `completeUntilFirstUserAuthentication` protection, so a background launch
+  can read it.
+- The unused `WhitelistOperationFactory` is removed.
+
+**DEX ids from the chain** (`5d8bfbc1`)
+
+- New `DexInfoService` reads `DEXManager.DEXInfos` (`state_getKeysPaged`,
+  then `state_queryStorageAt`) and decodes the DEX id from the key and the
+  base asset from the value. Compared with 3.8.6's `DexInfoServiceDefault`:
+  - an unknown base asset costs at most one chain read and is reported as
+    unknown (3.8.6 called itself without end);
+  - callers share one read; after a failure the next read waits 30 s;
+  - DEX 0 (XOR) and 1 (XSTUSD) are always known, so a failed read never
+    blocks XOR or XSTUSD pools;
+  - completions are set before operations are enqueued.
+- Swaps: the path check, the market sources and the quote cover every DEX.
+  The best quote's DEX id is the one the swap is signed with (already
+  plumbed through `TransactionContextKeys.dex`).
+- Liquidity: the DEX id comes from the base asset's DEX. An unknown base is
+  refused (`LiquidityTransferInfoFactoryError.unknownDex`) instead of
+  guessed, and a missing DEX id in the context is an error instead of 0.
+  The pools service reads the DEX list at start.
+- Unused pair checks in `AccountPoolsService` are removed.
+
+**KXOR is no longer a supply base** (`7d9d4cf9`)
+
+- The base picker offers XOR, and XSTUSD unless the target is XST. It no
+  longer fails to open when KXOR or XSTUSD is not listed, and the target
+  picker no longer needs ETH to be listed.
+
+**Chain store crash guard** (`af3b65a0`)
+
+- Incomplete asset and node rows are skipped; a chain row without an id or
+  name is reported as an error. Pruning node rows no longer force-unwraps
+  their URL.
+
+**Alerts on the main thread** (`39189a1c`)
+
+- `AlertPresentable` and `UIAlertController.present` move to the main
+  thread when called from a background queue, as the 3.8.x line did after
+  3.8.6 (`b890dd5c`). Calls on the main thread are unchanged.
+
+**Already done or not ported**
+
+- Photo-library permission string (`354f176c`): done in i3 (`e6584e45`)
+  with clearer text and Japanese.
+- Shared-features pins, the build-phase removal of static libraries and
+  the SORA Card pod (`2b17f41d`, `ea1691fb`, `879f43c8`, `5bf6c40c`,
+  `e50c7ca4`, `42361874`, `52872616`, `fa4c910f`): not needed. Shared
+  features are vendored; SORA Card is removed. The archive check for
+  static libraries is in the i1 checklist.
+- `fe184e06` offline config cache and runtime-version cache, and
+  `7eaba9b8` (bundled metadata with spec 102, `try? saveBackup` before
+  marking a backup done): not ported. 3.9.0 has its own node list and
+  live-runtime path, and its backup flow is stricter.
+- Tags 3.8.7 to 3.8.9 (`9759b8ae`, `b890dd5c`, `fe9016cd`) follow 3.8.6
+  and keep its `SubstrateDataModel`, so v2 covers them. Only the alert
+  main-thread change from `b890dd5c` is ported.
+
+### User-visible effects
+
+- Updating from App Store 3.8.6 keeps contacts, the chosen and custom
+  nodes, and pool favourites. Updating from a 3.9.0 TestFlight build keeps
+  them too.
+- The wallet lists only whitelisted assets, with their vetted names and
+  icons. Tokens that are not on the whitelist (for example a token someone
+  registered with a well-known name) are not shown, as in 3.8.6. Testers of
+  earlier 3.9.0 builds may see such tokens disappear.
+- Swaps between assets that trade on the KUSD or the fourth DEX are now
+  offered and quoted; the best price across all DEXes is used.
+- KXOR is no longer offered as the first asset when adding liquidity.
+- No change to wallets, keys, addresses or account data. No new strings.
+
+### Verification (Xcode 27.0, SORA-Release-A, iOS 27)
+
+- `SubstrateStoreMigrationTests` (9): a store written with the 3.8.6 model
+  (compiled independently from `354f176c` with `momc`, embedded in the
+  test) keeps its contact, custom and selected node, pool favourite and
+  3.8.6-only rows, needs no migration, and still opens with the 3.8.6
+  model; a v1 store is migrated and then opens with the 3.8.6 model; a
+  store from an unknown model and a non-database file are removed while
+  `UserDataModel.sqlite` beside them is untouched; an unreadable store is
+  left byte-for-byte unchanged, the session uses memory, and the next
+  launch migrates it; v2 equals 3.8.6 (entity version hashes); transient
+  error classification; incomplete rows do not crash the mapper.
+- `AssetWhitelistTests` (7): with the remote list failing and no saved
+  list, a spoofed asset is not listed, VAL takes the bundled name, symbol
+  and icon, and XST (predefined) stays; with a saved list the rule is
+  strict; a fresh list decides and is saved; unusable downloads keep the
+  saved list; assets kept from the stored chain are filtered.
+- `DexInfoServiceTests` (9): decoding mainnet-shaped `DEXInfos` (and
+  skipping malformed entries); the loader's two RPC calls over a fake node;
+  one read shared by 20 concurrent callers; an unknown base (KXOR) after
+  one read and no more; fallback to DEX 0/1 and a retry after 30 s; the
+  swap interactor reports a path that exists only on DEX 2, merges market
+  sources, quotes DEX 0 to 3 and picks DEX 2 (desired input) or DEX 0
+  (desired output); liquidity uses DEX 1 for XSTUSD and refuses KXOR.
+- `ApplicationConfigTests` chain-sync tests were updated to pass a
+  whitelist (bundled or empty) instead of `nil` data.
+- Full `SoraPassportTests` (Debug, `Sora2MainnetLiveSigningTests`
+  skipped): 449 tests, 0 failures (424 before this task, 25 new).
+- Simulator upgrade (SORA-Release-B): the earlier i4 Debug build's v1
+  store was given a contact, an unmarked pool favourite and a selected
+  node (`ws.mof.sora.org`), then the new build was installed over it and
+  launched. The store gained the `CDConfig`, `CDMetadataVersion` and
+  `CDNode` tables and kept the contact, the favourite flag, the node
+  choice and all other rows. The app launched normally (to the existing
+  Welcome back state of that simulator); no crash report. Screenshot:
+  `scratchpad/screens/ios/i5-port-386/upgrade-launch.png`.
+- Builds: `SoraPassport` Debug (simulator, with tests), `SoraPassportDev`
+  (simulator) and unsigned `SoraPassport` Release for `generic/platform=iOS`
+  succeed; both app bundles contain `SubstrateDataModel.mom` and
+  `SubstrateDataModel 2.mom`.
+
+### Commits
+
+`45e6c338` versioned chain store, `89e49a12` fail-closed whitelist,
+`7d9d4cf9` KXOR, `5d8bfbc1` DEX ids from the chain, `af3b65a0` mapper crash
+guard, `39189a1c` alerts on the main thread.

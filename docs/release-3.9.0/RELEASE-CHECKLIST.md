@@ -333,3 +333,52 @@ existing wallet:
 - [ ] New iPhone from iCloud: Add account → Import with the phrase of a
       read-only account, and Add account → Google Drive with its backup, each
       restore the keys. The account is not reported as already imported.
+
+## i5: Port of the App Store 3.8.6 commits
+
+### Before archiving
+
+- [ ] Refresh the bundled asset whitelist (not done in this task: no
+      downloads were allowed). Download
+      `https://whitelist.polkaswap2.io/whitelist.json`, check it is a JSON
+      array that lists XOR (`0x0200000000…`), replace
+      `SoraPassport/Resources/whitelist.json`, and review the diff (new and
+      removed tokens, renamed symbols). The bundled list is used only on a
+      first launch that cannot reach the whitelist server; it dates from
+      2.3.1 (185 entries).
+
+### Device QA
+
+- [ ] Upgrade from App Store 3.8.6: add a contact, add a custom node and
+      select it, and unmark a pool as favourite. Install 3.9.0 over it. The
+      contact, the selected custom node and the favourite are still there.
+- [ ] Then install App Store 3.8.6 over 3.9.0 again: the same data is still
+      there.
+- [ ] Upgrade from the 3.9.0 TestFlight build `2026091402` with a contact
+      and a selected node: both are kept.
+- [ ] Whitelist outage: block `whitelist.polkaswap2.io` (proxy or DNS) and
+      launch a fresh install. The asset list shows only whitelisted and
+      predefined assets (XOR, VAL, PSWAP, XST, XSTUSD, TBCD, KUSD, …), with
+      their usual names. Unblock and relaunch: the list follows the live
+      whitelist.
+- [ ] Liquidity: the base asset picker offers XOR and XSTUSD only (no KXOR).
+      Add and remove liquidity in a small XOR pool and a small XSTUSD pool.
+
+### Mainnet canary (small amounts)
+
+- [ ] Swap a small amount between assets that trade only through the KUSD
+      DEX (DEX 2), for example a KUSD-paired token. The review screen shows
+      a quote and the swap succeeds. In the explorer, the extrinsic's
+      `dex_id` is 2.
+- [ ] Swap XOR → VAL and VAL → XOR: still DEX 0 (or the DEX with the best
+      quote), and the swap succeeds.
+- [ ] If the chain ever adds a DEX, no app change is needed; the new DEX is
+      read at the next launch.
+
+### Notes
+
+- The App Store archive check for static libraries (3.8.6 commits
+  `42361874`/`52872616`) is already in the i1 "Archive" list.
+- A downgrade from 3.9.0 to a 3.9.0 TestFlight build that predates this
+  change wipes the chain store (contacts, nodes, favourites) because those
+  builds use `.removeStore`. Expire or replace those TestFlight builds.
