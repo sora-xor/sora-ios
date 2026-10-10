@@ -11,6 +11,7 @@ public final class InputAssetField: UIControl, Molecule {
     let containerView: SoramitsuView = {
         let view = SoramitsuView()
         view.sora.cornerRadius = .max
+        view.sora.material = .solid
         view.sora.backgroundColor = .bgSurface
         view.sora.borderWidth = 1
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -82,6 +83,11 @@ public final class InputAssetField: UIControl, Molecule {
 
     @available(*, unavailable)
     public override init(frame: CGRect) { fatalError("init(coder:) has not been implemented") }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        NeonInputStyle.layout(containerView)
+    }
 }
 
 private extension InputAssetField {

@@ -54,12 +54,17 @@ public final class InputTextView: UIView, Molecule {
 
     @available(*, unavailable)
     public override init(frame: CGRect) { fatalError("init(coder:) has not been implemented") }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        NeonInputStyle.layout(stackView)
+    }
 }
 
 private extension InputTextView {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        stackView.layer.cornerRadius = 28
+        stackView.layer.cornerRadius = 16
         stackView.layer.borderWidth = 1
 
         addSubview(stackView)

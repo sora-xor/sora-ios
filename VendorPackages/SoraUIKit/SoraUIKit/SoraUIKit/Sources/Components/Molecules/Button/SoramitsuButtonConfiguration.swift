@@ -61,6 +61,35 @@ public final class SoramitsuButtonConfiguration<Type: SoramitsuButton>: Soramits
         }
     }
 
+	/// The background the caller chose, if any. The type's own colour is
+	/// applied by the button and never stored here.
+	public private(set) var explicitBackgroundColor: SoramitsuColor?
+
+	public override var backgroundColor: SoramitsuColor {
+		didSet {
+			guard owner != nil, !isReapplyingBackground else { return }
+			explicitBackgroundColor = backgroundColor
+			owner?.updateView()
+		}
+	}
+
+	/// The tint the caller chose for the button's images, if any.
+	public private(set) var explicitTintColor: SoramitsuColor?
+
+	public override var tintColor: SoramitsuColor {
+		didSet {
+			guard owner != nil, !isReapplyingTint else { return }
+			explicitTintColor = tintColor
+			owner?.updateView()
+		}
+	}
+
+	public override var clipsToBounds: Bool {
+		didSet {
+			owner?.applyClipping()
+		}
+	}
+
 	init(style: SoramitsuStyle) {
 		super.init(style: style, stater: SoramitsuStateDecorator(state: .default))
 		stater.g = self

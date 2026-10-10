@@ -77,7 +77,9 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
     }
 
     func updateView() {
-        owner?.containerView.layer.borderColor = style.palette.color(state.borderColor).cgColor
-        owner?.containerView.backgroundColor = style.palette.color(.bgSurface)
+        guard let owner else { return }
+        // The amount card keeps the card radius; it is a hero input (spec §8.11).
+        NeonInputStyle.apply(to: owner.containerView, state: state, isEnabled: true,
+                             cornerRadius: owner.containerView.layer.cornerRadius)
     }
 }
