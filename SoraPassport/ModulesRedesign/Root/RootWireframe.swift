@@ -34,6 +34,14 @@ import SoraKeystore
 import SoraUIKit
 
 final class RootWireframe: RootWireframeProtocol {
+    private let keystore: KeystoreProtocol
+    private let settings: SettingsManagerProtocol
+
+    init(keystore: KeystoreProtocol = Keychain(), settings: SettingsManagerProtocol = SettingsManager.shared) {
+        self.keystore = keystore
+        self.settings = settings
+    }
+
     func showOnboarding(on view: UIWindow) {
         RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
             .onboarding
@@ -105,9 +113,15 @@ final class RootWireframe: RootWireframeProtocol {
             // Re-run the full startup checks with the restored wallets.
             Self.restartStartup(on: window)
         }
+        // The wireframe is captured strongly: it holds no state and does not
+        // own the controller, so there is no cycle. A weak capture let the
+        // phrase, Google Drive and set-up actions do nothing once launch
+        // routing had returned and the Root module was released.
         let controller = WalletWelcomeBackViewController(
-            onContinueToOnboarding: { [weak self, weak view] in
-                guard let self, let view else { return }
+            keystore: keystore,
+            settings: settings,
+            onContinueToOnboarding: { [weak view] in
+                guard let view else { return }
                 self.showOnboarding(on: view)
             },
             onWalletsRestored: restart
@@ -154,7 +168,7 @@ final class RootWireframe: RootWireframeProtocol {
 /// An explicit confirmation replaces the historical silent-import path. The
 /// old entropy remains in its original Keychain tag throughout the journaled
 /// account commit and is retained after success for dual-read recovery.
-private final class LegacyWalletUpgradeViewController: UIViewController {
+final class LegacyWalletUpgradeViewController: UIViewController {
     private let onConfirm: () -> Void
     private let continueButton = UIButton(type: .system)
     private let statusLabel = UILabel()
@@ -1261,6 +1275,8 @@ enum WalletRetainedWalletRestoreFlow {
 /// Shown when only Keychain items from an earlier install are left (iOS keeps
 /// them when the app is deleted). Nothing is deleted or changed by showing it.
 final class WalletWelcomeBackViewController: UIViewController {
+    private let keystore: KeystoreProtocol
+    private let settings: SettingsManagerProtocol
     private let onContinueToOnboarding: () -> Void
     private let onWalletsRestored: () -> Void
     private let restoreFoundButton = UIButton(type: .system)
@@ -1271,7 +1287,12 @@ final class WalletWelcomeBackViewController: UIViewController {
     private(set) var options = WalletRecoveryState
         .welcomeBack(adoptableWallets: 0, walletsWithPhrase: 0, retainedPinUsable: false).options
 
-    init(onContinueToOnboarding: @escaping () -> Void, onWalletsRestored: @escaping () -> Void) {
+    init(keystore: KeystoreProtocol = Keychain(),
+         settings: SettingsManagerProtocol = SettingsManager.shared,
+         onContinueToOnboarding: @escaping () -> Void,
+         onWalletsRestored: @escaping () -> Void) {
+        self.keystore = keystore
+        self.settings = settings
         self.onContinueToOnboarding = onContinueToOnboarding
         self.onWalletsRestored = onWalletsRestored
         super.init(nibName: nil, bundle: nil)
@@ -1362,8 +1383,10 @@ final class WalletWelcomeBackViewController: UIViewController {
     }
 
     private func refreshOptions() {
+        let keystore = self.keystore
+        let settings = self.settings
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let state = WalletRecoveryStateProbe.welcomeBack(keystore: Keychain(), settings: SettingsManager.shared)
+            let state = WalletRecoveryStateProbe.welcomeBack(keystore: keystore, settings: settings)
             DispatchQueue.main.async {
                 self?.apply(state.options)
             }
@@ -1475,7 +1498,7 @@ final class WalletWelcomeBackViewController: UIViewController {
             DispatchQueue.global(qos: .userInitiated).async {
                 var pin = pin
                 defer { pin.removeAll(keepingCapacity: false) }
-                let keychain = Keychain()
+                let keychain = self.keystore
                 let result = Result { () -> [WalletRecoveryPhraseReveal.Entry] in
                     let wallets = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain).adoptable
                     let accounts = wallets.map {
@@ -1485,7 +1508,7 @@ final class WalletWelcomeBackViewController: UIViewController {
                                     order: 0, isSelected: false)
                     }
                     return try WalletRecoveryPhraseReveal.reveal(
-                        pin: pin, accounts: accounts, keystore: keychain, settings: SettingsManager.shared)
+                        pin: pin, accounts: accounts, keystore: keychain, settings: self.settings)
                 }
                 DispatchQueue.main.async {
                     self.setBusy(false)

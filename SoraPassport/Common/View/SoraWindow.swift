@@ -44,6 +44,12 @@ final class SoraWindow: UIWindow {
 
     private var statusView: ApplicationStatusView?
 
+    /// The Root module of the latest startup. Nothing else keeps it alive
+    /// once launch routing has returned, but its screens call back into it
+    /// (Welcome back, the 1.x upgrade confirmation and its import
+    /// completion). The next startup replaces it.
+    var rootModule: AnyObject?
+
     override func addSubview(_ view: UIView) {
         super.addSubview(view)
 
