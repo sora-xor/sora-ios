@@ -401,3 +401,74 @@ existing wallet:
   (with side files) and a new store is used. It holds contacts, node
   choices, pool favourites and caches, no key material. Support can ignore
   such files; they are never deleted by the app.
+
+## i6: SORA Neon UI foundation
+
+### Design and product decisions (confirm before release)
+
+- [ ] The theme default is unchanged: with no stored choice the app follows
+      the device appearance, for upgrades and new installs alike. The spec
+      wants Dark for new installs only; that needs a reliable "fresh
+      install" signal and was left to the product owner.
+- [ ] Body text uses the system font: the spec's Inter is not in the
+      repository and no font was added. Bundling Inter (OFL, ~900 KB) is a
+      design decision; if approved, add the three `.ttf` files and their
+      licence to `UIAppFonts` and the font family resolves automatically.
+- [ ] Headlines and buttons now render in Sora, which is about 8–10 % wider
+      than the system font. Run a truncation pass on every screen in
+      English, Japanese and the longest locales (de, ru), at default and
+      large text sizes.
+- [ ] Legacy cards stay opaque (surface colour plus a hairline); translucent
+      glass is opt-in per screen (`sora.material = .glass` or `GlassView`).
+      Per-screen hero treatments of the spec (§8, §9: balance hero,
+      neumorphic PIN keys, phrase grid, Safe Mode step lists, settings
+      theme selector and "Reduce effects" switch) are not part of this
+      task.
+- [ ] The 1.x upgrade screen copy changed (title, two assurances, details
+      behind "What happens during the upgrade?"). Per spec §9.1-2 an
+      engineering owner signs off that both assurances hold for that flow:
+      "Your original keys are not deleted or replaced" and "If a check
+      fails, SORA stops safely and shows your options".
+- [ ] New Safe Mode strings exist in English and Japanese only (17 keys,
+      "SORA Neon Safe Mode screens" block at the end of
+      `Localizable.strings`); other locales fall back to English. Translate
+      before release, together with the i4 recovery strings.
+
+### Device QA
+
+- [ ] Launch in dark and light on a real iPhone (iOS 16, 18 and 26+): no
+      light flash in dark mode; the splash rings and mark match the theme.
+- [ ] iOS 16–25: the tab bar keeps its notch with the chrome colour and a
+      top hairline; check that items, the swap disc and the notch line up
+      and that the disc and the area around it respond to taps. This path
+      could not be checked here (only iOS 27 simulators are installed).
+- [ ] iOS 26+: tab bar items switch, the selection capsule is the system
+      Liquid Glass, and the swap disc opens Polkaswap.
+- [ ] Switch Settings → Appearance between System, Dark and Light while the
+      device is in the other appearance: alerts, keyboards, share sheets,
+      navigation bars and the PIN lock follow the in-app choice.
+- [ ] Accessibility: Reduce Transparency (opaque glass and backdrops),
+      Increase Contrast (no glows, 2 pt hairlines), Reduce Motion (no press
+      scaling), Low Power Mode (no pulses); VoiceOver skips the decorative
+      aurora, glows and borders.
+- [ ] Scroll performance on an iPhone 8 / SE 2-class device: wallet, Explore
+      and Activity lists with Core Animation "Color Offscreen-Rendered" on
+      (card shadows now have paths; there should be fewer offscreen passes
+      than in 3.8.6).
+- [ ] QR codes stay black on white in both themes (receive and request).
+- [ ] Screens that stay open while the theme changes (live switch from
+      Settings or the device) re-colour their SoraUIKit views, bars,
+      toggles and the Welcome terms text; a few labels coloured once at
+      creation in older screens may keep the previous colours until the
+      screen is reopened. Note any that stay unreadable.
+
+### Open defect found during this task (pre-existing)
+
+- [ ] Fix before release: typing quickly into the recovery phrase field
+      with the Japanese kana keyboard crashed the app on the iOS 27
+      simulator (`NSInvalidArgumentException` in
+      `InputHandler.didReceiveReplacement`, called from
+      `ImportAccountViewController.textView(_:shouldChangeTextIn:replacementText:)`;
+      the range from the keyboard is beyond the handler's value). Not
+      caused by the UI changes; reported for a separate fix. Japanese
+      users import with that keyboard.

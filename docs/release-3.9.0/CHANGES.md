@@ -1565,3 +1565,260 @@ and minor, the same finding)
 deferral; `002141e8` chain row repair; `d7bab53b` token order and
 visibility kept.
 
+
+## i6: SORA Neon UI foundation (SoraUIKit, fonts, components)
+
+### Why
+
+- The design owner chose "SORA Neon" (design spec `SORA-NEON-DESIGN.md`
+  §2–§7): a near-black canvas with faint aurora washes, calm glass cards,
+  neon reserved for the one action that matters, neumorphism only for
+  thumb-pressed controls, and a calm "Safe Mode" for recovery and upgrade
+  screens.
+- The audit and the UI map found real bugs in the old UI layer:
+  - The bundled Sora font never loaded. `FontData` built the name from the
+    enum case names (`"headline-one"`), so every SoraUIKit text style fell
+    back to the system font.
+  - In dark mode, warning, success, error and info containers were light
+    pastels behind light text (fgPrimary on the warning container was
+    1.09:1, success text on its container 1.39:1).
+  - Modal backdrops (59 flows) were always a light blur, also in dark mode.
+  - The in-app Dark switch did not reach system UI (alerts, keyboards,
+    sheets, Liquid Glass): no window had `overrideUserInterfaceStyle`.
+  - The launch screen and splash were light only, so dark-mode users saw a
+    light flash at every launch.
+  - The recovery, Welcome back, phrase-reveal and 1.x upgrade screens used
+    raw system colours and ignored the app theme; the upgrade screen had
+    hard-coded English and told users "Do not delete the app".
+  - A theme change or an enable toggle reset a button's chosen background
+    and image tint.
+  - Every Soramitsu view allocated an unused `UIVisualEffectView`; card
+    shadows had no `shadowPath` (an offscreen pass per card while
+    scrolling); bleached buttons rasterised an animating layer.
+  - The global bar-button appearance made every text bar button invisible.
+
+### What changed
+
+`SUK/` below is `VendorPackages/SoraUIKit/SoraUIKit/SoraUIKit/Sources/`
+(the vendored SoraUIKit package).
+
+**Typography** (`SUK/Core/FontData.swift`, `SUK/Codegen/Fonts.swift`)
+
+- Font names come from the raw values: headlines, buttons and display
+  numbers now render in the bundled Sora (`Sora-Regular`, `Sora-SemiBold`,
+  `Sora-Bold`). The body face of the spec (Inter) is not in the repository,
+  so body text uses the system font, as the spec's fallback allows. No font
+  was added.
+- The SORA Neon type scale (§5.3): SemiBold weight, tracking and line
+  heights; new tokens `displayHero`, `eyebrow`, `amountM`, `amountS`
+  (tabular figures), `mono` (platform monospace for addresses and codes),
+  `phraseWord` and `pinDigit`. Fonts are cached (`NSCache`).
+- The never-called `TypographyConstants.registerFonts` is removed; fonts
+  load through `UIAppFonts` as before.
+
+**Tokens** (`SUK/Neon/NeonTokens.swift`, `SUK/Codegen/*Palette.swift`)
+
+- `NeonTokens.dark` / `.light` hold every value of §2.1/§2.2 (surfaces,
+  aurora, glass, gradient hairlines, text, accents, CTA gradients, status,
+  glow specs, neumorphic shadows, skeleton) plus motion tokens.
+- `DarkPalette` and `LightPalette` map every `SoramitsuColor` slot onto
+  the tokens (§2.3), so all existing `sora.*Color` call sites restyle. The
+  switch is exhaustive: the old `default: return .black` is gone. Dark
+  containers are now dark (warning `#241B12`, success `#0B221D`, error
+  `#2A1119`, info `#0B2128`); contrast checked with `cc.py` (≥ 4.5:1 for
+  text and container pairs in both themes; see the new unit test).
+- The Figma token generator (`Scripts/main.swift`, `Config.json`) is
+  removed: it could not express SemiBold, alpha tokens or tabular
+  figures, and running it would have silently reverted the palettes. The
+  `Codegen` files are now maintained by hand. The unused legacy foundation
+  colours are removed (`Colors.white100`/`black100` stay).
+- `FxPolicy` (§4.0): FULL / REDUCED / MINIMAL tiers from Reduce
+  Transparency, Low Power Mode, thermal state and a new in-app
+  `neon.reduceEffects` key (no UI yet); Increase Contrast turns glows off
+  and glass opaque. `NeonFxCenter` reposts the system notifications as one
+  `.neonFxChanged`, and the theme manager re-resolves every surface.
+
+**Components** (`SUK/Neon/`)
+
+- `GradientBorderLayer`: the 135° gradient hairline and glass sheen, drawn
+  with Core Graphics once per size or theme (no mask, so no offscreen pass).
+- `GlassView` (card glass with fill, sheen, gradient hairline and the light
+  card shadow; opaque under reduced transparency), `GlowHostView` (glow
+  behind a control, ring fallback, finite pulse), `NeumorphicControl`
+  (dual outer shadows, inset pressed state, cyan ring, paths everywhere),
+  `AuroraView` (static radial washes, optional grid texture, Safe Mode
+  variant without red), `NeonChrome` (chrome material: `UIGlassEffect` on
+  iOS 26+ inside `#if compiler(>=6.2)` / `#available(iOS 26.0, *)`,
+  ultra-thin material with tint below; tab and navigation bar
+  appearances), `NeonScrimView` (theme-aware modal backdrop) and
+  `NeonInputStyle`.
+- Every effect has a cheaper fallback (Reduce Transparency, Increase
+  Contrast, Reduce Motion, Low Power Mode) and every shadow has a path.
+
+**SoraUIKit core** (`SoramitsuViewConfiguration`, buttons, inputs)
+
+- Cards: the legacy card idiom (`.bgSurface`, card radius, all corners)
+  keeps an opaque Neon surface and gets a 1 pt hairline drawn above its
+  content (one outline per card: cards nested in cards get none), soft
+  ink shadows in light and none in dark (§4.3.1). Translucent glass is
+  opt-in (`sora.material = .glass` or `GlassView`): many cards contain
+  `.bgSurface` subviews that a translucent card would show as patches.
+- Shadows are theme-aware and always get a `shadowPath` when the view has
+  a fill; corners are continuous; the card radius is 24 (was 32).
+- The unused per-view blur decorator and `CustomVisualEffectView` (a paused
+  `UIViewPropertyAnimator` hack) are deleted; their users get
+  `NeonScrimView` and a small glass card.
+- A theme change no longer re-assigns `shadow` (which also reset
+  `clipsToBounds` and clipped content such as the Welcome logo).
+- `SoramitsuButton`: the primary CTA (filled primary, or an explicit
+  `.accentPrimary` background) is the `cta.primary` gradient with ink text
+  in dark and white in light plus `glow.primary`; `.additionalPolkaswap`
+  becomes the `cta.swap` gradient. A caller's background and image tint
+  survive theme changes and enable toggles; filled buttons on surface or
+  container colours get a readable label; disabled buttons use
+  `cta.disabled` with `text.disabled`; press scales to 0.98 (not under
+  Reduce Motion); bleached buttons no longer rasterise.
+- Text fields (`InputField`, `InputTextView`, `InputAssetField`): opaque
+  input fill, `border.input` at rest, cyan border and focus glow when
+  focused (dark, full effects), status borders for success and errors,
+  radius 16 (the amount card keeps the card radius).
+- `BlurViewController` (59 modal flows) uses `NeonScrimView`: a dark blur
+  and page tint in dark mode, a light one in light mode, updated while the
+  modal is open. An opaque root (the PIN screen) shows no backdrop.
+
+**Theme and chrome**
+
+- `ThemeManager` applies `overrideUserInterfaceStyle` to the app's windows
+  in every connected scene on each theme change (unspecified when the
+  stored choice is "System"); new windows (root, lock, loading, toasts)
+  get it when created. System UI now follows the in-app Dark switch. The
+  device appearance is read from the screen, which overrides do not
+  affect, at scene connection and whenever the root window's trait changes
+  (for example the automatic sunset switch). The stored choice
+  (`SoramitsuThemeType`) is never rewritten.
+- Tab bar on iOS 26/27 Liquid Glass: the notch fill is no longer drawn
+  (it painted over the system glass); the system selection is the
+  indicator; inactive items `text.secondary`, active `text.primary`. The
+  centre button is the neon swap disc (`cta.swap` gradient, Polkaswap mark
+  in ink/white, static `glow.swap`) instead of a white button with a grey
+  shadow. iOS 16–25 keep the notch with the chrome colour and a hairline.
+- The KVC tab-bar swap (`setValue(_:forKey: "tabBar")`) was verified on
+  iOS 27: the custom bar installs, tabs switch and the disc renders and
+  responds. It now runs only when `UITabBarController` still has the
+  `_tabBar` storage; otherwise the disc is added to the system bar
+  instead of raising an Objective-C exception.
+- One static aurora sits behind all tabs; the four tab roots are clear.
+- Navigation bars: SORA Neon title fonts and colours, cyan tint, default
+  Liquid Glass on iOS 26+, ultra-thin material with tint below. Back
+  titles stay hidden through the bar appearance; the global clear
+  `UIBarButtonItem` title is removed, so text bar buttons are visible
+  again. Open bars are re-styled on a theme change.
+- Settings toggles use the Neon cyan. Toggles, settings arrows and the
+  Welcome terms text are re-coloured when the theme changes while they
+  are on screen.
+
+**Launch, splash and Safe Mode screens**
+
+- Launch screen: system background (black in dark, white in light) and a
+  default (adaptive) status bar style instead of always-light content; no
+  more light flash for dark-mode users. A named colour with a dark variant
+  was tried first, but the iOS 27 launch-screen renderer drew its light
+  variant.
+- Splash: page colour from the theme; the Lottie rings and mark are
+  recoloured per theme; the slow-start label uses `textS`
+  `text.secondary`, the spinner cyan.
+- `WalletUX`: `button(primary:)` is the neon CTA or a glass secondary
+  button (`WalletNeonButton`, `UIButton.Configuration`, theme reactive);
+  new `.tertiary` and `.safe` styles; table destinations get the aurora,
+  glass rows (no blur in cells) and Neon dividers.
+- `WalletSafeMode` kit: safe aurora (cyan and mint, no red), shield
+  emblem with a static mint glow, calm title/body/detail/technical styles
+  and Safe Mode buttons.
+- Recovery, Welcome back, the phrase reveal, the 1.x upgrade
+  confirmation and the low-storage panel follow the app theme in both
+  modes: one Safe action ("Try again", "Restore wallets found on this
+  iPhone", "Upgrade wallet", "Check again"), restore options as glass
+  buttons, the rest as text buttons, technical details in a monospace
+  card, recovery words on an opaque card (no aurora, blur or glow behind
+  secrets). Accessibility identifiers, actions, availability rules and
+  titles read by tests are unchanged.
+- Copy (English and Japanese, new keys only): the 1.x upgrade screen now
+  says "Upgrade your wallet" with the two assurances that hold for this
+  flow ("Your original keys are not deleted or replaced", "If a check
+  fails, SORA stops safely and shows your options"); the earlier
+  technical text moved behind "What happens during the upgrade?"; the
+  progress line is "Updating your wallet. Keep SORA open until this
+  finishes." (no "Do not delete the app"). The recovery title is "We
+  paused to keep your wallet safe"; its last English-only buttons are
+  localised. The low-storage panel is "Free up some space" with "Check
+  again".
+- PIN dots: empty dots are a ring and filled dots cyan (the dark fill was
+  invisible on the dark backdrop). The Welcome artwork is dimmed in dark
+  mode so light titles on it stay readable.
+
+**Simplification**
+
+- Deleted dead UI code: `SoraButton`/`GrayCopyButton` (only their
+  appearance proxies remained), `NeumorphismButton` and its xib, two
+  orphan xibs that referenced it (`OnbordingMain.xib`,
+  `FriendsViewController.xib`, in no target), the blur decorator,
+  `CustomVisualEffectView` and the token generator.
+
+### Key safety
+
+- UI only. No code path that reads, writes, moves or deletes wallet keys,
+  the account store, migration state or settings was changed. Recovery and
+  upgrade screens keep every action, identifier and availability rule; only
+  their presentation and copy changed. The theme preference key is not
+  rewritten.
+
+### User-visible effects
+
+- New SORA Neon look in dark and light: Sora headlines and buttons, neon
+  gradient CTAs, glass-edged cards, cyan focus, a neon swap disc and an
+  aurora backdrop. Dark mode is dark everywhere: launch, splash, modals,
+  alerts, keyboards and system bars.
+- Warning and success banners are readable in dark mode.
+- Recovery, Welcome back, upgrade and low-storage screens are calm,
+  themed and localised in English and Japanese.
+- Text bar buttons (for example in Explore) are visible again.
+
+### Verification (Xcode 27.0, SORA-Release-A, iOS 27)
+
+- Builds: `SoraPassport` Debug (simulator), `SoraPassportDev`
+  (simulator) and unsigned `SoraPassport` Release for
+  `generic/platform=iOS` succeed.
+- New `SoraNeonDesignTests` (6 tests): Sora font names resolve and are
+  cached; palette contrast ≥ 4.5:1 for 17 text/container pairs in both
+  themes; caller backgrounds and image tints survive theme changes, the
+  primary CTA draws its gradient and the disabled state; windows get the
+  in-app interface style; legacy cards get one hairline; recovery, upgrade
+  and Welcome back screens use the theme canvas.
+- `SoraPassportTests` (live class skipped): 466 tests, 0 failures
+  (460 before plus the 6 new ones). After the last two small commits,
+  `SoraNeonDesignTests` and `WalletUXTests` were run again: 36 tests,
+  0 failures.
+- Simulator (dark and light, Japanese): launch, splash, onboarding,
+  phrase import with a fixture phrase, PIN setup and unlock, wallet home,
+  More and app settings; live switching between system light/dark and the
+  in-app Dark switch (alerts, status bar and Liquid Glass buttons follow).
+  Recovery, Welcome back, 1.x upgrade and low-storage panels rendered in
+  both themes by a temporary hosted test (not committed). Screenshots:
+  `scratchpad/screens/ios/i6-ui-foundation/final/` (launch, splash,
+  onboarding, wallet home, More, settings and the Safe Mode screens, dark
+  and light).
+- The KVC tab bar on iOS 27: tabs switch, the swap disc renders with its
+  glyph and responds, and the system selection capsule is shown.
+- Found while testing, not changed here (pre-existing, reported for a
+  separate fix): typing quickly into the phrase field with the Japanese
+  kana keyboard can crash in `InputHandler.didReceiveReplacement`
+  (range out of bounds). See RELEASE-CHECKLIST.md.
+
+### Commits
+
+`009fcc84` fonts, `0ef521b9` tokens and palettes, `8ac0f24b` Neon
+components, `0d8d6344` cards, shadows, buttons, inputs and backdrops,
+`ea491390` dead UI code, `73792a16` theme sync, tab bar and chrome,
+`e9e43a3d` WalletUX and Safe Mode screens, `fa6071bf` launch screen,
+splash and low-storage panel, `14af4171` tests, `42bef7dd` main-thread
+appearance read, `fd24cc65` live re-colouring of toggles and terms text.
