@@ -394,6 +394,118 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertNotNil(signedPayloads.first?.range(of: versions))
     }
 
+    // MARK: - Balances layout (runtime 132 and later)
+
+    /// SCALE bytes of a runtime 133 `System.Account` value: nonce, consumers,
+    /// providers, sufficients (u32 each), then `free, reserved, frozen,
+    /// flags` (u128 each, little endian).
+    private func systemAccountBytes(
+        nonce: UInt32,
+        free: BigUInt,
+        reserved: BigUInt,
+        frozen: BigUInt,
+        flags: BigUInt
+    ) -> Data {
+        var data = Data()
+        for value in [nonce, 1, 1, 0] {
+            withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) }
+        }
+        for value in [free, reserved, frozen, flags] {
+            var bytes = [UInt8](value.serialize().reversed())
+            bytes += [UInt8](repeating: 0, count: 16 - bytes.count)
+            data.append(contentsOf: bytes)
+        }
+        return data
+    }
+
+    /// Runtime 132 replaced `misc_frozen, fee_frozen` with `frozen, flags` in
+    /// the balances pallet. Decoding `System.Account` into the app's model
+    /// failed for every account on runtime 133, so XOR balances read as zero
+    /// and the send flow could not read the recipient's account. Both layouts
+    /// must decode, and the spendable amount must never exceed what the
+    /// chain allows.
+    func testSystemAccountDecodesTheRuntime133BalancesLayout() throws {
+        let factory = try factory()
+        let xor = BigUInt(10).power(18)
+        let newLogic = BigUInt(1) << 127
+        let values: [Data?] = [
+            // Ordinary account: nothing frozen.
+            systemAccountBytes(nonce: 7, free: 5 * xor, reserved: 0, frozen: 0, flags: newLogic),
+            // Frozen 1.5 XOR, of which 1 XOR is covered by the reserve.
+            systemAccountBytes(nonce: 1, free: 2 * xor, reserved: xor, frozen: 3 * xor / 2, flags: newLogic),
+            // Frozen above free (seen on mainnet): nothing can be moved.
+            systemAccountBytes(nonce: 2, free: xor, reserved: 0, frozen: 100 * xor, flags: newLogic + 100 * xor),
+            // No account yet: the storage default.
+            nil
+        ]
+
+        let operation = StorageFallbackDecodingListOperation<AccountInfo>(
+            path: .account,
+            dataList: values
+        )
+        operation.codingFactory = factory
+        operation.start()
+        let infos = try XCTUnwrap(operation.result).get()
+        XCTAssertEqual(infos.count, 4)
+
+        let plain = try XCTUnwrap(infos[0])
+        XCTAssertEqual(plain.nonce, 7)
+        XCTAssertEqual(plain.data.free, 5 * xor)
+        XCTAssertEqual(plain.data.locked, 0)
+        XCTAssertEqual(plain.data.available, 5 * xor)
+
+        let partlyReserved = try XCTUnwrap(infos[1]).data
+        XCTAssertEqual(partlyReserved.reserved, xor)
+        XCTAssertEqual(partlyReserved.locked, xor / 2)
+        XCTAssertEqual(partlyReserved.available, 3 * xor / 2)
+        XCTAssertEqual(partlyReserved.total, 3 * xor)
+
+        let frozenAboveFree = try XCTUnwrap(infos[2]).data
+        XCTAssertEqual(frozenAboveFree.free, xor)
+        XCTAssertEqual(frozenAboveFree.locked, xor)
+        XCTAssertEqual(frozenAboveFree.available, 0)
+
+        let missing = try XCTUnwrap(infos[3]).data
+        XCTAssertEqual(missing.free, 0)
+        XCTAssertEqual(missing.available, 0)
+
+        // The subscription model reads the same layout.
+        let subscription = StorageFallbackDecodingListOperation<DyAccountInfo>(
+            path: .account,
+            dataList: [values[1]]
+        )
+        subscription.codingFactory = factory
+        subscription.start()
+        let dynamic = try XCTUnwrap(try XCTUnwrap(subscription.result).get().first ?? nil)
+        XCTAssertEqual(dynamic.data.free, 2 * xor)
+        XCTAssertEqual(dynamic.data.locked, xor / 2)
+        XCTAssertEqual(dynamic.data.available, 3 * xor / 2)
+    }
+
+    /// The layout of runtime 130 and earlier still decodes as before, and the
+    /// model keeps encoding it, so nothing that reads stored values changes.
+    func testAccountDataKeepsTheEarlierBalancesLayout() throws {
+        let legacy = Data(
+            #"{"free":"10","reserved":"2","miscFrozen":"3","feeFrozen":"4"}"#.utf8
+        )
+        let data = try JSONDecoder().decode(AccountData.self, from: legacy)
+        XCTAssertEqual(data.miscFrozen, 3)
+        XCTAssertEqual(data.feeFrozen, 4)
+        XCTAssertEqual(data.locked, 4)
+        XCTAssertEqual(data.available, 6)
+        let roundTrip = try JSONDecoder().decode(
+            AccountData.self,
+            from: JSONEncoder().encode(data)
+        )
+        XCTAssertEqual(roundTrip, data)
+        let dynamic = try JSONDecoder().decode(DyAccountData.self, from: legacy)
+        XCTAssertEqual(dynamic.locked, 4)
+
+        // A lock above the free balance in the old layout no longer traps.
+        let overLocked = AccountData(free: 1, reserved: 0, miscFrozen: 5, feeFrozen: 0)
+        XCTAssertEqual(overLocked.available, 0)
+    }
+
     func testRuntimeUpgradeMessageIsCalmAndTranslated() throws {
         XCTAssertNotNil(
             ExtrinsicServiceError.runtimeUpgradeInProgress(
