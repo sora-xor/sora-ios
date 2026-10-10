@@ -1351,6 +1351,14 @@ final class UserStorageMigrator {
     }
 
     private func resumeInterruptedMigrationIfProven() throws {
+        if migrationRecoveryMarker?.isDatabaseInterruption == true,
+           !pathExistsNoFollow(migrationSafetyDirectory()) {
+            // No database attempt exists at all, so none is unfinished. The
+            // marker was latched by another check (for example an unreadable
+            // account journal at startup).
+            try proveLiveStoreForResolvedDatabaseMarker()
+            return
+        }
         var attempts = try migrationAttempts(in: migrationSafetyDirectory())
         guard attempts.count <= Self.maximumMigrationAttempts else {
             throw UserStorageMigrationError.interruptedMigration
@@ -1387,6 +1395,17 @@ final class UserStorageMigrator {
         if unfinished.isEmpty, setAsideAny {
             // The only unfinished attempt failed before its backup copy was
             // verified, so the live store was never replaced. Start afresh.
+            return
+        }
+        if unfinished.isEmpty, migrationRecoveryMarker?.isDatabaseInterruption == true {
+            // Every attempt above re-verified as a finished, activated
+            // attempt that is not bound to this marker. The marker was
+            // latched by a read that failed at the time (the shared gate's
+            // namespace probe treats any read error as "unverifiable"), or
+            // after the attempt had already activated. Nothing is left to
+            // resume: prove today's store and keys, and the caller clears
+            // the marker by compare-and-set.
+            try proveLiveStoreForResolvedDatabaseMarker()
             return
         }
         guard unfinished.count == 1 else {
@@ -1489,6 +1508,32 @@ final class UserStorageMigrator {
         )
     }
 
+    /// A database-interruption marker whose namespace now verifies (no
+    /// attempt, or only finished attempts that are not bound to it). Read-only:
+    /// the live store must be the current schema, its inventory readable and
+    /// every key the inventory names present (accounts already marked
+    /// read-only excepted, as at any startup). An older store is left to the
+    /// ordinary journaled migration that `performMigration` runs next, which
+    /// checks the same keys first; a missing store is handled there too.
+    private func proveLiveStoreForResolvedDatabaseMarker() throws {
+        guard pathExistsNoFollow(storeURL) else { return }
+        guard storeBundleIsRegularNoFollow(at: storeURL),
+              let metadata = NSPersistentStoreCoordinator.metadata(at: storeURL),
+              let liveVersion = compatibleVersionForStoreMetadata(metadata)
+        else {
+            throw UserStorageMigrationError.unknownStoreVersion
+        }
+        guard liveVersion == targetVersion else { return }
+        let manifest = try createManifest(
+            storeURL: storeURL,
+            model: createManagedObjectModel(forResource: targetVersion.rawValue),
+            sourceVersion: targetVersion, destinationVersion: targetVersion
+        )
+        try validateKeychain(for: manifest)
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        Logger.shared.info("Wallet migration outcome: no unfinished attempt; marker resolved after proof")
+    }
+
     /// A failed attempt whose backup copy was verified may be re-proved and
     /// resumed under a retryable startup marker. A failure reason is a fixed
     /// code; every retryable code qualifies, because the retry re-checks the
@@ -1500,7 +1545,13 @@ final class UserStorageMigrator {
     /// moved (never deleted) to `WalletMigrationSuperseded/<id>` beside the
     /// store, and a fresh attempt runs. Returns true if it was moved.
     private func setAsideUnverifiedFailedAttemptIfAllowed(_ attempt: URL) throws -> Bool {
-        guard migrationRecoveryMarker?.isRetryableStartupFailure == true else { return false }
+        // A database-interruption marker qualifies too: a read that failed
+        // while the backup copy was being verified records
+        // `interrupted_migration`, and that attempt never replaced the live
+        // store either (activation needs verified artifacts).
+        guard migrationRecoveryMarker?.isRetryableStartupFailure == true ||
+                migrationRecoveryMarker?.isDatabaseInterruption == true
+        else { return false }
         let journalURL = attempt.appendingPathComponent("journal.json")
         guard pathExistsNoFollow(journalURL),
               let journal = try? readBoundedJSON(UserStorageMigrationJournal.self, at: journalURL,
@@ -1508,7 +1559,10 @@ final class UserStorageMigrator {
               journal.migrationID.uuidString == attempt.lastPathComponent,
               journal.state == .failed,
               journal.safetyArtifacts == nil,
-              journal.failureReason.map(WalletMigrationRecoveryMarker.retryableStartupFailureCodes.contains) == true,
+              journal.failureReason.map({
+                  WalletMigrationRecoveryMarker.retryableStartupFailureCodes.contains($0) ||
+                      $0 == Self.interruptedMigrationFailureCode
+              }) == true,
               journal.recoveryMarker == nil || journal.recoveryMarker == migrationRecoveryMarker,
               journal.sourceVersion == compatibleVersionForStoreMetadata(
                 NSPersistentStoreCoordinator.metadata(at: storeURL) ?? [:])?.rawValue,
@@ -1528,6 +1582,11 @@ final class UserStorageMigrator {
     /// disk, a copy that never verifies) would otherwise leave a partial store
     /// copy on every retry.
     static let retainedSupersededAttempts = 3
+
+    /// The failure code an attempt records when a read failed while its
+    /// backup copy was being verified.
+    static let interruptedMigrationFailureCode =
+        UserStorageMigrationError.interruptedMigration.privacySafeOutcomeCode
 
     /// Keeps the newest `retainedSupersededAttempts`. Only directories whose
     /// journal shows an unverified failed attempt are removed: such an attempt
