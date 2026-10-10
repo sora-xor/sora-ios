@@ -1236,3 +1236,167 @@ private final class WalletUXNetworkStatusSpy: ApplicationStatusPresentable {
     func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) { statuses.append(title) }
     func dismissStatus(title: String?, style: ApplicationStatusStyle?, animated: Bool) {}
 }
+
+/// SORA Neon foundation (design spec §2–§7): fonts, palettes, components and
+/// theme plumbing.
+final class SoraNeonDesignTests: XCTestCase {
+
+    func testBundledSoraFontLoads() {
+        // Before 3.9.0 the font name was built from enum case names
+        // ("headline-one") and every style fell back to the system font.
+        XCTAssertEqual(FontType.headline1.postScriptName, "Sora-Bold")
+        XCTAssertEqual(FontType.headline1.font.fontName, "Sora-Bold")
+        XCTAssertEqual(FontType.buttonM.font.fontName, "Sora-SemiBold")
+        XCTAssertEqual(FontType.headline4.font.fontName, "Sora-SemiBold")
+        XCTAssertEqual(FontType.pinDigit.font.fontName, "Sora-Regular")
+        // The body face (Inter) is not bundled: body text uses the system font.
+        XCTAssertNil(FontType.textM.postScriptName)
+        XCTAssertEqual(FontType.textM.font.familyName, UIFont.systemFont(ofSize: 16).familyName)
+        XCTAssertTrue(FontType.mono.font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+        // Fonts are cached.
+        XCTAssertTrue(FontType.textS.font === FontType.textS.font)
+    }
+
+    func testNeonPalettesKeepTextReadable() {
+        for theme in [SoramitsuThemeType.light, .dark] {
+            let palette = theme.palette
+            func check(_ foreground: SoramitsuColor, _ background: SoramitsuColor, line: UInt = #line) {
+                let ratio = WalletUX.contrast(palette.color(foreground), palette.color(background))
+                XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(theme) \(foreground) on \(background)", line: line)
+            }
+            check(.fgPrimary, .bgPage)
+            check(.fgPrimary, .bgSurface)
+            check(.fgSecondary, .bgPage)
+            check(.fgSecondary, .bgSurface)
+            check(.fgTertiary, .bgSurface)
+            check(.fgPrimary, .bgSurfaceVariant)
+            // Dark containers used to be light pastels behind light text (1.09:1).
+            check(.fgPrimary, .statusWarningContainer)
+            check(.statusWarning, .statusWarningContainer)
+            check(.fgPrimary, .statusSuccessContainer)
+            check(.statusSuccess, .statusSuccessContainer)
+            check(.fgPrimary, .statusErrorContainer)
+            check(.statusError, .statusErrorContainer)
+            check(.statusInfo, .statusInfoContainer)
+            check(.accentPrimary, .accentPrimaryContainer)
+            check(.accentTertiary, .accentTertiaryContainer)
+            // Ink on neon in dark, white on accent in light.
+            check(.fgInverted, .accentPrimary)
+            check(.fgInverted, .additionalPolkaswap)
+        }
+    }
+
+    @MainActor
+    func testButtonKeepsCallerBackgroundAndDrawsNeonCTA() {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        let custom = SoramitsuButton()
+        custom.sora.backgroundColor = .bgSurface
+        let clear = SoramitsuButton()
+        clear.sora.backgroundColor = .custom(uiColor: .clear)
+        let cta = SoramitsuButton()
+        let icon = SoramitsuButton()
+        icon.sora.backgroundColor = .bgSurface
+        icon.sora.tintColor = .accentTertiary
+        icon.sora.rightImage = UIImage(systemName: "arrow.right")
+        for theme in [SoramitsuThemeType.dark, .light] {
+            SoramitsuUI.shared.themeMode = .manual(theme)
+            // A chosen image tint survives theme changes.
+            XCTAssertEqual(icon.rightImageView.tintColor, theme.palette.color(.accentTertiary))
+            // A theme change used to reset a chosen background to the type colour.
+            XCTAssertEqual(custom.backgroundColor, theme.palette.color(.bgSurface))
+            XCTAssertEqual(clear.backgroundColor, .clear)
+            XCTAssertFalse(clear.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false)
+            // The primary CTA is a gradient fill with an ink (dark) or white (light) label.
+            XCTAssertEqual(cta.backgroundColor, .clear)
+            XCTAssertTrue(cta.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false)
+        }
+        cta.sora.isEnabled = false
+        XCTAssertEqual(cta.backgroundColor, NeonTokens.light.ctaDisabled)
+        XCTAssertFalse(cta.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false)
+        custom.sora.isEnabled = false
+        custom.sora.isEnabled = true
+        XCTAssertEqual(custom.backgroundColor, SoramitsuThemeType.light.palette.color(.bgSurface))
+    }
+
+    @MainActor
+    func testWindowsFollowTheInAppTheme() {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        let window = UIWindow.makeSoraSceneWindow()
+        defer { window.isHidden = true }
+        let detached = UIWindow(frame: .zero)
+        for (mode, style) in [(SoramitsuThemeMode.manual(.dark), UIUserInterfaceStyle.dark),
+                              (.manual(.light), .light), (.system, .unspecified)] {
+            SoramitsuUI.shared.themeMode = mode
+            XCTAssertEqual(SoramitsuUI.shared.userInterfaceStyle, style)
+            SoramitsuUI.shared.applyInterfaceStyle(to: detached)
+            XCTAssertEqual(detached.overrideUserInterfaceStyle, style)
+            if window.windowScene != nil {
+                // Windows in the scene are updated by the theme change itself.
+                XCTAssertEqual(window.overrideUserInterfaceStyle, style)
+            }
+        }
+    }
+
+    @MainActor
+    func testLegacyCardsAreOpaqueWithOneHairline() {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        let card = SoramitsuView()
+        card.sora.backgroundColor = .bgSurface
+        card.sora.cornerRadius = .max
+        let row = SoramitsuView()
+        row.sora.backgroundColor = .bgSurface
+        row.sora.cornerRadius = .max
+        card.addSubview(row)
+        card.bounds = CGRect(x: 0, y: 0, width: 300, height: 200)
+        row.bounds = CGRect(x: 0, y: 0, width: 300, height: 60)
+        XCTAssertEqual(card.backgroundColor, SoramitsuThemeType.dark.palette.color(.bgSurface))
+        XCTAssertGreaterThanOrEqual(card.layer.borderWidth, 1)
+        XCTAssertEqual(card.layer.cornerRadius, 24)
+        XCTAssertEqual(row.layer.borderWidth, 0, "a card inside a card gets no second outline")
+        let outlined = SoramitsuView()
+        outlined.sora.backgroundColor = .bgSurface
+        outlined.sora.cornerRadius = .max
+        outlined.sora.borderWidth = 2
+        XCTAssertEqual(outlined.layer.borderWidth, 2, "a caller's border wins")
+        card.sora.backgroundColor = .bgPage
+        XCTAssertEqual(card.layer.borderWidth, 0, "not a card any more")
+    }
+
+    @MainActor
+    func testRecoveryAndUpgradeScreensUseTheAppTheme() throws {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        for theme in [SoramitsuThemeType.dark, .light] {
+            SoramitsuUI.shared.themeMode = .manual(theme)
+            let canvas = NeonTokens.tokens(for: theme).canvas
+            let recovery = WalletRecoveryViewController(reason: "retained missing credentials", onRetry: {})
+            recovery.loadViewIfNeeded()
+            XCTAssertEqual(recovery.view.backgroundColor, canvas)
+            let retry = try XCTUnwrap(descendants(recovery.view).compactMap { $0 as? WalletNeonButton }
+                .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
+            XCTAssertEqual(retry.neonStyle, .safe)
+            XCTAssertFalse(descendants(recovery.view).contains { $0.backgroundColor == .systemBackground })
+
+            let upgrade = LegacyWalletUpgradeViewController(onConfirm: {})
+            upgrade.loadViewIfNeeded()
+            XCTAssertEqual(upgrade.view.backgroundColor, canvas)
+            let upgradeButton = try XCTUnwrap(descendants(upgrade.view).compactMap { $0 as? UIButton }.first {
+                $0.accessibilityIdentifier == RetainedMigrationEvidenceHarness.continueUpgradeAccessibilityIdentifier
+            })
+            XCTAssertEqual(upgradeButton.title(for: .normal), WalletUX.text("Upgrade wallet"))
+
+            let welcome = WalletWelcomeBackViewController(onContinueToOnboarding: {}, onWalletsRestored: {})
+            welcome.loadViewIfNeeded()
+            XCTAssertEqual(welcome.view.backgroundColor, canvas)
+        }
+    }
+
+    private func descendants(_ view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + descendants($0) }
+    }
+}
