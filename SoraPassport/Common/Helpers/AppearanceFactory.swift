@@ -40,39 +40,68 @@ struct AppearanceFactory {
         configureTabBarItem()
     }
 
+    /// Appearance proxies only reach bars created later: re-style bars that
+    /// are already on screen after a theme change.
+    static func restyle(_ navigationBar: UINavigationBar) {
+        let tokens = NeonTokens.current
+        let (standard, scrollEdge) = NeonChrome.navigationBarAppearances(tokens: tokens)
+        let backImage = R.image.wallet.backArrow()
+        standard.setBackIndicatorImage(backImage, transitionMaskImage: backImage)
+        scrollEdge.setBackIndicatorImage(backImage, transitionMaskImage: backImage)
+        navigationBar.standardAppearance = standard
+        navigationBar.scrollEdgeAppearance = scrollEdge
+        navigationBar.compactAppearance = scrollEdge
+        navigationBar.tintColor = tokens.cyan
+    }
+
+    /// Re-styles every navigation bar currently in the app's windows,
+    /// including presented flows, after a theme change.
+    static func restyleVisibleNavigationBars() {
+        var visited = Set<ObjectIdentifier>()
+        func visit(_ controller: UIViewController?) {
+            guard let controller, visited.insert(ObjectIdentifier(controller)).inserted else { return }
+            if let navigation = controller as? UINavigationController {
+                restyle(navigation.navigationBar)
+            }
+            controller.children.forEach(visit)
+            visit(controller.presentedViewController)
+        }
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .forEach { visit($0.rootViewController) }
+    }
+
     private static func configureSearchBar() {
         UIBarButtonItem.appearance(whenContainedInInstancesOf: [UISearchBar.self]).setTitleTextAttributes([
-            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
+            .foregroundColor: NeonTokens.current.cyan],
                                              for: .normal)
     }
 
+    /// SORA Neon chrome (spec §4.3.3, §4.3.4). On iOS 26+ the bars keep the
+    /// system Liquid Glass; only fonts, colours and the tint are set.
     private static func configureGlobalNavigationBar() {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = .clear
-        appearance.titleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
-        appearance.largeTitleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
-        appearance.backgroundEffect = UIBlurEffect(style: SoramitsuUI.shared.theme == .light ? .light : .dark)
-        
-        let scrollingAppearance = UINavigationBarAppearance()
-        scrollingAppearance.configureWithTransparentBackground()
-        scrollingAppearance.backgroundColor = .clear
-        scrollingAppearance.titleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
-        scrollingAppearance.largeTitleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
-        
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = scrollingAppearance
-        UINavigationBar.appearance().compactAppearance = scrollingAppearance
-        UINavigationBar.appearance().tintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
-        
+        let tokens = NeonTokens.current
+        let (standard, scrollEdge) = NeonChrome.navigationBarAppearances(tokens: tokens)
+
         let backImage = R.image.wallet.backArrow()
-        
+        standard.setBackIndicatorImage(backImage, transitionMaskImage: backImage)
+        scrollEdge.setBackIndicatorImage(backImage, transitionMaskImage: backImage)
+
+        UINavigationBar.appearance().standardAppearance = standard
+        UINavigationBar.appearance().scrollEdgeAppearance = scrollEdge
+        UINavigationBar.appearance().compactAppearance = scrollEdge
+        UINavigationBar.appearance().tintColor = tokens.cyan
+
         UINavigationBar.appearance().backIndicatorImage = backImage
         UINavigationBar.appearance().backIndicatorTransitionMaskImage = backImage
-        UIBarButtonItem.appearance().setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+        // Back-button titles stay hidden through the bar appearances above.
+        // The old global `UIBarButtonItem` clear title also hid every text
+        // bar button in the app.
     }
     
     private static func configureTabBarItem() {
-        UITabBarItem.appearance().setTitleTextAttributes(FontType.textBoldXS.attributes, for: .normal)
+        UITabBarItem.appearance().setTitleTextAttributes([.font: FontType.textXS.font], for: .normal)
+        UITabBarItem.appearance().setTitleTextAttributes([.font: FontType.textBoldXS.font], for: .selected)
     }
 }

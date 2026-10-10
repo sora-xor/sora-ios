@@ -297,8 +297,12 @@ extension PincodeViewController: PinSetupViewProtocol {
         circlesStackView.removeArrangedSubviews()
         circleViews = []
         for _ in 0..<count {
+            // SORA Neon (spec §7.9): empty dots are a ring, filled dots cyan.
+            // A dark fill alone was invisible on the dark backdrop.
             let view = SoramitsuView()
-            view.sora.backgroundColor = .bgSurfaceVariant
+            view.sora.backgroundColor = .custom(uiColor: .clear)
+            view.sora.borderWidth = 1.5
+            view.sora.borderColor = .fgTertiary
             view.sora.cornerRadius = .circle
             view.widthAnchor.constraint(equalToConstant: 24).isActive = true
             view.heightAnchor.constraint(equalToConstant: 24).isActive = true
@@ -324,7 +328,9 @@ extension PincodeViewController: PinSetupViewProtocol {
     
     func updateInputedCircles(with count: Int) {
         for (index, view) in circleViews.enumerated() {
-            view.sora.backgroundColor = index < count ? .accentPrimary : .bgSurfaceVariant
+            // `statusInfo` is the Neon cyan in both themes.
+            view.sora.backgroundColor = index < count ? .statusInfo : .custom(uiColor: .clear)
+            view.sora.borderColor = index < count ? .statusInfo : .fgTertiary
         }
     }
     
@@ -340,7 +346,10 @@ extension PincodeViewController: PinSetupViewProtocol {
     func animateWrongInputError(with completion: @escaping (Bool) -> Void) {
         titleLabel.sora.textColor = .statusError
         titleLabel.sora.text = R.string.localizable.commonWrongPin(preferredLanguages: .currentLocale)
-        (circlesStackView.subviews as? [SoramitsuView])?.forEach { $0.sora.backgroundColor = .statusError }
+        (circlesStackView.subviews as? [SoramitsuView])?.forEach {
+            $0.sora.backgroundColor = .statusError
+            $0.sora.borderColor = .statusError
+        }
         circlesStackView.transform = CGAffineTransform(translationX: errorAnimationAmplitude, y: 0)
         UIView.animate(withDuration: TimeInterval(errorAnimationDuration),
                        delay: 0,

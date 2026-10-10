@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import SoraUIKit
 
 /// Locks the existing presentation in place. Authentication must never replace
 /// an in-progress import/recovery root or attempt to construct an unverified wallet.
@@ -85,6 +86,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             lockWindow = UIWindow(frame: window.bounds)
         }
         lockWindow.frame = window.frame
+        SoramitsuUI.shared.applyInterfaceStyle(to: lockWindow)
         lockWindow.windowLevel = UIWindow.Level(rawValue: max(window.windowLevel.rawValue, UIWindow.Level.alert.rawValue) + 1)
         applicationWindow = window
         authorizationWindow = lockWindow

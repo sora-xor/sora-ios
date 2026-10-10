@@ -107,7 +107,8 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         
-        soramitsuView.sora.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(scrollView)
         view.addSubview(segmentView)
         view.addSubview(searchView)
