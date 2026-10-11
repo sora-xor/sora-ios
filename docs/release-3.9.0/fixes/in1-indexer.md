@@ -118,20 +118,31 @@ signing or migration code is touched.
   the app returns to the foreground the backoff is cleared and the screens
   ask again. A snapshot read from disk keeps the age it had when it was
   saved, so it cannot be shown for more than 24 hours in total.
-- **A caller does not wait when there is something to show** (review round
-  2). A catalog younger than 30 minutes (assets) or 10 minutes (pools) is
-  returned at once while its refresh runs; when PI has been failing, the
-  last good catalog is returned at once while the next attempt runs. Only a
-  caller with nothing to show, or with a catalog older than that, waits.
-  The store posts `PICatalogs.pricesDidChange` when a read ends; the wallet
-  lists, Asset Details, Explore and pool details then draw again.
-- **One rule for old data** (review round 2). The store uses its last good
-  catalog after exactly the failures the client accepts for its saved
-  snapshot (`PIIndexerClient.allowsLastGoodValue`: PI unreachable,
-  overloaded, not ready, or without a consistent fresh checkpoint). A
-  response that does not decode or fails validation is an error in the
-  store too; the wallet then says "Price unavailable" instead of showing
-  the prices from before as if they were current.
+- **A caller does not wait when there is anything to show** (review rounds
+  2 and 3). While a read is on its way the store returns the catalog it
+  holds at once, whatever its age up to 24 hours. It is returned as current
+  when it is live, younger than 30 minutes (assets) or 10 minutes (pools)
+  and PI answered the last time it was asked; otherwise it carries its
+  time. On the first call of a run the store also reads the catalog an
+  earlier run saved on disk (`savedAllAssets`, `savedAllPoolXYKs`: no
+  request), so a cold start shows yesterday's prices with their time
+  instead of waiting for the walk. Only a caller with nothing at all to
+  show waits. The store posts `PICatalogs.pricesDidChange` when a read
+  ends; the wallet lists, Asset Details, Explore and pool details then draw
+  again.
+- **One rule for old data** (review rounds 2 and 3). The store keeps
+  showing its last good catalog after exactly the failures the client
+  accepts for its saved snapshot (`PIIndexerClient.allowsLastGoodValue`: PI
+  unreachable, overloaded, not ready, or without a consistent fresh
+  checkpoint). Once PI has answered with a response that does not decode or
+  fails validation, that is an error in the store too: the wallet says
+  "Price unavailable" instead of showing the prices from before, also while
+  the next read is on its way and after a return to the foreground, until a
+  read succeeds or fails in the accepted way.
+- **An offline catalog read fails at once** (review round 3). The shared
+  catalog client has its own URL session with `waitsForConnectivity` off.
+  The other production reads (Activity, configuration, referral rewards)
+  keep the session that waits.
 
 ### 3. A failed price load never looks like a zero balance
 
@@ -143,8 +154,9 @@ signing or migration code is touched.
   as long each time, up to 5 minutes), so it is replaced without any action
   by the user. The price service applies its own backoff, so asking is cheap.
 - A pool's TVL (Explore and pool details) is not shown as "$0" when the base
-  asset has no price. The Explore pool list is not kept for the session
-  when it was valued without prices.
+  asset has no price. The Explore pool list keeps the reserves it read from
+  the node for the session and works the values out again from them
+  whenever prices change (review round 3; see there).
 - **The other screens** (review round 2). An unknown price was still turned
   into 0 on the screens behind the wallet. Now:
   - Asset Details: the price reads "Price unavailable"; the value of the
@@ -238,13 +250,15 @@ indexer on 11 October, unedited, 48 KB).
 | Class | What it proves |
 |---|---|
 | `PIIndexerWireContractTests` (13) | Captured asset, pool, history, referral-reward, health and config responses decode through the production decoder and pass the production validators. The response that failed on 10 October (numeric volumes) decodes. A numeric quantity keeps every digit. |
-| `PIIndexerAdvancingReadTests` (22) | The production client against a stub indexer that indexes a block between every two requests: the asset catalog and fiat prices load, and Activity reaches page 2. A backwards step and a count change are retried. A persistently inconsistent, stale or unreachable indexer gives the last good catalog, also to a new client. Wrong data is not hidden. Request counts are bounded. A device clock hours off still loads prices; a `Date` header days off is not trusted. |
+| `PIIndexerAdvancingReadTests` (25) | The production client against a stub indexer that indexes a block between every two requests: the asset catalog and fiat prices load, and Activity reaches page 2. A backwards step and a count change are retried. A persistently inconsistent, stale or unreachable indexer gives the last good catalog, also to a new client. Wrong data is not hidden. Request counts are bounded. A device clock hours off still loads prices; a `Date` header days off is not trusted. |
 | `PIIndexerClockTests` (2) | The `Date` header rule. |
-| `PICatalogStoreTests` (14) | Twelve concurrent callers cause one read; reuse while fresh; backoff 15/30/60 s; last good value; recovery. Round 2: a clock that jumps three hours forces a new read; the default clock counts sleep; the foreground clears the backoff; a disk snapshot keeps its real age; a response that cannot be used is not replaced by older data; a recent catalog is served at once while its refresh runs; old prices carry their time. |
+| `PICatalogStoreTests` (22) | Twelve concurrent callers cause one read; reuse while fresh; backoff 15/30/60 s; last good value; recovery. Round 2: a clock that jumps three hours forces a new read; the default clock counts sleep; the foreground clears the backoff; a disk snapshot keeps its real age; a response that cannot be used is not replaced by older data; a recent catalog is served at once while its refresh runs; old prices carry their time. |
 | `PIPriceDisplayTests` (12) | Round 2. The production wallet service and cell through "Price unavailable", old prices with their time, and current prices; the wallet asks again on `pricesDidChange`; Asset Details, the network fee row, Explore currencies, Explore pools and farms show no "$0" for an unknown price; the Explore pool reload backs off and stops when released. |
 | `WalletFiatTotalTests` (5) | A wallet with tokens and no prices reads "Price unavailable", never "$0"; with prices it reads the sum; English and Japanese text. |
 | `PIMarketCapFromCatalogTests` (2) | Market data comes from the shared catalog; another endpoint is refused before any read. |
 | `PIRemoteFlagMaskingTests` (4) | The live flags are masked and stored as off in an App Store build. |
+| `ExplorePoolScanTests` (5) | Round 3. The pool reserves are read from the node once whatever the prices; concurrent callers share the scan; an empty scan is repeated; two "prices changed" notifications without prices cause no second scan and no placeholder rows; prices that arrive later value the list on screen. |
+| `PIActionsDoNotWaitForPricesTests` (5) | Round 3. Receive shows its code, Swap its details, and Supply and Remove Liquidity their fee while the price and APY reads are held back; the fiat texts and the APY are filled in when they arrive. |
 | `PIIndexerLiveTests` (2, opt-in) | The production client against the live indexer. |
 
 Changed tests in `WalletModernizationTests.swift` (they asserted the old
@@ -286,17 +300,20 @@ xcodebuild test-without-building ... \
 ```
 
 Each round uses a new client with an empty cache, so a last good catalog can
-never stand in for a failed live read. Results are in "Verification" below.
+never stand in for a failed live read. Since review round 3 the catalog
+round uses the session of the app's shared catalog client, and also checks
+that the two catalogs the walks saved read back whole. Results are in
+"Verification" below.
 
 ## Verification
 
-Xcode 27.0, simulator `SORA-Fix-net` (iPhone 17 Pro, iOS 27.0), 11 October
-2026. The table is the state after review round 2.
+Xcode 27.0, simulator `SORA-Fix-net` (iPhone 17 Pro, iOS 27.0), 11 and 12
+October 2026. The table is the state after review round 3.
 
 | Check | Result |
 |---|---|
 | `build-for-testing`, Debug, pinned packages | TEST BUILD SUCCEEDED |
-| Whole `SoraPassportTests` target | 560 tests, 0 failures, 4 skipped (the opt-in live tests) |
+| Whole `SoraPassportTests` target | 581 tests, 0 failures, 4 skipped (the opt-in live tests) |
 | Release device compile (`generic/platform=iOS`, `CODE_SIGNING_ALLOWED=NO`) | BUILD SUCCEEDED; the debug "PI unreachable" switch is not in the binary |
 | `Package.resolved` | unchanged |
 
@@ -313,7 +330,17 @@ asset walk took 5.3 to 7.3 s and one pool walk 2.8 to 3.1 s.
 
 After review round 2 (bounded forward rule; 14:28 to 14:33 UTC): 10 of 10
 and 5 of 5 rounds, so 15 of 15, with asset walks of 5.2 to 7.6 s and pool
-walks of 2.8 to 4.5 s. The second live
+walks of 2.8 to 4.5 s.
+
+After review round 3 (through the catalog session that does not wait for
+connectivity; 15:50 to 15:53 UTC on 11 October): 10 of 10 rounds for
+assets, pools, fiat prices and market data, with asset walks of 5.4 to
+7.2 s and pool walks of 2.9 to 3.2 s. In every round the two catalogs the
+walks saved (957 assets, 432 pools) were read back whole by
+`savedAllAssets` and `savedAllPoolXYKs`: the copy a new run shows first
+works at the live size. That makes 25 of 25 rounds over the three runs.
+
+The second live
 test also read health, the configuration (flags `true`, `true`, `true`, masked
 for an App Store build), referral rewards and page 2 of an active account's
 Activity (20 rows of 304, signer-only coverage).
@@ -357,6 +384,12 @@ before this change (a numeric quantity is rejected).
   wallet open; on unlock, prices refresh within a few seconds".
 - **Scheduled check:** run `PIIndexerLiveTests` daily, like the two
   live-runtime tests, so a wire change on PI is noticed the same day.
+- **Release checklist** (review round 3): add the steps "in airplane mode,
+  open the app and tap Receive: the QR code and the address appear at
+  once", "after a night without the app, open it: yesterday's prices show
+  with 'Prices as of', then change to current ones within about ten
+  seconds", and "open Explore, Pools, switch airplane mode on and off a few
+  times: the list stays and does not go back to placeholders".
 
 ## Review round 2 (11 October)
 
@@ -415,7 +448,153 @@ unavailable".
   moving it forward only makes it expire sooner.
 - When PI's answers cannot be decoded, a user who had prices sees "Price
   unavailable" rather than the earlier prices. This is deliberate (one
-  rule, no stale data shown as current) and is the same on a cold start.
+  rule, no stale data shown as current). Since round 3 the earlier prices
+  are shown, with their time, for the seconds until PI's answer is known,
+  also on a cold start.
+
+## Review round 3 (12 October)
+
+Two findings from the adversarial review. Both were checked against the
+code, both were real, both are fixed.
+
+| # | Finding | What was done |
+|---|---|---|
+| 1 | While no price was known, every `pricesDidChange` rescanned all pool reserves on the node (about 1,900 `state_getStorage` calls), with overlapping scans and a list that went back to placeholders | The scan is kept for the session and separated from the valuation; callers join a running scan; a notification only values the list again. |
+| 2 | Receive, Swap and add/remove liquidity waited for a full walk of PI on every cold start and after every return to the foreground (5 to 8 s; 20 s if PI hangs; 30 s offline) | The store never makes a caller wait when a catalog under 24 hours old exists in memory or on disk; the four screens no longer wait for prices or APY at all; an offline catalog read fails at once. |
+
+### 1. Explore pools: one scan, valued again when prices change
+
+- `ExplorePoolsService` keeps what it read from the node (`ScannedPool`:
+  pair, reserves, id) in a small actor, `ReserveScan`, for the life of the
+  service, whether or not prices existed at the time. `getPools(with:)`
+  works out TVL from the kept reserves and the prices it is given
+  (`ExplorePoolsService.value`). A caller that arrives while the scan runs
+  joins it; nothing cancels and restarts it. Only a scan that found no pool
+  at all (the node was not ready) is not kept, and the next call scans
+  again, at the view model's own pace (2 s up to one minute).
+- Pools of equal value, which is all of them while no price is known, stay
+  in the order of the scan, so the list does not reshuffle each time it is
+  valued.
+- `ExplorePoolsViewModelService`: a `pricesDidChange` notification no
+  longer restarts a load that is still running; that round notices the
+  change when it ends and values the list once more. When the list is on
+  screen, the notification values it again and replaces it in one step:
+  the rows no longer go back to "APY loading" placeholders each time.
+
+Effect on the node: one scan per session of the Explore tab, as in 3.8.6,
+whatever PI does. Before this fix a PI outage or a wire change made every
+client with Explore opened send 4 scans in 5 minutes and one more every 5
+minutes and on every return to the foreground.
+
+### 2. Nobody waits for a walk when there is a catalog to show
+
+**The store** (`PICatalogStore.snapshot()`):
+
+| State when asked | Before | Now |
+|---|---|---|
+| Live, under 10 min (assets) | at once, no request | the same |
+| Live, 10 to 30 min, last read succeeded | at once, read behind it | the same |
+| Live, over 30 min (phone was locked, app was in the background) | wait for the walk | at once with "as of"; read behind it |
+| From disk or after a failed read, backing off | at once with "as of" | the same |
+| The same, after a return to the foreground | wait for the walk | at once with "as of"; read behind it |
+| Cold start, catalog under 24 h on disk | wait for the walk | at once with "as of"; read behind it |
+| Nothing under 24 h anywhere (first run, two days without the app) | wait | wait (a failed read then gives "Price unavailable") |
+| PI's last answer could not be used | error | error, also during the next read and after a foreground return |
+
+- `clearBackoff()` (return to the foreground) now only makes the next read
+  start at once. It no longer forgets that the last read failed, so the
+  catalog held keeps its time until a read succeeds, and a response that
+  could not be used keeps older data hidden.
+- The catalog saved on disk is read once per run, when the first caller
+  finds nothing in memory. The request to PI is started first, so the file
+  does not delay it. A saved catalog keeps its real age (23 hours on disk
+  is not shown two hours later) and never replaces a live one.
+- `PIIndexerClient.shared`, the client behind the two catalogs, uses a
+  session with `waitsForConnectivity = false`. With no connection the
+  first health request fails at once with "not connected", which is one of
+  the failures after which the last good catalog is shown; the store then
+  retries on its schedule (15 s, 30 s, ...) and on the next return to the
+  foreground.
+
+**The screens.** With the store alone, a user with no catalog under 24
+hours (a first run, or the app unused for two days) would still wait. So
+the actions no longer depend on a PI read:
+
+- **Receive**: the QR code and the address are produced first. Prices are
+  read only when the screen was opened with a requested amount, and the
+  fiat text of that amount is filled in when they arrive.
+- **Swap**: the details, and with them the Review button, come from the
+  quote and the network fee. Prices are read beside them; when they arrive
+  the balance and amount fiat texts and the fee row are filled in.
+- **Supply Liquidity**: the fee, which enables the button, comes from the
+  fee estimate alone. The APY row appears when the pool catalog has been
+  read. An APY read for another pair is never shown.
+- **Remove Liquidity**: the same for the fee; prices and APY are filled in
+  when they arrive. While the APY is not known its row has no rate; it used
+  to read "0% APY".
+
+Pool details already drew its rows without the APY. Send (amount, confirm),
+claim rewards and request-amount already read prices in the background.
+
+### Tests of round 3
+
+21 new tests, and 4 existing store tests changed to the new policy:
+
+- `PICatalogStoreTests` (8 new): an old catalog is served at once with its
+  time while its read is held back; after a return to the foreground a
+  disk-sourced catalog is served at once and a failed live one keeps its
+  time; the saved catalog is shown while the first read of a run is on its
+  way, and when that read fails; it is read once; it is not shown beyond
+  24 hours; with nothing saved the first caller waits; a saved catalog does
+  not stand in for a response that could not be used. Changed: the tests
+  for "read again after sleep", "reused while fresh", "failed refresh" and
+  "a response that cannot be used" now state that the caller is served at
+  once and the read replaces the catalog; the last one also covers the
+  next read and the foreground.
+- `PIIndexerAdvancingReadTests` (3 new): what a live read saved is read
+  back by a new client with no request; a new run shows the saved prices
+  through the store and `FiatService` while its first read is held back;
+  the catalog session does not wait for connectivity.
+- `ExplorePoolScanTests` (5) and `PIActionsDoNotWaitForPricesTests` (5):
+  see the table under "Tests". They run the production
+  `ExplorePoolsService` against a counting JSON-RPC engine, and the
+  production `ReceiveViewModel`, `SwapViewModel`,
+  `SupplyLiquidityViewModel` and `RemoveLiquidityViewModel` with price and
+  APY services that do not answer until the test lets them.
+
+"Served at once" is tested without timing: the loader is held, and the
+test fails if the call has not returned after five seconds.
+
+**The tests fail without the fixes.** With the old behaviour put back for
+one run (wait unless live and under `staleFor`; no saved catalog;
+`clearBackoff` forgetting the last error; session waiting for
+connectivity; pool list not kept without prices; reload on every
+notification; fiat awaited before the QR, the swap fee and the liquidity
+fee; APY awaited with the fee), 21 tests fail: 9 in `PICatalogStoreTests`
+(7 of the new ones and 2 of the changed ones), 2 in
+`PIIndexerAdvancingReadTests`, all 5 in `ExplorePoolScanTests` and all 5
+in `PIActionsDoNotWaitForPricesTests`. The two new tests that pass either
+way cover new code only (reading the saved catalog back, and a saved
+catalog after an unusable response). The tree was restored afterwards.
+
+### Limits of round 3
+
+- Old prices carry their time on the wallet total only. Swap, send,
+  Receive and the liquidity screens show values from the catalog held
+  without a marker, as in round 2; they are replaced when the read ends
+  and the screen asks again (Swap asks on every new quote).
+- Lists that only display prices still wait for the first catalog when
+  none under 24 hours exists: the wallet rows keep their placeholders, and
+  "All pools" and the farm lists appear when the read ends (5 to 8 s
+  online, at once offline, 20 s if PI accepts the connection and does not
+  answer). 3.8.6 had the same dependency with a 60 s timeout.
+- With no connection at the first read of a run and nothing saved, prices
+  appear with the store's next attempt (15 s later at the earliest, when a
+  screen asks) rather than the moment the connection returns.
+- Not seen in the running app: the simulator wallet is still behind a PIN
+  this round does not have. The Debug build was installed and launched on
+  the simulator and reaches the PIN screen; the four screens were driven
+  through their production view models in tests.
 
 ## Not changed
 
