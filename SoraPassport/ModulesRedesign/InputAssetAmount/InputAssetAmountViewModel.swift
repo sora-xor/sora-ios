@@ -143,6 +143,7 @@ final class InputAssetAmountViewModel {
     private var qrEncoder: WalletQREncoderProtocol
     private var sharingFactory: AccountShareFactoryProtocol
     private var marketCapService: MarketCapServiceProtocol
+    private var pricesObservation: PIPricesObservation?
     init(
         selectedTokenId: String?,
         selectedAddress: String?,
@@ -200,10 +201,46 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
         view?.setupButton(isEnabled: false)
         assetsProvider?.add(observer: self)
         
+        loadFiat()
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Ask again when that read ends, so the
+        // fiat value under the amount is not left at yesterday's price for
+        // as long as the screen is open.
+        pricesObservation = PIPricesObservation { [weak self] in
+            self?.loadFiat()
+        }
+    }
+
+    private func loadFiat() {
         Task { [weak self] in
             guard let self else { return }
-            self.fiatData = await self.fiatService?.getFiat() ?? []
+            let fiatData = await self.fiatService?.getFiat() ?? []
+            await MainActor.run { [weak self] in
+                self?.apply(fiatData: fiatData)
+            }
         }
+    }
+
+    /// Takes new prices and writes the two texts that depend on them again:
+    /// the balance and the value of the amount entered. Nothing else on the
+    /// screen changes; the amount, the recipient and the button stay.
+    private func apply(fiatData: [PIExactFiatData]) {
+        guard fiatData != self.fiatData else { return }
+        self.fiatData = fiatData
+        setupFullBalanceText(from: firstAssetBalance) { [weak self] text in
+            DispatchQueue.main.async {
+                self?.view?.updateFirstAsset(balance: text)
+            }
+        }
+        // The line under the amount shows either the value or a warning
+        // (not enough balance, not enough XOR for the fee). Only the value
+        // depends on prices, so a warning is left as it is.
+        if checkBalances() && checkXorBalance() {
+            view?.updateFirstAsset(
+                fiatText: setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
+            )
+        }
+        updateButtonState()
     }
     
     func choiceBaseAssetButtonTapped() {

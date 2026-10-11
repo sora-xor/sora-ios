@@ -5476,3 +5476,29 @@ enum PICatalogs {
             }
         }
 }
+
+/// Tells a screen that prices may have changed, for as long as the screen
+/// keeps this object.
+///
+/// The catalog store answers at once with the catalog it holds, which can be
+/// up to a day old, and reads PI behind the caller. A screen that asks for
+/// prices once would keep those for as long as it is open; with this it asks
+/// again when the read ends.
+final class PIPricesObservation {
+    private let token: NSObjectProtocol
+
+    /// - Parameter handler: Called on the main queue.
+    init(_ handler: @escaping () -> Void) {
+        token = NotificationCenter.default.addObserver(
+            forName: PICatalogs.pricesDidChange,
+            object: nil,
+            queue: .main
+        ) { _ in
+            handler()
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(token)
+    }
+}
