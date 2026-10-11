@@ -74,9 +74,10 @@ extension ExploreItemFactory {
         let baseAssetInfo = assetManager.assetInfo(for: pool.baseAssetId)
         let targetAssetInfo = assetManager.assetInfo(for: pool.targetAssetId)
 
-        // Without a price the value is unknown; the cell keeps its loading
-        // placeholder instead of showing "$0".
-        let tvl: String? = pool.tvlIsKnown ? "$" + pool.tvl.formatNumber() : nil
+        // The pool list is valued after the price read has finished. Without
+        // a price the value is unknown: the cell shows nothing there, neither
+        // "$0" nor a loading placeholder that never ends.
+        let tvl: String? = pool.tvlIsKnown ? "$" + pool.tvl.formatNumber() : ""
         let apyString = localizationManager.isRightToLeft ? "%\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "") APY" : "\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "")% APY"
         let apyText: String? = apy != nil ? apyString : (apyLoaded ? "" : nil)
         

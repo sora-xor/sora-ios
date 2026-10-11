@@ -116,11 +116,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
             
-            let price = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            // A price that is not known leaves the value and the rate
+            // unknown; they are not shown as "$0" and "0%".
+            let knownPrice = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue
+            let price = knownPrice ?? Decimal(0)
             let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
             
             let blockPerYear = Decimal(5256000)
-            let rewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let knownRewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue
+            let rewardAssetPrice = knownRewardAssetPrice ?? Decimal(0)
             let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
             let depositFee = pool.depositFee * 100
             
@@ -131,7 +135,9 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         rewardAsset: rewardAsset,
                         tvl: tvl,
                         apr: apr / 100,
-                        depositFee: depositFee)
+                        depositFee: depositFee,
+                        tvlIsKnown: knownPrice != nil,
+                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
         }
         
         let finalfarms = await farms ?? []
@@ -165,11 +171,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
             
-            let price = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            // A price that is not known leaves the value and the rate
+            // unknown; they are not shown as "$0" and "0%".
+            let knownPrice = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue
+            let price = knownPrice ?? Decimal(0)
             let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
             
             let blockPerYear = Decimal(5256000)
-            let rewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let knownRewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue
+            let rewardAssetPrice = knownRewardAssetPrice ?? Decimal(0)
             let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
             let depositFee = pool.depositFee * 100
             
@@ -180,7 +190,9 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         rewardAsset: rewardAsset,
                         tvl: tvl,
                         apr: apr / 100,
-                        depositFee: depositFee)
+                        depositFee: depositFee,
+                        tvlIsKnown: knownPrice != nil,
+                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
         }
 
         return await farms ?? []
