@@ -39,7 +39,7 @@ final class HeaderActivityDetailsItem: NSObject {
     let actionTransactionImage: UIImage?
     let firstAssetImageViewModel: UIImage?
     let secondAssetImageViewModel: UIImage?
-    let firstBalanceText: NSAttributedString
+    var firstBalanceText: NSAttributedString
     let secondBalanceText: NSAttributedString?
     var details: [DetailViewModel]
 
