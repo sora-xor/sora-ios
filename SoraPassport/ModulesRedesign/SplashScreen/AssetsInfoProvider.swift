@@ -287,6 +287,9 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
                 self.loadedPages += 1
                 if page.count < Int(self.policy.keysPageSize) {
                     self.requestAssetInfos(over: engine)
+                } else if page.last == self.lastKey {
+                    // The node did not move on from the start key.
+                    self.roundFailed("key_page_repeated")
                 } else if self.loadedPages >= self.policy.maximumKeyPages {
                     self.roundFailed("key_page_limit")
                 } else {
