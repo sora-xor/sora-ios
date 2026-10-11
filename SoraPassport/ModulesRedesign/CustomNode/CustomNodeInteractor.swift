@@ -46,6 +46,7 @@ final class CustomNodeInteractor {
     private let nodeRepository: AnyDataProviderRepository<ChainNodeModel>
     private let substrateOperationFactory: SubstrateOperationFactoryProtocol
     private var addCustomNodeOperationFactory: CustomNodeOperationFactoryProtocol?
+    private let signingRouteProbe: (URL) async -> Sora2NodeSigningRoute
 
     init(settings: SettingsManagerProtocol,
          eventCenter: EventCenterProtocol,
@@ -54,7 +55,11 @@ final class CustomNodeInteractor {
          nodeRepository: AnyDataProviderRepository<ChainNodeModel>,
          substrateOperationFactory: SubstrateOperationFactoryProtocol,
          chain: ChainModel,
-         mode: NodeAction) {
+         mode: NodeAction,
+         signingRouteProbe: @escaping (URL) async -> Sora2NodeSigningRoute = {
+             await Sora2NodeSigningRoute.probe(nodeURL: $0)
+         }) {
+        self.signingRouteProbe = signingRouteProbe
         self.settings = settings
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -73,7 +78,7 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
         checkGenesisBlock(url: url, name: name)
         return
         #endif
-        updateConnection(url: url, name: name)
+        checkSigningRoute(url: url, name: name)
     }
 
     private func checkGenesisBlock(url: URL, name: String) {
@@ -86,12 +91,69 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
 
             let genesisBlock = try? operation.extractResultData()
 
-            guard self.settings.externalGenesis == genesisBlock else { return }
+            guard Self.isExpectedGenesis(
+                genesisBlock,
+                externalGenesis: self.settings.externalGenesis,
+                chainId: self.chain.chainId
+            ) else {
+                // No answer, or another network. Say so; the form stays
+                // open instead of waiting without end.
+                DispatchQueue.main.async {
+                    self.presenter?.didReceive(error: .invalidConnection)
+                }
+                return
+            }
 
-            self.updateConnection(url: url, name: name)
+            self.checkSigningRoute(url: url, name: name)
         }
 
         operationManager.enqueue(operations: [operation], in: .transient)
+    }
+
+    /// Whether a node's block zero is the network this app is on: the
+    /// genesis learned from the connected node at start, or, when none was
+    /// learned yet, the chain's own id. No answer is never a match (it used
+    /// to be one while no genesis had been learned).
+    static func isExpectedGenesis(
+        _ answer: String?,
+        externalGenesis: String?,
+        chainId: String
+    ) -> Bool {
+        guard let answer, !answer.isEmpty else {
+            return false
+        }
+        return answer.lowercased() == (externalGenesis ?? chainId).lowercased()
+    }
+
+    /// Fee estimates and sends on SORA mainnet go to the node as one-shot
+    /// HTTPS requests at the node's own address, while balances use its
+    /// WebSocket. A node that serves only the WebSocket would show balances
+    /// and fail every send, so such a node is not saved and the user is told
+    /// why.
+    private func checkSigningRoute(url: URL, name: String) {
+        guard SoraNodeConnectionPolicy.isMainnet(
+            chainId: chain.chainId,
+            addressPrefix: chain.addressPrefix
+        ) else {
+            updateConnection(url: url, name: name)
+            return
+        }
+        Task { [weak self, signingRouteProbe] in
+            let route = await signingRouteProbe(url)
+            guard let self else { return }
+            switch route {
+            case .available:
+                self.updateConnection(url: url, name: name)
+            case .anotherNetwork:
+                await MainActor.run {
+                    self.presenter?.didReceive(error: .invalidConnection)
+                }
+            case .missing:
+                await MainActor.run {
+                    self.presenter?.didReceive(error: .noSigningRoute)
+                }
+            }
+        }
     }
 
     private func updateConnection(url: URL, name: String) {
