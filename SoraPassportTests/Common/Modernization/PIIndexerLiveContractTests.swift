@@ -1972,20 +1972,20 @@ final class PICatalogStoreTests: XCTestCase {
         XCTAssertEqual(changes.value, 1)
 
         source.advance(700)
-        source.delayNanoseconds = 300_000_000
+        // The refresh does not end until the test lets it, so "at once" is
+        // checked without a stopwatch.
+        source.hold()
         source.result = .success(
             PIQualifiedRead(value: ["b"], qualification: nil)
         )
-        let started = Date()
-        let atOnce = try await store.snapshot()
-        XCTAssertEqual(atOnce.values, ["a"])
-        XCTAssertNil(atOnce.asOf)
-        XCTAssertLessThan(Date().timeIntervalSince(started), 0.2)
+        let atOnce = await withoutWaiting(store)
+        XCTAssertEqual(atOnce?.values, ["a"])
+        XCTAssertEqual(atOnce.map { $0.asOf == nil }, true)
         // A second caller neither waits nor starts a second read.
-        let second = try await store.values()
-        XCTAssertEqual(second, ["a"])
-        XCTAssertEqual(source.callCount, 2)
+        let second = await withoutWaiting(store)
+        XCTAssertEqual(second?.values, ["a"])
 
+        source.release()
         await store.settled()
         XCTAssertEqual(changes.value, 2)
         let refreshed = try await store.values()
