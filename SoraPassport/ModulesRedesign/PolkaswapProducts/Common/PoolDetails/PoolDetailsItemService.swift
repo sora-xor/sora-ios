@@ -68,7 +68,11 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
         Task { [weak self] in
             guard let self else { return }
             let fiatData = await self.fiatService.getFiat()
-            let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue ?? .zero
+            // Without a price the value is unknown; the header keeps its
+            // loading placeholder instead of showing "$0 TVL".
+            guard let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue else {
+                return
+            }
             let reserves = poolInfo.baseAssetReserves ?? .zero
             self.tvlText = "$" + (priceUsd * reserves * 2).formatNumber() + " TVL"
         }

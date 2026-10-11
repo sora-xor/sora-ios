@@ -72,6 +72,9 @@ final class ExplorePoolsViewModelService {
             let result = (try? await viewModels) ?? []
             
             if result.isEmpty {
+                // The node or the pool list was not ready. Ask again, but
+                // not in a tight loop.
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
                 setup()
             } else {
                 self.viewModels = result

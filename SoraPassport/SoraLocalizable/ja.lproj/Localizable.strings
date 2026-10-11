@@ -1009,3 +1009,6 @@
 "Free up some space" = "空き容量を確保してください";
 "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed." = "この iPhone のストレージに空きを作ってから、もう一度確認してください。アカウントとキーは変更されていません。";
 "Check again" = "もう一度確認";
+
+// in1-indexer: prices and market data from the live indexer (3.9.0)
+"Price unavailable" = "価格を取得できません";

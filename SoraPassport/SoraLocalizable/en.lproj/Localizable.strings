@@ -1165,3 +1165,6 @@
 "Free up some space" = "Free up some space";
 "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed." = "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed.";
 "Check again" = "Check again";
+
+// in1-indexer: prices and market data from the live indexer (3.9.0)
+"Price unavailable" = "Price unavailable";

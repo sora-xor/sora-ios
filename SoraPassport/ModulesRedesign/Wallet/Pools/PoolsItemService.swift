@@ -48,8 +48,20 @@ final class PoolsItemService {
         PoolViewModel(identifier: "5", title: "", subtitle: "", fiatText: "")
     ]
     
+    /// Empty while loading, the total once prices are known, or the "price
+    /// unavailable" notice. Never "$0" for want of prices.
     @Published var moneyText: String = ""
-    
+    /// Set before `moneyText`, so the cell can style the notice.
+    private(set) var priceIsUnavailable = false
+
+    private let priceRetryLock = NSLock()
+    private var priceRetry: Task<Void, Never>?
+    private var priceFailures = 0
+
+    deinit {
+        priceRetry?.cancel()
+    }
+
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
@@ -88,12 +100,38 @@ final class PoolsItemService {
                 return partialResult
             })
             
-            moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+            let pricesAvailable = !fiatData.isEmpty
+            priceIsUnavailable = !pricesAvailable
+            moneyText = WalletUX.fiatTotalText(fiatDecimal, pricesAvailable: pricesAvailable)
+            schedulePriceRetry(needed: !pricesAvailable, pools: pools)
             
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
             }
             updateHandler?()
+        }
+    }
+}
+
+private extension PoolsItemService {
+    /// While prices are unavailable, asks again by itself so the notice is
+    /// replaced as soon as PI answers; nothing is asked of the user.
+    func schedulePriceRetry(needed: Bool, pools: [PoolInfo]) {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        // A newer pool list replaces a retry planned for an older one.
+        priceRetry?.cancel()
+        priceRetry = nil
+        guard needed else {
+            priceFailures = 0
+            return
+        }
+        let delay = WalletUX.priceRetryDelay(afterFailures: priceFailures)
+        priceFailures += 1
+        priceRetry = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.setup(with: pools)
         }
     }
 }

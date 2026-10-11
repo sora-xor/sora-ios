@@ -47,8 +47,20 @@ final class AssetsItemService {
                                                          AssetViewModel(identifier: "4", title: "", subtitle: "", fiatText: ""),
                                                          AssetViewModel(identifier: "5", title: "", subtitle: "", fiatText: "") ]
     
+    /// Empty while loading, the total once prices are known, or the "price
+    /// unavailable" notice. Never "$0" for want of prices.
     @Published var moneyText: String = ""
-    
+    /// Set before `moneyText`, so the cell can style the notice.
+    private(set) var priceIsUnavailable = false
+
+    private let priceRetryLock = NSLock()
+    private var priceRetry: Task<Void, Never>?
+    private var priceFailures = 0
+
+    deinit {
+        priceRetry?.cancel()
+    }
+
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
@@ -81,14 +93,10 @@ final class AssetsItemService {
             let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
             let items = assetProvider.getBalances(with: assetIds)
             
-            let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in
-                if let priceUsd = poolItemInfo.fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
-                    return partialResult + balanceData.balance.decimalValue * priceUsd
-                }
-                return partialResult
-            })
-            
-            moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+            let pricesAvailable = !poolItemInfo.fiatData.isEmpty
+            priceIsUnavailable = !pricesAvailable
+            moneyText = Self.fiatTotalText(balances: items, fiatData: poolItemInfo.fiatData)
+            schedulePriceRetry(needed: !pricesAvailable)
             
             assetViewModels = items.compactMap { item in
                 let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
@@ -98,6 +106,48 @@ final class AssetsItemService {
                                                                         priceDelta: deltaPrice)
             }
             updateHandler?()
+        }
+    }
+}
+
+extension AssetsItemService {
+    /// The wallet total for these balances at these prices. With no price
+    /// data at all (the price service could not be read) the total is the
+    /// "price unavailable" notice: a wallet that holds tokens must not read
+    /// "$0".
+    static func fiatTotalText(balances: [BalanceData], fiatData: [PIExactFiatData]) -> String {
+        let total = balances.reduce(Decimal(0)) { partialResult, balanceData in
+            if let priceUsd = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
+                return partialResult + balanceData.balance.decimalValue * priceUsd
+            }
+            return partialResult
+        }
+        return WalletUX.fiatTotalText(total, pricesAvailable: !fiatData.isEmpty)
+    }
+}
+
+private extension AssetsItemService {
+    /// While prices are unavailable, asks again by itself so the notice is
+    /// replaced as soon as PI answers; nothing is asked of the user.
+    func schedulePriceRetry(needed: Bool) {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        guard needed else {
+            priceFailures = 0
+            priceRetry?.cancel()
+            priceRetry = nil
+            return
+        }
+        guard priceRetry == nil else { return }
+        let delay = WalletUX.priceRetryDelay(afterFailures: priceFailures)
+        priceFailures += 1
+        priceRetry = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.priceRetryLock.lock()
+            self.priceRetry = nil
+            self.priceRetryLock.unlock()
+            self.setup()
         }
     }
 }
