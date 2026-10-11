@@ -578,7 +578,13 @@ enum Sora2BoundedHTTPJSONRPCError: LocalizedError {
     case requestTooLarge
     case responseTooLarge
     case invalidResponse
-    case httpStatus
+    /// The node answered the HTTPS request with this status instead of 200.
+    case httpStatus(Int)
+    /// The address answered 200 with something that is not JSON (a web
+    /// page, for example): there is no JSON-RPC service behind it.
+    case notJSONRPC
+    /// The node answered with a JSON-RPC error object: it received the
+    /// request and refused it.
     case remoteError
     case subscriptionsUnavailable
     /// The node answered that it no longer keeps the state of the block
@@ -598,15 +604,41 @@ enum Sora2BoundedHTTPJSONRPCError: LocalizedError {
             return WalletUX.text(
                 "The app could not send this request to the SORA network. Please try again."
             )
-        case .httpStatus, .responseTooLarge, .invalidResponse, .remoteError,
+        case .httpStatus, .notJSONRPC, .responseTooLarge, .invalidResponse,
              .blockStateUnavailable:
             // An HTTP refusal is described by what is known here: the node
             // gave no usable answer. Whether the node lacks the route
-            // altogether depends on which node it is; `Sora2SigningNotice`
-            // knows that and says so for a custom node.
+            // altogether depends on the status and on which node it is;
+            // `Sora2SigningNotice` knows that and says so for a custom
+            // node.
             return WalletUX.text(
                 "The SORA node did not give a usable answer. Please try again in a moment, or choose another node."
             )
+        case .remoteError:
+            // The node is working: it read the request and said no.
+            // Changing the node would not help.
+            return WalletUX.text(
+                "The SORA network did not accept this request. Please try again."
+            )
+        }
+    }
+
+    /// HTTP statuses that mean "nothing serves JSON-RPC at this address":
+    /// not found, method not allowed, upgrade required (a WebSocket-only
+    /// listener), not implemented. A busy or failing node answers 429, 502,
+    /// 503 or 504 and works again a moment later; those are not here.
+    static let missingRouteStatuses: Set<Int> = [404, 405, 426, 501]
+
+    /// The answer shows that the address has no HTTPS JSON-RPC route at
+    /// all, as opposed to a node that is in trouble for a moment.
+    var indicatesMissingSigningRoute: Bool {
+        switch self {
+        case .invalidEndpoint, .notJSONRPC:
+            return true
+        case let .httpStatus(status):
+            return Self.missingRouteStatuses.contains(status)
+        default:
+            return false
         }
     }
 
@@ -619,7 +651,7 @@ enum Sora2BoundedHTTPJSONRPCError: LocalizedError {
             return nil
         }
         switch error {
-        case .invalidEndpoint, .httpStatus:
+        case .invalidEndpoint, .httpStatus, .notJSONRPC:
             return error.errorDescription
         default:
             return nil
@@ -697,16 +729,18 @@ enum Sora2SigningNotice {
         guard let nodeError = error as? Sora2BoundedHTTPJSONRPCError else {
             return nil
         }
-        switch nodeError {
-        case .invalidEndpoint:
-            return .nodeWithoutSigningRoute
-        case .httpStatus:
-            // A bundled node that refuses a request is having trouble, not
-            // missing the route.
-            return isBundledNode(nodeURL) ? nil : .nodeWithoutSigningRoute
-        default:
+        // Only an answer that shows the route is not there. A node that
+        // answers 429, 502 or 503 once is busy, and is told apart from a
+        // node that can never send: the flow's own "try again" covers it.
+        guard nodeError.indicatesMissingSigningRoute else {
             return nil
         }
+        if case .invalidEndpoint = nodeError {
+            return .nodeWithoutSigningRoute
+        }
+        // A bundled node has the route; whatever it answered, it is having
+        // trouble, not missing it.
+        return isBundledNode(nodeURL) ? nil : .nodeWithoutSigningRoute
     }
 
     static func message(for kind: Kind) -> String {
@@ -1159,9 +1193,18 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
                 .map({ $0.caseInsensitiveCompare("identity") == .orderedSame })
                 ?? true
         else {
-            if let http = response as? HTTPURLResponse,
-               http.statusCode != 200 {
-                throw Sora2BoundedHTTPJSONRPCError.httpStatus
+            if let http = response as? HTTPURLResponse {
+                if http.statusCode != 200 {
+                    throw Sora2BoundedHTTPJSONRPCError.httpStatus(
+                        http.statusCode
+                    )
+                }
+                if http.url == endpoint,
+                   !Self.acceptsJSONContentType(
+                       http.value(forHTTPHeaderField: "Content-Type")
+                   ) {
+                    throw Sora2BoundedHTTPJSONRPCError.notJSONRPC
+                }
             }
             throw Sora2BoundedHTTPJSONRPCError.invalidResponse
         }
@@ -1937,6 +1980,27 @@ struct Sora2PendingFinalizedInclusion: Codable, Equatable {
     let blockHash: String
     let extrinsicIndex: UInt32
     let finalizedHeight: Int
+    /// When the inclusion was written down. The time the result is still
+    /// looked for counts from here, not from signing: an entry first
+    /// examined long after it was sent gets the same number of tries as
+    /// any other. Optional and additive.
+    var recordedAt: Date?
+
+    init(
+        schemaVersion: Int,
+        blockNumber: Int,
+        blockHash: String,
+        extrinsicIndex: UInt32,
+        finalizedHeight: Int,
+        recordedAt: Date? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.blockNumber = blockNumber
+        self.blockHash = blockHash
+        self.extrinsicIndex = extrinsicIndex
+        self.finalizedHeight = finalizedHeight
+        self.recordedAt = recordedAt
+    }
 
     func isValid(for context: Sora2SubmissionRecoveryContext) -> Bool {
         schemaVersion == Self.currentSchemaVersion &&
@@ -2016,12 +2080,52 @@ struct Sora2PendingSubmission: Codable, Equatable {
         return abs(now.timeIntervalSince(createdAt)) < Self.resultRetryWindow
     }
 
+    /// Whether a failed read for this entry is worth another pass within
+    /// minutes: it is in a finalized block and its result is still looked
+    /// for, or it was signed within `resultRetryWindow`. An older entry
+    /// that still cannot be read waits for the next start or return to the
+    /// foreground.
+    func isWorthAskingAboutSoon(now: Date) -> Bool {
+        guard terminalResolution == nil else {
+            return false
+        }
+        if finalizedInclusion != nil {
+            return resultIsStillLookedFor(now: now)
+        }
+        return abs(now.timeIntervalSince(createdAt)) < Self.resultRetryWindow
+    }
+
+    /// No feature journal owns this entry.
+    var isGeneric: Bool {
+        purpose == nil || purpose == .generic
+    }
+
+    /// Whether a pass still asks for the result of this entry, which was
+    /// found in a finalized block. An entry a feature owns (a legacy
+    /// migration, a Polkamarkt order) is asked about until it has its
+    /// result, because that feature waits for it. A generic entry is asked
+    /// about for `resultRetryWindow` from the moment its inclusion was
+    /// written down; one failed read never ends the asking.
+    func resultIsStillLookedFor(now: Date) -> Bool {
+        guard terminalResolution == nil else {
+            return false
+        }
+        guard isGeneric, let inclusion = finalizedInclusion else {
+            return true
+        }
+        // Nothing changes an entry between the recording of its inclusion
+        // and its result, so for an entry written before `recordedAt`
+        // existed `updatedAt` is that moment.
+        let since = inclusion.recordedAt ?? updatedAt
+        return abs(now.timeIntervalSince(since)) < Self.resultRetryWindow
+    }
+
     /// A generic entry that no feature journal owns, whose transaction can
     /// no longer enter the chain. When the journal is full it may give its
     /// place to a new transaction even without a resolution.
     func isStale(now: Date) -> Bool {
         guard
-            purpose == nil || purpose == .generic,
+            isGeneric,
             [
                 Sora2PendingSubmissionState.submitting,
                 .submitted,
@@ -2402,7 +2506,8 @@ final class Sora2PendingSubmissionStore {
         blockNumber: Int,
         blockHash rawBlockHash: String,
         extrinsicIndex: UInt32,
-        finalizedHeight: Int
+        finalizedHeight: Int,
+        recordedAt: Date = Date()
     ) throws {
         Self.lock.lock()
         defer { Self.lock.unlock() }
@@ -2429,7 +2534,12 @@ final class Sora2PendingSubmissionStore {
             blockNumber: blockNumber,
             blockHash: blockHash,
             extrinsicIndex: extrinsicIndex,
-            finalizedHeight: finalizedHeight
+            finalizedHeight: finalizedHeight,
+            // Whole seconds, as the journal's date encoding keeps them.
+            recordedAt: Date(
+                timeIntervalSince1970:
+                    recordedAt.timeIntervalSince1970.rounded(.down)
+            )
         )
         guard inclusion.isValid(for: context) else {
             throw ExtrinsicServiceError.invalidPendingSubmissionTransition
@@ -2734,14 +2844,24 @@ struct Sora2PendingReconciliationReport: Equatable {
     /// that are not in a finalized block yet.
     var withinEra = 0
     /// Entries that could not be examined now: no wallet to bind them to,
-    /// or a read failed.
+    /// a read failed, or the connected node follows another finalized
+    /// history than the one the transaction was signed on.
     var deferred = 0
+    /// Of `deferred`, the entries a read failed for in this pass that are
+    /// worth asking about again within minutes
+    /// (`Sora2PendingSubmission.isWorthAskingAboutSoon`). The same read
+    /// can succeed a moment later.
+    var failedReads = 0
     /// Entries left for the next pass by the per-pass limit.
     var notExamined = 0
 
-    /// A later pass can still change something soon.
+    /// A later pass can still change something soon: an entry is inside
+    /// its era, was not reached, is in a finalized block without a result
+    /// that could be read, or met a read that failed. The follow-up
+    /// schedule is what bounds the asking.
     var needsFollowUp: Bool {
-        withinEra > 0 || notExamined > 0
+        withinEra > 0 || notExamined > 0 || awaitingResult > 0 ||
+            failedReads > 0
     }
 
     /// Something was left without a terminal resolution.
@@ -2749,6 +2869,17 @@ struct Sora2PendingReconciliationReport: Equatable {
         awaitingResult > 0 || withinEra > 0 || deferred > 0 ||
             notExamined > 0
     }
+}
+
+/// What one pass leaves for the recovery runtime, worked out where the pass
+/// ran, so the main actor reads no file to decide whether to schedule
+/// another one.
+struct Sora2PendingPassOutcome: Equatable {
+    /// Nil when the pass failed as a whole (offline, node not answering).
+    var report: Sora2PendingReconciliationReport?
+    /// Another pass soon can still change something
+    /// (`Sora2PendingFollowUpSchedule.needsFollowUp`).
+    var needsFollowUp: Bool
 }
 
 /// Remembers, for the life of the process, how often each entry was looked
@@ -2832,6 +2963,9 @@ final class Sora2PendingSubmissionReconciler {
         case resolved
         case awaitingResult
         case withinEra
+        /// The connected node has another block at the height the
+        /// transaction was signed against.
+        case otherHistory
     }
 
     private let store: Sora2PendingSubmissionStore
@@ -2943,6 +3077,26 @@ final class Sora2PendingSubmissionReconciler {
         }
     }
 
+    /// One pass for the recovery runtime. It never throws: a pass that
+    /// failed as a whole has no report. Whether another pass is worth
+    /// scheduling is decided here, off the main actor, because it can need
+    /// the journal file.
+    func scheduledPass() async -> Sora2PendingPassOutcome {
+        let report = try? await reconcile()
+        if let report, report.needsFollowUp {
+            return Sora2PendingPassOutcome(report: report, needsFollowUp: true)
+        }
+        let journal = (try? store.all()) ?? []
+        return Sora2PendingPassOutcome(
+            report: report,
+            needsFollowUp: Sora2PendingFollowUpSchedule.needsFollowUp(
+                report: report,
+                journal: journal,
+                now: now()
+            )
+        )
+    }
+
     /// One status-only pass over the journal.
     @discardableResult
     func reconcile() async throws -> Sora2PendingReconciliationReport {
@@ -2960,10 +3114,11 @@ final class Sora2PendingSubmissionReconciler {
             !$0.isPrunable &&
                 $0.state != .stagedBeforeTransport &&
                 $0.recoveryContext != nil &&
-                // A finalized transaction whose result nobody could give
-                // for a week is no longer asked about.
+                // A finalized generic transaction whose result nobody
+                // could give for a week of asking is no longer asked
+                // about. An entry a feature waits for always is.
                 ($0.finalizedInclusion == nil ||
-                    $0.isAwaitingResult(now: currentTime))
+                    $0.resultIsStillLookedFor(now: currentTime))
         }
         guard !qualified.isEmpty else {
             return report
@@ -3073,6 +3228,12 @@ final class Sora2PendingSubmissionReconciler {
                     rotation.recordAttempt(for: pending.id)
                 case .withinEra:
                     report.withinEra += 1
+                case .otherHistory:
+                    // Nothing this node says is about this transaction.
+                    // The entry stays as it is; asking this node again
+                    // soon would change nothing.
+                    report.deferred += 1
+                    rotation.recordAttempt(for: pending.id)
                 }
             } catch is CancellationError {
                 throw CancellationError()
@@ -3081,6 +3242,9 @@ final class Sora2PendingSubmissionReconciler {
                 // does not hold back the others, and it goes to the back of
                 // the next pass.
                 report.deferred += 1
+                if pending.isWorthAskingAboutSoon(now: currentTime) {
+                    report.failedReads += 1
+                }
                 rotation.recordAttempt(for: pending.id)
             }
         }
@@ -3242,10 +3406,17 @@ final class Sora2PendingSubmissionReconciler {
             ) else {
                 throw Sora2PendingRecoveryError.unavailable
             }
-            // A birth block that is not the canonical one means the
-            // transaction was signed against a block that did not become
-            // final. It can then never be valid, and the scan of the era
-            // proves, as for any other entry, that it is not on the chain.
+            // The transaction was signed against the finalized head of
+            // the node it was built on. Another block at that height means
+            // this node follows another finalized history (a fork with the
+            // same genesis), so neither what it holds nor what it lacks is
+            // evidence about this transaction. The entry is left as it is:
+            // after an hour it blocks nothing, and it resolves when the
+            // app is connected to the chain it was signed on again.
+            if blockNumber == context.eraBirthBlock,
+               canonical.blockHash != context.eraBirthBlockHash {
+                return .otherHistory
+            }
             if let extrinsicIndex =
                 canonical.extrinsicIndices[pending.extrinsicHash] {
                 guard foundInclusion == nil else {
@@ -3321,7 +3492,8 @@ final class Sora2PendingSubmissionReconciler {
                 blockNumber: inclusion.blockNumber,
                 blockHash: inclusion.blockHash,
                 extrinsicIndex: inclusion.extrinsicIndex,
-                finalizedHeight: finalizedHeight
+                finalizedHeight: finalizedHeight,
+                recordedAt: now()
             )
         }
         return .awaitingResult
@@ -3589,23 +3761,32 @@ enum Sora2PendingFollowUpSchedule {
         delays.indices.contains(attempt) ? delays[attempt] : nil
     }
 
-    /// Whether another pass soon can still change something: the pass left
-    /// entries inside their era or unexamined, or the journal holds an
-    /// entry whose transaction may still be entering the network (this also
-    /// covers a pass that failed as a whole, for example while offline).
+    /// Whether another pass soon can still change something.
+    ///
+    /// - A pass that returned a report: it left entries inside their era,
+    ///   unexamined, without a readable result or behind a failed read, or
+    ///   the journal holds an entry whose transaction may still be entering
+    ///   the network.
+    /// - A pass that failed as a whole (offline, node not answering): the
+    ///   journal holds an entry a pass would have looked at.
+    ///
+    /// Either way the asking is bounded by `delays`; start, foreground and
+    /// the next submission begin it again.
     static func needsFollowUp(
         report: Sora2PendingReconciliationReport?,
         journal: [Sora2PendingSubmission],
         now: Date
     ) -> Bool {
-        if let report, report.needsFollowUp {
-            return true
-        }
-        return journal.contains {
+        let examinable = journal.filter {
             $0.recoveryContext != nil &&
                 $0.state != .stagedBeforeTransport &&
-                $0.mayStillEnterChain(now: now)
+                !$0.isPrunable
         }
+        if let report {
+            return report.needsFollowUp ||
+                examinable.contains { $0.mayStillEnterChain(now: now) }
+        }
+        return examinable.contains { $0.isWorthAskingAboutSoon(now: now) }
     }
 }
 
@@ -3620,13 +3801,13 @@ enum Sora2PendingFollowUpSchedule {
 final class Sora2PendingSubmissionRecoveryRuntime {
     static let shared = Sora2PendingSubmissionRecoveryRuntime()
 
-    /// One status-only pass over the journal.
-    typealias Pass = () async throws -> Sora2PendingReconciliationReport
+    /// One status-only pass over the journal. It runs off the main actor
+    /// and brings back everything the schedule needs.
+    typealias Pass = () async -> Sora2PendingPassOutcome
 
     /// Returns the pass to run against the connected node, or nil when the
     /// SORA2 connection or its runtime is not available.
     private let makePass: () -> Pass?
-    private let journal: () -> [Sora2PendingSubmission]
     private let sleep: (TimeInterval) async throws -> Void
     private let notifyResolved: () -> Void
     private var walletStorageReady = false
@@ -3657,9 +3838,8 @@ final class Sora2PendingSubmissionRecoveryRuntime {
                     engine: engine,
                     runtimeService: runtimeService
                 )
-                return { try await reconciler.reconcile() }
+                return { await reconciler.scheduledPass() }
             },
-            journal: { (try? store?.all()) ?? [] },
             sleep: {
                 try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
             },
@@ -3673,14 +3853,13 @@ final class Sora2PendingSubmissionRecoveryRuntime {
 
     /// The parts that touch the chain registry, the journal file, the clock
     /// and the event center are passed in, so the scheduling can be tested.
+    /// The runtime itself reads no file: it runs on the main actor.
     init(
         makePass: @escaping () -> Pass?,
-        journal: @escaping () -> [Sora2PendingSubmission],
         sleep: @escaping (TimeInterval) async throws -> Void,
         notifyResolved: @escaping () -> Void
     ) {
         self.makePass = makePass
-        self.journal = journal
         self.sleep = sleep
         self.notifyResolved = notifyResolved
     }
@@ -3775,7 +3954,8 @@ final class Sora2PendingSubmissionRecoveryRuntime {
         recoveryTask = Task { [weak self] in
             // Errors remain represented by the journal. Never log hashes,
             // addresses, signed bytes, or raw RPC responses here.
-            let report = try? await pass()
+            let outcome = await pass()
+            let report = outcome.report
             guard let self else {
                 return
             }
@@ -3799,12 +3979,7 @@ final class Sora2PendingSubmissionRecoveryRuntime {
                 self.runPass()
                 return
             }
-            if self.followUpTask == nil,
-               Sora2PendingFollowUpSchedule.needsFollowUp(
-                   report: report,
-                   journal: self.journal(),
-                   now: Date()
-               ) {
+            if self.followUpTask == nil, outcome.needsFollowUp {
                 self.scheduleFollowUp()
             }
         }
