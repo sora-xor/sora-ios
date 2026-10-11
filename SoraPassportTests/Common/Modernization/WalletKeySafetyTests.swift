@@ -264,6 +264,45 @@ private enum KeySafetyStore {
     }
 }
 
+/// The app's Core Data stack over one installation's database file,
+/// configured as `UserDataStorageFacade` configures the app's own.
+private final class OnDiskUserDataFacade: SoraPassport.StorageFacadeProtocol {
+    let databaseService: CoreDataServiceProtocol
+
+    init(storeURL: URL) throws {
+        let modelName = UserStorageParams.modelVersion.rawValue
+        let modelURL = Bundle.main.url(forResource: modelName, withExtension: "omo",
+                                       subdirectory: UserStorageParams.modelDirectory)
+            ?? Bundle.main.url(forResource: modelName, withExtension: "mom",
+                               subdirectory: UserStorageParams.modelDirectory)
+        let settings = CoreDataPersistentSettings(databaseDirectory: storeURL.deletingLastPathComponent(),
+            databaseName: storeURL.lastPathComponent,
+            incompatibleModelStrategy: UserStorageParams.incompatibleModelStrategy)
+        databaseService = CoreDataService(configuration: CoreDataServiceConfiguration(
+            modelURL: try XCTUnwrap(modelURL), storageType: .persistent(settings: settings)))
+    }
+
+    func createRepository<T, U>(filter: NSPredicate?, sortDescriptors: [NSSortDescriptor],
+                                mapper: AnyCoreDataMapper<T, U>) -> CoreDataRepository<T, U>
+    where T: Identifiable, U: NSManagedObject {
+        CoreDataRepository(databaseService: databaseService, mapper: mapper, filter: filter,
+                           sortDescriptors: sortDescriptors)
+    }
+
+    /// Saves (inserts or updates by address) account rows, as the app's
+    /// repository saves do.
+    func save(_ accounts: [AccountItem]) throws {
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> =
+            createRepository(mapper: AnyCoreDataMapper(AccountItemMapper()))
+        let operation = repository.saveOperation({ accounts }, { [] })
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+    }
+
+    /// Before another stack (a startup, another version) opens the file.
+    func close() throws { try databaseService.close() }
+}
+
 /// One isolated installation: a directory standing in for Documents/CoreData
 /// and Application Support, a Keychain and settings.
 private final class Installation {
@@ -326,56 +365,41 @@ private final class Installation {
         return copy
     }
 
-    /// The production startup sequence of `SplashInteractor`, against this
-    /// installation: journal and startup recovery, database migration, then
-    /// the network bootstrap and the scoped-copy backfill.
+    /// The startup of `SplashInteractor`, against this installation: the
+    /// production storage checks themselves (`WalletStorageStartup.runChecks`:
+    /// helper-file sweep, journal and startup recovery, database migration,
+    /// transaction records), then the production network bootstrap and the
+    /// scoped-copy backfill.
     ///
-    /// - Parameter sweepsHelperFilesFirst: the explicit sweep that
-    ///   `SplashInteractor.performStorageMigration` runs first. Tests pass
-    ///   false to show that each folder check also copes by itself.
+    /// - Parameter sweepsHelperFilesFirst: the explicit sweep the storage
+    ///   checks begin with. Tests pass false to show that each folder check
+    ///   also copes by itself.
     @discardableResult
-    func startup(migration: (() throws -> Void)? = nil,
-                 checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
+    func startup(checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
                  sweepsHelperFilesFirst: Bool = true) throws
         -> WalletStorageStartupOutcome {
-        if sweepsHelperFilesFirst {
-            WalletInterruptedWriteCleanup.run(storeURL: storeURL, applicationSupportURL: directory)
-        }
         let gate = self.gate()
         let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
-        let database = try migrator(gate: gate, checkpoint: checkpoint)
-        let directory = self.directory
-        let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
-            _ = try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: self.storeURL,
-                modelDirectory: UserStorageParams.modelDirectory, keystore: self.keychain,
-                settings: self.settings, baseURL: directory, lifecycleCoordinator: coordinator)
-            _ = try LegacyWalletAccountCommitRecovery.recoverIfNeeded(storeURL: self.storeURL,
-                modelDirectory: UserStorageParams.modelDirectory, keystore: self.keychain,
-                settings: self.settings, baseURL: directory, lifecycleCoordinator: coordinator,
-                recoveryGate: gate)
-        }, retryDelay: { _ in }) {
-            try migration?()
-            try database.migrateAtStartup(lifecycleCoordinator: coordinator, hasUnresolvedAccountCommit: {
-                try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty
-            })
-            try WalletStartupDiagnostic.check(.pendingTransactions) {
-                try PendingTransactionRecords.requireReadable(baseURL: directory)
-            }
-        }
-        guard outcome == .ready else { return outcome }
+        let checks = WalletStorageStartup.runChecks(settings: settings, keystore: keychain, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, applicationSupportURL: directory,
+            lifecycleCoordinator: coordinator, recoveryGate: gate,
+            databaseMigrator: try migrator(gate: gate, checkpoint: checkpoint),
+            sweepsHelperFiles: sweepsHelperFilesFirst, retryDelay: { _ in })
+        // `SplashInteractor.performStorageMigration` routes from here: only a
+        // ready wallet that is not waiting for its 1.x upgrade goes on to
+        // `bootstrapWalletNetworks`.
+        guard checks.outcome == .ready, !checks.deferredForLegacyUpgrade,
+              !settings.walletMigrationRecoveryRequired else { return checks.outcome }
         let accounts = try KeySafetyStore.rows(at: storeURL)
         let selected = try SelectedWalletSettings.resolveSelection(accounts: accounts,
             legacySelectedAddress: settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)?.identifier)
         let store = try WalletNetworkStore(baseURL: directory, recoveryGate: gate)
-        let hasSnapshot = try store.load() != nil
-        if !(accounts.isEmpty && selected == nil && !hasSnapshot) {
-            try WalletNetworkModelMigrator(keystore: keychain, store: store, settings: settings,
-                lifecycleCoordinator: coordinator, recoveryGate: gate)
-                .migrate(accounts: accounts, selectedAddress: selected?.address)
-        }
+        try SplashInteractor.initializeWalletNetworksIfNeeded(accounts: accounts, selectedAddress: selected?.address,
+            store: store, keystore: keychain, settings: settings, lifecycleCoordinator: coordinator,
+            recoveryGate: gate)
         SplashInteractor.addScopedCopiesIfNeeded(accounts: accounts, store: store, keystore: keychain,
             lifecycleCoordinator: coordinator, recoveryGate: gate)
-        return outcome
+        return checks.outcome
     }
 
     func rootInteractor(
@@ -399,9 +423,11 @@ private final class Installation {
     }
 
     /// `SelectedWalletSettings` over an in-memory Core Data stack whose
-    /// network synchronizer writes this installation's snapshot.
+    /// network synchronizer writes this installation's snapshot. With
+    /// `OnDiskUserDataFacade` it works on this installation's own database
+    /// file, as the app does.
     func selectedWalletSettings(accounts: [AccountItem] = [],
-                                facade: UserDataStorageTestFacade = UserDataStorageTestFacade()) throws
+                                facade: SoraPassport.StorageFacadeProtocol = UserDataStorageTestFacade()) throws
         -> SelectedWalletSettings {
         if !accounts.isEmpty {
             let repository: CoreDataRepository<AccountItem, CDAccountItem> =
@@ -426,6 +452,14 @@ private final class Installation {
             walletNetworkSelectionSynchronizer: { accounts, selected, lease in
                 try coordinator.withExclusiveAccess(using: lease) {
                     try store.selectWallet(walletId: selected, expectedAccounts: accounts)
+                }
+            },
+            // As `SelectedWalletSettings.shared` does (the recovery marker of
+            // a failure is set by `performUpdate` itself).
+            walletNetworkMetadataSynchronizer: { accounts, walletId, displayName, lease in
+                try coordinator.withExclusiveAccess(using: lease) {
+                    try store.updateWalletDisplayName(walletId: walletId, displayName: displayName,
+                                                      expectedAccounts: accounts)
                 }
             },
             walletAccountCommitJournalStoreFactory: { journalStore },
@@ -2697,6 +2731,67 @@ private enum AppStore386Removal {
     }
 }
 
+/// App Store 3.8.6 (`354f176c`) `AccountOptionsInteractor.updateUsername(_:)`,
+/// over this data:
+///
+///     let account = self.account.replacingUsername(username)
+///     let updateOperation = accountRepository.saveOperation {
+///         [account]
+///     } _: {
+///         []
+///     }
+///
+/// Only the account row is saved. 3.8.6 knows no network snapshot, so the
+/// snapshot keeps the earlier name.
+private enum AppStore386Rename {
+    static func updateUsername(_ username: String, of account: AccountItem, storeURL: URL) throws {
+        let facade = try OnDiskUserDataFacade(storeURL: storeURL)
+        defer { try? facade.close() }
+        let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
+            facade.createRepository(mapper: AnyCoreDataMapper(AccountItemMapper()))
+        let account = account.replacingUsername(username)
+        let updateOperation = accountRepository.saveOperation {
+            [account]
+        } _: {
+            []
+        }
+        OperationQueue().addOperations([updateOperation], waitUntilFinished: true)
+        try updateOperation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+    }
+}
+
+/// A directory listing taken an instant before a write of another file in
+/// the folder finished and removed its helper file: the listing names an
+/// entry that is gone when it is examined.
+private final class StaleListingFileManager: FileManager {
+    var vanished: [URL] = []
+
+    override func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey]?,
+                                      options mask: FileManager.DirectoryEnumerationOptions = []) throws -> [URL] {
+        try super.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask) + vanished
+    }
+}
+
+private final class AsyncResultBox<T> {
+    var result: Result<T, Error>?
+}
+
+/// Runs an async call of an actor-isolated store from a synchronous test.
+private func blocking<T>(_ body: @escaping () async throws -> T) throws -> T {
+    let box = AsyncResultBox<T>()
+    let done = DispatchSemaphore(value: 0)
+    Task.detached {
+        do {
+            box.result = .success(try await body())
+        } catch {
+            box.result = .failure(error)
+        }
+        done.signal()
+    }
+    done.wait()
+    return try XCTUnwrap(box.result).get()
+}
+
 /// The Keychain as seen by a process that dies after `survivingAdds` more
 /// items were added: from then on no call reaches the Keychain, not even the
 /// cleanup an error path would run.
@@ -2780,8 +2875,12 @@ final class WalletInterruptedWriteTests: XCTestCase {
 
     /// A fresh process over `state` reaches a ready wallet, with and without
     /// the explicit startup sweep, and leaves no helper file anywhere.
+    ///
+    /// - Parameter verify: further checks on the revived installation after
+    ///   its first launch.
     private func assertNextLaunchCompletes(_ state: KilledInstallation, accounts: [AccountItem],
-                                           file: StaticString = #filePath, line: UInt = #line) throws {
+                                           file: StaticString = #filePath, line: UInt = #line,
+                                           verify: (Installation) throws -> Void = { _ in }) throws {
         scratch.append(state.directory)
         for sweepsFirst in [true, false] {
             let label = "\(state.label), sweep first: \(sweepsFirst)"
@@ -2810,6 +2909,7 @@ final class WalletInterruptedWriteTests: XCTestCase {
             for (tag, bytes) in keysBefore {
                 XCTAssertEqual(try revived.keychain.fetchKey(for: tag), bytes, label, file: file, line: line)
             }
+            try verify(revived)
             // The launch after that one finds nothing left to do.
             XCTAssertEqual(try revived.startup(sweepsHelperFilesFirst: false), .ready, label, file: file, line: line)
         }
@@ -3775,5 +3875,755 @@ extension WalletInterruptedWriteTests {
         XCTAssertEqual(try revived.keychain.bytes(), keys)
         XCTAssertEqual(try revived.startup(), .ready)
         XCTAssertEqual(try revived.rootDecision(selected: nil), [.welcomeBack])
+    }
+}
+
+// MARK: - ik2-leftover-files, review round 2
+
+extension WalletInterruptedWriteTests {
+    private func descendants(_ view: UIView) -> [UIView] { view.subviews + view.subviews.flatMap(descendants) }
+
+    private func button(_ identifier: String, in controller: UIViewController) throws -> UIButton {
+        try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == identifier }, identifier)
+    }
+
+    private func bodyText(of controller: UIViewController) throws -> String {
+        try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-body" }?.text)
+    }
+
+    // MARK: 8. A rename: the display name follows the database
+
+    func testAKillAtAnyStepOfARenameIsCompletedByTheNextLaunchWithTheNewName() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        XCTAssertEqual(try device.startup(), .ready)
+        // The app's own stack over the installation's database file: the
+        // rename commits the row there first, then writes the snapshot.
+        let facade = try OnDiskUserDataFacade(storeURL: device.storeURL)
+        let selection = try device.selectedWalletSettings(facade: facade)
+        var renamed: Result<AccountItem, Error>?
+        let states = try InterruptedWrite.killStates(of: device, label: "rename") {
+            let done = DispatchSemaphore(value: 0)
+            selection.performUpdateName(account: second, displayName: "Renamed") { result in
+                renamed = result
+                done.signal()
+            }
+            done.wait()
+        }
+        XCTAssertEqual(try XCTUnwrap(renamed).get().username, "Renamed")
+        try facade.close()
+        // A new snapshot file (4 steps), then the pointer over the old one
+        // (7 steps). Every one of them comes after the row was saved.
+        XCTAssertEqual(states.count, 11)
+        var sawTheEarlierNameInTheSnapshot = false
+        for state in states {
+            let killed = try state.revive()
+            XCTAssertEqual(try KeySafetyStore.rows(at: killed.storeURL).map(\.username), ["First", "Renamed"],
+                           state.label)
+            // The snapshot is read as the next launch reads it, after the sweep.
+            WalletInterruptedWriteCleanup.run(storeURL: killed.storeURL, applicationSupportURL: killed.directory)
+            if try killed.networkStore().load()?.wallets.map(\.displayName) == ["First", "Second"] {
+                sawTheEarlierNameInTheSnapshot = true
+            }
+            try assertNextLaunchCompletes(state, accounts: [first, second]) { revived in
+                XCTAssertEqual(try KeySafetyStore.rows(at: revived.storeURL).map(\.username), ["First", "Renamed"],
+                               state.label)
+                let snapshot = try XCTUnwrap(revived.networkStore().load(), state.label)
+                XCTAssertEqual(snapshot.wallets.map(\.id), [first.address, second.address], state.label)
+                XCTAssertEqual(snapshot.wallets.map(\.displayName), ["First", "Renamed"], state.label)
+                XCTAssertEqual(snapshot.selectedWalletId, first.address, state.label)
+            }
+        }
+        XCTAssertTrue(sawTheEarlierNameInTheSnapshot)
+    }
+
+    func testARenameWhoseSnapshotWriteFailsIsCompletedByTheNextLaunch() throws {
+        struct DiskFull: Error {}
+        // The snapshot write fails at its first step, or the pointer write does.
+        for failingCheckpoint in [0, 4] {
+            let label = "fails at checkpoint \(failingCheckpoint)"
+            let (device, first, second) = try upgradedTwoAccountDevice()
+            XCTAssertEqual(try device.startup(), .ready, label)
+            let keys = try device.keychain.bytes()
+            let facade = try OnDiskUserDataFacade(storeURL: device.storeURL)
+            let selection = try device.selectedWalletSettings(facade: facade)
+            var renamed: Result<AccountItem, Error>?
+            var reached = 0
+            try InterruptedWrite.observing(below: device.directory, { _, _ in
+                defer { reached += 1 }
+                if reached == failingCheckpoint { throw DiskFull() }
+            }, during: {
+                let done = DispatchSemaphore(value: 0)
+                selection.performUpdateName(account: first, displayName: "Renamed") { result in
+                    renamed = result
+                    done.signal()
+                }
+                done.wait()
+            })
+            try facade.close()
+            XCTAssertThrowsError(try XCTUnwrap(renamed).get(), label)
+            // The row has the new name, the snapshot the earlier one, and the
+            // failure is recorded as one the next launch retries.
+            XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.username), ["Renamed", "Second"], label)
+            XCTAssertEqual(try device.networkStore().load()?.wallets.map(\.displayName), ["First", "Second"], label)
+            XCTAssertTrue(device.settings.walletMigrationRecoveryRequired, label)
+            XCTAssertTrue(WalletMigrationRecoveryMarker.capture(device.settings).isRetryableStartupFailure, label)
+            XCTAssertEqual(InterruptedWrite.helperFiles(under: device.directory), [], label)
+
+            // The next launch brings the snapshot up to date and clears it.
+            XCTAssertEqual(try device.startup(), .ready, label)
+            XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, label)
+            let snapshot = try XCTUnwrap(device.networkStore().load(), label)
+            XCTAssertEqual(snapshot.wallets.map(\.displayName), ["Renamed", "Second"], label)
+            XCTAssertEqual(snapshot.wallets.map(\.id), [first.address, second.address], label)
+            XCTAssertEqual(try device.keychain.bytes(), keys, label)
+            XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems, label)
+            XCTAssertTrue(try AppStore386Launch.canSign(first, keystore: device.keychain), label)
+            XCTAssertEqual(try device.startup(), .ready, label)
+            XCTAssertEqual(try device.networkStore().load(), snapshot, label)
+        }
+    }
+
+    func testAnAccountRenamedInAppStore386OpensWithTheNewName() throws {
+        for latchedByAnEarlierBuild in [false, true] {
+            let label = "latched: \(latchedByAnEarlierBuild)"
+            let (device, first, second) = try upgradedTwoAccountDevice()
+            XCTAssertEqual(try device.startup(), .ready, label)
+            let before = try XCTUnwrap(device.networkStore().load(), label)
+            let keys = try device.keychain.bytes()
+
+            // App Store 3.8.6 runs over this data again and the user renames
+            // the selected account there.
+            let row = try XCTUnwrap(KeySafetyStore.rows(at: device.storeURL).first { $0.address == first.address })
+            try AppStore386Rename.updateUsername("Renamed in 3.8.6", of: row, storeURL: device.storeURL)
+            XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.username),
+                           ["Renamed in 3.8.6", "Second"], label)
+            XCTAssertEqual(try AppStore386Launch.run(storeURL: device.storeURL, keystore: device.keychain.base,
+                settings: device.settings).selected?.address, first.address, label)
+            XCTAssertEqual(try device.networkStore().load(), before, label)
+            if latchedByAnEarlierBuild {
+                // What 3.9.0 builds before this fix recorded here, on every launch.
+                device.settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                    .privacySafeRecoveryDescription(for: WalletNetworkMigrationError.snapshotVerificationFailed))
+            }
+
+            // Back in this version: the wallet opens with the new name.
+            XCTAssertEqual(try device.startup(), .ready, label)
+            XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, label)
+            let snapshot = try XCTUnwrap(device.networkStore().load(), label)
+            XCTAssertEqual(snapshot.wallets.map(\.displayName), ["Renamed in 3.8.6", "Second"], label)
+            // Nothing but the name changed.
+            XCTAssertEqual(snapshot.wallets.map(\.id), before.wallets.map(\.id), label)
+            XCTAssertEqual(snapshot.wallets.map(\.existingSoraAddress), before.wallets.map(\.existingSoraAddress), label)
+            XCTAssertEqual(snapshot.wallets.map(\.secretSource), before.wallets.map(\.secretSource), label)
+            XCTAssertEqual(snapshot.accounts, before.accounts, label)
+            XCTAssertEqual(snapshot.selectedWalletId, before.selectedWalletId, label)
+            XCTAssertEqual(try device.keychain.bytes(), keys, label)
+            XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems, label)
+            for account in [first, second] {
+                XCTAssertTrue(try AppStore386Launch.canSign(account, keystore: device.keychain), label)
+                XCTAssertEqual(try keyStatus(account, on: device), .available, label)
+            }
+            // The launch after that one has nothing more to record.
+            XCTAssertEqual(try device.startup(), .ready, label)
+            XCTAssertEqual(try device.networkStore().load(), snapshot, label)
+        }
+    }
+
+    // MARK: 9. An in-place restore of a 3, 6 or 9-word phrase
+
+    func testAKillDuringAnInPlaceRestoreOfAShortPhraseIsCompletedByTheNextLaunch() throws {
+        for words in [3, 6, 9] {
+            for survivingAdds in [1, 2] {
+                let label = "\(words) words, dies after \(survivingAdds) Keychain write(s)"
+                let short = try shortPhrase(words: words)
+                let original = try Installation()
+                let first = try HistoricalWriter.phraseImport(phrase12, username: "First", order: 0,
+                                                              isSelected: true, keystore: original.keychain.base)
+                let second = try HistoricalWriter.phraseImport(short, username: "Second", order: 1,
+                                                               isSelected: false, keystore: original.keychain.base)
+                try KeySafetyStore.write([first, second], to: original.storeURL)
+                XCTAssertEqual(try original.startup(), .ready, label)
+                // A new iPhone: the files came back, the keys did not.
+                let restored = try Installation()
+                try FileManager.default.removeItem(at: restored.directory)
+                try FileManager.default.copyItem(at: original.directory, to: restored.directory)
+                XCTAssertEqual(try restored.startup(), .ready, label)
+                XCTAssertEqual(try keyStatus(second, on: restored), .keysMissing, label)
+                let selection = try restored.selectedWalletSettings(accounts: [first, second])
+
+                // Add account > the Google Drive backup App Store 3.8.6 made
+                // of the short phrase; the process dies between two Keychain
+                // writes. (`BaseAccountImportInteractor.importAccount` prepares
+                // such a backup with this same operation.)
+                let dying = DyingKeychain(base: restored.keychain, survivingAdds: survivingAdds)
+                let factory = AccountOperationFactory(keystore: dying, recoveryGate: restored.isolatedGate())
+                let operation = factory.prepareAccountOperation(
+                    request: AccountCreationRequest(username: "Imported", type: .sora, derivationPath: "",
+                                                    cryptoType: .sr25519),
+                    mnemonic: try IRMnemonicCreator(language: .english).mnemonic(fromList: short))
+                operation.start()
+                let prepared = try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+                XCTAssertEqual(prepared.account.address, second.address, label)
+                XCTAssertThrowsError(try restored.insert(prepared, into: selection, factory: factory), label)
+                XCTAssertTrue(dying.isDead, label)
+                // The seed, which proves the account by itself, goes first;
+                // the short entropy, which proves and derives nothing, second.
+                XCTAssertEqual(restored.keychain.added, Array([KeystoreTag.seedTagForAddress(second.address),
+                    KeystoreTag.entropyTagForAddress(second.address)].prefix(survivingAdds)), label)
+                XCTAssertTrue(restored.keychain.deleted.isEmpty, label)
+
+                // The next launch finds an account its seed proves and adds
+                // the signing key. No second import, no removal.
+                XCTAssertEqual(try restored.startup(), .ready, label)
+                XCTAssertFalse(restored.settings.walletMigrationRecoveryRequired, label)
+                XCTAssertEqual(try keyStatus(second, on: restored), .available, label)
+                XCTAssertTrue(try AppStore386Launch.canSign(second, keystore: restored.keychain), label)
+                for tag in [KeystoreTag.seedTagForAddress(second.address),
+                            KeystoreTag.secretKeyTagForAddress(second.address)] {
+                    XCTAssertEqual(try restored.keychain.fetchKey(for: tag),
+                                   try original.keychain.fetchKey(for: tag), "\(label): \(tag.suffix(10))")
+                }
+                XCTAssertFalse(restored.keychain.changedExistingItems, label)
+            }
+        }
+    }
+
+    // MARK: 10. An import cut short, then the account removed in App Store 3.8.6
+
+    func testAnImportCutShortAndThenRemovedInAppStore386DoesNotLockTheOtherAccounts() throws {
+        for stage in [WalletAccountCommitStage.coreDataCommitted, .networkModelActivated] {
+            let label = "journal at \(stage.rawValue)"
+            let device = try Installation()
+            let existing = try HistoricalWriter.phraseImport(try phrase(entropy: 2, bytes: 16), username: "Existing",
+                order: 0, isSelected: true, keystore: device.keychain.base)
+            try KeySafetyStore.write([existing], to: device.storeURL)
+            XCTAssertEqual(try device.startup(), .ready, label)
+
+            // An import of a second account is cut short after its row was
+            // saved (`SelectedWalletSettings.performInsertAndSelect`: keys,
+            // journal, rows, then the network model).
+            let gate = device.isolatedGate()
+            let journals = try WalletAccountCommitJournalStore(baseURL: device.directory, recoveryGate: gate)
+            let imported = try HistoricalWriter.phraseImport(phrase12, username: "New", order: 1, isSelected: true,
+                                                             keystore: device.keychain.base)
+            var journal = try journals.begin(walletId: imported.address, existingWalletIds: [existing.address])
+            journal = try journals.advance(journal, to: .secretsPersisted)
+            let rows = [AccountItem(address: existing.address, cryptoType: existing.cryptoType,
+                                    networkType: existing.networkType, username: existing.username,
+                                    publicKeyData: existing.publicKeyData, settings: existing.settings,
+                                    order: existing.order, isSelected: false), imported]
+            let facade = try OnDiskUserDataFacade(storeURL: device.storeURL)
+            try facade.save(rows)
+            try facade.close()
+            journal = try journals.advance(journal, to: .coreDataCommitted)
+            if stage == .networkModelActivated {
+                try WalletNetworkModelMigrator(keystore: device.keychain, store: device.networkStore(),
+                    settings: device.settings, lifecycleCoordinator: device.coordinator, recoveryGate: gate)
+                    .migrate(accounts: rows, selectedAddress: imported.address)
+                journal = try journals.advance(journal, to: .networkModelActivated)
+                XCTAssertEqual(try device.networkStore().load()?.wallets.count, 2, label)
+            }
+            XCTAssertEqual(try journals.unresolved().map(\.stage), [stage], label)
+
+            // The next run is App Store 3.8.6 (the TestFlight build expired).
+            // The account has its row and keys there, and the user removes it.
+            XCTAssertEqual(try AppStore386Launch.run(storeURL: device.storeURL, keystore: device.keychain.base,
+                settings: device.settings).selected?.address, imported.address, label)
+            try AppStore386Removal.logoutAndClean(imported, storeURL: device.storeURL, keystore: device.keychain.base)
+            XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.address), [existing.address], label)
+            let keys = try device.keychain.bytes()
+
+            // Back in this version: the journal names an account the database
+            // no longer has. The remaining account opens.
+            XCTAssertEqual(try device.startup(), .ready, label)
+            XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, label)
+            XCTAssertEqual(try journals.journalsForLegacyRecovery().map(\.stage), [.abandoned], label)
+            XCTAssertEqual(try journals.unresolved().count, 0, label)
+            let snapshot = try XCTUnwrap(device.networkStore().load(), label)
+            XCTAssertEqual(snapshot.wallets.map(\.id), [existing.address], label)
+            XCTAssertEqual(snapshot.selectedWalletId, existing.address, label)
+            XCTAssertTrue(try AppStore386Launch.canSign(existing, keystore: device.keychain), label)
+            XCTAssertEqual(try keyStatus(existing, on: device), .available, label)
+            // The removed account's items are exactly what 3.8.6 left.
+            XCTAssertEqual(try device.keychain.bytes(), keys, label)
+            XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems, label)
+            XCTAssertEqual(try device.startup(), .ready, label)
+            // A new import is not blocked by the closed journal.
+            let again = try device.importPhrase(try phrase(entropy: 7, bytes: 16),
+                                                into: device.selectedWalletSettings(accounts: [existing]))
+            XCTAssertNotEqual(again.address, existing.address, label)
+        }
+
+        // A journal whose row is gone from a database with no account at all
+        // is not that state: it still stops, and nothing is closed.
+        let device = try Installation()
+        let imported = try HistoricalWriter.phraseImport(phrase12, username: "Only", order: 0, isSelected: true,
+                                                         keystore: device.keychain.base)
+        try KeySafetyStore.write([], to: device.storeURL)
+        let journals = try WalletAccountCommitJournalStore(baseURL: device.directory,
+                                                           recoveryGate: device.isolatedGate())
+        var journal = try journals.begin(walletId: imported.address, existingWalletIds: [])
+        journal = try journals.advance(journal, to: .secretsPersisted)
+        journal = try journals.advance(journal, to: .coreDataCommitted)
+        XCTAssertThrowsError(try OrdinaryWalletAccountCommitRecovery.resolve(journals: [journal],
+            storeURL: device.storeURL, modelDirectory: UserStorageParams.modelDirectory, keystore: device.keychain,
+            settings: device.settings, journalStore: journals, networkStore: device.networkStore(),
+            recoveryGate: device.isolatedGate())) { error in
+            guard case OrdinaryWalletAccountCommitRecovery.Failure.committedAccountMissing = error else {
+                return XCTFail("\(error)")
+            }
+        }
+        XCTAssertEqual(try journals.unresolved().map(\.stage), [.coreDataCommitted])
+        // The ordinary transitions are as strict as before.
+        XCTAssertThrowsError(try journals.advance(journal, to: .abandoned))
+    }
+
+    // MARK: 11. A database with no account beside a snapshot that lists wallets
+
+    func testADatabaseWithNoAccountBesideASnapshotIsNotTakenForRemovedAccounts() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        XCTAssertEqual(try device.startup(), .ready)
+        let before = try XCTUnwrap(device.networkStore().load())
+        XCTAssertEqual(before.wallets.count, 2)
+        // Every row goes while the database file and its verified safety
+        // backup stay (App Store 3.8.6 removing the last account, killed
+        // after the row was deleted and before the database was dropped).
+        try AppStore386Removal.logoutAndClean(second, storeURL: device.storeURL, keystore: device.keychain.base)
+        try AppStore386Removal.logoutAndClean(first, storeURL: device.storeURL, keystore: device.keychain.base)
+        XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).count, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: device.storeURL.path))
+        let keys = try device.keychain.bytes()
+
+        // The snapshot is not emptied: it is what still says a wallet existed.
+        XCTAssertThrowsError(try device.startup()) { error in
+            guard case WalletNetworkMigrationError.legacyIdentityMismatch = error else { return XCTFail("\(error)") }
+        }
+        XCTAssertEqual(try device.networkStore().load(), before)
+        XCTAssertEqual(try snapshotNames(device).count, 1)
+        XCTAssertEqual(try device.keychain.bytes(), keys)
+        XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems)
+    }
+
+    // MARK: 12. A helper file that is gone when it is examined
+
+    func testAHelperFileThatVanishesBetweenTheListingAndItsCheckIsLeftOut() throws {
+        let directory = try makeDirectory()
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        _ = try store.stage(account: "cnAccount", hash: transactionHash(0xa1))
+        let folder = directory.appendingPathComponent("SORA/PendingTransactions")
+        // A write of another journal in this folder was in progress when the
+        // folder was listed and has finished (its helper file is gone) by
+        // the time the entry is examined.
+        let manager = StaleListingFileManager()
+        manager.vanished = [
+            folder.appendingPathComponent(".durable-\(UUID().uuidString).tmp"),
+            folder.appendingPathComponent(".durable-rollback-\(UUID().uuidString).anchor"),
+        ]
+        XCTAssertEqual(try manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil).count, 3)
+        XCTAssertEqual(try DurableFileWriter.contentsIgnoringLeftovers(of: folder, fileManager: manager,
+            includingPropertiesForKeys: nil).map(\.lastPathComponent), ["sora2-signed-v1.json"])
+        XCTAssertNoThrow(try PendingTransactionJournalNamespace.validate(directoryURL: folder, fileManager: manager))
+        // The send goes through.
+        let racing = try Sora2PendingSubmissionStore(fileManager: manager, baseURL: directory)
+        _ = try racing.stage(account: "cnAccount", hash: transactionHash(0xb2))
+        XCTAssertEqual(try racing.all().count, 2)
+
+        // A name of the writer that holds something the writer never
+        // creates is still returned, and the folder check still rejects it.
+        let foreign = folder.appendingPathComponent(".durable-\(UUID().uuidString).tmp")
+        try FileManager.default.createDirectory(at: foreign, withIntermediateDirectories: false)
+        XCTAssertEqual(try DurableFileWriter.contentsIgnoringLeftovers(of: folder, fileManager: manager,
+            includingPropertiesForKeys: nil).map(\.lastPathComponent).sorted(),
+            [foreign.lastPathComponent, "sora2-signed-v1.json"])
+        XCTAssertThrowsError(try PendingTransactionJournalNamespace.validate(directoryURL: folder,
+                                                                             fileManager: manager))
+        XCTAssertFalse(DurableFileWriter.isLeftoverFile(at: foreign))
+    }
+
+    // MARK: 13. The Nexus and Polkamarkt journals
+
+    func testAnUnreadableNexusOrPolkamarktJournalShowsRecoveryAndCanBeSetAside() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        XCTAssertEqual(try device.startup(), .ready)
+        let base = device.directory
+        let sora2 = try Sora2PendingSubmissionStore(baseURL: base)
+        _ = try sora2.stage(account: first.address, hash: transactionHash(0xa1))
+        let folder = base.appendingPathComponent("SORA/PendingTransactions")
+        let root = base.appendingPathComponent("WalletSetAside")
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: device.isolatedGate())
+        let keys = try device.keychain.bytes()
+        func nexusCount() throws -> Int { try blocking { try await NexusPendingTransactionStore(baseURL: base).all().count } }
+        func polkamarktCount() throws -> Int { try blocking { try await PolkamarktPendingStore(baseURL: base).all().count } }
+
+        // Journals without an entry are readable.
+        for name in ["nexus-v1.json", "polkamarkt-v1.json"] {
+            try Data("[]".utf8).write(to: folder.appendingPathComponent(name))
+        }
+        XCTAssertEqual(try nexusCount(), 0)
+        XCTAssertEqual(try polkamarktCount(), 0)
+        XCTAssertNoThrow(try PendingTransactionRecords.requireReadable(baseURL: base))
+        XCTAssertEqual(try device.startup(), .ready)
+
+        // A row that decodes and that its own store refuses to read.
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let moment = Date(timeIntervalSince1970: 1_790_000_000)
+        let refusedRow = try encoder.encode([PolkamarktPendingMutation(id: UUID(), account: "", action: "claim",
+            marketIds: [1], createdAt: moment, updatedAt: moment, extrinsicHash: nil, state: .preparing,
+            finalizedBlock: nil, errorClass: nil)])
+        let breakages: [(file: String, what: String, bytes: Data)] = [
+            ("nexus-v1.json", "a Nexus journal that does not decode", Data("not a journal".utf8)),
+            ("polkamarkt-v1.json", "a Polkamarkt journal that does not decode", Data("not a journal".utf8)),
+            ("polkamarkt-v1.json", "a Polkamarkt row its store refuses", refusedRow),
+        ]
+        for (index, breakage) in breakages.enumerated() {
+            let what = breakage.what
+            try breakage.bytes.write(to: folder.appendingPathComponent(breakage.file))
+            // That feature's store refuses every action from now on...
+            if breakage.file == "nexus-v1.json" {
+                XCTAssertThrowsError(try nexusCount(), what)
+                XCTAssertThrowsError(try NexusPendingTransactionStore.requireReadableJournal(
+                    applicationSupportURL: base), what)
+                XCTAssertNoThrow(try PolkamarktPendingStore.requireReadableJournal(applicationSupportURL: base), what)
+            } else {
+                XCTAssertThrowsError(try polkamarktCount(), what)
+                XCTAssertThrowsError(try PolkamarktPendingStore.requireReadableJournal(
+                    applicationSupportURL: base), what)
+                XCTAssertNoThrow(try NexusPendingTransactionStore.requireReadableJournal(applicationSupportURL: base), what)
+            }
+            // ...while the SORA2 journal itself is fine.
+            XCTAssertNoThrow(try sora2.all(), what)
+            XCTAssertFalse(PendingTransactionRecords.isReadable(baseURL: base), what)
+
+            // The next launch says so on the recovery screen, with the action.
+            XCTAssertEqual(try device.startup(), .recoveryRequired, what)
+            XCTAssertTrue(WalletMigrationRecoveryMarker.capture(device.settings).isRetryableStartupFailure, what)
+            XCTAssertEqual(WalletStartupDiagnostic.current(device.settings)?.phase, .pendingTransactions, what)
+            let options = WalletRecoveryStateProbe.recovery(migrator: try device.migrator(),
+                keystore: device.keychain, settings: device.settings, pendingTransactionsBaseURL: base).options
+            XCTAssertTrue(options.canSetAsideTransactionRecords, what)
+            XCTAssertTrue(options.canRetry, what)
+
+            // Set aside: every journal moves, nothing is deleted.
+            let moved = try XCTUnwrap(PendingTransactionRecords.setAside(applicationSupportURL: base,
+                setAsideRootURL: root, lifecycleCoordinator: coordinator), what)
+            XCTAssertEqual(try Data(contentsOf: moved.appendingPathComponent("PendingTransactions/\(breakage.file)")),
+                           breakage.bytes, what)
+            XCTAssertEqual(try InterruptedWrite.names(in: folder), [], what)
+            XCTAssertEqual(try device.startup(), .ready, what)
+            XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, what)
+            XCTAssertEqual(try nexusCount(), 0, what)
+            XCTAssertEqual(try polkamarktCount(), 0, what)
+            _ = try sora2.stage(account: first.address, hash: transactionHash(0xc0 + UInt8(index)))
+            XCTAssertEqual(try sora2.all().count, 1, what)
+        }
+        XCTAssertEqual(try InterruptedWrite.names(in: root).count, breakages.count)
+        XCTAssertEqual(try device.keychain.bytes(), keys)
+        XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.address), [first.address, second.address])
+    }
+
+    // MARK: 14. The recovery screen: text, buttons and the busy state agree
+
+    func testTheRecoveryTextAboutTheRecordsFollowsTheSameFactAsTheirButton() throws {
+        let recordsID = "wallet-recovery-set-aside-transaction-records"
+        func options(unreadable: Bool) -> WalletRecoveryOptions {
+            WalletRecoveryState.recovery(retryable: true, accountsMissingKeys: 0, accountsWithPhrase: 0,
+                                         retainedPinUsable: false, transactionRecordsUnreadable: unreadable).options
+        }
+        func diagnostic(_ phase: WalletStartupDiagnostic.Phase) throws -> WalletStartupDiagnostic {
+            let settings = InMemorySettingsManager()
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings, maximumAttempts: 1) {
+                try WalletStartupDiagnostic.check(phase) {
+                    throw PendingTransactionJournalNamespace.Failure.invalidNamespace
+                }
+            }, .recoveryRequired)
+            return try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+        }
+        let recordsMessage = WalletUX.text("SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted.")
+        let alsoRecords = WalletUX.text("SORA also cannot read its records of transactions that were still being confirmed. You can set these records aside below. Nothing is deleted.")
+        let readableNow = WalletUX.text("SORA could not read its records of transactions that were still being confirmed when it last checked. Your accounts, keys and funds are not affected.")
+        let retryOnly = WalletUX.text("Try again. If this screen appears again, contact SORA support with the app version shown below. Never share your recovery phrase.")
+        let restoreSteps = WalletUX.text("SORA stopped before changing anything and did not delete or replace any wallet data. Try again, restore with your recovery phrase or Google Drive backup, or contact SORA support with the app version shown below. Never share your recovery phrase.")
+        // The two sentences that say "you can set these records aside below".
+        func promisesTheButton(_ body: String) -> Bool {
+            body.contains(recordsMessage) || body.contains(alsoRecords)
+        }
+
+        // (a) The startup check failed for the records, and they can be read
+        // now (the read error was transient): no button, and no sentence
+        // that promises one.
+        let transient = WalletRecoveryViewController(reason: "fixture", diagnostic: try diagnostic(.pendingTransactions),
+                                                     onRetry: {}, onSetAside: {})
+        transient.loadViewIfNeeded()
+        transient.apply(options(unreadable: false))
+        XCTAssertTrue(try button(recordsID, in: transient).isHidden)
+        XCTAssertEqual(try bodyText(of: transient), [readableNow, retryOnly].joined(separator: "\n\n"))
+        XCTAssertFalse(promisesTheButton(try bodyText(of: transient)))
+        XCTAssertFalse(try button("wallet-recovery-retry", in: transient).isHidden)
+        // The records are unreadable after all: the button and its text.
+        transient.apply(options(unreadable: true))
+        XCTAssertFalse(try button(recordsID, in: transient).isHidden)
+        XCTAssertTrue(try bodyText(of: transient).hasPrefix(recordsMessage))
+        XCTAssertFalse(try bodyText(of: transient).contains(restoreSteps))
+
+        // (b) Another check failed first and the records cannot be read
+        // either: the button is explained.
+        let other = WalletRecoveryViewController(reason: "fixture", diagnostic: try diagnostic(.networkSnapshot),
+                                                 onRetry: {}, onSetAside: {})
+        other.loadViewIfNeeded()
+        XCTAssertFalse(promisesTheButton(try bodyText(of: other)))
+        other.apply(options(unreadable: true))
+        XCTAssertFalse(try button(recordsID, in: other).isHidden)
+        XCTAssertTrue(try bodyText(of: other).contains(alsoRecords))
+        XCTAssertTrue(try bodyText(of: other).contains(restoreSteps))
+        other.apply(options(unreadable: false))
+        XCTAssertTrue(try button(recordsID, in: other).isHidden)
+        XCTAssertFalse(promisesTheButton(try bodyText(of: other)))
+
+        // (c) A recovery screen without "Try again" shows neither.
+        let passive = WalletRecoveryViewController(reason: "fixture")
+        passive.loadViewIfNeeded()
+        passive.apply(options(unreadable: true))
+        XCTAssertTrue(try button(recordsID, in: passive).isHidden)
+        XCTAssertFalse(promisesTheButton(try bodyText(of: passive)))
+
+        for key in [
+            "SORA also cannot read its records of transactions that were still being confirmed. You can set these records aside below. Nothing is deleted.",
+            "SORA could not read its records of transactions that were still being confirmed when it last checked. Your accounts, keys and funds are not affected.",
+            "Try again. If this screen appears again, contact SORA support with the app version shown below. Never share your recovery phrase.",
+        ] {
+            for language in ["en", "ja"] {
+                let table = try XCTUnwrap(Bundle(path: try XCTUnwrap(
+                    Bundle.main.path(forResource: language, ofType: "lproj"))))
+                let text = table.localizedString(forKey: key, value: "\u{1}missing", table: "Localizable")
+                XCTAssertNotEqual(text, "\u{1}missing", "\(language): \(key)")
+                XCTAssertFalse(text.isEmpty, "\(language): \(key)")
+                if language == "ja" { XCTAssertNotEqual(text, key, key) }
+            }
+        }
+    }
+
+    func testWhileTheRecordsAreSetAsideNoOtherRecoveryActionCanStart() throws {
+        let device = try Installation()
+        let store = try Sora2PendingSubmissionStore(baseURL: device.directory)
+        _ = try store.stage(account: "cnAccount", hash: transactionHash(0xa1))
+        let folder = device.directory.appendingPathComponent("SORA/PendingTransactions")
+        try Data("a later version's journal".utf8).write(to: folder.appendingPathComponent("sora2-signed-v2.json"))
+        let root = device.directory.appendingPathComponent("WalletSetAside")
+
+        var retries = 0
+        var folderExistedAtRetry: Bool?
+        let controller = WalletRecoveryViewController(reason: "fixture", onRetry: {
+            retries += 1
+            folderExistedAtRetry = FileManager.default.fileExists(
+                atPath: folder.appendingPathComponent("sora2-signed-v2.json").path)
+        }, onSetAside: {})
+        controller.loadViewIfNeeded()
+        var options = WalletRecoveryOptions()
+        options.canRetry = true
+        options.canExport = true
+        options.canSetUpDeviceAgain = true
+        options.canSetAsideTransactionRecords = true
+        controller.apply(options)
+        let retry = try button("wallet-recovery-retry", in: controller)
+        let records = try button("wallet-recovery-set-aside-transaction-records", in: controller)
+        let setUpAgain = try button("wallet-recovery-set-up-again", in: controller)
+        let export = try button(RetainedMigrationEvidenceHarness.recoveryExportAccessibilityIdentifier, in: controller)
+        for control in [retry, records, setUpAgain, export] { XCTAssertTrue(control.isEnabled) }
+
+        // The move is held at its first step.
+        let started = DispatchSemaphore(value: 0)
+        let proceed = DispatchSemaphore(value: 0)
+        controller.transactionRecordsPaths = {
+            started.signal()
+            proceed.wait()
+            return WalletLocalStateSetAside.Paths(storeURL: device.storeURL,
+                applicationSupportURL: device.directory, setAsideRootURL: root)
+        }
+        controller.setAsideTransactionRecords()
+        XCTAssertEqual(started.wait(timeout: .now() + 10), .success)
+        for control in [retry, records, setUpAgain, export] { XCTAssertFalse(control.isEnabled) }
+        // "Try again" while the folder is still in place does nothing, and a
+        // second set-aside does not start.
+        retry.sendActions(for: .touchUpInside)
+        controller.setAsideTransactionRecords()
+        XCTAssertEqual(retries, 0)
+
+        proceed.signal()
+        let deadline = Date().addingTimeInterval(10)
+        while retries == 0, Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
+        }
+        // The startup checks run once, after the folder has moved.
+        XCTAssertEqual(retries, 1)
+        XCTAssertEqual(folderExistedAtRetry, false)
+        XCTAssertEqual(try InterruptedWrite.names(in: root).count, 1)
+        XCTAssertEqual(try InterruptedWrite.names(in: folder), [])
+        XCTAssertFalse(retry.isEnabled)
+        XCTAssertFalse(records.isEnabled)
+    }
+
+    // MARK: 15. "Set up this iPhone again": a finished folder is never reused
+
+    func testAFinishedSetAsideFolderIsNeverTakenForAnUnfinishedOne() throws {
+        func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try KeySafetyStore.write([account], to: device.storeURL)
+        device.settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
+        XCTAssertEqual(try device.startup(), .ready)
+        device.settings.setWalletMigrationRecovery(reason: "Some other integrity check")
+        let marker = WalletMigrationRecoveryMarker.capture(device.settings)
+        let keys = try device.keychain.bytes()
+        let firstStore = try Data(contentsOf: device.storeURL)
+        let root = device.directory.appendingPathComponent("WalletSetAside")
+        let paths = WalletLocalStateSetAside.Paths(storeURL: device.storeURL,
+            applicationSupportURL: device.directory, setAsideRootURL: root)
+        func coordinator() -> WalletLifecycleCoordinator {
+            WalletLifecycleCoordinator(recoveryGate: device.isolatedGate())
+        }
+
+        // 1. Everything moves and the wallet settings go; then the recovery
+        // marker turns out to have changed, so it is not cleared. The folder
+        // is complete all the same and must not stay marked as unfinished.
+        XCTAssertThrowsError(try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: marker,
+            paths: paths, lifecycleCoordinator: coordinator(), afterMoves: {
+                device.settings.setWalletMigrationRecovery(reason: "Another integrity check")
+            })) { error in
+            guard case WalletLocalStateSetAside.Failure.markerChanged = error else { return XCTFail("\(error)") }
+        }
+        let folders = try InterruptedWrite.names(in: root)
+        XCTAssertEqual(folders.count, 1)
+        let firstFolder = root.appendingPathComponent(folders[0])
+        XCTAssertFalse(exists(firstFolder.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        XCTAssertEqual(try Data(contentsOf: firstFolder.appendingPathComponent("CoreData/UserDataModel.sqlite")),
+                       firstStore)
+        XCTAssertFalse(exists(device.storeURL))
+        XCTAssertFalse(device.settings.hasRetainedWalletSettings())
+        let firstContents = try InterruptedWrite.names(in: firstFolder)
+
+        // 2. Later another wallet lives on this iPhone, and "Set up this
+        // iPhone again" is chosen for it. It gets a folder of its own.
+        let other = try HistoricalWriter.phraseImport(try phrase(entropy: 0x31, bytes: 16), username: "Later",
+                                                      keystore: device.keychain.base)
+        try KeySafetyStore.write([other], to: device.storeURL)
+        let laterStore = try Data(contentsOf: device.storeURL)
+        XCTAssertNotEqual(laterStore, firstStore)
+        let laterMarker = WalletMigrationRecoveryMarker.capture(device.settings)
+        XCTAssertTrue(laterMarker.required)
+        let second = try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: laterMarker,
+            paths: paths, lifecycleCoordinator: coordinator())
+        XCTAssertEqual(try InterruptedWrite.names(in: root).count, 2)
+        XCTAssertNotEqual(second.lastPathComponent, firstFolder.lastPathComponent)
+        XCTAssertEqual(try Data(contentsOf: second.appendingPathComponent("CoreData/UserDataModel.sqlite")), laterStore)
+        XCTAssertFalse(exists(second.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        // The first wallet's folder is as it was.
+        XCTAssertEqual(try InterruptedWrite.names(in: firstFolder), firstContents)
+        XCTAssertEqual(try Data(contentsOf: firstFolder.appendingPathComponent("CoreData/UserDataModel.sqlite")),
+                       firstStore)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try device.keychain.bytes()[KeystoreTag.secretKeyTagForAddress(account.address)],
+                       keys[KeystoreTag.secretKeyTagForAddress(account.address)])
+        XCTAssertFalse(device.keychain.changedExistingItems)
+
+        // 3. A folder that is marked unfinished and already holds a database
+        // (a build before this fix left the mark on a finished folder): a
+        // later wallet's database and its `-wal` and `-shm` files go into
+        // one subfolder together, under their own names.
+        let third = try Installation()
+        let thirdAccount = try HistoricalWriter.phraseImport(phrase12, keystore: third.keychain.base)
+        try KeySafetyStore.write([thirdAccount], to: third.storeURL)
+        XCTAssertEqual(try third.startup(), .ready)
+        try Data("write-ahead log".utf8).write(to: URL(fileURLWithPath: third.storeURL.path + "-wal"))
+        try Data("shared memory".utf8).write(to: URL(fileURLWithPath: third.storeURL.path + "-shm"))
+        let thirdStore = try Data(contentsOf: third.storeURL)
+        third.settings.setWalletMigrationRecovery(reason: "Some other integrity check")
+        let thirdRoot = third.directory.appendingPathComponent("WalletSetAside")
+        let marked = thirdRoot.appendingPathComponent("1700000000-\(UUID().uuidString)")
+        for name in ["CoreData/WalletMigrationSafety", "WalletNetworks", "WalletAccountCommits"] {
+            try FileManager.default.createDirectory(at: marked.appendingPathComponent(name),
+                                                    withIntermediateDirectories: true)
+        }
+        let earlierContents = try InterruptedWrite.names(in: marked)
+        try Data("an earlier wallet's database".utf8)
+            .write(to: marked.appendingPathComponent("CoreData/UserDataModel.sqlite"))
+        try Data("marked".utf8).write(to: marked.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName))
+        let continued = try WalletLocalStateSetAside.setAside(settings: third.settings,
+            expectedMarker: WalletMigrationRecoveryMarker.capture(third.settings),
+            paths: WalletLocalStateSetAside.Paths(storeURL: third.storeURL, applicationSupportURL: third.directory,
+                                                  setAsideRootURL: thirdRoot),
+            lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: third.isolatedGate()))
+        XCTAssertEqual(continued.lastPathComponent, marked.lastPathComponent)
+        XCTAssertFalse(exists(marked.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        // The earlier database is untouched and has no new neighbour.
+        XCTAssertEqual(try Data(contentsOf: marked.appendingPathComponent("CoreData/UserDataModel.sqlite")),
+                       Data("an earlier wallet's database".utf8))
+        XCTAssertEqual(try InterruptedWrite.names(in: marked.appendingPathComponent("CoreData")).filter {
+            $0.hasPrefix("UserDataModel.sqlite")
+        }, ["UserDataModel.sqlite"])
+        let later = try InterruptedWrite.names(in: marked).filter { $0.hasPrefix("later-") }
+        XCTAssertEqual(later.count, 1)
+        let laterFolder = marked.appendingPathComponent(try XCTUnwrap(later.first))
+        XCTAssertEqual(try Data(contentsOf: laterFolder.appendingPathComponent("CoreData/UserDataModel.sqlite")),
+                       thirdStore)
+        XCTAssertEqual(try Data(contentsOf: laterFolder.appendingPathComponent("CoreData/UserDataModel.sqlite-wal")),
+                       Data("write-ahead log".utf8))
+        XCTAssertEqual(try Data(contentsOf: laterFolder.appendingPathComponent("CoreData/UserDataModel.sqlite-shm")),
+                       Data("shared memory".utf8))
+        XCTAssertTrue(exists(laterFolder.appendingPathComponent("WalletNetworks/active.json")))
+        XCTAssertEqual(try InterruptedWrite.names(in: laterFolder), ["CoreData", "WalletAccountCommits", "WalletNetworks"])
+        XCTAssertEqual(try InterruptedWrite.names(in: laterFolder.appendingPathComponent("CoreData")),
+                       ["UserDataModel.sqlite", "UserDataModel.sqlite-shm", "UserDataModel.sqlite-wal",
+                        "WalletMigrationSafety"])
+        // Beside the earlier wallet's items: the subfolder and a second
+        // copy of the settings, nothing under a made-up name.
+        XCTAssertEqual(try InterruptedWrite.names(in: marked).filter {
+            !$0.hasPrefix("later-") && !$0.hasPrefix("wallet-settings-")
+        }, earlierContents.filter { $0 != WalletLocalStateSetAside.incompleteMarkerName })
+        XCTAssertEqual(try InterruptedWrite.names(in: marked.appendingPathComponent("WalletNetworks")), [])
+        XCTAssertFalse(exists(third.storeURL))
+        XCTAssertFalse(third.settings.walletMigrationRecoveryRequired)
+        XCTAssertTrue(third.keychain.added.isEmpty && !third.keychain.changedExistingItems)
+    }
+
+    // MARK: 16. The storage checks the app runs at launch
+
+    func testTheStorageChecksOfALaunchSweepHelperFilesBeforeAnythingElse() throws {
+        for sweeps in [true, false] {
+            let label = "sweeps: \(sweeps)"
+            let (device, first, _) = try upgradedTwoAccountDevice()
+            XCTAssertEqual(try device.startup(), .ready, label)
+            _ = try Sora2PendingSubmissionStore(baseURL: device.directory)
+                .stage(account: first.address, hash: transactionHash(0xa1))
+            let sora = device.directory.appendingPathComponent("SORA")
+            let attempt = try XCTUnwrap(try FileManager.default.contentsOfDirectory(
+                at: device.directory.appendingPathComponent("WalletMigrationSafety"),
+                includingPropertiesForKeys: nil).first)
+            for folder in [sora.appendingPathComponent("WalletNetworks"), sora.appendingPathComponent("WalletAccountCommits"),
+                           sora.appendingPathComponent("PendingTransactions"), attempt,
+                           attempt.appendingPathComponent("legacy-store"), attempt.appendingPathComponent("staging")] {
+                try InterruptedWrite.plantHelperFiles(in: folder)
+            }
+            // A marker the launch does not retry: the checks stop before the
+            // database, the snapshot and the transaction records are read.
+            device.settings.setWalletMigrationRecovery(reason: "Some other integrity check")
+            let gate = device.gate()
+            let checks = WalletStorageStartup.runChecks(settings: device.settings, keystore: device.keychain,
+                storeURL: device.storeURL, modelDirectory: UserStorageParams.modelDirectory,
+                applicationSupportURL: device.directory,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate,
+                databaseMigrator: try device.migrator(gate: gate), sweepsHelperFiles: sweeps, retryDelay: { _ in })
+            XCTAssertEqual(checks, WalletStorageStartup.Checks(outcome: .recoveryRequired,
+                                                               deferredForLegacyUpgrade: false), label)
+            if sweeps {
+                // The sweep comes first, so it ran although the checks stopped.
+                XCTAssertEqual(InterruptedWrite.helperFiles(under: device.directory), [], label)
+            } else {
+                XCTAssertFalse(InterruptedWrite.helperFiles(under: device.directory).isEmpty, label)
+            }
+        }
     }
 }
