@@ -560,6 +560,8 @@ final class WalletNeonButton: UIButton {
         }
     }
     private var glowSpec: GlowSpec?
+    /// MINIMAL tier: a ring in the glow colour instead of the glow.
+    private var ring: NeonRingLayer?
 
     init(style: WalletButtonStyle) {
         neonStyle = style
@@ -634,11 +636,28 @@ final class WalletNeonButton: UIButton {
         }
     }
 
+    /// Glow at rest (pressed while highlighted), a ring in the MINIMAL tier,
+    /// nothing in a table or collection cell (spec §4.5, §10.3).
     private func applyGlow(fx: FxPolicy) {
-        guard let glowSpec, fx.glows, fx.tier != .minimal else {
+        guard let glowSpec, fx.glows, !neonIsInsideListCell else {
             layer.shadowOpacity = 0
+            ring?.removeFromSuperlayer()
+            ring = nil
             return
         }
+        if fx.tier == .minimal {
+            layer.shadowOpacity = 0
+            let ring = self.ring ?? NeonRingLayer()
+            if self.ring == nil {
+                layer.addSublayer(ring)
+                self.ring = ring
+            }
+            ring.apply(glowSpec)
+            ring.layout(around: bounds, cornerRadius: bounds.height / 2)
+            return
+        }
+        ring?.removeFromSuperlayer()
+        ring = nil
         layer.applyNeonGlow(glowSpec, path: UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath,
                             alpha: isHighlighted ? glowSpec.pressed : glowSpec.rest)
     }
@@ -648,12 +667,19 @@ final class WalletNeonButton: UIButton {
         if layer.shadowOpacity > 0 {
             layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
         }
+        ring?.layout(around: bounds, cornerRadius: bounds.height / 2)
+    }
+
+    /// Whether the button sits in a cell is only known once it is in a window.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, glowSpec != nil { setNeedsUpdateConfiguration() }
     }
 }
 
 extension WalletNeonButton: SoramitsuObserver {
     func styleDidChange(options: UpdateOptions) {
-        if options.contains(.palette) { setNeedsUpdateConfiguration() }
+        if options.contains(.palette) || options.contains(.effects) { setNeedsUpdateConfiguration() }
     }
 }
 

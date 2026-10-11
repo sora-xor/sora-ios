@@ -14,6 +14,9 @@ public final class InputAssetField: UIControl, Molecule {
         view.sora.material = .solid
         view.sora.backgroundColor = .bgSurface
         view.sora.borderWidth = 1
+        // The focus glow is a shadow on this view; clipping would hide it.
+        // The content sits 16 pt inside the edges, so nothing overflows.
+        view.sora.clipsToBounds = false
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
