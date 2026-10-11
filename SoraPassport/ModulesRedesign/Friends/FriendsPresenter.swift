@@ -244,12 +244,28 @@ extension FriendsPresenter: AvailableInvitationsCellDelegate {
     }
 }
 
+extension FriendsPresenter {
+    /// A referral reward in XOR, from the whole number of smallest units
+    /// the indexer publishes. Text in any other form counts as no reward:
+    /// `BigUInt(stringLiteral:)` stops the app on such text, so it is not
+    /// used on anything read from the network.
+    static func rewardAmount(_ smallestUnits: String) -> Decimal {
+        guard
+            !smallestUnits.isEmpty,
+            smallestUnits.utf8.allSatisfy({ (0x30 ... 0x39).contains($0) }),
+            let units = BigUInt(smallestUnits, radix: 10)
+        else {
+            return 0
+        }
+        return Decimal.fromSubstrateAmount(units, precision: 18) ?? 0
+    }
+}
+
 private extension FriendsPresenter {
     func createItems() -> [CellViewModel] {
 
         let totalReward = rewards.reduce(Decimal(0)) { totalReward, reward in
-            let decimalReward = Decimal.fromSubstrateAmount(BigUInt(stringLiteral: reward.amount), precision: 18) ?? Decimal(0)
-            return totalReward + decimalReward
+            totalReward + Self.rewardAmount(reward.amount)
         }
 
         var items: [CellViewModel] = []
@@ -272,7 +288,7 @@ private extension FriendsPresenter {
             items.append(RewardSeparatorViewModel())
 
             for reward in rewards {
-                let amount =  Decimal.fromSubstrateAmount(BigUInt(stringLiteral: reward.amount), precision: 18) ?? Decimal(0)
+                let amount = Self.rewardAmount(reward.amount)
                 items.append(RewardRawViewModel(title: reward.referral, amount: amount, assetSymbol: feeAsset.symbol))
             }
         }
