@@ -2083,8 +2083,9 @@ enum WalletAccountCommitStage: String, Codable {
     case networkModelActivated
     case activated
     /// An interrupted create or import whose account row never reached Core
-    /// Data. Nothing is deleted: any Keychain items it wrote stay in place and
-    /// a later import of the same phrase adopts them.
+    /// Data, or whose row was removed afterwards by a version that knows no
+    /// journal (App Store 3.8.6). Nothing is deleted: any Keychain items it
+    /// wrote stay in place and a later import of the same phrase adopts them.
     case abandoned
 
     /// Activated and abandoned journals need no further recovery.
@@ -2205,6 +2206,30 @@ final class WalletAccountCommitJournalStore {
         _ journal: WalletAccountCommitJournal,
         to stage: WalletAccountCommitStage
     ) throws -> WalletAccountCommitJournal {
+        try advance(journal, to: stage, rowRemovedOutsideThisVersion: false)
+    }
+
+    /// Closes a journal whose account row reached Core Data and is no longer
+    /// there while other accounts are: the account was removed afterwards by
+    /// a version that knows no journal (App Store 3.8.6, which runs over
+    /// this data again when a TestFlight build expires). Only the recovery
+    /// that read the database and found the row gone calls this. No key
+    /// material is read, written or deleted.
+    func abandonAfterRemovalOutsideThisVersion(
+        _ journal: WalletAccountCommitJournal
+    ) throws -> WalletAccountCommitJournal {
+        try advance(
+            journal,
+            to: .abandoned,
+            rowRemovedOutsideThisVersion: true
+        )
+    }
+
+    private func advance(
+        _ journal: WalletAccountCommitJournal,
+        to stage: WalletAccountCommitStage,
+        rowRemovedOutsideThisVersion: Bool
+    ) throws -> WalletAccountCommitJournal {
         try recoveryGate
             .requireAuthorizedLifecycleContinuation()
         Self.lock.lock()
@@ -2216,7 +2241,12 @@ final class WalletAccountCommitJournalStore {
                     $0.id == journal.id
                 }),
                 Self.journalsMatch(current, journal),
-                Self.canAdvance(from: current.stage, to: stage)
+                Self.canAdvance(
+                    from: current.stage,
+                    to: stage,
+                    rowRemovedOutsideThisVersion:
+                        rowRemovedOutsideThisVersion
+                )
             else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
@@ -2533,7 +2563,8 @@ final class WalletAccountCommitJournalStore {
 
     private static func canAdvance(
         from current: WalletAccountCommitStage,
-        to next: WalletAccountCommitStage
+        to next: WalletAccountCommitStage,
+        rowRemovedOutsideThisVersion: Bool
     ) -> Bool {
         let order: [WalletAccountCommitStage] = [
             .prepared,
@@ -2544,7 +2575,13 @@ final class WalletAccountCommitJournalStore {
         ]
         if next == .abandoned {
             // Only a recovery that proved the account row never reached Core
-            // Data abandons a journal. It writes no key material.
+            // Data abandons a journal, or one that found the committed row
+            // removed again by a version that knows no journal. It writes no
+            // key material.
+            if rowRemovedOutsideThisVersion {
+                return [.coreDataCommitted, .networkModelActivated]
+                    .contains(current)
+            }
             return [.prepared, .secretsPersisted].contains(current)
         }
         guard
@@ -5947,10 +5984,24 @@ final class WalletNetworkModelMigrator {
                 against: accounts
             )
             if !removedWalletIds.isEmpty {
-                // The database no longer has these accounts (removed in App
-                // Store 3.8.6 after this version ran). One removed account
-                // must not lock the others: record the removal and continue
-                // with the wallets that remain.
+                // A database with no account row at all beside a snapshot
+                // that lists wallets is not "an account was removed": the
+                // rows may have been lost (an interrupted removal of the
+                // last account in App Store 3.8.6, a damaged store). Emptying
+                // the snapshot here would also remove what tells the launch
+                // routing that a wallet existed. Stop as before; the
+                // recovery screen and the missing-database handling decide.
+                guard !accounts.isEmpty else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(
+                        stored.wallets.first(where: {
+                            removedWalletIds.contains($0.id)
+                        })?.existingSoraAddress ?? ""
+                    )
+                }
+                // The database still has accounts and no longer has these
+                // (removed in App Store 3.8.6 after this version ran). One
+                // removed account must not lock the others: record the
+                // removal and continue with the accounts the database has.
                 if activate {
                     current = try store.recordRemovalOutsideThisVersion(
                         walletIds: removedWalletIds,

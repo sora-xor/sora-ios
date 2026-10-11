@@ -47,6 +47,8 @@ import SSFUtils
 ///   selection is written to the legacy setting, and the journal is advanced
 ///   to `activated`.
 /// - The account row never reached Core Data: the journal becomes `abandoned`.
+/// - The account row reached Core Data and was removed again by App Store
+///   3.8.6 while other accounts remain: the journal becomes `abandoned` too.
 ///
 /// Key material is never written or deleted. Items an abandoned import wrote
 /// stay in the Keychain; a later import of the same phrase adopts them.
@@ -57,7 +59,8 @@ enum OrdinaryWalletAccountCommitRecovery {
     }
 
     enum Failure: Error {
-        /// The journal says the account reached Core Data, but it is not there.
+        /// The journal says the account reached Core Data, but the database
+        /// has no account at all.
         case committedAccountMissing
     }
 
@@ -125,11 +128,28 @@ enum OrdinaryWalletAccountCommitRecovery {
                 modelDirectory: modelDirectory
             )
             guard accounts.contains(where: { $0.address == journal.walletId }) else {
-                guard [.prepared, .secretsPersisted].contains(journal.stage) else {
-                    throw Failure.committedAccountMissing
+                if [.prepared, .secretsPersisted].contains(journal.stage) {
+                    _ = try journalStore.advance(journal, to: .abandoned)
+                    Logger.shared.info("Wallet account commit: interrupted import set aside")
+                } else {
+                    // The journal says the row reached Core Data, and it is
+                    // not there now. With other accounts still in the
+                    // database (and no database migration unfinished, which
+                    // the caller checked), the account was removed afterwards
+                    // by a version that knows no journal: App Store 3.8.6,
+                    // run over this data again after the import was cut
+                    // short. One removed account must not lock the others.
+                    // The journal is closed; the network model, rebuilt from
+                    // the database later in this start, records the removal.
+                    // A database with no account at all is not that state.
+                    guard !accounts.isEmpty else {
+                        throw Failure.committedAccountMissing
+                    }
+                    _ = try journalStore.abandonAfterRemovalOutsideThisVersion(journal)
+                    Logger.shared.info(
+                        "Wallet account commit: account of an interrupted import was removed outside this version"
+                    )
                 }
-                _ = try journalStore.advance(journal, to: .abandoned)
-                Logger.shared.info("Wallet account commit: interrupted import set aside")
                 outcomes.append(.abandoned(walletId: journal.walletId))
                 continue
             }
