@@ -106,7 +106,7 @@ final class AssetsItemService {
         if priceInfo == nil || assetIds.count != assetViewModels.count {
             let items = assetProvider.getBalances(with: assetIds)
 
-            assetViewModels = items.compactMap { item in
+            assetViewModels = rows(for: assetIds, balances: items) { item in
                 return self.assetViewModelsFactory.createAssetViewModel(with: item, fiatData: [], mode: .view)
             }
             updateHandler?()
@@ -122,14 +122,19 @@ final class AssetsItemService {
             let pricesAvailable = Self.pricesKnown(for: items, fiatData: poolItemInfo.fiatData)
             priceIsUnavailable = !pricesAvailable
             let pricesAsOf = pricesAvailable ? poolItemInfo.pricesAsOf : nil
-            priceNoteText = pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? ""
+            // A total that leaves a balance out says so. That matters more
+            // than the age of the prices.
+            let balancesMissing = !assetProvider.unavailableBalanceAssetIds(among: assetIds).isEmpty
+            priceNoteText = balancesMissing
+                ? WalletUX.text("This total does not include balances that could not be read")
+                : (pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? "")
             moneyText = Self.fiatTotalText(balances: items, fiatData: poolItemInfo.fiatData)
             // Keep asking while the prices could not be read, and while
             // the ones read are old. A wallet whose tokens PI has no price
             // for gains nothing from asking again.
             schedulePriceRetry(needed: poolItemInfo.fiatData.isEmpty || poolItemInfo.pricesAsOf != nil)
             
-            assetViewModels = items.compactMap { item in
+            assetViewModels = rows(for: assetIds, balances: items) { item in
                 let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
                 var viewModel = self.assetViewModelsFactory.createAssetViewModel(with: item,
                                                                                  fiatData: poolItemInfo.fiatData,
@@ -175,6 +180,26 @@ extension AssetsItemService {
 }
 
 private extension AssetsItemService {
+    /// The rows in list order. An asset whose balance could not be read
+    /// keeps its row, which says "Balance unavailable"; it is neither left
+    /// out nor shown as zero.
+    func rows(
+        for assetIds: [String],
+        balances: [BalanceData],
+        build: (BalanceData) -> AssetViewModel?
+    ) -> [AssetViewModel] {
+        let unavailable = assetProvider.unavailableBalanceAssetIds(among: assetIds)
+        guard !unavailable.isEmpty else {
+            return balances.compactMap(build)
+        }
+        return assetIds.compactMap { assetId in
+            if unavailable.contains(assetId) {
+                return assetViewModelsFactory.createBalanceUnavailableViewModel(assetId: assetId, mode: .view)
+            }
+            return balances.first(where: { $0.identifier == assetId }).flatMap(build)
+        }
+    }
+
     /// While prices are unavailable, asks again by itself so the notice is
     /// replaced as soon as PI answers; nothing is asked of the user.
     func schedulePriceRetry(needed: Bool) {

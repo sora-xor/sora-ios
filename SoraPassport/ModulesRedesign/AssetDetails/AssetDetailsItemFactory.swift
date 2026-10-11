@@ -114,6 +114,11 @@ final class AssetDetailsItemFactory {
                                                 frozenFiatAmount: frozenFiat,
                                                 service: transferableItemService,
                                                 balanceData: balance)
+        // A balance that could not be read is shown as unavailable, not as
+        // the zero the placeholder above carries.
+        transferableItem.balanceUnavailable = assetsProvider?
+            .unavailableBalanceAssetIds(among: [assetInfo.identifier])
+            .contains(assetInfo.identifier) ?? false
 
         transferableItem.actionHandler = { [weak self] type in
             switch type {

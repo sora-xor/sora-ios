@@ -42,7 +42,11 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
         return fetchBalanceOperation(assets, onlyVisible: true)
     }
 
-    func fetchBalanceOperation(_ assets: [String], onlyVisible: Bool) -> CompoundOperationWrapper<[BalanceData]?> {
+    func fetchBalanceOperation(
+        _ assets: [String],
+        onlyVisible: Bool,
+        markingUnavailable: Bool = false
+    ) -> CompoundOperationWrapper<[BalanceData]?> {
         let userAssets: [WalletAsset] = assets.compactMap { identifier in
             guard identifier != totalPriceAssetId?.rawValue else {
                 return nil
@@ -54,7 +58,10 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
 
         let sortedAssets = assetManager.sortedAssets(userAssets, onlyVisible: onlyVisible)
 
-        let balanceOperation = fetchBalanceInfoForAssets(sortedAssets)
+        let balanceOperation = fetchBalanceInfoForAssets(
+            sortedAssets,
+            markingUnavailable: markingUnavailable
+        )
 
         return balanceOperation
     }

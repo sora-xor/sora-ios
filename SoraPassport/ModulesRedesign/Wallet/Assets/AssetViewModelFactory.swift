@@ -74,6 +74,26 @@ extension AssetViewModelFactory {
                               deltaPriceText: deltaArributedText)
     }
     
+    /// The row of an asset whose balance could not be read. It keeps its
+    /// place in the list and says so; it shows no amount and no value.
+    func createBalanceUnavailableViewModel(assetId: String, mode: WalletViewMode) -> AssetViewModel? {
+        guard let asset = walletAssets.first(where: { $0.identifier == assetId }),
+              let assetInfo = assetManager.assetInfo(for: asset.identifier) else {
+            return nil
+        }
+        var viewModel = AssetViewModel(identifier: asset.identifier,
+                                       title: asset.name,
+                                       subtitle: WalletUX.balanceUnavailableText,
+                                       fiatText: "",
+                                       icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+                                       mode: mode,
+                                       isFavorite: assetInfo.visible,
+                                       deltaPriceText: nil)
+        // Nothing more will arrive for this row: no loading placeholder.
+        viewModel.priceLoadFinished = true
+        return viewModel
+    }
+
     func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         
         let isRTL = LocalizationManager.shared.isRightToLeft
