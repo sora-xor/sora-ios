@@ -93,11 +93,19 @@ signing or migration code is touched.
   request retries itself, a multi-page read retries as a whole.
 - **Last good value.** A complete asset, pool or referral-reward catalog is
   saved after every successful live read (one file in `Caches/PIIndexer`, at
-  most 24 hours old when used). When PI is unreachable, overloaded
-  (408/429/5xx) or cannot give a consistent fresh checkpoint after the retry,
-  the last good catalog is returned, also after an app restart. A response
-  that does not decode or fails validation is never replaced by older data.
-  Activity falls back to its own validated history cache in the same cases.
+  most 24 hours old when used). When PI gave no answer, or cannot give a
+  consistent fresh checkpoint after the retry, the last good catalog is
+  returned, also after an app restart. "No answer" is (since review round
+  4, see there): no connection, a TLS failure, any status from a proxy,
+  firewall or sign-in page, 408, 429, 5xx, a 200 that is not JSON, and a
+  GraphQL error whose code says the failure is on PI's side. An answer from
+  PI that does not decode, fails validation or refuses the query is never
+  replaced by older data. Activity falls back to its own validated history
+  cache in the same cases.
+- **A lost request does not cost the walk** (review round 4). One request
+  of a walk that is lost on the way, or fails for a moment on PI's side,
+  is asked for again, at most twice per walk; the pages already read are
+  kept.
 - **Fewer requests.** The postflight health read of one page is the preflight
   of the next: a walk costs two requests per page plus one (21 for the asset
   catalog instead of 30). All production clients share one URL session, so
@@ -191,13 +199,12 @@ signing or migration code is touched.
 ### 4. Device clock
 
 - PI's timestamps are compared with the time in the `Date` header of the same
-  response, not with the device clock, when the two are within 26 hours of
-  each other (`PIIndexerClient.responseClock`). A device whose clock is
-  minutes or hours off, or set to the wrong time zone, loads prices and
-  Activity normally.
-- A missing or malformed header, or one further than 26 hours from the device
-  clock, falls back to the device clock, so the check is never weaker than
-  before.
+  response, not with the device clock (`PIIndexerClient.responseClock`). A
+  device whose clock is minutes, hours or days off, or set to the wrong
+  time zone, loads prices and Activity normally. Until review round 4 the
+  header was used only within 26 hours of the device clock; see there for
+  why that limit was removed.
+- A missing or malformed header falls back to the device clock.
 - Cached entries record the clock offset they were saved with, so the last
   good catalog also works on a device with a wrong clock.
 
@@ -308,7 +315,8 @@ that the two catalogs the walks saved read back whole. Results are in
 ## Verification
 
 Xcode 27.0, simulator `SORA-Fix-net` (iPhone 17 Pro, iOS 27.0), 11 and 12
-October 2026. The table is the state after review round 3.
+October 2026. The table is the state after review round 3; the numbers of
+round 4 are under "Review round 4".
 
 | Check | Result |
 |---|---|
@@ -587,7 +595,9 @@ catalog after an unusable response). The tree was restored afterwards.
 - Old prices carry their time on the wallet total only. Swap, send,
   Receive and the liquidity screens show values from the catalog held
   without a marker, as in round 2; they are replaced when the read ends
-  and the screen asks again (Swap asks on every new quote).
+  and the screen asks again (Swap asks on every new quote). Since round 4
+  the send amount, request amount, claim rewards, farm details and pool
+  list screens ask again by themselves when the read ends.
 - Lists that only display prices still wait for the first catalog when
   none under 24 hours exists: the wallet rows keep their placeholders, and
   "All pools" and the farm lists appear when the read ends (5 to 8 s
@@ -600,6 +610,387 @@ catalog after an unusable response). The tree was restored afterwards.
   this round does not have. The Debug build was installed and launched on
   the simulator and reaches the PIN screen; the four screens were driven
   through their production view models in tests.
+
+## Review round 4 (12 October)
+
+Twelve findings from the adversarial review of the state after round 3
+(`318a19ea`), two of them major, numbered here in the order they were
+sent. Each was checked against the code. All twelve were real; all are
+fixed. Findings 4 and 11 describe the same defect from two sides, and the
+retry asked for in 4 is the one of finding 10.
+
+| # | Severity | Finding | What was done |
+|---|---|---|---|
+| 1 | major | `MarketCapService` kept its own 10-minute cache on top of the shared catalog: yesterday's 24-hour change next to today's prices | The service keeps nothing; every call is worked out from the catalog as it is. |
+| 9 | major | A JSON number with exponent `-9223372036854775808` trapped in `abs()` and stopped the app on every launch | The exponent is bounded on its digits before any arithmetic. |
+| 2 | minor | Five screens asked for prices once and kept a catalog up to a day old while open | They ask again when a catalog read ends. |
+| 3 | minor | A published price of "0" shown as "$0" for the holding and the total | Zero is "no price"; a wallet whose tokens have no price reads "Price unavailable". |
+| 4, 11 | minor | Failures where PI gave no answer hid the catalog held | One list of "no answer" failures, which now includes service failures, TLS and transport errors, other statuses and non-JSON answers. |
+| 5 | minor | Activity joined a current page and a page saved earlier | Pages of one list are of one kind; a retry row otherwise; the saved list says when it is from. |
+| 6 | minor | A device clock more than 26 hours off failed every health check | The server's `Date` is used whenever it parses. |
+| 7 | minor | A fractional JSON number in history data failed the whole Activity page for good | Read from the exact text, as quantities are. |
+| 8 | minor | Referral reward amounts parsed with a trapping initializer | Whole numbers required at the client; failable conversion in the presenter. |
+| 10 | minor | One lost request of the 21 ended the walk | The lost page is asked for again, twice at most per walk. |
+| 12 | minor | The catalog walk stopped at 20 pages (2,000 assets) | 100 pages (10,000 rows); the live test watches the size. |
+
+### 1. Market data follows the catalog
+
+`MarketCapService` cached its answer for 600 s by the wall clock and could
+not tell what it had sampled. On a cold start the store answers at once
+with the catalog saved the day before; the service cached that. About six
+seconds later the live catalog arrived, the "Prices as of" line went away,
+and the wallet rows, Asset Details and Explore kept yesterday's 24-hour
+change and liquidity for ten minutes, possibly with the wrong sign.
+
+The service now holds no state. A call picks the requested rows out of the
+catalog in memory (957 rows), through the same operation and the same
+validation as before. `PriceInfoService` takes its two services by
+injection so that this path can be tested with the production classes.
+
+### 2. A number the app cannot hold is refused, not fatal
+
+`PIQuantity.plainDecimal(fromJSONNumber:)` guarded with
+`abs(exponent) <= 4096`. `Int("-9223372036854775808")` is `Int.min`, and
+`abs(Int.min)` is an overflow trap. Neither the JSON grammar nor the strict
+admission parser limits the digits of an exponent, and since the first
+round every numeric quantity of every response reaches this function. The
+asset catalog is read as soon as the wallet opens, so one such number in
+it stopped the app on every launch.
+
+The exponent's digits are now counted (sign and leading zeros aside, at
+most four, at most 4096) before it is converted. `1.5e0003` still reads
+`1500`.
+
+### 3. Screens that asked for prices once
+
+Since round 3 the store answers at once with the catalog it holds, up to
+24 hours old, and reads PI behind the caller. Send (amount), request
+amount, claim rewards, farm details and the pool list read prices once in
+`viewDidLoad` and never again. Send opened within the seconds of a
+cold-start walk showed the fiat value at yesterday's price for as long as
+it stayed open.
+
+Each of them now keeps a `PIPricesObservation` (a small object that calls
+back on `PICatalogs.pricesDidChange` and stops when released) and asks
+again:
+
+- Send: only the balance text and the value under the amount are written
+  again. A warning shown in that place (not enough balance, not enough XOR
+  for the fee) is left as it is. The amount, the recipient and the button
+  do not change.
+- Request amount and claim rewards: their `fiatData` already redraws.
+- Farm details: valued again without first being drawn with no values.
+- Pool list: rebuilt from the pools it shows, but not while it is being
+  edited or searched.
+
+### 4. A price of zero
+
+PI publishes `priceUSD: "0"` for an asset it could not price. In the
+captured page that is bridged ETH (`0x0200070000...`), which has liquidity
+and a daily volume. The wallet showed "$0" for the holding and, for a
+wallet holding only that, "$0" as its total: the state item 3 of this task
+removed for a failed price load.
+
+- `PIAsset.fiatData` (used by `FiatService` and the legacy fiat operation)
+  gives such an asset no price. Every screen already treats a missing
+  price as unknown: no fiat text on the row, on Asset Details "Price
+  unavailable", in Explore no price and last in the order, no TVL.
+- The liquid total reads "Price unavailable" when the wallet holds tokens
+  and none of them has a price. A wallet that holds nothing reads "$0";
+  a wallet with some priced tokens reads the sum of those, as before. The
+  pooled total follows the same rule. The wallet does not keep asking in
+  this state: the prices were read.
+
+The same convention was already in place for a published APY of 0.
+
+### 5. "PI gave no answer" and "PI's answer cannot be used"
+
+The store hides the catalog it holds after a failure that is not on the
+accepted list, so the wallet drops to "Price unavailable" and every other
+fiat text goes away; Activity shows an error instead of its saved list.
+The list was too short. Now accepted, with the last good value shown under
+its time:
+
+| Failure | Before | Now |
+|---|---|---|
+| No connection, timeout, DNS, connection lost | accepted | accepted |
+| HTTP 408, 429, 5xx | accepted | accepted |
+| Stale or inconsistent checkpoint, PI not ready | accepted | accepted |
+| HTTP 200 with GraphQL errors that are all `INTERNAL_SERVER_ERROR`, a timeout code, `SERVICE_UNAVAILABLE` or a rate limit | hidden (`graphQLErrors`) | accepted (`serviceFailure`) |
+| TLS cannot be established, untrusted or wrongly dated certificate | hidden | accepted |
+| Other transport errors where nothing readable arrived (`badServerResponse`, `cannotParseResponse`, `cannotLoadFromNetwork`, a sign-in requirement) | hidden | accepted |
+| HTTP 3xx (never followed), 401, 403, 404 and other statuses | hidden | accepted |
+| HTTP 200 that is not `application/json` (a sign-in page) | hidden (`invalidResponse`) | accepted (`foreignResponse`) |
+| A JSON answer that does not decode or fails validation, another service or chain, a refused query (GraphQL refusal such as `BAD_USER_INPUT`, HTTP 400 or 422), a cancelled request | hidden | hidden |
+
+A TLS failure is on the accepted list on purpose, although an earlier test
+said otherwise. Nothing is read from a connection that failed TLS. What is
+shown is what PI itself said earlier, validated then, marked with its time
+and at most 24 hours old; a network that can break the connection could
+already cause exactly that by dropping it.
+
+`extensions.code` is decoded from GraphQL errors. One refusal among the
+errors makes the response a refusal, and so does a missing code, so the
+fallbacks for the two known refusals (history all-roles filter, referral
+rewards order) work as before. The raw server text is still not kept in
+the error.
+
+**Lost requests.** A catalog walk is 21 sequential requests (assets) or 11
+(pools), and only a stale checkpoint was retried. One lost request threw
+away every page already read, and the wallet waited 20 s or more for the
+next try. Now a request that fails in a way that often does not repeat is
+asked for again, keeping the pages read:
+
+- what counts: connection lost, a failed TLS handshake, an unreadable
+  response, HTTP 500/502/503/504, a service failure reported by PI;
+- at most two more tries per logical read (a walk, or a single request
+  with its health reads), 0.5 s and 1 s apart;
+- a timeout gets one more try, and only when PI already answered earlier
+  in the same read. A timeout before anything was read is what "no
+  connection" looks like on the session that waits for one; trying again
+  would only keep the saved copy waiting behind a second timeout;
+- no connection, DNS failure and a rate limit are not tried again;
+- the checkpoint rules (forward only, bounded) apply to the page that then
+  arrives like to any other. The retry sits at the level that already
+  retries a stale checkpoint, so nothing retries at two levels.
+
+### 6. Activity: one list, one moment
+
+Activity's saved pages are keyed by address, page size and page number.
+A current page 1 followed by a page 2 saved hours earlier, when the
+account had fewer transactions, leaves rows out; the other way round
+shows rows twice. The fallback existed before this task for network
+errors; this task had widened it to every stale checkpoint, a condition
+that can begin between two page loads.
+
+- `SubqueryHistoryOperation.cachedAt` and `HistoryPage.cachedAt` say when
+  a page was saved (`nil`: read just now).
+- `ActivityViewModel` puts a page under the list only when it continues
+  it: current under current, or saved under a saved page that is not
+  newer. Otherwise the list stays as it is and one row is added at its
+  end, the existing "Some data is not up to date / Refresh" row, which
+  loads the list again from its start. Scrolling to the end asks again
+  and never adds a second row; when a page that continues the list
+  arrives, the row goes away.
+- A list that is the saved copy has one quiet line above it: "Activity as
+  of 09:02. Newer transactions will appear when the list can be updated."
+  (Japanese: 「09:02 時点のアクティビティです。一覧を更新できるようになると、
+  新しい取引が表示されます。」), with the date when it is not today.
+
+### 7. Device clock
+
+The server's `Date` replaced the device clock only within 26 hours of it,
+"so that the check is never weaker than the device clock alone". The
+review is right that the limit bought nothing: the header arrives over the
+same TLS connection as the timestamps it is compared with, and whoever
+could forge one could forge the other. With the date set two days back or
+forward by hand, every health check failed, the saved catalog did not
+help (its offset was recorded as 0), and the user saw "Price unavailable"
+and no Activity with no hint.
+
+The server time is used whenever the header parses. The freshness rule is
+unchanged: an indexer whose last block is more than five minutes old by
+its own clock is refused on any phone.
+
+### 8. Fractional numbers in history data
+
+`PIJSONValue` (the type of a history row's `data`, `execution` and call
+data) accepted 64-bit integers only and refused the page otherwise.
+History rows carry computed USD values (`amountUSD`, `exchangeVolumeUSD`
+and others). They are strings today, and the same indexer writes
+`volumeDayUSD` as a number. A row does not change once written, so a page
+with such a number could never be loaded again.
+
+A fractional or larger number is now read from the exact text of the
+response (`PINumberLexemes`, as for quantities), also as an array element
+and under a member name that is itself a number. The validated history
+cache writes it as its decimal text, which reads back as the same digits;
+every reader of these values treats a number and its text alike.
+
+### 9. Referral rewards
+
+`validateReferrerRewards` accepted any non-negative decimal, and the
+Friends screen converted with `BigUInt(stringLiteral:)`, which stops the
+app on text that is not a whole number. The first wire review had only
+seen a reward of "0". The live indexer was asked again: among the 100
+newest of its 505 reward rows, three referrers had a reward that is not
+zero, each a whole number of the smallest unit (`183330193640403131`, which
+is 0.18 XOR). The page of one of them is the new fixture
+`referrer-rewards-nonzero-page.json`.
+
+The client now requires a whole number (`invalidQuantity` otherwise, a
+handled error), and `FriendsPresenter.rewardAmount` converts with the
+failable initializer and gives 0 for anything else.
+
+### 10. Catalog size
+
+`qualifiedAllAssets` and `qualifiedAllPoolXYKs` read at most 20 pages of
+100, and the market data request accepted 2,000 assets. Past that the walk
+failed with `paginationLimit`, which also hides the last good catalog: no
+price anywhere, for every user, with no recovery short of an app update.
+Registering an asset on SORA needs no permission; PI lists 957.
+
+Both walks now get the 100 pages the pager already allowed (10,000 rows),
+and the market data bound is the same number. The live test fails when a
+catalog passes half of that, so growth is noticed years before it hurts.
+A 100-page walk is 201 requests, about a minute; the screens do not wait
+for it when a catalog under 24 hours old exists.
+
+### Tests of round 4
+
+34 new tests and 4 changed ones. New fixture:
+`referrer-rewards-nonzero-page.json` (unedited, 1.5 KB).
+
+| Class | New | What it proves |
+|---|---|---|
+| `PIRound4WireTests` | 9 | Extreme exponents are refused through `decodeResponse`; exponents within the bound keep every digit. The captured history page with four of its values rewritten as JSON numbers decodes exactly and comes back from the validated cache. GraphQL errors are told apart by their code. The two lists of failures. The captured non-zero reward page decodes, validates and converts; a reward that is not a whole number is a handled error and converts to 0. |
+| `PIIndexerAdvancingReadTests` | 12 | A lost page, or a lost health read in the middle of a walk, costs one page. The retry is bounded; a timeout is tried once and only after progress; with no network nothing is asked twice. A service failure on one page is tried again; a PI that keeps failing, a sign-in page, 403, 404, a redirect and two TLS failures give the last good catalog. A device clock three days off loads prices and keeps its last good catalog; an indexer stale by its own clock is refused. A walk of 25 pages completes. |
+| `PICatalogStoreTests` | 1 | With the app's own rule, the catalog held is shown under its time after seven kinds of "no answer". |
+| `PIRound4PriceTests` | 8 | The production `PriceInfoService`, `FiatService` and `MarketCapService` over a store that serves a saved catalog and then a live one: the second answer has the live 24-hour change and liquidity. A published price of zero is no price; the production wallet service reads "Price unavailable" for a wallet holding only that asset, the priced part for a mixed one, "$0" for an empty one. The production Send and request-amount view models follow the prices when `pricesDidChange` is posted. |
+| `PIRound4ActivityTests` | 4 | The production `ActivityViewModel`: a saved page is not put under current pages, one retry row is shown and goes away when the current page arrives; the saved list says when it is from, is not continued with an older saved page or a current one, and Refresh gives one consistent list. The notice text in English and Japanese. |
+| `PIIndexerClockTests` | (2 changed) | The server's time is used at any distance from the device clock. |
+
+Changed elsewhere: `testAnUnreachableIndexerGivesTheLastGoodCatalog`
+counts the two extra tries, and
+`testPICacheFallbackAllowsOnlyFailuresWherePIGaveNoAnswer` in
+`WalletModernizationTests.swift` (renamed) states the new list. The test
+that a `Date` far from the device clock is refused was replaced by the
+test that such a phone loads prices (counted among the new ones). The
+stub indexer of the tests can now lose a request and answer with another
+content type. The live test also checks market data for the whole catalog,
+a referrer with a non-zero reward, and the catalog size.
+
+**The tests fail without the fixes.** With the behaviour before round 4
+put back for one run, keeping only the new interfaces (exponent bounded
+with `abs`; fractional generic numbers refused; every GraphQL error a
+refusal; the short list of accepted failures; no retry of a lost request;
+the 26-hour clock limit; 20 pages; any decimal reward amount; the
+10-minute market data cache; zero as a price; the two tested screens
+asking once; Activity appending every page and showing no notice), 28 of
+the new and changed tests fail and one stops the test process:
+
+- `PIRound4WireTests`: 6 fail, and
+  `testAQuantityWithAnExtremeExponentIsRefusedAndTheAppKeepsRunning`
+  crashes the runner at `abs(Int.min)`, which is the defect itself;
+- `PIIndexerAdvancingReadTests`: 10; `PICatalogStoreTests`: 1;
+  `PIIndexerClockTests`: 1;
+- `PIRound4PriceTests`: 7; `PIRound4ActivityTests`: 3.
+
+The four that pass either way cover new code only (exponents within the
+bound, the captured reward page, the observation's lifetime, the notice
+text). The tree was restored from git afterwards.
+
+### Verification of round 4
+
+Xcode 27.0, simulator `SORA-Fix-net` (iPhone 17 Pro, iOS 27.0), 12 October
+2026 (JST), on the final commits of this round.
+
+| Check | Result |
+|---|---|
+| `build-for-testing`, Debug, pinned packages | TEST BUILD SUCCEEDED |
+| Whole `SoraPassportTests` target | 614 tests, 0 failures, 4 skipped (the opt-in live tests); 581 before this round |
+| Release device compile (`generic/platform=iOS`, `CODE_SIGNING_ALLOWED=NO`) | BUILD SUCCEEDED; the debug "PI unreachable" switch is not in the binary |
+| Debug build installed and launched on the simulator | starts and reaches the PIN screen |
+| `Package.resolved`, `project.pbxproj` | unchanged |
+
+**Live indexer, production client, empty cache each round** (through the
+catalog session; 19:35 to 19:38 and 19:54 to 19:56 UTC on 11 October, from
+the build Mac):
+
+| Run | Assets (957, 10 pages) | Pools (432, 5 pages) | Fiat prices | Market data, whole catalog | Saved copies read back |
+|---|---|---|---|---|---|
+| 10 rounds | 10 of 10 | 10 of 10 | 10 of 10 | 10 of 10 | 10 of 10 |
+| 6 rounds | 6 of 6 | 6 of 6 | 6 of 6 | 6 of 6 | 6 of 6 |
+
+16 of 16 rounds, which makes 41 of 41 over the four rounds of this task
+(the audit measured 0 of 20). An asset walk took 5.4 to 6.2 s and a pool
+walk 2.9 to 3.0 s. Both runs of the second live test also read health, the
+configuration, referral rewards (one account with a reward of zero, one
+with 0.183330193640403131 XOR in two rows) and page 2 of an active
+account's Activity (20 rows of 304). No request had to be asked for a
+second time in these runs, so the new retry was exercised by the stub
+indexer only.
+
+### Decisions and limits of round 4
+
+- **TLS failures show the last good value.** This reverses an assertion of
+  the earlier test suite. See "5." above for why it is safe.
+- **`Age` is not added to `Date`.** A shared cache in front of PI could in
+  principle replay a health answer with its original `Date`. PI's
+  requests are POSTs sent with `no-store`, which shared caches do not
+  store; the 26-hour limit would not have caught a replay of minutes
+  either.
+- **A stale 24-hour change is impossible now, a mixed one is not marked.**
+  Prices and market data of one `PriceInfo` come from two reads of the
+  same store a few microseconds apart. If a refresh lands exactly between
+  them, one answer mixes two catalogs until the `pricesDidChange` that the
+  same refresh posts makes the screen ask again.
+- **Activity's saved pages.** Two saved pages are accepted as one list
+  when the lower one was saved at or after the upper one, which is the
+  order in which scrolling saves them. Rows that arrived between the two
+  saves can still appear twice, as they can between two current pages
+  loaded minutes apart (numbered pages over a list that grows at the top;
+  not changed here). Rows are no longer left out.
+- **Send keeps a warning as it is** when prices change, and does not touch
+  the field's colours.
+- **A catalog beyond 10,000 rows** would fail as 2,000 did. The live test
+  warns at 5,000. The lasting answer is a query for the wallet's own
+  assets, which PI's schema allows; it was not built in this round.
+- **Seen while testing Activity, not changed (the same code is in App
+  Store 3.8.6).** `ActivityViewModel` counts a page as loaded only when
+  the page adds a section for a day that is not on screen yet. A page whose
+  rows all fall on a day already shown (an account with more than 50
+  operations in one day) is merged into the list in memory but neither
+  drawn nor counted: the spinner at the end stays, and each further scroll
+  loads the same page and merges its rows again. This was reproduced with
+  the production view model (two pages on one day: the page number stays
+  at 1, the screen keeps 2 rows, the list in memory grows to 6). By
+  reading, a page whose rows are all filtered out in the Activity of one
+  asset is not counted either. Neither is an audit finding or a change of
+  3.9.0; both need their own fix and a look at the screen.
+- **Not seen in the running app.** As in rounds 2 and 3, the simulator
+  wallet is behind a PIN this round does not have, and this round did not
+  remove it or create another. The Debug build was installed and launched
+  and reaches the PIN screen. The new states were driven through the
+  production view models and services in tests. They should be looked at
+  on a device before release; see the checklist steps below.
+
+### Human and operations actions of round 4
+
+- **Indexer owners:** bridged ETH (`0x0200070000...`) is published with
+  `priceUSD: "0"` although it has liquidity and a daily volume of about
+  1,156 USD. The app now shows no price for it. Please check the pricing
+  path for assets that have no direct XOR or XSTUSD pool.
+- **Indexer owners:** keep `extensions.code` stable. The app now relies on
+  `BAD_USER_INPUT` meaning "this query is refused" and
+  `INTERNAL_SERVER_ERROR` meaning "try again"; a refusal sent as
+  `INTERNAL_SERVER_ERROR` would be retried and then answered from the
+  saved copy instead of selecting the fallback query.
+- **Indexer owners:** keep referral reward amounts as whole numbers of the
+  smallest unit, and keep the USD values of history rows either strings or
+  numbers; the app reads both.
+- **Scheduled check:** the daily `PIIndexerLiveTests` run now fails when a
+  catalog passes 5,000 rows. That is the signal to build the query for the
+  wallet's own assets.
+- **Android:** check the same four points on Android: a second cache over
+  the price catalog, the parsing of referral reward amounts, the class of
+  GraphQL `INTERNAL_SERVER_ERROR`, and the page limit of the asset walk.
+  None was looked at in this task.
+- **Release checklist:** add the steps
+  - "set the date two days back by hand: prices and Activity still load";
+  - "on a Wi-Fi network with a sign-in page, before signing in: the wallet
+    shows the last prices with 'Prices as of', not 'Price unavailable'";
+  - "after a night without the app, open it and tap Send at once: the
+    value under the amount changes to today's price within about ten
+    seconds";
+  - "open Activity, switch to airplane mode, scroll to the end: the list
+    ends with 'Some data is not up to date / Refresh' and no row is
+    repeated; open Activity again in airplane mode: one line says when
+    the list is from";
+  - "hold an asset the indexer has no price for: its row shows the
+    balance and no '$0'";
+  - "open Friends with a referrer account that has rewards: the total is
+    shown".
 
 ## Not changed
 
