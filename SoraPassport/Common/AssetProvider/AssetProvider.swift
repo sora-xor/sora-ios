@@ -37,9 +37,19 @@ protocol AssetProviderObserverProtocol: AnyObject {
 
 
 protocol AssetProviderProtocol: AnyObject {
+    /// Balances that were read. An asset whose balance could not be read
+    /// has no entry here (it is never reported as zero); see
+    /// `unavailableBalanceAssetIds(among:)`.
     func getBalances(with assetIds: [String]) -> [BalanceData]
+    /// The assets among `assetIds` whose balance the last read could not
+    /// give. They are shown as "Balance unavailable".
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String>
     func add(observer: AssetProviderObserverProtocol)
     func remove(observer: AssetProviderObserverProtocol)
+}
+
+extension AssetProviderProtocol {
+    func unavailableBalanceAssetIds(among _: [String]) -> Set<String> { [] }
 }
 
 struct AssetProviderObserver {
@@ -48,6 +58,7 @@ struct AssetProviderObserver {
 
 final class AssetProvider {
     private var balanceData: [BalanceData] = []
+    private var unavailableAssetIds: Set<String> = []
     private let balanceProvider: SingleValueProvider<[BalanceData]>?
     private var observers: [AssetProviderObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.balance.provider")
@@ -63,7 +74,9 @@ final class AssetProvider {
             guard let change = changes.first else { return }
             switch change {
             case .insert(let items), .update(let items):
-                self?.balanceData = items
+                let split = AssetProvider.split(items)
+                self?.balanceData = split.balances
+                self?.unavailableAssetIds = split.unavailable
                 self?.notify()
             default:
                 break
@@ -79,7 +92,22 @@ final class AssetProvider {
     }
 }
 
+extension AssetProvider {
+    /// Separates the balances that were read from the assets whose balance
+    /// could not be read, so no consumer can take the latter for a number.
+    static func split(_ items: [BalanceData]) -> (balances: [BalanceData], unavailable: Set<String>) {
+        (
+            items.filter { !$0.isUnavailable },
+            Set(items.filter(\.isUnavailable).map(\.identifier))
+        )
+    }
+}
+
 extension AssetProvider: AssetProviderProtocol {
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> {
+        unavailableAssetIds.intersection(assetIds)
+    }
+
     func getBalances(with assetIds: [String]) -> [BalanceData] {
         var balances: [BalanceData] = []
         

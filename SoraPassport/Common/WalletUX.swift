@@ -34,6 +34,10 @@ enum WalletUX {
         String(format: text(value), arguments: arguments)
     }
 
+    /// Shown in place of an amount when the chain's answer for a balance
+    /// could not be read. Never "0": the funds are not gone.
+    static var balanceUnavailableText: String { text("Balance unavailable") }
+
     /// Shown in place of a fiat total while no price is known.
     static var priceUnavailableText: String { text("Price unavailable") }
 

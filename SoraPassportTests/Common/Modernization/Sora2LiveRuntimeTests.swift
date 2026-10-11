@@ -1070,6 +1070,169 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         )
     }
 
+    // MARK: - Balance unavailable, never zero
+
+    /// A storage value the balance model does not recognise is "balance
+    /// unavailable". Before the fix it read as zero: this is how every XOR
+    /// balance became 0 when runtime 124 renamed the balances fields.
+    func testUnrecognisedBalanceLayoutIsUnavailableNeverZero() throws {
+        let factory = try factory()
+        let xor = BigUInt(10).power(18)
+        // `System.Account` as the node's metadata decodes it, through the
+        // operation the balance read uses.
+        let operation = StorageFallbackDecodingListOperation<JSON>(
+            path: .account,
+            dataList: [
+                systemAccountBytes(nonce: 1, free: 2 * xor, reserved: xor, frozen: 3 * xor / 2, flags: BigUInt(1) << 127),
+                nil
+            ]
+        )
+        operation.codingFactory = factory
+        operation.start()
+        let decoded = try XCTUnwrap(operation.result).get()
+        let account = try XCTUnwrap(decoded[0])
+
+        guard case let .amounts(known) = WalletBalanceReading.xor(account: account) else {
+            return XCTFail("Runtime 133 balances must be read")
+        }
+        XCTAssertEqual(known.free, 2 * xor)
+        XCTAssertEqual(known.available, 3 * xor / 2)
+        // An account the chain has nothing for holds nothing: a real zero.
+        XCTAssertEqual(
+            WalletBalanceReading.xor(account: decoded[1]),
+            .amounts(AccountData(free: 0, reserved: 0, miscFrozen: 0, feeFrozen: 0))
+        )
+        XCTAssertEqual(
+            WalletBalanceReading.xor(account: nil),
+            .amounts(AccountData(free: 0, reserved: 0, miscFrozen: 0, feeFrozen: 0))
+        )
+
+        // The next upgrade renames a field of the same value.
+        func renaming(_ key: String, to newKey: String, in json: JSON) -> JSON {
+            guard case let .dictionaryValue(fields) = json else { return json }
+            var renamed: [String: JSON] = [:]
+            for (name, value) in fields {
+                renamed[name == key ? newKey : name] = renaming(key, to: newKey, in: value)
+            }
+            return .dictionaryValue(renamed)
+        }
+        XCTAssertEqual(WalletBalanceReading.xor(account: renaming("free", to: "liquid", in: account)), .unavailable)
+        XCTAssertEqual(WalletBalanceReading.xor(account: renaming("frozen", to: "held", in: account)), .unavailable)
+        XCTAssertEqual(WalletBalanceReading.xor(account: renaming("data", to: "balances", in: account)), .unavailable)
+
+        // Tokens: three u128 values, or nothing stored.
+        func balance(_ value: UInt8) -> [UInt8] { [value] + [UInt8](repeating: 0, count: 15) }
+        let token = Data(balance(9) + balance(2) + balance(3))
+        guard case let .amounts(tokens) = WalletBalanceReading.token(
+            storage: .success(OrmlAccountStorage(hex: token.toHex(includePrefix: true)))
+        ) else {
+            return XCTFail("A token account must be read")
+        }
+        XCTAssertEqual(tokens.free, 9)
+        XCTAssertEqual(
+            WalletBalanceReading.token(storage: .success(OrmlAccountStorage(hex: nil))),
+            .amounts(AccountData(free: 0, reserved: 0, miscFrozen: 0, feeFrozen: 0))
+        )
+        // Another length is another layout; a failed read is not a zero.
+        for other in [token.dropLast(), token + Data([0x01]), Data()] {
+            XCTAssertEqual(
+                WalletBalanceReading.token(
+                    storage: .success(OrmlAccountStorage(hex: Data(other).toHex(includePrefix: true)))
+                ),
+                .unavailable
+            )
+        }
+        XCTAssertEqual(
+            WalletBalanceReading.token(storage: .failure(URLError(.timedOut))),
+            .unavailable
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode([OrmlAccountStorage].self, from: Data(#"[null,"0x00"]"#.utf8)).map(\.hex),
+            [nil, "0x00"]
+        )
+
+        // An unavailable balance never reaches a consumer as a number: the
+        // provider keeps it apart from the balances that were read.
+        let read = BalanceData(identifier: "0x0200050000000000000000000000000000000000000000000000000000000000", balance: AmountDecimal(value: 5))
+        let marked = BalanceData.unavailable(identifier: Self.xorAssetId)
+        XCTAssertTrue(marked.isUnavailable)
+        XCTAssertFalse(read.isUnavailable)
+        let split = AssetProvider.split([marked, read])
+        XCTAssertEqual(split.balances, [read])
+        XCTAssertEqual(split.unavailable, [Self.xorAssetId])
+        // The mark survives the provider's cache.
+        let cached = try JSONDecoder().decode([BalanceData].self, from: JSONEncoder().encode([marked, read]))
+        XCTAssertEqual(AssetProvider.split(cached).unavailable, [Self.xorAssetId])
+
+        XCTAssertEqual(WalletUX.text("Balance unavailable", language: "en"), "Balance unavailable")
+        XCTAssertNotEqual(WalletUX.text("Balance unavailable", language: "ja"), "Balance unavailable")
+        XCTAssertEqual(WalletUX.balanceUnavailableText, WalletUX.text("Balance unavailable"))
+    }
+
+    /// The wallet list through its production service. An asset whose
+    /// balance could not be read keeps its row, which says "Balance
+    /// unavailable" and shows no amount and no value, and the total says it
+    /// leaves that balance out. Before the fix the row read "0 XOR".
+    func testWalletListShowsBalanceUnavailableInsteadOfZero() async throws {
+        let val = "0x0200040000000000000000000000000000000000000000000000000000000000"
+        let assets = [
+            AssetInfo(id: Self.xorAssetId, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true),
+            AssetInfo(id: val, symbol: "VAL", chainId: "", precision: 18, icon: nil, displayName: "SORA Validator Token", visible: true),
+        ]
+        let manager = BalanceListAssetManager(assets: assets)
+        // What the real provider holds after a read in which XOR was not
+        // understood and VAL was.
+        let split = AssetProvider.split([
+            BalanceData.unavailable(identifier: Self.xorAssetId),
+            BalanceData(identifier: val, balance: AmountDecimal(value: 5)),
+        ])
+        let provider = BalanceListAssetProvider(balances: split.balances, unavailable: split.unavailable)
+        let prices = BalanceListPrices()
+        let service = AssetsItemService(
+            marketCapService: prices,
+            fiatService: nil,
+            assetViewModelsFactory: AssetViewModelFactory(walletAssets: assets, assetManager: manager, fiatService: nil),
+            assetManager: manager,
+            assetProvider: provider,
+            priceInfoService: prices
+        )
+        service.setup()
+        // The first rows are drawn at once, before any price.
+        XCTAssertEqual(service.assetViewModels.map(\.identifier), [Self.xorAssetId, val])
+        for _ in 0 ..< 400 where service.priceNoteText.isEmpty {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertEqual(service.assetViewModels.map(\.identifier), [Self.xorAssetId, val])
+        let xorRow = try XCTUnwrap(service.assetViewModels.first)
+        XCTAssertEqual(xorRow.subtitle, WalletUX.balanceUnavailableText)
+        XCTAssertFalse(xorRow.subtitle.contains("0"))
+        XCTAssertEqual(xorRow.fiatText, "")
+        XCTAssertTrue(xorRow.priceLoadFinished)
+        let valRow = try XCTUnwrap(service.assetViewModels.last)
+        XCTAssertTrue(valRow.subtitle.contains("5"))
+        XCTAssertTrue(valRow.subtitle.contains("VAL"))
+        let noteKey = "This total does not include balances that could not be read"
+        XCTAssertEqual(service.priceNoteText, WalletUX.text(noteKey))
+        XCTAssertEqual(WalletUX.text(noteKey, language: "en"), noteKey)
+        XCTAssertNotEqual(WalletUX.text(noteKey, language: "ja"), noteKey)
+
+        // Once the balance is read again the row and the note are ordinary.
+        provider.set(
+            balances: [
+                BalanceData(identifier: Self.xorAssetId, balance: AmountDecimal(value: 2)),
+                BalanceData(identifier: val, balance: AmountDecimal(value: 5)),
+            ],
+            unavailable: []
+        )
+        service.setup()
+        for _ in 0 ..< 400 where !service.priceNoteText.isEmpty {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertEqual(service.priceNoteText, "")
+        XCTAssertNotEqual(service.assetViewModels.first?.subtitle, WalletUX.balanceUnavailableText)
+        XCTAssertEqual(service.assetViewModels.count, 2)
+    }
+
     private func assertError<T>(
         _ expression: @autoclosure () throws -> T,
         isUpgrade: Bool,
@@ -1382,4 +1545,69 @@ private final class RPCStubProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+}
+
+private final class BalanceListAssetManager: AssetManagerProtocol {
+    static var networkAssets: [AssetInfo] = []
+
+    let assets: [AssetInfo]
+
+    init(assets: [AssetInfo]) {
+        self.assets = assets
+    }
+
+    func assetInfo(for identifier: String) -> AssetInfo? {
+        assets.first { $0.assetId == identifier }
+    }
+
+    func getAssetList() -> [AssetInfo]? { assets }
+    func updateAssetList(_: [AssetInfo]) {}
+    func saveAssetList(_: [AssetInfo]) {}
+    func sortedAssets(_ list: [WalletAsset], onlyVisible _: Bool) -> [WalletAsset] { list }
+    func visibleCount() -> UInt { UInt(assets.count) }
+    func setup(for _: SelectedWalletSettings) {}
+}
+
+/// What `AssetProvider` hands to the wallet list: the balances that were
+/// read, and apart from them the assets whose balance could not be read.
+private final class BalanceListAssetProvider: AssetProviderProtocol {
+    private let lock = NSLock()
+    private var balances: [BalanceData]
+    private var unavailable: Set<String>
+
+    init(balances: [BalanceData], unavailable: Set<String>) {
+        self.balances = balances
+        self.unavailable = unavailable
+    }
+
+    func set(balances: [BalanceData], unavailable: Set<String>) {
+        lock.lock()
+        self.balances = balances
+        self.unavailable = unavailable
+        lock.unlock()
+    }
+
+    func getBalances(with assetIds: [String]) -> [BalanceData] {
+        lock.lock()
+        defer { lock.unlock() }
+        return assetIds.compactMap { id in balances.first { $0.identifier == id } }
+    }
+
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> {
+        lock.lock()
+        defer { lock.unlock() }
+        return unavailable.intersection(assetIds)
+    }
+
+    func add(observer _: AssetProviderObserverProtocol) {}
+    func remove(observer _: AssetProviderObserverProtocol) {}
+}
+
+/// No prices and no market data: the wallet list is about balances here.
+private final class BalanceListPrices: PriceInfoServiceProtocol, MarketCapServiceProtocol {
+    func getPriceInfo(for _: [String]) async -> PriceInfo {
+        PriceInfo(fiatData: [], marketCapInfo: [])
+    }
+
+    func getMarketCap(for _: [String]) async -> Set<MarketCapInfo> { [] }
 }

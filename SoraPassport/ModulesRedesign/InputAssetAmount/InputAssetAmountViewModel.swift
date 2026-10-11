@@ -505,6 +505,11 @@ extension InputAssetAmountViewModel {
     func updateBalanceData() {
         if !firstAssetId.isEmpty, let balance = assetsProvider?.getBalances(with: [firstAssetId]).first {
             firstAssetBalance = balance
+        } else if !firstAssetId.isEmpty,
+                  assetsProvider?.unavailableBalanceAssetIds(among: [firstAssetId]).contains(firstAssetId) == true {
+            // The balance could not be read: say so instead of leaving a
+            // zero that reads as "nothing to send".
+            view?.updateFirstAsset(balance: WalletUX.balanceUnavailableText)
         }
     }
     

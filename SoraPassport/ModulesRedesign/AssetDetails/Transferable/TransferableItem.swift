@@ -42,6 +42,8 @@ final class TransferableItem: NSObject {
     var frozenFiatAmount: String?
     var balanceData: BalanceData
     var service: TransferableItemService
+    /// The balance could not be read; `balance` is a placeholder.
+    var balanceUnavailable = false
     
     init(
         assetInfo: AssetInfo,

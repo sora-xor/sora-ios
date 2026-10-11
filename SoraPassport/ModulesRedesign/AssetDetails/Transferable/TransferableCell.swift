@@ -54,6 +54,9 @@ final class TransferableCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let value = value, let item = self?.transferableItem else { return }
+                    // The service repeats the placeholder it was set up
+                    // with; an unavailable balance stays labelled as such.
+                    guard !item.balanceUnavailable else { return }
                     self?.update(balance: value, symbol: item.assetInfo.symbol )
                     self?.sendButton.sora.isHidden = value.isZero
                 }
@@ -333,6 +336,9 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
         
         update(balance: item.balance.decimalValue, symbol: item.assetInfo.symbol)
         sendButton.sora.isHidden = item.balance.decimalValue.isZero
+        if item.balanceUnavailable {
+            balanceLabel.sora.text = WalletUX.balanceUnavailableText
+        }
         
         fiatLabel.sora.text = item.fiat
 // TODO: Temporary Removal of X1
