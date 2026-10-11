@@ -58,21 +58,35 @@ final class AssetDetailsItemFactory {
         self.transferableItemService = transferableItemService
     }
     
+    /// - Parameters:
+    ///   - usdPrice: `nil` when the price is not known.
+    ///   - pricesLoaded: The price read has finished. An unknown price then
+    ///     reads "Price unavailable"; before, it is left blank.
     func createPriceItem(with asset: AssetInfo, 
-                         usdPrice: Decimal,
-                         priceInfo: PriceInfo) -> SoramitsuTableViewItemProtocol {
+                         usdPrice: Decimal?,
+                         priceInfo: PriceInfo,
+                         pricesLoaded: Bool = true) -> SoramitsuTableViewItemProtocol {
         let priceDelta = priceInfo.marketCapInfo.first(where: { $0.assetId == asset.identifier })?.hourDelta
         let priceDeltaText = priceDelta.priceDeltaAttributedText()
         
         return PriceItem(icon: asset.icon,
                          tokenName: asset.name,
                          tokenSymbol: asset.symbol,
-                         priceText: usdPrice.assetDetailPriceText(),
+                         priceText: Self.priceText(usdPrice: usdPrice, pricesLoaded: pricesLoaded),
                          deltaPriceText: priceDeltaText)
     }
     
+    /// The headline price: the price, nothing while it is loading, or the
+    /// "Price unavailable" notice. Never "$0" for want of a price.
+    static func priceText(usdPrice: Decimal?, pricesLoaded: Bool) -> String {
+        if let usdPrice {
+            return usdPrice.assetDetailPriceText()
+        }
+        return pricesLoaded ? WalletUX.priceUnavailableText : ""
+    }
+
     func createTranferableItem(with assetInfo: AssetInfo,
-                               usdPrice: Decimal,
+                               usdPrice: Decimal?,
                                referralBalance: Decimal?,
                                wireframe: AssetDetailsWireframeProtocol,
                                frozenDetailsHandler: ((BalanceContext) -> Void)?
@@ -80,15 +94,15 @@ final class AssetDetailsItemFactory {
         let balance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first ?? BalanceData(identifier: "",
                                                                                                      balance: AmountDecimal(value: 0))
 
-        let fiatDecimal = balance.balance.decimalValue * usdPrice
-        let fiatBalanceText = fiatDecimal.priceText()
+        // Without a price the value is unknown: no fiat text, not "$0".
+        let fiatBalanceText = WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
 
         let balanceContext = BalanceContext(context: balance.context ?? [:])
         let frozen = balanceContext.frozen
         let referral = referralBalance ?? Decimal(0)
         let frozenAmount = Amount(value: frozen + referral)
 
-        let frozenFiat = (frozenAmount.decimalValue * usdPrice).priceText()
+        let frozenFiat = WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
         
         transferableItemService.usdPrice = usdPrice
         transferableItemService.balanceContext = balanceContext

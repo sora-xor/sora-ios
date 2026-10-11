@@ -42,7 +42,8 @@ final class TransferableItemService {
     
     var referralBalance: Decimal?
     var balanceContext: BalanceContext?
-    var usdPrice: Decimal = Decimal(0)
+    /// `nil` when the price is not known; the fiat texts are then empty.
+    var usdPrice: Decimal?
     
     private let assetInfo: AssetInfo
     private var assetsProvider: AssetProviderProtocol
@@ -64,14 +65,14 @@ final class TransferableItemService {
             balanceContext = BalanceContext(context: balance.context ?? [:])
             
             balanceAmount = balance.balance.decimalValue
-            fiatBalanceText = (balance.balance.decimalValue * usdPrice).priceText()
+            fiatBalanceText = WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
             
             let frozen = balanceContext?.frozen ?? Decimal(0)
             let referral = referralBalance ?? Decimal(0)
             let frozenAmount = Amount(value: frozen + referral)
             
             publishedFrozenAmount = frozenAmount
-            frozenFiat = (frozenAmount.decimalValue * usdPrice).priceText()
+            frozenFiat = WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
         }
     }
     

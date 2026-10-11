@@ -185,7 +185,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                     viewModel: FarmDetailsViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
-        let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")%"
+        let aprText = farm.aprText(suffix: "%")
         
         let assetAmountText = SoramitsuTextItem(text: aprText,
                                                 fontData: FontType.textBoldS,
@@ -251,8 +251,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
             
             let usdPrice = fiatData.first {
                 $0.id == farm.rewardAsset?.assetId
-            }?.priceUsd?.decimalValue ?? .zero
-            let fiatRewardAmountText = (rewards * usdPrice).priceText()
+            }?.priceUsd?.decimalValue
+            // Without a price there is no fiat text, not "$0".
+            let fiatRewardAmountText = WalletUX.balanceFiatText(amount: rewards, price: usdPrice)
             let fiatRewardText = SoramitsuTextItem(text: fiatRewardAmountText ,
                                                    fontData: FontType.textBoldXS,
                                                    textColor: .fgSecondary,
@@ -357,8 +358,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
         let usdPrice = fiatData.first {
             $0.id == feeAssetId
-        }?.priceUsd?.decimalValue ?? .zero
-        let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * fee) ?? "")" ,
+        }?.priceUsd?.decimalValue
+        // Without a price the fee has no fiat text, not "$0".
+        let fiatFeeText = SoramitsuTextItem(text: WalletUX.fiatText(amount: fee, price: usdPrice),
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
                                             alignment: .right)
@@ -412,8 +414,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
         let usdPrice = fiatData.first {
             $0.id == feeAssetId
-        }?.priceUsd?.decimalValue ?? .zero
-        let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * fee) ?? "")" ,
+        }?.priceUsd?.decimalValue
+        // Without a price the fee has no fiat text, not "$0".
+        let fiatFeeText = SoramitsuTextItem(text: WalletUX.fiatText(amount: fee, price: usdPrice),
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
                                             alignment: .right)
@@ -478,8 +481,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
         let usdPrice = fiatData.first {
             $0.id == feeAssetId
-        }?.priceUsd?.decimalValue ?? .zero
-        let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * swapFee) ?? "")" ,
+        }?.priceUsd?.decimalValue
+        // Without a price the fee has no fiat text, not "$0".
+        let fiatFeeText = SoramitsuTextItem(text: WalletUX.fiatText(amount: swapFee, price: usdPrice),
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
                                             alignment: .right)
@@ -504,8 +508,9 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.assetId
         let usdPrice = fiatData.first {
             $0.id == feeAssetId
-        }?.priceUsd?.decimalValue ?? .zero
-        let fiatFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * fee) ?? "")" ,
+        }?.priceUsd?.decimalValue
+        // Without a price the fee has no fiat text, not "$0".
+        let fiatFeeText = SoramitsuTextItem(text: WalletUX.fiatText(amount: fee, price: usdPrice),
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
                                             alignment: .right)
@@ -560,8 +565,9 @@ private extension DetailViewModelFactory {
         
         let minBuyUsdPrice = fiatData.first {
             $0.id == asset.identifier
-        }?.priceUsd?.decimalValue ?? .zero
-        let minBuyFiatText = SoramitsuTextItem(text: "~$\(NumberFormatter.fiat.stringFromDecimal(minBuyUsdPrice * minBuyValue) ?? "")" ,
+        }?.priceUsd?.decimalValue
+        // Without a price there is no fiat text, not "~$0".
+        let minBuyFiatText = SoramitsuTextItem(text: WalletUX.fiatText(amount: minBuyValue, price: minBuyUsdPrice, prefix: "~$"),
                                                fontData: FontType.textBoldXS,
                                                textColor: .fgSecondary,
                                                alignment: .right)
