@@ -2098,17 +2098,32 @@ final class StartupNetworkTests: XCTestCase {
     private final class WalletStandIn {
         var assets: [AssetInfo]? = []
         var canReplaceTabs = true
+        /// The tabs are in a state in which they are not replaced at all.
+        var isUnavailable = false
         var rebuildWorks = true
+        /// The rebuild fails and leaves the tabs in that state.
+        var rebuildEndsUnavailable = false
         private(set) var rebuilds = 0
+        private(set) var assetReads = 0
         weak var rebuild: WalletAssetListRebuild?
 
         func check() {
             rebuild?.rebuildIfNeeded(
-                currentAssets: { [unowned self] in self.assets },
-                canReplaceTabs: { [unowned self] in self.canReplaceTabs },
+                currentAssets: { [unowned self] in
+                    self.assetReads += 1
+                    return self.assets
+                },
+                canReplaceTabs: { [unowned self] in
+                    if self.isUnavailable { return .unavailable }
+                    return self.canReplaceTabs ? .allowed : .later
+                },
                 rebuild: { [unowned self] in
                     self.rebuilds += 1
-                    if self.rebuildWorks { self.rebuild?.tabsWereBuilt(from: self.assets ?? []) }
+                    if self.rebuildEndsUnavailable {
+                        self.isUnavailable = true
+                    } else if self.rebuildWorks {
+                        self.rebuild?.tabsWereBuilt(from: self.assets ?? [])
+                    }
                 }
             )
         }
@@ -2219,6 +2234,81 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertTrue(rebuild.isBuiltWithoutAssets, "the next check may still build them")
     }
 
+    /// The tabs were replaced by the recovery screen of a failed account
+    /// switch, or belong to another wallet than the selected one. The wait
+    /// used to go on once a second for the rest of the session, although it
+    /// could never rebuild anything.
+    func testTheWaitEndsWhenTheTabsCanNoLongerBeReplacedAtAll() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.canReplaceTabs = false
+        wallet.check()
+        XCTAssertTrue(rebuild.isWaiting, "a screen is open: it waits")
+
+        wallet.isUnavailable = true
+        schedule.fireNext()
+        XCTAssertFalse(rebuild.isWaiting, "the next look ends the wait")
+        XCTAssertTrue(schedule.pending.isEmpty, "nothing polls any more")
+        XCTAssertEqual(wallet.rebuilds, 0)
+
+        // A check in that state starts no wait and does not read the list.
+        let reads = wallet.assetReads
+        wallet.check()
+        wallet.check()
+        XCTAssertTrue(schedule.pending.isEmpty)
+        XCTAssertEqual(wallet.assetReads, reads)
+        XCTAssertEqual(wallet.rebuilds, 0)
+
+        // The state ends (the tabs are those of the selected wallet again):
+        // the next check does what it would have done.
+        wallet.isUnavailable = false
+        wallet.canReplaceTabs = true
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertFalse(rebuild.isBuiltWithoutAssets)
+    }
+
+    func testStoppingTheWaitCancelsItsTimerAndTheNextCheckDecidesAnew() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.canReplaceTabs = false
+        wallet.check()
+        XCTAssertEqual(schedule.pending.count, 1)
+
+        rebuild.stopWaiting()
+        XCTAssertFalse(rebuild.isWaiting)
+        XCTAssertTrue(schedule.pending.isEmpty)
+        XCTAssertTrue(rebuild.isBuiltWithoutAssets, "nothing else is decided by it")
+
+        wallet.canReplaceTabs = true
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+    }
+
+    /// The rebuild started by the check fails and ends on the recovery
+    /// screen. It is not tried again and nothing waits.
+    func testARebuildThatEndsOnTheRecoveryScreenIsNotTriedAgain() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.rebuildEndsUnavailable = true
+
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertFalse(rebuild.isWaiting)
+        XCTAssertTrue(schedule.pending.isEmpty)
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+    }
+
     func testTheWaitEndsWithItsOwner() {
         let schedule = ManualSchedule()
         var rebuild: WalletAssetListRebuild? = WalletAssetListRebuild(isBuiltWithoutAssets: true,
@@ -2273,6 +2363,221 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertFalse(WalletAssetListRebuild.canReplaceTabs(of: tabs))
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         XCTAssertFalse(WalletAssetListRebuild.canReplaceTabs(of: tabs), "and it stays so while the screen is up")
+    }
+
+    // MARK: - The check in the wallet's own wireframe
+
+    private final class TabsView: UITabBarController, MainTabBarViewProtocol {
+        var middleButtonHadler: (() -> Void)?
+        func didReplaceView(for _: UIViewController, for _: Int) {}
+    }
+
+    /// The wallet as the production `MainTabBarWireframe` sees it: a real tab
+    /// bar controller in a window, with the selected wallet, the asset list,
+    /// the timer and the builder of the tabs given by the test.
+    @MainActor
+    private final class WalletOnScreen {
+        var selectedWalletId: String? = "wallet-a"
+        var assets: [AssetInfo]? = []
+        /// What the builder of the tabs does: `true` builds them from the
+        /// list, `false` fails as the build for another account can.
+        var rebuildWorks = true
+        private(set) var rebuilds = 0
+        let schedule = ManualSchedule()
+        let tabs = TabsView()
+        let more = UINavigationController(rootViewController: UIViewController())
+        let window = UIWindow.makeSoraSceneWindow()
+        private(set) var wireframe: MainTabBarWireframe!
+
+        init(isBuiltWithoutAssets: Bool = true) {
+            tabs.viewControllers = [UINavigationController(rootViewController: UIViewController()), more]
+            window.rootViewController = tabs
+            window.isHidden = false
+            wireframe = MainTabBarWireframe(
+                walletContext: WalletContextMock(),
+                isBuiltWithoutAssets: isBuiltWithoutAssets,
+                assetListEnvironment: MainTabBarWireframe.AssetListEnvironment(
+                    selectedWalletId: { [unowned self] in self.selectedWalletId },
+                    assets: { [unowned self] in self.assets },
+                    schedule: schedule.schedule,
+                    rebuildTabs: { [unowned self] wireframe, view in
+                        self.rebuilds += 1
+                        if self.rebuildWorks {
+                            wireframe.assetListRebuild.tabsWereBuilt(from: self.assets ?? [])
+                        } else if let tabs = view as? UITabBarController {
+                            wireframe.handleAccountBoundRebuildFailure(requiresRecovery: true,
+                                                                       tabBarController: tabs, view: view)
+                        }
+                    }
+                )
+            )
+        }
+
+        func check() { wireframe.rebuildWalletForArrivedAssetListIfNeeded(on: tabs) }
+
+        /// UIKit ends a transition on a later turn of the run loop.
+        func settleTransitions() {
+            let deadline = Date().addingTimeInterval(3)
+            while tabs.transitionCoordinator != nil || more.transitionCoordinator != nil, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+
+        /// Waits until the tabs could be replaced without closing a screen.
+        func becomesReplaceable() -> Bool {
+            let deadline = Date().addingTimeInterval(3)
+            while !WalletAssetListRebuild.canReplaceTabs(of: tabs), Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+            return WalletAssetListRebuild.canReplaceTabs(of: tabs)
+        }
+
+        func close() {
+            tabs.dismiss(animated: false)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+    }
+
+    /// The guards and closures of
+    /// `MainTabBarWireframe.rebuildWalletForArrivedAssetListIfNeeded`, on a
+    /// real tab bar controller: nothing without a list, a wait while a screen
+    /// is pushed, one rebuild when the user is back, none after that.
+    @MainActor
+    func testTheWalletsTabsAreBuiltAgainForALateListOnceTheUserIsBackAtATabsFirstScreen() {
+        let wallet = WalletOnScreen()
+        defer { wallet.close() }
+        XCTAssertTrue(wallet.becomesReplaceable())
+
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0, "no list yet")
+        XCTAssertFalse(wallet.wireframe.assetListRebuild.isWaiting)
+
+        // The list arrives while the user is in More > Accounts.
+        wallet.more.pushViewController(UIViewController(), animated: false)
+        wallet.settleTransitions()
+        wallet.assets = xorAndVal
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0, "the screen the user is on stays")
+        XCTAssertEqual(wallet.schedule.pending, [WalletAssetListRebuild.recheckInterval])
+        wallet.schedule.fireNext()
+        XCTAssertEqual(wallet.rebuilds, 0)
+        XCTAssertEqual(wallet.schedule.pending.count, 1, "it goes on looking")
+
+        // The user goes back.
+        wallet.more.popViewController(animated: false)
+        XCTAssertTrue(wallet.becomesReplaceable())
+        wallet.schedule.fireNext()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertFalse(wallet.wireframe.assetListRebuild.isWaiting)
+        XCTAssertTrue(wallet.schedule.pending.isEmpty)
+
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1, "tabs built from a list are not built again")
+
+        // Tabs that were built from a list in the first place are left alone.
+        let withList = WalletOnScreen(isBuiltWithoutAssets: false)
+        defer { withList.close() }
+        XCTAssertTrue(withList.becomesReplaceable())
+        withList.assets = xorAndVal
+        withList.check()
+        XCTAssertEqual(withList.rebuilds, 0)
+        XCTAssertTrue(withList.schedule.pending.isEmpty)
+    }
+
+    /// The list arrives while the user is in More > Accounts, so the rebuild
+    /// waits. The user switches account and the tabs cannot be built for it:
+    /// the recovery screen of the account switch replaces them. The waiting
+    /// rebuild used to look once a second for the rest of the session. It can
+    /// never replace that screen, and it must not.
+    @MainActor
+    func testAnAccountSwitchThatEndsOnTheRecoveryScreenEndsTheWaitAndIsNeverBuiltOver() {
+        let wallet = WalletOnScreen()
+        defer { wallet.close() }
+        wallet.more.pushViewController(UIViewController(), animated: false)
+        wallet.settleTransitions()
+        wallet.assets = xorAndVal
+        wallet.check()
+        XCTAssertTrue(wallet.wireframe.assetListRebuild.isWaiting)
+
+        // What `recreateWalletViewController` does when the build fails.
+        wallet.selectedWalletId = "wallet-b"
+        wallet.wireframe.handleAccountBoundRebuildFailure(requiresRecovery: true,
+                                                          tabBarController: wallet.tabs, view: wallet.tabs)
+        XCTAssertTrue(wallet.wireframe.accountSwitchRecoveryActive)
+        XCTAssertTrue(wallet.tabs.viewControllers?.first is WalletRecoveryViewController)
+        XCTAssertEqual(wallet.tabs.viewControllers?.count, 1)
+        XCTAssertFalse(wallet.wireframe.assetListRebuild.isWaiting, "the wait ends with the switch")
+        XCTAssertTrue(wallet.schedule.pending.isEmpty, "no timer is left")
+
+        // The event, a balance update, the app coming to the foreground: the
+        // check runs again and again. Nothing is built over the recovery
+        // screen and no new wait starts, also for the first wallet's id.
+        wallet.settleTransitions()
+        for selected in ["wallet-b", "wallet-a"] {
+            wallet.selectedWalletId = selected
+            wallet.check()
+            XCTAssertEqual(wallet.rebuilds, 0)
+            XCTAssertTrue(wallet.schedule.pending.isEmpty)
+            XCTAssertTrue(wallet.tabs.viewControllers?.first is WalletRecoveryViewController)
+        }
+    }
+
+    /// The selected wallet is no longer the one the tabs were built for (the
+    /// switch has been saved and the tabs are about to follow). The check is
+    /// not the one to replace them, and it does not wait for the switch.
+    @MainActor
+    func testTabsOfAnotherWalletThanTheSelectedOneAreNotReplacedByTheAssetListCheck() {
+        let wallet = WalletOnScreen()
+        defer { wallet.close() }
+        wallet.more.pushViewController(UIViewController(), animated: false)
+        wallet.settleTransitions()
+        wallet.assets = xorAndVal
+        wallet.check()
+        XCTAssertTrue(wallet.wireframe.assetListRebuild.isWaiting)
+
+        wallet.selectedWalletId = "wallet-b"
+        wallet.schedule.fireNext()
+        XCTAssertFalse(wallet.wireframe.assetListRebuild.isWaiting, "the wait ends at its next look")
+        XCTAssertTrue(wallet.schedule.pending.isEmpty)
+
+        wallet.more.popViewController(animated: false)
+        XCTAssertTrue(wallet.becomesReplaceable())
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0, "nothing would be lost, and still it is not this check's to do")
+        XCTAssertTrue(wallet.schedule.pending.isEmpty)
+        wallet.selectedWalletId = nil
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0, "no selected wallet at all")
+
+        // Selected again: the next check builds them.
+        wallet.selectedWalletId = "wallet-a"
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+    }
+
+    /// The rebuild that the check itself starts can fail and end on the
+    /// recovery screen. It is tried once.
+    @MainActor
+    func testARebuildForALateListThatEndsOnTheRecoveryScreenIsTriedOnce() {
+        let wallet = WalletOnScreen()
+        defer { wallet.close() }
+        XCTAssertTrue(wallet.becomesReplaceable())
+        wallet.rebuildWorks = false
+        wallet.assets = xorAndVal
+
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertTrue(wallet.wireframe.accountSwitchRecoveryActive)
+        XCTAssertFalse(wallet.wireframe.assetListRebuild.isWaiting)
+        XCTAssertTrue(wallet.schedule.pending.isEmpty)
+
+        wallet.settleTransitions()
+        wallet.check()
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertTrue(wallet.schedule.pending.isEmpty)
     }
 
     func testTheRebuildTimerRunsOnTheMainRunLoop() {
