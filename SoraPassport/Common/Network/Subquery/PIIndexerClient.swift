@@ -75,10 +75,10 @@ enum PIStrictJSONAdmission {
 
     static let maximumCollectedNumberLexemes = 100_000
 
-    /// The exact text of every JSON number that is an object member's value,
-    /// by path. `JSONDecoder` only exposes numbers after converting them to
-    /// `Double` or `Decimal`; a quantity PI sends as a JSON number is decoded
-    /// from this text instead, so no digit is lost.
+    /// The exact text of every JSON number that is an object member's value
+    /// or an array element, by path. `JSONDecoder` only exposes numbers after
+    /// converting them to `Double` or `Decimal`; a quantity PI sends as a
+    /// JSON number is decoded from this text instead, so no digit is lost.
     static func numberLexemesByPath(
         in data: Data
     ) throws -> [[PathStep]: String] {
@@ -169,7 +169,7 @@ enum PIStrictJSONAdmission {
                     )
                 }
                 if
-                    memberName != nil,
+                    !path.isEmpty,
                     let collectedCount = numberLexemes?.count,
                     collectedCount <
                         PIStrictJSONAdmission.maximumCollectedNumberLexemes
@@ -661,7 +661,20 @@ final class PINumberLexemes {
                 in: data
             )) ?? [:]
         }
-        return lexemes?[path]
+        if let lexeme = lexemes?[path] {
+            return lexeme
+        }
+        // The key of a decoded dictionary reports an integer value when
+        // its text is a number (`{"0": 1.5}`), which looks like an array
+        // index. Look the path up again with such keys as member names.
+        let memberPath = codingPath.map {
+            key -> PIStrictJSONAdmission.PathStep in
+            if let index = key.intValue, key.stringValue != String(index) {
+                return .index(index)
+            }
+            return .key(key.stringValue)
+        }
+        return memberPath == path ? nil : lexemes?[memberPath]
     }
 }
 
@@ -695,11 +708,23 @@ enum PIJSONValue: Codable, Equatable {
             [String: PIJSONValue].self
         ) {
             self = .object(value)
+        } else if
+            let lexemes = decoder.userInfo[PINumberLexemes.userInfoKey]
+                as? PINumberLexemes,
+            let lexeme = lexemes.lexeme(at: decoder.codingPath),
+            let plain = try? PIQuantity.plainDecimal(fromJSONNumber: lexeme)
+        {
+            // A fractional number, or an integer beyond 64 bits. PI sends
+            // computed values (USD amounts) as strings in some fields and as
+            // JSON numbers in others, and may change one into the other.
+            // JSONDecoder would round such a number through Double, so it
+            // is taken from the exact text of the response instead, as
+            // `PIQuantity` does.
+            self = .number(plain)
         } else {
-            // JSONDecoder cannot expose a fractional or unbounded numeric
-            // token's original lexeme. Those values must be strings so no
-            // quantity or metadata value can be rounded through Double or
-            // Foundation Decimal.
+            // Without the text of the response (a plain JSONDecoder) a
+            // fractional or unbounded number cannot be read exactly, and is
+            // refused rather than rounded.
             throw DecodingError.dataCorruptedError(
                 in: container,
                 debugDescription:
@@ -723,6 +748,14 @@ enum PIJSONValue: Codable, Equatable {
             } else if let unsigned = UInt64(value),
                       String(unsigned) == value {
                 try container.encode(unsigned)
+            } else if (try? PIQuantity(value)) != nil {
+                // JSONEncoder has no exact form for a fractional or
+                // unbounded number either. It is written as its decimal
+                // text, which every reader of these values treats like the
+                // number: they are shown or compared as text, never
+                // calculated with. The validated history cache therefore
+                // reads it back as the same text.
+                try container.encode(value)
             } else {
                 throw PIIndexerError.invalidQuantity
             }
