@@ -41,12 +41,7 @@ public final class SubqueryFiatInfoOperation<ResultType>: PIAsyncOperation<Resul
     override public func execute() async throws -> ResultType {
         // The shared catalog reads the reviewed production PI only.
         try PIIndexerClient.validateProductionEndpoint(baseUrl)
-        let values = try await PICatalogs.assets.values().map { asset in
-            PIExactFiatData(
-                id: asset.id,
-                priceUsd: asset.priceUSD
-            )
-        }
+        let values = try await PICatalogs.assets.values().map(\.fiatData)
         guard let result = values as? ResultType else {
             throw PIIndexerError.invalidResponse
         }

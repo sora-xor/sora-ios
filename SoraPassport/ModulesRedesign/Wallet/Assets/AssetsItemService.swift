@@ -119,14 +119,15 @@ final class AssetsItemService {
             let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
             let items = assetProvider.getBalances(with: assetIds)
             
-            let pricesAvailable = !poolItemInfo.fiatData.isEmpty
+            let pricesAvailable = Self.pricesKnown(for: items, fiatData: poolItemInfo.fiatData)
             priceIsUnavailable = !pricesAvailable
             let pricesAsOf = pricesAvailable ? poolItemInfo.pricesAsOf : nil
             priceNoteText = pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? ""
             moneyText = Self.fiatTotalText(balances: items, fiatData: poolItemInfo.fiatData)
-            // Keep asking while there is no price, and while the prices
-            // shown are old ones.
-            schedulePriceRetry(needed: !pricesAvailable || pricesAsOf != nil)
+            // Keep asking while the prices could not be read, and while
+            // the ones read are old. A wallet whose tokens PI has no price
+            // for gains nothing from asking again.
+            schedulePriceRetry(needed: poolItemInfo.fiatData.isEmpty || poolItemInfo.pricesAsOf != nil)
             
             assetViewModels = items.compactMap { item in
                 let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
@@ -145,10 +146,9 @@ final class AssetsItemService {
 }
 
 extension AssetsItemService {
-    /// The wallet total for these balances at these prices. With no price
-    /// data at all (the price service could not be read) the total is the
-    /// "price unavailable" notice: a wallet that holds tokens must not read
-    /// "$0".
+    /// The wallet total for these balances at these prices. When no price
+    /// is known for anything the wallet holds, the total is the "price
+    /// unavailable" notice: a wallet that holds tokens must not read "$0".
     static func fiatTotalText(balances: [BalanceData], fiatData: [PIExactFiatData]) -> String {
         let total = balances.reduce(Decimal(0)) { partialResult, balanceData in
             if let priceUsd = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
@@ -156,7 +156,21 @@ extension AssetsItemService {
             }
             return partialResult
         }
-        return WalletUX.fiatTotalText(total, pricesAvailable: !fiatData.isEmpty)
+        return WalletUX.fiatTotalText(total, pricesAvailable: pricesKnown(for: balances, fiatData: fiatData))
+    }
+
+    /// Whether a total can be given for these balances. Not when the prices
+    /// could not be read at all, and not when the wallet holds tokens and
+    /// none of them has a price (PI could not price them): its value is
+    /// then unknown, not zero. A wallet that holds nothing is worth "$0",
+    /// and a wallet with some priced tokens shows the sum of those.
+    static func pricesKnown(for balances: [BalanceData], fiatData: [PIExactFiatData]) -> Bool {
+        guard !fiatData.isEmpty else { return false }
+        let held = balances.filter { $0.balance.decimalValue > 0 }
+        guard !held.isEmpty else { return true }
+        return held.contains { balanceData in
+            fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue != nil
+        }
     }
 }
 

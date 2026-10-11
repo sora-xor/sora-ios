@@ -118,10 +118,13 @@ final class PoolsItemService {
                 return partialResult
             })
             
-            let pricesAvailable = !fiatData.isEmpty
+            // As for the liquid assets: with pooled tokens and no price for
+            // any of the pools, the value is unknown, not "$0". Asking
+            // again only helps when the prices could not be read.
+            let pricesAvailable = Self.pricesKnown(for: pools.filter { $0.isFavorite }, fiatData: fiatData)
             priceIsUnavailable = !pricesAvailable
             moneyText = WalletUX.fiatTotalText(fiatDecimal, pricesAvailable: pricesAvailable)
-            schedulePriceRetry(needed: !pricesAvailable, pools: pools)
+            schedulePriceRetry(needed: fiatData.isEmpty, pools: pools)
             
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 var viewModel = self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
@@ -131,6 +134,23 @@ final class PoolsItemService {
                 return viewModel
             }
             updateHandler?()
+        }
+    }
+}
+
+extension PoolsItemService {
+    /// Whether a total can be given for these pool positions: the prices
+    /// were read, and at least one position has a price for both of its
+    /// assets (or there is no position at all).
+    static func pricesKnown(for pools: [PoolInfo], fiatData: [PIExactFiatData]) -> Bool {
+        guard !fiatData.isEmpty else { return false }
+        let held = pools.filter {
+            ($0.baseAssetPooledByAccount ?? 0) > 0 || ($0.targetAssetPooledByAccount ?? 0) > 0
+        }
+        guard !held.isEmpty else { return true }
+        return held.contains { pool in
+            fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue != nil &&
+                fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue != nil
         }
     }
 }
