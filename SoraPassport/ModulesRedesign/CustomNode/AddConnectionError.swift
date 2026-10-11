@@ -35,6 +35,9 @@ enum AddConnectionError: Error {
     case alreadyExists
     case invalidConnection
     case unsupportedChain(_ supported: [SNAddressType])
+    /// The node answers on its WebSocket but not over HTTPS at the same
+    /// address, which fee estimates and sends need.
+    case noSigningRoute
 }
 
 extension AddConnectionError: ErrorContentConvertible {
@@ -42,20 +45,20 @@ extension AddConnectionError: ErrorContentConvertible {
         let message: String
 
         switch self {
-        case .alreadyExists: break
+        case .alreadyExists:
             message = R.string.localizable.selectNodeAlreadyExist(preferredLanguages: locale?.rLanguages)
-        case .invalidConnection: break
+        case .invalidConnection:
+            message = R.string.localizable.selectNodeInvalidNode(preferredLanguages: locale?.rLanguages)
+        case .unsupportedChain:
+            // Not raised by the add flow; it has no text of its own.
             message = ""
-        case let .unsupportedChain(supported):
-            let supported: String = supported
-                .map { $0.titleForLocale(locale ?? Locale.current) }
-                .joined(separator: ", ")
-
-            message = ""
+        case .noSigningRoute:
+            message = Sora2NodeSigningRoute.missingRouteMessage
         }
 
         let title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
 
-        return ErrorContent(title: title, message: "")
+        // The message used to be dropped here: every case returned "".
+        return ErrorContent(title: title, message: message)
     }
 }

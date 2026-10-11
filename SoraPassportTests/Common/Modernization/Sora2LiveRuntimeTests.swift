@@ -2757,6 +2757,211 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertEqual(service.assetViewModels.count, 2)
     }
 
+    // MARK: - Custom nodes and the HTTPS signing route (S-6)
+
+    /// A custom node is checked for the HTTPS JSON-RPC route that signing
+    /// uses before it is saved. Before the fix only its WebSocket was
+    /// checked, so a WebSocket-only node showed balances and failed every
+    /// fee estimate and send without explanation.
+    func testCustomNodeIsCheckedForTheSigningRoute() async throws {
+        let genesis = PIIndexerClient.soraMainnetGenesis
+        RPCStubProtocol.resetByHost { host, method, _ in
+            guard method == "chain_getBlockHash" else { return nil }
+            switch host {
+            case "good.test":
+                return .result("\"\(genesis)\"")
+            case "other-network.test":
+                return .result("\"0x\(String(repeating: "7e", count: 32))\"")
+            case "websocket-only.test":
+                return .http(404)
+            default:
+                return nil
+            }
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RPCStubProtocol.self]
+        let session = URLSession(configuration: configuration)
+        func probe(_ address: String) async throws -> Sora2NodeSigningRoute {
+            await Sora2NodeSigningRoute.probe(nodeURL: try XCTUnwrap(URL(string: address)), session: session)
+        }
+
+        let good = try await probe("wss://good.test")
+        XCTAssertEqual(good, .available)
+        let other = try await probe("wss://other-network.test")
+        XCTAssertEqual(other, .anotherNetwork)
+        let websocketOnly = try await probe("wss://websocket-only.test:9944/rpc")
+        XCTAssertEqual(websocketOnly, .missing)
+        XCTAssertEqual(RPCStubProtocol.callCount("chain_getBlockHash", host: "websocket-only.test"), 1)
+        // A plain `ws://` address has no HTTPS route at all; nothing is sent.
+        let plain = try await probe("ws://plain.test:9944")
+        XCTAssertEqual(plain, .missing)
+        XCTAssertFalse(RPCStubProtocol.hosts().contains("plain.test"))
+
+        // The user is told what is missing, in both languages.
+        for key in [
+            "This node answers on its WebSocket address but not over HTTPS at the same address. The app needs both: balances use the WebSocket, and fee estimates and sends use HTTPS. With this node balances would load and every send would fail, so it was not saved. Use a node that serves wss:// and https:// at the same address.",
+            "This node does not answer over HTTPS, so it can't send transactions",
+            "The selected node does not answer over HTTPS at its address, so the app can't prepare or send transactions through it. Balances still load. Choose another node in the node settings and try again."
+        ] {
+            XCTAssertEqual(WalletUX.text(key, language: "en"), key)
+            XCTAssertNotEqual(WalletUX.text(key, language: "ja"), key)
+        }
+        XCTAssertFalse(Sora2NodeSigningRoute.missingRouteMessage.isEmpty)
+
+        // A node selected by an earlier version may still lack the route.
+        // Every signing flow then says why, instead of "try again".
+        let custom = URL(string: "ws://plain.test:9944")
+        let bundled = URL(string: "wss://ws.mof.sora.org")
+        XCTAssertEqual(
+            Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.invalidEndpoint, nodeURL: custom),
+            .nodeWithoutSigningRoute
+        )
+        XCTAssertEqual(
+            Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus, nodeURL: URL(string: "wss://websocket-only.test")),
+            .nodeWithoutSigningRoute
+        )
+        // A bundled node that refuses a request is in trouble, not missing
+        // the route; other errors are not about the node's route.
+        XCTAssertNil(Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus, nodeURL: bundled))
+        XCTAssertNil(Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.remoteError, nodeURL: custom))
+        XCTAssertNil(Sora2SigningNotice.kind(for: URLError(.timedOut), nodeURL: custom))
+        XCTAssertEqual(
+            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.invalidEndpoint),
+            Sora2SigningNotice.message(for: .nodeWithoutSigningRoute)
+        )
+        // An HTTP refusal alone does not say the route is missing (a
+        // bundled node can be in trouble for a moment): the message that
+        // does not know the node says only that no usable answer came.
+        let noAnswerKey = "The SORA node did not give a usable answer. Please try again in a moment, or choose another node."
+        XCTAssertEqual(
+            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.httpStatus),
+            WalletUX.text(noAnswerKey)
+        )
+        XCTAssertNotEqual(
+            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.httpStatus),
+            Sora2SigningNotice.message(for: .nodeWithoutSigningRoute)
+        )
+        XCTAssertEqual(WalletUX.text(noAnswerKey, language: "en"), noAnswerKey)
+        XCTAssertNotEqual(WalletUX.text(noAnswerKey, language: "ja"), noAnswerKey)
+
+        // The notice is shown for a failed attempt, not more than once per
+        // interval, and never for an ordinary error.
+        var shown: [Sora2SigningNotice.Kind] = []
+        let previous = Sora2SigningNotice.present
+        Sora2SigningNotice.present = { kind, _ in shown.append(kind) }
+        Sora2SigningNotice.resetForTesting()
+        defer {
+            Sora2SigningNotice.present = previous
+            Sora2SigningNotice.resetForTesting()
+        }
+        let start = Date()
+        Sora2SigningNotice.report(Sora2BoundedHTTPJSONRPCError.invalidEndpoint, nodeURL: custom, now: start)
+        Sora2SigningNotice.report(Sora2BoundedHTTPJSONRPCError.invalidEndpoint, nodeURL: custom, now: start.addingTimeInterval(5))
+        Sora2SigningNotice.report(URLError(.timedOut), nodeURL: custom, now: start.addingTimeInterval(6))
+        Sora2SigningNotice.report(
+            ExtrinsicServiceError.unsupportedSignedExtension(identifier: "CheckSomethingNew"),
+            nodeURL: bundled,
+            now: start.addingTimeInterval(7)
+        )
+        Sora2SigningNotice.report(
+            Sora2BoundedHTTPJSONRPCError.invalidEndpoint,
+            nodeURL: custom,
+            now: start.addingTimeInterval(Sora2SigningNotice.minimumInterval + 1)
+        )
+        XCTAssertEqual(shown, [.nodeWithoutSigningRoute, .appUpdateRequired, .nodeWithoutSigningRoute])
+    }
+
+    /// The add flow itself. A node whose WebSocket answers and whose HTTPS
+    /// address does not is not saved, and the form is told why; before the
+    /// fix it was saved and every send through it failed. A node with the
+    /// route is saved as before.
+    func testAddingACustomNodeWithoutTheSigningRouteIsRefused() async throws {
+        let chain = SoraPassport.ChainModel(
+            chainId: PIIndexerClient.soraMainnetGenesis, name: "SORA", nodes: [], addressPrefix: 69,
+            icon: nil, selectedNode: nil, customNodes: nil, iosMinAppVersion: nil
+        )
+        let address = try XCTUnwrap(URL(string: "wss://custom.test:9944"))
+        func add(
+            route: Sora2NodeSigningRoute,
+            to chain: SoraPassport.ChainModel
+        ) async throws -> (output: CustomNodeOutput, saved: [SoraPassport.ChainModel], probed: [URL]) {
+            let chains = MemoryRepository<SoraPassport.ChainModel>()
+            let output = CustomNodeOutput()
+            let probed = LockedList<URL>()
+            let interactor = CustomNodeInteractor(
+                settings: InMemorySettingsManager(),
+                eventCenter: SilentEventCenter(),
+                operationManager: OperationManager(),
+                repository: AnyDataProviderRepository(chains),
+                nodeRepository: AnyDataProviderRepository(MemoryRepository<SoraPassport.ChainNodeModel>()),
+                substrateOperationFactory: ReachableNodeOperationFactory(),
+                chain: chain,
+                mode: .add,
+                signingRouteProbe: { url in
+                    probed.append(url)
+                    return route
+                }
+            )
+            interactor.presenter = output
+            interactor.updateCustomNode(url: address, name: "Custom")
+            let deadline = Date().addingTimeInterval(10)
+            while !output.finished, Date() < deadline {
+                try await Task.sleep(nanoseconds: 10_000_000)
+            }
+            return (output, chains.items, probed.values)
+        }
+
+        let refused = try await add(route: .missing, to: chain)
+        XCTAssertEqual(refused.probed, [address])
+        XCTAssertEqual(refused.output.errors.count, 1)
+        guard case .noSigningRoute? = refused.output.errors.first else {
+            return XCTFail("\(refused.output.errors)")
+        }
+        XCTAssertNil(refused.output.added)
+        XCTAssertTrue(refused.saved.isEmpty)
+
+        let foreign = try await add(route: .anotherNetwork, to: chain)
+        guard case .invalidConnection? = foreign.output.errors.first else {
+            return XCTFail("\(foreign.output.errors)")
+        }
+        XCTAssertTrue(foreign.saved.isEmpty)
+
+        let accepted = try await add(route: .available, to: chain)
+        XCTAssertTrue(accepted.output.errors.isEmpty)
+        XCTAssertEqual(accepted.output.added?.customNodes?.map(\.url), [address])
+        XCTAssertEqual(accepted.saved.first?.customNodes?.map(\.url), [address])
+
+        // Only SORA mainnet signs over HTTPS; any other chain keeps the
+        // earlier flow and is not probed.
+        let other = SoraPassport.ChainModel(
+            chainId: "0x" + String(repeating: "3c", count: 32), name: "Other", nodes: [], addressPrefix: 69,
+            icon: nil, selectedNode: nil, customNodes: nil, iosMinAppVersion: nil
+        )
+        let unprobed = try await add(route: .missing, to: other)
+        XCTAssertTrue(unprobed.probed.isEmpty)
+        XCTAssertEqual(unprobed.saved.first?.customNodes?.map(\.url), [address])
+
+        // The message shown with the refusal names what is missing.
+        XCTAssertEqual(
+            AddConnectionError.noSigningRoute.toErrorContent(for: Locale(identifier: "en")).message,
+            Sora2NodeSigningRoute.missingRouteMessage
+        )
+
+        // The WebSocket check that App Store builds make first: the node's
+        // block zero must be this network's. A node that does not answer is
+        // refused (it used to pass while no genesis had been learned, and
+        // otherwise left the form waiting without end).
+        let genesis = PIIndexerClient.soraMainnetGenesis
+        let foreignGenesis = "0x" + String(repeating: "3c", count: 32)
+        XCTAssertTrue(CustomNodeInteractor.isExpectedGenesis(genesis, externalGenesis: genesis, chainId: genesis))
+        XCTAssertTrue(CustomNodeInteractor.isExpectedGenesis(genesis.uppercased(), externalGenesis: nil, chainId: genesis))
+        XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis(foreignGenesis, externalGenesis: genesis, chainId: genesis))
+        XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis(foreignGenesis, externalGenesis: nil, chainId: genesis))
+        XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis(nil, externalGenesis: nil, chainId: genesis))
+        XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis(nil, externalGenesis: genesis, chainId: genesis))
+        XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis("", externalGenesis: nil, chainId: ""))
+    }
+
     private func assertError<T>(
         _ expression: @autoclosure () throws -> T,
         isUpgrade: Bool,
@@ -3129,7 +3334,7 @@ private final class RPCStubProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
-// MARK: - Recovery schedule test doubles
+// MARK: - Recovery schedule and custom node test doubles
 
 /// What the recovery runtime sees in the scheduling test: the reports its
 /// passes return, the journal, and the delays it asked to sleep for.
@@ -3213,6 +3418,153 @@ private final class RecoveryScript: @unchecked Sendable {
 
     func noteResolved() {
         locked { notices += 1 }
+    }
+}
+
+private final class LockedList<Element>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [Element] = []
+
+    var values: [Element] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    func append(_ element: Element) {
+        lock.lock()
+        stored.append(element)
+        lock.unlock()
+    }
+}
+
+private final class CustomNodeOutput: CustomNodeInteractorOutputProtocol {
+    private let lock = NSLock()
+    private var receivedErrors: [AddConnectionError] = []
+    private var addedChain: SoraPassport.ChainModel?
+
+    var errors: [AddConnectionError] {
+        lock.lock()
+        defer { lock.unlock() }
+        return receivedErrors
+    }
+
+    var added: SoraPassport.ChainModel? {
+        lock.lock()
+        defer { lock.unlock() }
+        return addedChain
+    }
+
+    var finished: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return addedChain != nil || !receivedErrors.isEmpty
+    }
+
+    func didCompleteAdding(in chain: SoraPassport.ChainModel) {
+        lock.lock()
+        addedChain = chain
+        lock.unlock()
+    }
+
+    func didReceive(error: AddConnectionError) {
+        lock.lock()
+        receivedErrors.append(error)
+        lock.unlock()
+    }
+}
+
+/// The node's WebSocket answers `system_chain`, as a reachable node does.
+private final class ReachableNodeOperationFactory: SubstrateOperationFactoryProtocol {
+    func fetchChainOperation(_: URL) -> BaseOperation<String> {
+        ClosureOperation { "SORA" }
+    }
+}
+
+private final class SilentEventCenter: EventCenterProtocol {
+    func notify(with _: EventProtocol) {}
+    func notify(with _: EventProtocol, completionOnMain: @escaping () -> Void) {
+        DispatchQueue.main.async(execute: completionOnMain)
+    }
+    func add(observer _: EventVisitorProtocol, dispatchIn _: DispatchQueue?) {}
+    func remove(observer _: EventVisitorProtocol) {}
+}
+
+private final class MemoryRepository<Model: RobinHood.Identifiable>: DataProviderRepositoryProtocol {
+    private let lock = NSLock()
+    private var stored: [Model] = []
+
+    var items: [Model] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    func fetchAllOperation(with _: RepositoryFetchOptions) -> BaseOperation<[Model]> {
+        ClosureOperation { self.items }
+    }
+
+    func saveOperation(
+        _ updates: @escaping () throws -> [Model],
+        _ deletions: @escaping () throws -> [String]
+    ) -> BaseOperation<Void> {
+        ClosureOperation {
+            let changed = try updates()
+            let removed = try deletions()
+            self.lock.lock()
+            defer { self.lock.unlock() }
+            self.stored.removeAll { old in
+                removed.contains(old.identifier) ||
+                    changed.contains { $0.identifier == old.identifier }
+            }
+            self.stored.append(contentsOf: changed)
+        }
+    }
+
+    func saveBatchOperation(
+        _ updates: @escaping () throws -> [Model],
+        _ deletions: @escaping () throws -> [String]
+    ) -> BaseOperation<Void> {
+        saveOperation(updates, deletions)
+    }
+
+    func fetchOperation(
+        by ids: @escaping () throws -> [String],
+        options _: RepositoryFetchOptions
+    ) -> BaseOperation<[Model]> {
+        ClosureOperation {
+            let selected = try ids()
+            return self.items.filter { selected.contains($0.identifier) }
+        }
+    }
+
+    func fetchOperation(
+        by id: @escaping () throws -> String,
+        options _: RepositoryFetchOptions
+    ) -> BaseOperation<Model?> {
+        ClosureOperation {
+            let selected = try id()
+            return self.items.first { $0.identifier == selected }
+        }
+    }
+
+    func fetchOperation(
+        by _: RepositorySliceRequest,
+        options: RepositoryFetchOptions
+    ) -> BaseOperation<[Model]> {
+        fetchAllOperation(with: options)
+    }
+
+    func replaceOperation(_ models: @escaping () throws -> [Model]) -> BaseOperation<Void> {
+        saveOperation(models, { self.items.map(\.identifier) })
+    }
+
+    func deleteAllOperation() -> BaseOperation<Void> {
+        replaceOperation { [] }
+    }
+
+    func fetchCountOperation() -> BaseOperation<Int> {
+        ClosureOperation { self.items.count }
     }
 }
 
