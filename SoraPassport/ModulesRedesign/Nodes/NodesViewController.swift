@@ -137,6 +137,14 @@ extension NodesViewController: NodesViewProtocol {
 
         self.navigationItem.rightBarButtonItem = addButton
 
+        // Opened from More, this screen is the root of a modal and could
+        // only be left by pulling it down. It gets a visible Close button
+        // there; pushed from the PIN screen it has the Back arrow.
+        if navigationController?.viewControllers.first === self, presentingViewController != nil {
+            addCloseButton(position: .left)
+            navigationItem.leftBarButtonItem?.accessibilityLabel =
+                R.string.localizable.commonClose(preferredLanguages: languages)
+        }
     }
 
     private func setupConstraints() {
