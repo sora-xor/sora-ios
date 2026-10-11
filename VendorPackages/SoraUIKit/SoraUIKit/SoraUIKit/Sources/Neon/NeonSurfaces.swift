@@ -107,6 +107,8 @@ extension GlassView: SoramitsuObserver {
 public final class GlowHostView: UIView {
     public var shape: NeonShape = .capsule { didSet { setNeedsLayout() } }
     private var spec: GlowSpec?
+    /// MINIMAL tier: a ring just outside the control instead of the glow.
+    private var ring: NeonRingLayer?
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -124,31 +126,40 @@ public final class GlowHostView: UIView {
         spec = glow
         guard let glow, fx.glows else {
             layer.shadowOpacity = 0
-            layer.borderWidth = 0
+            ring?.removeFromSuperlayer()
+            ring = nil
             return
         }
         if fx.tier == .minimal {
-            // Ring fallback: no blur, still a clear signal.
+            // Ring fallback: no blur, still a clear signal. Drawn outside the
+            // control, which sits on top of this view with the same frame.
             layer.shadowOpacity = 0
-            layer.borderWidth = 1.5
-            layer.borderColor = glow.color.withAlphaComponent(0.8).cgColor
+            let ring = self.ring ?? NeonRingLayer()
+            if self.ring == nil {
+                layer.addSublayer(ring)
+                self.ring = ring
+            }
+            ring.apply(glow)
             setNeedsLayout()
             return
         }
-        layer.borderWidth = 0
+        ring?.removeFromSuperlayer()
+        ring = nil
         layer.applyNeonGlow(glow, path: shape.path(in: bounds).cgPath)
     }
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = {
+        let radius: CGFloat = {
             switch shape {
             case let .rounded(radius): return radius
             case .capsule: return min(bounds.width, bounds.height) / 2
             case let .chamfer(radius, _): return radius
             }
         }()
+        layer.cornerRadius = radius
         layer.shadowPath = shape.path(in: bounds).cgPath
+        ring?.layout(around: bounds, cornerRadius: radius)
     }
 
     /// Finite pulse for the whitelisted CTAs only (spec §4.7.2): 3 cycles.

@@ -121,6 +121,8 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         button.sora.title = R.string.localizable.review(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswap
+        // The one screen-level CTA here: static glow, no pulse (spec §4.5).
+        button.sora.glows = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel.reviewButtonTapped()
         }

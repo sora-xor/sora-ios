@@ -167,6 +167,60 @@ public final class NeonGradientView: UIView {
     }
 }
 
+/// The MINIMAL-tier stand-in for a glow (spec §4.0, §4.5): a 1.5 pt ring in
+/// the glow colour at 80 %. It is drawn just outside the control (a 1.5 pt
+/// gap), so the control's own fill never hides it. A plain border: no blur,
+/// no offscreen pass.
+public final class NeonRingLayer: CALayer {
+    public static let width: CGFloat = 1.5
+    public static let gap: CGFloat = 1.5
+
+    public override init() {
+        super.init()
+        borderWidth = Self.width
+        cornerCurve = .continuous
+        backgroundColor = UIColor.clear.cgColor
+    }
+
+    public override init(layer: Any) {
+        super.init(layer: layer)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    public func apply(_ glow: GlowSpec) {
+        borderColor = glow.color.withAlphaComponent(0.8).cgColor
+    }
+
+    /// Places the ring around `rect` (in the superlayer's coordinates).
+    public func layout(around rect: CGRect, cornerRadius: CGFloat) {
+        let outset = Self.width + Self.gap
+        frame = rect.insetBy(dx: -outset, dy: -outset)
+        self.cornerRadius = cornerRadius + outset
+    }
+
+    public override func action(forKey event: String) -> CAAction? {
+        NSNull()
+    }
+}
+
+public extension UIView {
+    /// True inside a table or collection cell. Glows are never drawn there
+    /// (spec §4.5, §10.3: "0 inside lists").
+    var neonIsInsideListCell: Bool {
+        var ancestor = superview
+        while let current = ancestor {
+            if current is UITableViewCell || current is UICollectionViewCell {
+                return true
+            }
+            ancestor = current.superview
+        }
+        return false
+    }
+}
+
 public extension CALayer {
     /// Applies a Neon shadow with an explicit path (never a content-derived
     /// shadow, which costs an offscreen pass per frame).

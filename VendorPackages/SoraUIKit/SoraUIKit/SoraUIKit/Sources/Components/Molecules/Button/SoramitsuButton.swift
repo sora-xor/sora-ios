@@ -80,7 +80,12 @@ public final class SoramitsuButton: UIControl, Molecule {
     private var gradientLayer: CAGradientLayer?
     /// Neon glow: a sublayer, so resetting the button's own shadow never removes it.
     private var glowLayer: CALayer?
+    /// MINIMAL-tier stand-in for the glow (spec §4.0, §4.5).
+    private var ringLayer: NeonRingLayer?
     private(set) var neonVariant: NeonVariant?
+    /// The label colour chosen by `updateView`, also applied to a caller's
+    /// attributed title on neon and disabled buttons.
+    private var titleColor: UIColor?
 
     enum NeonVariant {
         case primary
@@ -90,6 +95,14 @@ public final class SoramitsuButton: UIControl, Molecule {
     override public func layoutSubviews() {
         super.layoutSubviews()
         layoutNeonLayers()
+    }
+
+    /// A glow is never drawn in a table or collection cell; that is only
+    /// known once the button is in a window.
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, sora.glows, neonVariant != nil else { return }
+        applyNeonLayers(tokens: sora.supportsPaletteMode ? .current : .light)
     }
 
     public override var isEnabled: Bool {
@@ -205,6 +218,8 @@ public final class SoramitsuButton: UIControl, Molecule {
         leftImageView.tintColor = imageTint
         titleLabel.sora.textColor = .custom(uiColor: textColor)
         rightImageView.tintColor = imageTint
+        titleColor = textColor
+        refreshAttributedTitle()
 
         titleLabel.sora.font = size.font
 
@@ -214,6 +229,22 @@ public final class SoramitsuButton: UIControl, Molecule {
         pressingView.sora.backgroundColor = .custom(uiColor: pressedColor)
 
         applyNeonLayers(tokens: tokens)
+    }
+
+    /// Shows the caller's attributed title. On a neon fill or a disabled
+    /// button its colours are replaced by the label colour: ink on neon in
+    /// dark, white in light, `text.disabled` when disabled (spec §2.6-1,
+    /// §7.1). Elsewhere the caller's colours are kept.
+    func refreshAttributedTitle() {
+        guard let source = sora.attributedText else { return }
+        guard let titleColor, neonVariant != nil || !isEnabled else {
+            titleLabel.sora.attributedText = source
+            return
+        }
+        let recoloured = NSMutableAttributedString(attributedString: source.attributedString)
+        recoloured.addAttribute(.foregroundColor, value: titleColor,
+                                range: NSRange(location: 0, length: recoloured.length))
+        titleLabel.sora.attributedText = recoloured
     }
 
     /// Page, surface, container or transparent fills (not an accent fill).
@@ -249,8 +280,7 @@ public final class SoramitsuButton: UIControl, Molecule {
         guard let variant = neonVariant else {
             gradientLayer?.removeFromSuperlayer()
             gradientLayer = nil
-            glowLayer?.removeFromSuperlayer()
-            glowLayer = nil
+            removeGlow()
             return
         }
         let gradient = variant == .swap ? tokens.ctaSwap : tokens.ctaPrimary
@@ -267,7 +297,11 @@ public final class SoramitsuButton: UIControl, Molecule {
         fill.startPoint = CGPoint(x: 0, y: 0.5)
         fill.endPoint = CGPoint(x: 1, y: 0.5)
 
-        if fx.glows, fx.tier != .minimal {
+        // Opt-in, one screen CTA per screen, never in a list (spec §4.5).
+        let showsGlow = sora.glows && fx.glows && !neonIsInsideListCell
+        if showsGlow, fx.tier != .minimal {
+            ringLayer?.removeFromSuperlayer()
+            ringLayer = nil
             let halo = glowLayer ?? CALayer()
             if glowLayer == nil {
                 layer.insertSublayer(halo, at: 0)
@@ -277,23 +311,39 @@ public final class SoramitsuButton: UIControl, Molecule {
             halo.shadowOpacity = isHighlighted ? glow.pressed : glow.rest
             halo.shadowRadius = glow.blur / 2
             halo.shadowOffset = CGSize(width: 0, height: glow.offsetY)
-            applyClipping()
-        } else {
+        } else if showsGlow {
+            // MINIMAL tier: a ring in the glow colour instead of the blur.
             glowLayer?.removeFromSuperlayer()
             glowLayer = nil
+            let ring = ringLayer ?? NeonRingLayer()
+            if ringLayer == nil {
+                layer.addSublayer(ring)
+                ringLayer = ring
+            }
+            ring.apply(glow)
+        } else {
+            removeGlow()
         }
+        applyClipping()
         layoutNeonLayers()
     }
 
-    /// The glow is drawn outside the button, so it must not clip.
+    private func removeGlow() {
+        glowLayer?.removeFromSuperlayer()
+        glowLayer = nil
+        ringLayer?.removeFromSuperlayer()
+        ringLayer = nil
+    }
+
+    /// The glow and the ring are drawn outside the button, so it must not clip.
     func applyClipping() {
-        if glowLayer != nil {
+        if glowLayer != nil || ringLayer != nil {
             clipsToBounds = false
         }
     }
 
     private func layoutNeonLayers() {
-        guard gradientLayer != nil || glowLayer != nil else { return }
+        guard gradientLayer != nil || glowLayer != nil || ringLayer != nil else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let radius = layer.cornerRadius
@@ -307,6 +357,7 @@ public final class SoramitsuButton: UIControl, Molecule {
             halo.frame = bounds
             halo.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
         }
+        ringLayer?.layout(around: bounds, cornerRadius: radius)
         CATransaction.commit()
     }
 }
