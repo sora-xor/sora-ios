@@ -76,6 +76,11 @@ extension MainTabBarInteractor: MainTabBarInteractorInputProtocol {
             presenter?.didRequestImportAccount()
         }
         serviceCoordinator.checkMigration()
+
+        // The tab bar listens from here on (it has appeared). The wallet's
+        // first asset list can have arrived after the tabs were built and
+        // before this: its one event was then posted to nobody.
+        presenter?.didReceiveWalletAssetList()
     }
 }
 
@@ -107,9 +112,10 @@ extension MainTabBarInteractor: EventVisitorProtocol {
     }
 
     func processWalletAssetListArrived(event _: WalletAssetListArrived) {
-        // Every tab was built from an empty asset list. Build them all again,
-        // as for another account: one graph from one list.
-        presenter?.didUserChange()
+        // Every tab was built from an empty asset list. They are all built
+        // again, as for another account (one graph from one list), once that
+        // takes no screen away from the user.
+        presenter?.didReceiveWalletAssetList()
     }
 
     func processWalletUpdate(event: WalletUpdateEvent) {

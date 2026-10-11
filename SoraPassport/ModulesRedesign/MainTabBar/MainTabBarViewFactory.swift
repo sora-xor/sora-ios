@@ -121,7 +121,12 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let presenter = MainTabBarPresenter()
         
-        let wireframe = MainTabBarWireframe(walletContext: walletContext)
+        // The tabs above were built from this list, in this same pass on the
+        // main thread.
+        let wireframe = MainTabBarWireframe(
+            walletContext: walletContext,
+            isBuiltWithoutAssets: (assetManager.getAssetList() ?? []).isEmpty
+        )
         
         view.presenter = presenter
         presenter.view = view
