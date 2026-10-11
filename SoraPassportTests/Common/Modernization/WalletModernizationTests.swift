@@ -12252,9 +12252,11 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     /// Audit I3 (L-4, FWD-2). An account the snapshot lists and the database
-    /// no longer has was removed by a version that does not know the
-    /// snapshot (App Store 3.8.6). It is recorded as removed instead of
-    /// stopping every account. The 3.8.6 removal itself is replayed in
+    /// no longer has, while the database still has accounts, was removed by
+    /// a version that does not know the snapshot (App Store 3.8.6). It is
+    /// recorded as removed instead of stopping every account. A database
+    /// with no account at all beside a snapshot that lists wallets is not
+    /// that state and still stops. The 3.8.6 removal itself is replayed in
     /// `WalletInterruptedWriteTests`.
     func testMigrationRecordsAnAccountRemovedOutsideThisVersion() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -12292,31 +12294,135 @@ final class WalletModernizationTests: XCTestCase {
             store: store,
             settings: InMemorySettingsManager()
         )
+        func snapshotFiles() throws -> [String] {
+            try FileManager.default.contentsOfDirectory(
+                atPath: directory
+                    .appendingPathComponent("SORA", isDirectory: true)
+                    .appendingPathComponent("WalletNetworks", isDirectory: true)
+                    .path
+            ).filter { $0.hasPrefix("wallet-network-") }
+        }
 
-        // Verification alone writes nothing.
+        // No account row at all: the rows may have been lost. Neither the
+        // verification nor the activation takes that for a removal, and the
+        // snapshot (which still says a wallet existed) is not emptied.
+        let attempts: [() throws -> Void] = [
+            { _ = try migrator.verifiedSnapshot(accounts: [], selectedAddress: nil) },
+            { try migrator.migrate(accounts: [], selectedAddress: nil) },
+        ]
+        for attempt in attempts {
+            XCTAssertThrowsError(try attempt()) { error in
+                guard
+                    case WalletNetworkMigrationError.legacyIdentityMismatch =
+                        error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        XCTAssertEqual(try store.load(), original)
+        XCTAssertEqual(try snapshotFiles().count, 1)
+
+        // The database has another account and not this one: removed in a
+        // version that does not know the snapshot. Verification alone
+        // writes nothing.
+        let remaining = makeLegacyAccount(address: "still-in-the-database")
         let verified = try migrator.verifiedSnapshot(
-            accounts: [],
-            selectedAddress: nil
+            accounts: [remaining],
+            selectedAddress: remaining.address
         )
-        XCTAssertTrue(verified.wallets.isEmpty)
+        XCTAssertEqual(verified.wallets.map(\.id), [remaining.address])
         XCTAssertEqual(try store.load(), original)
 
-        try migrator.migrate(accounts: [], selectedAddress: nil)
+        try migrator.migrate(
+            accounts: [remaining],
+            selectedAddress: remaining.address
+        )
         let recorded = try XCTUnwrap(try store.load())
-        XCTAssertTrue(recorded.wallets.isEmpty)
-        XCTAssertTrue(recorded.accounts.isEmpty)
-        XCTAssertNil(recorded.selectedWalletId)
-        // The snapshot that listed the account is kept beside the new one.
-        let retained = try FileManager.default.contentsOfDirectory(
-            atPath: directory
-                .appendingPathComponent("SORA", isDirectory: true)
-                .appendingPathComponent("WalletNetworks", isDirectory: true)
-                .path
-        ).filter { $0.hasPrefix("wallet-network-") }
-        XCTAssertEqual(retained.count, 2)
+        XCTAssertEqual(recorded.wallets.map(\.id), [remaining.address])
+        XCTAssertEqual(
+            recorded.accounts.map(\.walletId),
+            [remaining.address]
+        )
+        XCTAssertEqual(recorded.selectedWalletId, remaining.address)
+        // The snapshot that listed the account is kept beside the new ones.
+        XCTAssertGreaterThanOrEqual(try snapshotFiles().count, 2)
         // A second run finds nothing more to record.
-        try migrator.migrate(accounts: [], selectedAddress: nil)
+        try migrator.migrate(
+            accounts: [remaining],
+            selectedAddress: remaining.address
+        )
         XCTAssertEqual(try store.load(), recorded)
+    }
+
+    /// Audit I3. The display name is not part of a wallet's identity: it
+    /// follows the wallet database. A snapshot that still holds the earlier
+    /// name (a rename cut short between its two saves, or a rename in App
+    /// Store 3.8.6) is brought up to date by the next activation. Address,
+    /// public key and secret source stay as strict as before.
+    func testActivationBringsADisplayNameUpToDateAndNothingElse() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let account = makeLegacyAccount(address: "renamed-wallet")
+        func snapshot(
+            name: String,
+            source: WalletSecretSource = .watchOnly,
+            publicKey: Data? = nil
+        ) -> WalletNetworkSnapshot {
+            WalletNetworkSnapshot(
+                schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: account.address,
+                wallets: [
+                    WalletIdentity(
+                        id: account.address,
+                        displayName: name,
+                        existingSoraAddress: account.address,
+                        secretSource: source
+                    )
+                ],
+                accounts: [
+                    NetworkAccount(
+                        walletId: account.address,
+                        networkId: .sora2,
+                        derivationVersion: 0,
+                        publicKey: publicKey ?? account.publicKeyData,
+                        address: account.address
+                    )
+                ],
+                createdAt: Date(timeIntervalSince1970: 1)
+            )
+        }
+        try store.stageAndActivate(snapshot(name: "Earlier name"))
+
+        try store.stageAndActivate(snapshot(name: "New name"))
+        XCTAssertEqual(
+            try store.load()?.wallets.map(\.displayName),
+            ["New name"]
+        )
+
+        // The source and the public key cannot change that way.
+        for rejected in [
+            snapshot(name: "New name", source: .legacySecret),
+            snapshot(name: "Another name", source: .rawSeed),
+            snapshot(
+                name: "New name",
+                publicKey: Data(repeating: 9, count: 32)
+            ),
+        ] {
+            XCTAssertThrowsError(try store.stageAndActivate(rejected)) {
+                guard
+                    case WalletNetworkMigrationError
+                        .snapshotVerificationFailed = $0
+                else {
+                    return XCTFail("Unexpected error: \($0)")
+                }
+            }
+        }
+        XCTAssertEqual(try store.load(), snapshot(name: "New name"))
     }
 
     func testCorruptActivePointerFailsClosedInsteadOfCreatingEmptyWallet() throws {
