@@ -184,6 +184,10 @@ final class ActivityViewController: SoramitsuViewController {
         navigationItem.title = viewModel.title
 
         navigationController?.navigationBar.prefersLargeTitles = true
+
+        // A list that is the saved copy asks for the current one again
+        // when the user comes back to it.
+        viewModel.viewWillAppear()
     }
 
     private func setupView() {

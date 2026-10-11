@@ -71,6 +71,8 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
         contentView.addSubview(errorView)
     }
 
+    private lazy var errorViewTop = errorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8)
+
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
@@ -78,9 +80,11 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
             
-            errorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            // 24 at the sides, as the rows of the list have: a text of
+            // more than one line must not run into the rounded corners.
+            errorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             errorView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            errorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            errorViewTop,
             errorView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
         ])
     }
@@ -94,6 +98,12 @@ extension ActivityErrorCell: CellProtocol {
         }
 
         errorItem = item
+        // The cell is reused: set the text for every item. A row with its
+        // own text is the first of the list, under the rounded corners.
+        errorView.titleLabel.sora.text = item.title
+            ?? R.string.localizable.activityDataNotUpToDateTitle(preferredLanguages: .currentLocale)
+        errorViewTop.constant = item.title == nil ? 8 : 20
+        containerView.sora.cornerMask = item.roundsTop ? .top : .none
     }
 }
 
@@ -148,5 +158,6 @@ extension ActivityNoticeCell: CellProtocol {
 
         noticeLabel.sora.text = item.text
         accessibilityLabel = item.text
+        containerView.sora.cornerMask = item.roundsTop ? .top : .none
     }
 }
