@@ -11,6 +11,7 @@ enum ExtrinsicCheck: String, CaseIterable {
     case attests = "polkadot_runtime_common::claims::PrevalidateAttests"
     case assetTxPayment =
         "pallet_asset_tx_payment::ChargeAssetTxPayment" // Statemine/Statemint case
+    case metadataHash = "frame_metadata_hash_extension::CheckMetadataHash"
 
     /// Overiden types explain which network has what full names
     /// Key UInt32 - is metadata reserver number to identify network
