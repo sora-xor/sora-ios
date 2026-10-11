@@ -1074,6 +1074,67 @@ final class PIIndexerAdvancingReadTests: XCTestCase {
         }
     }
 
+    /// Activity reaches page 2 by walking from page 1. PI indexes a block
+    /// between the two pages; the page is attributed to the later
+    /// checkpoint.
+    func testActivityPageTwoIsReachedWhileTheIndexerAdvances() async throws {
+        let account = "cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy"
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: PIIndexerFixture.data("history-signer-page")
+            ) as? [String: Any]
+        )
+        let nodes = try XCTUnwrap(
+            ((object["data"] as? [String: Any])?["historyElements"]
+                as? [String: Any])?["nodes"] as? [[String: Any]]
+        )
+        let rows = try nodes.map { node in
+            String(
+                decoding: try JSONSerialization.data(withJSONObject: node),
+                as: UTF8.self
+            )
+        }
+        XCTAssertEqual(rows.count, 4)
+        let indexer = try indexer()
+        indexer.heightForHealthRead = { _, height in height + 1 }
+        PIStubIndexerProtocol.install { request in
+            guard request.operation == "MobileHistory" else {
+                return indexer.respond(to: request)
+            }
+            let after = request.variables["after"] as? String
+            let page = after == nil ? rows[0 ..< 2] : rows[2 ..< 4]
+            return .init(
+                body: """
+                {"data":{"historyElements":{"nodes":[\(page.joined(separator: ","))],\
+                "pageInfo":{"hasNextPage":\(after == nil),\
+                "hasPreviousPage":\(after != nil),"startCursor":"s",\
+                "endCursor":"\(after == nil ? "c2" : "c4")"},"totalCount":4}}}
+                """
+            )
+        }
+
+        let read = try await client().qualifiedHistoryPageWithCoverage(
+            address: account,
+            first: 2,
+            page: 2
+        )
+
+        XCTAssertEqual(read.read.value.values.count, 2)
+        XCTAssertEqual(read.read.qualification?.source, .live)
+        // Two pages cost two page requests and three health requests, and
+        // the checkpoint moved three blocks.
+        XCTAssertEqual(
+            PIStubIndexerProtocol.requests.filter { $0 == "MobileHistory" }.count,
+            2
+        )
+        XCTAssertEqual(healthReads(), 3)
+        XCTAssertEqual(
+            read.read.qualification?.health.workerLatestIndexedBlock,
+            27_992_167
+        )
+        XCTAssertTrue(pauses.isEmpty)
+    }
+
     // MARK: Device clock
 
     /// The device clock is two hours behind. PI's timestamps are judged
