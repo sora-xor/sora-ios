@@ -1014,3 +1014,16 @@
 "Price unavailable" = "価格を取得できません";
 "Prices as of %@" = "%@ 時点の価格";
 "Activity as of %@. Newer transactions will appear when the list can be updated." = "%@ 時点のアクティビティです。一覧を更新できるようになると、新しい取引が表示されます。";
+
+// in2-tx-reconcile: sent transactions, chain upgrades, balances, custom nodes (3.9.0)
+"The SORA network was upgraded and this version of the app can't send transactions on it yet. Nothing was signed and your funds are safe. Please update the app." = "SORA ネットワークがアップグレードされましたが、このバージョンのアプリはまだ新しいネットワークでの送信に対応していません。署名は行われておらず、資金は安全です。アプリをアップデートしてください。";
+"The connection to the SORA network changed while the transaction was being prepared, so nothing was signed. Please try again." = "取引の準備中に SORA ネットワークへの接続先が変わったため、署名は行われていません。もう一度お試しください。";
+"The selected node does not answer over HTTPS at its address, so the app can't prepare or send transactions through it. Balances still load. Choose another node in the node settings and try again." = "選択中のノードは同じアドレスで HTTPS に応答しないため、このノードでは取引の準備や送信ができません。残高は引き続き表示されます。ノード設定で別のノードを選択して、もう一度お試しください。";
+"The app could not send this request to the SORA network. Please try again." = "このリクエストを SORA ネットワークに送信できませんでした。もう一度お試しください。";
+"The SORA node did not give a usable answer. Please try again in a moment, or choose another node." = "SORA ノードから有効な応答がありませんでした。しばらくしてからもう一度試すか、別のノードを選択してください。";
+"A transaction from this account was sent a moment ago and is still being confirmed. This usually takes less than a minute and never more than an hour. Please try again shortly. Nothing was removed." = "このアカウントから少し前に送信された取引を確認しています。通常は 1 分以内、長くても 1 時間以内に終わります。しばらくしてからもう一度お試しください。何も削除されていません。";
+"The app could not read its list of recently sent transactions, so it can't tell whether one from this account is still being confirmed. Please try again in an hour. Nothing was removed." = "最近送信した取引の一覧を読み込めなかったため、このアカウントの取引が確認中かどうかを判断できません。1 時間後にもう一度お試しください。何も削除されていません。";
+"Balance unavailable" = "残高を取得できません";
+"This total does not include balances that could not be read" = "取得できなかった残高は、この合計に含まれていません";
+"This node answers on its WebSocket address but not over HTTPS at the same address. The app needs both: balances use the WebSocket, and fee estimates and sends use HTTPS. With this node balances would load and every send would fail, so it was not saved. Use a node that serves wss:// and https:// at the same address." = "このノードは WebSocket のアドレスでは応答しますが、同じアドレスの HTTPS には応答しません。アプリには両方が必要です。残高の表示には WebSocket を、手数料の見積もりと送信には HTTPS を使います。このノードでは残高は表示されますが送信はすべて失敗するため、保存していません。同じアドレスで wss:// と https:// の両方に応答するノードを使用してください。";
+"This node does not answer over HTTPS, so it can't send transactions" = "このノードは HTTPS に応答しないため、取引を送信できません";
