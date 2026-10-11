@@ -395,8 +395,12 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let yourPoolShareViewModel = DetailViewModel(title: R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale),
                                                                  assetAmountText: yourPoolShareText)
         
-        let apyValue = apy ?? 0
-        let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
+        // An APY that is not known (still being read, or not published) has
+        // no text; it is not shown as "0% APY".
+        var apyText = ""
+        if let apyValue = apy {
+            apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
+        }
         let assetAmountText = SoramitsuTextItem(text: apyText,
                                                 fontData: FontType.textBoldS,
                                                 textColor: .fgPrimary,

@@ -650,57 +650,80 @@ extension RemoveLiquidityViewModel {
         let requestId = UUID()
         detailsRequestId = requestId
 
+        // The button depends on the fee. Prices and the APY are only shown:
+        // they are read on the side and filled in when they arrive, so a
+        // slow or failed read of a PI catalog never holds the fee, and with
+        // it the button, back.
+        let fiatRead = Task { [fiatService] in
+            await fiatService?.getFiat() ?? []
+        }
+        let apyRead = Task { [apyService] in
+            await apyService?.getApy(
+                for: baseAssetId,
+                targetAssetId: targetAssetId
+            )
+        }
+
         detailsTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            let isCurrent = { [weak self] () -> Bool in
+                guard let self else { return false }
+                return !Task.isCancelled &&
+                    self.detailsRequestId == requestId &&
+                    self.isPairStateValid &&
+                    self.isPairPresented &&
+                    self.isPairEnabled &&
+                    self.firstAssetId == baseAssetId &&
+                    self.secondAssetId == targetAssetId &&
+                    self.inputedFirstAmount == firstAmount &&
+                    self.inputedSecondAmount == secondAmount &&
+                    self.focusedField == focusedField &&
+                    self.slippageTolerance == slippageTolerance &&
+                    self.poolInfo?.baseAssetId == baseAssetId &&
+                    self.poolInfo?.targetAssetId == targetAssetId &&
+                    self.poolInfo?.baseAssetReserves == poolSnapshot.baseAssetReserves &&
+                    self.poolInfo?.targetAssetReserves == poolSnapshot.targetAssetReserves &&
+                    self.poolInfo?.totalIssuances == poolSnapshot.totalIssuances
+            }
             do {
-                async let fiatData = self.fiatService?.getFiat()
-                async let apy = self.apyService?.getApy(
-                    for: baseAssetId,
-                    targetAssetId: targetAssetId
-                )
-                async let exactFee = self.operationFactory.estimateLiquidityFee(for: transferInfo)
-                let results = try await (fiatData: fiatData, apy: apy, fee: exactFee)
+                let exactFee = try await self.operationFactory.estimateLiquidityFee(for: transferInfo)
 
-                guard !Task.isCancelled,
-                      results.fee > 0,
-                      self.detailsRequestId == requestId,
-                      self.isPairStateValid,
-                      self.isPairPresented,
-                      self.isPairEnabled,
-                      self.firstAssetId == baseAssetId,
-                      self.secondAssetId == targetAssetId,
-                      self.inputedFirstAmount == firstAmount,
-                      self.inputedSecondAmount == secondAmount,
-                      self.focusedField == focusedField,
-                      self.slippageTolerance == slippageTolerance,
-                      self.poolInfo?.baseAssetId == baseAssetId,
-                      self.poolInfo?.targetAssetId == targetAssetId,
-                      self.poolInfo?.baseAssetReserves == poolSnapshot.baseAssetReserves,
-                      self.poolInfo?.targetAssetReserves == poolSnapshot.targetAssetReserves,
-                      self.poolInfo?.totalIssuances == poolSnapshot.totalIssuances else {
+                guard exactFee > 0, isCurrent() else {
                     return
                 }
 
-                self.fiatData = results.fiatData ?? []
-                self.apy = results.apy
-                self.fee = results.fee
+                self.fee = exactFee
                 self.farms = poolSnapshot.farms
                 self.warningViewModel = self.warningViewModelFactory
                     .poolShareStackedViewModel(isHidden: self.farms.isEmpty)
 
-                self.details = self.detailsFactory.createRemoveLiquidityViewModels(
-                    with: firstAmount,
-                    targetAssetAmount: secondAmount,
-                    pool: poolSnapshot,
-                    apy: self.apy,
-                    fiatData: self.fiatData,
-                    focusedField: focusedField,
-                    slippageTolerance: slippageTolerance,
-                    isPresented: true,
-                    isEnabled: true,
-                    fee: results.fee,
-                    viewModel: self
-                )
+                let makeDetails = { [unowned self] () -> [DetailViewModel] in
+                    self.detailsFactory.createRemoveLiquidityViewModels(
+                        with: firstAmount,
+                        targetAssetAmount: secondAmount,
+                        pool: poolSnapshot,
+                        apy: self.apy,
+                        fiatData: self.fiatData,
+                        focusedField: focusedField,
+                        slippageTolerance: slippageTolerance,
+                        isPresented: true,
+                        isEnabled: true,
+                        fee: exactFee,
+                        viewModel: self
+                    )
+                }
+                self.details = makeDetails()
+
+                let fiatData = await fiatRead.value
+                if isCurrent(), fiatData != self.fiatData {
+                    self.fiatData = fiatData
+                    self.details = makeDetails()
+                }
+                let apy = await apyRead.value
+                if isCurrent(), apy != self.apy {
+                    self.apy = apy
+                    self.details = makeDetails()
+                }
             } catch is CancellationError {
                 return
             } catch {
