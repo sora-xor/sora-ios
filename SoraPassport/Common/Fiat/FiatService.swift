@@ -50,33 +50,56 @@ struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
+/// Prices as a screen may show them.
+struct FiatSnapshot {
+    /// Empty when no price is known.
+    let data: [PIExactFiatData]
+    /// `nil` when the prices are current. Otherwise the time they date
+    /// from: PI could not be read since.
+    let asOf: Date?
+}
+
 actor FiatService: FiatServiceProtocol {
     static let shared = FiatService()
 
-    private let assets: () async throws -> [PIAsset]
+    private let catalog: () async throws -> PICatalogSnapshot<PIAsset>
 
     /// Prices come from the shared asset catalog, which also feeds market
     /// data: one walk of PI serves every screen, a failed walk is not
     /// repeated before its backoff has passed, and the last good catalog is
     /// shown meanwhile.
     init(
-        assets: @escaping () async throws -> [PIAsset] = {
-            try await PICatalogs.assets.values()
+        catalog: @escaping () async throws -> PICatalogSnapshot<PIAsset> = {
+            try await PICatalogs.assets.snapshot()
         }
     ) {
-        self.assets = assets
+        self.catalog = catalog
+    }
+
+    init(assets: @escaping () async throws -> [PIAsset]) {
+        self.init(catalog: {
+            PICatalogSnapshot(values: try await assets(), asOf: nil)
+        })
     }
 
     /// Empty when no price is known. Callers must show that as "price
     /// unavailable", never as a value of zero. An unavailable price never
     /// affects balances or authorizes a transaction.
     func getFiat() async -> [PIExactFiatData] {
+        await getFiatSnapshot().data
+    }
+
+    func getFiatSnapshot() async -> FiatSnapshot {
         do {
-            return try await assets().map {
-                PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
-            }
+            let catalog = try await catalog()
+            return FiatSnapshot(
+                data: catalog.values.map {
+                    PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
+                },
+                asOf: catalog.asOf
+            )
         } catch {
-            return []
+            return FiatSnapshot(data: [], asOf: nil)
         }
     }
 }

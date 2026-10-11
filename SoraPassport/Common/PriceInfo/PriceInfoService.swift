@@ -36,6 +36,9 @@ import sorawallet
 struct PriceInfo {
     let fiatData: [PIExactFiatData]
     let marketCapInfo: Set<MarketCapInfo>
+    /// `nil` when the prices are current. Otherwise the time they date
+    /// from, which the wallet shows next to its total.
+    var pricesAsOf: Date? = nil
 }
 
 protocol PriceInfoServiceProtocol: AnyObject {
@@ -48,10 +51,15 @@ actor PriceInfoService {
     private let marketCapService = MarketCapService.shared
     
     private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
-        async let fiatData = self.fiatService.getFiat()
+        async let fiat = self.fiatService.getFiatSnapshot()
         async let assetInfo = self.marketCapService.getMarketCap(for: assetIds)
         
-        return await PriceInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+        let prices = await fiat
+        return await PriceInfo(
+            fiatData: prices.data,
+            marketCapInfo: assetInfo,
+            pricesAsOf: prices.asOf
+        )
     }
 }
 
