@@ -117,7 +117,16 @@ final class ChainSyncService {
     private(set) var retryAttempt: Int = 0
     private(set) var isSyncing: Bool = false
     private var isSyncRequestedAgain: Bool = false
+    /// True while the running sync has saved the chain and only waits for the
+    /// optional whitelist request.
+    private var isAwaitingWhitelist: Bool = false
     private let mutex = NSLock()
+
+    /// The passes over the chain store run one after another: each reads the
+    /// stored chain and saves what it made of it, so two passes at once could
+    /// save an older answer over a newer one.
+    private let passLock = NSLock()
+    private weak var lastPass: Operation?
 
     private lazy var scheduler = Scheduler(with: self, callbackQueue: DispatchQueue.global())
 
@@ -147,11 +156,20 @@ final class ChainSyncService {
 
     private func performSyncUpIfNeeded() {
         guard !isSyncing else {
-            // Remember the request. Whoever asked has something new for the
-            // chain (the on-chain asset list or the remote node list arrived),
-            // and the running sync may already have read the old value.
-            isSyncRequestedAgain = true
-            logger?.debug("Tried to sync up chains but already syncing; will sync again")
+            // Whoever asked has something new for the chain (the on-chain
+            // asset list or the remote node list arrived), and the running
+            // sync may already have read the old value.
+            if isAwaitingWhitelist {
+                // The running sync has saved the chain and only waits for the
+                // whitelist, which can take as long as a request timeout (a
+                // slow or filtered network). The new value does not wait for
+                // that: it is saved now, with the last good whitelist.
+                logger?.debug("Tried to sync up chains during the whitelist request; saving the chain now")
+                executeSync(refreshWhitelist: false, completesSync: false)
+            } else {
+                isSyncRequestedAgain = true
+                logger?.debug("Tried to sync up chains but already syncing; will sync again")
+            }
             return
         }
 
@@ -166,7 +184,21 @@ final class ChainSyncService {
         executeSync()
     }
 
-    private func executeSync(whitelist remoteWhitelist: AssetWhitelist? = nil, refreshWhitelist: Bool = true) {
+    /// One pass: read the stored chain, prepare it from what is known now
+    /// (nodes, asset list, whitelist) and save it if it changed.
+    ///
+    /// - Parameters:
+    ///   - remoteWhitelist: the whitelist fetched in this sync; `nil` uses the
+    ///     last good one.
+    ///   - refreshWhitelist: after this pass, fetch the whitelist and run a
+    ///     pass with it.
+    ///   - completesSync: `false` for a pass that saves a new value while the
+    ///     running sync waits for the whitelist; the sync goes on after it.
+    private func executeSync(
+        whitelist remoteWhitelist: AssetWhitelist? = nil,
+        refreshWhitelist: Bool = true,
+        completesSync: Bool = true
+    ) {
         let repairOperation = ClosureOperation<Void> { [storeRepair] in
             storeRepair?.repairDamagedChainRows()
         }
@@ -239,29 +271,52 @@ final class ChainSyncService {
         mapOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
                 guard let self = self else { return }
-                if refreshWhitelist, case let .success(changes) = mapOperation.result, let assetsURL = self.assetsUrl {
+                if !completesSync {
+                    self.completeIntermediatePass(result: mapOperation.result)
+                } else if refreshWhitelist, case let .success(changes) = mapOperation.result,
+                          let assetsURL = self.assetsUrl {
                     // Publish usable bundled nodes before starting optional remote
                     // metadata work. A stalled endpoint cannot delay cold boot.
                     self.eventCenter.notify(with: ChainSyncDidComplete(
                         newOrUpdatedChains: changes.newOrUpdatedItems,
                         removedChains: changes.removedItems
                     ))
-                    self.refreshWhitelist(from: assetsURL, bootstrapResult: mapOperation.result)
+                    self.beginWhitelistRefresh(from: assetsURL, bootstrapResult: mapOperation.result)
                 } else {
                     self.complete(result: mapOperation.result)
                 }
             }
         }
 
+        // After the pass before it, whichever thread asked for which.
+        passLock.lock()
+        if let lastPass {
+            repairOperation.addDependency(lastPass)
+        }
+        lastPass = mapOperation
         operationQueue.addOperations([
             repairOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
         ], waitUntilFinished: false)
+        passLock.unlock()
     }
 
-    private func refreshWhitelist(from url: URL, bootstrapResult: Result<SyncChanges, Error>?) {
+    private func beginWhitelistRefresh(from url: URL, bootstrapResult: Result<SyncChanges, Error>?) {
+        mutex.lock()
+        isAwaitingWhitelist = true
+        // A request made during the pass that has just ended (it may have
+        // read the old value) is served now, not after the whitelist request.
+        if isSyncRequestedAgain {
+            isSyncRequestedAgain = false
+            executeSync(refreshWhitelist: false, completesSync: false)
+        }
+        mutex.unlock()
+
         let operation = dataFetchFactory.fetchData(from: url)
         operation.completionBlock = { [weak self] in
             guard let self = self else { return }
+            self.mutex.lock()
+            self.isAwaitingWhitelist = false
+            self.mutex.unlock()
             if let data = try? operation.extractNoCancellableResultData(),
                let whitelist = self.whitelistStore.acceptRemote(data) {
                 // Fetch the current local chain again, preserving a node choice
@@ -272,6 +327,30 @@ final class ChainSyncService {
             }
         }
         operationQueue.addOperation(operation)
+    }
+
+    /// The end of a pass that saved a new value during the whitelist request.
+    /// The sync it belongs to is still running, or has ended meanwhile.
+    private func completeIntermediatePass(result: Result<SyncChanges, Error>?) {
+        if case let .success(changes) = result {
+            eventCenter.notify(with: ChainSyncDidComplete(
+                newOrUpdatedChains: changes.newOrUpdatedItems,
+                removedChains: changes.removedItems
+            ))
+            return
+        }
+        // The value was not saved. Ask again: after the running sync, or now.
+        logger?.warning("Chain sync: a pass during the whitelist request failed; will sync again")
+        mutex.lock()
+        defer { mutex.unlock() }
+        if isSyncing {
+            isSyncRequestedAgain = true
+        } else {
+            if retryAttempt > 0 {
+                scheduler.cancel()
+            }
+            performSyncUpIfNeeded()
+        }
     }
 
     static func preparedChain(
