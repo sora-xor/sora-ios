@@ -563,7 +563,12 @@ claim rewards and request-amount already read prices in the background.
   APY services that do not answer until the test lets them.
 
 "Served at once" is tested without timing: the loader is held, and the
-test fails if the call has not returned after five seconds.
+test fails if the call has not returned after five seconds. The round-2
+test `testARecentCatalogIsServedAtOnceWhileItsRefreshRuns` used a
+stopwatch and counted the read before it had started; it failed once in
+four runs of the whole target while another build was running, and now
+holds the loader like the new tests. After that the store tests passed 25
+times in a row and the other new classes 10 times in a row.
 
 **The tests fail without the fixes.** With the old behaviour put back for
 one run (wait unless live and under `staleFor`; no saved catalog;
