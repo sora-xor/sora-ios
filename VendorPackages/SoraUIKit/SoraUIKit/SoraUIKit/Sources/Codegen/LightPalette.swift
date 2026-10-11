@@ -42,6 +42,7 @@ enum NeonPaletteMapping {
 
 		case .additionalPolkaswap: return t.polkaswapBrand
 		case .additionalPolkaswapContainer: return t.polkaswapContainer
+		case .additionalPolkaswapText: return t.polkaswapText
 		}
 	}
 }

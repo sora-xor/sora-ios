@@ -49,9 +49,11 @@ enum FarmDetailsBottomButtonState {
     var buttonTitleColor: SoramitsuColor {
         switch self {
         case .editFarm, .startStackingWithRewards:
-            return .additionalPolkaswap
+            // On the Polkaswap container: the text token, not the brand fill.
+            return .additionalPolkaswapText
         case .startStacking:
-            return .custom(uiColor: .white)
+            // On the swap gradient: ink in dark, white in light (spec §2.6-1).
+            return .fgInverted
         case .stackingUnavailable:
             return .fgTertiary
         }

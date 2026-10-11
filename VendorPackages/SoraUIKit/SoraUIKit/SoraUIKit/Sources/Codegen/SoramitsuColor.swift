@@ -35,5 +35,9 @@ public enum SoramitsuColor {
 
 	case additionalPolkaswap
 	case additionalPolkaswapContainer
+	/// Polkaswap text, readable on `additionalPolkaswapContainer` and on the
+	/// page (spec §2.1/§2.2 `polkaswap.text`). `additionalPolkaswap` is the
+	/// brand fill and is below 4.5:1 as text on the light container.
+	case additionalPolkaswapText
 }
 
