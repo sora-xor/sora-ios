@@ -39,17 +39,23 @@ final class HistoryPage {
     /// The indexer listed only operations this account signed, so transfers
     /// that others sent to it may be missing. Balances are not affected.
     let mayOmitIncomingTransfers: Bool
+    /// `nil` when the page was read from the indexer just now. Otherwise
+    /// the indexer could not be read and this is the page as it was saved
+    /// at this time.
+    let cachedAt: Date?
 
     init(
         transactions: [Transaction],
         endReached: Bool,
         errorMessage: String? = nil,
-        mayOmitIncomingTransfers: Bool = false
+        mayOmitIncomingTransfers: Bool = false,
+        cachedAt: Date? = nil
     ) {
         self.transactions = transactions
         self.endReached = endReached
         self.errorMessage = errorMessage
         self.mayOmitIncomingTransfers = mayOmitIncomingTransfers
+        self.cachedAt = cachedAt
     }
 }
 
@@ -271,7 +277,8 @@ extension HistoryService: HistoryServiceProtocol {
                         endReached: endReached,
                         errorMessage: response.errorMessage,
                         mayOmitIncomingTransfers:
-                            queryOperation.historyCoverage == .signedByAccount
+                            queryOperation.historyCoverage == .signedByAccount,
+                        cachedAt: queryOperation.cachedAt
                     )))
                     
                     transactionsItems.forEach { transaction in

@@ -1169,3 +1169,4 @@
 // in1-indexer: prices and market data from the live indexer (3.9.0)
 "Price unavailable" = "Price unavailable";
 "Prices as of %@" = "Prices as of %@";
+"Activity as of %@. Newer transactions will appear when the list can be updated." = "Activity as of %@. Newer transactions will appear when the list can be updated.";

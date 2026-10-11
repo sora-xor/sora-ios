@@ -55,6 +55,43 @@ enum WalletUX {
         calendar: Calendar = .current,
         timeZone: TimeZone = .current
     ) -> String {
+        asOfText(
+            "Prices as of %@",
+            date,
+            now: now,
+            language: language,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
+
+    /// The same for the Activity list, when the indexer cannot be read and
+    /// the list is the one that was loaded last.
+    static func activityAsOfText(
+        _ date: Date,
+        now: Date = Date(),
+        language: String? = nil,
+        calendar: Calendar = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        asOfText(
+            "Activity as of %@. Newer transactions will appear when the list can be updated.",
+            date,
+            now: now,
+            language: language,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
+
+    private static func asOfText(
+        _ key: String,
+        _ date: Date,
+        now: Date,
+        language: String?,
+        calendar: Calendar,
+        timeZone: TimeZone
+    ) -> String {
         var calendar = calendar
         calendar.timeZone = timeZone
         let formatter = DateFormatter()
@@ -65,7 +102,7 @@ enum WalletUX {
         formatter.timeStyle = .short
         formatter.dateStyle = calendar.isDate(date, inSameDayAs: now) ? .none : .medium
         return String(
-            format: text("Prices as of %@", language: language),
+            format: text(key, language: language),
             formatter.string(from: date)
         )
     }

@@ -54,6 +54,36 @@ final class ActivityViewModel {
     var pageNumber = 0
     private var task: Task<Void, Swift.Error>?
 
+    /// Where the pages on screen came from.
+    enum ShownPages: Equatable {
+        case none
+        /// Read from the indexer when they were loaded.
+        case current
+        /// The saved copy, because the indexer could not be read. The date
+        /// is when the last page shown was saved.
+        case saved(Date)
+    }
+
+    private(set) var shownPages: ShownPages = .none
+
+    /// Whether a page may be put under the pages on screen.
+    ///
+    /// Rows move down the list as new transactions arrive, and each saved
+    /// page keeps the rows it had when it was saved. A current page under
+    /// saved ones, a saved page under current ones, or a saved page older
+    /// than the one above it would show some rows twice or leave some out
+    /// without a word.
+    static func continues(_ shown: ShownPages, pageCachedAt: Date?) -> Bool {
+        switch (shown, pageCachedAt) {
+        case (.none, _), (.current, nil):
+            return true
+        case (.current, .some), (.saved, nil):
+            return false
+        case let (.saved(above), .some(date)):
+            return date >= above
+        }
+    }
+
     init(historyService: HistoryServiceProtocol,
          viewModelFactory: ActivityViewModelFactoryProtocol,
          wireframe: ActivityWireframeProtocol,
@@ -125,6 +155,15 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         do {
             let page = try await historyService.getPageHistory(count: 50, page: pageNumber + 1, assetId: assetId)
 
+            guard pageNumber == 0 || Self.continues(shownPages, pageCachedAt: page.cachedAt) else {
+                // The page that arrived is from another moment than the
+                // list on screen. Leave the list as it is and offer to
+                // load it again from its start.
+                showRetryRow()
+                return
+            }
+            removeRetryRow()
+
             if pageNumber == 0 {
                 sections = []
             }
@@ -134,9 +173,17 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             // The indexer could list only operations this account signed.
             // Say so calmly, so a missing incoming transfer is not taken for
             // missing funds.
-            let notice: [ActivitySection] = pageNumber == 0 && page.mayOmitIncomingTransfers
-                ? contentSection(with: [.notice(ActivityNoticeItem(text: Self.incompleteHistoryNotice))])
-                : []
+            var noticeItems: [ActivitySectionItem] = []
+            if pageNumber == 0, let cachedAt = page.cachedAt {
+                // The indexer could not be read: this is the list as it was
+                // last loaded. Say when, as the wallet total does.
+                noticeItems.append(.notice(ActivityNoticeItem(text: WalletUX.activityAsOfText(cachedAt))))
+            }
+            if pageNumber == 0 && page.mayOmitIncomingTransfers {
+                noticeItems.append(.notice(ActivityNoticeItem(text: Self.incompleteHistoryNotice)))
+            }
+            let notice: [ActivitySection] = noticeItems.isEmpty ? [] : contentSection(with: noticeItems)
+            shownPages = page.cachedAt.map { .saved($0) } ?? .current
 
             if pageNumber == 0 && page.transactions.isEmpty && page.errorMessage == nil {
                 sections = notice
@@ -194,6 +241,30 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         }
     }
 
+    /// One row at the end of the list: "Some data is not up to date" with
+    /// a Refresh button, which loads the list again from its start.
+    private func showRetryRow() {
+        view?.stopPaginationLoader()
+        guard !sections.contains(where: Self.isRetryRow) else { return }
+        let errorItem = ActivityErrorItem()
+        errorItem.handler = { [weak self] in
+            self?.view?.resetPagination()
+        }
+        sections.append(contentsOf: contentSection(with: [.error(errorItem)]))
+        snapshot = createSnapshot()
+    }
+
+    private func removeRetryRow() {
+        sections.removeAll(where: Self.isRetryRow)
+    }
+
+    private static func isRetryRow(_ section: ActivitySection) -> Bool {
+        guard section.date == nil, section.items.count == 1, case .error = section.items[0] else {
+            return false
+        }
+        return true
+    }
+
     private func updateSections(with sections: [ActivitySection]) {
         sections.forEach { [weak self] section in
             guard let date = section.date else {
@@ -235,6 +306,7 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         viewModelFactory.currentDate = nil
         pageNumber = 0
         sections = []
+        shownPages = .none
 
         task?.cancel()
         task = Task { [weak self] in
