@@ -66,7 +66,7 @@ final class ExplorePoolsViewModelService {
             
             async let viewModels = (pools.enumerated().concurrentMap { (index, pool) in
                 let apy = await self.apyService.getApy(for: pool.baseAssetId, targetAssetId: pool.targetAssetId)
-                return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy)
+                return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy, apyLoaded: true)
             })
 
             let result = (try? await viewModels) ?? []
