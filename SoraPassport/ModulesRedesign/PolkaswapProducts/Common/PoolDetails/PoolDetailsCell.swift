@@ -108,7 +108,7 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
         button.sora.horizontalOffset = 0
         button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
                                                        fontData: FontType.buttonM ,
-                                                       textColor: .additionalPolkaswap,
+                                                       textColor: .additionalPolkaswapText,
                                                        alignment: .center)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswapContainer
@@ -234,7 +234,7 @@ extension PoolDetailsCell: CellProtocol {
         
         removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
         
-        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswap : .fgTertiary
+        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapText : .fgTertiary
         removeLiquidity.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
                                                                 fontData: FontType.buttonM ,
                                                                 textColor: titleColor,
