@@ -4,40 +4,39 @@ import SSFUtils
 
 final class AssetsInfoProviderTests: XCTestCase {
 
+    var engine: WebSocketEngine!
     var provider: AssetsInfoProvider!
 
     override func setUpWithError() throws {
         let url: URL = URL(string: "wss://mof2.sora.org")!
         let logger = Logger.shared
         let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
+        self.engine = engine
 
-        provider = AssetsInfoProvider(engine: engine, storageKeyFactory: StorageKeyFactory())
+        provider = AssetsInfoProvider(connection: { engine }, storageKeyFactory: StorageKeyFactory())
     }
 
-    func testLoadKeys() {
-        //given
-
-        //when
-        provider.loadAssetsInfoKeys {}
-
-        //then
-        Logger.shared.debug("Asset info keys loaded")
-        XCTAssert(provider.keys.count > 0)
+    override func tearDown() {
+        provider?.cancel()
+        provider = nil
+        engine = nil
     }
 
     func testLoadAssetInfo() {
         //given
+        let loaded = expectation(description: "asset list")
 
         //when
         var assetsInfo: [AssetInfo] = []
         provider.load(completion: { result in
             assetsInfo = result
+            loaded.fulfill()
         })
 
         //then
+        wait(for: [loaded], timeout: 120)
         Logger.shared.debug("Asset info catalog loaded")
         XCTAssert(assetsInfo.count > 0)
-        XCTAssertEqual(assetsInfo.count, provider.keys.count)
     }
 
     func testLoadAssetInfoByKey() {

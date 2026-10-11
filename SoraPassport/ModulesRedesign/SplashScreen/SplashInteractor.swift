@@ -577,9 +577,9 @@ enum WalletStartupVerificationRecovery {
 final class SplashInteractor: SplashInteractorProtocol {
     weak var presenter: SplashPresenterProtocol!
     let settings: SettingsManagerProtocol
-    let socketService: WebSocketServiceProtocol
-    let configService: ConfigServiceProtocol
-    let reachabilityManager: ReachabilityManagerProtocol? = ReachabilityManager.shared
+    private let network: StartupNetworkCoordinating
+    private let genesisProvider: GenesisProviderProtocol
+    private let storageChecks: (() -> Void)?
     private let migrationStateLock = NSLock()
     private var didStartStorageMigration = false
     private var isAwaitingStorageRetry = false
@@ -592,18 +592,34 @@ final class SplashInteractor: SplashInteractorProtocol {
         return queue
     }()
 
+    /// - Parameter storageChecks: replaces the wallet storage checks of this
+    ///   run (tests of the startup order only).
     init(settings: SettingsManagerProtocol,
-         socketService: WebSocketServiceProtocol,
-         configService: ConfigServiceProtocol) {
+         network: StartupNetworkCoordinating = StartupNetworkCoordinator.shared,
+         genesisProvider: GenesisProviderProtocol = GenesisProvider(),
+         storageChecks: (() -> Void)? = nil) {
         self.settings = settings
-        self.socketService = socketService
-        self.configService = configService
+        self.network = network
+        self.genesisProvider = genesisProvider
+        self.storageChecks = storageChecks
     }
 
+    /// Starts the wallet storage checks and routing at once, as App Store
+    /// 3.8.6 does. Nothing here waits for the network: an existing wallet
+    /// reaches its PIN screen, and a wallet that needs attention reaches the
+    /// recovery screen, Welcome back or onboarding, with no node at all (dead
+    /// saved node, captive network, airplane mode). The remote configuration
+    /// and the on-chain asset list are requested in the background by
+    /// `StartupNetworkCoordinator` and applied when they arrive.
     func setup() {
-        configService.setupConfig { [weak self] in
-            self?.socketService.setup()
-            self?.loadGenesis()
+        let genesis = genesisProvider.load()
+        settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
+        Logger.shared.info("Runtime update gen: " + genesis)
+
+        network.startupDidBegin()
+
+        Task { @MainActor [weak self] in
+            self?.startChain()
         }
     }
 
@@ -616,55 +632,15 @@ final class SplashInteractor: SplashInteractorProtocol {
         isAwaitingStorageRetry = false
         migrationStateLock.unlock()
         storageMigrationQueue.addOperation { [weak self] in
-            self?.performStorageMigration()
+            self?.runStorageChecks()
         }
     }
 
-    private func loadGenesis() {
-        guard reachabilityManager?.isReachable ?? false else {
-            loadAssetsInfo(chainId: nil)
-            return
-        }
-
-        let provider = GenesisProvider(engine: socketService.connection!)
-        provider.load(completion: { [weak self] genesis in
-            self?.didLoadGenesis(genesis)
-        })
-    }
-
-    private func didLoadGenesis(_ genesis: String?) {
-        if let genesis = genesis {
-            self.settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
-            Logger.shared.info("Runtime update gen: " + genesis)
-        }
-        loadAssetsInfo(chainId: genesis)
-    }
-
-    private func loadAssetsInfo(chainId: String?) {
-        guard reachabilityManager?.isReachable ?? false else {
-            didLoadAssetsInfo([])
-            return
-        }
-        
-        let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
-        provider.load { [weak self] assetsInfo in
-            self?.didLoadAssetsInfo(assetsInfo)
-        }
-    }
-
-    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
-        Task {
-            AssetManager.networkAssets = assetsInfo
-
-            // Fiat prices and market-cap data are display-only and every consumer already loads
-            // them lazily through getPriceInfo(for:). A slow PI request must not hold wallet
-            // storage migration, recovery checks, or navigation on the splash screen.
-
-            socketService.throttle()
-
-            await MainActor.run {
-                self.startChain()
-            }
+    private func runStorageChecks() {
+        if let storageChecks {
+            storageChecks()
+        } else {
+            performStorageMigration()
         }
     }
 
@@ -699,14 +675,14 @@ final class SplashInteractor: SplashInteractorProtocol {
                     self.protectedDataObserver = nil
                 }
                 self.storageMigrationQueue.addOperation { [weak self] in
-                    self?.performStorageMigration()
+                    self?.runStorageChecks()
                 }
             }
             return
         }
 
         storageMigrationQueue.addOperation { [weak self] in
-            self?.performStorageMigration()
+            self?.runStorageChecks()
         }
     }
 
@@ -862,6 +838,9 @@ final class SplashInteractor: SplashInteractorProtocol {
                         .markWalletStorageReadyAndResume()
                     Sora2PendingSubmissionRecoveryRuntime.shared
                         .markWalletStorageReadyAndResume()
+                    // The asset list and the remote node list are loaded in
+                    // the background; from here on they reach the registry.
+                    self.network.chainRegistryWillBoot()
                     if selectedAccount != nil {
                         ChainRegistryFacade.sharedRegistry.performHotBoot()
                         Logger.shared.debug("Selected wallet restored")

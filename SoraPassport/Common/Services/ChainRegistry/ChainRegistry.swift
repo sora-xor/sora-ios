@@ -458,6 +458,8 @@ extension ChainRegistry: ConnectionPoolDelegate {
             }) else { return }
             self.nodeFailover[chain.chainId]?.connected()
             SettingsManager.shared.lastSuccessfulUrl = url
+            // Work that was waiting for a node (the asset list) can go on.
+            StartupNetworkCoordinator.shared.nodeDidConnect()
         }
     }
 
