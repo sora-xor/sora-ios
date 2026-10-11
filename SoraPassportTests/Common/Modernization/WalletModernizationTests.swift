@@ -19207,7 +19207,7 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPICacheFallbackAllowsOnlyTransientTransportErrors() {
+    func testPICacheFallbackAllowsOnlyFailuresWherePIGaveNoAnswer() {
         XCTAssertTrue(
             PIIndexerClient.allowsOfflineTransportFallback(
                 URLError(.notConnectedToInternet)
@@ -19223,7 +19223,11 @@ final class WalletModernizationTests: XCTestCase {
                 URLError(.cancelled)
             )
         )
-        XCTAssertFalse(
+        // Review round 4 of in1-indexer: a TLS failure and a status from a
+        // proxy or firewall mean that PI gave no answer, like a timeout.
+        // The last good validated value is shown with its time; nothing
+        // is read from the other side. (They used to hide it.)
+        XCTAssertTrue(
             PIIndexerClient.allowsOfflineTransportFallback(
                 URLError(.serverCertificateUntrusted)
             )
@@ -19231,7 +19235,9 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertTrue(PIIndexerError.httpStatus(408).allowsOfflineFallback)
         XCTAssertTrue(PIIndexerError.httpStatus(429).allowsOfflineFallback)
         XCTAssertTrue(PIIndexerError.httpStatus(503).allowsOfflineFallback)
-        XCTAssertFalse(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        XCTAssertTrue(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        // PI's own refusal of the request is never hidden by older data.
+        XCTAssertFalse(PIIndexerError.httpStatus(400).allowsOfflineFallback)
         XCTAssertFalse(PIIndexerError.invalidResponse.allowsOfflineFallback)
         XCTAssertFalse(PIIndexerError.responseTooLarge.allowsOfflineFallback)
         // PI answered but had no consistent fresh checkpoint: the last good

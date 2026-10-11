@@ -17,6 +17,7 @@ sent; nothing was edited. They contain public chain data only.
 | `history-all-roles-rejected.json` | `MobileHistory` with the all-roles filter: `BAD_USER_INPUT`. |
 | `referrer-rewards-page.json` | `MobileReferrerRewards` ordered by `[ID_DESC]`. |
 | `referrer-rewards-timestamp-order-rejected.json` | `MobileReferrerRewards` ordered by timestamp: `BAD_USER_INPUT`. |
+| `referrer-rewards-nonzero-page.json` | `MobileReferrerRewards` ordered by `[ID_DESC]` for a referrer with a reward that is not zero. Captured later the same day, at 19:08 UTC. The amount is a whole number of the token's smallest unit (`183330193640403131` is 0.18 XOR). |
 
 To refresh them, send the queries in `PIIndexerClient.swift` with the headers
 `executeQualified` sets and save the response bodies unchanged.
