@@ -106,6 +106,12 @@ extension MainTabBarInteractor: EventVisitorProtocol {
         presenter?.didReloadSelectedNetwork()
     }
 
+    func processWalletAssetListArrived(event _: WalletAssetListArrived) {
+        // Every tab was built from an empty asset list. Build them all again,
+        // as for another account: one graph from one list.
+        presenter?.didUserChange()
+    }
+
     func processWalletUpdate(event: WalletUpdateEvent) {
 //        updateWalletAccount()
     }
