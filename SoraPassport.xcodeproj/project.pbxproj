@@ -37,6 +37,7 @@
 		C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */; };
 		57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */; };
 		21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */; };
+		1B1A57A27F00000000000001 /* StartupNetworkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B1A57A27F00000000000002 /* StartupNetworkTests.swift */; };
 		1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */; };
 		C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */; };
 		C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */; };
@@ -2486,6 +2487,7 @@
 		C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIMobileConfigFallbackTests.swift; sourceTree = "<group>"; };
 		B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DexInfoServiceTests.swift; sourceTree = "<group>"; };
 		E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetWhitelistTests.swift; sourceTree = "<group>"; };
+		1B1A57A27F00000000000002 /* StartupNetworkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupNetworkTests.swift; sourceTree = "<group>"; };
 		238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstrateStoreMigrationTests.swift; sourceTree = "<group>"; };
 		C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2MainnetLiveSigningTests.swift; sourceTree = "<group>"; };
 		C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sora2LiveRuntimeTests.swift; sourceTree = "<group>"; };
@@ -3959,6 +3961,7 @@
 				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
 				B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */,
 				E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */,
+				1B1A57A27F00000000000002 /* StartupNetworkTests.swift */,
 				238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */,
 				C3000004000000000000000A /* Sora2MainnetLiveSigningTests.swift */,
 				C3000002000000000000000A /* Sora2LiveRuntimeTests.swift */,
@@ -8862,6 +8865,7 @@
 				C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */,
 				57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */,
 				21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */,
+				1B1A57A27F00000000000001 /* StartupNetworkTests.swift in Sources */,
 				1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */,
 				C3000003000000000000000A /* Sora2MainnetLiveSigningTests.swift in Sources */,
 				C3000001000000000000000A /* Sora2LiveRuntimeTests.swift in Sources */,
