@@ -229,6 +229,34 @@ final class WalletRecoveryCapabilityGateTests: XCTestCase {
             )
         )
 
+        // The helper files of a durable write the process did not survive
+        // are swept by the probe and never make an attempt unresolved
+        // (audit I3).
+        for directory in [fixture.attemptURL, fixture.legacyDirectory] {
+            let helpers = [
+                ".durable-\(UUID().uuidString).tmp",
+                ".durable-rollback-\(UUID().uuidString).anchor",
+                ".durable-rollback-\(UUID().uuidString).safety-anchor",
+                ".durable-failed-\(UUID().uuidString).withdrawn",
+            ].map(directory.appendingPathComponent)
+            for helper in helpers {
+                try Data("content of an interrupted write".utf8).write(
+                    to: helper
+                )
+            }
+            XCTAssertFalse(
+                WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(
+                    storeURL: fixture.storeURL
+                )
+            )
+            for helper in helpers {
+                XCTAssertFalse(
+                    FileManager.default.fileExists(atPath: helper.path)
+                )
+            }
+        }
+
+        // A name that only resembles the writer's is an unexpected entry.
         let rootResidue = fixture.attemptURL.appendingPathComponent(
             ".durable-capability-root-residue.anchor"
         )

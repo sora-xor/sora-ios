@@ -924,24 +924,14 @@ final class WalletModernizationTests: XCTestCase {
             ),
             FileProtectionType.completeUntilFirstUserAuthentication
         )
-        let protectedRollbackResidue = try FileManager.default
-            .contentsOfDirectory(
-                at: rollbackDirectory,
-                includingPropertiesForKeys: nil,
-                options: []
-            ).filter {
-                $0.lastPathComponent.hasPrefix(".durable-")
-            }
-        XCTAssertEqual(protectedRollbackResidue.count, 1)
-        for residue in protectedRollbackResidue {
-            XCTAssertEqual(
-                try FileProtectionMetadata.protectionClass(
-                    at: residue,
-                    fileManager: .default
-                ),
-                FileProtectionType.completeUntilFirstUserAuthentication
-            )
-        }
+        // The failed replacement is rolled back and its helper files are
+        // removed: nothing but the restored file is left (audit I3).
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                atPath: rollbackDirectory.path
+            ),
+            ["existing.json"]
+        )
 
         let absentDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -980,24 +970,14 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: absentTarget.path)
         )
-        let protectedAbsentResidue = try FileManager.default
-            .contentsOfDirectory(
-                at: absentDirectory,
-                includingPropertiesForKeys: nil,
-                options: []
-            ).filter {
-                $0.lastPathComponent.hasPrefix(".durable-failed-")
-            }
-        XCTAssertEqual(protectedAbsentResidue.count, 1)
-        for residue in protectedAbsentResidue {
-            XCTAssertEqual(
-                try FileProtectionMetadata.protectionClass(
-                    at: residue,
-                    fileManager: .default
-                ),
-                FileProtectionType.complete
-            )
-        }
+        // The failed new file is withdrawn and removed: the directory is as
+        // it was before the write (audit I3).
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                atPath: absentDirectory.path
+            ),
+            []
+        )
     }
 
     func testDurableFileWriterRejectsSymlinkWithoutTouchingLegacyFile()
@@ -3884,7 +3864,10 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPendingTransactionStoresRejectInterruptedDurablePublicationEvidence()
+    /// Audit I3. The helper file of a journal write the process did not
+    /// survive is swept and never makes a store fail; any other unexpected
+    /// entry still does.
+    func testPendingTransactionStoresSweepAnInterruptedPublicationAndRejectOtherEntries()
         async throws
     {
         let directory = FileManager.default.temporaryDirectory
@@ -3908,14 +3891,38 @@ final class WalletModernizationTests: XCTestCase {
             .appendingPathComponent(
                 ".durable-00000000-0000-0000-0000-000000000000.tmp"
             )
-        try Data("unresolved publication evidence".utf8).write(
+        try Data("content of an interrupted write".utf8).write(
             to: interruptedPublication
         )
 
+        let nexusTransactions = try await nexusStore.all()
+        XCTAssertTrue(nexusTransactions.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: interruptedPublication.path
+            )
+        )
+        try Data("content of an interrupted write".utf8).write(
+            to: interruptedPublication
+        )
+        _ = try await polkamarktStore.all()
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: interruptedPublication.path
+            )
+        )
+
+        // A name the writer does not create is not swept and not ignored.
+        let unexpected = journalDirectory.appendingPathComponent(
+            ".durable-unknown-journal.tmp"
+        )
+        try Data("a journal this version does not know".utf8).write(
+            to: unexpected
+        )
         do {
             _ = try await nexusStore.all()
             XCTFail(
-                "Nexus deletion preflight accepted an interrupted journal publication"
+                "Nexus deletion preflight accepted an unexpected entry"
             )
         } catch {
             XCTAssertTrue(error is NexusToriiError)
@@ -3923,13 +3930,16 @@ final class WalletModernizationTests: XCTestCase {
         do {
             _ = try await polkamarktStore.all()
             XCTFail(
-                "Polkamarkt deletion preflight accepted an interrupted journal publication"
+                "Polkamarkt deletion preflight accepted an unexpected entry"
             )
         } catch {
             guard case PolkamarktRuntimeError.unavailable = error else {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: unexpected.path)
+        )
     }
 
     func testAllPendingTransactionJournalsShareTheProtectedNamespace()
@@ -5481,7 +5491,10 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: activePointer), pointerBefore)
     }
 
-    func testWalletNetworkStoreRejectsUnprunedCanonicalSnapshotSet()
+    /// Audit I3. One snapshot above the retained count is what an activation
+    /// leaves when the process dies before pruning: it is read and pruned.
+    /// More than one is not such a state and still fails.
+    func testWalletNetworkStorePrunesOneSurplusSnapshotAndRejectsMore()
         throws
     {
         let directory = FileManager.default.temporaryDirectory
@@ -5510,15 +5523,40 @@ final class WalletModernizationTests: XCTestCase {
             })
         )
         let bytes = try Data(contentsOf: originalSnapshot)
-        for _ in 0 ..< 8 {
-            try bytes.write(
-                to: walletDirectory.appendingPathComponent(
-                    "wallet-network-\(UUID().uuidString).json"
-                ),
-                options: .atomic
-            )
+        func snapshotNames() throws -> [String] {
+            try FileManager.default.contentsOfDirectory(
+                atPath: walletDirectory.path
+            ).filter { $0.hasPrefix("wallet-network-") }
+        }
+        func addSnapshots(_ count: Int) throws {
+            for _ in 0 ..< count {
+                try bytes.write(
+                    to: walletDirectory.appendingPathComponent(
+                        "wallet-network-\(UUID().uuidString).json"
+                    ),
+                    options: .atomic
+                )
+            }
         }
 
+        // Nine snapshots: read, and pruned back to eight with the active
+        // snapshot kept.
+        try addSnapshots(8)
+        XCTAssertEqual(try snapshotNames().count, 9)
+        XCTAssertEqual(try store.load(), snapshot)
+        XCTAssertEqual(try snapshotNames().count, 8)
+        XCTAssertTrue(
+            try snapshotNames().contains(originalSnapshot.lastPathComponent)
+        )
+        // An activation on top of nine first completes the pruning.
+        try addSnapshots(1)
+        try store.stageAndActivate(snapshot)
+        XCTAssertEqual(try store.load(), snapshot)
+        XCTAssertLessThanOrEqual(try snapshotNames().count, 8)
+
+        // Ten snapshots are not a state an interrupted activation leaves.
+        try addSnapshots(10 - (try snapshotNames().count))
+        XCTAssertEqual(try snapshotNames().count, 10)
         XCTAssertThrowsError(try store.load()) { error in
             guard
                 case WalletNetworkMigrationError
@@ -5527,6 +5565,7 @@ final class WalletModernizationTests: XCTestCase {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertEqual(try snapshotNames().count, 10)
     }
 
     func testWalletNetworkStoreBoundsSelectionAndNameSnapshots() throws {
@@ -10878,10 +10917,16 @@ final class WalletModernizationTests: XCTestCase {
                 let marker = WalletMigrationRecoveryMarker.capture(settings)
                 let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
                 let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
-                if !["snapshot", "watchOnlyConflict", "newerMarker"].contains(condition) {
+                if !["watchOnlyConflict", "newerMarker"].contains(condition) {
                     // Since 3.9.0 an account whose retained material does not
                     // prove it (or that has none) opens read-only instead of
                     // blocking the wallet. Nothing in the Keychain changes.
+                    // "snapshot": the active snapshot lists only an account
+                    // the database does not have. It was removed by a version
+                    // that does not know the snapshot and is recorded as
+                    // removed (audit I3); the installed account is then a new
+                    // wallet in that snapshot, for which unsuffixed entropy
+                    // is never resolved, so it opens read-only as well.
                     let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
                         _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
                             storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
@@ -10898,6 +10943,9 @@ final class WalletModernizationTests: XCTestCase {
                                    .signingUnavailable, condition)
                     XCTAssertEqual(snapshot.accounts.filter { $0.walletId == readOnly }.map(\.networkId),
                                    [.sora2], condition)
+                    if condition == "snapshot" {
+                        XCTAssertEqual(snapshot.wallets.map(\.id), [account.address], condition)
+                    }
                     if condition == "missingAccount" {
                         try assertRetainedEntropySigner(account: account, entropy: entropy,
                             snapshot: snapshot, keys: keys, settings: settings)
@@ -10946,21 +10994,12 @@ final class WalletModernizationTests: XCTestCase {
                     XCTAssertNil(verifiedCheckpointFiles)
                     expectedFiles = originalFiles
                 }
-                // A keyless account no longer stops startup before the verified
-                // database backup is taken, so the "snapshot" conflict is found
-                // after it: compare everything except that new backup and the
-                // live store's WAL checkpoint (rows are compared below).
-                let isNewBackup: (URL) -> Bool = { url in
-                    condition == "snapshot" && (url.path.contains("/WalletMigrationSafety/") ||
-                        url.lastPathComponent.hasPrefix("UserDataModel.sqlite"))
-                }
-                XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory)
-                    .filter { $0.key != shmURL && !isNewBackup($0.key) },
-                    expectedFiles.filter { $0.key != shmURL && !isNewBackup($0.key) }, condition)
+                XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory).filter { $0.key != shmURL },
+                    expectedFiles.filter { $0.key != shmURL }, condition)
                 try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
                     model: userStorageModel(named: UserStorageVersion.version2.rawValue))
                 XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
-                if condition != "snapshot" && condition != "newerMarker" {
+                if condition != "newerMarker" {
                     XCTAssertNil(try WalletNetworkStore(baseURL: directory,
                         recoveryGate: makeIsolatedRecoveryGate()).load(), condition)
                 }
@@ -12212,7 +12251,12 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(settings.walletNetworkStoreVersion, 0)
     }
 
-    func testMigrationCannotDropPreviouslyInventoriedAccount() throws {
+    /// Audit I3 (L-4, FWD-2). An account the snapshot lists and the database
+    /// no longer has was removed by a version that does not know the
+    /// snapshot (App Store 3.8.6). It is recorded as removed instead of
+    /// stopping every account. The 3.8.6 removal itself is replayed in
+    /// `WalletInterruptedWriteTests`.
+    func testMigrationRecordsAnAccountRemovedOutsideThisVersion() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer {
@@ -12249,17 +12293,30 @@ final class WalletModernizationTests: XCTestCase {
             settings: InMemorySettingsManager()
         )
 
-        XCTAssertThrowsError(
-            try migrator.migrate(accounts: [], selectedAddress: nil)
-        ) { error in
-            guard
-                case WalletNetworkMigrationError.legacyIdentityMismatch =
-                    error
-            else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-        }
+        // Verification alone writes nothing.
+        let verified = try migrator.verifiedSnapshot(
+            accounts: [],
+            selectedAddress: nil
+        )
+        XCTAssertTrue(verified.wallets.isEmpty)
         XCTAssertEqual(try store.load(), original)
+
+        try migrator.migrate(accounts: [], selectedAddress: nil)
+        let recorded = try XCTUnwrap(try store.load())
+        XCTAssertTrue(recorded.wallets.isEmpty)
+        XCTAssertTrue(recorded.accounts.isEmpty)
+        XCTAssertNil(recorded.selectedWalletId)
+        // The snapshot that listed the account is kept beside the new one.
+        let retained = try FileManager.default.contentsOfDirectory(
+            atPath: directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent("WalletNetworks", isDirectory: true)
+                .path
+        ).filter { $0.hasPrefix("wallet-network-") }
+        XCTAssertEqual(retained.count, 2)
+        // A second run finds nothing more to record.
+        try migrator.migrate(accounts: [], selectedAddress: nil)
+        XCTAssertEqual(try store.load(), recorded)
     }
 
     func testCorruptActivePointerFailsClosedInsteadOfCreatingEmptyWallet() throws {
