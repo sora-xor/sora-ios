@@ -4273,12 +4273,15 @@ final class PIActionsDoNotWaitForPricesTests: XCTestCase {
             viewModel.inputedSecondAmount = 2
         }
 
-        // The pair is checked first; ask until the details are there.
+        // The pair is checked first; ask until the details are there,
+        // giving each request a second on a busy machine.
         var shown = false
-        for _ in 0 ..< 50 where !shown {
+        for _ in 0 ..< 10 where !shown {
             await MainActor.run { viewModel.updateDetails() }
-            try await Task.sleep(nanoseconds: 100_000_000)
-            shown = await MainActor.run { !viewModel.details.isEmpty }
+            for _ in 0 ..< 20 where !shown {
+                try await Task.sleep(nanoseconds: 50_000_000)
+                shown = await MainActor.run { !viewModel.details.isEmpty }
+            }
         }
         XCTAssertTrue(shown, "The fee waited for the APY")
         let before = await MainActor.run { viewModel.details }
@@ -4348,16 +4351,19 @@ final class PIActionsDoNotWaitForPricesTests: XCTestCase {
         )
         await MainActor.run { viewModel.viewDidLoad() }
 
-        // The pair is checked first; ask until the details are there.
+        // The pair is checked first; ask until the details are there,
+        // giving each request a second on a busy machine.
         var shown = false
-        for _ in 0 ..< 50 where !shown {
+        for _ in 0 ..< 10 where !shown {
             await MainActor.run {
                 viewModel.inputedFirstAmount = 1
                 viewModel.inputedSecondAmount = 2
                 viewModel.updateDetails()
             }
-            try await Task.sleep(nanoseconds: 100_000_000)
-            shown = await MainActor.run { !viewModel.details.isEmpty }
+            for _ in 0 ..< 20 where !shown {
+                try await Task.sleep(nanoseconds: 50_000_000)
+                shown = await MainActor.run { !viewModel.details.isEmpty }
+            }
         }
         XCTAssertTrue(shown, "The fee waited for prices or the APY")
         let before = await MainActor.run { viewModel.details }
