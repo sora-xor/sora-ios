@@ -35,6 +35,8 @@
 		C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000020000000000000001 /* AddressQRCodecTests.swift */; };
 		C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000008000000000000000A /* ProductSurfacePolicyTests.swift */; };
 		C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */; };
+		1A4D0E010000000000000001 /* PIIndexerLiveContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D0E010000000000000002 /* PIIndexerLiveContractTests.swift */; };
+		1A4D0E010000000000000003 /* PIIndexerFixtures in Resources */ = {isa = PBXBuildFile; fileRef = 1A4D0E010000000000000004 /* PIIndexerFixtures */; };
 		57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */; };
 		21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */; };
 		1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */; };
@@ -2484,6 +2486,8 @@
 		C20000020000000000000001 /* AddressQRCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressQRCodecTests.swift; sourceTree = "<group>"; };
 		C3000008000000000000000A /* ProductSurfacePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductSurfacePolicyTests.swift; sourceTree = "<group>"; };
 		C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIMobileConfigFallbackTests.swift; sourceTree = "<group>"; };
+		1A4D0E010000000000000002 /* PIIndexerLiveContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIIndexerLiveContractTests.swift; sourceTree = "<group>"; };
+		1A4D0E010000000000000004 /* PIIndexerFixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PIIndexerFixtures; sourceTree = "<group>"; };
 		B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DexInfoServiceTests.swift; sourceTree = "<group>"; };
 		E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetWhitelistTests.swift; sourceTree = "<group>"; };
 		238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstrateStoreMigrationTests.swift; sourceTree = "<group>"; };
@@ -3957,6 +3961,8 @@
 				C20000020000000000000001 /* AddressQRCodecTests.swift */,
 				C3000008000000000000000A /* ProductSurfacePolicyTests.swift */,
 				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
+				1A4D0E010000000000000002 /* PIIndexerLiveContractTests.swift */,
+				1A4D0E010000000000000004 /* PIIndexerFixtures */,
 				B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */,
 				E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */,
 				238F0D5B23037BACDBCD12E1 /* SubstrateStoreMigrationTests.swift */,
@@ -7595,6 +7601,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				945A576525DE8541003E4023 /* runtimeTestMetadata in Resources */,
+				1A4D0E010000000000000003 /* PIIndexerFixtures in Resources */,
 				5E2855542A33498D0054BA92 /* validSingleAccountIOS.json in Resources */,
 				5E2855532A33498D0054BA92 /* validSingleAccountWeb.json in Resources */,
 			);
@@ -8860,6 +8867,7 @@
 				C20000010000000000000001 /* AddressQRCodecTests.swift in Sources */,
 				C3000007000000000000000A /* ProductSurfacePolicyTests.swift in Sources */,
 				C3000005000000000000000A /* PIMobileConfigFallbackTests.swift in Sources */,
+				1A4D0E010000000000000001 /* PIIndexerLiveContractTests.swift in Sources */,
 				57E01641FD61545FE1281BCE /* DexInfoServiceTests.swift in Sources */,
 				21A02DD6A1A781C91C176F50 /* AssetWhitelistTests.swift in Sources */,
 				1324FAF556DDEB75C48678C3 /* SubstrateStoreMigrationTests.swift in Sources */,
