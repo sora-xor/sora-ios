@@ -1400,21 +1400,48 @@ enum DurableFileWriter {
         return nil
     }
 
+    /// What a name that only this writer creates holds right now.
+    private enum LeftoverEntryState {
+        /// The name is not one of the writer's.
+        case notALeftoverName
+        /// A regular file: a helper file.
+        case helperFile
+        /// Nothing: the write that owned the name removed it a moment ago.
+        case gone
+        /// A link, a directory, or an entry that cannot be examined. The
+        /// writer creates regular files only, so this is not its own.
+        case foreign
+    }
+
+    private static func leftoverEntryState(at url: URL) -> LeftoverEntryState {
+        guard leftoverKind(ofEntryNamed: url.lastPathComponent) != nil else {
+            return .notALeftoverName
+        }
+        var status = stat()
+        var failure: Int32 = 0
+        let result = url.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else {
+                failure = EINVAL
+                return -1
+            }
+            let outcome = Darwin.lstat(path, &status)
+            if outcome != 0 {
+                failure = errno
+            }
+            return outcome
+        }
+        guard result == 0 else {
+            return failure == ENOENT ? .gone : .foreign
+        }
+        return (status.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG)
+            ? .helperFile
+            : .foreign
+    }
+
     /// True for a regular file (not a link, not a directory) whose name only
     /// this writer creates.
     static func isLeftoverFile(at url: URL) -> Bool {
-        guard leftoverKind(ofEntryNamed: url.lastPathComponent) != nil else {
-            return false
-        }
-        var status = stat()
-        let result = url.withUnsafeFileSystemRepresentation { path -> Int32 in
-            guard let path else {
-                return -1
-            }
-            return Darwin.lstat(path, &status)
-        }
-        return result == 0 &&
-            (status.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG)
+        leftoverEntryState(at: url) == .helperFile
     }
 
     struct LeftoverSweep: Equatable {
@@ -1555,6 +1582,11 @@ enum DurableFileWriter {
     /// remove them now (a write is in progress, or the removal failed),
     /// left out of the result. Every other entry is returned unchanged, so
     /// an unexpected name still fails the caller's check.
+    ///
+    /// A helper name that the listing saw and that is gone when it is
+    /// examined is left out too: a write of another file in this directory
+    /// finished in between and removed it. Only a link or a directory with
+    /// such a name is returned, for the caller's check to reject.
     static func contentsIgnoringLeftovers(
         of directoryURL: URL,
         fileManager: FileManager,
@@ -1575,7 +1607,14 @@ enum DurableFileWriter {
             at: directoryURL,
             includingPropertiesForKeys: keys,
             options: []
-        ).filter { !isLeftoverFile(at: $0) }
+        ).filter {
+            switch leftoverEntryState(at: $0) {
+            case .helperFile, .gone:
+                return false
+            case .notALeftoverName, .foreign:
+                return true
+            }
+        }
     }
 
     private static func entryNames(
