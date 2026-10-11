@@ -93,6 +93,7 @@ final class InputSendInfoViewModel {
     private var qrEncoder: WalletQREncoderProtocol
     private var sharingFactory: AccountShareFactoryProtocol
     private let marketCapService: MarketCapServiceProtocol
+    private var pricesObservation: PIPricesObservation?
     
     init(
         address: String,
@@ -157,12 +158,21 @@ final class InputSendInfoViewModel {
     func viewDidLoad() {
         asset = assetManager?.assetInfo(for: WalletAssetId.xor.rawValue)
         
+        loadFiat()
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Ask again when that read ends.
+        pricesObservation = PIPricesObservation { [weak self] in
+            self?.loadFiat()
+        }
+
+        assetsProvider?.add(observer: self)
+    }
+
+    private func loadFiat() {
         Task { [weak self] in
             guard let self else { return }
             self.fiatData = await self.fiatService?.getFiat() ?? []
         }
-
-        assetsProvider?.add(observer: self)
     }
     
     func setupBalanceDataProvider() {
