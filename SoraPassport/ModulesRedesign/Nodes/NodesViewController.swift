@@ -133,8 +133,7 @@ extension NodesViewController: NodesViewProtocol {
     private func setupNavbar() {
 
         let addButton = UIBarButtonItem(title: R.string.localizable.selectNodeAddNode(preferredLanguages: languages), style: .plain, target: self, action: #selector(editTapped))
-        addButton.setTitleTextAttributes([ .font: UIFont.systemFont(ofSize: 13, weight: .bold), .foregroundColor: UIColor(hex: "#EE2233")],
-                                          for: .normal)
+        // Styled by the bar appearance (`NeonChrome`): no red text on bars.
 
         self.navigationItem.rightBarButtonItem = addButton
 
