@@ -456,10 +456,18 @@ extension ChainRegistry: ConnectionPoolDelegate {
             guard let chain = self.chains.first(where: {
                 self.connectionPool.getConnection(for: $0.chainId)?.url == url
             }) else { return }
-            self.nodeFailover[chain.chainId]?.connected()
+            let wasUnavailablePresented = self.nodeFailover[chain.chainId]?.connected() ?? false
             SettingsManager.shared.lastSuccessfulUrl = url
             // Work that was waiting for a node (the asset list) can go on.
             StartupNetworkCoordinator.shared.nodeDidConnect()
+            if wasUnavailablePresented {
+                // The status said that no node could be reached. Only a change
+                // of the device's reachability took it down, so after a node
+                // outage or a captive network it stayed over a working wallet.
+                DispatchQueue.main.async { [weak self] in
+                    self?.networkStatusPresenter?.didDecideReachableStatusPresentation()
+                }
+            }
         }
     }
 
