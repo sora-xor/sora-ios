@@ -67,7 +67,8 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
     public override func styleDidChange(options: UpdateOptions) {
         super.styleDidChange(options: options)
 
-        if options.contains(.palette) {
+        // The chrome (fill, border, focus glow) depends on both.
+        if options.contains(.palette) || options.contains(.effects) {
             updateView()
         }
     }

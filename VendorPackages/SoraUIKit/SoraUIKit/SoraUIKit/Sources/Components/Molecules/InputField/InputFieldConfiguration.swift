@@ -124,12 +124,20 @@ public final class InputFieldConfiguration<Type: InputField>: SoramitsuViewConfi
 
         if options.contains(.palette) {
             updateView()
+        } else if options.contains(.effects) {
+            applyInputChrome()
         }
     }
 
     func updateView() {
         guard let owner else { return }
-        NeonInputStyle.apply(to: owner.stackView, state: state, isEnabled: isEnabled, cornerRadius: 16)
+        applyInputChrome()
         owner.descriptionLabel.sora.textColor = state.descriptionColor
+    }
+
+    /// Fill, border and focus glow (spec §7.5).
+    private func applyInputChrome() {
+        guard let owner else { return }
+        NeonInputStyle.apply(to: owner.stackView, state: state, isEnabled: isEnabled, cornerRadius: 16)
     }
 }

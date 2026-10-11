@@ -197,6 +197,10 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
             // `clipsToBounds`, clipping content a caller let overflow (for
             // example the Welcome logo) on every theme change.
             applyShadowStyle()
+        } else if options.contains(.effects) {
+            // Glass, hairline width and card shadows follow the effect policy.
+            updateSurface()
+            applyShadowStyle()
         }
     }
 
@@ -363,13 +367,19 @@ public class SoramitsuViewConfiguration<Type: Element & UIView>: SoramitsuConfig
         updateShadowPath()
     }
 
-    /// An explicit shadow path avoids an offscreen pass per frame. Only for
-    /// views with a fill: a clear view's shadow follows its content.
+    /// An explicit shadow path avoids an offscreen pass per frame (spec
+    /// §10.3). A view with a clear fill gets an empty path, so it casts no
+    /// shadow: a content-derived shadow would shadow its text and icons and
+    /// cost an offscreen pass every frame. The path is rebuilt when the fill
+    /// or the size changes.
     private func updateShadowPath() {
         guard let owner else { return }
-        guard shadow != .none, owner.layer.shadowOpacity > 0,
-              let fill = owner.backgroundColor, fill.cgColor.alpha > 0 else {
+        guard shadow != .none, owner.layer.shadowOpacity > 0 else {
             owner.layer.shadowPath = nil
+            return
+        }
+        guard let fill = owner.backgroundColor, fill.cgColor.alpha > 0 else {
+            owner.layer.shadowPath = CGMutablePath()
             return
         }
         let radius = owner.layer.cornerRadius
