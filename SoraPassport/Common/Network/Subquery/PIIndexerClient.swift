@@ -767,9 +767,57 @@ enum PIJSONValue: Codable, Equatable {
     }
 }
 
-struct PIGraphQLError: Decodable, Equatable {
+struct PIGraphQLError: Equatable {
     let message: String
     let path: [PIJSONValue]?
+    /// `extensions.code`, when PI sent one. It tells a query PI refused
+    /// (`BAD_USER_INPUT`) from a failure on PI's side
+    /// (`INTERNAL_SERVER_ERROR`); both arrive with HTTP 200.
+    var code: String? = nil
+
+    /// PI could not answer for a reason of its own: a database error, a
+    /// timeout, too much load. The same query may succeed a moment later.
+    var isServiceFailure: Bool {
+        guard let code = code?.uppercased() else {
+            return false
+        }
+        return [
+            "INTERNAL_SERVER_ERROR",
+            "SERVICE_UNAVAILABLE",
+            "UNAVAILABLE",
+            "TOO_MANY_REQUESTS",
+            "RATE_LIMITED",
+        ].contains(code) ||
+            code.contains("TIMEOUT") ||
+            code.contains("TIMED_OUT")
+    }
+}
+
+extension PIGraphQLError: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case message
+        case path
+        case extensions
+    }
+
+    private enum ExtensionKeys: String, CodingKey {
+        case code
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        message = try container.decode(String.self, forKey: .message)
+        path = try container.decodeIfPresent(
+            [PIJSONValue].self,
+            forKey: .path
+        )
+        // Only a string code is used; anything else in `extensions` is
+        // ignored and never makes the response undecodable.
+        code = (try? container.nestedContainer(
+            keyedBy: ExtensionKeys.self,
+            forKey: .extensions
+        )).flatMap { try? $0.decode(String.self, forKey: .code) }
+    }
 }
 
 enum PIIndexerError: LocalizedError {
@@ -778,6 +826,14 @@ enum PIIndexerError: LocalizedError {
     case responseTooLarge
     case httpStatus(Int)
     case graphQLErrors
+    /// PI answered that it failed on its own side (GraphQL errors whose
+    /// codes are all service failures). Unlike `graphQLErrors`, the query
+    /// was not refused.
+    case serviceFailure
+    /// The answer is not a JSON document, so it did not come from PI's
+    /// GraphQL service: the sign-in page of a Wi-Fi network, or a page of a
+    /// proxy or firewall in between.
+    case foreignResponse
     case missingData
     // Keep malformed server/user wire text out of Error reflection and generic
     // logging. Callers only need the privacy-safe protocol class.
@@ -809,6 +865,10 @@ enum PIIndexerError: LocalizedError {
             // them available only for in-memory protocol diagnosis and never
             // surface or log the raw server text.
             return "PI rejected the requested operation."
+        case .serviceFailure:
+            return "PI reported a failure on its side."
+        case .foreignResponse:
+            return "The answer did not come from PI."
         case .missingData:
             return "PI returned no data."
         case .invalidQuantity:
@@ -835,15 +895,48 @@ enum PIIndexerError: LocalizedError {
     }
 
     /// Failures after which the last good validated value may be shown
-    /// instead of nothing: PI is unreachable or overloaded, or it could not
-    /// give one consistent, fresh checkpoint even after the bounded retry.
-    /// Schema and decoding failures are never hidden by older data.
+    /// instead of nothing. They have one thing in common: PI gave no answer
+    /// to the query. It is unreachable or overloaded, it failed on its own
+    /// side, something between the phone and PI answered in its place, or
+    /// PI could not give one consistent, fresh checkpoint even after the
+    /// bounded retry.
+    ///
+    /// An answer from PI that the client cannot use (it does not decode,
+    /// fails validation, or refuses the query) is never hidden by older
+    /// data.
     var allowsOfflineFallback: Bool {
         switch self {
-        case .staleCheckpoint:
+        case .staleCheckpoint, .serviceFailure, .foreignResponse:
             return true
         case let .httpStatus(code):
-            return code == 408 || code == 429 || (500 ... 599).contains(code)
+            switch code {
+            case 200 ... 299:
+                // 200 never reaches here; any other success status is an
+                // answer the client does not know how to use.
+                return false
+            case 400, 422:
+                // PI's GraphQL endpoint refusing the request as it is
+                // formed (see `indicatesUnsupportedSchema`).
+                return false
+            default:
+                // A redirect (never followed), 401, 403, 404 and the like
+                // from a proxy, firewall or sign-in page, 408, 429 and
+                // every 5xx: no working PI answered.
+                return true
+            }
+        default:
+            return false
+        }
+    }
+
+    /// One request failed in a way that often does not repeat: PI or a
+    /// gateway in front of it failed for a moment.
+    var isWorthAnotherTry: Bool {
+        switch self {
+        case .serviceFailure:
+            return true
+        case let .httpStatus(code):
+            return [500, 502, 503, 504].contains(code)
         default:
             return false
         }
@@ -3249,16 +3342,32 @@ final class PIIndexerClient {
             checkpointMoved ? .staleCheckpoint : error
         }
 
+        // As in `collectPagesCore`: a page lost on the way is asked for
+        // again instead of ending the walk.
+        var transientRetries = TransientRetries()
         for currentPage in 1 ... page {
-            let read = try await historyRead(
-                address: address,
-                first: first,
-                after: cursor,
-                coverage: coverage,
-                walkStep: WalkStep(
-                    previousCheckpoint: expectedQualification?.health
-                )
-            )
+            var loaded: PIQualifiedRead<PIConnection<PIHistoryElement>>?
+            while loaded == nil {
+                do {
+                    loaded = try await historyRead(
+                        address: address,
+                        first: first,
+                        after: cursor,
+                        coverage: coverage,
+                        walkStep: WalkStep(
+                            previousCheckpoint: expectedQualification?.health
+                        )
+                    )
+                } catch let error where transientRetries.shouldRetry(
+                    after: error,
+                    afterProgress: currentPage > 1
+                ) {
+                    try await retryPause(transientRetries.pause)
+                }
+            }
+            guard let read = loaded else {
+                throw PIIndexerError.invalidResponse
+            }
             guard let qualification = read.qualification else {
                 throw PIIndexerError.missingChainIdentityCapability
             }
@@ -4043,6 +4152,7 @@ final class PIIndexerClient {
                 ? 0
                 : Self.maximumStaleCheckpointRetries
         var staleCheckpointRetries = 0
+        var transientRetries = TransientRetries()
         while true {
             do {
                 return try await liveQualifiedRead(
@@ -4065,6 +4175,16 @@ final class PIIndexerClient {
                     Self.staleCheckpointRetryDelay *
                         Double(staleCheckpointRetries)
                 )
+            } catch let error where
+                maximumRetries > 0 && transientRetries.shouldRetry(
+                    after: error,
+                    afterProgress: false
+                )
+            {
+                // The request, or one of its two health reads, was lost on
+                // the way or failed on PI's side for a moment. The same
+                // level that retries a stale checkpoint tries once more.
+                try await retryPause(transientRetries.pause)
             } catch let liveError as PIIndexerError {
                 guard
                     liveError.allowsOfflineFallback,
@@ -4238,7 +4358,9 @@ final class PIIndexerClient {
             throw PIIndexerError.httpStatus(http.statusCode)
         }
         guard http.mimeType?.lowercased() == "application/json" else {
-            throw PIIndexerError.invalidResponse
+            // PI's GraphQL service answers in JSON only. Anything else with
+            // status 200 is the page of a Wi-Fi sign-in, proxy or firewall.
+            throw PIIndexerError.foreignResponse
         }
         if let contentEncoding = http.value(
             forHTTPHeaderField: "Content-Encoding"
@@ -4305,9 +4427,19 @@ final class PIIndexerClient {
         return PIReadQualification(health: health, source: .cache)
     }
 
+    /// Transport failures: no answer from PI arrived at all. The last good
+    /// validated value may be shown in its place, marked with its time.
+    ///
+    /// That includes a TLS failure. On a network that intercepts TLS (a
+    /// Wi-Fi sign-in page, a filtering proxy) nothing is read from the
+    /// other side, and showing what PI itself said earlier gives that
+    /// network nothing it could not get by dropping the connection.
+    /// A cancelled request and a request that could not be formed are not
+    /// transport failures.
     static func allowsOfflineTransportFallback(_ error: URLError) -> Bool {
         switch error.code {
         case
+            // No route, no connection, or the connection broke.
             .timedOut,
             .cannotFindHost,
             .cannotConnectToHost,
@@ -4317,10 +4449,96 @@ final class PIIndexerClient {
             .resourceUnavailable,
             .internationalRoamingOff,
             .callIsActive,
-            .dataNotAllowed:
+            .dataNotAllowed,
+            .cannotLoadFromNetwork,
+            // TLS could not be established with PI.
+            .secureConnectionFailed,
+            .serverCertificateUntrusted,
+            .serverCertificateHasBadDate,
+            .serverCertificateNotYetValid,
+            .serverCertificateHasUnknownRoot,
+            .clientCertificateRejected,
+            .clientCertificateRequired,
+            // The network wants a sign-in before it lets anything through.
+            .userAuthenticationRequired,
+            // What arrived is not an HTTP response the system can read.
+            .badServerResponse,
+            .cannotParseResponse,
+            .cannotDecodeContentData,
+            .cannotDecodeRawData,
+            .zeroByteResource,
+            .httpTooManyRedirects,
+            .redirectToNonExistentLocation:
             return true
         default:
             return false
+        }
+    }
+
+    /// One request failed in a way that often does not repeat: the
+    /// connection dropped or stalled, PI or a gateway failed for a moment.
+    /// With no network at all there is nothing to try again; the catalog
+    /// store and the screens have their own schedule for that.
+    static func isWorthAnotherTry(_ error: Error) -> Bool {
+        if let error = error as? PIIndexerError {
+            return error.isWorthAnotherTry
+        }
+        guard let error = error as? URLError else {
+            return false
+        }
+        switch error.code {
+        case
+            .timedOut,
+            .networkConnectionLost,
+            .secureConnectionFailed,
+            .badServerResponse,
+            .cannotParseResponse:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// How many more tries one logical read (a single request with its
+    /// health reads, or a whole multi-page read) gets for failures that are
+    /// worth another try.
+    static let maximumTransientRetries = 2
+    static let transientRetryDelay: TimeInterval = 0.5
+
+    /// Counts the tries of one logical read and waits before the next one.
+    /// Returns `false` when the error is not worth another try or the read
+    /// has had its share.
+    private struct TransientRetries {
+        private var used = 0
+
+        /// - Parameter afterProgress: PI answered earlier in this same
+        ///   read. A timeout is tried again only then, and only once: it
+        ///   has already cost the whole request timeout (20 to 30 s), and
+        ///   with nothing read yet it usually means there is no connection,
+        ///   where waiting twice would only delay the saved copy.
+        mutating func shouldRetry(
+            after error: Error,
+            afterProgress: Bool
+        ) -> Bool {
+            guard
+                used < PIIndexerClient.maximumTransientRetries,
+                PIIndexerClient.isWorthAnotherTry(error)
+            else {
+                return false
+            }
+            if (error as? URLError)?.code == .timedOut {
+                guard afterProgress else {
+                    return false
+                }
+                used = PIIndexerClient.maximumTransientRetries
+            } else {
+                used += 1
+            }
+            return true
+        }
+
+        var pause: TimeInterval {
+            PIIndexerClient.transientRetryDelay * Double(max(1, used))
         }
     }
 
@@ -4350,7 +4568,12 @@ final class PIIndexerClient {
         if let errors = envelope.errors, !errors.isEmpty {
             // Do not retain the raw GraphQL text in the thrown error: debug
             // descriptions are frequently logged by generic infrastructure.
-            throw PIIndexerError.graphQLErrors
+            // PI reports a failure of its own (a database error, a timeout)
+            // the same way as a query it refuses: HTTP 200 with `errors`.
+            // Only when every error says "service failure" is it one.
+            throw errors.allSatisfy(\.isServiceFailure)
+                ? PIIndexerError.serviceFailure
+                : PIIndexerError.graphQLErrors
         }
         guard let payload = envelope.data else {
             throw PIIndexerError.missingData
@@ -4439,6 +4662,7 @@ final class PIIndexerClient {
             maximumPages: maximumPages,
             requireQualification: true,
             itemIdentity: itemIdentity,
+            retriesLostPages: true,
             loader: loader
         )
     }
@@ -4468,6 +4692,7 @@ final class PIIndexerClient {
         maximumPages: Int,
         requireQualification: Bool,
         itemIdentity: ((Node) -> String)? = nil,
+        retriesLostPages: Bool = false,
         loader: @escaping (String?, PIHealth?) async throws ->
             PIQualifiedRead<PIConnection<Node>>
     ) async throws -> PIQualifiedRead<[Node]> {
@@ -4475,6 +4700,12 @@ final class PIIndexerClient {
             throw PIIndexerError.paginationLimit
         }
         try validate(pageSize: pageSize)
+        // A walk is up to 201 requests in a row. One of them lost on the
+        // way must not throw away every page already read: that page alone
+        // is asked for again, a bounded number of times per walk. The
+        // checkpoint rules apply to the page that then arrives like to any
+        // other. Only for pages that do not retry on their own.
+        var transientRetries = TransientRetries()
 
         var result: [Node] = []
         var cursor: String?
@@ -4498,7 +4729,23 @@ final class PIIndexerClient {
                 expectedQualification?.source == .live
                     ? expectedQualification?.health
                     : nil
-            let read = try await loader(cursor, previousLiveHealth)
+            var loaded: PIQualifiedRead<PIConnection<Node>>?
+            while loaded == nil {
+                do {
+                    loaded = try await loader(cursor, previousLiveHealth)
+                } catch let error where
+                    retriesLostPages &&
+                    transientRetries.shouldRetry(
+                        after: error,
+                        afterProgress: !result.isEmpty
+                    )
+                {
+                    try await retryPause(transientRetries.pause)
+                }
+            }
+            guard let read = loaded else {
+                throw PIIndexerError.invalidResponse
+            }
             if read.checkpointAdvanced {
                 // PI moved while this very page was being read, so the
                 // page can already differ from the ones before it.
