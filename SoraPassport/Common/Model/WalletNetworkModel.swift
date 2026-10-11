@@ -4701,6 +4701,74 @@ final class WalletNetworkStore {
         return activated
     }
 
+    /// Records wallets that the active snapshot still lists but the wallet
+    /// database no longer has.
+    ///
+    /// App Store 3.8.6 knows nothing about this snapshot: when it runs over
+    /// this data again (a TestFlight build expired, or any downgrade) and the
+    /// user removes an account there, only the database row goes. That was a
+    /// removal the user confirmed, in a version that had no way to record it
+    /// here. The snapshot follows the database, as it does after a removal in
+    /// this version. Nothing else changes: the remaining wallets keep their
+    /// identities, sources and children byte for byte, the Keychain is not
+    /// read or written, and the previous snapshot file stays among the
+    /// retained ones.
+    ///
+    /// - Parameter walletIds: wallets to drop; each must be in the active
+    ///   snapshot.
+    /// - Parameter remainingWalletIds: every other wallet of the active
+    ///   snapshot, as the caller's database inventory names them.
+    @discardableResult
+    func recordRemovalOutsideThisVersion(
+        walletIds: Set<String>,
+        remainingWalletIds: Set<String>
+    ) throws -> WalletNetworkSnapshot {
+        try recoveryGate
+            .requireAuthorizedLifecycleContinuation()
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+
+        guard let current = try loadUnlocked() else {
+            throw WalletNetworkMigrationError.missingSnapshot
+        }
+        let currentWalletIds = Set(current.wallets.map(\.id))
+        guard
+            !walletIds.isEmpty,
+            walletIds.isDisjoint(with: remainingWalletIds),
+            currentWalletIds == walletIds.union(remainingWalletIds)
+        else {
+            throw WalletNetworkMigrationError
+                .explicitRemovalInventoryMismatch
+        }
+        let remainingWallets = current.wallets.filter {
+            !walletIds.contains($0.id)
+        }
+        let nextSelectedWalletId: String?
+        if let selected = current.selectedWalletId,
+           !walletIds.contains(selected) {
+            nextSelectedWalletId = selected
+        } else {
+            nextSelectedWalletId = remainingWallets.first?.id
+        }
+        let next = WalletNetworkSnapshot(
+            schemaVersion: current.schemaVersion,
+            selectedWalletId: nextSelectedWalletId,
+            wallets: remainingWallets,
+            accounts: current.accounts.filter {
+                !walletIds.contains($0.walletId)
+            },
+            createdAt: Date()
+        )
+        try stageAndActivateUnlocked(next)
+        guard
+            let activated = try loadUnlocked(),
+            try snapshotsMatch(activated, next)
+        else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        return activated
+    }
+
     private func stageAndActivateUnlocked(_ snapshot: WalletNetworkSnapshot) throws {
         // Validate the complete private namespace before writing anything.
         // Existing orphaned or unexpected evidence must never be overwritten
@@ -5849,12 +5917,13 @@ final class WalletNetworkModelMigrator {
     private func migrateLocked(
         accounts: [AccountItem],
         selectedAddress: String?,
-        current: WalletNetworkSnapshot?,
+        current storedSnapshot: WalletNetworkSnapshot?,
         activate: Bool
     ) throws -> WalletNetworkSnapshot {
-        if let current {
+        var current = storedSnapshot
+        if let stored = storedSnapshot {
             guard
-                current.schemaVersion ==
+                stored.schemaVersion ==
                     WalletNetworkSnapshot.currentSchemaVersion
             else {
                 // A store written by an unknown/newer migration cannot be
@@ -5862,7 +5931,34 @@ final class WalletNetworkModelMigrator {
                 // inputs.
                 throw WalletNetworkMigrationError.snapshotVerificationFailed
             }
-            try verifyExistingSnapshot(current, against: accounts)
+            let removedWalletIds = try verifyExistingSnapshot(
+                stored,
+                against: accounts
+            )
+            if !removedWalletIds.isEmpty {
+                // The database no longer has these accounts (removed in App
+                // Store 3.8.6 after this version ran). One removed account
+                // must not lock the others: record the removal and continue
+                // with the wallets that remain.
+                if activate {
+                    current = try store.recordRemovalOutsideThisVersion(
+                        walletIds: removedWalletIds,
+                        remainingWalletIds: Set(stored.wallets.map(\.id))
+                            .subtracting(removedWalletIds)
+                    )
+                    Logger.shared.info(
+                        "Wallet network model: \(removedWalletIds.count) account(s) removed outside this version recorded as removed"
+                    )
+                } else {
+                    // Verification only: compare against the snapshot as it
+                    // will be once the removal is recorded. Nothing is
+                    // written here.
+                    current = Self.snapshot(
+                        stored,
+                        withoutWallets: removedWalletIds
+                    )
+                }
+            }
         }
 
         let accountAddresses = Set(accounts.map(\.address))
@@ -6207,10 +6303,20 @@ final class WalletNetworkModelMigrator {
         }
     }
 
+    /// Checks the active snapshot against the database inventory.
+    ///
+    /// - A wallet in both must have the same address and public key;
+    ///   otherwise `legacyIdentityMismatch`.
+    /// - A wallet in the snapshot whose row is gone is returned. This version
+    ///   always records a removal in the snapshot before it deletes the row,
+    ///   so such a wallet was removed by a version that does not know the
+    ///   snapshot (App Store 3.8.6). The caller records it as removed. Its
+    ///   Keychain items are not touched by either version's check.
+    /// - Returns: the ids of snapshot wallets that have no database row.
     private func verifyExistingSnapshot(
         _ snapshot: WalletNetworkSnapshot,
         against accounts: [AccountItem]
-    ) throws {
+    ) throws -> Set<String> {
         let currentByAddress = Dictionary(
             grouping: accounts,
             by: \.address
@@ -6227,17 +6333,44 @@ final class WalletNetworkModelMigrator {
         else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
+        var removedWalletIds = Set<String>()
         for legacy in storedSoraAccounts.values.compactMap(\.first) {
+            guard let current = currentByAddress[legacy.walletId]?.first else {
+                removedWalletIds.insert(legacy.walletId)
+                continue
+            }
             guard
-                let current = currentByAddress[legacy.walletId]?.first,
                 current.address == legacy.address,
                 current.publicKeyData == legacy.publicKey
             else {
-                // A previously inventoried account disappearing is never
-                // silently accepted as an upgrade-side deletion.
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(legacy.address)
             }
         }
+        // A wallet without a SORA2 account does not pass snapshot validation,
+        // but the removal must never leave such a wallet behind either.
+        for wallet in snapshot.wallets where currentByAddress[wallet.id] == nil {
+            removedWalletIds.insert(wallet.id)
+        }
+        return removedWalletIds
+    }
+
+    private static func snapshot(
+        _ snapshot: WalletNetworkSnapshot,
+        withoutWallets walletIds: Set<String>
+    ) -> WalletNetworkSnapshot {
+        let wallets = snapshot.wallets.filter { !walletIds.contains($0.id) }
+        let selected = snapshot.selectedWalletId.flatMap {
+            walletIds.contains($0) ? nil : $0
+        } ?? wallets.first?.id
+        return WalletNetworkSnapshot(
+            schemaVersion: snapshot.schemaVersion,
+            selectedWalletId: selected,
+            wallets: wallets,
+            accounts: snapshot.accounts.filter {
+                !walletIds.contains($0.walletId)
+            },
+            createdAt: snapshot.createdAt
+        )
     }
 
     private func verifyExistingNexusChildren(
