@@ -18,8 +18,12 @@ public struct FxPolicy {
     public static var reduceEffects: Bool {
         get { UserDefaults.standard.bool(forKey: reduceEffectsKey) }
         set {
+            // The centre takes its baseline when it is created, so it has to
+            // exist before the value changes. Created by this very write, it
+            // compared the new policy with itself and posted nothing.
+            let center = NeonFxCenter.shared
             UserDefaults.standard.set(newValue, forKey: reduceEffectsKey)
-            NeonFxCenter.shared.post()
+            center.post()
         }
     }
 
