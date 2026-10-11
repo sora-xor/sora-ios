@@ -463,21 +463,27 @@ enum WalletInterruptedWriteCleanup {
 
 /// `Application Support/SORA/PendingTransactions`: the journals that record
 /// transactions which were signed and may still be confirming. Every SORA2
-/// send first writes its record there, so a folder that cannot be read means
-/// no send can start.
+/// send, every Nexus transfer and every Polkamarkt action first writes its
+/// record there, so a folder or a journal that cannot be read means that
+/// kind of transaction can never start.
 ///
 /// The helper files of an interrupted write are swept and never count. When
-/// the folder still cannot be read (an entry this version does not know, a
-/// journal that does not decode), startup shows the recovery screen, and
-/// that screen offers to set the records aside. They are moved, never
-/// deleted; accounts, keys and the wallet database are not touched.
+/// the folder still cannot be read (an entry this version does not know, or
+/// one of the three journals does not pass the read its own store begins
+/// with), startup shows the recovery screen, and that screen offers to set
+/// the records aside. They are moved, never deleted; accounts, keys and the
+/// wallet database are not touched.
 enum PendingTransactionRecords {
     static let directoryName = "PendingTransactions"
 
-    private static func directoryURL(baseURL: URL?, fileManager: FileManager) throws -> URL {
-        let base = try baseURL ?? fileManager.url(
+    private static func applicationSupportURL(baseURL: URL?, fileManager: FileManager) throws -> URL {
+        try baseURL ?? fileManager.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-        return base.appendingPathComponent("SORA", isDirectory: true)
+    }
+
+    private static func directoryURL(baseURL: URL?, fileManager: FileManager) throws -> URL {
+        try applicationSupportURL(baseURL: baseURL, fileManager: fileManager)
+            .appendingPathComponent("SORA", isDirectory: true)
             .appendingPathComponent(directoryName, isDirectory: true)
     }
 
@@ -489,13 +495,23 @@ enum PendingTransactionRecords {
         }
     }
 
-    /// Throws when a send would be refused because of the folder itself.
-    /// A missing folder is a wallet that never sent anything: readable.
+    /// Throws when a transaction would be refused because of the folder
+    /// itself or because of one of its journals: the SORA2 journal (every
+    /// send, swap and liquidity action), the Nexus journal and the
+    /// Polkamarkt journal. Each journal goes through the read its own store
+    /// begins every action with, so this fails exactly when that store
+    /// would. A missing folder is a wallet that never sent anything:
+    /// readable. Nothing is written.
     static func requireReadable(baseURL: URL? = nil, fileManager: FileManager = .default) throws {
+        let support = try applicationSupportURL(baseURL: baseURL, fileManager: fileManager)
         let directory = try directoryURL(baseURL: baseURL, fileManager: fileManager)
         guard exists(directory) else { return }
         try PendingTransactionJournalNamespace.validate(directoryURL: directory, fileManager: fileManager)
-        _ = try Sora2PendingSubmissionStore(fileManager: fileManager, baseURL: baseURL).all()
+        _ = try Sora2PendingSubmissionStore(fileManager: fileManager, baseURL: support).all()
+        try NexusPendingTransactionStore.requireReadableJournal(
+            applicationSupportURL: support, fileManager: fileManager)
+        try PolkamarktPendingStore.requireReadableJournal(
+            applicationSupportURL: support, fileManager: fileManager)
     }
 
     static func isReadable(baseURL: URL? = nil, fileManager: FileManager = .default) -> Bool {
