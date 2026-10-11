@@ -73,10 +73,11 @@ final class ThemeManager {
 			self?.refreshSystemTheme()
 		})
 		// Glass, glow and shadow choices depend on accessibility and power
-		// settings: re-resolve every surface when they change.
+		// settings. Only an effects update is sent: colours and text are
+		// unchanged, so labels are not rebuilt. `NeonFxCenter` posts only
+		// when the resulting policy actually changes.
 		observers.append(center.addObserver(forName: .neonFxChanged, object: nil, queue: .main) { [weak self] _ in
-			guard let self else { return }
-			self.style.apply(self.theme.palette)
+			self?.style.applyEffects()
 		})
 		_ = NeonFxCenter.shared
 	}

@@ -50,11 +50,30 @@ public extension Notification.Name {
 }
 
 /// Turns the system accessibility and power notifications into one
-/// `.neonFxChanged` notification on the main queue.
+/// `.neonFxChanged` notification on the main queue, posted only when the
+/// resulting policy changes (a thermal change from nominal to fair, for
+/// example, restyles nothing).
 public final class NeonFxCenter {
     public static let shared = NeonFxCenter()
 
+    /// The inputs that change how surfaces are drawn.
+    struct Snapshot: Equatable {
+        let tier: FxTier
+        let reduceMotion: Bool
+        let highContrast: Bool
+        let boldText: Bool
+
+        static var current: Snapshot {
+            let fx = FxPolicy.current
+            return Snapshot(tier: fx.tier, reduceMotion: fx.reduceMotion, highContrast: fx.highContrast,
+                            boldText: UIAccessibility.isBoldTextEnabled)
+        }
+    }
+
     private var observers: [NSObjectProtocol] = []
+    /// Main queue only.
+    private var last: Snapshot?
+    private var isPostScheduled = false
 
     private init() {
         let names: [Notification.Name] = [
@@ -65,6 +84,7 @@ public final class NeonFxCenter {
             .NSProcessInfoPowerStateDidChange,
             ProcessInfo.thermalStateDidChangeNotification
         ]
+        last = Snapshot.current
         observers = names.map { name in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
                 self?.post()
@@ -75,8 +95,24 @@ public final class NeonFxCenter {
     /// Starts listening. Safe to call more than once.
     public func start() {}
 
+    /// Coalesces bursts (several system notifications for one change) into
+    /// one check on the next main-queue turn.
     func post() {
-        let send = { NotificationCenter.default.post(name: .neonFxChanged, object: nil) }
-        Thread.isMainThread ? send() : DispatchQueue.main.async(execute: send)
+        let schedule = { [weak self] in
+            guard let self, !self.isPostScheduled else { return }
+            self.isPostScheduled = true
+            DispatchQueue.main.async { [weak self] in
+                self?.postIfChanged()
+            }
+        }
+        Thread.isMainThread ? schedule() : DispatchQueue.main.async(execute: schedule)
+    }
+
+    private func postIfChanged() {
+        isPostScheduled = false
+        let current = Snapshot.current
+        guard current != last else { return }
+        last = current
+        NotificationCenter.default.post(name: .neonFxChanged, object: nil)
     }
 }
