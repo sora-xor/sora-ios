@@ -3506,3 +3506,394 @@ extension PIIndexerAdvancingReadTests {
         )
     }
 }
+
+// MARK: - Review round 3: the Explore pool list is scanned once
+
+/// A node that answers `state_getStorage` for pool reserves and counts the
+/// requests.
+private final class ReserveNode: JSONRPCEngine {
+    var url: URL? = URL(string: "wss://node.invalid")
+    var pendingEngineRequests: [JSONRPCRequest] { [] }
+
+    private let lock = NSLock()
+    private var requestId: UInt16 = 0
+    private var count = 0
+    private var ready = true
+
+    /// `false`: the node does not answer (not connected yet).
+    var isReady: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return ready
+        }
+        set {
+            lock.lock()
+            ready = newValue
+            lock.unlock()
+        }
+    }
+
+    var storageReads: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    /// 10 tokens of 18 decimals as `PoolXYK.Reserves`: two little-endian
+    /// `u128`, the reserves and the fees.
+    static let tenTokens: String = {
+        var value = UInt64(10_000_000_000_000_000_000).littleEndian
+        let reserves = withUnsafeBytes(of: &value) { Data($0) } +
+            Data(repeating: 0, count: 8)
+        let fees = Data(repeating: 0, count: 16)
+        return "0x" + (reserves + fees)
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }()
+
+    func callMethod<P: Codable, T: Decodable>(
+        _ method: String,
+        params _: P?,
+        options _: JSONRPCOptions,
+        completion closure: ((Result<T, Swift.Error>) -> Void)?
+    ) throws -> UInt16 {
+        lock.lock()
+        if method == "state_getStorage" {
+            count += 1
+        }
+        requestId += 1
+        let id = requestId
+        let answers = ready
+        lock.unlock()
+
+        DispatchQueue.global().async {
+            guard
+                answers,
+                let data = try? JSONSerialization.data(
+                    withJSONObject: Self.tenTokens,
+                    options: [.fragmentsAllowed]
+                ),
+                let value = try? JSONDecoder().decode(T.self, from: data)
+            else {
+                closure?(.failure(NSError(domain: "ReserveNode", code: 1)))
+                return
+            }
+            closure?(.success(value))
+        }
+        return id
+    }
+
+    func subscribe<P: Codable, T: Decodable>(
+        _: String,
+        params _: P?,
+        updateClosure _: @escaping (T) -> Void,
+        failureClosure _: @escaping (Swift.Error, Bool) -> Void
+    ) throws -> UInt16 {
+        throw NSError(domain: "ReserveNode", code: 2)
+    }
+
+    func cancelForIdentifier(_: UInt16) {}
+    func generateRequestId() -> UInt16 { 0 }
+    func addSubscription(_: JSONRPCSubscribing) {}
+    func reconnect(url _: URL) {}
+    func connectIfNeeded() {}
+    func disconnectIfNeeded() {}
+    func unsubsribe(_: UInt16) throws {}
+}
+
+final class ExplorePoolScanTests: XCTestCase {
+    private let pswap =
+        "0x0200050000000000000000000000000000000000000000000000000000000000"
+    private let xstusd =
+        "0x0200080000000000000000000000000000000000000000000000000000000000"
+
+    private func asset(_ id: String, _ symbol: String) -> AssetInfo {
+        AssetInfo(id: id, symbol: symbol, chainId: "", precision: 18, icon: nil, displayName: symbol, visible: true)
+    }
+
+    /// XOR and XSTUSD are the base assets; VAL and PSWAP make two pools
+    /// with each: four pairs, four storage reads per scan.
+    private func assets() -> [AssetInfo] {
+        [
+            asset(priceTestXor, "XOR"),
+            asset(priceTestVal, "VAL"),
+            asset(pswap, "PSWAP"),
+            asset(xstusd, "XSTUSD"),
+        ]
+    }
+
+    private let pairs = 4
+
+    private func service(
+        _ node: ReserveNode
+    ) -> (ExplorePoolsService, PolkaswapNetworkOperationFactory) {
+        // The service holds the factory weakly, as in the app.
+        let factory = PolkaswapNetworkOperationFactory(engine: node)
+        let service = ExplorePoolsService(
+            assetInfos: assets(),
+            fiatService: nil,
+            polkaswapOperationFactory: factory,
+            networkFacade: nil
+        )
+        return (service, factory)
+    }
+
+    private func wait(
+        _ what: String,
+        until condition: @escaping () -> Bool
+    ) async {
+        for _ in 0 ..< 500 where !condition() {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(condition(), what)
+    }
+
+    /// The reserves are read from the node once. Valuing the list again,
+    /// with or without prices, reads nothing.
+    func testReservesAreScannedOnceWhateverThePrices() async throws {
+        let node = ReserveNode()
+        let (service, factory) = service(node)
+
+        let withoutPrices = try await service.getPools(with: [])
+        XCTAssertEqual(withoutPrices.count, pairs)
+        XCTAssertTrue(withoutPrices.allSatisfy { !$0.tvlIsKnown })
+        XCTAssertEqual(node.storageReads, pairs)
+
+        // Still no prices: the list is kept all the same.
+        let again = try await service.getPools(with: [])
+        XCTAssertEqual(again.map(\.id), withoutPrices.map(\.id))
+        XCTAssertEqual(node.storageReads, pairs)
+
+        // Prices arrive: the same reserves are valued, nothing is read.
+        let prices = [
+            PIExactFiatData(id: priceTestXor, priceUsd: try PIQuantity("2")),
+            PIExactFiatData(id: xstusd, priceUsd: try PIQuantity("1")),
+        ]
+        let valued = try await service.getPools(with: prices)
+        XCTAssertEqual(node.storageReads, pairs)
+        XCTAssertEqual(valued.count, pairs)
+        XCTAssertTrue(valued.allSatisfy(\.tvlIsKnown))
+        // 10 tokens of the base asset on each side: 2 x 10 x price.
+        XCTAssertEqual(
+            valued.map(\.tvl),
+            [40, 40, 20, 20].map { Decimal($0) }
+        )
+        XCTAssertEqual(
+            valued.map(\.baseAssetId),
+            [priceTestXor, priceTestXor, xstusd, xstusd]
+        )
+        // Pools of equal value stay in the order of the scan.
+        XCTAssertEqual(
+            valued.map(\.targetAssetId),
+            [priceTestVal, pswap, priceTestVal, pswap]
+        )
+
+        // Prices are lost again: values are unknown, the list stays.
+        let lost = try await service.getPools(with: [])
+        XCTAssertEqual(lost.count, pairs)
+        XCTAssertTrue(lost.allSatisfy { !$0.tvlIsKnown })
+        XCTAssertEqual(node.storageReads, pairs)
+        withExtendedLifetime(factory) {}
+    }
+
+    /// Callers that arrive while the scan runs join it.
+    func testConcurrentCallersShareOneScan() async throws {
+        let node = ReserveNode()
+        let (service, factory) = service(node)
+
+        let results = await withTaskGroup(
+            of: Int.self
+        ) { group -> [Int] in
+            for _ in 0 ..< 8 {
+                group.addTask {
+                    ((try? await service.getPools(with: [])) ?? []).count
+                }
+            }
+            var all: [Int] = []
+            for await count in group {
+                all.append(count)
+            }
+            return all
+        }
+
+        XCTAssertEqual(results, Array(repeating: pairs, count: 8))
+        XCTAssertEqual(node.storageReads, pairs)
+        withExtendedLifetime(factory) {}
+    }
+
+    /// A scan the node did not answer is not kept: the next call scans
+    /// again, and that list is kept.
+    func testAScanThatFoundNothingIsNotKept() async throws {
+        let node = ReserveNode()
+        node.isReady = false
+        let (service, factory) = service(node)
+
+        let nothing = try await service.getPools(with: [])
+        XCTAssertTrue(nothing.isEmpty)
+        XCTAssertEqual(node.storageReads, pairs)
+
+        node.isReady = true
+        let found = try await service.getPools(with: [])
+        XCTAssertEqual(found.count, pairs)
+        XCTAssertEqual(node.storageReads, 2 * pairs)
+
+        _ = try await service.getPools(with: [])
+        XCTAssertEqual(node.storageReads, 2 * pairs)
+        withExtendedLifetime(factory) {}
+    }
+
+    /// The reviewer's case through the screen's own service: PI gives no
+    /// prices, and "prices changed" is announced again and again (each
+    /// failed read and each return to the foreground does). The node is
+    /// read once, and the list on screen never goes back to placeholders.
+    func testPriceNotificationsWithoutPricesDoNotScanTheNodeAgain()
+        async throws
+    {
+        let node = ReserveNode()
+        let (pools, factory) = service(node)
+        let manager = PriceTestAssetManager(assets: assets())
+        let service = ExplorePoolsViewModelService(
+            itemFactory: ExploreItemFactory(assetManager: manager),
+            poolsService: pools,
+            apyService: PriceTestAPY(),
+            fiatService: FiatService(assets: {
+                throw PIIndexerError.httpStatus(503)
+            }),
+            pause: { _ in
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+        )
+        let shown = ShownPoolLists()
+        let subscription = service.$viewModels.sink { shown.append($0) }
+
+        service.setup()
+        await wait("the pool list") {
+            shown.last.count == self.pairs &&
+                shown.last.allSatisfy { $0.apy != nil }
+        }
+        XCTAssertEqual(node.storageReads, pairs)
+        XCTAssertTrue(shown.last.allSatisfy { $0.tvl == "" })
+        let listsBefore = shown.count
+
+        for _ in 0 ..< 2 {
+            NotificationCenter.default.post(
+                name: PICatalogs.pricesDidChange,
+                object: nil
+            )
+            // The observer runs on the main queue; let the round it
+            // starts end.
+            try await Task.sleep(nanoseconds: 300_000_000)
+        }
+
+        XCTAssertEqual(node.storageReads, pairs)
+        // Whatever was put on screen after the first full list was a full
+        // list again: no row went back to its loading placeholder.
+        for list in shown.all.dropFirst(listsBefore) {
+            XCTAssertEqual(list.count, pairs)
+            XCTAssertTrue(list.allSatisfy { $0.apy != nil })
+        }
+        subscription.cancel()
+        withExtendedLifetime(factory) {}
+    }
+
+    /// Prices that arrive later value the list that is on screen, without
+    /// another scan.
+    func testPricesThatArriveLaterValueTheListOnScreen() async throws {
+        let node = ReserveNode()
+        let (pools, factory) = service(node)
+        let manager = PriceTestAssetManager(assets: assets())
+        let prices = SwitchablePrices()
+        let service = ExplorePoolsViewModelService(
+            itemFactory: ExploreItemFactory(assetManager: manager),
+            poolsService: pools,
+            apyService: PriceTestAPY(),
+            fiatService: FiatService(assets: { try prices.assets() }),
+            pause: { _ in
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+        )
+        let shown = ShownPoolLists()
+        let subscription = service.$viewModels.sink { shown.append($0) }
+
+        service.setup()
+        await wait("the pool list") {
+            shown.last.count == self.pairs &&
+                shown.last.allSatisfy { $0.apy != nil }
+        }
+        XCTAssertTrue(shown.last.allSatisfy { $0.tvl == "" })
+
+        prices.set([
+            PIAsset(
+                id: priceTestXor,
+                priceUSD: try PIQuantity("2"),
+                liquidity: nil,
+                priceChangeDay: nil
+            ),
+        ])
+        NotificationCenter.default.post(
+            name: PICatalogs.pricesDidChange,
+            object: nil
+        )
+        await wait("the values") {
+            shown.last.contains { $0.tvl == "$" + Decimal(40).formatNumber() }
+        }
+
+        XCTAssertEqual(node.storageReads, pairs)
+        // The XOR pools have a value and come first; the XSTUSD pools,
+        // whose base asset has no price, show none.
+        XCTAssertEqual(
+            shown.last.map(\.tvl),
+            [
+                "$" + Decimal(40).formatNumber(),
+                "$" + Decimal(40).formatNumber(),
+                "",
+                "",
+            ]
+        )
+        subscription.cancel()
+        withExtendedLifetime(factory) {}
+    }
+}
+
+/// Every pool list a screen was given, in order.
+private final class ShownPoolLists {
+    private let lock = NSLock()
+    private var lists: [[ExplorePoolViewModel]] = []
+
+    func append(_ list: [ExplorePoolViewModel]) {
+        lock.lock()
+        lists.append(list)
+        lock.unlock()
+    }
+
+    var all: [[ExplorePoolViewModel]] {
+        lock.lock()
+        defer { lock.unlock() }
+        return lists
+    }
+
+    var count: Int { all.count }
+    var last: [ExplorePoolViewModel] { all.last ?? [] }
+}
+
+/// A price source the test changes.
+private final class SwitchablePrices {
+    private let lock = NSLock()
+    private var current: [PIAsset]?
+
+    func set(_ assets: [PIAsset]) {
+        lock.lock()
+        current = assets
+        lock.unlock()
+    }
+
+    func assets() throws -> [PIAsset] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let current else {
+            throw PIIndexerError.httpStatus(503)
+        }
+        return current
+    }
+}

@@ -45,8 +45,46 @@ final class ExplorePoolsViewModelService {
         return shimmersAssetItems
     }()
     
+    /// What the price notifications and the loading rounds tell each other.
+    private final class Progress {
+        private let lock = NSLock()
+        private var changes = 0
+        private var shown = false
+
+        /// How many times prices have changed so far.
+        var priceChanges: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return changes
+        }
+
+        /// The list with its rates has been put on screen.
+        var listIsShown: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return shown
+        }
+
+        func markShown() {
+            lock.lock()
+            shown = true
+            lock.unlock()
+        }
+
+        /// Records a price change. `true` when the list is on screen and a
+        /// new round has to value it; while the list is still loading, the
+        /// round that is running notices the change itself.
+        func priceChanged() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            changes += 1
+            return shown
+        }
+    }
+
     private let fiatService: FiatServiceProtocol
     private let pause: (TimeInterval) async -> Void
+    private let progress = Progress()
     private var loading: Task<Void, Never>?
     private var pricesObserver: NSObjectProtocol?
 
@@ -81,27 +119,42 @@ final class ExplorePoolsViewModelService {
 
     func setup() {
         if pricesObserver == nil {
-            // Prices arrived or were refreshed: value the pools again.
+            // Prices arrived or were refreshed: value the pools again. Only
+            // the values are worked out again; the pool list itself is kept
+            // by the pools service and is not read from the node again.
             pricesObserver = NotificationCenter.default.addObserver(
                 forName: PICatalogs.pricesDidChange,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.reload()
+                self?.pricesChanged()
             }
         }
         reload()
+    }
+
+    private func pricesChanged() {
+        if progress.priceChanged() {
+            reload()
+        }
     }
 
     private func reload() {
         loading?.cancel()
         // The service is held only while one round is running, so the
         // retries end when the screen that owns it is released.
-        loading = Task { [weak self, pause] in
+        loading = Task { [weak self, pause, progress] in
             var attempts = 0
             while !Task.isCancelled {
-                guard let loaded = await self?.loadOnce() else { return }
-                if loaded { return }
+                let changesBefore = progress.priceChanges
+                guard let loaded = await self?.loadOnce(), !Task.isCancelled else { return }
+                if loaded {
+                    progress.markShown()
+                    // Prices changed while this round was on its way: value
+                    // the list once more with the prices of now.
+                    if progress.priceChanges == changesBefore { return }
+                    continue
+                }
                 // The node or the pool list was not ready. Ask again, each
                 // time after a longer pause.
                 await pause(Self.retryDelay(afterAttempts: attempts))
@@ -116,8 +169,14 @@ final class ExplorePoolsViewModelService {
         let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
         guard !Task.isCancelled else { return true }
 
-        viewModels = pools.enumerated().compactMap { (index, pool) in
-            return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
+        // The first time, the list appears with its values while the rates
+        // are still loading. A list that is already on screen is replaced in
+        // one step, so its rates do not go back to placeholders each time
+        // prices change.
+        if !progress.listIsShown {
+            viewModels = pools.enumerated().compactMap { (index, pool) in
+                return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
+            }
         }
 
         let result: [ExplorePoolViewModel] = (try? await pools.enumerated().concurrentMap { (index, pool) -> ExplorePoolViewModel in

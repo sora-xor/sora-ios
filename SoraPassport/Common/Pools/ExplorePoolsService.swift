@@ -52,15 +52,58 @@ struct ExplorePool {
 }
 
 final class ExplorePoolsService {
-    
+
+    /// One pool's reserves as read from the chain. Prices are not part of
+    /// it: the value is worked out from these and the prices of the moment.
+    struct ScannedPool {
+        let id: String
+        let baseAssetId: String
+        let targetAssetId: String
+        let reserves: Decimal
+        /// Position in the scan (base asset, then the wallet's asset
+        /// order). It orders pools of equal value.
+        var order = 0
+    }
+
+    /// The reserves of every pool, read from the node once and kept for the
+    /// session. One scan is a storage read per asset pair (about 1,900 on
+    /// mainnet), so callers that arrive while it runs join it, and a missing
+    /// or changed price never starts another one.
+    private actor ReserveScan {
+        private var kept: [ScannedPool] = []
+        private var running: Task<[ScannedPool], Never>?
+
+        func pools(
+            scan: @escaping () async -> [ScannedPool]
+        ) async -> [ScannedPool] {
+            if !kept.isEmpty {
+                return kept
+            }
+            if let running {
+                return await running.value
+            }
+            // Unstructured on purpose: a caller that goes away does not
+            // stop the scan the other callers are waiting for.
+            let task = Task { await scan() }
+            running = task
+            let scanned = await task.value
+            running = nil
+            // A scan that found nothing (the node was not ready) is not
+            // kept; the next call scans again.
+            if !scanned.isEmpty {
+                kept = scanned
+            }
+            return scanned
+        }
+    }
+
     private let operationManager: OperationManagerProtocol = OperationManager()
     private weak var polkaswapOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
     private weak var fiatService: FiatServiceProtocol?
     private var networkFacade: WalletNetworkOperationFactoryProtocol?
-    private var pools: [ExplorePool] = []
     private let assetInfos: [AssetInfo]
-    private var task: Task<Void, Swift.Error>?
-    
+    private let reserveScan = ReserveScan()
+
     init(
         assetInfos: [AssetInfo],
         fiatService: FiatServiceProtocol?,
@@ -75,39 +118,58 @@ final class ExplorePoolsService {
 }
 
 extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
-    
+
+    /// The pools, valued with `fiatData`. The reserves come from the scan
+    /// kept for the session; only the valuation is done again on each call.
     func getPools(with fiatData: [PIExactFiatData]) async throws -> [ExplorePool] {
-        return await withCheckedContinuation { [weak self] continuation in
-            guard let self else {
-                continuation.resume(returning: [])
-                return
-            }
+        let scanned = await reserveScan.pools { [weak self] in
+            await self?.scanReserves() ?? []
+        }
+        return Self.value(scanned, with: fiatData)
+    }
 
-            self.task?.cancel()
-            self.task = Task {
-                if !self.pools.isEmpty {
-                    continuation.resume(returning: self.pools)
-                    return
-                }
-                
-                let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-                let targetAssetIds: [String] = self.assetInfos.filter { !baseAssetIds.contains($0.assetId) }.map { $0.assetId }
-
-                async let explorePools = self.collectPools(baseAssetIds: baseAssetIds, targetAssetIds: targetAssetIds).concurrentMap({ poolTuple in
-                    return await self.createExplorePool(poolTuple: poolTuple, fiatData: fiatData)
-                }).sorted(by: { $0.tvl > $1.tvl })
-                
-                let pools = (try? await explorePools) ?? []
-                // Keep the list only when it was valued with real prices;
-                // otherwise the next visit values it again.
-                if !fiatData.isEmpty {
-                    self.pools = pools
-                }
-                continuation.resume(returning: pools)
+    /// Values scanned pools at the given prices, highest value first. A pool
+    /// whose base asset has no price keeps `tvlIsKnown == false`. Pools of
+    /// equal value (all of them while no price is known) stay in the order
+    /// of the scan, so the list does not reshuffle each time it is valued.
+    static func value(_ scanned: [ScannedPool], with fiatData: [PIExactFiatData]) -> [ExplorePool] {
+        var prices: [String: Decimal] = [:]
+        for item in fiatData where prices[item.id] == nil {
+            if let price = item.priceUsd?.decimalValue {
+                prices[item.id] = price
             }
         }
+        return scanned
+            .map { pool -> (pool: ExplorePool, order: Int) in
+                let knownPriceUsd = prices[pool.baseAssetId]
+                let valued = ExplorePool(id: pool.id,
+                                         baseAssetId: pool.baseAssetId,
+                                         targetAssetId: pool.targetAssetId,
+                                         tvl: (knownPriceUsd ?? .zero) * pool.reserves * 2,
+                                         tvlIsKnown: knownPriceUsd != nil)
+                return (valued, pool.order)
+            }
+            .sorted { first, second in
+                if first.pool.tvl != second.pool.tvl {
+                    return first.pool.tvl > second.pool.tvl
+                }
+                return first.order < second.order
+            }
+            .map(\.pool)
     }
-    
+
+    private func scanReserves() async -> [ScannedPool] {
+        let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+        let targetAssetIds: [String] = assetInfos.filter { !baseAssetIds.contains($0.assetId) }.map { $0.assetId }
+
+        let scanned = try? await collectPools(baseAssetIds: baseAssetIds, targetAssetIds: targetAssetIds).enumerated().concurrentMap({ [weak self] (order, poolTuple) -> ScannedPool? in
+            var pool = await self?.scanPool(poolTuple: poolTuple)
+            pool?.order = order
+            return pool
+        })
+        return scanned ?? []
+    }
+
     private func collectPools(baseAssetIds: [String], targetAssetIds: [String]) -> [(baseAssetId: String, targetAssetId: String)] {
         var poolTuples: [(baseAssetId: String, targetAssetId: String)] = []
         
@@ -119,7 +181,7 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
         return poolTuples
     }
     
-    private func createExplorePool(poolTuple: (baseAssetId: String, targetAssetId: String), fiatData: [PIExactFiatData]) async -> ExplorePool? {
+    private func scanPool(poolTuple: (baseAssetId: String, targetAssetId: String)) async -> ScannedPool? {
         return await withCheckedContinuation { continuation in
             guard let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: poolTuple.baseAssetId, targetAsset: poolTuple.targetAssetId) else {
                 continuation.resume(returning: nil)
@@ -134,9 +196,6 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                 }
                 let reservesDecimal = Decimal.fromSubstrateAmount(reserves.value, precision: 18) ?? .zero
                 
-                let knownPriceUsd = fiatData.first(where: { $0.id == poolTuple.baseAssetId })?.priceUsd?.decimalValue
-                let priceUsd = knownPriceUsd ?? .zero
-                
                 let accountId = (self?.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
                 
                 let idData = NSMutableData()
@@ -145,11 +204,10 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                 idData.append(Data(accountId.utf8))
                 let poolId = String(idData.hashValue)
                 
-                continuation.resume(returning: ExplorePool(id: poolId,
+                continuation.resume(returning: ScannedPool(id: poolId,
                                                            baseAssetId: poolTuple.baseAssetId,
                                                            targetAssetId: poolTuple.targetAssetId,
-                                                           tvl: priceUsd * reservesDecimal * 2,
-                                                           tvlIsKnown: knownPriceUsd != nil))
+                                                           reserves: reservesDecimal))
             }
             operationManager.enqueue(operations: [operation], in: .transient)
         }
