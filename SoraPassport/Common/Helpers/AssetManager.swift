@@ -69,6 +69,7 @@ final class AssetManager: AssetManagerProtocol {
     private let operationManager: OperationManagerProtocol
     private let chainProvider: StreamableProvider<ChainModel>
     private let chainId: ChainModel.Id
+    private let eventCenter: EventCenterProtocol
     private var chain: ChainModel?
     private var settings: AccountSettings?
     private let queue = DispatchQueue(label: "co.jp.soramitsu.sora.asset.manager", attributes: .concurrent)
@@ -83,11 +84,13 @@ final class AssetManager: AssetManagerProtocol {
     init(storage: AnyDataProviderRepository<AssetInfo>,
          chainProvider: StreamableProvider<ChainModel>,
          chainId: ChainModel.Id,
-         operationManager: OperationManagerProtocol) {
+         operationManager: OperationManagerProtocol,
+         eventCenter: EventCenterProtocol = EventCenter.shared) {
         self.storage = storage
         self.operationManager = operationManager
         self.chainProvider = chainProvider
         self.chainId = chainId
+        self.eventCenter = eventCenter
 
         let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
             self?.handle(changes: changes)
@@ -147,9 +150,23 @@ final class AssetManager: AssetManagerProtocol {
             guard let self, self.accountSettings != nil else {
                 return
             }
+            let shownAssets = self.assets
             let chainAssets = self.chain?.chainAssets.map { $0.asset } ?? []
             self.updateWhitelisted(chainAssets)
+            if Self.needsWalletRebuild(shown: shownAssets, arrived: chainAssets) {
+                self.eventCenter.notify(with: WalletAssetListArrived())
+            }
         }
+    }
+
+    /// The wallet's screens take the asset list when they are built. Startup does not
+    /// wait for the on-chain list, so on a launch without a saved list (a first launch on
+    /// which no node has answered yet) the wallet can be open with no asset at all. When
+    /// the list arrives the screens must be built again; otherwise the wallet looks empty
+    /// until the next launch. A list that only gains or loses some assets is left to the
+    /// next ordinary reload, as before, so that a screen in use is not replaced.
+    static func needsWalletRebuild(shown: [AssetInfo]?, arrived: [AssetInfo]) -> Bool {
+        shown?.isEmpty == true && !arrived.isEmpty
     }
 
     func setup(for accountSettings: SelectedWalletSettings) {
