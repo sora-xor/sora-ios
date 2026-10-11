@@ -1527,6 +1527,46 @@ actor PolkamarktPendingStore {
     }
 
     func all() throws -> [PolkamarktPendingMutation] {
+        try Self.readJournal(
+            directoryURL: directoryURL,
+            fileURL: fileURL,
+            fileManager: fileManager,
+            decoder: decoder,
+            journalMutationLimit: journalMutationLimit
+        )
+    }
+
+    /// The read every Polkamarkt action begins with, for the startup check
+    /// of the unfinished-transaction records (`PendingTransactionRecords`):
+    /// it throws exactly when `all()` would, so a journal this version
+    /// cannot read is reported on the recovery screen, with its "set aside"
+    /// action, instead of refusing every Polkamarkt action later. Reads
+    /// only; creates no folder.
+    static func requireReadableJournal(
+        applicationSupportURL: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        let directoryURL = applicationSupportURL
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        _ = try readJournal(
+            directoryURL: directoryURL,
+            fileURL: directoryURL.appendingPathComponent("polkamarkt-v1.json"),
+            fileManager: fileManager,
+            decoder: decoder,
+            journalMutationLimit: maximumMutations
+        )
+    }
+
+    private static func readJournal(
+        directoryURL: URL,
+        fileURL: URL,
+        fileManager: FileManager,
+        decoder: JSONDecoder,
+        journalMutationLimit: Int
+    ) throws -> [PolkamarktPendingMutation] {
         do {
             try PendingTransactionJournalNamespace.validate(
                 directoryURL: directoryURL,
@@ -1597,9 +1637,9 @@ actor PolkamarktPendingStore {
     func put(
         _ mutation: PolkamarktPendingMutation
     ) throws -> PolkamarktPendingMutation {
-        try validate(mutation)
+        try Self.validate(mutation)
         let durableMutation = try canonicalizedForJournal(mutation)
-        try validate(durableMutation)
+        try Self.validate(durableMutation)
         var values = try all()
         if let index = values.firstIndex(where: { $0.id == durableMutation.id }) {
             let existing = values[index]
@@ -1763,7 +1803,7 @@ actor PolkamarktPendingStore {
         }
     }
 
-    private func validate(_ mutation: PolkamarktPendingMutation) throws {
+    private static func validate(_ mutation: PolkamarktPendingMutation) throws {
         guard
             !mutation.account.isEmpty,
             mutation.account.utf8.count <= 512,
@@ -2123,7 +2163,7 @@ actor PolkamarktPendingStore {
         guard values.count <= journalMutationLimit else {
             throw PolkamarktRuntimeError.unavailable
         }
-        try values.forEach(validate)
+        try values.forEach(Self.validate)
         let data = try encoder.encode(values)
         guard data.count <= Self.maximumJournalBytes else {
             throw PolkamarktRuntimeError.unavailable
