@@ -4859,11 +4859,16 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
 }
 
 /// Nexus, Polkamarkt, and the SORA2 one-shot submission journal intentionally
-/// share one bounded namespace. A process can terminate after a crash-durable
-/// temporary file
-/// is synced but before it is renamed over the canonical journal. Treat any
-/// such orphan (or any other unexpected entry) as unresolved evidence rather
-/// than interpreting a missing canonical file as an empty transaction set.
+/// share one bounded namespace of three journal files.
+///
+/// Each journal is published by `DurableFileWriter` with one atomic rename, so
+/// a journal file always holds a complete old or a complete new transaction
+/// set. A process that dies inside a write leaves the writer's hidden helper
+/// files beside the journals. They are not journals and say nothing about
+/// what was submitted: the check sweeps them, and ignores them while a write
+/// of another journal in this folder is in progress. Any other unexpected
+/// entry still fails, because a journal under a name this version does not
+/// know must never be read as "no pending transactions".
 enum PendingTransactionJournalNamespace {
     enum Failure: Error {
         case invalidNamespace
@@ -4892,14 +4897,14 @@ enum PendingTransactionJournalNamespace {
             throw Failure.invalidNamespace
         }
 
-        let entries = try fileManager.contentsOfDirectory(
-            at: directoryURL,
+        let entries = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: directoryURL,
+            fileManager: fileManager,
             includingPropertiesForKeys: [
                 .fileSizeKey,
                 .isRegularFileKey,
                 .isSymbolicLinkKey,
-            ],
-            options: []
+            ]
         )
         guard entries.count <= allowedJournalNames.count else {
             throw Failure.invalidNamespace

@@ -1158,7 +1158,9 @@ final class UserStorageMigrator {
         let root = try incompletePreflightSnapshot(at: attempt, allowedNames: rootNames,
                                                    directories: ["staging", "legacy-store"])
         if pathExistsNoFollow(staging) {
-            guard try fileManager.contentsOfDirectory(atPath: staging.path).isEmpty else {
+            guard try DurableFileWriter.contentsIgnoringLeftovers(
+                of: staging, fileManager: fileManager, includingPropertiesForKeys: nil
+            ).isEmpty else {
                 throw UserStorageMigrationError.interruptedMigration
             }
         }
@@ -1301,8 +1303,14 @@ final class UserStorageMigrator {
 
     private func incompletePreflightSnapshot(at directory: URL, allowedNames: Set<String>,
                                              directories: Set<String>) throws -> [String: String] {
+        // The manifest, the settings copy, the journal and the backup manifest
+        // are published by DurableFileWriter. A process that died inside one
+        // of those writes left hidden helper files; they are swept before the
+        // directory is recorded (an extra name of journal.json would also
+        // fail the single-link check below). Any other unexpected name fails.
+        let children = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: directory, fileManager: fileManager, includingPropertiesForKeys: nil)
         var result = ["": try incompletePreflightFileState(at: directory, directory: true).identity]
-        let children = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         guard children.count <= allowedNames.count else { throw UserStorageMigrationError.interruptedMigration }
         for child in children {
             guard allowedNames.contains(child.lastPathComponent) else {
@@ -2228,13 +2236,15 @@ final class UserStorageMigrator {
             return false
         }
 
-        let entries = try fileManager.contentsOfDirectory(
-            at: directory,
+        // backup-manifest.json is published by DurableFileWriter; its helper
+        // files are swept or ignored, every other extra entry fails.
+        let entries = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: directory,
+            fileManager: fileManager,
             includingPropertiesForKeys: [
                 .isRegularFileKey,
                 .isSymbolicLinkKey,
-            ],
-            options: []
+            ]
         )
         let expectedNames = Set(names).union(["backup-manifest.json"])
         guard

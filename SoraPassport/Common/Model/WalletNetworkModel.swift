@@ -168,11 +168,12 @@ enum FileProtectionMetadata {
     #endif
 }
 
-/// Admission for a terminal Core Data migration attempt. Durable publication
-/// can intentionally retain a hidden old or failed-new inode when cleanup or
-/// rollback cannot be proved. Such an entry is recovery evidence: it must make
-/// the attempt unresolved, never be deleted automatically, and never be
-/// ignored merely because the canonical journal decodes as `activated`.
+/// Admission for a terminal Core Data migration attempt: exactly the five
+/// expected entries, each of the expected kind. Any other entry makes the
+/// attempt unresolved, with one exception: the hidden files `DurableFileWriter`
+/// itself leaves beside a target when the process dies inside a write. Those
+/// are swept (or, while they cannot be swept, ignored) before the entries are
+/// compared, because the published files alone carry the attempt's state.
 enum WalletMigrationSafetyNamespaceAdmission {
     enum Failure: Error {
         case invalidAttemptNamespace
@@ -202,10 +203,10 @@ enum WalletMigrationSafetyNamespaceAdmission {
         guard try entryKindNoFollow(at: attemptURL) == mode_t(S_IFDIR) else {
             return false
         }
-        let entries = try fileManager.contentsOfDirectory(
-            at: attemptURL,
-            includingPropertiesForKeys: nil,
-            options: []
+        let entries = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: attemptURL,
+            fileManager: fileManager,
+            includingPropertiesForKeys: nil
         )
         guard
             entries.count == expectedActivatedAttemptRootNames.count,
@@ -2106,6 +2107,10 @@ struct WalletAccountCommitJournal: Codable, Equatable {
 /// Non-secret interruption journal for new/imported wallets. An unfinished
 /// record forces recovery; it is never interpreted as permission to delete
 /// Keychain or Core Data material.
+///
+/// The directory may hold journals only. The hidden helper files of a journal
+/// write that the process did not survive are not journals and are removed
+/// before the directory is read; any other unexpected entry still fails.
 final class WalletAccountCommitJournalStore {
     private static let lock = NSLock()
     private static let retainedActivatedJournals = 8
@@ -2305,14 +2310,17 @@ final class WalletAccountCommitJournalStore {
         try validateDirectory()
         let journalURLs: [URL]
         do {
-            journalURLs = try fileManager.contentsOfDirectory(
-                at: directoryURL,
+            // Helper files of a journal write that was cut short are swept
+            // (or ignored) here. Every caller holds the store lock, so no
+            // journal write of this store is in progress.
+            journalURLs = try DurableFileWriter.contentsIgnoringLeftovers(
+                of: directoryURL,
+                fileManager: fileManager,
                 includingPropertiesForKeys: [
                     .fileSizeKey,
                     .isRegularFileKey,
                     .isSymbolicLinkKey,
-                ],
-                options: []
+                ]
             )
         } catch {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
@@ -3484,14 +3492,26 @@ enum WalletRecoveryMigrationJournalProbe {
         let expectedLegacyEntries = Set(
             backupRecords.map(\.fileName)
         ).union(["backup-manifest.json"])
-        let legacyEntries = try fileManager.contentsOfDirectory(
-            at: legacyDirectory,
-            includingPropertiesForKeys: [
-                .isRegularFileKey,
-                .isSymbolicLinkKey,
-            ],
-            options: []
-        )
+        // The gate's check sweeps the helper files of an interrupted write
+        // of backup-manifest.json before it compares the entries. The export
+        // below only reads: it lists the directory as it is.
+        let legacyEntries = requiresActivatedState
+            ? try DurableFileWriter.contentsIgnoringLeftovers(
+                of: legacyDirectory,
+                fileManager: fileManager,
+                includingPropertiesForKeys: [
+                    .isRegularFileKey,
+                    .isSymbolicLinkKey,
+                ]
+            )
+            : try fileManager.contentsOfDirectory(
+                at: legacyDirectory,
+                includingPropertiesForKeys: [
+                    .isRegularFileKey,
+                    .isSymbolicLinkKey,
+                ],
+                options: []
+            )
         let retainedLegacyEntryNames = Set(
             legacyEntries.map(\.lastPathComponent)
         )
@@ -3512,9 +3532,10 @@ enum WalletRecoveryMigrationJournalProbe {
                 return nil
             }
         } else {
-            // Recovery export may use only the independently hashed canonical
-            // backup files while leaving bounded DurableFileWriter evidence
-            // untouched and excluded. Arbitrary unexpected entries still fail.
+            // Recovery export uses only the independently hashed canonical
+            // backup files. Helper files of an interrupted DurableFileWriter
+            // write are left untouched and excluded. Arbitrary unexpected
+            // entries still fail.
             guard excludedRecoveryEvidence.allSatisfy({
                 $0.hasPrefix(".durable-")
             }) else {
@@ -5107,14 +5128,17 @@ final class WalletNetworkStore {
         try validateDirectory()
         let entries: [URL]
         do {
-            entries = try fileManager.contentsOfDirectory(
-                at: directoryURL,
+            // Helper files of a snapshot or pointer write that was cut short
+            // are swept (or ignored) here. Every caller holds the store
+            // lock, so no write of this store is in progress.
+            entries = try DurableFileWriter.contentsIgnoringLeftovers(
+                of: directoryURL,
+                fileManager: fileManager,
                 includingPropertiesForKeys: [
                     .fileSizeKey,
                     .isRegularFileKey,
                     .isSymbolicLinkKey,
-                ],
-                options: []
+                ]
             )
         } catch {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
