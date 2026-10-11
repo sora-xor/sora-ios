@@ -34,6 +34,24 @@ enum WalletUX {
         String(format: text(value), arguments: arguments)
     }
 
+    /// Shown in place of a fiat total while no price is known.
+    static var priceUnavailableText: String { text("Price unavailable") }
+
+    /// A fiat total for display. Without prices the total is unknown, not
+    /// zero: a wallet that holds tokens must never read "$0" because the
+    /// price service could not be reached.
+    static func fiatTotalText(_ total: Decimal, pricesAvailable: Bool) -> String {
+        guard pricesAvailable else { return priceUnavailableText }
+        return "$" + (NumberFormatter.fiat.stringFromDecimal(total) ?? "")
+    }
+
+    /// How long a wallet total without prices waits before asking again:
+    /// 20 s, then twice as long each time, up to 5 minutes. The price
+    /// service applies its own backoff, so asking is cheap.
+    static func priceRetryDelay(afterFailures failures: Int) -> TimeInterval {
+        min(300, 20 * pow(2, Double(max(0, min(failures, 8)))))
+    }
+
     static func contrast(_ first: UIColor, _ second: UIColor) -> CGFloat {
         func luminance(_ color: UIColor) -> CGFloat {
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0

@@ -46,6 +46,9 @@ struct ExplorePool {
     let targetAssetId: String
     var tvl: Decimal
     var apy: Decimal?
+    /// False when the base asset had no price: `tvl` is then 0 only because
+    /// it could not be computed, and must not be shown as "$0".
+    var tvlIsKnown = true
 }
 
 final class ExplorePoolsService {
@@ -95,7 +98,11 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                 }).sorted(by: { $0.tvl > $1.tvl })
                 
                 let pools = (try? await explorePools) ?? []
-                self.pools = pools
+                // Keep the list only when it was valued with real prices;
+                // otherwise the next visit values it again.
+                if !fiatData.isEmpty {
+                    self.pools = pools
+                }
                 continuation.resume(returning: pools)
             }
         }
@@ -127,7 +134,8 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                 }
                 let reservesDecimal = Decimal.fromSubstrateAmount(reserves.value, precision: 18) ?? .zero
                 
-                let priceUsd = fiatData.first(where: { $0.id == poolTuple.baseAssetId })?.priceUsd?.decimalValue ?? .zero
+                let knownPriceUsd = fiatData.first(where: { $0.id == poolTuple.baseAssetId })?.priceUsd?.decimalValue
+                let priceUsd = knownPriceUsd ?? .zero
                 
                 let accountId = (self?.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
                 
@@ -140,7 +148,8 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                 continuation.resume(returning: ExplorePool(id: poolId,
                                                            baseAssetId: poolTuple.baseAssetId,
                                                            targetAssetId: poolTuple.targetAssetId,
-                                                           tvl: priceUsd * reservesDecimal * 2))
+                                                           tvl: priceUsd * reservesDecimal * 2,
+                                                           tvlIsKnown: knownPriceUsd != nil))
             }
             operationManager.enqueue(operations: [operation], in: .transient)
         }

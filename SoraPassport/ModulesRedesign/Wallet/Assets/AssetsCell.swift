@@ -46,6 +46,10 @@ final class AssetsCell: SoramitsuTableViewCell {
                     self?.moneyLabel.sora.text = value
                     self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.cornerRadius = !value.isEmpty ? .zero : .small
+                    // "Price unavailable" is a quiet notice, not an amount.
+                    let unavailable = self?.assetsItem?.service?.priceIsUnavailable ?? false
+                    self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.headline2
+                    self?.moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
                 }
                 .store(in: &cancellables)
             item.service?.$assetViewModels
