@@ -37,6 +37,9 @@ final class MainTabBarViewController: UITabBarController {
 	var presenter: MainTabBarPresenterProtocol!
     var middleButtonHadler: (() -> Void)?
     private var viewAppeared: Bool = false
+    /// The custom bar, kept even when it could not be swapped in (its swap
+    /// disc then lives on the system bar and still follows theme changes).
+    private var customTabBar: TabBar?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -63,28 +66,20 @@ final class MainTabBarViewController: UITabBarController {
 
     /// Swaps in the notched tab bar with the swap disc. `UITabBarController`
     /// has no public setter, so this uses key-value coding on its `_tabBar`
-    /// storage, as every release since 2.0 has. Verified on iOS 26 and 27
-    /// (Liquid Glass). If a future iOS renames that storage, KVC would raise
-    /// an Objective-C exception, so the swap is skipped and the disc is
-    /// added to the system tab bar instead.
+    /// storage, as every release since 2.0 has. Verified on the iOS 18.4
+    /// (notched bar), 26.5 and 27.0 (Liquid Glass) simulators, and checked
+    /// by `SoraNeonDesignTests.testTabBarChromeAndSwapDisc` on whatever
+    /// system the tests run on. If a future iOS renames that storage, KVC
+    /// would raise an Objective-C exception, so the swap is skipped and the
+    /// whole disc (glow, gradient fill, button, tap cover and label) moves
+    /// onto the system tab bar.
     private func installCustomTabBar(_ custom: TabBar) {
+        customTabBar = custom
         if class_getInstanceVariable(UITabBarController.self, "_tabBar") != nil {
             setValue(custom, forKey: "tabBar")
         }
         guard tabBar !== custom else { return }
-        [custom.coverButton, custom.middleButton, custom.middleButtonTitleLabel].forEach {
-            $0.removeFromSuperview()
-            tabBar.addSubview($0)
-        }
-        NSLayoutConstraint.activate([
-            custom.middleButton.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
-            custom.middleButton.bottomAnchor.constraint(equalTo: tabBar.safeAreaLayoutGuide.bottomAnchor, constant: -21),
-            custom.coverButton.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
-            custom.coverButton.bottomAnchor.constraint(equalTo: tabBar.safeAreaLayoutGuide.bottomAnchor),
-            custom.middleButtonTitleLabel.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
-            custom.middleButtonTitleLabel.bottomAnchor.constraint(equalTo: tabBar.safeAreaLayoutGuide.bottomAnchor,
-                                                                  constant: -1)
-        ])
+        custom.installSwapDisc(in: tabBar)
     }
 
     /// One static aurora behind every tab (spec §4.2.1). Tab roots are clear.
@@ -106,7 +101,7 @@ final class MainTabBarViewController: UITabBarController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        guard let custom = tabBar as? TabBar, let items = tabBar.items else { return }
+        guard let custom = customTabBar, let items = tabBar.items else { return }
         let nativeButtons = tabBar.subviews.compactMap { $0 as? UIControl }
             .filter { $0 !== custom.coverButton && $0 !== custom.middleButton }
             .sorted { $0.frame.minX < $1.frame.minX }
@@ -161,6 +156,11 @@ extension MainTabBarViewController: UITabBarControllerDelegate {
 
         return true
     }
+
+    func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+        // iOS 16–25: slide the active indicator (no-op on iOS 26+).
+        (tabBar as? TabBar)?.updateSelectionIndicator(animated: true)
+    }
 }
 
 extension MainTabBarViewController: MainTabBarViewProtocol {
@@ -182,6 +182,6 @@ extension MainTabBarViewController: Localizable {
     
     func applyLocalization() {
         let languages = localizationManager?.preferredLocalizations
-        (tabBar as? TabBar)?.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: languages)
+        customTabBar?.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: languages)
     }
 }
