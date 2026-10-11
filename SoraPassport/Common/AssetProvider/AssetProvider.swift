@@ -52,8 +52,26 @@ final class AssetProvider {
     private var observers: [AssetProviderObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.balance.provider")
     
-    init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
-        balanceProvider = try? providerFactory.createBalanceDataProvider(for: assetInfos, onlyVisible: false)
+    convenience init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
+        self.init(assetInfos: assetInfos) { assets in
+            try? providerFactory.createBalanceDataProvider(for: assets, onlyVisible: false)
+        }
+    }
+
+    /// - Parameter makeBalanceProvider: creates the provider that loads and
+    ///   caches the balances of `assetInfos`. It is not called for an empty
+    ///   list.
+    ///
+    /// Startup does not wait for the on-chain asset list, so a wallet can be
+    /// built before any list exists. Such a wallet has no balance to load. It
+    /// used to load "no balances" all the same and save that over the
+    /// account's cached balances: every provider of an account shares one
+    /// cache entry. The tabs that were built again when the list arrived then
+    /// read that empty answer, and the wallet showed no asset until the next
+    /// launch. Without a list nothing is loaded and nothing is saved; the
+    /// asset rows keep their loading state.
+    init(assetInfos: [AssetInfo], makeBalanceProvider: ([AssetInfo]) -> SingleValueProvider<[BalanceData]>?) {
+        balanceProvider = assetInfos.isEmpty ? nil : makeBalanceProvider(assetInfos)
         setupBalanceDataProvider()
         EventCenter.shared.add(observer: self)
     }
