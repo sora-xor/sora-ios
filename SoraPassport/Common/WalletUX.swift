@@ -733,6 +733,46 @@ enum WalletSafeMode {
         return container
     }
 
+    /// Puts `content` in a vertical scroll view over the safe area (spec
+    /// §9.4: "The panel scrolls"). Content that fits is centred. Taller
+    /// content (large text sizes, small screens) starts at the top and every
+    /// part of it, including the last action, can be scrolled into view.
+    ///
+    /// The content is centred in the scroll view's content area, never on
+    /// its frame: frame-relative constraints are solved again on every
+    /// scroll and would drag the content along with the offset.
+    @discardableResult
+    static func installScrollingContent(
+        _ content: UIView,
+        in view: UIView,
+        insets: NSDirectionalEdgeInsets = NSDirectionalEdgeInsets(top: 32, leading: 24, bottom: 24, trailing: 24)
+    ) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        content.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(content)
+        let area = scrollView.contentLayoutGuide
+        let visible = scrollView.frameLayoutGuide
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: area.leadingAnchor, constant: insets.leading),
+            content.trailingAnchor.constraint(equalTo: area.trailingAnchor, constant: -insets.trailing),
+            content.widthAnchor.constraint(equalTo: visible.widthAnchor, constant: -(insets.leading + insets.trailing)),
+            content.topAnchor.constraint(greaterThanOrEqualTo: area.topAnchor, constant: insets.top),
+            content.bottomAnchor.constraint(lessThanOrEqualTo: area.bottomAnchor, constant: -insets.bottom),
+            content.centerYAnchor.constraint(equalTo: area.centerYAnchor),
+            // At least one screen tall (so short content is centred), and
+            // otherwise as short as the content allows.
+            area.heightAnchor.constraint(greaterThanOrEqualTo: visible.heightAnchor),
+            area.heightAnchor.constraint(equalTo: visible.heightAnchor).prioritized(UILayoutPriority(249)),
+        ])
+        return scrollView
+    }
+
     /// Wraps the emblem so it sits centred in a vertical stack.
     static func centered(_ view: UIView) -> UIView {
         let row = UIView()

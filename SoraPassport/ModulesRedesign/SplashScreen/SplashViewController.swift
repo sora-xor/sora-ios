@@ -195,18 +195,17 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         panel.fill = .solid
         panel.border = .safe
         panel.shape = .rounded(24)
-        panel.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView.addSubview(stack)
-        view.addSubview(panel)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: panel.contentView.leadingAnchor, constant: 24),
             stack.trailingAnchor.constraint(equalTo: panel.contentView.trailingAnchor, constant: -24),
             stack.topAnchor.constraint(equalTo: panel.contentView.topAnchor, constant: 24),
             stack.bottomAnchor.constraint(equalTo: panel.contentView.bottomAnchor, constant: -24),
-            panel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            panel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            panel.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
         ])
-        storageRetryView = panel
+        // The panel scrolls (spec §9.4): at large text sizes "Check again"
+        // stays reachable instead of being cut off below the screen.
+        storageRetryView = WalletSafeMode.installScrollingContent(
+            panel, in: view, insets: NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
+        )
     }
 }
