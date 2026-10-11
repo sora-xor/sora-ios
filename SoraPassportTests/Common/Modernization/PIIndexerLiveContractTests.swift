@@ -3,6 +3,7 @@
 
 import Foundation
 import SoraKeystore
+import UIKit
 import XCTest
 import sorawallet
 @testable import SoraPassport
@@ -196,6 +197,12 @@ final class PIAdvancingIndexer {
     /// How old the last indexed block is, by the indexer's own clock.
     var indexAge = 2
     var serviceId = "pi.soramitsu.io"
+    /// `false` is what PI reports while it restarts.
+    var workerStartupComplete = true
+    /// PI's "last indexed" time changes only when it indexes a block, so
+    /// two health reads at one height are identical, as on the live
+    /// service.
+    private var stamp: (height: Int, indexAge: Int, clockOffset: TimeInterval, indexedAt: Int)?
     var assetRows: [String]
     /// The `totalCount` to report for a page request, by its 1-based number.
     var totalCountForPageRead: ((Int) -> Int)?
@@ -218,12 +225,21 @@ final class PIAdvancingIndexer {
         case "MobileHealth":
             healthReads += 1
             height = heightForHealthRead?(healthReads, height) ?? height
+            let indexedAt: Int
+            if let stamp, stamp.height == height, stamp.indexAge == indexAge,
+               stamp.clockOffset == clockOffset {
+                indexedAt = stamp.indexedAt
+            } else {
+                indexedAt = Int(serverNow.timeIntervalSince1970) - indexAge
+                stamp = (height, indexAge, clockOffset, indexedAt)
+            }
             return .init(
                 body: Self.health(
                     indexed: height,
                     finalized: height + 1,
-                    indexedAt: Int(serverNow.timeIntervalSince1970) - indexAge,
-                    serviceId: serviceId
+                    indexedAt: indexedAt,
+                    serviceId: serviceId,
+                    workerStartupComplete: workerStartupComplete
                 ),
                 dateHeader: dateHeader
             )
@@ -257,7 +273,8 @@ final class PIAdvancingIndexer {
         indexed: Int,
         finalized: Int,
         indexedAt: Int,
-        serviceId: String = "pi.soramitsu.io"
+        serviceId: String = "pi.soramitsu.io",
+        workerStartupComplete: Bool = true
     ) -> String {
         """
         {"data":{"_health":{"ok":true,"repositoryReady":true,\
@@ -268,7 +285,8 @@ final class PIAdvancingIndexer {
         "workerLatestFinalizedBlock":\(finalized),\
         "workerLatestIndexedBlock":\(indexed),\
         "workerLag":\(finalized - indexed),"workerReadinessReason":null,\
-        "workerLifecycle":"running","workerStartupComplete":true,\
+        "workerLifecycle":"running",\
+        "workerStartupComplete":\(workerStartupComplete),\
         "workerLastSuccessfulIndexTimestamp":\(indexedAt),\
         "workerLastError":null,"workerLastErrorTimestamp":null}}}
         """
@@ -1045,6 +1063,210 @@ final class PIIndexerAdvancingReadTests: XCTestCase {
         }
     }
 
+    // MARK: Review round 2
+
+    /// The app was suspended after a page arrived and before its postflight
+    /// health read. PI is hundreds of blocks further on: the page is not
+    /// known to be current at that checkpoint, so the walk starts again.
+    func testAPostflightFarAheadOfItsPreflightRestartsTheWalk()
+        async throws
+    {
+        let indexer = try indexer()
+        indexer.heightForHealthRead = { read, height in
+            // The second health read is page 1's postflight.
+            read == 2 ? height + 1_200 : height + 1
+        }
+
+        let read = try await client().qualifiedAllAssets(
+            pageSize: 3,
+            maximumPages: 5
+        )
+
+        XCTAssertEqual(read.value.count, 8)
+        XCTAssertEqual(read.qualification?.source, .live)
+        XCTAssertEqual(pauses.count, 1)
+        // The first walk stopped at its first page.
+        XCTAssertEqual(pageReads(), 1 + 3)
+    }
+
+    /// Every request stays within its own bound, but the walk as a whole
+    /// is spread over more blocks than a healthy read ever needs. It starts
+    /// again instead of mixing old first pages with a new checkpoint.
+    func testAWalkSpreadOverTooManyBlocksStartsAgain() async throws {
+        let indexer = try indexer()
+        indexer.heightForHealthRead = { read, height in
+            read <= 5 ? height + 18 : height + 1
+        }
+
+        let read = try await client().qualifiedAllAssets(
+            pageSize: 2,
+            maximumPages: 5
+        )
+
+        XCTAssertEqual(read.value.count, 8)
+        XCTAssertEqual(pauses.count, 1)
+        // Four pages, 54 blocks apart; then four pages again.
+        XCTAssertEqual(pageReads(), 4 + 4)
+    }
+
+    func testTheForwardRuleIsBounded() throws {
+        func health(_ height: Int) throws -> PIHealth {
+            struct Payload: Decodable { let _health: PIHealth }
+            return try PIIndexerClient.decodeResponse(
+                Payload.self,
+                from: Data(
+                    PIAdvancingIndexer.health(
+                        indexed: height,
+                        finalized: height + 1,
+                        indexedAt: 1_791_700_000
+                    ).utf8
+                )
+            )._health
+        }
+        let start = try health(1_000)
+        let limit = PIIndexerClient.maximumCheckpointAdvancePerRequest
+
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: start,
+                postflight: try health(1_000 + limit)
+            ),
+            try health(1_000 + limit)
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: start,
+                postflight: try health(1_001 + limit)
+            )
+        ) { error in
+            guard case PIIndexerError.staleCheckpoint = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        let walkLimit = PIIndexerClient.maximumCheckpointAdvancePerWalk
+        let first = PIReadQualification(health: start, source: .live)
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateWalkAdvance(
+                first: first,
+                current: PIReadQualification(
+                    health: try health(1_000 + walkLimit),
+                    source: .live
+                )
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateWalkAdvance(
+                first: first,
+                current: PIReadQualification(
+                    health: try health(1_001 + walkLimit),
+                    source: .live
+                )
+            )
+        )
+    }
+
+    /// PI indexed a block between page 1's request and page 1's own
+    /// postflight, so page 1 is attributed to the new checkpoint and page 2
+    /// reports the same one. The row added in that block changes the
+    /// count. That is the indexer moving, not a broken response: the walk
+    /// starts again instead of failing.
+    func testACountThatChangesWhileOnePageIsReadRestartsTheWalk()
+        async throws
+    {
+        let indexer = try indexer()
+        indexer.heightForHealthRead = { read, height in
+            read == 2 ? height + 1 : height
+        }
+        indexer.totalCountForPageRead = { read in read == 2 ? 9 : 8 }
+
+        let read = try await client().qualifiedAllAssets(
+            pageSize: 3,
+            maximumPages: 5
+        )
+
+        XCTAssertEqual(read.value.count, 8)
+        XCTAssertEqual(pauses.count, 1)
+        XCTAssertEqual(pageReads(), 2 + 3)
+    }
+
+    /// PI restarts for a deploy and reports that its worker has not
+    /// finished starting. It is the right service without a usable
+    /// checkpoint for the moment: the last good catalog is shown, also on a
+    /// cold start.
+    func testAnIndexerThatIsRestartingGivesTheLastGoodCatalog()
+        async throws
+    {
+        let indexer = try indexer()
+        let good = try await client().allAssets(pageSize: 3, maximumPages: 5)
+
+        indexer.workerStartupComplete = false
+        PIStubIndexerProtocol.install { indexer.respond(to: $0) }
+        let read = try await client().qualifiedAllAssets(
+            pageSize: 3,
+            maximumPages: 5
+        )
+
+        XCTAssertEqual(read.qualification?.source, .cache)
+        XCTAssertEqual(read.value, good)
+        // The snapshot says when it was saved, so the store can show its
+        // real age.
+        let savedAt = try XCTUnwrap(read.savedAt)
+        XCTAssertEqual(savedAt.timeIntervalSinceNow, 0, accuracy: 30)
+        XCTAssertEqual(pageReads(), 0)
+        XCTAssertEqual(
+            healthReads(),
+            1 + PIIndexerClient.maximumStaleCheckpointRetries
+        )
+    }
+
+    /// Readiness and identity are different failures: another service is
+    /// never treated as "not ready", whatever it says about readiness.
+    func testAnotherServiceThatIsNotReadyIsStillAnotherService() throws {
+        struct Payload: Decodable { let _health: PIHealth }
+        func health(serviceId: String, ready: Bool) throws -> PIHealth {
+            try PIIndexerClient.decodeResponse(
+                Payload.self,
+                from: Data(
+                    PIAdvancingIndexer.health(
+                        indexed: 1_000,
+                        finalized: 1_001,
+                        indexedAt: 1_791_700_000,
+                        serviceId: serviceId,
+                        workerStartupComplete: ready
+                    ).utf8
+                )
+            )._health
+        }
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHealth(
+                try health(serviceId: "other.example", ready: false),
+                nowEpochSeconds: 1_791_700_002
+            )
+        ) { error in
+            guard case PIIndexerError.invalidServiceIdentity = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHealth(
+                try health(serviceId: "pi.soramitsu.io", ready: false),
+                nowEpochSeconds: 1_791_700_002
+            )
+        ) { error in
+            guard case PIIndexerError.staleCheckpoint = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateHealth(
+                try health(serviceId: "pi.soramitsu.io", ready: true),
+                nowEpochSeconds: 1_791_700_002
+            )
+        )
+    }
+
     func testAnotherIndexerAnsweringMidWalkIsRejected() async throws {
         let indexer = try indexer()
         var reads = 0
@@ -1252,21 +1474,37 @@ final class PICatalogStoreTests: XCTestCase {
         }
     }
 
+    /// The wall clock that goes with `Source.now`: second 1000 of the
+    /// test's uptime is this moment.
+    private static let wallClockStart = Date(timeIntervalSince1970: 1_791_700_000)
+
+    private func wallClock(_ source: Source) -> Date {
+        Self.wallClockStart.addingTimeInterval(source.now - 1_000)
+    }
+
     private func store(
         _ source: Source,
         freshFor: TimeInterval = 600,
-        lastGoodFor: TimeInterval = 24 * 3_600
+        staleFor: TimeInterval? = nil,
+        lastGoodFor: TimeInterval = 24 * 3_600,
+        onChange: (() -> Void)? = nil
     ) -> PICatalogStore<String> {
         PICatalogStore(
             freshFor: freshFor,
+            staleFor: staleFor,
             lastGoodFor: lastGoodFor,
             retryDelays: [15, 30, 60],
             uptime: { source.now },
+            wallClock: { [unowned self] in self.wallClock(source) },
+            onChange: onChange,
             load: { try await source.load() }
         )
     }
 
-    private func cached(_ values: [String]) -> PIQualifiedRead<[String]> {
+    private func cached(
+        _ values: [String],
+        savedAt: Date? = nil
+    ) -> PIQualifiedRead<[String]> {
         let now = Int(Date().timeIntervalSince1970)
         return PIQualifiedRead(
             value: values,
@@ -1299,7 +1537,8 @@ final class PICatalogStoreTests: XCTestCase {
                     workerLastErrorTimestamp: nil
                 ),
                 source: .cache
-            )
+            ),
+            savedAt: savedAt
         )
     }
 
@@ -1409,8 +1648,16 @@ final class PICatalogStoreTests: XCTestCase {
         source.result = .success(
             PIQualifiedRead(value: ["b"], qualification: nil)
         )
-        let recovered = try await store.values()
-        XCTAssertEqual(recovered, ["b"])
+        // The backoff has passed. PI has been failing, so the caller is
+        // not kept waiting for the new attempt: it gets the last good
+        // catalog at once and the read runs behind it.
+        let whileRetrying = try await store.snapshot()
+        XCTAssertEqual(whileRetrying.values, ["a"])
+        XCTAssertNotNil(whileRetrying.asOf)
+        await store.settled()
+        let recovered = try await store.snapshot()
+        XCTAssertEqual(recovered.values, ["b"])
+        XCTAssertNil(recovered.asOf)
         XCTAssertEqual(source.callCount, 3)
         // A success clears the backoff.
         source.advance(601)
@@ -1418,6 +1665,7 @@ final class PICatalogStoreTests: XCTestCase {
         _ = try await store.values()
         source.advance(16)
         _ = try await store.values()
+        await store.settled()
         XCTAssertEqual(source.callCount, 5)
     }
 
@@ -1438,9 +1686,223 @@ final class PICatalogStoreTests: XCTestCase {
         source.result = .success(
             PIQualifiedRead(value: ["live"], qualification: nil)
         )
+        // Shown at once from the saved copy; the live read replaces it.
+        let meanwhile = try await store.values()
+        XCTAssertEqual(meanwhile, ["saved"])
+        await store.settled()
         let live = try await store.values()
         XCTAssertEqual(live, ["live"])
         XCTAssertEqual(source.callCount, 2)
+    }
+
+    // MARK: Review round 2: sleep, real age, refresh in the background
+
+    /// Prices were loaded at 09:00 and the phone was locked until 12:00.
+    /// The store's clock counts that time, so the catalog is not served as
+    /// fresh: the next caller gets a new read.
+    func testACatalogLoadedBeforeTheDeviceSleptIsReadAgain() async throws {
+        let source = Source()
+        let store = store(source, freshFor: 600, staleFor: 1_800)
+        let morning = try await store.values()
+        XCTAssertEqual(morning, ["a"])
+
+        source.advance(3 * 3_600)
+        source.result = .success(
+            PIQualifiedRead(value: ["noon"], qualification: nil)
+        )
+        let noon = try await store.snapshot()
+
+        XCTAssertEqual(noon.values, ["noon"])
+        XCTAssertNil(noon.asOf)
+        XCTAssertEqual(source.callCount, 2)
+    }
+
+    /// The store's own clock is the one that keeps counting while the
+    /// device sleeps (`mach_continuous_time`), not `systemUptime`, which
+    /// stops. The two differ on any host that has slept since boot.
+    func testTheDefaultClockCountsTheTimeTheDeviceSleeps() {
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        let continuous = TimeInterval(mach_continuous_time()) *
+            TimeInterval(timebase.numer) / TimeInterval(timebase.denom) /
+            1_000_000_000
+        let clock = PICatalogStore<String>.continuousUptime()
+
+        XCTAssertEqual(clock, continuous, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(
+            clock,
+            ProcessInfo.processInfo.systemUptime - 1
+        )
+    }
+
+    /// A backoff reached while offline must not still be running when the
+    /// app is opened again: coming to the foreground clears it.
+    func testReturningToTheForegroundClearsTheBackoff() async throws {
+        let source = Source()
+        source.result = .failure(URLError(.notConnectedToInternet))
+        let store = store(source)
+        _ = try? await store.values()
+        _ = try? await store.values()
+        XCTAssertEqual(source.callCount, 1)
+
+        source.result = .success(
+            PIQualifiedRead(value: ["a"], qualification: nil)
+        )
+        await store.clearBackoff()
+        let values = try await store.values()
+
+        XCTAssertEqual(values, ["a"])
+        XCTAssertEqual(source.callCount, 2)
+    }
+
+    /// A snapshot that was 23 hours old when it was read from disk is not
+    /// given another 24 hours: its real age counts.
+    func testASnapshotFromDiskKeepsItsRealAge() async throws {
+        let source = Source()
+        let savedAt = wallClock(source).addingTimeInterval(-23 * 3_600)
+        source.result = .success(cached(["saved"], savedAt: savedAt))
+        let store = store(source, lastGoodFor: 24 * 3_600)
+
+        let first = try await store.snapshot()
+        XCTAssertEqual(first.values, ["saved"])
+        XCTAssertEqual(first.asOf, savedAt)
+
+        // Two hours later PI still cannot be read and the client has no
+        // snapshot young enough any more.
+        source.advance(2 * 3_600)
+        source.result = .failure(PIIndexerError.httpStatus(503))
+        do {
+            _ = try await store.snapshot()
+            XCTFail("A 25-hour-old catalog was shown")
+        } catch {
+            guard case PIIndexerError.httpStatus(503) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    /// Older data stands in for PI only when PI cannot be read. A response
+    /// that does not decode (the 10 October failure) or fails validation is
+    /// an error; the prices from before are not shown as if current.
+    func testAResponseThatCannotBeUsedIsNotReplacedByTheLastGoodCatalog()
+        async throws
+    {
+        let source = Source()
+        let store = store(source, freshFor: 600)
+        _ = try await store.values()
+
+        source.advance(601)
+        source.result = .failure(
+            DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "volumeDayUSD")
+            )
+        )
+        do {
+            _ = try await store.values()
+            XCTFail("A catalog that failed to decode was replaced")
+        } catch {
+            XCTAssertTrue(error is DecodingError, "\(error)")
+        }
+        // Also while backing off, without a request.
+        do {
+            _ = try await store.values()
+            XCTFail("A catalog that failed to decode was replaced")
+        } catch {
+            XCTAssertTrue(error is DecodingError, "\(error)")
+        }
+        XCTAssertEqual(source.callCount, 2)
+
+        source.result = .failure(PIIndexerError.invalidServiceIdentity)
+        source.advance(16)
+        do {
+            _ = try await store.values()
+            XCTFail("Another service's answer was replaced by older data")
+        } catch {
+            guard case PIIndexerError.invalidServiceIdentity = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    /// A caller is not kept waiting for a refresh when the catalog it can
+    /// have is only a little old: it gets that at once, the refresh runs
+    /// behind it and announces itself.
+    func testARecentCatalogIsServedAtOnceWhileItsRefreshRuns() async throws {
+        let source = Source()
+        let changes = Counter()
+        let store = store(
+            source,
+            freshFor: 600,
+            staleFor: 1_800,
+            onChange: { changes.increment() }
+        )
+        _ = try await store.values()
+        XCTAssertEqual(changes.value, 1)
+
+        source.advance(700)
+        source.delayNanoseconds = 300_000_000
+        source.result = .success(
+            PIQualifiedRead(value: ["b"], qualification: nil)
+        )
+        let started = Date()
+        let atOnce = try await store.snapshot()
+        XCTAssertEqual(atOnce.values, ["a"])
+        XCTAssertNil(atOnce.asOf)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 0.2)
+        // A second caller neither waits nor starts a second read.
+        let second = try await store.values()
+        XCTAssertEqual(second, ["a"])
+        XCTAssertEqual(source.callCount, 2)
+
+        await store.settled()
+        XCTAssertEqual(changes.value, 2)
+        let refreshed = try await store.values()
+        XCTAssertEqual(refreshed, ["b"])
+        XCTAssertEqual(source.callCount, 2)
+    }
+
+    /// Prices shown while PI cannot be read carry the time they date from.
+    func testOldPricesAreMarkedWithTheTimeTheyDateFrom() async throws {
+        let source = Source()
+        let store = store(source, freshFor: 600, staleFor: 1_800)
+        let loadedAt = wallClock(source)
+        let live = try await store.snapshot()
+        XCTAssertNil(live.asOf)
+
+        source.advance(900)
+        source.result = .failure(URLError(.timedOut))
+        // Served at once, still unmarked: nothing has failed yet.
+        let recent = try await store.snapshot()
+        XCTAssertNil(recent.asOf)
+        await store.settled()
+
+        let afterFailure = try await store.snapshot()
+        XCTAssertEqual(afterFailure.values, ["a"])
+        XCTAssertEqual(afterFailure.asOf, loadedAt)
+    }
+}
+
+/// A thread-safe counter for callbacks.
+final class Counter {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func increment() {
+        lock.lock()
+        count += 1
+        lock.unlock()
+    }
+}
+
+extension PICatalogStoreTests {
+    func testCounterStartsAtZero() {
+        XCTAssertEqual(Counter().value, 0)
     }
 
     func testTheLastGoodCatalogIsNotShownForever() async throws {
@@ -1549,6 +2011,610 @@ final class WalletFiatTotalTests: XCTestCase {
         XCTAssertEqual(WalletUX.priceRetryDelay(afterFailures: 4), 300)
         XCTAssertEqual(WalletUX.priceRetryDelay(afterFailures: 400), 300)
         XCTAssertEqual(WalletUX.priceRetryDelay(afterFailures: -1), 20)
+    }
+}
+
+// MARK: - No screen shows "$0" for an unknown price (review round 2)
+
+private let priceTestXor =
+    "0x0200000000000000000000000000000000000000000000000000000000000000"
+private let priceTestVal =
+    "0x0200040000000000000000000000000000000000000000000000000000000000"
+
+private final class PriceTestAssetManager: AssetManagerProtocol {
+    static var networkAssets: [AssetInfo] = []
+
+    let assets: [AssetInfo]
+
+    init(assets: [AssetInfo]) {
+        self.assets = assets
+    }
+
+    func assetInfo(for identifier: String) -> AssetInfo? {
+        assets.first { $0.assetId == identifier }
+    }
+
+    func getAssetList() -> [AssetInfo]? { assets }
+    func updateAssetList(_: [AssetInfo]) {}
+    func saveAssetList(_: [AssetInfo]) {}
+    func sortedAssets(_ list: [WalletAsset], onlyVisible _: Bool) -> [WalletAsset] { list }
+    func visibleCount() -> UInt { UInt(assets.count) }
+    func setup(for _: SelectedWalletSettings) {}
+}
+
+private final class PriceTestAssetProvider: AssetProviderProtocol {
+    var balances: [BalanceData]
+
+    init(balances: [BalanceData]) {
+        self.balances = balances
+    }
+
+    func getBalances(with assetIds: [String]) -> [BalanceData] {
+        balances.filter { assetIds.contains($0.identifier) }
+    }
+
+    func add(observer _: AssetProviderObserverProtocol) {}
+    func remove(observer _: AssetProviderObserverProtocol) {}
+}
+
+private final class PriceTestMarketCap: MarketCapServiceProtocol {
+    func getMarketCap(for _: [String]) async -> Set<MarketCapInfo> { [] }
+}
+
+private final class PriceTestPriceInfo: PriceInfoServiceProtocol {
+    private let lock = NSLock()
+    private var current = PriceInfo(fiatData: [], marketCapInfo: [])
+    private var count = 0
+
+    var info: PriceInfo {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return current
+        }
+        set {
+            lock.lock()
+            current = newValue
+            lock.unlock()
+        }
+    }
+
+    var calls: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func getPriceInfo(for _: [String]) async -> PriceInfo {
+        lock.lock()
+        count += 1
+        let info = current
+        lock.unlock()
+        return info
+    }
+}
+
+private final class PriceTestSendingViewModel: ConfirmSendingViewModelProtocol {
+    func networkFeeInfoButtonTapped() {}
+}
+
+private final class PriceTestExplorePools: ExplorePoolsServiceInputProtocol {
+    private let lock = NSLock()
+    private var count = 0
+
+    var calls: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func getPools(with _: [PIExactFiatData]) async throws -> [ExplorePool] {
+        lock.lock()
+        count += 1
+        lock.unlock()
+        return []
+    }
+}
+
+private actor PriceTestAPY: APYServiceProtocol {
+    func getApy(for _: String, targetAssetId _: String) async -> Decimal? { nil }
+    func setup(factory _: PolkaswapNetworkOperationFactoryProtocol) {}
+}
+
+final class PIPriceDisplayTests: XCTestCase {
+    private func assets() -> [AssetInfo] {
+        [
+            AssetInfo(id: priceTestXor, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true),
+            AssetInfo(id: priceTestVal, symbol: "VAL", chainId: "", precision: 18, icon: nil, displayName: "SORA Validator Token", visible: true),
+        ]
+    }
+
+    private func balances() -> [BalanceData] {
+        [
+            BalanceData(identifier: priceTestXor, balance: AmountDecimal(value: Decimal(string: "12.5")!)),
+            BalanceData(identifier: priceTestVal, balance: AmountDecimal(value: Decimal(3))),
+        ]
+    }
+
+    private func walletService(
+        _ prices: PriceTestPriceInfo
+    ) -> AssetsItemService {
+        let manager = PriceTestAssetManager(assets: assets())
+        return AssetsItemService(
+            marketCapService: PriceTestMarketCap(),
+            fiatService: nil,
+            assetViewModelsFactory: AssetViewModelFactory(
+                walletAssets: assets(),
+                assetManager: manager,
+                fiatService: nil
+            ),
+            assetManager: manager,
+            assetProvider: PriceTestAssetProvider(balances: balances()),
+            priceInfoService: prices
+        )
+    }
+
+    private func wait(
+        _ what: String,
+        until condition: @escaping () -> Bool
+    ) async {
+        for _ in 0 ..< 400 where !condition() {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(condition(), what)
+    }
+
+    /// The wallet through its production service: no prices gives the
+    /// notice, rows without a placeholder that never ends, and a retry;
+    /// prices give the total and end the retry.
+    func testWalletShowsTheNoticeThenTheTotal() async throws {
+        let prices = PriceTestPriceInfo()
+        let service = walletService(prices)
+
+        service.setup()
+        await wait("the notice") { !service.moneyText.isEmpty }
+
+        XCTAssertEqual(service.moneyText, WalletUX.priceUnavailableText)
+        XCTAssertTrue(service.priceIsUnavailable)
+        XCTAssertEqual(service.priceNoteText, "")
+        XCTAssertTrue(service.hasScheduledPriceRetry)
+        XCTAssertEqual(service.assetViewModels.count, 2)
+        for row in service.assetViewModels {
+            XCTAssertEqual(row.fiatText, "")
+            XCTAssertTrue(row.priceLoadFinished)
+        }
+
+        prices.info = PriceInfo(
+            fiatData: [
+                PIExactFiatData(id: priceTestXor, priceUsd: try PIQuantity("2")),
+            ],
+            marketCapInfo: []
+        )
+        service.setup()
+        await wait("the total") { service.moneyText == "$25" }
+
+        XCTAssertFalse(service.priceIsUnavailable)
+        XCTAssertEqual(service.priceNoteText, "")
+        XCTAssertFalse(service.hasScheduledPriceRetry)
+        let xor = try XCTUnwrap(
+            service.assetViewModels.first { $0.identifier == priceTestXor }
+        )
+        XCTAssertEqual(xor.fiatText, "$25")
+        // VAL has no price in the catalog: no value, and no placeholder.
+        let val = try XCTUnwrap(
+            service.assetViewModels.first { $0.identifier == priceTestVal }
+        )
+        XCTAssertEqual(val.fiatText, "")
+        XCTAssertTrue(val.priceLoadFinished)
+    }
+
+    /// Prices from the last good catalog are marked with their time, and
+    /// the wallet keeps asking for current ones.
+    func testWalletMarksOldPricesWithTheirTime() async throws {
+        let asOf = Date(timeIntervalSinceNow: -3 * 3_600)
+        let prices = PriceTestPriceInfo()
+        prices.info = PriceInfo(
+            fiatData: [
+                PIExactFiatData(id: priceTestXor, priceUsd: try PIQuantity("2")),
+            ],
+            marketCapInfo: [],
+            pricesAsOf: asOf
+        )
+        let service = walletService(prices)
+
+        service.setup()
+        await wait("the total") { service.moneyText == "$25" }
+
+        XCTAssertEqual(service.priceNoteText, WalletUX.pricesAsOfText(asOf))
+        XCTAssertFalse(service.priceNoteText.isEmpty)
+        XCTAssertFalse(service.priceIsUnavailable)
+        XCTAssertTrue(service.hasScheduledPriceRetry)
+    }
+
+    /// A background refresh or a return to the foreground announces itself;
+    /// the wallet then values itself again without any action by the user.
+    func testWalletAsksAgainWhenPricesChange() async throws {
+        let prices = PriceTestPriceInfo()
+        let service = walletService(prices)
+        service.setup()
+        await wait("the first read") { prices.calls == 1 }
+
+        NotificationCenter.default.post(
+            name: PICatalogs.pricesDidChange,
+            object: nil
+        )
+
+        await wait("the second read") { prices.calls == 2 }
+        _ = service
+    }
+
+    private func visibleLabelTexts(in view: UIView) -> [String] {
+        guard !view.isHidden else { return [] }
+        var texts: [String] = []
+        if let label = view as? UILabel, let text = label.text, !text.isEmpty {
+            texts.append(text)
+        }
+        for subview in view.subviews {
+            texts.append(contentsOf: visibleLabelTexts(in: subview))
+        }
+        return texts
+    }
+
+    /// Writes the cell as a PNG when `TEST_RUNNER_SORA_RENDER_DIR` names a
+    /// directory, so the states can be looked at without a running wallet.
+    @MainActor
+    private func render(_ cell: UITableViewCell, name: String) {
+        guard
+            let directory = ProcessInfo.processInfo.environment["SORA_RENDER_DIR"],
+            !directory.isEmpty
+        else { return }
+        let width: CGFloat = 393
+        let height = cell.contentView.systemLayoutSizeFitting(
+            CGSize(width: width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+        cell.frame = CGRect(x: 0, y: 0, width: width, height: max(height, 120))
+        cell.backgroundColor = WalletUX.page
+        cell.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: cell.bounds).image { context in
+            cell.layer.render(in: context.cgContext)
+        }
+        let url = URL(fileURLWithPath: directory)
+            .appendingPathComponent(name + ".png")
+        try? image.pngData()?.write(to: url)
+    }
+
+    /// The wallet's "Liquid assets" card itself, with the production cell:
+    /// the notice instead of a total; then a total with the time of the
+    /// old prices under it; then a total alone.
+    @MainActor
+    func testWalletCardShowsTheNoticeTheTimeOfOldPricesAndTheTotal()
+        async throws
+    {
+        let prices = PriceTestPriceInfo()
+        let service = walletService(prices)
+        let item = AssetsItem(
+            title: "Liquid assets",
+            assetProvider: PriceTestAssetProvider(balances: balances()),
+            service: service
+        )
+        let cell = AssetsCell(style: .default, reuseIdentifier: nil)
+        cell.frame = CGRect(x: 0, y: 0, width: 393, height: 400)
+        cell.set(item: item, context: nil)
+
+        func settle() async throws {
+            // The cell listens on the main queue.
+            try await Task.sleep(nanoseconds: 200_000_000)
+            cell.layoutIfNeeded()
+        }
+
+        // 1. PI cannot be read and nothing is saved.
+        service.setup()
+        await wait("the notice") {
+            service.moneyText == WalletUX.priceUnavailableText
+        }
+        try await settle()
+        var texts = visibleLabelTexts(in: cell)
+        XCTAssertTrue(texts.contains(WalletUX.priceUnavailableText), "\(texts)")
+        XCTAssertFalse(texts.contains { $0.contains("$") }, "\(texts)")
+        XCTAssertTrue(texts.contains { $0.contains("12.5") }, "\(texts)")
+        render(cell, name: "wallet-1-price-unavailable")
+
+        // 2. PI cannot be read; the last good prices are three hours old.
+        let asOf = Date(timeIntervalSinceNow: -3 * 3_600)
+        let fiatData = [
+            PIExactFiatData(id: priceTestXor, priceUsd: try PIQuantity("2")),
+        ]
+        prices.info = PriceInfo(
+            fiatData: fiatData,
+            marketCapInfo: [MarketCapInfo(assetId: priceTestXor, hourDelta: 1.5)],
+            pricesAsOf: asOf
+        )
+        service.setup()
+        await wait("the total") { service.moneyText == "$25" }
+        try await settle()
+        texts = visibleLabelTexts(in: cell)
+        XCTAssertTrue(texts.contains("$25"), "\(texts)")
+        XCTAssertTrue(texts.contains(WalletUX.pricesAsOfText(asOf)), "\(texts)")
+        XCTAssertFalse(texts.contains(WalletUX.priceUnavailableText), "\(texts)")
+        render(cell, name: "wallet-2-prices-as-of")
+
+        // 3. Current prices: the total alone.
+        prices.info = PriceInfo(
+            fiatData: fiatData,
+            marketCapInfo: [MarketCapInfo(assetId: priceTestXor, hourDelta: 1.5)]
+        )
+        service.setup()
+        await wait("the note to go") { service.priceNoteText.isEmpty }
+        try await settle()
+        texts = visibleLabelTexts(in: cell)
+        XCTAssertTrue(texts.contains("$25"), "\(texts)")
+        XCTAssertFalse(texts.contains { $0.hasPrefix("Prices as of") }, "\(texts)")
+        render(cell, name: "wallet-3-current")
+        _ = item
+    }
+
+    func testFiatServiceCarriesTheTimeOfOldPrices() async throws {
+        let asOf = Date(timeIntervalSince1970: 1_791_700_000)
+        let old = FiatService(catalog: {
+            PICatalogSnapshot(
+                values: [
+                    PIAsset(
+                        id: priceTestXor,
+                        priceUSD: try PIQuantity("2"),
+                        liquidity: nil,
+                        priceChangeDay: nil
+                    ),
+                ],
+                asOf: asOf
+            )
+        })
+        let snapshot = await old.getFiatSnapshot()
+        XCTAssertEqual(snapshot.data.count, 1)
+        XCTAssertEqual(snapshot.asOf, asOf)
+
+        let failing = FiatService(catalog: {
+            throw URLError(.notConnectedToInternet)
+        })
+        let none = await failing.getFiatSnapshot()
+        XCTAssertTrue(none.data.isEmpty)
+        XCTAssertNil(none.asOf)
+    }
+
+    func testPricesAsOfTextSaysWhenInEnglishAndJapanese() throws {
+        let utc = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        // 11 October 2026, 09:02 UTC.
+        let date = Date(timeIntervalSince1970: 1_791_709_320)
+        let sameDay = date.addingTimeInterval(3 * 3_600)
+        let nextDay = date.addingTimeInterval(20 * 3_600)
+
+        let english = WalletUX.pricesAsOfText(
+            date, now: sameDay, language: "en", timeZone: utc
+        )
+        XCTAssertTrue(english.hasPrefix("Prices as of "), english)
+        XCTAssertTrue(english.contains("9:02"), english)
+        XCTAssertFalse(english.contains("Oct"), english)
+
+        let japanese = WalletUX.pricesAsOfText(
+            date, now: sameDay, language: "ja", timeZone: utc
+        )
+        XCTAssertTrue(japanese.hasSuffix(" 時点の価格"), japanese)
+        XCTAssertTrue(japanese.contains("9:02"), japanese)
+
+        // Not today: the date is part of the text.
+        let dated = WalletUX.pricesAsOfText(
+            date, now: nextDay, language: "en", timeZone: utc
+        )
+        XCTAssertTrue(dated.contains("Oct"), dated)
+        XCTAssertTrue(dated.contains("9:02"), dated)
+    }
+
+    /// Asset Details: the price, the value of the holding and the frozen
+    /// value. Without a price none of them reads "$0".
+    func testAssetDetailsShowsNoZeroForAnUnknownPrice() {
+        XCTAssertEqual(
+            AssetDetailsItemFactory.priceText(usdPrice: nil, pricesLoaded: true),
+            WalletUX.priceUnavailableText
+        )
+        // Still loading: blank, not the notice and not a number.
+        XCTAssertEqual(
+            AssetDetailsItemFactory.priceText(usdPrice: nil, pricesLoaded: false),
+            ""
+        )
+        XCTAssertEqual(
+            AssetDetailsItemFactory.priceText(usdPrice: Decimal(string: "5.4"), pricesLoaded: true),
+            "$5.4"
+        )
+
+        XCTAssertEqual(WalletUX.balanceFiatText(amount: 500, price: nil), "")
+        XCTAssertEqual(WalletUX.balanceFiatText(amount: 500, price: 2), "$1,000")
+        // A real zero is still a zero.
+        XCTAssertEqual(WalletUX.balanceFiatText(amount: 0, price: 2), "$0")
+        XCTAssertEqual(WalletUX.fiatText(amount: 500, price: nil), "")
+        XCTAssertEqual(WalletUX.fiatText(amount: 500, price: nil, prefix: "~$"), "")
+        XCTAssertEqual(WalletUX.fiatText(amount: 500, price: 2, prefix: "~$"), "~$1,000")
+    }
+
+    /// The network fee row of the send confirmation, through the
+    /// production factory: "0.0007 XOR" and no fiat text, not "$0".
+    func testNetworkFeeRowHasNoFiatTextWithoutAPrice() throws {
+        let factory = DetailViewModelFactory(
+            assetManager: PriceTestAssetManager(assets: assets())
+        )
+        let viewModel = PriceTestSendingViewModel()
+        let fee = try XCTUnwrap(Decimal(string: "0.0007"))
+
+        let unknown = try XCTUnwrap(
+            factory.createSendingAssetViewModels(
+                fee: fee,
+                fiatData: [],
+                viewModel: viewModel
+            ).first
+        )
+        XCTAssertEqual(unknown.fiatAmountText?.attributedString.string, "")
+        XCTAssertTrue(
+            unknown.assetAmountText.attributedString.string.contains("0.0007")
+        )
+
+        let known = try XCTUnwrap(
+            factory.createSendingAssetViewModels(
+                fee: fee,
+                fiatData: [
+                    PIExactFiatData(
+                        id: priceTestXor,
+                        priceUsd: try PIQuantity("1000")
+                    ),
+                ],
+                viewModel: viewModel
+            ).first
+        )
+        XCTAssertEqual(known.fiatAmountText?.attributedString.string, "$0.7")
+    }
+
+    /// Explore, currencies: without any price every row shows no price;
+    /// with prices an asset that has none shows neither a price nor a
+    /// market cap.
+    func testExploreAssetsShowNoZeroForAnUnknownPrice() async throws {
+        let manager = PriceTestAssetManager(assets: assets())
+        let prices = PriceTestPriceInfo()
+        let service = ExploreAssetViewModelService(
+            marketCapService: PriceTestMarketCap(),
+            fiatService: nil,
+            itemFactory: ExploreItemFactory(assetManager: manager),
+            assetInfos: assets(),
+            priceInfoService: prices
+        )
+
+        let withoutPrices = await service.setup()
+        XCTAssertEqual(withoutPrices.count, 2)
+        for row in withoutPrices {
+            XCTAssertEqual(row.price, "")
+            XCTAssertNil(row.marketCap.value)
+        }
+
+        prices.info = PriceInfo(
+            fiatData: [
+                PIExactFiatData(id: priceTestXor, priceUsd: try PIQuantity("2")),
+                PIExactFiatData(id: priceTestVal, priceUsd: nil),
+            ],
+            marketCapInfo: [
+                MarketCapInfo(assetId: priceTestXor, hourDelta: 1, liquidity: 100),
+                MarketCapInfo(assetId: priceTestVal, hourDelta: 1, liquidity: 100),
+            ]
+        )
+        let withPrices = await service.setup()
+        let xor = try XCTUnwrap(withPrices.first { $0.assetId == priceTestXor })
+        XCTAssertEqual(xor.price, "$2")
+        XCTAssertEqual(xor.marketCap.value, "$" + Decimal(200).formatNumber())
+        let val = try XCTUnwrap(withPrices.first { $0.assetId == priceTestVal })
+        XCTAssertEqual(val.price, "")
+        XCTAssertNil(val.marketCap.value)
+        // The priced asset is listed first.
+        XCTAssertEqual(withPrices.first?.assetId, priceTestXor)
+    }
+
+    /// Explore, pools: a pool valued without a price shows no TVL, and its
+    /// loading placeholder ends.
+    func testExplorePoolWithoutAPriceShowsNoValue() {
+        let factory = ExploreItemFactory(
+            assetManager: PriceTestAssetManager(assets: assets())
+        )
+        let unknown = factory.createPoolsItem(
+            with: ExplorePool(
+                id: "1",
+                baseAssetId: priceTestXor,
+                targetAssetId: priceTestVal,
+                tvl: 0,
+                tvlIsKnown: false
+            ),
+            serialNumber: "1"
+        )
+        XCTAssertEqual(unknown.tvl, "")
+
+        let known = factory.createPoolsItem(
+            with: ExplorePool(
+                id: "1",
+                baseAssetId: priceTestXor,
+                targetAssetId: priceTestVal,
+                tvl: 0
+            ),
+            serialNumber: "1"
+        )
+        XCTAssertEqual(known.tvl, "$" + Decimal(0).formatNumber())
+    }
+
+    func testFarmWithoutPricesShowsNoValueAndNoRate() {
+        let unknown = Farm(
+            id: "f", name: "XOR-VAL", baseAsset: nil, poolAsset: nil,
+            rewardAsset: nil, tvl: 0, apr: 0, depositFee: 0,
+            tvlIsKnown: false, aprIsKnown: false
+        )
+        XCTAssertEqual(unknown.tvlText(suffix: " TVL"), "")
+        XCTAssertEqual(unknown.aprText(suffix: "% APR"), "")
+
+        let known = Farm(
+            id: "f", name: "XOR-VAL", baseAsset: nil, poolAsset: nil,
+            rewardAsset: nil, tvl: 1_500, apr: Decimal(string: "0.12")!,
+            depositFee: 0
+        )
+        XCTAssertEqual(known.tvlText(suffix: " TVL"), "$" + Decimal(1_500).formatNumber() + " TVL")
+        XCTAssertEqual(known.aprText(suffix: "% APR"), "12% APR")
+    }
+
+    /// The Explore pool list asks again when the node gave nothing, with a
+    /// growing pause, and stops once the screen that owns it is gone.
+    func testExplorePoolsReloadBacksOffAndStopsWhenReleased() async throws {
+        XCTAssertEqual(ExplorePoolsViewModelService.retryDelay(afterAttempts: 0), 2)
+        XCTAssertEqual(ExplorePoolsViewModelService.retryDelay(afterAttempts: 1), 4)
+        XCTAssertEqual(ExplorePoolsViewModelService.retryDelay(afterAttempts: 4), 32)
+        XCTAssertEqual(ExplorePoolsViewModelService.retryDelay(afterAttempts: 5), 60)
+        XCTAssertEqual(ExplorePoolsViewModelService.retryDelay(afterAttempts: 500), 60)
+
+        let pools = PriceTestExplorePools()
+        let pauses = Counter()
+        let delays = DelayLog()
+        var service: ExplorePoolsViewModelService? = ExplorePoolsViewModelService(
+            itemFactory: ExploreItemFactory(
+                assetManager: PriceTestAssetManager(assets: assets())
+            ),
+            poolsService: pools,
+            apyService: PriceTestAPY(),
+            fiatService: FiatService(assets: { [] }),
+            pause: { seconds in
+                delays.append(seconds)
+                pauses.increment()
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+        )
+        weak var released = service
+
+        service?.setup()
+        await wait("three rounds") { pauses.value >= 3 }
+        XCTAssertEqual(Array(delays.values.prefix(3)), [2, 4, 8])
+
+        service = nil
+        await wait("the service to be released") { released == nil }
+        let callsAtRelease = pools.calls
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(pools.calls, callsAtRelease)
+    }
+}
+
+final class DelayLog {
+    private let lock = NSLock()
+    private var log: [TimeInterval] = []
+
+    var values: [TimeInterval] {
+        lock.lock()
+        defer { lock.unlock() }
+        return log
+    }
+
+    func append(_ value: TimeInterval) {
+        lock.lock()
+        log.append(value)
+        lock.unlock()
     }
 }
 
