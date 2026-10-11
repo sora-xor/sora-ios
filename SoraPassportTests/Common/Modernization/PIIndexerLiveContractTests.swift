@@ -5842,7 +5842,10 @@ private final class ActivityTestFactory: ActivityViewModelFactoryProtocol {
                     .activity(
                         ActivityItem(
                             model: ActivityContentViewModel(
-                                txHash: $0.base.txHash
+                                txHash: $0.base.txHash,
+                                title: "Sent",
+                                subtitle: $0.base.txHash,
+                                fiatText: "$1"
                             )
                         )
                     )
@@ -5863,12 +5866,33 @@ private final class ActivityTestFactory: ActivityViewModelFactoryProtocol {
 private final class ActivityTestHistory: HistoryServiceProtocol {
     private let lock = NSLock()
     private var pages: [Int: HistoryPage] = [:]
+    private var failures: [Int: Swift.Error] = [:]
     private var asked: [Int] = []
+    private var gate: TestGate?
 
     func set(_ page: Int, _ value: HistoryPage?) {
         lock.lock()
         pages[page] = value
+        failures[page] = nil
         lock.unlock()
+    }
+
+    /// The page fails with this error instead of HTTP 503.
+    func fail(_ page: Int, with error: Swift.Error) {
+        lock.lock()
+        pages[page] = nil
+        failures[page] = error
+        lock.unlock()
+    }
+
+    /// Requests made from now on are answered when the gate is opened,
+    /// with the answer set at that time.
+    func hold() -> TestGate {
+        let held = TestGate()
+        lock.lock()
+        gate = held
+        lock.unlock()
+        return held
     }
 
     var requests: [Int] {
@@ -5877,19 +5901,29 @@ private final class ActivityTestHistory: HistoryServiceProtocol {
         return asked
     }
 
+    private func note(_ page: Int) -> TestGate? {
+        lock.lock()
+        defer { lock.unlock() }
+        asked.append(page)
+        return gate
+    }
+
+    private func answer(_ page: Int) -> Result<HistoryPage, Swift.Error> {
+        lock.lock()
+        defer { lock.unlock() }
+        if let value = pages[page] {
+            return .success(value)
+        }
+        return .failure(failures[page] ?? PIIndexerError.httpStatus(503))
+    }
+
     func getPageHistory(
         count _: Int,
         page: Int,
         assetId _: String?
     ) async throws -> HistoryPage {
-        lock.lock()
-        asked.append(page)
-        let value = pages[page]
-        lock.unlock()
-        guard let value else {
-            throw PIIndexerError.httpStatus(503)
-        }
-        return value
+        await note(page)?.passed()
+        return try answer(page).get()
     }
 
     func getHistory(count _: Int, assetId _: String?) async throws -> [Transaction] { [] }
@@ -5922,6 +5956,53 @@ private final class ActivityTestEvents: EventCenterProtocol {
     func remove(observer _: EventVisitorProtocol) {}
 }
 
+/// What the list of a view model holds, row by row.
+private enum ActivityTestList {
+    static func rows(_ viewModel: ActivityViewModel) -> [String] {
+        viewModel.sections.flatMap(\.items).compactMap { item in
+            if case let .activity(activity) = item {
+                return activity.model.txHash
+            }
+            return nil
+        }
+    }
+
+    static func notices(_ viewModel: ActivityViewModel) -> [String] {
+        viewModel.sections.flatMap(\.items).compactMap { item in
+            if case let .notice(notice) = item {
+                return notice.text
+            }
+            return nil
+        }
+    }
+
+    /// "Some data is not up to date / Refresh" rows.
+    static func retryRows(_ viewModel: ActivityViewModel) -> Int {
+        viewModel.sections.flatMap(\.items).filter { item in
+            if case let .error(row) = item { return row.title == nil }
+            return false
+        }.count
+    }
+
+    /// The texts of the "Activity as of ... / Refresh" rows.
+    static func refreshRows(_ viewModel: ActivityViewModel) -> [String] {
+        viewModel.sections.flatMap(\.items).compactMap { item in
+            if case let .error(row) = item { return row.title }
+            return nil
+        }
+    }
+
+    /// The rows the screen was last told to draw.
+    static func drawnRows(_ viewModel: ActivityViewModel) -> [String] {
+        viewModel.snapshot.itemIdentifiers.compactMap { item in
+            if case let .activity(activity) = item {
+                return activity.model.txHash
+            }
+            return nil
+        }
+    }
+}
+
 final class PIRound4ActivityTests: XCTestCase {
     private func wait(
         _ what: String,
@@ -5945,39 +6026,30 @@ final class PIRound4ActivityTests: XCTestCase {
         )
     }
 
+    /// These tests are about pages: the list does not ask again by itself
+    /// while they run (`PIActivityRefreshTests` covers that).
     private func viewModel(_ history: ActivityTestHistory) -> ActivityViewModel {
         ActivityViewModel(
             historyService: history,
             viewModelFactory: ActivityTestFactory(),
             wireframe: ActivityWireframe(),
             assetManager: PriceTestAssetManager(assets: []),
-            eventCenter: ActivityTestEvents()
+            eventCenter: ActivityTestEvents(),
+            notificationCenter: NotificationCenter(),
+            refreshDelay: { _ in 3_600 }
         )
     }
 
     private func rows(_ viewModel: ActivityViewModel) -> [String] {
-        viewModel.sections.flatMap(\.items).compactMap { item in
-            if case let .activity(activity) = item {
-                return activity.model.txHash
-            }
-            return nil
-        }
+        ActivityTestList.rows(viewModel)
     }
 
     private func notices(_ viewModel: ActivityViewModel) -> [String] {
-        viewModel.sections.flatMap(\.items).compactMap { item in
-            if case let .notice(notice) = item {
-                return notice.text
-            }
-            return nil
-        }
+        ActivityTestList.notices(viewModel)
     }
 
     private func retryRows(_ viewModel: ActivityViewModel) -> Int {
-        viewModel.sections.flatMap(\.items).filter { item in
-            if case .error = item { return true }
-            return false
-        }.count
+        ActivityTestList.retryRows(viewModel)
     }
 
     func testTheRuleForPuttingAPageUnderTheList() {
@@ -6054,7 +6126,12 @@ final class PIRound4ActivityTests: XCTestCase {
         await wait("the saved page 1") { self.rows(viewModel) == ["a1"] }
         await wait("page 1 counted") { viewModel.pageNumber == 1 }
         XCTAssertEqual(viewModel.shownPages, .saved(savedAt))
-        XCTAssertEqual(notices(viewModel), [WalletUX.activityAsOfText(savedAt)])
+        // The line that says when the list is from has a Refresh button.
+        XCTAssertEqual(
+            ActivityTestList.refreshRows(viewModel),
+            [WalletUX.activityAsOfText(savedAt)]
+        )
+        XCTAssertEqual(notices(viewModel), [])
 
         // A page saved before the one above it.
         viewModel.updateContent()
@@ -6083,6 +6160,7 @@ final class PIRound4ActivityTests: XCTestCase {
         await wait("the current list") { self.rows(viewModel) == ["n1", "a1"] }
         XCTAssertEqual(viewModel.shownPages, .current)
         XCTAssertEqual(notices(viewModel), [])
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [])
         XCTAssertEqual(retryRows(viewModel), 0)
     }
 
@@ -6117,5 +6195,769 @@ final class PIRound4ActivityTests: XCTestCase {
         XCTAssertTrue(japanese.contains("時点のアクティビティです"), japanese)
         XCTAssertFalse(japanese.contains("%@"))
         XCTAssertNotEqual(english, japanese)
+    }
+}
+
+// MARK: - Review round 5: a list that is behind becomes current again
+
+/// The saved Activity list said "Newer transactions will appear when the
+/// list can be updated" and then nothing ever updated it: no button, no
+/// timer, nothing when the app or the tab came back. Only a transaction
+/// made in the wallet, or killing the app, loaded it again.
+final class PIActivityRefreshTests: XCTestCase {
+    private let center = NotificationCenter()
+
+    @MainActor
+    private func wait(
+        _ what: String,
+        until condition: () -> Bool
+    ) async {
+        for _ in 0 ..< 1_000 where !condition() {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        XCTAssertTrue(condition(), what)
+    }
+
+    /// Time for something that must not happen to happen.
+    @MainActor
+    private func settle() async {
+        try? await Task.sleep(nanoseconds: 150_000_000)
+    }
+
+    private func page(
+        _ hashes: [String],
+        day: String = "1",
+        cachedAt: Date? = nil,
+        endReached: Bool = false
+    ) -> HistoryPage {
+        HistoryPage(
+            transactions: hashes.map { ActivityTestTransaction($0, day: day) },
+            endReached: endReached,
+            cachedAt: cachedAt
+        )
+    }
+
+    /// - Parameter wait: The wait before the list asks again by itself.
+    ///   An hour, unless the test is about that.
+    private func viewModel(
+        _ history: ActivityTestHistory,
+        wait: @escaping (Int) -> TimeInterval = { _ in 3_600 },
+        uptime: @escaping () -> TimeInterval = {
+            ProcessInfo.processInfo.systemUptime
+        }
+    ) -> ActivityViewModel {
+        ActivityViewModel(
+            historyService: history,
+            viewModelFactory: ActivityTestFactory(),
+            wireframe: ActivityWireframe(),
+            assetManager: PriceTestAssetManager(assets: []),
+            eventCenter: ActivityTestEvents(),
+            notificationCenter: center,
+            refreshDelay: wait,
+            uptime: uptime
+        )
+    }
+
+    private let savedAt = Date().addingTimeInterval(-3_600)
+
+    private var asOf: String { WalletUX.activityAsOfText(savedAt) }
+
+    // MARK: The schedule
+
+    func testTheWaitsGrowAndStopAtFiveMinutes() {
+        XCTAssertEqual(
+            [0, 1, 2, 3, 4, 5, 6, 40].map(
+                ActivityViewModel.refreshDelay(afterFailures:)
+            ),
+            [15, 30, 60, 120, 240, 300, 300, 300]
+        )
+        XCTAssertEqual(ActivityViewModel.refreshDelay(afterFailures: -3), 15)
+        XCTAssertEqual(ActivityViewModel.minimumRefreshSpacing, 15)
+    }
+
+    // MARK: By itself
+
+    /// The scenario of the finding: no signal when Activity opens, the
+    /// saved list is shown, the network returns. Nothing is tapped and no
+    /// transaction is made.
+    @MainActor
+    func testTheSavedListBecomesCurrentByItself() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1"], cachedAt: savedAt))
+        var waits: [Int] = []
+        let viewModel = viewModel(history, wait: { failures in
+            waits.append(failures)
+            return 0.02
+        })
+
+        viewModel.viewDidLoad()
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1"]
+        }
+        XCTAssertEqual(viewModel.shownPages, .saved(savedAt))
+        XCTAssertTrue(viewModel.isBehind)
+        // The line that says when the list is from comes with a button.
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [asOf])
+
+        // The indexer still cannot be read: page 1 is asked for again and
+        // again, each time after a longer wait, and the list stays.
+        await wait("asked again by itself") { history.requests.count >= 5 }
+        XCTAssertTrue(history.requests.allSatisfy { $0 == 1 })
+        XCTAssertEqual(Array(waits.prefix(4)), [0, 1, 2, 3])
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1"])
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [asOf])
+        XCTAssertEqual(viewModel.shownPages, .saved(savedAt))
+
+        // The indexer answers again.
+        history.set(1, page(["n1", "a1"]))
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1"]
+        }
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertFalse(viewModel.isBehind)
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [])
+        XCTAssertEqual(viewModel.pageNumber, 1)
+
+        // A current list asks for nothing more.
+        let asked = history.requests.count
+        await settle()
+        XCTAssertEqual(history.requests.count, asked)
+    }
+
+    /// Nothing could be shown when Activity opened: "Could not load your
+    /// activity" with its Refresh button. That state loads by itself too,
+    /// and takes the saved copy when that is all there is.
+    @MainActor
+    func testAListThatCouldNotBeLoadedLoadsByItself() async {
+        let history = ActivityTestHistory()
+        var errorsShown = 0
+        var errorsHidden = 0
+        let viewModel = viewModel(history, wait: { _ in 0.02 })
+        viewModel.setupErrorContent = { errorsShown += 1 }
+        viewModel.hideErrorContent = { errorsHidden += 1 }
+
+        viewModel.viewDidLoad()
+        await wait("the error") { errorsShown == 1 }
+        XCTAssertTrue(viewModel.isBehind)
+        XCTAssertEqual(viewModel.shownPages, .none)
+        XCTAssertEqual(viewModel.snapshot.numberOfItems, 0)
+        await wait("asked again by itself") { history.requests.count >= 3 }
+        XCTAssertEqual(errorsShown, 1)
+
+        // The saved copy can be read: better than the error.
+        history.set(1, page(["a1"], cachedAt: savedAt))
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1"]
+        }
+        XCTAssertEqual(errorsHidden, 1)
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [asOf])
+        XCTAssertTrue(viewModel.isBehind)
+
+        // And then the indexer.
+        history.set(1, page(["n1", "a1"]))
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1"]
+        }
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertFalse(viewModel.isBehind)
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [])
+    }
+
+    /// The saved list of an account whose incoming transfers the indexer
+    /// could not list: the Refresh row is the first row, the notice comes
+    /// under it as part of the same card.
+    @MainActor
+    func testTheSavedListKeepsTheNoticeAboutIncomingTransfers() async throws {
+        let history = ActivityTestHistory()
+        history.set(
+            1,
+            HistoryPage(
+                transactions: [ActivityTestTransaction("a1", day: "1")],
+                endReached: true,
+                mayOmitIncomingTransfers: true,
+                cachedAt: savedAt
+            )
+        )
+        let viewModel = viewModel(history)
+
+        viewModel.viewDidLoad()
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1"]
+        }
+        let top = try XCTUnwrap(viewModel.sections.first).items
+        XCTAssertEqual(top.count, 2)
+        guard
+            case let .error(refresh) = top[0],
+            case let .notice(notice) = top[1]
+        else {
+            return XCTFail("\(top)")
+        }
+        XCTAssertEqual(refresh.title, asOf)
+        XCTAssertTrue(refresh.roundsTop)
+        XCTAssertEqual(notice.text, ActivityViewModel.incompleteHistoryNotice)
+        XCTAssertFalse(notice.roundsTop)
+
+        // Without a saved copy above it, the notice is the top of the card.
+        history.set(
+            1,
+            HistoryPage(
+                transactions: [ActivityTestTransaction("a1", day: "1")],
+                endReached: true,
+                mayOmitIncomingTransfers: true
+            )
+        )
+        viewModel.resetPagination()
+        await wait("the current list") { viewModel.shownPages == .current }
+        let current = try XCTUnwrap(viewModel.sections.first).items
+        guard current.count == 1, case let .notice(only) = current[0] else {
+            return XCTFail("\(current)")
+        }
+        XCTAssertTrue(only.roundsTop)
+    }
+
+    // MARK: When the app or the screen comes back
+
+    @MainActor
+    func testComingToTheForegroundLoadsTheListAgain() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1"], cachedAt: savedAt))
+        var waits: [Int] = []
+        let viewModel = viewModel(history, wait: { failures in
+            waits.append(failures)
+            return 3_600
+        })
+
+        viewModel.viewDidLoad()
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1"]
+        }
+        await settle()
+        XCTAssertEqual(history.requests, [1])
+
+        // Still no indexer when the app comes back: asked once, the list
+        // stays, and the waits start from the short end again.
+        center.post(
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        await wait("asked when the app came back") {
+            history.requests == [1, 1]
+        }
+        await wait("the next wait") { waits == [0, 1] }
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1"])
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [asOf])
+
+        // The indexer answers the next time.
+        history.set(1, page(["n1", "a1"]))
+        center.post(
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1"]
+        }
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertEqual(history.requests, [1, 1, 1])
+
+        // A current list is left alone.
+        center.post(
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        viewModel.viewWillAppear()
+        await settle()
+        XCTAssertEqual(history.requests, [1, 1, 1])
+    }
+
+    /// Leaving the tab and coming back asks again, but not when page 1 was
+    /// answered a moment ago: switching tabs quickly costs nothing.
+    @MainActor
+    func testComingBackToTheScreenLoadsTheListAgain() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1"], cachedAt: savedAt))
+        var now: TimeInterval = 1_000
+        let viewModel = viewModel(history, uptime: { now })
+
+        viewModel.viewDidLoad()
+        // The first appearance, while page 1 is still on its way.
+        viewModel.viewWillAppear()
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1"]
+        }
+        XCTAssertEqual(history.requests, [1])
+
+        now += 5
+        viewModel.viewWillAppear()
+        await settle()
+        XCTAssertEqual(history.requests, [1])
+
+        now += 11
+        viewModel.viewWillAppear()
+        await wait("asked when the screen came back") {
+            history.requests == [1, 1]
+        }
+        await settle()
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1"])
+
+        // At once again: not asked.
+        viewModel.viewWillAppear()
+        await settle()
+        XCTAssertEqual(history.requests, [1, 1])
+
+        history.set(1, page(["n1", "a1"]))
+        now += 16
+        viewModel.viewWillAppear()
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1"]
+        }
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertEqual(history.requests, [1, 1, 1])
+    }
+
+    // MARK: Loads that cross
+
+    /// The list is asked for again by itself and, before the answer, the
+    /// user taps Refresh. One list is shown, no row twice, and when it is
+    /// the saved copy again the list keeps asking.
+    @MainActor
+    func testRefreshByTheUserWhileTheListAsksByItself() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], cachedAt: savedAt))
+        let viewModel = viewModel(history, wait: { _ in 0.02 })
+
+        viewModel.viewDidLoad()
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2"]
+        }
+        var gate = history.hold()
+        let before = history.requests.count
+        await wait("asked by itself") {
+            history.requests.count == before + 1
+        }
+        viewModel.resetPagination()
+        await wait("asked by the user") {
+            history.requests.count == before + 2
+        }
+        gate.open()
+        await wait("the saved list again") {
+            ActivityTestList.rows(viewModel) == ["a1", "a2"]
+                && viewModel.pageNumber == 1
+        }
+        await settle()
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1", "a2"])
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [asOf])
+        XCTAssertTrue(viewModel.isBehind)
+        // It still asks by itself.
+        let afterRefresh = history.requests.count
+        await wait("keeps asking") {
+            history.requests.count >= afterRefresh + 2
+        }
+
+        // The same crossing, and this time the indexer answers both.
+        gate = history.hold()
+        let held = history.requests.count
+        await wait("asked by itself") {
+            history.requests.count == held + 1
+        }
+        viewModel.resetPagination()
+        await wait("asked by the user") {
+            history.requests.count == held + 2
+        }
+        history.set(1, page(["n1", "a1", "a2"]))
+        gate.open()
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1", "a2"]
+        }
+        await settle()
+        XCTAssertEqual(
+            ActivityTestList.rows(viewModel),
+            ["n1", "a1", "a2"]
+        )
+        XCTAssertEqual(viewModel.pageNumber, 1)
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertFalse(viewModel.isBehind)
+        let asked = history.requests.count
+        await settle()
+        XCTAssertEqual(history.requests.count, asked)
+    }
+
+    /// Two transactions arrive together and each loads the list again:
+    /// the second answer used to be put under the first as "page 2".
+    @MainActor
+    func testTwoLoadsThatCrossShowOneList() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"]))
+        history.set(2, page(["b1"], day: "2"))
+        let viewModel = viewModel(history)
+
+        var gate = history.hold()
+        viewModel.resetPagination()
+        viewModel.resetPagination()
+        await wait("both asked") { history.requests == [1, 1] }
+        gate.open()
+        await wait("the list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2"]
+        }
+        await settle()
+        XCTAssertEqual(ActivityTestList.rows(viewModel), ["a1", "a2"])
+        XCTAssertEqual(viewModel.pageNumber, 1)
+
+        // The end of the list is shown twice before page 2 arrives.
+        gate = history.hold()
+        viewModel.updateContent()
+        viewModel.updateContent()
+        await wait("both asked") { history.requests == [1, 1, 2, 2] }
+        gate.open()
+        await wait("page 2") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2", "b1"]
+        }
+        await settle()
+        XCTAssertEqual(ActivityTestList.rows(viewModel), ["a1", "a2", "b1"])
+        XCTAssertEqual(viewModel.pageNumber, 2)
+    }
+
+    // MARK: The end of the list
+
+    /// Page 1 is current, the network goes, and there is no saved copy of
+    /// page 2: the spinner at the end of the list used to turn for ever.
+    @MainActor
+    func testAFurtherPageThatCannotBeReadOffersRefresh() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"]))
+        let viewModel = viewModel(history)
+
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("the retry row") {
+            ActivityTestList.retryRows(viewModel) == 1
+        }
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1", "a2"])
+        XCTAssertEqual(viewModel.pageNumber, 1)
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertFalse(viewModel.isBehind)
+
+        // Scrolling to the end again asks again; one row.
+        viewModel.updateContent()
+        await wait("asked again") { history.requests == [1, 2, 2] }
+        await settle()
+        XCTAssertEqual(ActivityTestList.retryRows(viewModel), 1)
+
+        history.set(2, page(["b1"], day: "2"))
+        viewModel.updateContent()
+        await wait("page 2") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2", "b1"]
+        }
+        XCTAssertEqual(ActivityTestList.retryRows(viewModel), 0)
+    }
+
+    /// A list that ended is not asked for more, so a short saved list has
+    /// its one Refresh row and no second one at its end.
+    @MainActor
+    func testNothingIsAskedPastTheEndOfTheList() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1"], cachedAt: savedAt, endReached: true))
+        let viewModel = viewModel(history)
+
+        viewModel.viewDidLoad()
+        await wait("the saved list") {
+            ActivityTestList.drawnRows(viewModel) == ["a1"]
+        }
+        await wait("page 1 counted") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await settle()
+        XCTAssertEqual(history.requests, [1])
+        XCTAssertEqual(ActivityTestList.retryRows(viewModel), 0)
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [asOf])
+
+        // A longer list is asked for its next page, and then no more.
+        history.set(1, page(["n1", "a1"]))
+        history.set(2, page(["b1"], day: "2", endReached: true))
+        viewModel.resetPagination()
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1"]
+        }
+        await wait("page 1 counted") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("page 2") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1", "b1"]
+        }
+        viewModel.updateContent()
+        await settle()
+        XCTAssertEqual(history.requests, [1, 1, 2])
+    }
+
+    /// The history has more pages than the client reads: the list ends
+    /// there, without a row that offers what cannot be had.
+    @MainActor
+    func testTheLastPageTheClientReadsEndsTheList() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1"]))
+        history.fail(2, with: PIIndexerError.paginationLimit)
+        let viewModel = viewModel(history)
+
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("asked") { history.requests == [1, 2] }
+        await settle()
+        XCTAssertEqual(ActivityTestList.retryRows(viewModel), 0)
+        viewModel.updateContent()
+        await settle()
+        XCTAssertEqual(history.requests, [1, 2])
+    }
+
+    // MARK: On screen
+
+    private func descendants<View: UIView>(
+        of view: UIView,
+        as _: View.Type
+    ) -> [View] {
+        view.subviews.flatMap { subview -> [View] in
+            let own = (subview as? View).map { [$0] } ?? []
+            return own + descendants(of: subview, as: View.self)
+        }
+    }
+
+    private func texts(in view: UIView) -> [String] {
+        descendants(of: view, as: UILabel.self)
+            .filter { !$0.isHidden }
+            .compactMap { $0.attributedText?.string ?? $0.text }
+            .filter { !$0.isEmpty }
+    }
+
+    private func refreshCells(
+        in controller: UIViewController
+    ) -> [ActivityErrorCell] {
+        descendants(of: controller.view, as: ActivityErrorCell.self)
+            .filter { $0.window != nil && !$0.isHidden }
+    }
+
+    /// A finger down on the button and up again. The app's buttons act
+    /// when the finger goes down.
+    @MainActor
+    private func tap(_ button: UIControl) {
+        button.sendActions(for: .touchDown)
+        button.sendActions(for: .touchUpInside)
+    }
+
+    /// A window of the running app with the screen in it, so that the
+    /// table lays out and draws its rows as it does for a user.
+    @MainActor
+    private func window(
+        showing controller: UIViewController
+    ) throws -> UIWindow {
+        let scene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first
+        )
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
+        window.windowLevel = .alert
+        window.rootViewController = UINavigationController(
+            rootViewController: controller
+        )
+        window.isHidden = false
+        window.layoutIfNeeded()
+        return window
+    }
+
+    @MainActor
+    private func attach(_ window: UIWindow, as name: String) {
+        window.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// The production screen on the production view model: the saved list
+    /// has a Refresh button under the line that says when it is from, the
+    /// button loads the list again, and the row goes when the list is
+    /// current.
+    @MainActor
+    func testTheSavedListOnScreenHasARefreshButton() async throws {
+        let history = ActivityTestHistory()
+        history.set(
+            1,
+            page(["a1", "a2", "a3"], cachedAt: savedAt, endReached: true)
+        )
+        let viewModel = viewModel(history)
+        viewModel.title = "Activity"
+        let controller = ActivityViewController(viewModel: viewModel)
+        viewModel.view = controller
+
+        let window = try window(showing: controller)
+        defer { window.isHidden = true }
+
+        await wait("the Refresh row on screen") {
+            self.refreshCells(in: controller).count == 1
+        }
+        await settle()
+        let cell = try XCTUnwrap(refreshCells(in: controller).first)
+        let refresh = R.string.localizable.commonRefresh(
+            preferredLanguages: .currentLocale
+        )
+        XCTAssertEqual(texts(in: cell), [asOf, refresh])
+        let table = try XCTUnwrap(
+            descendants(of: controller.view, as: UITableView.self).first
+        )
+        XCTAssertEqual(table.indexPath(for: cell), IndexPath(row: 0, section: 0))
+        // A list that ended has no spinner at its end and asked for no
+        // page 2.
+        XCTAssertNil(table.tableFooterView)
+        XCTAssertEqual(history.requests, [1])
+        attach(window, as: "activity-saved-list")
+
+        // Still no indexer: the button asks, and the same list is shown.
+        var button = try XCTUnwrap(
+            descendants(of: cell, as: SoramitsuButton.self).first
+        )
+        tap(button)
+        await wait("asked by the button") { history.requests == [1, 1] }
+        await wait("the saved list again") {
+            self.refreshCells(in: controller).count == 1
+                && viewModel.pageNumber == 1
+        }
+        XCTAssertEqual(
+            ActivityTestList.drawnRows(viewModel),
+            ["a1", "a2", "a3"]
+        )
+
+        // The indexer answers: the list is current and the row is gone.
+        history.set(1, page(["n1", "a1", "a2", "a3"], endReached: true))
+        await settle()
+        let again = try XCTUnwrap(refreshCells(in: controller).first)
+        button = try XCTUnwrap(
+            descendants(of: again, as: SoramitsuButton.self).first
+        )
+        tap(button)
+        await wait("the current list") {
+            ActivityTestList.drawnRows(viewModel) == ["n1", "a1", "a2", "a3"]
+        }
+        await wait("the Refresh row is gone") {
+            self.refreshCells(in: controller).isEmpty
+        }
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertEqual(history.requests, [1, 1, 1])
+        attach(window, as: "activity-current-list")
+    }
+
+    /// On screen, a further page that cannot be read ends the list with
+    /// the "Some data is not up to date" row and its Refresh button, and
+    /// no spinner is left turning under it.
+    @MainActor
+    func testTheEndOfTheListOnScreenWhenAFurtherPageCannotBeRead() async throws {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2", "a3"]))
+        let viewModel = viewModel(history)
+        viewModel.title = "Activity"
+        let controller = ActivityViewController(viewModel: viewModel)
+        viewModel.view = controller
+        let window = try window(showing: controller)
+        defer { window.isHidden = true }
+
+        // Showing the last row asks for page 2 by itself.
+        await wait("the retry row on screen") {
+            self.refreshCells(in: controller).count == 1
+        }
+        await settle()
+        let cell = try XCTUnwrap(refreshCells(in: controller).first)
+        XCTAssertEqual(
+            texts(in: cell),
+            [
+                R.string.localizable.activityDataNotUpToDateTitle(
+                    preferredLanguages: .currentLocale
+                ),
+                R.string.localizable.commonRefresh(
+                    preferredLanguages: .currentLocale
+                ),
+            ]
+        )
+        let table = try XCTUnwrap(
+            descendants(of: controller.view, as: UITableView.self).first
+        )
+        XCTAssertNil(table.tableFooterView)
+        XCTAssertEqual(ActivityTestList.retryRows(viewModel), 1)
+        XCTAssertEqual(
+            ActivityTestList.drawnRows(viewModel),
+            ["a1", "a2", "a3"]
+        )
+        // Page 2 was asked for when the last row was shown and once more
+        // when the retry row was; then the screen is at rest.
+        let asked = history.requests
+        XCTAssertEqual(asked.first, 1)
+        XCTAssertLessThanOrEqual(asked.count, 3)
+        await settle()
+        XCTAssertEqual(history.requests, asked)
+        attach(window, as: "activity-end-of-list-retry")
+
+        // The button loads the list again from its start.
+        history.set(2, page(["b1"], day: "2", endReached: true))
+        tap(try XCTUnwrap(descendants(of: cell, as: SoramitsuButton.self).first))
+        await wait("both pages") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2", "a3", "b1"]
+        }
+        await wait("the retry row is gone") {
+            self.refreshCells(in: controller).isEmpty
+        }
+        await wait("no spinner at the end") { table.tableFooterView == nil }
+        XCTAssertEqual(history.requests.suffix(2), [1, 2])
+    }
+
+    /// Refresh on a saved list when not even the saved copy can be read
+    /// any more: the rows go, the "Could not load your activity" text with
+    /// its Refresh button stands alone, and the spinner stops.
+    @MainActor
+    func testRefreshThatFailsLeavesNoRowsUnderTheError() async throws {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], cachedAt: savedAt, endReached: true))
+        let viewModel = viewModel(history)
+        let controller = ActivityViewController(viewModel: viewModel)
+        viewModel.view = controller
+
+        let window = try window(showing: controller)
+        defer { window.isHidden = true }
+
+        await wait("the Refresh row on screen") {
+            self.refreshCells(in: controller).count == 1
+        }
+        history.set(1, nil)
+        let cell = try XCTUnwrap(refreshCells(in: controller).first)
+        let button = try XCTUnwrap(
+            descendants(of: cell, as: SoramitsuButton.self).first
+        )
+        tap(button)
+
+        let table = try XCTUnwrap(
+            descendants(of: controller.view, as: UITableView.self).first
+        )
+        await wait("no rows") { table.numberOfSections == 0 }
+        let errorView = try XCTUnwrap(
+            descendants(of: controller.view, as: ErrorView.self)
+                .first { $0.superview === controller.view }
+        )
+        await wait("the error") { !errorView.isHidden }
+        let spinner = try XCTUnwrap(
+            descendants(of: table, as: UIActivityIndicatorView.self).first
+        )
+        await wait("the spinner stopped") { !spinner.isAnimating }
+        XCTAssertTrue(viewModel.isBehind)
+        XCTAssertEqual(
+            texts(in: errorView),
+            [
+                R.string.localizable.activityErrorTitle(
+                    preferredLanguages: .currentLocale
+                ),
+                R.string.localizable.commonRefresh(
+                    preferredLanguages: .currentLocale
+                ),
+            ]
+        )
+        attach(window, as: "activity-could-not-load")
     }
 }
