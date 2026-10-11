@@ -2232,13 +2232,20 @@ private final class PriceTestAssetManager: AssetManagerProtocol {
 
 private final class PriceTestAssetProvider: AssetProviderProtocol {
     var balances: [BalanceData]
+    /// Assets whose balance could not be read.
+    var unavailable: Set<String>
 
-    init(balances: [BalanceData]) {
+    init(balances: [BalanceData], unavailable: Set<String> = []) {
         self.balances = balances
+        self.unavailable = unavailable
     }
 
     func getBalances(with assetIds: [String]) -> [BalanceData] {
         balances.filter { assetIds.contains($0.identifier) }
+    }
+
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> {
+        unavailable.intersection(assetIds)
     }
 
     func add(observer _: AssetProviderObserverProtocol) {}
@@ -5331,7 +5338,31 @@ private final class SendAmountTestView: InputAssetAmountViewProtocol {
     private let lock = NSLock()
     private var balances: [String] = []
     private var fiatTexts: [String] = []
+    private var offMainThread = 0
+    private var button: Bool?
     let controller: UIViewController
+
+    /// Every balance text the screen was given, in order.
+    var balanceTexts: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return balances
+    }
+
+    /// How many times the balance label was written from a thread other
+    /// than the main one.
+    var balanceWritesOffMainThread: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return offMainThread
+    }
+
+    /// Whether the button to go on was last switched on.
+    var buttonEnabled: Bool? {
+        lock.lock()
+        defer { lock.unlock() }
+        return button
+    }
 
     init(controller: UIViewController) {
         self.controller = controller
@@ -5354,6 +5385,9 @@ private final class SendAmountTestView: InputAssetAmountViewProtocol {
     func updateFirstAsset(balance: String) {
         lock.lock()
         balances.append(balance)
+        if !Thread.isMainThread {
+            offMainThread += 1
+        }
         lock.unlock()
     }
 
@@ -5367,7 +5401,11 @@ private final class SendAmountTestView: InputAssetAmountViewProtocol {
     func updateRecipientView(with _: String) {}
     func updateFirstAsset(state _: InputFieldState, amountColor _: SoramitsuColor, fiatColor _: SoramitsuColor) {}
     func set(firstAmountText _: String) {}
-    func setupButton(isEnabled _: Bool) {}
+    func setupButton(isEnabled: Bool) {
+        lock.lock()
+        button = isEnabled
+        lock.unlock()
+    }
     func focusFirstField() {}
     func updateWarinignView(model _: WarningViewModel) {}
 }
@@ -5581,7 +5619,11 @@ final class PIRound4PriceTests: XCTestCase {
             prices: prices
         )
         onlyEth.setup()
-        await wait("the total") { !onlyEth.moneyText.isEmpty }
+        // The service writes the total and then the rows: wait for both.
+        await wait("the total and its rows") {
+            !onlyEth.moneyText.isEmpty &&
+                onlyEth.assetViewModels.allSatisfy(\.priceLoadFinished)
+        }
         XCTAssertEqual(onlyEth.moneyText, WalletUX.priceUnavailableText)
         XCTAssertTrue(onlyEth.priceIsUnavailable)
         // The prices were read; asking again would change nothing.
@@ -5741,6 +5783,93 @@ final class PIRound4PriceTests: XCTestCase {
         await wait("the balance at the live price") {
             view.balanceText == "100 ($300)"
         }
+        withExtendedLifetime((fiat, manager, provider, view)) {}
+    }
+
+    /// Review round 6, finding 6. XOR could not be read (a runtime upgrade
+    /// renamed a field of `System.Account`). The send-amount screen wrote
+    /// "Balance unavailable" once and kept a zero placeholder as the
+    /// balance: the first price answer put "0 ($0)" in its place, any
+    /// amount typed was "not enough balance", and the notice was written
+    /// to the label from the balance provider's queue.
+    func testSendAmountKeepsBalanceUnavailableWhenPricesArrive() async throws {
+        let fiat = SwitchableFiat(try xor(at: "2"))
+        let manager = PriceTestAssetManager(assets: assets())
+        let provider = PriceTestAssetProvider(balances: [], unavailable: [priceTestXor])
+        let network = WalletNetworkOperationFactoryProtocolMock()
+        let viewModel = InputAssetAmountViewModel(
+            selectedTokenId: priceTestXor,
+            selectedAddress: "cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy",
+            fiatService: fiat,
+            assetManager: manager,
+            providerFactory: BalanceProviderFactory(
+                accountId: "",
+                cacheFacade: CoreDataCacheFacade.shared,
+                networkOperationFactory: network,
+                identifierFactory: SingleProviderIdentifierFactory()
+            ),
+            networkFacade: network,
+            wireframe: InputAssetAmountWireframe(),
+            assetsProvider: provider,
+            qrEncoder: ActionTestQREncoder(),
+            sharingFactory: ActionTestShareFactory(),
+            marketCapService: PriceTestMarketCap()
+        )
+        let view = await MainActor.run {
+            SendAmountTestView(controller: UIViewController())
+        }
+        await MainActor.run {
+            viewModel.view = view
+            viewModel.viewDidLoad()
+        }
+        let notice = WalletUX.balanceUnavailableText
+        await wait("the notice in place of the balance") { view.balanceText == notice }
+
+        // The prices answer ($2 per XOR). The notice stays; before, the
+        // label became "0 ($0)".
+        for _ in 0 ..< 500 {
+            if await fiat.calls >= 1 { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        await MainActor.run { viewModel.inputedFirstAmount = 2 }
+        await wait("the value of the amount typed") { view.fiatText == "$4" }
+        XCTAssertEqual(view.balanceText, notice)
+        XCTAssertEqual(Set(view.balanceTexts), [notice])
+        // No "not enough balance" from a balance that is not known, and
+        // nothing to review either.
+        XCTAssertNotEqual(
+            view.fiatText,
+            R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
+        )
+        XCTAssertEqual(view.buttonEnabled, false)
+        XCTAssertTrue(viewModel.firstAssetBalanceUnavailable)
+
+        // New prices while the screen is open: still the notice.
+        await fiat.set(try xor(at: "3"))
+        NotificationCenter.default.post(name: PICatalogs.pricesDidChange, object: nil)
+        await wait("the value at the new price") { view.fiatText == "$6" }
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(Set(view.balanceTexts), [notice])
+        XCTAssertEqual(view.buttonEnabled, false)
+
+        // The balance is read. The provider tells its observers on its own
+        // queue; the screen is written on the main thread.
+        let read = BalanceData(identifier: priceTestXor, balance: AmountDecimal(value: 100))
+        provider.balances = [read]
+        provider.unavailable = []
+        DispatchQueue.global().async { viewModel.processBalance(data: [read]) }
+        await wait("the balance in place of the notice") { view.balanceText == "100 ($300)" }
+        await wait("the amount can be reviewed") { view.buttonEnabled == true }
+        XCTAssertFalse(viewModel.firstAssetBalanceUnavailable)
+
+        // And unavailable again on the next read, also from that queue.
+        provider.balances = []
+        provider.unavailable = [priceTestXor]
+        DispatchQueue.global().async { viewModel.processBalance(data: []) }
+        await wait("the notice again") { view.balanceText == notice }
+        await wait("nothing to review again") { view.buttonEnabled == false }
+        XCTAssertEqual(view.fiatText, "$6")
+        XCTAssertEqual(view.balanceWritesOffMainThread, 0)
         withExtendedLifetime((fiat, manager, provider, view)) {}
     }
 

@@ -6,9 +6,15 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import SoraKeystore
+import SoraUIKit
 import SSFModels
 import SSFUtils
+import UIKit
 import XCTest
+// Only the two indexer row types: the module also declares an `Error` that
+// would hide Swift's in this file.
+import class sorawallet.TxHistoryItem
+import class sorawallet.TxHistoryItemParam
 @testable import SoraPassport
 
 /// SORA2 signing is validated against the live chain runtime instead of a
@@ -1865,41 +1871,6 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertTrue(oldestSixteen.allSatisfy { $0.recoveryContext?.eraBirthBlock == 1_000 })
     }
 
-    /// A transaction signed against a block that did not become final can
-    /// never be valid. It used to stay unresolved for ever; the scan of its
-    /// era now proves, as for any entry, that it is not on the chain.
-    func testEntrySignedAgainstANonCanonicalBlockExpires() async throws {
-        let directory = try temporaryDirectory()
-        let account = try pendingAccount()
-        let chain = try mainnetChain(finalizedHeight: 400)
-        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
-            self.prunedAnswer(chain: chain, method, params)
-        }
-        let hash = String(repeating: "d5", count: 32)
-        let store = try Sora2PendingSubmissionStore(baseURL: directory)
-        let pending = try store.stage(
-            account: account.address,
-            hash: hash,
-            recoveryContext: pendingContext(
-                account: account,
-                hash: hash,
-                chain: chain,
-                birthBlock: 128,
-                birthBlockHash: String(repeating: "0f", count: 32)
-            )
-        )
-        try store.update(pending, state: .submissionUnknown)
-
-        let report = try await reconciler(
-            runtimeService: RuntimeTestProvider(snapshot: nil),
-            proofs: Sora2LiveRuntimeIdentityCache(),
-            directory: directory,
-            walletNetworkSnapshot: { account.snapshot }
-        ).reconcile()
-        XCTAssertEqual(report.resolved, 1)
-        XCTAssertEqual(try store.all().first?.terminalResolution?.kind, .expiredNotIncluded)
-    }
-
     /// A transaction that is not in a finalized block yet, with its era
     /// still open, stays as it is and asks for another pass soon.
     func testEntryInsideItsEraAsksForAFollowUp() async throws {
@@ -1939,7 +1910,15 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         // A pass that failed as a whole (offline) still asks again while the
         // transaction may be entering the network, and not after.
         XCTAssertTrue(Sora2PendingFollowUpSchedule.needsFollowUp(report: nil, journal: journal, now: created.addingTimeInterval(60)))
-        XCTAssertFalse(Sora2PendingFollowUpSchedule.needsFollowUp(report: nil, journal: journal, now: created.addingTimeInterval(2 * 3_600)))
+        // Hours later an entry the pass could not even start on is still
+        // waiting: the next passes of the schedule ask again. (Before,
+        // nothing was scheduled once the first hour was over.)
+        XCTAssertTrue(Sora2PendingFollowUpSchedule.needsFollowUp(report: nil, journal: journal, now: created.addingTimeInterval(2 * 3_600)))
+        // After a week it waits for the next start or foreground instead.
+        XCTAssertFalse(Sora2PendingFollowUpSchedule.needsFollowUp(report: nil, journal: journal, now: created.addingTimeInterval(8 * 24 * 3_600)))
+        // A pass that examined it and found nothing to wait for (its
+        // report says so) ends the asking once the first hour is over.
+        XCTAssertFalse(Sora2PendingFollowUpSchedule.needsFollowUp(report: Sora2PendingReconciliationReport(), journal: journal, now: created.addingTimeInterval(2 * 3_600)))
         XCTAssertFalse(Sora2PendingFollowUpSchedule.needsFollowUp(report: Sora2PendingReconciliationReport(), journal: [], now: created))
     }
 
@@ -1964,7 +1943,6 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         let script = RecoveryScript()
         let runtime = Sora2PendingSubmissionRecoveryRuntime(
             makePass: { script.makePass() },
-            journal: { script.journal },
             sleep: { script.slept($0) },
             notifyResolved: { script.noteResolved() }
         )
@@ -2666,8 +2644,16 @@ final class Sora2LiveRuntimeTests: XCTestCase {
                 .unavailable
             )
         }
+        // A request that got no answer is told apart from an answer that
+        // was not understood: nothing new is known about that balance.
         XCTAssertEqual(
             WalletBalanceReading.token(storage: .failure(URLError(.timedOut))),
+            .notRead
+        )
+        XCTAssertEqual(
+            WalletBalanceReading.token(
+                storage: .failure(DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "")))
+            ),
             .unavailable
         )
         XCTAssertEqual(
@@ -2816,13 +2802,34 @@ final class Sora2LiveRuntimeTests: XCTestCase {
             Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.invalidEndpoint, nodeURL: custom),
             .nodeWithoutSigningRoute
         )
+        let websocketOnlyNode = URL(string: "wss://websocket-only.test")
+        // Statuses that mean "no JSON-RPC here", and a page that is not
+        // JSON: the route is missing.
+        for status in [404, 405, 426, 501] {
+            XCTAssertEqual(
+                Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus(status), nodeURL: websocketOnlyNode),
+                .nodeWithoutSigningRoute,
+                "\(status)"
+            )
+        }
         XCTAssertEqual(
-            Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus, nodeURL: URL(string: "wss://websocket-only.test")),
+            Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.notJSONRPC, nodeURL: websocketOnlyNode),
             .nodeWithoutSigningRoute
         )
+        // A custom node that serves HTTPS and is busy for a moment (rate
+        // limit, proxy or node restarting) is not told it can never send.
+        // Before, any refusal from a custom node raised the missing-route
+        // alert.
+        for status in [429, 500, 502, 503, 504] {
+            XCTAssertNil(
+                Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus(status), nodeURL: websocketOnlyNode),
+                "\(status)"
+            )
+        }
         // A bundled node that refuses a request is in trouble, not missing
         // the route; other errors are not about the node's route.
-        XCTAssertNil(Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus, nodeURL: bundled))
+        XCTAssertNil(Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.httpStatus(404), nodeURL: bundled))
+        XCTAssertNil(Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.notJSONRPC, nodeURL: bundled))
         XCTAssertNil(Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.remoteError, nodeURL: custom))
         XCTAssertNil(Sora2SigningNotice.kind(for: URLError(.timedOut), nodeURL: custom))
         XCTAssertEqual(
@@ -2834,15 +2841,68 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         // does not know the node says only that no usable answer came.
         let noAnswerKey = "The SORA node did not give a usable answer. Please try again in a moment, or choose another node."
         XCTAssertEqual(
-            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.httpStatus),
+            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.httpStatus(503)),
             WalletUX.text(noAnswerKey)
         )
         XCTAssertNotEqual(
-            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.httpStatus),
+            ExtrinsicServiceError.runtimeUserMessage(for: Sora2BoundedHTTPJSONRPCError.httpStatus(503)),
             Sora2SigningNotice.message(for: .nodeWithoutSigningRoute)
         )
         XCTAssertEqual(WalletUX.text(noAnswerKey, language: "en"), noAnswerKey)
         XCTAssertNotEqual(WalletUX.text(noAnswerKey, language: "ja"), noAnswerKey)
+
+        // A JSON-RPC error object is the node answering and saying no (an
+        // invalid transaction, for example). That is not a node in trouble,
+        // and choosing another node would not help: it has its own text.
+        let refusedKey = "The SORA network did not accept this request. Please try again."
+        XCTAssertEqual(Sora2BoundedHTTPJSONRPCError.remoteError.localizedDescription, WalletUX.text(refusedKey))
+        XCTAssertFalse(refusedKey.lowercased().contains("node"))
+        XCTAssertEqual(WalletUX.text(refusedKey, language: "en"), refusedKey)
+        XCTAssertNotEqual(WalletUX.text(refusedKey, language: "ja"), refusedKey)
+
+        // What the transport itself reports for each kind of answer.
+        RPCStubProtocol.resetByHost { host, _, _ in
+            switch host {
+            case "busy.test": return .http(503)
+            case "limited.test": return .http(429)
+            case "page.test": return .page
+            case "refusing.test": return .error(code: 1010, message: "Invalid Transaction")
+            default: return .http(404)
+            }
+        }
+        func transportError(_ host: String) async -> Error? {
+            let engine = Sora2BoundedHTTPJSONRPCEngine(nodeURL: URL(string: "wss://\(host)")!, session: session)
+            return await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
+                do {
+                    _ = try engine.callMethod(
+                        SoraPassport.RPCMethod.getBlockHash,
+                        params: [0],
+                        options: JSONRPCOptions()
+                    ) { (result: Result<String, Error>) in
+                        if case let .failure(error) = result {
+                            continuation.resume(returning: error)
+                        } else {
+                            continuation.resume(returning: nil)
+                        }
+                    }
+                } catch {
+                    continuation.resume(returning: error)
+                }
+            }
+        }
+        for (host, status) in [("busy.test", 503), ("limited.test", 429), ("gone.test", 404)] {
+            guard case let Sora2BoundedHTTPJSONRPCError.httpStatus(code)? = await transportError(host) else {
+                XCTFail(host)
+                continue
+            }
+            XCTAssertEqual(code, status, host)
+        }
+        guard case Sora2BoundedHTTPJSONRPCError.notJSONRPC? = await transportError("page.test") else {
+            return XCTFail("A page that is not JSON is not a JSON-RPC answer")
+        }
+        guard case Sora2BoundedHTTPJSONRPCError.remoteError? = await transportError("refusing.test") else {
+            return XCTFail("A JSON-RPC error object is the node's refusal")
+        }
 
         // The notice is shown for a failed attempt, not more than once per
         // interval, and never for an ordinary error.
@@ -2960,6 +3020,1122 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis(nil, externalGenesis: nil, chainId: genesis))
         XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis(nil, externalGenesis: genesis, chainId: genesis))
         XCTAssertFalse(CustomNodeInteractor.isExpectedGenesis("", externalGenesis: nil, chainId: ""))
+    }
+
+    // MARK: - Review round 6: the journal's result reaches the screens
+
+    private var xorAsset: AssetInfo {
+        AssetInfo(id: Self.xorAssetId, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true)
+    }
+
+    private func settle(
+        _ what: String,
+        timeout: TimeInterval = 10,
+        until condition: @escaping () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(condition(), what)
+    }
+
+    private func activityRows(_ viewModel: ActivityViewModel) -> [ActivityContentViewModel] {
+        viewModel.sections.flatMap(\.items).compactMap { item in
+            if case let .activity(activity) = item {
+                return activity.model
+            }
+            return nil
+        }
+    }
+
+    /// The Activity screen as the app builds it, on the history service the
+    /// app uses, with the indexer's answer and the journal of this test.
+    private func activityScreen(
+        address: String,
+        thisRun: LocalTransactionStorageProtocol,
+        indexer: IndexerHistoryStub,
+        journal: Sora2PendingSubmissionStore,
+        now: @escaping () -> Date = Date.init
+    ) -> (viewModel: ActivityViewModel, view: ActivityListTestView, history: HistoryService) {
+        let asset = xorAsset
+        let manager = BalanceListAssetManager(assets: [asset])
+        let history = HistoryService(
+            operationManager: OperationManager(),
+            address: address,
+            assets: [asset],
+            localStorage: thisRun,
+            readRemote: { _, _, _, _ in indexer.page },
+            readJournal: { (try? journal.all()) ?? [] },
+            now: now
+        )
+        let viewModel = ActivityViewModel(
+            historyService: history,
+            viewModelFactory: ActivityViewModelFactory(walletAssets: [asset], assetManager: manager),
+            wireframe: ActivityWireframe(),
+            assetManager: manager,
+            eventCenter: SilentEventCenter(),
+            notificationCenter: NotificationCenter(),
+            refreshDelay: { _ in 3_600 }
+        )
+        let view = ActivityListTestView(viewModel: viewModel)
+        viewModel.view = view
+        return (viewModel, view, history)
+    }
+
+    /// A transfer the indexer lists, as its page carries it.
+    private func indexedTransfer(hash: String, from: String, timestamp: Int) -> TxHistoryItem {
+        TxHistoryItem(
+            id: "0x\(hash)",
+            blockHash: "0x" + String(repeating: "b1", count: 32),
+            module: "assets",
+            method: "transfer",
+            timestamp: String(timestamp),
+            networkFee: "700000000000000",
+            success: true,
+            data: [
+                TxHistoryItemParam(paramName: "amount", paramValue: "1"),
+                TxHistoryItemParam(paramName: "assetId", paramValue: Self.xorAssetId),
+                TxHistoryItemParam(paramName: "from", paramValue: from),
+                TxHistoryItemParam(paramName: "to", paramValue: "cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy"),
+            ],
+            nestedData: nil
+        )
+    }
+
+    /// Review finding 1. The reconciler wrote what became of a sent
+    /// transaction into the journal, and no screen read the journal:
+    /// Activity is built by `HistoryService` from the indexer and the rows
+    /// of the current run. A transfer the node accepted and never included
+    /// stayed "Pending" for the rest of the session and was gone, without a
+    /// word, after a restart.
+    ///
+    /// Here the production reconciler resolves such a transfer against a
+    /// stub chain, and the production Activity screen (view model, row
+    /// factory, history service) shows it: the row of this run turns to
+    /// failed when the "resolved" event arrives, and after a restart a row
+    /// made from the journal says that the network did not include it.
+    @MainActor
+    func testActivityShowsWhatBecameOfASentTransaction() async throws {
+        let directory = try temporaryDirectory()
+        let account = try pendingAccount()
+        // The era is 128 ..< 192. The chain is finalized well past it and
+        // no block holds the transaction.
+        let chain = try mainnetChain(finalizedHeight: 400)
+        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
+            self.prunedAnswer(chain: chain, method, params)
+        }
+        let hash = String(repeating: "a7", count: 32)
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        let pending = try store.stage(
+            account: account.address,
+            hash: hash,
+            recoveryContext: pendingContext(account: account, hash: hash, chain: chain, birthBlock: 128)
+        )
+        try store.update(pending, state: .submitted)
+
+        // What the send screen posts when the node accepted the transfer.
+        let sentRow = TransferTransaction(
+            base: TransactionBase(
+                txHash: "0x\(hash)",
+                blockHash: "",
+                fee: Amount(value: 0),
+                status: .pending,
+                timestamp: "\(Date().timeIntervalSince1970)"
+            ),
+            amount: Amount(value: 1),
+            peer: "cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy",
+            transferType: .outcoming,
+            tokenId: Self.xorAssetId
+        )
+        let indexer = IndexerHistoryStub()
+        let firstRun = activityScreen(
+            address: account.address,
+            thisRun: SentRowsOfThisRun([account.address: [sentRow]]),
+            indexer: indexer,
+            journal: store
+        )
+        firstRun.viewModel.viewDidLoad()
+        await settle("the transfer is listed as pending") {
+            self.activityRows(firstRun.viewModel).map(\.txHash) == ["0x\(hash)"]
+        }
+        XCTAssertEqual(activityRows(firstRun.viewModel).first?.status, .pending)
+        let sentTitle = try XCTUnwrap(activityRows(firstRun.viewModel).first?.title)
+
+        // The follow-up pass: the era is over and the transfer is not on
+        // the chain.
+        let report = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory,
+            walletNetworkSnapshot: { account.snapshot }
+        ).reconcile()
+        XCTAssertEqual(report.resolved, 1)
+        XCTAssertEqual(try store.all().first?.terminalResolution?.kind, .expiredNotIncluded)
+
+        // The runtime posts the event; the open list loads again. The row
+        // of this run now has the journal's result. (The indexer has
+        // nothing for a transaction that is not on the chain.)
+        firstRun.viewModel.processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved())
+        await settle("the row of this run shows the final status") {
+            self.activityRows(firstRun.viewModel).first?.status == .failed
+        }
+        XCTAssertEqual(activityRows(firstRun.viewModel).map(\.txHash), ["0x\(hash)"])
+        XCTAssertEqual(activityRows(firstRun.viewModel).first?.title, sentTitle)
+        XCTAssertEqual(firstRun.view.resets, 1)
+
+        // After a restart the rows of the earlier run are gone. The journal
+        // still knows the transaction: it gets a row that says what it is
+        // and what became of it.
+        let secondRun = activityScreen(
+            address: account.address,
+            thisRun: SentRowsOfThisRun([:]),
+            indexer: indexer,
+            journal: store
+        )
+        secondRun.viewModel.viewDidLoad()
+        await settle("the journal's row after a restart") {
+            self.activityRows(secondRun.viewModel).map(\.txHash) == ["0x\(hash)"]
+        }
+        let journalRow = try XCTUnwrap(activityRows(secondRun.viewModel).first)
+        XCTAssertEqual(journalRow.status, .failed)
+        XCTAssertEqual(journalRow.title, WalletUX.text("Sent transaction"))
+        XCTAssertEqual(journalRow.subtitle, WalletUX.text("The network did not include it. Nothing was sent."))
+        XCTAssertNotNil(journalRow.typeTransactionImage)
+        // Tapping it opens details made from the same row.
+        let listed = try await secondRun.history.getPageHistory(count: 50, page: 1, assetId: nil)
+        let submitted = try XCTUnwrap(listed.transactions.first as? SubmittedTransaction)
+        XCTAssertEqual(submitted.outcome, .notIncluded)
+        XCTAssertNotNil(secondRun.history.getTransaction(by: "0x\(hash)") as? SubmittedTransaction)
+
+        // A second transaction of the earlier run succeeded in block 140,
+        // and a third was handed to the network a moment ago.
+        let succeededHash = String(repeating: "a8", count: 32)
+        let waitingHash = String(repeating: "a9", count: 32)
+        let earlier = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 - 600).rounded(.down))
+        // A few seconds ahead of the first transaction, so the order of the
+        // rows does not depend on how fast the test ran.
+        let justNow = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down) + 5)
+        var entries = try store.all()
+        entries.append(
+            Sora2PendingSubmission(
+                id: UUID(),
+                account: account.address,
+                extrinsicHash: succeededHash,
+                createdAt: earlier,
+                updatedAt: earlier,
+                state: .submitted,
+                recoveryContext: pendingContext(account: account, hash: succeededHash, chain: chain, birthBlock: 128),
+                terminalResolution: Sora2PendingTerminalResolution(
+                    schemaVersion: Sora2PendingTerminalResolution.currentSchemaVersion,
+                    kind: .finalizedSuccess,
+                    blockNumber: 140,
+                    blockHash: chain.blockHash(140),
+                    finalizedHeight: 400
+                )
+            )
+        )
+        entries.append(
+            Sora2PendingSubmission(
+                id: UUID(),
+                account: account.address,
+                extrinsicHash: waitingHash,
+                createdAt: justNow,
+                updatedAt: justNow,
+                state: .submissionUnknown,
+                recoveryContext: pendingContext(account: account, hash: waitingHash, chain: chain, birthBlock: 384)
+            )
+        )
+        // Not rows: another account's transaction, one a feature owns, and
+        // one that only reserved its place and never reached transport.
+        let other = try pendingAccount(0x42)
+        let foreignHash = String(repeating: "aa", count: 32)
+        let migrationHash = String(repeating: "ab", count: 32)
+        let stagedHash = String(repeating: "ac", count: 32)
+        entries.append(
+            Sora2PendingSubmission(
+                id: UUID(), account: other.address, extrinsicHash: foreignHash,
+                createdAt: justNow, updatedAt: justNow, state: .submitted,
+                recoveryContext: pendingContext(account: other, hash: foreignHash, chain: chain, birthBlock: 384)
+            )
+        )
+        entries.append(
+            Sora2PendingSubmission(
+                id: UUID(), account: account.address, extrinsicHash: migrationHash,
+                createdAt: justNow, updatedAt: justNow, state: .submitted,
+                recoveryContext: pendingContext(account: account, hash: migrationHash, chain: chain, birthBlock: 384),
+                purpose: .legacyMigration
+            )
+        )
+        entries.append(
+            Sora2PendingSubmission(
+                id: UUID(), account: account.address, extrinsicHash: stagedHash,
+                createdAt: justNow, updatedAt: justNow, state: .stagedBeforeTransport,
+                recoveryContext: pendingContext(account: account, hash: stagedHash, chain: chain, birthBlock: 384)
+            )
+        )
+        try writeJournal(entries, in: directory)
+
+        var clock = Date()
+        let thirdRun = activityScreen(
+            address: account.address,
+            thisRun: SentRowsOfThisRun([:]),
+            indexer: indexer,
+            journal: store,
+            now: { clock }
+        )
+        thirdRun.viewModel.viewDidLoad()
+        await settle("three journal rows, newest first") {
+            self.activityRows(thirdRun.viewModel).map(\.txHash) ==
+                ["0x\(waitingHash)", "0x\(hash)", "0x\(succeededHash)"]
+        }
+        var rows = activityRows(thirdRun.viewModel)
+        XCTAssertEqual(rows.map(\.status), [.pending, .failed, .success])
+        XCTAssertEqual(rows[0].subtitle, WalletUX.text("Waiting for the network to confirm it"))
+        XCTAssertEqual(rows[2].subtitle, WalletUX.text("Confirmed by the network"))
+
+        // The indexer has caught up with the one that succeeded: its row
+        // is the record, and the transaction is listed once.
+        indexer.page = HistoryService.RemotePage(
+            items: [indexedTransfer(hash: succeededHash, from: account.address, timestamp: Int(earlier.timeIntervalSince1970))],
+            endReached: true
+        )
+        thirdRun.viewModel.resetPagination()
+        await settle("the indexer's row replaces the journal's") {
+            let rows = self.activityRows(thirdRun.viewModel)
+            return rows.count == 3 && rows.last?.title == sentTitle
+        }
+        rows = activityRows(thirdRun.viewModel)
+        XCTAssertEqual(rows.map(\.txHash), ["0x\(waitingHash)", "0x\(hash)", "0x\(succeededHash)"])
+        XCTAssertEqual(rows.last?.status, .success)
+
+        // A page that has older pages under it lists only journal entries
+        // from its own stretch of time; an older entry belongs further
+        // down, where the indexer's own row for it (if any) is shown.
+        indexer.page = HistoryService.RemotePage(
+            items: [indexedTransfer(hash: succeededHash, from: account.address, timestamp: Int(justNow.timeIntervalSince1970) + 5)],
+            endReached: false
+        )
+        let bounded = try await thirdRun.history.getPageHistory(count: 50, page: 1, assetId: nil)
+        XCTAssertEqual(bounded.transactions.map(\.base.txHash), ["0x\(succeededHash)"])
+        // A list for one asset shows no journal rows: the journal does not
+        // know which asset a transaction moved.
+        indexer.page = HistoryService.RemotePage(items: [], endReached: true)
+        let forAsset = try await thirdRun.history.getHistory(count: 100, assetId: Self.xorAssetId)
+        XCTAssertTrue(forAsset.isEmpty)
+        // It does give a row of this run its final status.
+        let assetList = HistoryService(
+            operationManager: OperationManager(),
+            address: account.address,
+            assets: [xorAsset],
+            localStorage: SentRowsOfThisRun([account.address: [sentRow]]),
+            readRemote: { _, _, _, _ in indexer.page },
+            readJournal: { (try? store.all()) ?? [] }
+        )
+        let recent = try await assetList.getHistory(count: 100, assetId: Self.xorAssetId)
+        XCTAssertEqual(recent.map(\.base.txHash), ["0x\(hash)"])
+        XCTAssertEqual(recent.first?.base.status, .failed)
+        XCTAssertTrue(recent.first is TransferTransaction)
+
+        // "Pending" is a claim with an end: after a week without a result
+        // the journal no longer makes it.
+        clock = Date().addingTimeInterval(8 * 24 * 3_600)
+        let weekLater = try await thirdRun.history.getPageHistory(count: 50, page: 1, assetId: nil)
+        XCTAssertEqual(
+            weekLater.transactions.map(\.base.txHash),
+            ["0x\(hash)", "0x\(succeededHash)"]
+        )
+
+        // The texts, in both languages.
+        for key in [
+            "Sent transaction",
+            "Waiting for the network to confirm it",
+            "Confirmed by the network",
+            "It failed on the network",
+            "The network did not include it. Nothing was sent.",
+        ] {
+            XCTAssertEqual(WalletUX.text(key, language: "en"), key)
+            XCTAssertNotEqual(WalletUX.text(key, language: "ja"), key)
+        }
+        withExtendedLifetime((firstRun, secondRun, thirdRun)) {}
+    }
+
+    /// The details of a transaction that is still pending are open (as
+    /// right after sending). When a pass gives the transaction its final
+    /// status, the screen shows it; before, it kept saying "Pending".
+    @MainActor
+    func testOpenTransactionDetailsTakeTheFinalStatusFromTheJournal() async throws {
+        let hash = "0x" + String(repeating: "c7", count: 32)
+        let manager = BalanceListAssetManager(assets: [xorAsset])
+        // The journal is a file: it is never read on the main thread.
+        let readOnMainThread = LockedList<Bool>()
+        func details(
+            of model: Transaction,
+            outcome: SubmittedTransaction.Outcome?
+        ) -> (viewModel: ActivityDetailsViewModel, view: ActivityDetailsTestView) {
+            let viewModel = ActivityDetailsViewModel(
+                model: model,
+                wireframe: nil,
+                assetManager: manager,
+                detailsFactory: ActivityDetailsViewModelFactory(assetManager: manager),
+                historyService: IdleHistoryService(),
+                lpServiceFee: NoLiquidityProviderFee(),
+                journalOutcome: { asked in
+                    readOnMainThread.append(Thread.isMainThread)
+                    XCTAssertEqual(asked, hash)
+                    return outcome
+                }
+            )
+            let view = ActivityDetailsTestView()
+            viewModel.view = view
+            viewModel.updateContent { _ in }
+            return (viewModel, view)
+        }
+        func statusText(_ view: ActivityDetailsTestView) -> String? {
+            (view.items.first as? HeaderActivityDetailsItem)?.details.first?.assetAmountText.text
+        }
+        let base = TransactionBase(
+            txHash: hash, blockHash: "", fee: Amount(value: 0), status: .pending,
+            timestamp: "\(Date().timeIntervalSince1970)"
+        )
+        let transfer = TransferTransaction(
+            base: base, amount: Amount(value: 1), peer: "cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy",
+            transferType: .outcoming, tokenId: Self.xorAssetId
+        )
+
+        let failed = details(of: transfer, outcome: .notIncluded)
+        XCTAssertEqual(
+            (failed.viewModel.items.first as? HeaderActivityDetailsItem)?.details.first?.assetAmountText.text,
+            TransactionBase.Status.pending.title
+        )
+        failed.viewModel.processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved())
+        await settle("the open details show the final status") {
+            statusText(failed.view) == TransactionBase.Status.failed.title
+        }
+
+        let succeeded = details(of: transfer, outcome: .succeeded)
+        succeeded.viewModel.processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved())
+        await settle("a success is shown as well") {
+            statusText(succeeded.view) == TransactionBase.Status.success.title
+        }
+
+        // No result for this transaction yet: the screen is left alone.
+        let waiting = details(of: transfer, outcome: nil)
+        waiting.viewModel.processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved())
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertTrue(waiting.view.items.isEmpty)
+
+        // A row made from the journal has details too, and its line of
+        // explanation follows the result.
+        let journalRow = SubmittedTransaction(base: base, outcome: .pending)
+        let fromJournal = details(of: journalRow, outcome: .failed)
+        let header = try XCTUnwrap(fromJournal.viewModel.items.first as? HeaderActivityDetailsItem)
+        XCTAssertEqual(header.typeText, WalletUX.text("Sent transaction"))
+        XCTAssertEqual(header.firstBalanceText.string, WalletUX.text("Waiting for the network to confirm it"))
+        XCTAssertTrue(fromJournal.viewModel.items.contains { $0 is ActivityDetailsItem })
+        fromJournal.viewModel.processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved())
+        await settle("the journal row's details follow") {
+            statusText(fromJournal.view) == TransactionBase.Status.failed.title
+        }
+        XCTAssertEqual(
+            (fromJournal.view.items.first as? HeaderActivityDetailsItem)?.firstBalanceText.string,
+            WalletUX.text("It failed on the network")
+        )
+        XCTAssertEqual(readOnMainThread.values, [false, false, false, false])
+        withExtendedLifetime((failed, succeeded, waiting, fromJournal)) {}
+    }
+
+    // MARK: - Review round 6: follow-up passes, ageing, another history
+
+    /// Review finding 2. A pass that found the transaction in a finalized
+    /// block and could not read its result, or whose read failed midway,
+    /// asked for no further pass: the result was looked for again only at
+    /// the next start, return to the foreground or submission.
+    func testAPassThatLeavesAResultUnreadAsksForAFollowUp() async throws {
+        let account = try pendingAccount()
+        var chain = try mainnetChain(finalizedHeight: 5_000)
+        let extrinsic = Data([0x31, 0x41, 0x59])
+        let hash = try extrinsic.blake2b32().toHex(includePrefix: false)
+        chain.extrinsics[131] = [extrinsic.toHex(includePrefix: true)]
+        let twoHoursAgo = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 - 2 * 3_600).rounded(.down))
+        func entry(_ hash: String, created: Date, birthBlock: Int, in chain: StubChain) -> Sora2PendingSubmission {
+            Sora2PendingSubmission(
+                id: UUID(),
+                account: account.address,
+                extrinsicHash: hash,
+                createdAt: created,
+                updatedAt: created,
+                state: .submitted,
+                recoveryContext: pendingContext(account: account, hash: hash, chain: chain, birthBlock: birthBlock)
+            )
+        }
+
+        // (a) In a finalized block; the node pruned the state and neither
+        // an archive nor the indexer answers.
+        let included = try temporaryDirectory()
+        try writeJournal([entry(hash, created: twoHoursAgo, birthBlock: 128, in: chain)], in: included)
+        let connected = chain
+        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
+            self.prunedAnswer(chain: connected, method, params)
+        }
+        let unread = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: included,
+            walletNetworkSnapshot: { account.snapshot }
+        ).scheduledPass()
+        XCTAssertEqual(unread.report?.awaitingResult, 1)
+        XCTAssertEqual(unread.report?.needsFollowUp, true)
+        XCTAssertTrue(unread.needsFollowUp)
+        // The entry is two hours old and can no longer enter the chain:
+        // the old rule ("may still enter the chain") scheduled nothing.
+        let recorded = try XCTUnwrap(Sora2PendingSubmissionStore(baseURL: included).all().first)
+        XCTAssertNotNil(recorded.finalizedInclusion)
+        XCTAssertFalse(recorded.mayStillEnterChain(now: Date()))
+
+        // (b) The scan of the era fails midway (block bodies cannot be
+        // read on a poor connection).
+        let midway = try temporaryDirectory()
+        var poor = try mainnetChain(finalizedHeight: 5_000)
+        poor.unreadableBlocks = 150 ... 160
+        let poorChain = poor
+        let otherHash = String(repeating: "5b", count: 32)
+        try writeJournal([entry(otherHash, created: twoHoursAgo, birthBlock: 128, in: poorChain)], in: midway)
+        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
+            self.prunedAnswer(chain: poorChain, method, params)
+        }
+        let failedRead = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: midway,
+            walletNetworkSnapshot: { account.snapshot }
+        ).scheduledPass()
+        XCTAssertEqual(failedRead.report?.deferred, 1)
+        XCTAssertEqual(failedRead.report?.failedReads, 1)
+        XCTAssertTrue(failedRead.needsFollowUp)
+        // The same read for an entry signed more than a week ago waits for
+        // the next start or foreground: it is still examined then, and it
+        // does not keep a schedule running after every pass.
+        let ancient = try temporaryDirectory()
+        let nineDaysAgo = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 - 9 * 24 * 3_600).rounded(.down))
+        try writeJournal([entry(otherHash, created: nineDaysAgo, birthBlock: 128, in: poorChain)], in: ancient)
+        let oldFailure = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: ancient,
+            walletNetworkSnapshot: { account.snapshot }
+        ).scheduledPass()
+        XCTAssertEqual(oldFailure.report?.deferred, 1)
+        XCTAssertEqual(oldFailure.report?.failedReads, 0)
+        XCTAssertFalse(oldFailure.needsFollowUp)
+
+        // (c) An entry whose account is no longer on this device costs no
+        // request and asks for nothing.
+        let unbound = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: midway,
+            walletNetworkSnapshot: { try self.pendingAccount(0x55).snapshot }
+        ).scheduledPass()
+        XCTAssertEqual(unbound.report?.deferred, 1)
+        XCTAssertEqual(unbound.report?.failedReads, 0)
+        XCTAssertFalse(unbound.needsFollowUp)
+
+        // (d) The node does not answer at all: the pass fails as a whole.
+        // The entry it would have looked at is still waiting.
+        RPCStubProtocol.resetByHost { _, _, _ in .http(503) }
+        let offline = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: midway,
+            walletNetworkSnapshot: { account.snapshot }
+        ).scheduledPass()
+        XCTAssertNil(offline.report)
+        XCTAssertTrue(offline.needsFollowUp)
+        let offlineAncient = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: ancient,
+            walletNetworkSnapshot: { account.snapshot }
+        ).scheduledPass()
+        XCTAssertNil(offlineAncient.report)
+        XCTAssertFalse(offlineAncient.needsFollowUp)
+    }
+
+    /// The runtime keeps asking while a pass says a result is still to be
+    /// read, for the length of the schedule and no longer.
+    @MainActor
+    func testFollowUpPassesContinueWhileAResultIsUnreadAndAreBounded() async throws {
+        let script = RecoveryScript()
+        let runtime = Sora2PendingSubmissionRecoveryRuntime(
+            makePass: { script.makePass() },
+            sleep: { script.slept($0) },
+            notifyResolved: { script.noteResolved() }
+        )
+        var awaiting = Sora2PendingReconciliationReport()
+        awaiting.awaitingResult = 1
+        var failedRead = Sora2PendingReconciliationReport()
+        failedRead.deferred = 1
+        failedRead.failedReads = 1
+        var resolved = Sora2PendingReconciliationReport()
+        resolved.resolved = 1
+        func settle(passes: Int) async {
+            let deadline = Date().addingTimeInterval(10)
+            while script.passes < passes, Date() < deadline {
+                try? await Task.sleep(nanoseconds: 5_000_000)
+            }
+            try? await Task.sleep(nanoseconds: 150_000_000)
+        }
+
+        // Start: found in a block, result unread; then a read that fails;
+        // then the result. Nothing in the journal is recent.
+        script.enqueue(.success(awaiting))
+        script.enqueue(.success(failedRead))
+        script.enqueue(.success(resolved))
+        runtime.markWalletStorageReadyAndResume()
+        runtime.markChainReadyAndResume()
+        await settle(passes: 3)
+        XCTAssertEqual(script.passes, 3)
+        XCTAssertEqual(script.delays, [12, 20])
+        XCTAssertEqual(script.resolvedNotices, 1)
+
+        // A result that never becomes readable: one pass and the eight of
+        // the schedule, then nothing until the next start or foreground.
+        script.reset()
+        for _ in 0 ..< 20 {
+            script.enqueue(.success(awaiting))
+        }
+        runtime.resumePendingAfterProcessStart()
+        await settle(passes: Sora2PendingFollowUpSchedule.delays.count + 1)
+        XCTAssertEqual(script.passes, Sora2PendingFollowUpSchedule.delays.count + 1)
+        XCTAssertEqual(script.delays, Sora2PendingFollowUpSchedule.delays)
+    }
+
+    /// Review finding 10. After each pass the runtime, which lives on the
+    /// main actor, read the journal file to decide whether to schedule
+    /// another pass. The pass now brings that answer with it.
+    @MainActor
+    func testTheRecoveryPassReadsTheJournalOffTheMainThread() async throws {
+        let directory = try temporaryDirectory()
+        let account = try pendingAccount()
+        // The era (128 ..< 192) is over and the transaction is not on the
+        // chain: the pass resolves it, and then looks into the journal for
+        // anything recent that is still open.
+        let chain = try mainnetChain(finalizedHeight: 400)
+        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
+            self.prunedAnswer(chain: chain, method, params)
+        }
+        let hash = String(repeating: "e9", count: 32)
+        let plain = try Sora2PendingSubmissionStore(baseURL: directory)
+        let pending = try plain.stage(
+            account: account.address,
+            hash: hash,
+            recoveryContext: pendingContext(account: account, hash: hash, chain: chain, birthBlock: 128)
+        )
+        try plain.update(pending, state: .submitted)
+
+        let files = ThreadRecordingFileManager()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RPCStubProtocol.self]
+        let reconciler = Sora2PendingSubmissionReconciler(
+            store: try Sora2PendingSubmissionStore(fileManager: files, baseURL: directory),
+            engine: Sora2BoundedHTTPJSONRPCEngine(
+                sourceEngine: MetadataTestEngine(),
+                session: URLSession(configuration: configuration)
+            ),
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache(),
+            walletNetworkSnapshot: { account.snapshot },
+            archiveEngines: { [] },
+            indexedExecution: nil,
+            rotation: Sora2PendingReconciliationRotation()
+        )
+        let resolvedNotices = LockedList<Bool>()
+        let slept = LockedList<TimeInterval>()
+        // The runtime as the app builds it: its pass is the reconciler's.
+        let runtime = Sora2PendingSubmissionRecoveryRuntime(
+            makePass: { { await reconciler.scheduledPass() } },
+            sleep: { delay in
+                slept.append(delay)
+                try await Task.sleep(nanoseconds: 3_600_000_000_000)
+            },
+            notifyResolved: { resolvedNotices.append(true) }
+        )
+        files.startRecording()
+        runtime.markWalletStorageReadyAndResume()
+        runtime.markChainReadyAndResume()
+        await settle("the pass ran and resolved the transaction") { resolvedNotices.values == [true] }
+        try await Task.sleep(nanoseconds: 200_000_000)
+        runtime.prepareForWalletStorageMigration()
+        // Nothing is left open, so no follow-up was scheduled; the journal
+        // was read for that decision, and never on the main thread.
+        XCTAssertTrue(slept.values.isEmpty)
+        XCTAssertGreaterThan(files.reads, 0)
+        XCTAssertEqual(files.readsOnMainThread, 0)
+        XCTAssertEqual(try plain.all().first?.terminalResolution?.kind, .expiredNotIncluded)
+    }
+
+    /// Review finding 3. The seven days after which a finalized
+    /// transaction's result is no longer asked for were counted from
+    /// signing, also for entries a feature waits for. An entry first
+    /// examined more than seven days after signing therefore got exactly
+    /// one try: if that read failed, every later pass left it out for good,
+    /// and the legacy migration that owns such an entry polled a reconciler
+    /// that never looked at it again.
+    func testAResultFirstAskedForLateIsStillAskedForAgain() async throws {
+        let account = try pendingAccount()
+        var chain = try mainnetChain(finalizedHeight: 5_000)
+        let extrinsic = Data([0x27, 0x18, 0x28])
+        let hash = try extrinsic.blake2b32().toHex(includePrefix: false)
+        chain.extrinsics[131] = [extrinsic.toHex(includePrefix: true)]
+        let connected = chain
+        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
+            self.prunedAnswer(chain: connected, method, params)
+        }
+        let signed = Date(timeIntervalSince1970: 1_800_000_000)
+        let opened = signed.addingTimeInterval(8 * 24 * 3_600)
+
+        for purpose in [Sora2PendingSubmissionPurpose.legacyMigration, .generic] {
+            let directory = try temporaryDirectory()
+            try writeJournal(
+                [
+                    Sora2PendingSubmission(
+                        id: UUID(),
+                        account: account.address,
+                        extrinsicHash: hash,
+                        createdAt: signed,
+                        updatedAt: signed,
+                        state: .submitted,
+                        recoveryContext: pendingContext(account: account, hash: hash, chain: chain, birthBlock: 128),
+                        purpose: purpose
+                    ),
+                ],
+                in: directory
+            )
+            let store = try Sora2PendingSubmissionStore(baseURL: directory)
+            var indexerAnswer: Sora2IndexedExecution?
+            let rotation = Sora2PendingReconciliationRotation()
+            func pass(at now: Date) async throws -> Sora2PendingReconciliationReport {
+                try await reconciler(
+                    runtimeService: RuntimeTestProvider(snapshot: nil),
+                    proofs: Sora2LiveRuntimeIdentityCache(),
+                    directory: directory,
+                    walletNetworkSnapshot: { account.snapshot },
+                    indexedExecution: { _, _ in indexerAnswer },
+                    rotation: rotation,
+                    now: { now }
+                ).reconcile()
+            }
+
+            // The app is opened eight days after signing. The node has
+            // pruned the state and no other source answers in this pass.
+            let first = try await pass(at: opened)
+            XCTAssertEqual(first.awaitingResult, 1, "\(purpose)")
+            var entry = try XCTUnwrap(store.all().first)
+            XCTAssertEqual(entry.finalizedInclusion?.blockNumber, 131)
+            XCTAssertEqual(entry.finalizedInclusion?.recordedAt, opened)
+            XCTAssertNil(entry.terminalResolution)
+            XCTAssertTrue(entry.resultIsStillLookedFor(now: opened.addingTimeInterval(60)), "\(purpose)")
+
+            // A minute later the indexer answers. The entry is asked about
+            // again and gets its result. Before the fix this pass returned
+            // an empty report and the entry stayed without one for ever.
+            indexerAnswer = Sora2IndexedExecution(blockNumber: 131, blockHash: chain.blockHash(131), succeeded: true)
+            let second = try await pass(at: opened.addingTimeInterval(60))
+            XCTAssertEqual(second.resolved, 1, "\(purpose)")
+            entry = try XCTUnwrap(store.all().first)
+            XCTAssertEqual(entry.terminalResolution?.kind, .finalizedSuccess, "\(purpose)")
+        }
+
+        // A week of asking does end for a generic entry, counted from the
+        // moment its inclusion was written down; an entry a feature waits
+        // for is asked about for as long as it has no result.
+        func awaiting(_ purpose: Sora2PendingSubmissionPurpose, recordedAt: Date?) -> Sora2PendingSubmission {
+            Sora2PendingSubmission(
+                id: UUID(),
+                account: account.address,
+                extrinsicHash: hash,
+                createdAt: signed,
+                updatedAt: opened,
+                state: .submitted,
+                recoveryContext: pendingContext(account: account, hash: hash, chain: chain, birthBlock: 128),
+                purpose: purpose,
+                finalizedInclusion: Sora2PendingFinalizedInclusion(
+                    schemaVersion: Sora2PendingFinalizedInclusion.currentSchemaVersion,
+                    blockNumber: 131,
+                    blockHash: chain.blockHash(131),
+                    extrinsicIndex: 0,
+                    finalizedHeight: 5_000,
+                    recordedAt: recordedAt
+                )
+            )
+        }
+        let sixDaysOn = opened.addingTimeInterval(6 * 24 * 3_600)
+        let eightDaysOn = opened.addingTimeInterval(8 * 24 * 3_600)
+        XCTAssertTrue(awaiting(.generic, recordedAt: opened).resultIsStillLookedFor(now: sixDaysOn))
+        XCTAssertFalse(awaiting(.generic, recordedAt: opened).resultIsStillLookedFor(now: eightDaysOn))
+        // An entry written before the time was kept: its last change is
+        // the recording of its inclusion.
+        XCTAssertTrue(awaiting(.generic, recordedAt: nil).resultIsStillLookedFor(now: sixDaysOn))
+        XCTAssertFalse(awaiting(.generic, recordedAt: nil).resultIsStillLookedFor(now: eightDaysOn))
+        XCTAssertTrue(awaiting(.legacyMigration, recordedAt: opened).resultIsStillLookedFor(now: eightDaysOn))
+        XCTAssertTrue(
+            awaiting(.legacyMigration, recordedAt: opened)
+                .resultIsStillLookedFor(now: opened.addingTimeInterval(400 * 24 * 3_600))
+        )
+        // The time is additive: a journal without it reads unchanged, and
+        // one with it reads back the same.
+        let directory = try temporaryDirectory()
+        let withTime = awaiting(.generic, recordedAt: opened)
+        let withoutTime = Sora2PendingSubmission(
+            id: UUID(),
+            account: account.address,
+            extrinsicHash: String(repeating: "6c", count: 32),
+            createdAt: signed,
+            updatedAt: opened,
+            state: .submitted,
+            recoveryContext: pendingContext(
+                account: account, hash: String(repeating: "6c", count: 32), chain: chain, birthBlock: 128
+            ),
+            finalizedInclusion: Sora2PendingFinalizedInclusion(
+                schemaVersion: Sora2PendingFinalizedInclusion.currentSchemaVersion,
+                blockNumber: 131,
+                blockHash: chain.blockHash(131),
+                extrinsicIndex: 0,
+                finalizedHeight: 5_000
+            )
+        )
+        try writeJournal([withTime, withoutTime], in: directory)
+        XCTAssertEqual(try Sora2PendingSubmissionStore(baseURL: directory).all(), [withTime, withoutTime])
+    }
+
+    /// Review finding 4. The transaction is signed against the finalized
+    /// head of the node it is built on. A node that has another block at
+    /// that height follows another finalized history (a fork with the
+    /// mainnet genesis, which the add-node check accepts), and what it lacks
+    /// is not evidence. The previous round resolved such an entry as "not
+    /// included", which for a legacy migration offers to sign it again.
+    func testEntrySignedOnAnotherFinalizedHistoryIsLeftUnresolved() async throws {
+        let directory = try temporaryDirectory()
+        let account = try pendingAccount()
+        let chain = try mainnetChain(finalizedHeight: 400)
+        RPCStubProtocol.resetByHost { [unowned self] _, method, params in
+            self.prunedAnswer(chain: chain, method, params)
+        }
+        let hash = String(repeating: "d5", count: 32)
+        let signedOn = String(repeating: "0f", count: 32)
+        let created = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 - 2 * 3_600).rounded(.down))
+        func entry(birthBlockHash: String?) -> Sora2PendingSubmission {
+            Sora2PendingSubmission(
+                id: UUID(),
+                account: account.address,
+                extrinsicHash: hash,
+                createdAt: created,
+                updatedAt: created,
+                state: .submissionUnknown,
+                recoveryContext: pendingContext(
+                    account: account,
+                    hash: hash,
+                    chain: chain,
+                    birthBlock: 128,
+                    birthBlockHash: birthBlockHash
+                )
+            )
+        }
+        try writeJournal([entry(birthBlockHash: signedOn)], in: directory)
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+
+        // The era (128 ..< 192) is long over on this node's chain, and the
+        // transaction is not in it.
+        let outcome = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory,
+            walletNetworkSnapshot: { account.snapshot }
+        ).scheduledPass()
+        let report = try XCTUnwrap(outcome.report)
+        XCTAssertEqual(report.resolved, 0)
+        XCTAssertEqual(report.deferred, 1)
+        // Asking this node again in a few seconds would change nothing.
+        XCTAssertEqual(report.failedReads, 0)
+        XCTAssertFalse(outcome.needsFollowUp)
+        let left = try XCTUnwrap(store.all().first)
+        XCTAssertNil(left.terminalResolution)
+        XCTAssertNil(left.finalizedInclusion)
+        XCTAssertEqual(left.state, .submissionUnknown)
+        // Only the block the transaction was signed against was compared;
+        // the era was not scanned on this history.
+        XCTAssertEqual(RPCStubProtocol.callCount("chain_getBlock", host: Self.prunedHost), 2)
+
+        // Time alone still deals with it: after the first hour it neither
+        // blocks the removal of its account nor holds a journal place.
+        XCTAssertNoThrow(
+            try WalletPendingDeletionPolicy.validate(
+                nexusTransactions: [],
+                polkamarktTransactions: [],
+                sora2Submissions: try store.all(),
+                walletId: account.address,
+                soraAddress: account.address
+            )
+        )
+        XCTAssertEqual(Sora2PendingSubmissionStore.evictionIndex(in: try store.all(), now: Date()), 0)
+
+        // Connected to the chain it was signed on again, it resolves like
+        // any other entry.
+        try writeJournal([entry(birthBlockHash: nil)], in: directory)
+        let back = try await reconciler(
+            runtimeService: RuntimeTestProvider(snapshot: nil),
+            proofs: Sora2LiveRuntimeIdentityCache(),
+            directory: directory,
+            walletNetworkSnapshot: { account.snapshot }
+        ).reconcile()
+        XCTAssertEqual(back.resolved, 1)
+        XCTAssertEqual(try store.all().first?.terminalResolution?.kind, .expiredNotIncluded)
+    }
+
+    // MARK: - Review round 6: balances that could not be read
+
+    private static let valAssetId =
+        "0x0200040000000000000000000000000000000000000000000000000000000000"
+
+    /// Review finding 8, first part. One request of a balance read timed
+    /// out: the asset was marked unavailable (its last good value thrown
+    /// away) and nothing read it again until the account's XOR next
+    /// changed. Now the value of the read before stays, and the provider
+    /// asks again by itself, a bounded number of times.
+    @MainActor
+    func testBalanceProviderKeepsTheLastValueAndAsksAgain() throws {
+        let xor = BalanceData(identifier: Self.xorAssetId, balance: AmountDecimal(value: 7))
+        let val = BalanceData(identifier: Self.valAssetId, balance: AmountDecimal(value: 5))
+        let ids = [Self.xorAssetId, Self.valAssetId]
+        var refreshes = 0
+        var timers: [(delay: TimeInterval, fire: () -> Void)] = []
+        let provider = AssetProvider(
+            refresh: { refreshes += 1 },
+            schedule: { delay, fire in timers.append((delay, fire)) }
+        )
+
+        // A complete read: nothing more is asked for.
+        provider.receive([xor, val])
+        XCTAssertEqual(provider.getBalances(with: ids), [xor, val])
+        XCTAssertTrue(provider.unavailableBalanceAssetIds(among: ids).isEmpty)
+        XCTAssertTrue(timers.isEmpty)
+
+        // The next read: the request for VAL got no answer. VAL keeps the
+        // 5 it had (before: "Balance unavailable"), and a read is asked for
+        // again after the first delay.
+        let moreXor = BalanceData(identifier: Self.xorAssetId, balance: AmountDecimal(value: 8))
+        provider.receive([moreXor, BalanceData.unavailable(identifier: Self.valAssetId, notRead: true)])
+        XCTAssertEqual(provider.getBalances(with: ids), [moreXor, val])
+        XCTAssertTrue(provider.unavailableBalanceAssetIds(among: ids).isEmpty)
+        XCTAssertEqual(timers.map(\.delay), [AssetProvider.retryDelays[0]])
+        XCTAssertEqual(refreshes, 0)
+
+        // The delay passes: one read. It answers with the same list, which
+        // the data provider does not deliver again, so the next try is
+        // already waiting.
+        guard timers.count == 1 else {
+            return XCTFail("No further read was asked for")
+        }
+        timers[0].fire()
+        XCTAssertEqual(refreshes, 1)
+        XCTAssertEqual(timers.map(\.delay), Array(AssetProvider.retryDelays.prefix(2)))
+
+        // The read after that is complete: the asking ends, and a timer
+        // still waiting does nothing.
+        let moreVal = BalanceData(identifier: Self.valAssetId, balance: AmountDecimal(value: 6))
+        provider.receive([moreXor, moreVal])
+        XCTAssertEqual(provider.getBalances(with: ids), [moreXor, moreVal])
+        guard timers.count == 2 else {
+            return XCTFail("The second try was not waiting")
+        }
+        timers[1].fire()
+        XCTAssertEqual(refreshes, 1)
+        XCTAssertEqual(timers.count, 2)
+
+        // An answer that is not understood is another matter: the value
+        // held before is no longer known to be right, so the asset is
+        // unavailable. It is read again as well (a runtime upgrade is
+        // followed by new metadata within seconds).
+        timers.removeAll()
+        refreshes = 0
+        provider.receive([BalanceData.unavailable(identifier: Self.xorAssetId), moreVal])
+        XCTAssertEqual(provider.getBalances(with: ids), [moreVal])
+        XCTAssertEqual(provider.unavailableBalanceAssetIds(among: ids), [Self.xorAssetId])
+        // Every try brings the same answer: the asking stops after the
+        // last delay.
+        var fired = 0
+        while fired < timers.count {
+            timers[fired].fire()
+            fired += 1
+        }
+        XCTAssertEqual(timers.map(\.delay), AssetProvider.retryDelays)
+        XCTAssertEqual(refreshes, AssetProvider.retryDelays.count)
+
+        // A read that fails as a whole (the account itself could not be
+        // read) leaves what is shown and is asked for again, too.
+        let fresh = AssetProvider(
+            refresh: { refreshes += 1 },
+            schedule: { delay, fire in timers.append((delay, fire)) }
+        )
+        timers.removeAll()
+        refreshes = 0
+        fresh.receive([xor, val])
+        fresh.receiveReadFailure()
+        XCTAssertEqual(fresh.getBalances(with: ids), [xor, val])
+        XCTAssertEqual(timers.map(\.delay), [AssetProvider.retryDelays[0]])
+
+        // The very first read of a run: nothing was held before, so an
+        // asset that got no answer has nothing to show.
+        let merged = AssetProvider.merge(
+            previous: [],
+            items: [xor, BalanceData.unavailable(identifier: Self.valAssetId, notRead: true)]
+        )
+        XCTAssertEqual(merged.balances, [xor])
+        XCTAssertEqual(merged.unavailable, [Self.valAssetId])
+        XCTAssertTrue(merged.incomplete)
+        // Both marks survive the provider's cache.
+        let cached = try JSONDecoder().decode(
+            [BalanceData].self,
+            from: JSONEncoder().encode([
+                BalanceData.unavailable(identifier: Self.xorAssetId),
+                BalanceData.unavailable(identifier: Self.valAssetId, notRead: true),
+            ])
+        )
+        XCTAssertEqual(cached.map(\.isUnavailable), [true, true])
+        XCTAssertEqual(cached.map(\.balanceWasNotRead), [false, true])
+        XCTAssertFalse(xor.isUnavailable)
+    }
+
+    /// Review finding 8, second part. The full asset list and the token
+    /// picker were built from the balances that were read, so an asset
+    /// whose balance could not be read was not in them at all, and saving
+    /// the full list after editing took the asset out of the wallet until
+    /// the next start.
+    func testAssetListsKeepAnAssetWhoseBalanceCouldNotBeRead() throws {
+        let pswap = "0x0200050000000000000000000000000000000000000000000000000000000000"
+        let assets = [
+            xorAsset,
+            AssetInfo(id: Self.valAssetId, symbol: "VAL", chainId: "", precision: 18, icon: nil, displayName: "SORA Validator Token", visible: true),
+            AssetInfo(id: pswap, symbol: "PSWAP", chainId: "", precision: 18, icon: nil, displayName: "Polkaswap", visible: false),
+        ]
+        let manager = BalanceListAssetManager(assets: assets)
+        let factory = AssetViewModelFactory(walletAssets: assets, assetManager: manager, fiatService: nil)
+        let ids = assets.map(\.identifier)
+        let balances = [
+            BalanceData(identifier: Self.xorAssetId, balance: AmountDecimal(value: 2)),
+            BalanceData(identifier: pswap, balance: AmountDecimal(value: 0)),
+        ]
+        func rows(unavailable: Set<String>) -> [AssetListItem] {
+            factory.assetListItems(assetIds: ids, balances: balances, unavailable: unavailable, mode: .view) { balance, assetInfo in
+                factory.createAssetViewModel(with: balance, assetInfo: assetInfo, fiatData: [], mode: .view)
+            }
+        }
+
+        // What the lists did before: VAL is missing.
+        XCTAssertEqual(rows(unavailable: []).map(\.assetInfo.identifier), [Self.xorAssetId, pswap])
+
+        let listed = rows(unavailable: [Self.valAssetId])
+        XCTAssertEqual(listed.map(\.assetInfo.identifier), ids)
+        let valRow = try XCTUnwrap(listed.first { $0.assetInfo.identifier == Self.valAssetId })
+        XCTAssertTrue(valRow.balanceUnavailable)
+        XCTAssertEqual(valRow.assetViewModel.subtitle, WalletUX.balanceUnavailableText)
+        XCTAssertEqual(valRow.assetViewModel.fiatText, "")
+        XCTAssertFalse(valRow.assetViewModel.subtitle.contains("0"))
+        XCTAssertFalse(listed[0].balanceUnavailable)
+        XCTAssertTrue(listed[0].assetViewModel.subtitle.contains("2"))
+
+        // Saving the list after editing never takes an asset out of the
+        // wallet, also one that had no row at all.
+        let edited = [assets[1], assets[0]]
+        XCTAssertEqual(
+            ManageAssetListViewModel.listToSave(edited: edited, current: assets).map(\.identifier),
+            [Self.valAssetId, Self.xorAssetId, pswap]
+        )
+        XCTAssertEqual(
+            ManageAssetListViewModel.listToSave(edited: assets, current: assets).map(\.identifier),
+            ids
+        )
+    }
+
+    /// Review finding 7. Asset details showed "$0" under "Balance
+    /// unavailable" whenever a price was known, and once the notice was up
+    /// a later successful read did not replace it or bring the Send button
+    /// back.
+    @MainActor
+    func testAssetDetailsShowNoValueForAnUnreadBalanceAndRecover() async throws {
+        let asset = xorAsset
+        let provider = BalanceListAssetProvider(balances: [], unavailable: [Self.xorAssetId])
+        let service = TransferableItemService(
+            assetInfo: asset,
+            eventCenter: SilentEventCenter(),
+            assetsProvider: provider,
+            referralFactory: NoReferrals()
+        )
+        service.usdPrice = 3
+        // The item as the details screen builds it for an unread balance.
+        // (The placeholder's value at a known price is the "$0" that used
+        // to be shown; the cell must not show it whatever the item says.)
+        let item = TransferableItem(
+            assetInfo: asset,
+            fiat: "$0",
+            balance: Amount(value: 0),
+            frozenAmount: Amount(value: 0),
+            frozenFiatAmount: "$0",
+            service: service,
+            balanceData: BalanceData(identifier: "", balance: AmountDecimal(value: 0)),
+            balanceUnavailable: true
+        )
+        XCTAssertTrue(service.balanceUnavailable)
+        let cell = TransferableCell(style: .default, reuseIdentifier: nil)
+        cell.set(item: item, context: nil)
+        func texts() -> [String] {
+            var found: [String] = []
+            func walk(_ view: UIView) {
+                if let label = view as? UILabel, !label.isHidden, let text = label.text, !text.isEmpty {
+                    found.append(text)
+                }
+                view.subviews.forEach(walk)
+            }
+            walk(cell.contentView)
+            return found
+        }
+        func sendButtonHidden() -> Bool? {
+            Mirror(reflecting: cell).children
+                .first { $0.label?.hasSuffix("sendButton") == true }
+                .flatMap { $0.value as? UIView }?
+                .isHidden
+        }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertTrue(texts().contains(WalletUX.balanceUnavailableText), "\(texts())")
+        XCTAssertFalse(texts().contains { $0.contains("$") }, "\(texts())")
+        XCTAssertEqual(sendButtonHidden(), true)
+        // Nothing worked out from the placeholder was published.
+        XCTAssertNil(service.balanceAmount)
+        XCTAssertNil(service.fiatBalanceText)
+
+        // The balance is read: 4 XOR at $3. The notice goes, the amount,
+        // its value and the Send button are there.
+        let read = BalanceData(identifier: Self.xorAssetId, balance: AmountDecimal(value: 4))
+        provider.set(balances: [read], unavailable: [])
+        service.processBalance(data: [read])
+        await settle("the balance replaces the notice") {
+            !texts().contains(WalletUX.balanceUnavailableText) && texts().contains { $0.contains("4") }
+        }
+        XCTAssertFalse(service.balanceUnavailable)
+        XCTAssertTrue(texts().contains("$12"), "\(texts())")
+        XCTAssertEqual(sendButtonHidden(), false)
+
+        // And the other way while the screen is open: the next read does
+        // not understand the answer.
+        provider.set(balances: [], unavailable: [Self.xorAssetId])
+        service.processBalance(data: [])
+        await settle("the notice replaces the balance") {
+            texts().contains(WalletUX.balanceUnavailableText)
+        }
+        XCTAssertFalse(texts().contains { $0.contains("$") }, "\(texts())")
+        XCTAssertEqual(sendButtonHidden(), true)
+        withExtendedLifetime((item, cell)) {}
     }
 
     private func assertError<T>(
@@ -3222,6 +4398,8 @@ private final class RPCStubProtocol: URLProtocol {
         case error(code: Int, message: String)
         /// An HTTP status without a JSON-RPC body.
         case http(Int)
+        /// 200 with a web page instead of JSON.
+        case page
 
         /// What a node that prunes state answers for a block it no longer
         /// holds the state of (as `ws.mof.sora.org` does after 256 blocks).
@@ -3308,8 +4486,12 @@ private final class RPCStubProtocol: URLProtocol {
         }
         Self.lock.unlock()
         var statusCode = 200
+        var contentType = "application/json"
         let text: String
         switch answer {
+        case .page:
+            contentType = "text/html"
+            text = "<html><body>It works</body></html>"
         case let .result(result):
             text = #"{"jsonrpc":"2.0","id":\#(identifier),"result":\#(result)}"#
         case let .error(code, message):
@@ -3324,7 +4506,7 @@ private final class RPCStubProtocol: URLProtocol {
             url: request.url!,
             statusCode: statusCode,
             httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": statusCode == 200 ? "application/json" : "text/html"]
+            headerFields: ["Content-Type": statusCode == 200 ? contentType : "text/html"]
         )!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(text.utf8))
@@ -3408,7 +4590,18 @@ private final class RecoveryScript: @unchecked Sendable {
                 }
                 return next.0
             }
-            return try result.get()
+            // What the production pass brings back: the report, and the
+            // schedule's verdict worked out from the journal where the
+            // pass ran.
+            let report = try? result.get()
+            return Sora2PendingPassOutcome(
+                report: report,
+                needsFollowUp: Sora2PendingFollowUpSchedule.needsFollowUp(
+                    report: report,
+                    journal: journal,
+                    now: Date()
+                )
+            )
         }
     }
 
@@ -3631,4 +4824,155 @@ private final class BalanceListPrices: PriceInfoServiceProtocol, MarketCapServic
     }
 
     func getMarketCap(for _: [String]) async -> Set<MarketCapInfo> { [] }
+}
+
+// MARK: - Review round 6 test doubles
+
+/// The indexer's answer for a history page, set by the test.
+private final class IndexerHistoryStub: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = HistoryService.RemotePage(items: [], endReached: true)
+
+    var page: HistoryService.RemotePage {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return current
+        }
+        set {
+            lock.lock()
+            current = newValue
+            lock.unlock()
+        }
+    }
+}
+
+/// The rows of the current run, as `LocalTransactionStorage` holds them.
+private final class SentRowsOfThisRun: LocalTransactionStorageProtocol {
+    var transactions: [String: [Transaction]]
+
+    init(_ transactions: [String: [Transaction]]) {
+        self.transactions = transactions
+    }
+}
+
+/// The Activity screen as its view model sees it: asked to start the list
+/// again, it does what the real screen does.
+private final class ActivityListTestView: ActivityViewProtocol {
+    private weak var viewModel: ActivityViewModel?
+    private(set) var resets = 0
+    let controller = UIViewController()
+    var isSetup: Bool { true }
+
+    init(viewModel: ActivityViewModel) {
+        self.viewModel = viewModel
+    }
+
+    func resetPagination() {
+        resets += 1
+        viewModel?.resetPagination()
+    }
+
+    func stopAnimating() {}
+    func startPaginationLoader() {}
+    func stopPaginationLoader() {}
+}
+
+private final class ActivityDetailsTestView: ActivityDetailsViewProtocol {
+    private let lock = NSLock()
+    private var shown: [SoramitsuTableViewItemProtocol] = []
+    let controller = UIViewController()
+    var isSetup: Bool { true }
+
+    var items: [SoramitsuTableViewItemProtocol] {
+        lock.lock()
+        defer { lock.unlock() }
+        return shown
+    }
+
+    func update(items: [SoramitsuTableViewItemProtocol]) {
+        lock.lock()
+        shown = items
+        lock.unlock()
+    }
+}
+
+private final class IdleHistoryService: HistoryServiceProtocol {
+    func getHistory(count _: Int, assetId _: String?) async throws -> [Transaction] { [] }
+    func getPageHistory(count _: Int, page _: Int, assetId _: String?) async throws -> HistoryPage {
+        HistoryPage(transactions: [], endReached: true)
+    }
+    func getTransaction(by _: String) -> Transaction? { nil }
+    func getHistory(
+        count _: Int,
+        assetId _: String?,
+        completion: @escaping (Result<[Transaction], Swift.Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+    func getPageHistory(
+        count _: Int,
+        page _: Int,
+        assetId _: String?,
+        completion: @escaping (Result<HistoryPage, Swift.Error>) -> Void
+    ) {
+        completion(.success(HistoryPage(transactions: [], endReached: true)))
+    }
+}
+
+private struct NoLiquidityProviderFee: LPFeeServiceProtocol {
+    func getLpfee(with _: UInt32) -> String { "" }
+}
+
+/// Counts the journal's reads of the file system and where they ran.
+private final class ThreadRecordingFileManager: FileManager {
+    private let lock = NSLock()
+    private var recording = false
+    private var all = 0
+    private var onMain = 0
+
+    var reads: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return all
+    }
+
+    var readsOnMainThread: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return onMain
+    }
+
+    func startRecording() {
+        lock.lock()
+        recording = true
+        lock.unlock()
+    }
+
+    override func fileExists(atPath path: String) -> Bool {
+        lock.lock()
+        if recording {
+            all += 1
+            if Thread.isMainThread {
+                onMain += 1
+            }
+        }
+        lock.unlock()
+        return super.fileExists(atPath: path)
+    }
+}
+
+/// No referral balance and no referral operations.
+private final class NoReferrals: ReferralsOperationFactoryProtocol {
+    func createReferrerBalancesOperation() -> JSONRPCListOperation<JSONScaleDecodable<SoraPassport.Balance>>? { nil }
+    func createExtrinsicSetReferrerOperation(with _: String) -> BaseOperation<String> {
+        ClosureOperation { "" }
+    }
+    func createExtrinsicReserveReferralBalanceOperation(with _: BigUInt) -> BaseOperation<String> {
+        ClosureOperation { "" }
+    }
+    func createExtrinsicUnreserveReferralBalanceOperation(with _: BigUInt) -> BaseOperation<String> {
+        ClosureOperation { "" }
+    }
+    func createReferrerOperation() -> JSONRPCListOperation<String>? { nil }
 }
