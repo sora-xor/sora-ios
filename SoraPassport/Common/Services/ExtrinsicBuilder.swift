@@ -119,6 +119,9 @@ public final class ExtrinsicBuilder {
                 try encoder.append(encodable: specVersion)
             case .txVersion:
                 try encoder.append(encodable: transactionVersion)
+            case .metadataHash:
+                // Disabled mode signs "no metadata hash": `Option::None`.
+                try encoder.append(encodable: UInt8(0))
             default:
                 continue
             }
