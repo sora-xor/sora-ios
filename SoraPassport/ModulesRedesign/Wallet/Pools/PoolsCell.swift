@@ -241,10 +241,13 @@ final class PoolsCell: SoramitsuTableViewCell {
         }
         poolView?.subtitleLabel.sora.loadingPlaceholder.type = !poolModel.subtitle.isEmpty ? .none : .shimmer
 
-        if !poolModel.fiatText.isEmpty {
+        // Once the price read has finished, a pool without a price shows
+        // no value instead of a loading placeholder that never ends.
+        let waiting = !poolModel.priceLoadFinished
+        if !poolModel.fiatText.isEmpty || !waiting {
             poolView?.amountUpLabel.sora.text = poolModel.fiatText
         }
-        poolView?.amountUpLabel.sora.loadingPlaceholder.type = !poolModel.fiatText.isEmpty ? .none : .shimmer
+        poolView?.amountUpLabel.sora.loadingPlaceholder.type = poolModel.fiatText.isEmpty && waiting ? .shimmer : .none
         
         let rewardPictures: [Picture] = poolModel.farmedRewardAssetsImages.map { .logo(image: $0) }
         poolView?.setupFarmedAssetImages(pictures: rewardPictures)

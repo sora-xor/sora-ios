@@ -80,6 +80,15 @@ final class ExploreAssetsPageViewModel {
     var view: ControllerBackedProtocol?
     
     var assetViewModelsService: ExploreAssetViewModelService
+    private var loading: Task<Void, Never>?
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        loading?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
 
     init(wireframe: ExploreWireframeProtocol,
          assetViewModelsService: ExploreAssetViewModelService) {
@@ -124,10 +133,26 @@ extension ExploreAssetsPageViewModel: ExplorePageViewModelProtocol {
     
     func setup() {
         snapshot = createSnapshot()
+        loadAssets()
+        if pricesObserver == nil {
+            // Prices arrived or were refreshed: list the assets again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadAssets()
+            }
+        }
+    }
 
-        Task {
-            let assetViewModels = await assetViewModelsService.setup()
-            snapshot = createSnapshot(assetViewModels: assetViewModels)
+    private func loadAssets() {
+        loading?.cancel()
+        loading = Task { [weak self] in
+            guard let assetViewModels = await self?.assetViewModelsService.setup(),
+                  !Task.isCancelled,
+                  let self else { return }
+            self.snapshot = self.createSnapshot(assetViewModels: assetViewModels)
         }
     }
     

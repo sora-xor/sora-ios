@@ -37,6 +37,7 @@ final class AssetsItemService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
+    private let priceInfoService: PriceInfoServiceProtocol
     var priceInfo: PriceInfo?
     var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
@@ -52,13 +53,27 @@ final class AssetsItemService {
     @Published var moneyText: String = ""
     /// Set before `moneyText`, so the cell can style the notice.
     private(set) var priceIsUnavailable = false
+    /// "Prices as of 09:02" while the total is valued with the last prices
+    /// PI could give; empty when the prices are current or unknown.
+    @Published var priceNoteText: String = ""
 
     private let priceRetryLock = NSLock()
     private var priceRetry: Task<Void, Never>?
     private var priceFailures = 0
+    private var pricesObserver: NSObjectProtocol?
+
+    /// A retry is waiting to run. For tests.
+    var hasScheduledPriceRetry: Bool {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        return priceRetry != nil
+    }
 
     deinit {
         priceRetry?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
     }
 
     init(
@@ -66,13 +81,24 @@ final class AssetsItemService {
         fiatService: FiatServiceProtocol?,
         assetViewModelsFactory: AssetViewModelFactory,
         assetManager: AssetManagerProtocol,
-        assetProvider: AssetProviderProtocol
+        assetProvider: AssetProviderProtocol,
+        priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared
     ) {
         self.assetProvider = assetProvider
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.assetViewModelsFactory = assetViewModelsFactory
         self.assetManager = assetManager
+        self.priceInfoService = priceInfoService
+        // Prices were refreshed in the background, or the app came back to
+        // the foreground: value the wallet again.
+        pricesObserver = NotificationCenter.default.addObserver(
+            forName: PICatalogs.pricesDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setup()
+        }
     }
     
     func setup() {
@@ -87,7 +113,7 @@ final class AssetsItemService {
         }
 
         Task {
-            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+            let poolItemInfo = await priceInfoService.getPriceInfo(for: assetIds)
             self.priceInfo = poolItemInfo
             
             let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
@@ -95,15 +121,23 @@ final class AssetsItemService {
             
             let pricesAvailable = !poolItemInfo.fiatData.isEmpty
             priceIsUnavailable = !pricesAvailable
+            let pricesAsOf = pricesAvailable ? poolItemInfo.pricesAsOf : nil
+            priceNoteText = pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? ""
             moneyText = Self.fiatTotalText(balances: items, fiatData: poolItemInfo.fiatData)
-            schedulePriceRetry(needed: !pricesAvailable)
+            // Keep asking while there is no price, and while the prices
+            // shown are old ones.
+            schedulePriceRetry(needed: !pricesAvailable || pricesAsOf != nil)
             
             assetViewModels = items.compactMap { item in
                 let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
-                return self.assetViewModelsFactory.createAssetViewModel(with: item,
-                                                                        fiatData: poolItemInfo.fiatData,
-                                                                        mode: .view,
-                                                                        priceDelta: deltaPrice)
+                var viewModel = self.assetViewModelsFactory.createAssetViewModel(with: item,
+                                                                                 fiatData: poolItemInfo.fiatData,
+                                                                                 mode: .view,
+                                                                                 priceDelta: deltaPrice)
+                // The price read is over: a row without a price shows no
+                // value instead of a placeholder that never ends.
+                viewModel?.priceLoadFinished = true
+                return viewModel
             }
             updateHandler?()
         }
