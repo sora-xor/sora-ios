@@ -34,10 +34,11 @@ public class TabBar: UITabBar {
     }()
 
     /// The disc fill sits behind the button (the button's own image view
-    /// must stay on top of it).
+    /// must stay on top of it). The disc is a fixed 56 pt circle.
     private let swapFill: NeonGradientView = {
         let fill = NeonGradientView()
         fill.layer.masksToBounds = true
+        fill.layer.cornerRadius = 28
         fill.translatesAutoresizingMaskIntoConstraints = false
         return fill
     }()
@@ -57,15 +58,53 @@ public class TabBar: UITabBar {
         return line
     }()
 
-    public override init(frame: CGRect) {
+    /// True on iOS 16–25: the bar draws its own notched chrome and the
+    /// active-item indicator. On iOS 26+ the system Liquid Glass bar and its
+    /// selection are used and nothing is painted over them (spec §4.3.4).
+    public let drawsLegacyChrome: Bool
+
+    /// Active indicator, iOS 16–25 only (spec §7.11): a 16 × 3 `brand.red`
+    /// pill above the selected icon with a static `glow.tab`. It is drawn
+    /// above the bar's own background and item views, whatever order UIKit
+    /// adds them in.
+    let selectionIndicator: CALayer = {
+        let indicator = CALayer()
+        indicator.cornerRadius = 1.5
+        indicator.cornerCurve = .continuous
+        indicator.zPosition = 1
+        indicator.isHidden = true
+        return indicator
+    }()
+
+    public convenience override init(frame: CGRect) {
+        self.init(frame: frame, drawsLegacyChrome: !NeonChrome.usesLiquidGlass)
+    }
+
+    /// - Parameter drawsLegacyChrome: defaults to the running system; tests
+    ///   pass `true` to check the iOS 16–25 chrome on a newer simulator.
+    public init(frame: CGRect, drawsLegacyChrome: Bool) {
+        self.drawsLegacyChrome = drawsLegacyChrome
         super.init(frame: frame)
 
-        addSubview(coverButton)
-        addSubview(middleGlow)
-        addSubview(swapFill)
-        addSubview(middleButton)
-        addSubview(middleButtonTitleLabel)
-        
+        if drawsLegacyChrome {
+            layer.addSublayer(selectionIndicator)
+        }
+        installSwapDisc(in: self)
+
+        SoramitsuUI.updates.addObserver(self)
+        applyNeonStyle()
+    }
+
+    /// Puts the swap disc (glow, gradient fill, button, tap cover and label,
+    /// in that order) into `host` and lays it out there. `init` uses the bar
+    /// itself; `MainTabBarViewController` uses the system tab bar if it
+    /// cannot swap this bar in, so the disc keeps its fill and glow there.
+    public func installSwapDisc(in host: UIView) {
+        let views: [UIView] = [coverButton, middleGlow, swapFill, middleButton, middleButtonTitleLabel]
+        views.forEach {
+            $0.removeFromSuperview()
+            host.addSubview($0)
+        }
         let titleWidth = UIScreen.main.bounds.width / 5
 
         NSLayoutConstraint.activate([
@@ -78,21 +117,19 @@ public class TabBar: UITabBar {
             swapFill.topAnchor.constraint(equalTo: middleButton.topAnchor),
             swapFill.bottomAnchor.constraint(equalTo: middleButton.bottomAnchor),
 
-            middleButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            middleButton.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -21),
-            
-            coverButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            coverButton.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
+            middleButton.centerXAnchor.constraint(equalTo: host.centerXAnchor),
+            middleButton.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.bottomAnchor, constant: -21),
+
+            coverButton.centerXAnchor.constraint(equalTo: host.centerXAnchor),
+            coverButton.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.bottomAnchor),
             coverButton.heightAnchor.constraint(equalToConstant: 77),
             coverButton.widthAnchor.constraint(equalTo: middleButton.widthAnchor),
-            
-            middleButtonTitleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+
+            middleButtonTitleLabel.centerXAnchor.constraint(equalTo: host.centerXAnchor),
             middleButtonTitleLabel.widthAnchor.constraint(equalToConstant: titleWidth),
-            middleButtonTitleLabel.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -1),
+            middleButtonTitleLabel.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.bottomAnchor,
+                                                           constant: -1),
         ])
-        
-        SoramitsuUI.updates.addObserver(self)
-        applyNeonStyle()
     }
 
     required init?(coder: NSCoder) {
@@ -104,7 +141,7 @@ public class TabBar: UITabBar {
     /// The notched chrome under the items. Not drawn on iOS 26+: it would
     /// paint over the system Liquid Glass bar (spec §4.3.4).
     private func addShape() {
-        guard !NeonChrome.usesLiquidGlass else {
+        guard drawsLegacyChrome else {
             shapeLayer?.removeFromSuperlayer()
             shapeLayer = nil
             topLine.removeFromSuperlayer()
@@ -137,11 +174,76 @@ public class TabBar: UITabBar {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        swapFill.layer.cornerRadius = swapFill.bounds.height / 2
+        updateSelectionIndicator(animated: false)
+    }
+
+    public override var selectedItem: UITabBarItem? {
+        didSet {
+            guard selectedItem !== oldValue else { return }
+            updateSelectionIndicator(animated: oldValue != nil)
+        }
+    }
+
+    /// Moves the indicator over the selected item (240 ms, none under
+    /// Reduce Motion). Hidden on iOS 26+, for the centre swap item and while
+    /// the item views cannot be matched to the items.
+    public func updateSelectionIndicator(animated: Bool) {
+        guard drawsLegacyChrome else { return }
+        let frame = selectionIndicatorFrame()
+        CATransaction.begin()
+        if animated, frame != nil, !selectionIndicator.isHidden, !FxPolicy.current.reduceMotion {
+            CATransaction.setAnimationDuration(0.24)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+        } else {
+            CATransaction.setDisableActions(true)
+        }
+        if let frame {
+            selectionIndicator.frame = frame
+            if selectionIndicator.shadowOpacity > 0 {
+                selectionIndicator.shadowPath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: frame.size),
+                                                             cornerRadius: frame.height / 2).cgPath
+            }
+        }
+        selectionIndicator.isHidden = frame == nil
+        CATransaction.commit()
+    }
+
+    /// 16 × 3, centred over the selected item, 6 pt above its icon.
+    func selectionIndicatorFrame() -> CGRect? {
+        guard let items, let selectedItem, let index = items.firstIndex(where: { $0 === selectedItem }) else {
+            return nil
+        }
+        let itemViews = subviews
+            .filter { $0 is UIControl && $0 !== coverButton && $0 !== middleButton }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        // The centre item is the swap disc, which is not a selectable tab.
+        guard itemViews.count == items.count, !(items.count == 5 && index == 2) else { return nil }
+        let itemView = itemViews[index]
+        let size = CGSize(width: 16, height: 3)
+        let top: CGFloat
+        if let icon = Self.firstImageView(in: itemView) {
+            top = max(1, icon.convert(icon.bounds, to: self).minY - 6 - size.height)
+        } else {
+            top = itemView.frame.minY + 2
+        }
+        return CGRect(x: itemView.frame.midX - size.width / 2, y: top, width: size.width, height: size.height)
+    }
+
+    private static func firstImageView(in view: UIView) -> UIImageView? {
+        for subview in view.subviews {
+            if let image = subview as? UIImageView, !image.isHidden, image.bounds.width > 0 {
+                return image
+            }
+            if let nested = firstImageView(in: subview) {
+                return nested
+            }
+        }
+        return nil
     }
 
     private func applyNeonStyle() {
         let tokens = NeonTokens.current
+        let fx = FxPolicy.current
         swapFill.apply(tokens.ctaSwap)
         middleButton.sora.tintColor = .custom(uiColor: tokens.onAccent)
         middleGlow.configure(tokens.glowSwap)
@@ -149,6 +251,15 @@ public class TabBar: UITabBar {
         if let shapeLayer {
             shapeLayer.fillColor = (tokens.isDark ? tokens.layer1 : tokens.surface).cgColor
             topLine.strokeColor = tokens.hairline.cgColor
+        }
+        if drawsLegacyChrome {
+            selectionIndicator.backgroundColor = tokens.brandRed.cgColor
+            // Static glow; the pill alone in the MINIMAL tier and under
+            // Increase Contrast. The path is the pill itself.
+            let pill = CGRect(origin: .zero, size: selectionIndicator.bounds.size)
+            selectionIndicator.applyNeonGlow(fx.glows && fx.tier != .minimal ? tokens.glowTab : nil,
+                                             path: UIBezierPath(roundedRect: pill,
+                                                                cornerRadius: pill.height / 2).cgPath)
         }
         setNeedsDisplay()
     }
@@ -206,7 +317,7 @@ public class TabBar: UITabBar {
 
 extension TabBar: SoramitsuObserver {
     public func styleDidChange(options: UpdateOptions) {
-        guard options.contains(.palette) else { return }
+        guard options.contains(.palette) || options.contains(.effects) else { return }
         applyNeonStyle()
     }
 }
