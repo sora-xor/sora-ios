@@ -115,25 +115,35 @@ final class PreparedAccount {
         // next start completes by itself:
         // - the path first: phrase or seed items written without it would
         //   derive another address;
-        // - then the phrase, then the seed: the items nothing else can derive.
-        //   An account that has them and no secret yet is proven by them, and
-        //   the startup backfill adds the missing seed and secret
+        // - then the phrase and the seed, the items nothing else can derive,
+        //   in the order of `UserStorageMigrator.restoreWriteOrder`: the
+        //   first one written always proves the account by itself. That is
+        //   the phrase when it has 12 to 24 words, and the seed when the
+        //   phrase has 3, 6 or 9 words (a Google Drive backup made by App
+        //   Store 3.8.6): such an entropy cannot be expanded again, so an
+        //   account left with only that item would stay read-only, and a
+        //   second import would be refused because an item exists. An
+        //   account that has a proving item and no secret yet gets the
+        //   missing seed and secret from the startup backfill
         //   (`LegacyGlobalEntropyScopedBackfill`);
         // - the secret last. Written first, a kill after it would leave an
         //   account that signs but never receives its phrase: the backfill
         //   skips an account that has a secret, and a second import of the
         //   same phrase is refused as a duplicate.
-        let optionalMaterial: [(String, Data)?] = [
-            derivation.map { (derivationTag, $0) },
-            entropy.map {
-                (KeystoreTag.entropyTagForAddress(account.address), $0)
-            },
-            seed.map {
-                (KeystoreTag.seedTagForAddress(account.address), $0)
-            },
-            Optional((secretTag, secretKey)),
-        ]
-        let material = optionalMaterial.compactMap { $0 }
+        var material: [(String, Data)] = []
+        if let derivation {
+            material.append((derivationTag, derivation))
+        }
+        for (value, tag, _) in UserStorageMigrator.restoreWriteOrder(
+            address: account.address,
+            entropy: entropy,
+            rawSeed: seed,
+            secret: secretKey
+        ) {
+            if let value {
+                material.append((tag, value))
+            }
+        }
         do {
             // A retained derivation path for this address must equal the
             // requested one (an absent request path equals no retained tag),
