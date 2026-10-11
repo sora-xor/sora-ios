@@ -208,14 +208,16 @@ enum WalletLocalStateSetAside {
     enum Failure: Error {
         case markerChanged
         /// Some files were moved to `folder` and the others could not be
-        /// moved back. Nothing was deleted; the wallet settings and the
-        /// recovery marker were left as they were. A retry continues in the
-        /// same folder.
+        /// moved back, or everything was moved and the folder could not be
+        /// marked complete. Nothing was deleted and the recovery marker was
+        /// left as it was. A retry continues in the same folder.
         case incomplete(folder: URL)
     }
 
-    /// Written into a set-aside folder whose moves did not all complete, and
-    /// removed when they do. A retry reuses that folder.
+    /// Written into a set-aside folder before the first move, and removed
+    /// once the wallet files are moved and the wallet settings removed,
+    /// before the recovery marker is cleared. A retry reuses a folder that
+    /// has it.
     static let incompleteMarkerName = "INCOMPLETE"
 
     /// Non-secret UserDefaults keys that describe the installed wallet.
@@ -260,12 +262,11 @@ enum WalletLocalStateSetAside {
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
 
         // 0. Journal the attempt before anything moves. The marker stays
-        // until the last step below has finished, so a process that dies at
-        // any point in between (after some moves, before the settings are
-        // removed, before the recovery marker is cleared) leaves a folder the
-        // next attempt finds and continues in. The write is synchronised: a
-        // marker that could be lost while the moves survive would split the
-        // earlier data across two folders.
+        // until the wallet files are moved and the wallet settings removed
+        // (step 4), so a process that dies at any point before that leaves a
+        // folder the next attempt finds and continues in. The write is
+        // synchronised: a marker that could be lost while the moves survive
+        // would split the earlier data across two folders.
         let incompleteMarkerURL = folder.appendingPathComponent(incompleteMarkerName)
         if !exists(incompleteMarkerURL) {
             do {
@@ -298,19 +299,22 @@ enum WalletLocalStateSetAside {
         // fails, the moves already done are undone, so the install is left as
         // it was; if that is not possible, the folder is marked incomplete
         // and the error says so.
-        let coreData = folder.appendingPathComponent("CoreData", isDirectory: true)
-        try fileManager.createDirectory(at: coreData, withIntermediateDirectories: true)
-        var moves: [(URL, URL)] = ["", "-wal", "-shm", "-journal"].map { suffix in
+        let coreDataName = "CoreData"
+        try fileManager.createDirectory(
+            at: folder.appendingPathComponent(coreDataName, isDirectory: true), withIntermediateDirectories: true)
+        // Each move: the item now, and its place inside the folder. The
+        // first four are the database file and its SQLite companions.
+        let storeFileSuffixes = ["", "-wal", "-shm", "-journal"]
+        var moves: [(URL, [String])] = storeFileSuffixes.map { suffix in
             (URL(fileURLWithPath: paths.storeURL.path + suffix),
-             coreData.appendingPathComponent(paths.storeURL.lastPathComponent + suffix))
+             [coreDataName, paths.storeURL.lastPathComponent + suffix])
         }
         moves.append((paths.storeURL.deletingLastPathComponent()
             .appendingPathComponent("WalletMigrationSafety", isDirectory: true),
-            coreData.appendingPathComponent("WalletMigrationSafety", isDirectory: true)))
+            [coreDataName, "WalletMigrationSafety"]))
         let sora = paths.applicationSupportURL.appendingPathComponent("SORA", isDirectory: true)
         for name in ["WalletNetworks", "WalletAccountCommits"] {
-            moves.append((sora.appendingPathComponent(name, isDirectory: true),
-                           folder.appendingPathComponent(name, isDirectory: true)))
+            moves.append((sora.appendingPathComponent(name, isDirectory: true), [name]))
         }
         // Records of unfinished transactions stay in place while they can be
         // read: they tell the restored wallets which transactions are still
@@ -318,20 +322,41 @@ enum WalletLocalStateSetAside {
         // send after the restore too, so it is set aside with the rest.
         if !PendingTransactionRecords.isReadable(baseURL: paths.applicationSupportURL, fileManager: fileManager) {
             moves.append((sora.appendingPathComponent(PendingTransactionRecords.directoryName, isDirectory: true),
-                           folder.appendingPathComponent(PendingTransactionRecords.directoryName, isDirectory: true)))
+                           [PendingTransactionRecords.directoryName]))
         }
+        func place(_ components: [String], in base: URL) -> URL {
+            components.reduce(base) { $0.appendingPathComponent($1) }
+        }
+        // In a reused folder an item of the same name may already be there
+        // from the earlier attempt (the app recreated it in between, or the
+        // folder belongs to an earlier wallet). Both are kept. Everything
+        // this attempt adds beside an earlier item goes into one subfolder
+        // of its own, under its own name, so the items of one wallet stay
+        // together. The `-wal`, `-shm` and `-journal` files follow the
+        // database file this attempt moves: SQLite reads them as one.
+        let laterItems = folder.appendingPathComponent(
+            "later-\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)", isDirectory: true)
+        var databaseBase: URL?
         var done: [(URL, URL)] = []
         do {
-            for (source, plannedDestination) in moves where exists(source) {
-                // In a reused folder an item of the same name may already be
-                // there from the earlier attempt; keep both.
-                let destination = exists(plannedDestination)
-                    ? plannedDestination.deletingLastPathComponent().appendingPathComponent(
-                        plannedDestination.lastPathComponent + "." + UUID().uuidString)
-                    : plannedDestination
+            for (index, move) in moves.enumerated() where exists(move.0) {
+                let (source, components) = move
+                let isDatabaseCompanion = (1 ..< storeFileSuffixes.count).contains(index)
+                var base = (isDatabaseCompanion ? databaseBase : nil) ?? folder
+                if exists(place(components, in: base)) {
+                    base = laterItems
+                }
+                let destination = place(components, in: base)
+                if base == laterItems {
+                    try fileManager.createDirectory(
+                        at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                }
                 try beforeMove(source)
                 try fileManager.moveItem(at: source, to: destination)
                 done.append((source, destination))
+                if index == 0 {
+                    databaseBase = base
+                }
             }
         } catch {
             var restored = true
@@ -352,6 +377,14 @@ enum WalletLocalStateSetAside {
                 // settings copy written above; remove it so a retry starts
                 // clean.
                 try? fileManager.removeItem(at: folder)
+            } else {
+                // The directories created above for this attempt are empty
+                // again. `rmdir` removes an empty directory and nothing else.
+                for directory in [laterItems.appendingPathComponent(coreDataName, isDirectory: true), laterItems] {
+                    _ = directory.withUnsafeFileSystemRepresentation { path in
+                        path.map { Darwin.rmdir($0) }
+                    }
+                }
             }
             throw error
         }
@@ -362,7 +395,21 @@ enum WalletLocalStateSetAside {
             settings.removeValue(for: key)
         }
 
-        // 4. Clear the marker this screen was shown for.
+        // 4. Everything of this wallet is in the folder now: it is complete.
+        // The marker goes before the recovery marker is cleared, never
+        // after. A folder that kept it once the app had left the recovery
+        // screen would be taken for an unfinished attempt by a later "Set up
+        // this iPhone again", months on and for another wallet, and that
+        // wallet's files would be mixed into this folder. If the marker
+        // cannot be removed, the recovery marker stays too and a retry
+        // continues here.
+        try? fileManager.removeItem(at: incompleteMarkerURL)
+        guard !exists(incompleteMarkerURL) else {
+            Logger.shared.warning("Wallet storage: set-aside folder could not be completed; try again")
+            throw Failure.incomplete(folder: folder)
+        }
+
+        // 5. Clear the marker this screen was shown for.
         if marker.required {
             try WalletMigrationRecoveryMarker.synchronized {
                 guard WalletMigrationRecoveryMarker.capture(settings) == marker else {
@@ -377,8 +424,6 @@ enum WalletLocalStateSetAside {
                 }
             }
         }
-        // 5. Every step is done: the folder is complete.
-        try? fileManager.removeItem(at: incompleteMarkerURL)
         Logger.shared.info("Wallet storage: earlier data set aside on request; Keychain unchanged")
         return folder
     }
