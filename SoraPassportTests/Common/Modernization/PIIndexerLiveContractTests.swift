@@ -3897,3 +3897,464 @@ private final class SwitchablePrices {
         return current
     }
 }
+
+// MARK: - Review round 3: actions do not wait for prices or APY
+
+/// A price service that does not answer until the test lets it.
+private actor HeldFiat: FiatServiceProtocol {
+    private var answer: [PIExactFiatData]?
+    private var waiting: [CheckedContinuation<[PIExactFiatData], Never>] = []
+    private(set) var calls = 0
+
+    func getFiat() async -> [PIExactFiatData] {
+        calls += 1
+        if let answer {
+            return answer
+        }
+        return await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func release(_ data: [PIExactFiatData]) {
+        answer = data
+        let resumed = waiting
+        waiting = []
+        resumed.forEach { $0.resume(returning: data) }
+    }
+}
+
+/// An APY service that does not answer until the test lets it.
+private actor HeldAPY: APYServiceProtocol {
+    private var answer: Decimal??
+    private var waiting: [CheckedContinuation<Decimal?, Never>] = []
+
+    func getApy(for _: String, targetAssetId _: String) async -> Decimal? {
+        if let answer {
+            return answer
+        }
+        return await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func setup(factory _: PolkaswapNetworkOperationFactoryProtocol) {}
+
+    func release(_ apy: Decimal?) {
+        answer = .some(apy)
+        let resumed = waiting
+        waiting = []
+        resumed.forEach { $0.resume(returning: apy) }
+    }
+}
+
+private final class ActionTestQREncoder: WalletQREncoderProtocol {
+    func encode(receiverInfo _: ReceiveInfo) throws -> Data {
+        Data("substrate:test".utf8)
+    }
+}
+
+private struct ActionTestShareFactory: AccountShareFactoryProtocol {
+    func createSources(for _: ReceiveInfo, qrImage _: UIImage) -> [Any] { [] }
+}
+
+private final class ActionTestFeeProvider: FeeProviderProtocol {
+    let fee: Decimal
+
+    init(fee: Decimal) {
+        self.fee = fee
+    }
+
+    func getFee(for _: TransactionType, completion: @escaping (Decimal) -> Void) {
+        completion(fee)
+    }
+
+    func getFee(for _: InputRewardAmountType, completion: @escaping (Decimal) -> Void) {
+        completion(fee)
+    }
+
+    func getFee(for _: any RuntimeCallable) async -> Decimal { fee }
+    func getFee(for _: TransactionType) async -> Decimal { fee }
+}
+
+private final class ActionTestLPFee: LPFeeServiceProtocol {
+    func getLpfee(with _: UInt32) -> String { "0.3%" }
+}
+
+private struct ActionTestDexLoader: DexInfoLoading {
+    func loadDexInfos(completion: @escaping (Result<[DexInfo], Swift.Error>) -> Void) {
+        completion(.success([]))
+    }
+}
+
+private final class ActionTestPools: PoolsServiceInputProtocol {
+    let state: PoolNetworkState
+    let pool: PoolInfo?
+
+    init(state: PoolNetworkState, pool: PoolInfo?) {
+        self.state = state
+        self.pool = pool
+    }
+
+    func loadAccountPools() {}
+    func getAccountPools() -> [PoolInfo] { pool.map { [$0] } ?? [] }
+    func updatePools(_: [PoolInfo]) {}
+    func getPool(by _: String) -> PoolInfo? { pool }
+    func getPool(by _: String, targetAssetId _: String) async -> PoolInfo? { pool }
+    func loadPool(by _: String, targetAssetId _: String) async -> PoolInfo? { pool }
+    func loadPairState(baseAssetId _: String, targetAssetId _: String) async throws -> PoolNetworkState { state }
+    func loadPools(currentAsset _: AssetInfo) -> [PoolInfo] { [] }
+    func loadTargetPools(for _: String) -> [PoolInfo] { [] }
+    func appendDelegate(delegate _: PoolsServiceOutput) {}
+}
+
+private final class ActionTestFarming: DemeterFarmingServiceProtocol {
+    func getUserFarmInfos(baseAssetId _: String?, targetAssetId _: String?) async -> [UserFarm] { [] }
+    func loadUserFarmInfos(baseAssetId _: String?, targetAssetId _: String?, accountId _: Data) async throws -> [UserFarm] { [] }
+    func getAllFarms() async throws -> [Farm] { [] }
+    func getFarm(with _: String) -> Farm? { nil }
+    func getFarmDetails(baseAssetId _: String, poolAssetId _: String, rewardAssetId _: String) async throws -> [Farm] { [] }
+    func getSingleSidedXorFarmedPools(completion: @escaping ([UserFarmInfo]) -> Void) { completion([]) }
+}
+
+/// The items a screen was given, in order.
+private final class ShownItems {
+    private let lock = NSLock()
+    private var items: [ReceiveItem] = []
+
+    func append(_ item: ReceiveItem) {
+        lock.lock()
+        items.append(item)
+        lock.unlock()
+    }
+
+    var all: [ReceiveItem] {
+        lock.lock()
+        defer { lock.unlock() }
+        return items
+    }
+}
+
+final class PIActionsDoNotWaitForPricesTests: XCTestCase {
+    private func assets() -> [AssetInfo] {
+        [
+            AssetInfo(id: priceTestXor, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true),
+            AssetInfo(id: priceTestVal, symbol: "VAL", chainId: "", precision: 18, icon: nil, displayName: "SORA Validator Token", visible: true),
+        ]
+    }
+
+    private func balances() -> [BalanceData] {
+        [
+            BalanceData(identifier: priceTestXor, balance: AmountDecimal(value: Decimal(100))),
+            BalanceData(identifier: priceTestVal, balance: AmountDecimal(value: Decimal(100))),
+        ]
+    }
+
+    private func wait(
+        _ what: String,
+        seconds: TimeInterval = 5,
+        until condition: @escaping () -> Bool
+    ) async {
+        let rounds = Int(seconds * 100)
+        for _ in 0 ..< rounds where !condition() {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(condition(), what)
+    }
+
+    private func xorPrice() throws -> [PIExactFiatData] {
+        [PIExactFiatData(id: priceTestXor, priceUsd: try PIQuantity("2"))]
+    }
+
+    /// Receive: the code and the address appear while the price read is
+    /// still running (30 s with no connection before this change). The
+    /// fiat text of the requested amount is filled in when prices arrive.
+    func testReceiveShowsItsCodeWhileThePriceReadIsStillRunning()
+        async throws
+    {
+        let fiat = HeldFiat()
+        let manager = PriceTestAssetManager(assets: assets())
+        let provider = PriceTestAssetProvider(balances: balances())
+        let viewModel = ReceiveViewModel(
+            qrService: WalletQRService(
+                operationFactory: WalletQROperationFactory(),
+                encoder: ActionTestQREncoder()
+            ),
+            sharingFactory: ActionTestShareFactory(),
+            accountId: "00",
+            address: "",
+            selectedAsset: assets()[0],
+            amount: AmountDecimal(value: Decimal(2)),
+            fiatService: fiat,
+            assetProvider: provider,
+            assetManager: manager
+        )
+        let shown = ShownItems()
+        viewModel.setupItems = { items in
+            items.compactMap { $0 as? ReceiveItem }.forEach(shown.append)
+        }
+
+        viewModel.viewDidLoad()
+        await wait("the code, without prices") { !shown.all.isEmpty }
+
+        let first = try XCTUnwrap(shown.all.first)
+        XCTAssertNotNil(first.qrImage)
+        XCTAssertEqual(first.sendAssetViewModel?.amount, "2")
+        XCTAssertEqual(first.sendAssetViewModel?.fiat, "")
+
+        await fiat.release(try xorPrice())
+        await wait("the fiat text") {
+            shown.all.last?.sendAssetViewModel?.fiat == "$4"
+        }
+        XCTAssertNotNil(shown.all.last?.qrImage)
+        let calls = await fiat.calls
+        XCTAssertEqual(calls, 1)
+        withExtendedLifetime((fiat, manager, provider)) {}
+    }
+
+    /// Receive without a requested amount shows no fiat text, so it does
+    /// not ask for prices at all.
+    func testReceiveWithoutAnAmountDoesNotAskForPrices() async throws {
+        let fiat = HeldFiat()
+        let manager = PriceTestAssetManager(assets: assets())
+        let provider = PriceTestAssetProvider(balances: balances())
+        let viewModel = ReceiveViewModel(
+            qrService: WalletQRService(
+                operationFactory: WalletQROperationFactory(),
+                encoder: ActionTestQREncoder()
+            ),
+            sharingFactory: ActionTestShareFactory(),
+            accountId: "00",
+            address: "",
+            selectedAsset: assets()[0],
+            fiatService: fiat,
+            assetProvider: provider,
+            assetManager: manager
+        )
+        let shown = ShownItems()
+        viewModel.setupItems = { items in
+            items.compactMap { $0 as? ReceiveItem }.forEach(shown.append)
+        }
+
+        viewModel.viewDidLoad()
+        await wait("the code") { !shown.all.isEmpty }
+
+        XCTAssertNotNil(shown.all.first?.qrImage)
+        XCTAssertNil(shown.all.first?.sendAssetViewModel)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let calls = await fiat.calls
+        XCTAssertEqual(calls, 0)
+        withExtendedLifetime((fiat, manager, provider)) {}
+    }
+
+    /// Swap: the details (and with them Review) come from the quote and
+    /// the fee while the price read is still running. Prices that arrive
+    /// later are filled into the details.
+    func testSwapReviewDoesNotWaitForPrices() async throws {
+        let fiat = HeldFiat()
+        let manager = PriceTestAssetManager(assets: assets())
+        let provider = PriceTestAssetProvider(balances: balances())
+        let events = EventCenter()
+        let viewModel = SwapViewModel(
+            selectedTokenId: priceTestXor,
+            selectedSecondTokenId: priceTestVal,
+            wireframe: nil,
+            fiatService: fiat,
+            assetManager: manager,
+            detailsFactory: DetailViewModelFactory(assetManager: manager),
+            eventCenter: events,
+            interactor: PolkaswapMainInteractor(
+                operationManager: OperationManager(),
+                eventCenter: events,
+                dexService: DexInfoService(loader: ActionTestDexLoader())
+            ),
+            networkFacade: nil,
+            assetsProvider: provider,
+            lpServiceFee: ActionTestLPFee(),
+            polkaswapNetworkFacade: nil,
+            marketCapService: PriceTestMarketCap(),
+            feeProvider: ActionTestFeeProvider(fee: Decimal(string: "0.5")!)
+        )
+        viewModel.firstAssetId = priceTestXor
+        viewModel.secondAssetId = priceTestVal
+        viewModel.inputedFirstAmount = 1
+
+        let reviewed = XCTestExpectation(description: "details from the quote")
+        viewModel.updateDetails(
+            params: PolkaswapMainInteractorQuoteParams(
+                fromAssetId: priceTestXor,
+                toAssetId: priceTestVal,
+                amount: "1000000000000000000",
+                swapVariant: .desiredInput,
+                liquiditySources: [],
+                filterMode: .disabled
+            ),
+            quote: SwapValues(
+                amount: "2000000000000000000",
+                route: [priceTestXor, priceTestVal]
+            ),
+            dexId: 0
+        ) {
+            reviewed.fulfill()
+        }
+        let outcome = await XCTWaiter().fulfillment(of: [reviewed], timeout: 5)
+        XCTAssertEqual(outcome, .completed, "Review waited for the price read")
+
+        XCTAssertEqual(viewModel.amounts?.toAmount, 2)
+        let fee = try XCTUnwrap(viewModel.details.last)
+        XCTAssertEqual(fee.assetAmountText.attributedString.string, "0.5 XOR")
+        XCTAssertEqual(fee.fiatAmountText?.attributedString.string, "")
+
+        await fiat.release(try xorPrice())
+        await wait("the fee in fiat") {
+            viewModel.details.last?.fiatAmountText?.attributedString.string == "$1"
+        }
+        XCTAssertEqual(viewModel.details.count, 5)
+        withExtendedLifetime((fiat, manager, provider)) {}
+    }
+
+    /// Supply liquidity: the fee, which enables the button, is set while
+    /// the pool catalog (APY) is still being read. The APY row appears when
+    /// it arrives.
+    func testSupplyLiquidityFeeDoesNotWaitForTheAPY() async throws {
+        let apy = HeldAPY()
+        let fiat = FiatService(assets: { [] })
+        let manager = PriceTestAssetManager(assets: assets())
+        let provider = PriceTestAssetProvider(balances: balances())
+        let pools = ActionTestPools(
+            state: PoolNetworkState(isPresented: false, isEnabled: true),
+            pool: nil
+        )
+        let network = WalletNetworkOperationFactoryProtocolMock()
+        network.liquidityFeeClosure = { _ in Decimal(string: "0.5")! }
+        let viewModel = SupplyLiquidityViewModel(
+            wireframe: nil,
+            poolInfo: nil,
+            fiatService: fiat,
+            apyService: apy,
+            poolsService: pools,
+            assetManager: manager,
+            detailsFactory: DetailViewModelFactory(assetManager: manager),
+            operationFactory: network,
+            assetsProvider: provider,
+            marketCapService: PriceTestMarketCap()
+        )
+        await MainActor.run {
+            viewModel.firstAssetId = priceTestXor
+            viewModel.secondAssetId = priceTestVal
+            viewModel.inputedFirstAmount = 1
+            viewModel.inputedSecondAmount = 2
+        }
+
+        // The pair is checked first; ask until the details are there.
+        var shown = false
+        for _ in 0 ..< 50 where !shown {
+            await MainActor.run { viewModel.updateDetails() }
+            try await Task.sleep(nanoseconds: 100_000_000)
+            shown = await MainActor.run { !viewModel.details.isEmpty }
+        }
+        XCTAssertTrue(shown, "The fee waited for the APY")
+        let before = await MainActor.run { viewModel.details }
+        XCTAssertEqual(
+            before.last?.assetAmountText.attributedString.string,
+            "0.5 XOR"
+        )
+        XCTAssertFalse(before.contains { $0.title == SoraPassport.Constants.apyTitle })
+
+        await apy.release(Decimal(string: "0.12")!)
+        await wait("the APY row") {
+            viewModel.details.contains {
+                $0.title == SoraPassport.Constants.apyTitle &&
+                    $0.assetAmountText.attributedString.string == "12% APY"
+            }
+        }
+        withExtendedLifetime((fiat, apy, manager, provider, pools)) {}
+    }
+
+    /// Remove liquidity: the same for the fee, with prices and the APY
+    /// both still being read.
+    func testRemoveLiquidityFeeDoesNotWaitForPricesOrTheAPY() async throws {
+        let apy = HeldAPY()
+        let fiat = HeldFiat()
+        let manager = PriceTestAssetManager(assets: assets())
+        let provider = PriceTestAssetProvider(balances: balances())
+        let pool = PoolInfo(
+            baseAssetId: priceTestXor,
+            targetAssetId: priceTestVal,
+            poolId: "pool",
+            accountId: "",
+            yourPoolShare: 10,
+            baseAssetPooledByAccount: 10,
+            targetAssetPooledByAccount: 20,
+            baseAssetPooledTotal: 100,
+            targetAssetPooledTotal: 200,
+            totalIssuances: 100,
+            baseAssetReserves: 100,
+            targetAssetReserves: 200,
+            accountPoolBalance: 10
+        )
+        let pools = ActionTestPools(
+            state: PoolNetworkState(isPresented: true, isEnabled: true),
+            pool: pool
+        )
+        let network = WalletNetworkOperationFactoryProtocolMock()
+        network.liquidityFeeClosure = { _ in Decimal(string: "0.5")! }
+        let viewModel = RemoveLiquidityViewModel(
+            wireframe: nil,
+            poolInfo: pool,
+            farms: [],
+            apyService: apy,
+            fiatService: fiat,
+            poolsService: pools,
+            assetManager: manager,
+            detailsFactory: DetailViewModelFactory(assetManager: manager),
+            providerFactory: BalanceProviderFactory(
+                accountId: "",
+                cacheFacade: CoreDataCacheFacade.shared,
+                networkOperationFactory: network,
+                identifierFactory: SingleProviderIdentifierFactory()
+            ),
+            operationFactory: network,
+            assetsProvider: provider,
+            farmingService: ActionTestFarming(),
+            marketCapService: PriceTestMarketCap()
+        )
+        await MainActor.run { viewModel.viewDidLoad() }
+
+        // The pair is checked first; ask until the details are there.
+        var shown = false
+        for _ in 0 ..< 50 where !shown {
+            await MainActor.run {
+                viewModel.inputedFirstAmount = 1
+                viewModel.inputedSecondAmount = 2
+                viewModel.updateDetails()
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+            shown = await MainActor.run { !viewModel.details.isEmpty }
+        }
+        XCTAssertTrue(shown, "The fee waited for prices or the APY")
+        let before = await MainActor.run { viewModel.details }
+        let feeRow = try XCTUnwrap(
+            before.first {
+                $0.assetAmountText.attributedString.string == "0.5 XOR"
+            }
+        )
+        XCTAssertEqual(feeRow.fiatAmountText?.attributedString.string, "")
+        // The APY is not known yet: its row has no rate, not "0% APY".
+        let apyRow = try XCTUnwrap(
+            before.first { $0.title == SoraPassport.Constants.apyTitle }
+        )
+        XCTAssertEqual(apyRow.assetAmountText.attributedString.string, "")
+
+        await fiat.release(try xorPrice())
+        await wait("the fee in fiat") {
+            viewModel.details.contains {
+                $0.fiatAmountText?.attributedString.string == "$1"
+            }
+        }
+        await apy.release(Decimal(string: "0.12")!)
+        await wait("the APY") {
+            viewModel.details.contains {
+                $0.title == SoraPassport.Constants.apyTitle &&
+                    $0.assetAmountText.attributedString.string == "12% APY"
+            }
+        }
+        withExtendedLifetime((fiat, apy, manager, provider, pools)) {}
+    }
+}
