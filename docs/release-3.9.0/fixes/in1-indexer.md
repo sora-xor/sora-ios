@@ -947,7 +947,9 @@ indexer only.
   at 1, the screen keeps 2 rows, the list in memory grows to 6). By
   reading, a page whose rows are all filtered out in the Activity of one
   asset is not counted either. Neither is an audit finding or a change of
-  3.9.0; both need their own fix and a look at the screen.
+  3.9.0; both need their own fix and a look at the screen. (Round 5 fixed
+  the first of the two and looked at the screen; see "Review round 5",
+  section 5. The second is still open.)
 - **Not seen in the running app.** As in rounds 2 and 3, the simulator
   wallet is behind a PIN this round does not have, and this round did not
   remove it or create another. The Debug build was installed and launched
@@ -991,6 +993,215 @@ indexer only.
     balance and no '$0'";
   - "open Friends with a referrer account that has rewards: the total is
     shown".
+
+## Review round 5 (12 October)
+
+One finding from the adversarial review of the state after round 4
+(`371f3387`), rated major. It was checked against the code and is real.
+
+**The saved Activity list could not be refreshed, and its text promised an
+update that never came.** When the indexer cannot be read, Activity shows
+the list as it was last loaded, with the line "Activity as of 09:02. Newer
+transactions will appear when the list can be updated." Nothing loaded the
+list again when the indexer came back: no button, no timer, nothing when
+the app or the tab returned (the tab is built once per account and loads
+once). Only a transaction made in this wallet, an incoming-transfer event,
+a change of language or killing the app replaced it. The saved copy itself
+is older than this task; round 4 widened the cases that lead to it and
+added the sentence. A state after a network failure with no way forward,
+and a text that did not match the screen: hard rule 6.
+
+### 1. The saved list: a Refresh button, and it loads again by itself
+
+- **Refresh button.** The line that says when the list is from is now the
+  first row of the list with a Refresh button under it (English "Refresh",
+  Japanese 「更新」), the same control the screen already uses elsewhere. It
+  loads the list again from its start. No new strings.
+- **By itself.** While the list on screen is the saved copy, page 1 is
+  asked for again after 15 s, then 30 s, 60 s, 120 s, 240 s, and every
+  5 minutes from then on (`ActivityViewModel.refreshDelay`). One try is one
+  read of page 1 (three requests when the indexer answers). The list on
+  screen is replaced only when a current page 1 arrives; the saved copy
+  again, or a failure, leaves the screen exactly as it is. Asking stops
+  when the list is current.
+- **When the app comes back** (`UIApplication.willEnterForegroundNotification`):
+  asked at once, and the waits start again from 15 s.
+- **When the screen is shown again** (the tab is selected, a pushed screen
+  is closed): asked at once, unless page 1 was answered less than 15 s
+  ago, so switching tabs quickly costs nothing.
+- **"Could not load your activity"** (no saved copy to show) follows the
+  same schedule and the same two triggers. It already had its Refresh
+  button. If a saved copy can be read on a later try it is shown, with its
+  Refresh row, and the list keeps asking.
+
+### 2. One list at a time
+
+The list is now changed from one place at a time (the main thread), and
+every load remembers which list and which page it was started for. An
+answer that arrives for a list that has been started again since, or for a
+page that has arrived already, is dropped. Without this the quiet read of
+page 1 could cross a Refresh by the user, and the second answer would be
+put under the first as "page 2". The same crossing existed before between
+two reloads started together (two transaction events) and between two
+requests for the same next page. Both put rows into the list twice, and a
+list with the same row in it twice stops the app when it is next drawn
+(see "The tests fail without the fix" below).
+
+### 3. What Refresh leaves behind when it fails
+
+Refresh is now within reach exactly when the indexer is in trouble, so its
+failure path was looked at. When page 1 cannot be loaded and there is no
+saved copy, the screen showed "Could not load your activity" over the rows
+of the list before, and the spinner started by Refresh never stopped (the
+same in App Store 3.8.6). Now the rows are removed, the spinner stops, and
+the text with its Refresh button stands alone.
+
+### 4. The end of the list
+
+Seen on the production screen while testing the new row (rendered in the
+test host; screenshots under `work/net-shots/fix5/`):
+
+- **A further page that cannot be read.** With page 1 current and no
+  saved copy of page 2, a failed page 2 left the spinner at the end of the
+  list turning for ever (the release checklist step of round 4, "switch to
+  airplane mode, scroll to the end", only held when page 2 had been saved
+  earlier). The list now ends with the "Some data is not up to date /
+  Refresh" row in this case too. Showing the row asks once more; then the
+  screen is at rest.
+- **Nothing is asked past the end.** The view model did not look at
+  `endReached`. A list of fewer than 50 operations asked for page 2 every
+  time its last row was shown. Under a saved list that request can fail,
+  which would now have put a second Refresh row at its end. The last page
+  ends the list: no request, no spinner. The client's own limit of 20
+  pages ends it the same way.
+- **The row at the end of the list** had the rounded top corners of the
+  first row of the card and looked like a second card. It now continues
+  the card. The Refresh row with the long text got the side padding of the
+  other rows (the text ran into the rounded corners).
+
+### 5. A page whose rows are all on a day already shown
+
+Round 4 wrote this down as seen and not changed (also in App Store 3.8.6):
+a page was drawn and counted only when it added a section for a new day.
+With more than 50 operations in one day, page 2 was kept in memory, never
+drawn and never counted; every scroll read it again and kept it once more.
+Since the end of the list is now honoured, such a list would have ended
+there for good, so it is fixed here: a page that brought rows is drawn and
+counted. One condition in `ActivityViewModel.show`, in a commit of its
+own.
+
+### Tests of round 5
+
+15 new tests in `PIActivityRefreshTests` and one changed
+(`PIRound4ActivityTests.testTheSavedListSaysWhenItIsFromAndStaysInOnePiece`
+now expects the Refresh row). All run the production `ActivityViewModel`;
+three of them run it under the production `ActivityViewController` in a
+window of the test host and read the cells that are on screen. The
+notification centre, the waits and the clock are passed in, so no test
+waits for real time or posts an app-wide notification.
+
+| Test | What it proves |
+|---|---|
+| `testTheSavedListBecomesCurrentByItself` | The scenario of the finding: saved list, nothing tapped, no transaction. Page 1 is asked for again and again with growing waits while the list stays; when the history service answers live the list is current, the Refresh row is gone, and nothing more is asked. |
+| `testAListThatCouldNotBeLoadedLoadsByItself` | The same from "Could not load your activity", through the saved copy to the current list. |
+| `testComingToTheForegroundLoadsTheListAgain` | The foreground notification asks at once and starts the waits over; a current list is left alone. |
+| `testComingBackToTheScreenLoadsTheListAgain` | `viewWillAppear` asks, but not within 15 s of the last answer and not while the first load is on its way. |
+| `testRefreshByTheUserWhileTheListAsksByItself` | The two loads cross: one list, no row twice; when it is the saved copy again the list keeps asking; when the indexer answers it stops. |
+| `testTwoLoadsThatCrossShowOneList` | Two reloads, and two requests for the same next page, show each row once. |
+| `testAFurtherPageThatCannotBeReadOffersRefresh` | A failed page 2 gives one retry row; the page goes in when it can be read. |
+| `testNothingIsAskedPastTheEndOfTheList`, `testTheLastPageTheClientReadsEndsTheList` | No request past the last page or past the client's limit, and no row that offers what cannot be had. |
+| `testAPageOfADayAlreadyOnScreenIsDrawnAndCounted` | Section 5. |
+| `testTheSavedListKeepsTheNoticeAboutIncomingTransfers` | The Refresh row comes first; the notice about incoming transfers stays under it. |
+| `testTheWaitsGrowAndStopAtFiveMinutes` | 15, 30, 60, 120, 240, 300, 300 s. |
+| `testTheSavedListOnScreenHasARefreshButton` | On screen: the first row reads the "as of" text and "Refresh"; no spinner and no request for page 2 under a list that ended; a tap asks again and shows the same list while the indexer is away, and the current list without the row once it answers. |
+| `testTheEndOfTheListOnScreenWhenAFurtherPageCannotBeRead` | On screen: the retry row, no spinner left, at most two more requests and then rest; the button loads both pages. |
+| `testRefreshThatFailsLeavesNoRowsUnderTheError` | On screen: section 3. |
+
+**The tests fail without the fix.** With the behaviour before this round put back
+for one run, keeping only the new interfaces (no asking again of any kind;
+the "as of" line without a button; every answer put into the list on
+screen; a failed further page ignored and a failed page 1 left over the
+rows; the end of the list not looked at; a page counted only when it adds
+a day), 14 of the 15 new tests and the changed one fail. The one that
+passes checks the schedule function alone. `testTwoLoadsThatCrossShowOneList`
+fails on the rows held twice and then stops the test process when the
+next page makes the view model build its list for the screen: UIKit does
+not accept a list with the same row in it twice (an assertion in
+`_UIDiffableDataSourceUpdate`). The app builds its list the same way, so
+two reloads that crossed could stop the app, and section 2 removes that.
+The tree was restored from git afterwards (`work/net-tools/fix5-mutate.py`,
+`work/logs-ios-net/fix5/test-mut.log`).
+
+### Verification of round 5
+
+Xcode 27.0, simulator `SORA-Fix-net` (iPhone 17 Pro, iOS 27.0), 12 October
+2026 (JST), on the final commits of this round.
+
+| Check | Result |
+|---|---|
+| `build-for-testing`, Debug, pinned packages | TEST BUILD SUCCEEDED |
+| Whole `SoraPassportTests` target | 629 tests, 0 failures, 4 skipped (the opt-in live tests); 614 before this round |
+| Release device compile (`generic/platform=iOS`, `CODE_SIGNING_ALLOWED=NO`) | BUILD SUCCEEDED; the debug "PI unreachable" switch is not in the binary |
+| `Package.resolved`, `project.pbxproj`, string tables | unchanged |
+| The stashed in2-tx-reconcile work (`stash@{0}`) | still applies without conflict on the new commits (34 files; checked in a separate worktree, both stash entries untouched) |
+
+The live indexer test was not run again: nothing under
+`Common/Network/Subquery` changed in this round.
+
+**On screen.** The four states were looked at as the production view
+controller draws them, in a window of the Debug app on the simulator, with
+the app's language set to Japanese: the saved list with its Refresh row,
+the current list after the tap, the end of the list with the retry row,
+and "Could not load your activity" alone. The rows under them are test
+rows. The same states in the running wallet, with a real history and the
+aurora behind the card, were not seen: the simulator wallet is behind a
+PIN this round does not have, as in rounds 2 to 4.
+
+### Decisions and limits of round 5
+
+- **One row instead of two.** The review suggested adding the existing
+  "Some data is not up to date / Refresh" row under the notice. That makes
+  two lines that say the same thing. The line that says when the list is
+  from carries the button itself.
+- **"Bounded" means the wait is bounded, not the number of tries.** The
+  list asks every 5 minutes for as long as it is behind and the app is in
+  the foreground, also while another tab is shown. Stopping after some
+  number of tries would bring back the state of the finding.
+- **A failed quiet read does not take the saved list away**, also when a
+  Refresh by hand at the same moment would end in "Could not load your
+  activity" (the saved copy has passed its 24 hours, or the indexer
+  answers with something the app cannot use). The line on the list stays
+  true, and the button shows the present state when it is tapped.
+- **The list jumps when it becomes current.** A user who has scrolled down
+  in the saved list is taken back to a list of one page. The same happens
+  today when a transaction arrives.
+- **A current list is not loaded again when the app or the tab comes
+  back**, as before. A transaction made on another device appears after
+  the next transaction event, Refresh after a failure, or a restart.
+- **Still not changed (also in App Store 3.8.6):** in the Activity of one
+  asset, a page whose rows are all filtered out is not counted, so the
+  pages after it are not reached and the spinner at the end stays.
+  Counting it would need the screen to go on to the next page by itself,
+  and reading page *n* costs *n* requests.
+- **The asset screen's three recent operations** (`RecentActivityItemService`)
+  have no "as of" line and are read again with every balance update; not
+  changed.
+
+### Human and operations actions of round 5
+
+- **Release checklist:** replace the Activity step of round 4 with
+  - "open Activity, switch to airplane mode, open the app again and go to
+    Activity: the first row says when the list is from and has a Refresh
+    button; tapping it changes nothing but the spinner comes and goes";
+  - "switch airplane mode off and touch nothing: within about half a
+    minute the list is current and the row is gone";
+  - "the same, but leave the app and come back, or switch to another tab
+    and back after 15 seconds: the list is current at once";
+  - "with more than 50 operations: open Activity, switch to airplane mode,
+    scroll to the end: the list ends with 'Some data is not up to date /
+    Refresh' inside the same card and no spinner stays under it".
+- **Android:** check what the Activity screen does after it showed a saved
+  list; not looked at in this task.
 
 ## Not changed
 
