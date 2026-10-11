@@ -1,7 +1,10 @@
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: BSD-4-Clause
 
+import Combine
 import Foundation
+import RobinHood
+import SSFUtils
 import SoraKeystore
 import UIKit
 import XCTest
@@ -1442,11 +1445,73 @@ final class PICatalogStoreTests: XCTestCase {
         var result: Result<PIQualifiedRead<[String]>, Swift.Error> =
             .success(PIQualifiedRead(value: ["a"], qualification: nil))
         var delayNanoseconds: UInt64 = 0
+        /// What an earlier run saved on disk.
+        var saved: PIQualifiedRead<[String]>?
+        private var savedReads = 0
+        private var held = false
+        private var waiting: [CheckedContinuation<Void, Never>] = []
 
         var callCount: Int {
             lock.lock()
             defer { lock.unlock() }
             return calls
+        }
+
+        var savedReadCount: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return savedReads
+        }
+
+        /// From now on a read does not end until `release()`: PI is slow,
+        /// or the request is waiting for a connection.
+        func hold() {
+            lock.lock()
+            held = true
+            lock.unlock()
+        }
+
+        /// Ends the reads that are held, with the `result` of this moment.
+        func release() {
+            lock.lock()
+            held = false
+            let resumed = waiting
+            waiting = []
+            lock.unlock()
+            resumed.forEach { $0.resume() }
+        }
+
+        private func park(_ continuation: CheckedContinuation<Void, Never>) {
+            lock.lock()
+            if held {
+                waiting.append(continuation)
+                lock.unlock()
+            } else {
+                lock.unlock()
+                continuation.resume()
+            }
+        }
+
+        private func countCall() -> UInt64 {
+            lock.lock()
+            defer { lock.unlock() }
+            calls += 1
+            return delayNanoseconds
+        }
+
+        private func currentResult()
+            -> Result<PIQualifiedRead<[String]>, Swift.Error>
+        {
+            lock.lock()
+            defer { lock.unlock() }
+            return result
+        }
+
+        func readSaved() -> PIQualifiedRead<[String]>? {
+            lock.lock()
+            defer { lock.unlock() }
+            savedReads += 1
+            return saved
         }
 
         var now: TimeInterval {
@@ -1462,16 +1527,41 @@ final class PICatalogStoreTests: XCTestCase {
         }
 
         func load() async throws -> PIQualifiedRead<[String]> {
-            lock.lock()
-            calls += 1
-            let result = self.result
-            let delay = delayNanoseconds
-            lock.unlock()
+            let delay = countCall()
             if delay > 0 {
                 try await Task.sleep(nanoseconds: delay)
             }
-            return try result.get()
+            await withCheckedContinuation { park($0) }
+            return try currentResult().get()
         }
+    }
+
+    /// Runs `snapshot()` and fails, instead of hanging, when it has not
+    /// returned after five seconds: the call was waiting for a read.
+    private func withoutWaiting(
+        _ store: PICatalogStore<String>,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> PICatalogSnapshot<String>? {
+        let returned = expectation(description: "snapshot() returned")
+        let call = Task { () -> PICatalogSnapshot<String>? in
+            let snapshot = try? await store.snapshot()
+            returned.fulfill()
+            return snapshot
+        }
+        let outcome = await XCTWaiter().fulfillment(
+            of: [returned],
+            timeout: 5
+        )
+        guard outcome == .completed else {
+            XCTFail(
+                "The caller was kept waiting for the read",
+                file: file,
+                line: line
+            )
+            return nil
+        }
+        return await call.value
     }
 
     /// The wall clock that goes with `Source.now`: second 1000 of the
@@ -1497,6 +1587,7 @@ final class PICatalogStoreTests: XCTestCase {
             uptime: { source.now },
             wallClock: { [unowned self] in self.wallClock(source) },
             onChange: onChange,
+            saved: { source.readSaved() },
             load: { try await source.load() }
         )
     }
@@ -1580,6 +1671,9 @@ final class PICatalogStoreTests: XCTestCase {
             PIQualifiedRead(value: ["b"], qualification: nil)
         )
         source.advance(2)
+        // No longer fresh: a read starts, and replaces what is shown.
+        _ = try await store.values()
+        await store.settled()
         let refreshed = try await store.values()
         XCTAssertEqual(refreshed, ["b"])
         XCTAssertEqual(source.callCount, 2)
@@ -1638,6 +1732,7 @@ final class PICatalogStoreTests: XCTestCase {
         source.result = .failure(PIIndexerError.staleCheckpoint)
         let duringOutage = try await store.values()
         XCTAssertEqual(duringOutage, ["a"])
+        await store.settled()
         XCTAssertEqual(source.callCount, 2)
         // No new request while backing off; the last good catalog is shown.
         let again = try await store.values()
@@ -1663,6 +1758,7 @@ final class PICatalogStoreTests: XCTestCase {
         source.advance(601)
         source.result = .failure(PIIndexerError.staleCheckpoint)
         _ = try await store.values()
+        await store.settled()
         source.advance(16)
         _ = try await store.values()
         await store.settled()
@@ -1699,10 +1795,12 @@ final class PICatalogStoreTests: XCTestCase {
 
     /// Prices were loaded at 09:00 and the phone was locked until 12:00.
     /// The store's clock counts that time, so the catalog is not served as
-    /// fresh: the next caller gets a new read.
+    /// current: the caller gets it marked with 09:00, a new read starts at
+    /// once, and its result replaces the old prices.
     func testACatalogLoadedBeforeTheDeviceSleptIsReadAgain() async throws {
         let source = Source()
         let store = store(source, freshFor: 600, staleFor: 1_800)
+        let loadedAt = wallClock(source)
         let morning = try await store.values()
         XCTAssertEqual(morning, ["a"])
 
@@ -1710,8 +1808,12 @@ final class PICatalogStoreTests: XCTestCase {
         source.result = .success(
             PIQualifiedRead(value: ["noon"], qualification: nil)
         )
-        let noon = try await store.snapshot()
+        let onUnlock = try await store.snapshot()
+        XCTAssertEqual(onUnlock.values, ["a"])
+        XCTAssertEqual(onUnlock.asOf, loadedAt)
 
+        await store.settled()
+        let noon = try await store.snapshot()
         XCTAssertEqual(noon.values, ["noon"])
         XCTAssertNil(noon.asOf)
         XCTAssertEqual(source.callCount, 2)
@@ -1781,14 +1883,17 @@ final class PICatalogStoreTests: XCTestCase {
         }
     }
 
-    /// Older data stands in for PI only when PI cannot be read. A response
-    /// that does not decode (the 10 October failure) or fails validation is
-    /// an error; the prices from before are not shown as if current.
+    /// Older data stands in for PI only when PI cannot be read. Once PI
+    /// has answered with a response that does not decode (the 10 October
+    /// failure) or fails validation, that is an error: the prices from
+    /// before are no longer shown, not even while the next read is on its
+    /// way or after a return to the foreground.
     func testAResponseThatCannotBeUsedIsNotReplacedByTheLastGoodCatalog()
         async throws
     {
         let source = Source()
         let store = store(source, freshFor: 600)
+        let loadedAt = wallClock(source)
         _ = try await store.values()
 
         source.advance(601)
@@ -1797,13 +1902,12 @@ final class PICatalogStoreTests: XCTestCase {
                 .init(codingPath: [], debugDescription: "volumeDayUSD")
             )
         )
-        do {
-            _ = try await store.values()
-            XCTFail("A catalog that failed to decode was replaced")
-        } catch {
-            XCTAssertTrue(error is DecodingError, "\(error)")
-        }
-        // Also while backing off, without a request.
+        // The read has only started: what is held is shown with its time.
+        let meanwhile = try await store.snapshot()
+        XCTAssertEqual(meanwhile.values, ["a"])
+        XCTAssertEqual(meanwhile.asOf, loadedAt)
+        await store.settled()
+
         do {
             _ = try await store.values()
             XCTFail("A catalog that failed to decode was replaced")
@@ -1812,6 +1916,8 @@ final class PICatalogStoreTests: XCTestCase {
         }
         XCTAssertEqual(source.callCount, 2)
 
+        // The next read: the caller waits for it and is not shown the
+        // older catalog meanwhile.
         source.result = .failure(PIIndexerError.invalidServiceIdentity)
         source.advance(16)
         do {
@@ -1822,6 +1928,32 @@ final class PICatalogStoreTests: XCTestCase {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertEqual(source.callCount, 3)
+
+        // Coming back to the foreground starts a read at once, and still
+        // does not bring the older catalog back.
+        source.result = .failure(
+            DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "volumeDayUSD")
+            )
+        )
+        await store.clearBackoff()
+        do {
+            _ = try await store.values()
+            XCTFail("The older catalog came back with the foreground")
+        } catch {
+            XCTAssertTrue(error is DecodingError, "\(error)")
+        }
+        XCTAssertEqual(source.callCount, 4)
+
+        // PI can be read again: the new catalog is shown.
+        source.result = .success(
+            PIQualifiedRead(value: ["b"], qualification: nil)
+        )
+        source.advance(16)
+        let recovered = try await store.snapshot()
+        XCTAssertEqual(recovered.values, ["b"])
+        XCTAssertNil(recovered.asOf)
     }
 
     /// A caller is not kept waiting for a refresh when the catalog it can
@@ -3005,6 +3137,372 @@ final class PIIndexerLiveTests: XCTestCase {
         print(
             "PI live history: page 2 has \(history.read.value.values.count) rows " +
                 "of \(history.read.value.totalCount), coverage \(history.coverage.rawValue)"
+        )
+    }
+}
+
+
+// MARK: - Review round 3: nobody waits when there is something to show
+
+extension PICatalogStoreTests {
+    /// The phone was locked for two hours and PI is slow. The caller has
+    /// the old catalog, with its time, without waiting; so has a second
+    /// caller, who does not start a second read. The new catalog then
+    /// replaces it and announces itself.
+    func testAnOldCatalogIsServedAtOnceWithItsTimeWhileItsReadRuns()
+        async throws
+    {
+        let source = Source()
+        let changes = Counter()
+        let store = store(
+            source,
+            freshFor: 600,
+            staleFor: 1_800,
+            onChange: { changes.increment() }
+        )
+        let loadedAt = wallClock(source)
+        _ = try await store.values()
+
+        source.advance(2 * 3_600)
+        source.hold()
+        source.result = .success(
+            PIQualifiedRead(value: ["b"], qualification: nil)
+        )
+        let shown = await withoutWaiting(store)
+        XCTAssertEqual(shown?.values, ["a"])
+        XCTAssertEqual(shown?.asOf, loadedAt)
+        let second = await withoutWaiting(store)
+        XCTAssertEqual(second?.values, ["a"])
+        XCTAssertEqual(second?.asOf, loadedAt)
+
+        source.release()
+        await store.settled()
+        XCTAssertEqual(source.callCount, 2)
+        XCTAssertEqual(changes.value, 2)
+        let refreshed = try await store.snapshot()
+        XCTAssertEqual(refreshed.values, ["b"])
+        XCTAssertNil(refreshed.asOf)
+    }
+
+    /// The catalog held is the one the client read back from disk, the app
+    /// comes back to the foreground, and the read that starts cannot end
+    /// (no connection). The caller still has the catalog at once.
+    func testAfterAReturnToTheForegroundCallersStillDoNotWait()
+        async throws
+    {
+        let source = Source()
+        let savedAt = wallClock(source).addingTimeInterval(-3_600)
+        source.result = .success(cached(["saved"], savedAt: savedAt))
+        let store = store(source)
+        let first = try await store.snapshot()
+        XCTAssertEqual(first.values, ["saved"])
+        XCTAssertEqual(first.asOf, savedAt)
+
+        source.hold()
+        await store.clearBackoff()
+        let shown = await withoutWaiting(store)
+        XCTAssertEqual(shown?.values, ["saved"])
+        XCTAssertEqual(shown?.asOf, savedAt)
+
+        source.result = .success(
+            PIQualifiedRead(value: ["live"], qualification: nil)
+        )
+        source.release()
+        await store.settled()
+        // The foreground did start a read.
+        XCTAssertEqual(source.callCount, 2)
+        let live = try await store.snapshot()
+        XCTAssertEqual(live.values, ["live"])
+        XCTAssertNil(live.asOf)
+    }
+
+    /// A live catalog whose refresh failed is shown with its time. Coming
+    /// back to the foreground neither makes the caller wait nor shows the
+    /// catalog as current again before a read has succeeded.
+    func testAfterAReturnToTheForegroundAFailedCatalogKeepsItsTime()
+        async throws
+    {
+        let source = Source()
+        let store = store(source, freshFor: 600, staleFor: 1_800)
+        let loadedAt = wallClock(source)
+        _ = try await store.values()
+
+        source.advance(700)
+        source.result = .failure(URLError(.notConnectedToInternet))
+        _ = try await store.snapshot()
+        await store.settled()
+
+        source.hold()
+        await store.clearBackoff()
+        let shown = await withoutWaiting(store)
+        XCTAssertEqual(shown?.values, ["a"])
+        XCTAssertEqual(shown?.asOf, loadedAt)
+
+        source.release()
+        await store.settled()
+        XCTAssertEqual(source.callCount, 3)
+    }
+
+    /// A new run: nothing in memory, yesterday evening's catalog on disk,
+    /// and the first read on its way or waiting for a connection. Every
+    /// caller has the saved catalog at once, marked with its time; the file
+    /// is read once; the live catalog then replaces it.
+    func testTheSavedCatalogIsShownWhileTheFirstReadOfARunIsOnItsWay()
+        async throws
+    {
+        let source = Source()
+        let savedAt = wallClock(source).addingTimeInterval(-10 * 3_600)
+        source.saved = cached(["saved"], savedAt: savedAt)
+        source.hold()
+        let changes = Counter()
+        let store = store(source, onChange: { changes.increment() })
+
+        let shown = await withoutWaiting(store)
+        XCTAssertEqual(shown?.values, ["saved"])
+        XCTAssertEqual(shown?.asOf, savedAt)
+        let again = await withoutWaiting(store)
+        XCTAssertEqual(again?.values, ["saved"])
+        XCTAssertEqual(again?.asOf, savedAt)
+        XCTAssertEqual(source.savedReadCount, 1)
+
+        source.result = .success(
+            PIQualifiedRead(value: ["live"], qualification: nil)
+        )
+        source.release()
+        await store.settled()
+        XCTAssertEqual(source.callCount, 1)
+        XCTAssertEqual(changes.value, 1)
+        let live = try await store.snapshot()
+        XCTAssertEqual(live.values, ["live"])
+        XCTAssertNil(live.asOf)
+        XCTAssertEqual(source.savedReadCount, 1)
+    }
+
+    /// The same start with no connection: the read fails at once. The
+    /// saved catalog stays, with its time, and the read is not repeated
+    /// before its backoff has passed.
+    func testTheSavedCatalogIsShownWhenTheFirstReadFails() async throws {
+        let source = Source()
+        let savedAt = wallClock(source).addingTimeInterval(-10 * 3_600)
+        source.saved = cached(["saved"], savedAt: savedAt)
+        source.result = .failure(URLError(.notConnectedToInternet))
+        let store = store(source)
+
+        let first = try await store.snapshot()
+        XCTAssertEqual(first.values, ["saved"])
+        XCTAssertEqual(first.asOf, savedAt)
+        await store.settled()
+        for _ in 0 ..< 20 {
+            let later = try await store.snapshot()
+            XCTAssertEqual(later.values, ["saved"])
+            XCTAssertEqual(later.asOf, savedAt)
+        }
+        XCTAssertEqual(source.callCount, 1)
+        XCTAssertEqual(source.savedReadCount, 1)
+    }
+
+    /// The saved catalog keeps its real age: one that is older than the
+    /// limit is not shown, and one that is 23 hours old is not shown two
+    /// hours later.
+    func testASavedCatalogIsNotShownBeyondItsLimit() async throws {
+        let old = Source()
+        old.saved = cached(
+            ["saved"],
+            savedAt: wallClock(old).addingTimeInterval(-25 * 3_600)
+        )
+        let waited = try await store(old, lastGoodFor: 24 * 3_600).snapshot()
+        XCTAssertEqual(waited.values, ["a"])
+        XCTAssertNil(waited.asOf)
+
+        let source = Source()
+        let savedAt = wallClock(source).addingTimeInterval(-23 * 3_600)
+        source.saved = cached(["saved"], savedAt: savedAt)
+        source.result = .failure(PIIndexerError.httpStatus(503))
+        let store = store(source, lastGoodFor: 24 * 3_600)
+        let first = try await store.snapshot()
+        XCTAssertEqual(first.values, ["saved"])
+        XCTAssertEqual(first.asOf, savedAt)
+        await store.settled()
+
+        source.advance(2 * 3_600)
+        do {
+            _ = try await store.snapshot()
+            XCTFail("A 25-hour-old catalog was shown")
+        } catch {
+            guard case PIIndexerError.httpStatus(503) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    /// With nothing saved the first caller waits for the read, as before.
+    func testWithNothingSavedTheFirstCallerWaitsForTheRead() async throws {
+        let source = Source()
+        source.delayNanoseconds = 100_000_000
+        let store = store(source)
+
+        let first = try await store.snapshot()
+
+        XCTAssertEqual(first.values, ["a"])
+        XCTAssertNil(first.asOf)
+        XCTAssertEqual(source.callCount, 1)
+        XCTAssertEqual(source.savedReadCount, 1)
+    }
+
+    /// The saved catalog does not stand in for a response that could not be
+    /// used either: once PI has answered with one, the caller gets the
+    /// error.
+    func testASavedCatalogDoesNotStandInForAResponseThatCannotBeUsed()
+        async throws
+    {
+        let source = Source()
+        source.saved = cached(
+            ["saved"],
+            savedAt: wallClock(source).addingTimeInterval(-3_600)
+        )
+        source.result = .failure(
+            DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "volumeDayUSD")
+            )
+        )
+        let store = store(source)
+
+        _ = try? await store.snapshot()
+        await store.settled()
+
+        do {
+            _ = try await store.snapshot()
+            XCTFail("A saved catalog replaced a response that did not decode")
+        } catch {
+            XCTAssertTrue(error is DecodingError, "\(error)")
+        }
+        XCTAssertEqual(source.callCount, 1)
+    }
+}
+
+/// Something a test holds back until it says so.
+final class TestGate {
+    private let lock = NSLock()
+    private var isOpen = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func open() {
+        lock.lock()
+        isOpen = true
+        let resumed = waiting
+        waiting = []
+        lock.unlock()
+        resumed.forEach { $0.resume() }
+    }
+
+    private func park(_ continuation: CheckedContinuation<Void, Never>) {
+        lock.lock()
+        if isOpen {
+            lock.unlock()
+            continuation.resume()
+        } else {
+            waiting.append(continuation)
+            lock.unlock()
+        }
+    }
+
+    func passed() async {
+        await withCheckedContinuation { park($0) }
+    }
+}
+
+extension PIIndexerAdvancingReadTests {
+    /// What a live read saved is read back by the next run without any
+    /// request, with the checkpoint and the time it was saved at.
+    func testTheSavedCatalogIsReadBackWithoutAnyRequest() async throws {
+        _ = try indexer()
+        let nothingYet = await client().savedAllAssets()
+        XCTAssertNil(nothingYet)
+
+        let good = try await client().qualifiedAllAssets(
+            pageSize: 3,
+            maximumPages: 5
+        )
+        let requests = PIStubIndexerProtocol.requests.count
+
+        let read = await client().savedAllAssets()
+        let saved = try XCTUnwrap(read)
+        XCTAssertEqual(saved.value, good.value)
+        XCTAssertEqual(saved.qualification?.source, .cache)
+        XCTAssertEqual(
+            saved.qualification?.health,
+            good.qualification?.health
+        )
+        let savedAt = try XCTUnwrap(saved.savedAt)
+        XCTAssertLessThan(abs(savedAt.timeIntervalSinceNow), 60)
+        XCTAssertEqual(PIStubIndexerProtocol.requests.count, requests)
+
+        // Another catalog has its own file.
+        let pools = await client().savedAllPoolXYKs()
+        XCTAssertNil(pools)
+    }
+
+    /// A new run with PI slow: prices come from the saved catalog at once,
+    /// with their time, through the store and the fiat service as the app
+    /// wires them.
+    func testANewRunShowsTheSavedPricesWhileTheFirstReadIsOnItsWay()
+        async throws
+    {
+        _ = try indexer()
+        let good = try await client().qualifiedAllAssets(
+            pageSize: 3,
+            maximumPages: 5
+        )
+
+        let restarted = client()
+        let slow = TestGate()
+        let store = PICatalogStore<PIAsset>(
+            freshFor: 600,
+            staleFor: 1_800,
+            saved: { await restarted.savedAllAssets() },
+            load: {
+                await slow.passed()
+                return try await restarted.qualifiedAllAssets(
+                    pageSize: 3,
+                    maximumPages: 5
+                )
+            }
+        )
+        let service = FiatService(catalog: { try await store.snapshot() })
+
+        let answered = XCTestExpectation(description: "prices")
+        let call = Task { () -> FiatSnapshot in
+            let snapshot = await service.getFiatSnapshot()
+            answered.fulfill()
+            return snapshot
+        }
+        let outcome = await XCTWaiter().fulfillment(
+            of: [answered],
+            timeout: 5
+        )
+        XCTAssertEqual(outcome, .completed, "Prices waited for the read")
+        slow.open()
+        let shown = await call.value
+        XCTAssertEqual(shown.data.count, good.value.count)
+        XCTAssertNotNil(shown.asOf)
+
+        await store.settled()
+        let live = await service.getFiatSnapshot()
+        XCTAssertEqual(live.data.count, good.value.count)
+        XCTAssertNil(live.asOf)
+    }
+
+    /// With no connection a catalog read fails at once instead of waiting
+    /// for one; the other production reads keep waiting.
+    func testTheCatalogSessionDoesNotWaitForAConnection() {
+        let configuration = PIIndexerClient.catalogSession.configuration
+        XCTAssertFalse(configuration.waitsForConnectivity)
+        XCTAssertEqual(configuration.timeoutIntervalForRequest, 20)
+        XCTAssertEqual(configuration.timeoutIntervalForResource, 30)
+        XCTAssertNil(configuration.urlCache)
+        XCTAssertEqual(
+            configuration.requestCachePolicy,
+            .reloadIgnoringLocalCacheData
         )
     }
 }
