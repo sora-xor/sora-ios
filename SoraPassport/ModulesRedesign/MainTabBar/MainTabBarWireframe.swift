@@ -84,11 +84,27 @@ enum MainTabBarAccountRebindPolicy {
 ///   looks again once a second. (There is no single UIKit callback for "back
 ///   at a tab's first screen": a pop, an interactive pop, the end of a sheet
 ///   and a tab switch all lead there.)
+/// - The wait ends when waiting cannot help: the tabs were replaced by the
+///   recovery screen of a failed account switch, or they belong to another
+///   wallet than the selected one. Nothing polls then; the next check (the
+///   event, a reload of the wallet, the tab bar appearing) asks again.
 ///
 /// Main thread only, like the wireframe that owns it.
 final class WalletAssetListRebuild {
     /// Starts a timer and returns a closure that cancels it.
     typealias Scheduler = (_ delay: TimeInterval, _ fire: @escaping () -> Void) -> () -> Void
+
+    /// Whether the tabs can be replaced.
+    enum Replacement: Equatable {
+        /// Now: nothing would be taken away from the user.
+        case allowed
+        /// Not now (a screen is open over the tabs, a transition is running):
+        /// look again shortly.
+        case later
+        /// Not in the state the tabs are in, and waiting does not change
+        /// that state. The wait ends.
+        case unavailable
+    }
 
     /// How often a waiting rebuild looks again.
     static let recheckInterval: TimeInterval = 1
@@ -119,6 +135,12 @@ final class WalletAssetListRebuild {
         cancelRecheck = nil
     }
 
+    /// Ends a wait, if one is running. The next `rebuildIfNeeded` decides anew.
+    func stopWaiting() {
+        cancelRecheck?()
+        cancelRecheck = nil
+    }
+
     /// Call whenever the list may have arrived.
     ///
     /// - Parameters:
@@ -129,21 +151,25 @@ final class WalletAssetListRebuild {
     ///     through `tabsWereBuilt(from:)`.
     func rebuildIfNeeded(
         currentAssets: @escaping () -> [AssetInfo]?,
-        canReplaceTabs: @escaping () -> Bool,
+        canReplaceTabs: @escaping () -> Replacement,
         rebuild: @escaping () -> Void
     ) {
-        cancelRecheck?()
-        cancelRecheck = nil
-        guard isBuiltWithoutAssets, currentAssets()?.isEmpty == false else {
+        stopWaiting()
+        guard isBuiltWithoutAssets else {
             return
         }
-        if canReplaceTabs() {
+        let replacement = canReplaceTabs()
+        guard replacement != .unavailable, currentAssets()?.isEmpty == false else {
+            return
+        }
+        if replacement == .allowed {
             rebuild()
             guard isBuiltWithoutAssets else {
                 return
             }
             failedRebuilds += 1
-            guard failedRebuilds < Self.maximumFailedRebuilds else {
+            // A rebuild that ended on the recovery screen is not tried again.
+            guard failedRebuilds < Self.maximumFailedRebuilds, canReplaceTabs() != .unavailable else {
                 return
             }
         }
@@ -179,25 +205,50 @@ final class WalletAssetListRebuild {
 }
 
 final class MainTabBarWireframe: MainTabBarWireframeProtocol {
+    /// What the check for a late asset list reads from the app and does to
+    /// it. `app` is the wallet's own; tests give their own.
+    struct AssetListEnvironment {
+        /// The address of the selected wallet.
+        var selectedWalletId: () -> String?
+        /// The wallet's asset list as it is now.
+        var assets: () -> [AssetInfo]?
+        /// The timer of a waiting rebuild.
+        var schedule: WalletAssetListRebuild.Scheduler
+        /// Builds every tab again.
+        var rebuildTabs: @MainActor (MainTabBarWireframe, MainTabBarViewProtocol?) -> Void
+
+        static let app = AssetListEnvironment(
+            selectedWalletId: { SelectedWalletSettings.shared.currentAccount?.address },
+            assets: {
+                ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash()).getAssetList()
+            },
+            schedule: WalletAssetListRebuild.mainRunLoopTimer,
+            rebuildTabs: { wireframe, view in wireframe.recreateWalletViewController(on: view) }
+        )
+    }
+
     var walletContext: CommonWalletContextProtocol
     private var walletContextWalletId: String?
-    private var accountSwitchRecoveryActive = false
+    private(set) var accountSwitchRecoveryActive = false
     private var accountBindingId = UUID()
-    private let assetListRebuild: WalletAssetListRebuild
+    private let assetListEnvironment: AssetListEnvironment
+    let assetListRebuild: WalletAssetListRebuild
 
     /// - Parameter isBuiltWithoutAssets: the tabs this wireframe belongs to
     ///   were built from an empty asset list.
-    init(walletContext: CommonWalletContextProtocol, isBuiltWithoutAssets: Bool = false) {
+    init(walletContext: CommonWalletContextProtocol,
+         isBuiltWithoutAssets: Bool = false,
+         assetListEnvironment: AssetListEnvironment = .app) {
         self.walletContext = walletContext
-        walletContextWalletId =
-            SelectedWalletSettings.shared.currentAccount?.address
-        assetListRebuild = WalletAssetListRebuild(isBuiltWithoutAssets: isBuiltWithoutAssets)
+        self.assetListEnvironment = assetListEnvironment
+        walletContextWalletId = assetListEnvironment.selectedWalletId()
+        assetListRebuild = WalletAssetListRebuild(isBuiltWithoutAssets: isBuiltWithoutAssets,
+                                                  schedule: assetListEnvironment.schedule)
     }
 
     private var walletContextMatchesSelectedWallet: Bool {
         guard
-            let selectedWalletId =
-                SelectedWalletSettings.shared.currentAccount?.address,
+            let selectedWalletId = assetListEnvironment.selectedWalletId(),
             !selectedWalletId.isEmpty
         else {
             return false
@@ -315,25 +366,26 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     /// without any asset. See `WalletAssetListRebuild`.
     @MainActor
     func rebuildWalletForArrivedAssetListIfNeeded(on view: MainTabBarViewProtocol?) {
-        // The recovery screen of a failed account switch is not replaced by
-        // this: it is left by a restart, as it says.
-        guard !accountSwitchRecoveryActive, walletContextMatchesSelectedWallet else {
-            return
-        }
+        let environment = assetListEnvironment
         assetListRebuild.rebuildIfNeeded(
-            currentAssets: {
-                ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash()).getAssetList()
-            },
+            currentAssets: environment.assets,
             canReplaceTabs: { [weak self, weak view] in
+                // The recovery screen of a failed account switch is not
+                // replaced by this (it is left by a restart, as it says), and
+                // tabs that belong to another wallet than the selected one
+                // are replaced by the account switch, not by this. Waiting
+                // changes neither, nor does it bring back a tab bar that is
+                // gone, so the wait ends.
                 guard let self, !self.accountSwitchRecoveryActive, self.walletContextMatchesSelectedWallet,
                       let tabBarController = view as? UITabBarController else {
-                    return false
+                    return .unavailable
                 }
-                return WalletAssetListRebuild.canReplaceTabs(of: tabBarController)
+                return WalletAssetListRebuild.canReplaceTabs(of: tabBarController) ? .allowed : .later
             },
             rebuild: { [weak self, weak view] in
+                guard let self else { return }
                 MainActor.assumeIsolated {
-                    self?.recreateWalletViewController(on: view)
+                    environment.rebuildTabs(self, view)
                 }
             }
         )
@@ -581,8 +633,10 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         tabBarController.tabBar.semanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
     }
 
+    /// The tabs could not be built for the selected wallet. Not private:
+    /// the tests of the asset list check enter this state through it.
     @MainActor
-    private func handleAccountBoundRebuildFailure(
+    func handleAccountBoundRebuildFailure(
         requiresRecovery: Bool,
         tabBarController: UITabBarController,
         view: MainTabBarViewProtocol?
@@ -592,6 +646,10 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         }
 
         accountSwitchRecoveryActive = true
+        // A rebuild for a late asset list may be waiting for the user to
+        // close a screen. It can never replace the recovery screen, so it
+        // must not go on looking once a second for the rest of the session.
+        assetListRebuild.stopWaiting()
         accountBindingId = UUID()
         view?.middleButtonHadler = nil
         let recoveryController = WalletRecoveryViewController(
