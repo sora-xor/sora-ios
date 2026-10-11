@@ -62,10 +62,15 @@ struct WalletRecoveryOptions: Equatable {
     /// wallet settings are set aside (moved, not deleted) and onboarding
     /// starts. Keychain items are never touched.
     var canSetUpDeviceAgain = false
+    /// The folder of unfinished-transaction records cannot be read, so every
+    /// send would be refused. The records are set aside (moved, not deleted)
+    /// on request; accounts, keys and the wallet database are not touched.
+    var canSetAsideTransactionRecords = false
 
     var hasForwardActionBesidesRetry: Bool {
         canRestoreFromPhrase || canRestoreFromDrive || canRestoreExistingKeys ||
-            canShowPhraseAfterPin || canReadOnly || canSetUpDeviceAgain
+            canShowPhraseAfterPin || canReadOnly || canSetUpDeviceAgain ||
+            canSetAsideTransactionRecords
     }
 }
 
@@ -80,7 +85,8 @@ enum WalletRecoveryState: Equatable {
         retryable: Bool,
         accountsMissingKeys: Int,
         accountsWithPhrase: Int,
-        retainedPinUsable: Bool
+        retainedPinUsable: Bool,
+        transactionRecordsUnreadable: Bool = false
     )
 
     var options: WalletRecoveryOptions {
@@ -92,7 +98,8 @@ enum WalletRecoveryState: Equatable {
             options.canRestoreExistingKeys = pinUsable && adoptable > 0
             options.canShowPhraseAfterPin = pinUsable && withPhrase > 0
             options.canSetUpDeviceAgain = true
-        case let .recovery(retryable, missing, withPhrase, pinUsable):
+        case let .recovery(retryable, missing, withPhrase, pinUsable, recordsUnreadable):
+            options.canSetAsideTransactionRecords = recordsUnreadable
             options.canRetry = retryable
             options.canRestoreExistingKeys = missing > 0
             // In place for an account that lost its keys; otherwise through
@@ -141,7 +148,8 @@ enum WalletRecoveryStateProbe {
     static func recovery(
         migrator: UserStorageMigrator,
         keystore: KeystoreProtocol,
-        settings: SettingsManagerProtocol
+        settings: SettingsManagerProtocol,
+        pendingTransactionsBaseURL: URL? = nil
     ) -> WalletRecoveryState {
         let marker = WalletMigrationRecoveryMarker.capture(settings)
         let missing = (try? migrator.accountsForMissingKeyRecovery()) ?? []
@@ -161,7 +169,8 @@ enum WalletRecoveryStateProbe {
                 marker.isLegacyAccountCommitInterruption,
             accountsMissingKeys: missing.count,
             accountsWithPhrase: withPhrase.count,
-            retainedPinUsable: WalletRetainedPinGate.isUsable(keystore: keystore, settings: settings)
+            retainedPinUsable: WalletRetainedPinGate.isUsable(keystore: keystore, settings: settings),
+            transactionRecordsUnreadable: !PendingTransactionRecords.isReadable(baseURL: pendingTransactionsBaseURL)
         )
     }
 }
@@ -280,6 +289,14 @@ enum WalletLocalStateSetAside {
             moves.append((sora.appendingPathComponent(name, isDirectory: true),
                            folder.appendingPathComponent(name, isDirectory: true)))
         }
+        // Records of unfinished transactions stay in place while they can be
+        // read: they tell the restored wallets which transactions are still
+        // being confirmed. A folder that cannot be read would refuse every
+        // send after the restore too, so it is set aside with the rest.
+        if !PendingTransactionRecords.isReadable(baseURL: paths.applicationSupportURL, fileManager: fileManager) {
+            moves.append((sora.appendingPathComponent(PendingTransactionRecords.directoryName, isDirectory: true),
+                           folder.appendingPathComponent(PendingTransactionRecords.directoryName, isDirectory: true)))
+        }
         var done: [(URL, URL)] = []
         do {
             for (source, plannedDestination) in moves where exists(source) {
@@ -358,5 +375,144 @@ enum WalletLocalStateSetAside {
             guard let path else { return false }
             return lstat(path, &info) == 0
         }
+    }
+}
+
+// MARK: - Helper files of interrupted writes
+
+/// Startup sweep of the folders `DurableFileWriter` publishes into, run once
+/// before any wallet storage check reads them.
+///
+/// A process that dies inside a durable write leaves hidden helper files
+/// beside the published file. Each strict folder check also sweeps its own
+/// folder when it meets one; this pass does it up front for all of them,
+/// including the unfinished-transaction records, whose first check would
+/// otherwise happen only when the user sends. See
+/// `DurableFileWriter.sweepLeftovers` for what a sweep may remove and why
+/// that is safe. No published file, key or database row is read or changed.
+enum WalletInterruptedWriteCleanup {
+    static func directories(
+        storeURL: URL,
+        applicationSupportURL: URL,
+        fileManager: FileManager = .default
+    ) -> [URL] {
+        let sora = applicationSupportURL.appendingPathComponent("SORA", isDirectory: true)
+        var directories = ["WalletNetworks", "WalletAccountCommits", PendingTransactionRecords.directoryName]
+            .map { sora.appendingPathComponent($0, isDirectory: true) }
+        let safety = storeURL.deletingLastPathComponent()
+            .appendingPathComponent("WalletMigrationSafety", isDirectory: true)
+        let attempts = (try? fileManager.contentsOfDirectory(
+            at: safety, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: []
+        )) ?? []
+        for attempt in attempts {
+            // Attempt folders only: a real directory named by a UUID.
+            let values = try? attempt.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard values?.isDirectory == true, values?.isSymbolicLink != true,
+                  UUID(uuidString: attempt.lastPathComponent) != nil else { continue }
+            directories.append(attempt)
+            directories.append(attempt.appendingPathComponent("legacy-store", isDirectory: true))
+            directories.append(attempt.appendingPathComponent("staging", isDirectory: true))
+        }
+        return directories
+    }
+
+    /// - Returns: the number of helper files removed.
+    @discardableResult
+    static func run(
+        storeURL: URL = UserStorageParams.storageURL,
+        applicationSupportURL: URL? = nil,
+        fileManager: FileManager = .default
+    ) -> Int {
+        guard let support = applicationSupportURL ?? (try? fileManager.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )) else { return 0 }
+        var removed = 0
+        for directory in directories(storeURL: storeURL, applicationSupportURL: support, fileManager: fileManager) {
+            removed += DurableFileWriter.sweepLeftovers(in: directory).removed
+        }
+        if removed > 0 {
+            Logger.shared.info("Wallet storage: \(removed) helper file(s) of an interrupted write removed")
+        }
+        return removed
+    }
+}
+
+// MARK: - Records of unfinished transactions
+
+/// `Application Support/SORA/PendingTransactions`: the journals that record
+/// transactions which were signed and may still be confirming. Every SORA2
+/// send first writes its record there, so a folder that cannot be read means
+/// no send can start.
+///
+/// The helper files of an interrupted write are swept and never count. When
+/// the folder still cannot be read (an entry this version does not know, a
+/// journal that does not decode), startup shows the recovery screen, and
+/// that screen offers to set the records aside. They are moved, never
+/// deleted; accounts, keys and the wallet database are not touched.
+enum PendingTransactionRecords {
+    static let directoryName = "PendingTransactions"
+
+    private static func directoryURL(baseURL: URL?, fileManager: FileManager) throws -> URL {
+        let base = try baseURL ?? fileManager.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+        return base.appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(directoryName, isDirectory: true)
+    }
+
+    private static func exists(_ url: URL) -> Bool {
+        var info = stat()
+        return url.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return false }
+            return lstat(path, &info) == 0
+        }
+    }
+
+    /// Throws when a send would be refused because of the folder itself.
+    /// A missing folder is a wallet that never sent anything: readable.
+    static func requireReadable(baseURL: URL? = nil, fileManager: FileManager = .default) throws {
+        let directory = try directoryURL(baseURL: baseURL, fileManager: fileManager)
+        guard exists(directory) else { return }
+        try PendingTransactionJournalNamespace.validate(directoryURL: directory, fileManager: fileManager)
+        _ = try Sora2PendingSubmissionStore(fileManager: fileManager, baseURL: baseURL).all()
+    }
+
+    static func isReadable(baseURL: URL? = nil, fileManager: FileManager = .default) -> Bool {
+        (try? requireReadable(baseURL: baseURL, fileManager: fileManager)) != nil
+    }
+
+    /// Moves the folder to `<setAsideRoot>/<time>-<id>/PendingTransactions`
+    /// and leaves an empty folder in its place. Only on the user's confirmed
+    /// request. Nothing is deleted; the Keychain, the wallet database and the
+    /// network model are not touched.
+    /// - Returns: the folder the records were moved into, or nil when there
+    ///   was no folder to move.
+    @discardableResult
+    static func setAside(
+        applicationSupportURL: URL,
+        setAsideRootURL: URL,
+        fileManager: FileManager = .default,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws -> URL? {
+        // No send, removal or import holds the lease while the folder moves.
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let source = try directoryURL(baseURL: applicationSupportURL, fileManager: fileManager)
+        guard exists(source) else { return nil }
+        let folder = setAsideRootURL.appendingPathComponent(
+            "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        do {
+            try fileManager.moveItem(at: source, to: folder.appendingPathComponent(directoryName, isDirectory: true))
+        } catch {
+            // Nothing moved; leave no empty folder behind.
+            try? fileManager.removeItem(at: folder)
+            throw error
+        }
+        // Stores created earlier in this process keep the old path. An empty
+        // folder there is a valid "no unfinished transactions" state. If it
+        // cannot be created now, the next store creates it.
+        try? fileManager.createDirectory(at: source, withIntermediateDirectories: true)
+        Logger.shared.info("Wallet storage: unfinished-transaction records set aside on request")
+        return folder
     }
 }

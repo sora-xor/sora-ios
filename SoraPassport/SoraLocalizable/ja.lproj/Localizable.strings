@@ -1009,3 +1009,12 @@
 "Free up some space" = "空き容量を確保してください";
 "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed." = "この iPhone のストレージに空きを作ってから、もう一度確認してください。アカウントとキーは変更されていません。";
 "Check again" = "もう一度確認";
+
+/* ik2-leftover-files: records of unfinished transactions on the recovery screen */
+"Set aside unfinished transaction records" = "未完了の取引記録を別のフォルダーに移す";
+"Set aside unfinished transaction records?" = "未完了の取引記録を別のフォルダーに移しますか？";
+"SORA will move its records of transactions that were still being confirmed to a separate folder on this iPhone. Nothing is deleted, and your accounts, keys and funds are not changed. SORA will no longer be able to tell you whether your most recent transaction went through, so check your activity before you send it again." = "SORA は、確認中だった取引の記録をこの iPhone 内の別のフォルダーに移します。何も削除されず、アカウント、キー、資金は変更されません。直近の取引が完了したかどうかを SORA でお知らせできなくなるため、もう一度送信する前にアクティビティを確認してください。";
+"Set aside" = "移す";
+"Could not set the records aside" = "記録を移せませんでした";
+"SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted." = "SORA は確認中だった取引の記録を読み取れないため、新しい取引を安全に開始できません。アカウント、キー、資金に影響はありません。下のボタンでこの記録を別のフォルダーに移せます。何も削除されません。";
+"If setting the records aside does not help, contact SORA support with the app version shown below. Never share your recovery phrase." = "記録を移しても解決しない場合は、下に表示されているアプリのバージョンを添えて SORA サポートにお問い合わせください。リカバリーフレーズは誰にも教えないでください。";

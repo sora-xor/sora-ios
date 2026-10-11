@@ -310,6 +310,8 @@ final class WalletRecoveryViewController: UIViewController {
         .secondary, title: WalletUX.text("Restore from Google Drive backup"))
     private let showPhraseButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Show my recovery phrase"))
     private let setUpAgainButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Set up this iPhone again"))
+    private let setAsideRecordsButton = WalletSafeMode.button(
+        .secondary, title: WalletUX.text("Set aside unfinished transaction records"))
     private let cloudRecoveryStatusLabel = UILabel()
     private var didRetry = false
     private let exportButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Create protected recovery export"))
@@ -363,15 +365,27 @@ final class WalletRecoveryViewController: UIViewController {
         setUpAgainButton.accessibilityIdentifier = "wallet-recovery-set-up-again"
         setUpAgainButton.isHidden = onSetAside == nil
         setUpAgainButton.addTarget(self, action: #selector(confirmSetUpAgain), for: .touchUpInside)
+
+        // Shown from a fact (the records folder cannot be read), like the
+        // restore actions. It is the action that lets "Try again" pass.
+        setAsideRecordsButton.accessibilityIdentifier = "wallet-recovery-set-aside-transaction-records"
+        setAsideRecordsButton.isHidden = true
+        setAsideRecordsButton.addTarget(self, action: #selector(confirmSetAsideTransactionRecords), for: .touchUpInside)
         WalletSafeMode.detail(cloudRecoveryStatusLabel)
         cloudRecoveryStatusLabel.isHidden = true
         cloudRecoveryStatusLabel.accessibilityIdentifier = "wallet-recovery-cloud-status"
 
         let bodyLabel = UILabel()
         WalletSafeMode.body(bodyLabel)
+        bodyLabel.accessibilityIdentifier = "wallet-recovery-body"
+        // The text names the actions this state offers. Unreadable transaction
+        // records are fixed by setting them aside, not by restoring a wallet.
+        let nextSteps = diagnostic?.phase == .pendingTransactions
+            ? WalletUX.text("If setting the records aside does not help, contact SORA support with the app version shown below. Never share your recovery phrase.")
+            : WalletUX.text("SORA stopped before changing anything and did not delete or replace any wallet data. Try again, restore with your recovery phrase or Google Drive backup, or contact SORA support with the app version shown below. Never share your recovery phrase.")
         bodyLabel.text = [
             diagnostic?.userMessage ?? WalletUX.text("SORA could not verify the wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account."),
-            WalletUX.text("SORA stopped before changing anything and did not delete or replace any wallet data. Try again, restore with your recovery phrase or Google Drive backup, or contact SORA support with the app version shown below. Never share your recovery phrase.")
+            nextSteps
         ].compactMap { $0 }.joined(separator: "\n\n")
 
         let diagnosticLabel = UILabel()
@@ -447,6 +461,7 @@ final class WalletRecoveryViewController: UIViewController {
                 titleLabel,
                 bodyLabel,
                 retryButton,
+                setAsideRecordsButton,
                 restoreKeysButton,
                 restoreCloudBackupButton,
                 cloudRecoveryStatusLabel,
@@ -530,7 +545,59 @@ final class WalletRecoveryViewController: UIViewController {
         restoreCloudBackupButton.isHidden = restoreKeysButton.isHidden
         showPhraseButton.isHidden = !options.canShowPhraseAfterPin
         setUpAgainButton.isHidden = !(options.canSetUpDeviceAgain && onSetAside != nil)
+        setAsideRecordsButton.isHidden = !(options.canSetAsideTransactionRecords && canAct)
         exportButton.isHidden = !options.canExport
+    }
+
+    /// Paths of the records action; replaced in tests.
+    var transactionRecordsPaths: () throws -> WalletLocalStateSetAside.Paths = {
+        try WalletLocalStateSetAside.Paths.production()
+    }
+
+    @objc private func confirmSetAsideTransactionRecords() {
+        guard !didRetry, !isExporting, !isRestoringKeys else { return }
+        let alert = UIAlertController(
+            title: WalletUX.text("Set aside unfinished transaction records?"),
+            message: WalletUX.text("SORA will move its records of transactions that were still being confirmed to a separate folder on this iPhone. Nothing is deleted, and your accounts, keys and funds are not changed. SORA will no longer be able to tell you whether your most recent transaction went through, so check your activity before you send it again."),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
+        alert.addAction(UIAlertAction(title: WalletUX.text("Set aside"), style: .default) { [weak self] _ in
+            self?.setAsideTransactionRecords()
+        })
+        present(alert, animated: true)
+    }
+
+    private func setAsideTransactionRecords() {
+        setAsideRecordsButton.isEnabled = false
+        let resolvePaths = transactionRecordsPaths
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result {
+                let paths = try resolvePaths()
+                try PendingTransactionRecords.setAside(
+                    applicationSupportURL: paths.applicationSupportURL,
+                    setAsideRootURL: paths.setAsideRootURL
+                )
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success:
+                    // The folder is readable again; run the startup checks.
+                    if self.onRetry != nil {
+                        self.retryWalletVerification()
+                    } else {
+                        self.setAsideRecordsButton.isHidden = true
+                    }
+                case .failure:
+                    self.setAsideRecordsButton.isEnabled = true
+                    self.showKeyRecoveryError(
+                        WalletUX.text("Nothing was changed. Try again, or contact SORA support."),
+                        title: WalletUX.text("Could not set the records aside")
+                    )
+                }
+            }
+        }
     }
 
     @objc private func retryWalletVerification() {
@@ -803,7 +870,7 @@ final class WalletRecoveryViewController: UIViewController {
 
     private func showKeyRecoveryError(_ message: String, title: String = "Wallet keys not restored") {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
         present(alert, animated: true)
     }
 

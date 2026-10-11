@@ -1165,3 +1165,12 @@
 "Free up some space" = "Free up some space";
 "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed." = "Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed.";
 "Check again" = "Check again";
+
+/* ik2-leftover-files: records of unfinished transactions on the recovery screen */
+"Set aside unfinished transaction records" = "Set aside unfinished transaction records";
+"Set aside unfinished transaction records?" = "Set aside unfinished transaction records?";
+"SORA will move its records of transactions that were still being confirmed to a separate folder on this iPhone. Nothing is deleted, and your accounts, keys and funds are not changed. SORA will no longer be able to tell you whether your most recent transaction went through, so check your activity before you send it again." = "SORA will move its records of transactions that were still being confirmed to a separate folder on this iPhone. Nothing is deleted, and your accounts, keys and funds are not changed. SORA will no longer be able to tell you whether your most recent transaction went through, so check your activity before you send it again.";
+"Set aside" = "Set aside";
+"Could not set the records aside" = "Could not set the records aside";
+"SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted." = "SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted.";
+"If setting the records aside does not help, contact SORA support with the app version shown below. Never share your recovery phrase." = "If setting the records aside does not help, contact SORA support with the app version shown below. Never share your recovery phrase.";
