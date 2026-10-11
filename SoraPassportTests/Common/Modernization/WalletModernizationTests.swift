@@ -12508,9 +12508,17 @@ final class WalletModernizationTests: XCTestCase {
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
 
-        XCTAssertTrue(settings.nexusEnabled)
+        // Tester builds follow PI. An App Store build ships none of these
+        // surfaces, so there the flags stay off whatever PI sends.
+        XCTAssertEqual(
+            settings.nexusEnabled,
+            ProductSurfacePolicy.showsNexusPortfolio
+        )
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertTrue(settings.polkamarktEnabled)
+        XCTAssertEqual(
+            settings.polkamarktEnabled,
+            ProductSurfacePolicy.showsPolkamarkt
+        )
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
         XCTAssertFalse(config.typedAccountBalancesAvailable)
         XCTAssertFalse(settings.isTairaEnabled)
@@ -12531,7 +12539,10 @@ final class WalletModernizationTests: XCTestCase {
             refreshToken:
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
-        XCTAssertTrue(settings.isTairaEnabled)
+        XCTAssertEqual(
+            settings.isTairaEnabled,
+            ProductSurfacePolicy.showsTairaSettings
+        )
 
         settings.isTairaEnabled = false
         settings.set(
