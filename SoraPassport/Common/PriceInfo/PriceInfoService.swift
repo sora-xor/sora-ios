@@ -44,7 +44,6 @@ protocol PriceInfoServiceProtocol: AnyObject {
 
 actor PriceInfoService {
     static let shared = PriceInfoService()
-    private var priceInfo: PriceInfo?
     private let fiatService = FiatService.shared
     private let marketCapService = MarketCapService.shared
     
@@ -58,24 +57,12 @@ actor PriceInfoService {
 
 extension PriceInfoService: PriceInfoServiceProtocol {
 
+    /// Prices and market data for the given assets. The shared PI asset
+    /// catalog behind both services does the caching (ten minutes), the
+    /// single flight and the backoff after a failure, so this neither keeps
+    /// a first answer for the rest of the session nor walks PI again on
+    /// every call while PI is failing.
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo {
-        if let priceInfo {
-            let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
-            let result = searchableInfo.subtracting(priceInfo.marketCapInfo)
-            
-            if !result.isEmpty || priceInfo.fiatData.isEmpty {
-                
-                let priceInfo = await downloadInfo(for: assetIds)
-                self.priceInfo = priceInfo
-                return priceInfo
-                
-            } else {
-                return priceInfo
-            }
-        }
-        
-        let priceInfo = await downloadInfo(for: assetIds)
-        self.priceInfo = priceInfo
-        return priceInfo
+        await downloadInfo(for: assetIds)
     }
 }
