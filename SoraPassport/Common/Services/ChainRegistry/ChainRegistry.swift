@@ -85,6 +85,7 @@ final class ChainRegistry {
     private let logger: LoggerProtocol?
     private let eventCenter: EventCenterProtocol
     private let networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol?
+    private let nodeDidConnect: () -> Void
 
     private let chainRepository: AnyDataProviderRepository<ChainModel>
     private let operationManager: OperationManagerProtocol
@@ -113,7 +114,8 @@ final class ChainRegistry {
         eventCenter: EventCenterProtocol,
         chainRepository: AnyDataProviderRepository<ChainModel>,
         operationManager: OperationManagerProtocol,
-        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol
+        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol,
+        nodeDidConnect: @escaping () -> Void = { StartupNetworkCoordinator.shared.nodeDidConnect() }
     ) {
         self.snapshotHotBootBuilder = snapshotHotBootBuilder
         self.runtimeProviderPool = runtimeProviderPool
@@ -128,6 +130,7 @@ final class ChainRegistry {
         self.chainRepository = chainRepository
         self.operationManager = operationManager
         self.networkStatusPresenter = networkStatusPresenter
+        self.nodeDidConnect = nodeDidConnect
 
         connectionPool.setDelegate(self)
 
@@ -452,14 +455,16 @@ extension ChainRegistry: ConnectionPoolDelegate {
         processingQueue.async { [weak self] in
             guard let self = self else { return }
             self.mutex.lock()
-            defer { self.mutex.unlock() }
             guard let chain = self.chains.first(where: {
                 self.connectionPool.getConnection(for: $0.chainId)?.url == url
-            }) else { return }
+            }) else {
+                self.mutex.unlock()
+                return
+            }
             let wasUnavailablePresented = self.nodeFailover[chain.chainId]?.connected() ?? false
+            self.mutex.unlock()
+
             SettingsManager.shared.lastSuccessfulUrl = url
-            // Work that was waiting for a node (the asset list) can go on.
-            StartupNetworkCoordinator.shared.nodeDidConnect()
             if wasUnavailablePresented {
                 // The status said that no node could be reached. Only a change
                 // of the device's reachability took it down, so after a node
@@ -468,6 +473,10 @@ extension ChainRegistry: ConnectionPoolDelegate {
                     self?.networkStatusPresenter?.didDecideReachableStatusPresentation()
                 }
             }
+            // Work that was waiting for a node (the asset list) can go on.
+            // The registry's lock is not held: that work asks the registry
+            // for its connection.
+            self.nodeDidConnect()
         }
     }
 
