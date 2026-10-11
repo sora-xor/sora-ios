@@ -838,16 +838,10 @@ final class SplashInteractor: SplashInteractorProtocol {
                         .markWalletStorageReadyAndResume()
                     Sora2PendingSubmissionRecoveryRuntime.shared
                         .markWalletStorageReadyAndResume()
-                    // The asset list and the remote node list are loaded in
-                    // the background; from here on they reach the registry.
-                    self.network.chainRegistryWillBoot()
-                    if selectedAccount != nil {
-                        ChainRegistryFacade.sharedRegistry.performHotBoot()
-                        Logger.shared.debug("Selected wallet restored")
-                    } else {
-                        ChainRegistryFacade.sharedRegistry.performColdBoot()
-                        Logger.shared.debug("No selected account")
-                    }
+                    Self.bootChainRegistry(
+                        hasSelectedAccount: selectedAccount != nil,
+                        network: self.network
+                    )
                     self.presenter.setupComplete()
                 }
             } catch {
@@ -867,6 +861,32 @@ final class SplashInteractor: SplashInteractorProtocol {
         }
 
         OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+    }
+
+    /// Boots the chain registry. Main thread only.
+    ///
+    /// The registry is created by its first use, and creating it reads the
+    /// app's window (UIKit, main thread only). The asset list and the remote
+    /// node list are loaded in the background and use the registry as soon as
+    /// the coordinator hears of the boot, on a queue of their own. So the
+    /// registry is created here first: the background work can then never be
+    /// the one that creates it.
+    static func bootChainRegistry(
+        hasSelectedAccount: Bool,
+        network: StartupNetworkCoordinating,
+        registry: () -> ChainRegistryProtocol = { ChainRegistryFacade.sharedRegistry }
+    ) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        let registry = registry()
+        // From here on the asset list and the remote node list reach the registry.
+        network.chainRegistryWillBoot()
+        if hasSelectedAccount {
+            registry.performHotBoot()
+            Logger.shared.debug("Selected wallet restored")
+        } else {
+            registry.performColdBoot()
+            Logger.shared.debug("No selected account")
+        }
     }
 
     /// Downgrade safety (see `LegacyGlobalEntropyScopedBackfill`). Best effort:
