@@ -101,8 +101,14 @@ struct NodeConnectionFailover {
                         shouldPresentUnavailable: shouldPresent)
     }
 
-    mutating func connected() {
+    /// A node is connected. Returns whether the "no node can be reached"
+    /// status was presented since the last connection: it is no longer true
+    /// and has to be taken down.
+    @discardableResult
+    mutating func connected() -> Bool {
+        let wasUnavailablePresented = hasPresentedUnavailable
         failedURLs.removeAll()
         hasPresentedUnavailable = false
+        return wasUnavailablePresented
     }
 }
