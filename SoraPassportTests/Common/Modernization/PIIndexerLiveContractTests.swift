@@ -2979,14 +2979,22 @@ final class PIIndexerLiveTests: XCTestCase {
     }
 
     /// A client with an empty cache directory, so a last good catalog can
-    /// never stand in for a failed live read.
-    private func freshClient() -> (client: PIIndexerClient, directory: URL) {
+    /// never stand in for a failed live read. `catalogs` gives it the
+    /// session of the app's shared catalog client, which does not wait for
+    /// connectivity.
+    private func freshClient(
+        catalogs: Bool = false
+    ) -> (client: PIIndexerClient, directory: URL) {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "pi-live-\(UUID().uuidString)",
                 isDirectory: true
             )
-        return (PIIndexerClient(cacheDirectory: directory), directory)
+        let client = PIIndexerClient(
+            session: catalogs ? PIIndexerClient.catalogSession : nil,
+            cacheDirectory: directory
+        )
+        return (client, directory)
     }
 
     func testLiveIndexerServesAllAssetsPoolsAndFiatPrices() async throws {
@@ -3001,10 +3009,11 @@ final class PIIndexerLiveTests: XCTestCase {
         var poolsOK = 0
         var fiatOK = 0
         var marketCapOK = 0
+        var savedOK = 0
         var failures: [String] = []
 
         for round in 1 ... rounds {
-            let (client, directory) = freshClient()
+            let (client, directory) = freshClient(catalogs: true)
             defer { try? FileManager.default.removeItem(at: directory) }
 
             let started = Date()
@@ -3040,6 +3049,26 @@ final class PIIndexerLiveTests: XCTestCase {
                 failures.append("round \(round) pools: \(error)")
             }
             let poolsSeconds = Date().timeIntervalSince(poolsStarted)
+
+            // What the walks saved is what the next run shows while its
+            // first read is on its way: both catalogs must read back whole,
+            // at their real size.
+            let savedAssets = await client.savedAllAssets()
+            let savedPools = await client.savedAllPoolXYKs()
+            if
+                !catalog.isEmpty,
+                savedAssets?.value == catalog,
+                poolCount > 0,
+                savedPools?.value.count == poolCount
+            {
+                savedOK += 1
+            } else {
+                failures.append(
+                    "round \(round) saved: assets " +
+                        "\(String(describing: savedAssets?.value.count)), " +
+                        "pools \(String(describing: savedPools?.value.count))"
+                )
+            }
 
             // The services the wallet screens use, over the same client.
             let fiat = await FiatService(assets: {
@@ -3083,7 +3112,8 @@ final class PIIndexerLiveTests: XCTestCase {
         print(
             "PI live summary: assets \(assetsOK)/\(rounds), " +
                 "pools \(poolsOK)/\(rounds), fiat \(fiatOK)/\(rounds), " +
-                "market cap \(marketCapOK)/\(rounds)"
+                "market cap \(marketCapOK)/\(rounds), " +
+                "saved copies \(savedOK)/\(rounds)"
         )
         for failure in failures {
             print("PI live failure: \(failure)")
@@ -3092,6 +3122,7 @@ final class PIIndexerLiveTests: XCTestCase {
         XCTAssertEqual(poolsOK, rounds, failures.joined(separator: "; "))
         XCTAssertEqual(fiatOK, rounds, failures.joined(separator: "; "))
         XCTAssertEqual(marketCapOK, rounds, failures.joined(separator: "; "))
+        XCTAssertEqual(savedOK, rounds, failures.joined(separator: "; "))
     }
 
     /// Every other production read decodes and validates against the live
