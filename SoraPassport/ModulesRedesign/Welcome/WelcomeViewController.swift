@@ -144,8 +144,18 @@ final class WelcomeViewController: SoramitsuViewController {
     
     func decorate(label: NantesLabel) {
         label.delegate = self
+        // Links are cyan and underlined, so colour is never the only signal
+        // (spec §8.2, §10.1). Re-applied on every theme change.
+        let link = NeonTokens.current.link
         label.linkAttributes = [
-            NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+            .foregroundColor: link,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .underlineColor: link
+        ]
+        label.activeLinkAttributes = [
+            .foregroundColor: link.withAlphaComponent(0.7),
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .underlineColor: link.withAlphaComponent(0.7)
         ]
         if termsContent == nil {
             var text = label.text ?? ""
@@ -155,9 +165,10 @@ final class WelcomeViewController: SoramitsuViewController {
         let text = termsContent?.text ?? ""
         let links = termsContent?.links ?? []
         
+        // Terms are `textXS` `text.secondary` (spec §8.2).
         let attributedText = SoramitsuTextItem(text: text,
                                      fontData: FontType.textXS,
-                                     textColor: .fgPrimary,
+                                     textColor: .fgSecondary,
                                      alignment: .center).attributedString
         
         let scaledText = NSMutableAttributedString(attributedString: attributedText)
@@ -196,7 +207,11 @@ final class WelcomeViewController: SoramitsuViewController {
         scrollView.addSubview(containerView)
         createAccountButton.translatesAutoresizingMaskIntoConstraints = false
         importAccountButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubviews(logo, titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
+        containerView.addSubviews(titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
+        // The logo overlaps the card's top edge. It sits above the card, not
+        // inside it: the card draws its hairline over its own subviews,
+        // which put a line across the logo.
+        scrollView.addSubview(logo)
         decorate(label: termsLabel)
         view.addSubview(loadingView)
     }
