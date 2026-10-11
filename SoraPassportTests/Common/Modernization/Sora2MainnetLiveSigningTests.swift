@@ -152,7 +152,11 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
             operationManager: OperationManager(),
             liveRuntimeIdentityCache: proofs
         )
+        let nodeIdentity = try XCTUnwrap(
+            Sora2LiveRuntimeIdentityCache.nodeIdentity(for: Self.node)
+        )
         XCTAssertNil(proofs.metadataSHA256(
+            node: nodeIdentity,
             specVersion: live.specVersion,
             transactionVersion: live.transactionVersion
         ))
@@ -356,6 +360,196 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
                 "withFrozen=\(accounts.filter { ($0?.data.locked ?? 0) > 0 }.count) " +
                 "userFarms=\(userFarms.count) farmPools=\(farmPools.count) " +
                 "farmTokens=\(farmTokens.count) userPools=\(userPools.count)"
+        )
+    }
+
+    /// LIVE NETWORK TEST, gated like the signing test. Takes a real signed
+    /// transaction from a mainnet block far older than the 256 blocks whose
+    /// state the first bundled node keeps, and has the app's reconciler
+    /// resolve a journal entry for it while connected to that node. The node
+    /// answers "State already discarded" for the block's events (audit S-2,
+    /// LIVE-8); the result must come from the bundled archive node, and,
+    /// with no archive, from the indexer, and both must agree.
+    func testSentTransactionResolvesOnTheStatePruningDefaultNode() async throws {
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["SORA_LIVE_NETWORK_TESTS"] == "1",
+            "Live-network test. Set TEST_RUNNER_SORA_LIVE_NETWORK_TESTS=1 to run it."
+        )
+        let source = WebSocketEngine(
+            connectionName: nil,
+            url: Self.node,
+            reachabilityManager: nil,
+            reconnectionStrategy: nil,
+            autoconnect: false
+        )
+        let engine = Sora2BoundedHTTPJSONRPCEngine(sourceEngine: source)
+        let rpc = PolkamarktRPCClient(engine: engine)
+        _ = try await rpc.reviewedGenesisHash()
+        let finalizedNumber = try await rpc.finalizedBlockNumber()
+        let finalized = try XCTUnwrap(Int(exactly: finalizedNumber))
+
+        // The newest signed transaction at least 2,000 blocks (over three
+        // hours) behind the finalized head.
+        var found: (number: Int, hash: String, index: Int, bytes: Data, signer: Data)?
+        var number = finalized - 2_000
+        while found == nil, number > finalized - 2_600 {
+            let rawBlockHash = try await rawCall("chain_getBlockHash", [number])
+            let blockHash = try XCTUnwrap(rawBlockHash as? String)
+            let rawBlock = try await rawCall("chain_getBlock", [blockHash])
+            let block = try XCTUnwrap(rawBlock as? [String: Any])
+            let body = try XCTUnwrap((block["block"] as? [String: Any])?["extrinsics"] as? [String])
+            for (index, hex) in body.enumerated() {
+                let bytes = try Data(hexStringSSF: hex)
+                // Compact length, then 0x84 (signed, version 4), then the
+                // signer as a plain 32-byte account id.
+                let prefix = [1, 2, 4][Int(bytes[bytes.startIndex] & 0b11) % 3]
+                guard bytes.count > prefix + 33, bytes[bytes.startIndex + prefix] == 0x84 else {
+                    continue
+                }
+                let signer = bytes[(bytes.startIndex + prefix + 1) ..< (bytes.startIndex + prefix + 33)]
+                found = (number, blockHash, index, bytes, Data(signer))
+                break
+            }
+            number -= 1
+        }
+        let transaction = try XCTUnwrap(found, "No signed transaction in 600 blocks")
+        let transactionHash = try transaction.bytes.blake2b32().toHex(includePrefix: false)
+        let inclusionBlockHash = try XCTUnwrap(
+            Sora2PendingSubmissionStore.normalizedHash(transaction.hash)
+        )
+
+        // The connected node no longer has that block's state.
+        var prunedOnConnectedNode = false
+        do {
+            _ = try await rpc.runtimeVersion(at: transaction.hash)
+        } catch Sora2BoundedHTTPJSONRPCError.blockStateUnavailable {
+            prunedOnConnectedNode = true
+        }
+
+        // A journal entry as the app writes it for a submitted transaction.
+        let address = try SS58AddressFactory().address(
+            fromAccountId: transaction.signer,
+            type: Chain.sora.addressType()
+        )
+        let period = Sora2SubmissionRecoveryContext.reviewedEraPeriod
+        let birth = transaction.number - 2
+        let rawBirthHash = try await rawCall("chain_getBlockHash", [birth])
+        let birthHash = try XCTUnwrap(
+            Sora2PendingSubmissionStore.normalizedHash(
+                try XCTUnwrap(rawBirthHash as? String)
+            )
+        )
+        let signerHex = transaction.signer.toHex(includePrefix: false).lowercased()
+        let context = Sora2SubmissionRecoveryContext(
+            schemaVersion: Sora2SubmissionRecoveryContext.currentSchemaVersion,
+            walletId: address,
+            accountId: signerHex,
+            publicKey: signerHex,
+            transactionHash: transactionHash,
+            genesisHash: try XCTUnwrap(
+                Sora2PendingSubmissionStore.normalizedHash(PIIndexerClient.soraMainnetGenesis)
+            ),
+            specVersion: Sora2RuntimeIdentity.minimumSpecVersion,
+            transactionVersion: 1,
+            metadataSHA256: String(repeating: "0", count: 64),
+            eraBirthBlock: birth,
+            eraDeathBlockExclusive: birth + period,
+            eraPeriod: period,
+            eraPhase: birth % period,
+            eraBirthBlockHash: birthHash
+        )
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: address,
+            wallets: [
+                WalletIdentity(
+                    id: address,
+                    displayName: "Live",
+                    existingSoraAddress: address,
+                    secretSource: .rawSeed
+                )
+            ],
+            accounts: [
+                NetworkAccount(
+                    walletId: address,
+                    networkId: .sora2,
+                    derivationVersion: 0,
+                    publicKey: transaction.signer,
+                    address: address
+                )
+            ],
+            createdAt: Date()
+        )
+
+        let finalizedHead = try await rpc.finalizedHead()
+        let runtimeService = FixedRuntimeService(
+            factory: try liveFactory(
+                genesis: PIIndexerClient.soraMainnetGenesis,
+                version: try await rpc.runtimeVersion(at: finalizedHead),
+                metadataHex: try await rpc.metadataHex(at: finalizedHead)
+            )
+        )
+        func resolve(
+            archives: Bool,
+            indexer: Bool
+        ) async throws -> (report: Sora2PendingReconciliationReport, entry: Sora2PendingSubmission) {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+            let store = try Sora2PendingSubmissionStore(baseURL: directory)
+            let pending = try store.stage(
+                account: address,
+                hash: transactionHash,
+                recoveryContext: context
+            )
+            try store.update(pending, state: .submitted)
+            let report = try await Sora2PendingSubmissionReconciler(
+                store: store,
+                engine: engine,
+                runtimeService: runtimeService,
+                liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache(),
+                walletNetworkSnapshot: { snapshot },
+                archiveEngines: archives
+                    ? { Sora2PendingSubmissionReconciler.bundledArchiveEngines() }
+                    : { [] },
+                indexedExecution: indexer
+                    ? Sora2PendingSubmissionReconciler.indexedExecutionFromPI
+                    : nil,
+                rotation: Sora2PendingReconciliationRotation()
+            ).reconcile()
+            return (report, try XCTUnwrap(store.all().first))
+        }
+
+        // Archive node only (the indexer is not asked).
+        let byArchive = try await resolve(archives: true, indexer: false)
+        XCTAssertEqual(byArchive.report.resolved, 1)
+        let archiveResolution = try XCTUnwrap(byArchive.entry.terminalResolution)
+        XCTAssertTrue([.finalizedSuccess, .finalizedFailure].contains(archiveResolution.kind))
+        XCTAssertEqual(archiveResolution.blockNumber, transaction.number)
+        XCTAssertEqual(archiveResolution.blockHash, inclusionBlockHash)
+
+        // Indexer only (no archive node).
+        let byIndexer = try await resolve(archives: false, indexer: true)
+        // Neither: the inclusion is recorded and nothing is claimed.
+        let byNeither = try await resolve(archives: false, indexer: false)
+        print(
+            "SoraLiveReconcile block=\(transaction.number) behind=\(finalized - transaction.number) " +
+                "prunedOnConnectedNode=\(prunedOnConnectedNode) " +
+                "archive=\(archiveResolution.kind.rawValue) " +
+                "indexer=\(byIndexer.entry.terminalResolution?.kind.rawValue ?? "none") " +
+                "neither=\(byNeither.entry.terminalResolution?.kind.rawValue ?? "none")"
+        )
+        XCTAssertEqual(byIndexer.entry.terminalResolution?.kind, archiveResolution.kind)
+        XCTAssertEqual(byIndexer.entry.terminalResolution?.blockNumber, transaction.number)
+        if prunedOnConnectedNode {
+            XCTAssertNil(byNeither.entry.terminalResolution)
+            XCTAssertEqual(byNeither.report.awaitingResult, 1)
+            XCTAssertEqual(byNeither.entry.finalizedInclusion?.blockNumber, transaction.number)
+            XCTAssertEqual(byNeither.entry.finalizedInclusion?.extrinsicIndex, UInt32(transaction.index))
+        }
+        XCTAssertTrue(
+            prunedOnConnectedNode,
+            "ws.mof.sora.org answered for a block 2,000 behind: it no longer prunes state"
         )
     }
 

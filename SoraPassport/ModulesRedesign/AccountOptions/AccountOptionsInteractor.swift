@@ -426,13 +426,17 @@ enum WalletPendingDeletionPreflightError: LocalizedError, Equatable {
         case .polkamarktJournalUnavailable:
             return "Account deletion is paused because the protected Polkamarkt pending-transaction journal could not be verified. Recover the journal and try again. No wallet data was removed."
         case .sora2JournalUnavailable:
-            return "Account deletion is paused because the protected SORA2 signed-submission journal could not be verified. Recover the journal and try again. No wallet data was removed."
+            return WalletUX.text(
+                "The app could not read its list of recently sent transactions, so it can't tell whether one from this account is still being confirmed. Please try again in an hour. Nothing was removed."
+            )
         case .unresolvedNexusTransaction:
             return "Account deletion is paused while a Minamoto or Taira transaction is unresolved. Wait for its final status and history reconciliation, then try again. No wallet data was removed."
         case .unresolvedPolkamarktTransaction:
             return "Account deletion is paused while a Polkamarkt transaction is unresolved. Wait for its final status, then try again. No wallet data was removed."
         case .unresolvedSora2Submission:
-            return "Account deletion is paused while a signed SORA2 transaction may still be entering the network. Wait for submission reconciliation, then try again. No wallet data was removed."
+            return WalletUX.text(
+                "A transaction from this account was sent a moment ago and is still being confirmed. This usually takes less than a minute and never more than an hour. Please try again shortly. Nothing was removed."
+            )
         }
     }
 }
@@ -443,7 +447,8 @@ enum WalletPendingDeletionPolicy {
         polkamarktTransactions: [PolkamarktPendingMutation],
         sora2Submissions: [Sora2PendingSubmission] = [],
         walletId: String,
-        soraAddress: String
+        soraAddress: String,
+        now: Date = Date()
     ) throws {
         let hasUnresolvedNexusTransaction = nexusTransactions.contains {
             transaction in
@@ -467,9 +472,13 @@ enum WalletPendingDeletionPolicy {
                 .unresolvedPolkamarktTransaction
         }
 
+        // Removal waits only while a transaction of this account may still
+        // be entering the network. An entry that is resolved, found in a
+        // finalized block, or older than its mortal era by a wide margin no
+        // longer stands in the way, whether or not its result could be read.
         guard !sora2Submissions.contains(where: {
             $0.account == soraAddress &&
-                !$0.isPrunable
+                $0.mayStillEnterChain(now: now)
         }) else {
             throw WalletPendingDeletionPreflightError
                 .unresolvedSora2Submission
@@ -520,8 +529,18 @@ private final class WalletPendingDeletionPreflightOperation:
         do {
             sora2Submissions = try Sora2PendingSubmissionStore().all()
         } catch {
-            throw WalletPendingDeletionPreflightError
-                .sora2JournalUnavailable
+            // Removal waits only for a transaction that may still be
+            // entering the network, and such an entry was written within
+            // the submission window. A journal that cannot be read and was
+            // last written before that holds none, so it does not block
+            // removal for good.
+            guard Sora2PendingSubmissionStore
+                .journalPredatesSubmissionWindow(now: Date())
+            else {
+                throw WalletPendingDeletionPreflightError
+                    .sora2JournalUnavailable
+            }
+            sora2Submissions = []
         }
 
         try WalletPendingDeletionPolicy.validate(

@@ -73,6 +73,11 @@ extension RecentActivityItemService: EventVisitorProtocol {
     func processNewTransaction(event: WalletNewTransactionInserted) {
         setup()
     }
+
+    /// A sent transaction received its final status: show it.
+    func processPendingSubmissionsResolved(event _: Sora2PendingSubmissionsResolved) {
+        setup()
+    }
 }
 
 extension RecentActivityItemService: AssetProviderObserverProtocol {

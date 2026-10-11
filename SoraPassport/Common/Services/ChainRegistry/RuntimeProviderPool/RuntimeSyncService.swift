@@ -381,8 +381,17 @@ final class RuntimeSyncService {
             engine: metadataConnection,
             method: RPCMethod.getRuntimeMetadata
         )
+        // The node the download is addressed to. A proof is recorded for
+        // it only when the connection still points at it afterwards.
+        let nodeBeforeDownload = NSLock()
+        var downloadNode: String?
 
         remoteMetadaOperation.configurationBlock = {
+            nodeBeforeDownload.lock()
+            downloadNode = Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                for: connection.url
+            )
+            nodeBeforeDownload.unlock()
             guard !replacingCachedMetadata else {
                 // The stored copy is never deleted here; it is replaced only
                 // after the downloaded bytes pass admission below.
@@ -446,14 +455,22 @@ final class RuntimeSyncService {
                 return
             }
             // Saved bytes came from the connected node and declare exactly
-            // this runtime version, so they are its live metadata. Signing
-            // then needs only the node's runtime version.
+            // this runtime version, so they are that node's live metadata.
+            // Signing on that node then needs only its runtime version.
+            nodeBeforeDownload.lock()
+            let node = downloadNode
+            nodeBeforeDownload.unlock()
             if isReviewedSoraChain,
+               let node,
+               node == Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                   for: connection.url
+               ),
                let hexMetadata = try? remoteMetadaOperation
                 .extractNoCancellableResultData(),
                let rawMetadata = try? Data(hexStringSSF: hexMetadata) {
                 proofs.recordAdmittedMetadata(
                     rawMetadata,
+                    node: node,
                     specVersion: runtimeVersion.specVersion,
                     transactionVersion: runtimeVersion.transactionVersion
                 )

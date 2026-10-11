@@ -4129,7 +4129,10 @@ final class WalletModernizationTests: XCTestCase {
                     polkamarktTransactions: [],
                     sora2Submissions: [unresolvedSora2],
                     walletId: walletId,
-                    soraAddress: soraAddress
+                    soraAddress: soraAddress,
+                    // Just after signing: the transaction may still be
+                    // entering the network.
+                    now: createdAt.addingTimeInterval(60)
                 ),
                 "SORA2 state \(state.rawValue) did not block deletion"
             ) { error in
@@ -17225,12 +17228,14 @@ final class WalletModernizationTests: XCTestCase {
             updatedAt: Date(timeIntervalSince1970: 3),
             state: .submissionUnknown
         )
+        let journalTime = Date(timeIntervalSince1970: 100)
         let journalOverlay = TransactionHistoryMergeManager
             .pendingJournalOverlay(
                 address: "sender",
                 submissions: [journal, journal],
                 visibleLocalItems: [],
-                remoteHashes: []
+                remoteHashes: [],
+                now: journalTime
             )
         XCTAssertEqual(journalOverlay.count, 1)
         XCTAssertEqual(journalOverlay.first?.txHash, "0x\(journalHash)")
@@ -17253,7 +17258,19 @@ final class WalletModernizationTests: XCTestCase {
                 address: "another-account",
                 submissions: [journal],
                 visibleLocalItems: [],
-                remoteHashes: []
+                remoteHashes: [],
+                now: journalTime
+            ).isEmpty
+        )
+        // An entry nobody could resolve for more than a week no longer
+        // claims to be pending.
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.pendingJournalOverlay(
+                address: "sender",
+                submissions: [journal],
+                visibleLocalItems: [],
+                remoteHashes: [],
+                now: Date(timeIntervalSince1970: 2 + 8 * 24 * 3_600)
             ).isEmpty
         )
     }
