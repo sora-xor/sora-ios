@@ -329,10 +329,18 @@ private final class Installation {
     /// The production startup sequence of `SplashInteractor`, against this
     /// installation: journal and startup recovery, database migration, then
     /// the network bootstrap and the scoped-copy backfill.
+    ///
+    /// - Parameter sweepsHelperFilesFirst: the explicit sweep that
+    ///   `SplashInteractor.performStorageMigration` runs first. Tests pass
+    ///   false to show that each folder check also copes by itself.
     @discardableResult
     func startup(migration: (() throws -> Void)? = nil,
-                 checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil) throws
+                 checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
+                 sweepsHelperFilesFirst: Bool = true) throws
         -> WalletStorageStartupOutcome {
+        if sweepsHelperFilesFirst {
+            WalletInterruptedWriteCleanup.run(storeURL: storeURL, applicationSupportURL: directory)
+        }
         let gate = self.gate()
         let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
         let database = try migrator(gate: gate, checkpoint: checkpoint)
@@ -350,6 +358,9 @@ private final class Installation {
             try database.migrateAtStartup(lifecycleCoordinator: coordinator, hasUnresolvedAccountCommit: {
                 try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty
             })
+            try WalletStartupDiagnostic.check(.pendingTransactions) {
+                try PendingTransactionRecords.requireReadable(baseURL: directory)
+            }
         }
         guard outcome == .ready else { return outcome }
         let accounts = try KeySafetyStore.rows(at: storeURL)
@@ -2493,4 +2504,1276 @@ private final class AccountImportWireframeSpy: AccountImportWireframeProtocol {
                  completion: @escaping () -> Void) {}
     func present(viewModel: AlertPresentableViewModel, style: UIAlertController.Style,
                  from view: ControllerBackedProtocol?) {}
+}
+
+// MARK: - ik2-leftover-files (audit I3): a kill inside a file write
+
+/// One installation exactly as a process death at one instant leaves it: the
+/// files (hard links kept), the Keychain items and the settings.
+private struct KilledInstallation {
+    let label: String
+    let directory: URL
+    let keys: [String: Data]
+    let settings: [String: Any]
+
+    /// A fresh process over that state.
+    func revive() throws -> Installation {
+        let revived = try Installation()
+        try FileManager.default.removeItem(at: revived.directory)
+        try InterruptedWrite.copyTree(at: directory, to: revived.directory)
+        for (tag, bytes) in keys { try revived.keychain.base.addKey(bytes, with: tag) }
+        for (key, value) in settings { revived.settings.set(anyValue: value, for: key) }
+        return revived
+    }
+}
+
+private enum InterruptedWrite {
+    /// Copies a directory tree as a kill leaves it: two names of one file
+    /// stay two names of one file, and extended attributes (the simulator's
+    /// file-protection class) are kept.
+    static func copyTree(at source: URL, to destination: URL) throws {
+        let manager = FileManager.default
+        var firstCopies: [String: URL] = [:]
+        func copyDirectory(_ from: URL, _ to: URL) throws {
+            try manager.createDirectory(at: to, withIntermediateDirectories: true)
+            for name in try manager.contentsOfDirectory(atPath: from.path) {
+                let child = from.appendingPathComponent(name)
+                let target = to.appendingPathComponent(name)
+                var info = stat()
+                guard lstat(child.path, &info) == 0 else { throw CocoaError(.fileReadUnknown) }
+                switch info.st_mode & S_IFMT {
+                case S_IFDIR:
+                    try copyDirectory(child, target)
+                case S_IFREG:
+                    let identity = "\(info.st_dev):\(info.st_ino)"
+                    if let first = firstCopies[identity] {
+                        try manager.linkItem(at: first, to: target)
+                    } else {
+                        try manager.copyItem(at: child, to: target)
+                        firstCopies[identity] = target
+                    }
+                default:
+                    try manager.copyItem(at: child, to: target)
+                }
+            }
+        }
+        try copyDirectory(source, destination)
+    }
+
+    /// Every entry below `root` with a name only `DurableFileWriter` creates.
+    static func helperFiles(under root: URL) -> [String] {
+        guard let enumerator = FileManager.default.enumerator(atPath: root.path) else { return [] }
+        return enumerator.compactMap { $0 as? String }.filter {
+            DurableFileWriter.leftoverKind(ofEntryNamed: ($0 as NSString).lastPathComponent) != nil
+        }.sorted()
+    }
+
+    static func names(in directory: URL) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+    }
+
+    /// Recursive: an observer may itself make a durable write.
+    private static let lock = NSRecursiveLock()
+
+    /// Runs `body` with an observer on every checkpoint the writer reaches
+    /// below `root`. Writes of the host app in other folders are ignored.
+    static func observing(below root: URL,
+                          _ observer: @escaping (DurableFileWriter.Checkpoint, URL) throws -> Void,
+                          during body: () throws -> Void) rethrows {
+        let rootPath = root.resolvingSymlinksInPath().path
+        DurableFileWriter.checkpointObserver = { checkpoint, directory in
+            guard directory.resolvingSymlinksInPath().path.hasPrefix(rootPath) else { return }
+            lock.lock()
+            defer { lock.unlock() }
+            try observer(checkpoint, directory)
+        }
+        defer { DurableFileWriter.checkpointObserver = nil }
+        try body()
+    }
+
+    /// Runs `body` and returns what a kill would leave at every checkpoint
+    /// of every durable write it makes in `device`.
+    static func killStates(of device: Installation, label: String,
+                           during body: () throws -> Void) throws -> [KilledInstallation] {
+        var states: [KilledInstallation] = []
+        var failure: Error?
+        try observing(below: device.directory, { checkpoint, directory in
+            guard failure == nil else { return }
+            do {
+                states.append(try capture(device,
+                    label: "\(label) #\(states.count): \(checkpoint.rawValue) in \(directory.lastPathComponent)"))
+            } catch {
+                failure = error
+            }
+        }, during: body)
+        if let failure { throw failure }
+        return states
+    }
+
+    /// The installation as a kill at this instant leaves it.
+    static func capture(_ device: Installation, label: String) throws -> KilledInstallation {
+        let copy = FileManager.default.temporaryDirectory
+            .appendingPathComponent("killed-\(UUID().uuidString)", isDirectory: true)
+        try copyTree(at: device.directory, to: copy)
+        var settings: [String: Any] = [:]
+        for key in device.settings.allKeys() { settings[key] = device.settings.anyValue(for: key) }
+        return KilledInstallation(label: label, directory: copy, keys: try device.keychain.bytes(),
+                                  settings: settings)
+    }
+
+    /// One file of each kind the writer can leave, as written and as empty
+    /// files, and as extra names of `published` when there is one.
+    @discardableResult
+    static func plantHelperFiles(in directory: URL, besides published: URL? = nil) throws -> [URL] {
+        let manager = FileManager.default
+        var planted: [URL] = []
+        func name(_ prefix: String, _ suffix: String) -> URL {
+            directory.appendingPathComponent("\(prefix)\(UUID().uuidString)\(suffix)")
+        }
+        for content in [Data("content of an interrupted write".utf8), Data()] {
+            for url in [name(".durable-", ".tmp"), name(".durable-rollback-", ".anchor"),
+                        name(".durable-rollback-", ".safety-anchor"), name(".durable-failed-", ".withdrawn")] {
+                XCTAssertTrue(manager.createFile(atPath: url.path, contents: content))
+                planted.append(url)
+            }
+        }
+        if let published, manager.fileExists(atPath: published.path) {
+            for url in [name(".durable-rollback-", ".anchor"), name(".durable-rollback-", ".safety-anchor")] {
+                try manager.linkItem(at: published, to: url)
+                planted.append(url)
+            }
+        }
+        return planted
+    }
+}
+
+/// App Store 3.8.6 (`354f176c`) `AccountOptionsInteractor.logoutAndClean()`
+/// for an account that is not the last one, over this data:
+///
+///     let forgetOperation = accountRepository.saveOperation { [] } _: { [idToRemove] }
+///     forgetOperation.completionBlock = { ... self?.cleanKeystore(leavingPin: true) }
+///     // cleanKeystore(leavingPin: true): try? keystore.deleteEntropy(for: address)
+///     countOperation.completionBlock = { ...
+///         if let deleted = self?.account, deleted.isSelected {
+///             SelectedWalletSettings.shared.save(value: accounts[0])
+///
+/// The row goes, `-entropy` goes, the first remaining account is selected
+/// when the removed one was. 3.8.6 knows no network snapshot and no commit
+/// journal, so neither is touched.
+private enum AppStore386Removal {
+    static func logoutAndClean(_ account: AccountItem, storeURL: URL, keystore: KeystoreProtocol) throws {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: try KeySafetyStore.model(.version2))
+        let store = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil,
+                                                       at: storeURL, options: nil)
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        var failure: Error?
+        context.performAndWait {
+            do {
+                let rows = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "CDAccountItem"))
+                var remaining: [NSManagedObject] = []
+                for row in rows {
+                    if row.value(forKey: "identifier") as? String == account.address {
+                        context.delete(row)
+                    } else {
+                        remaining.append(row)
+                    }
+                }
+                remaining.sort {
+                    (($0.value(forKey: "order") as? NSNumber)?.intValue ?? 0) <
+                        (($1.value(forKey: "order") as? NSNumber)?.intValue ?? 0)
+                }
+                if account.isSelected, let first = remaining.first {
+                    for row in remaining { row.setValue(row === first, forKey: "isSelected") }
+                }
+                try context.save()
+            } catch {
+                failure = error
+            }
+        }
+        if let failure { throw failure }
+        try HistoricalWriter.appStore386RemoveAccount(account.address, keystore: keystore)
+    }
+}
+
+/// The Keychain as seen by a process that dies after `survivingAdds` more
+/// items were added: from then on no call reaches the Keychain, not even the
+/// cleanup an error path would run.
+private final class DyingKeychain: KeystoreProtocol {
+    private let base: KeystoreProtocol
+    private var survivingAdds: Int
+    private(set) var isDead = false
+
+    init(base: KeystoreProtocol, survivingAdds: Int) {
+        self.base = base
+        self.survivingAdds = survivingAdds
+    }
+
+    private func requireAlive() throws {
+        if isDead { throw KeystoreError.unexpectedFail }
+    }
+
+    func addKey(_ key: Data, with identifier: String) throws {
+        try requireAlive()
+        guard survivingAdds > 0 else {
+            isDead = true
+            throw KeystoreError.unexpectedFail
+        }
+        survivingAdds -= 1
+        try base.addKey(key, with: identifier)
+    }
+
+    func updateKey(_ key: Data, with identifier: String) throws {
+        try requireAlive()
+        try base.updateKey(key, with: identifier)
+    }
+
+    func fetchKey(for identifier: String) throws -> Data {
+        try requireAlive()
+        return try base.fetchKey(for: identifier)
+    }
+
+    func checkKey(for identifier: String) throws -> Bool {
+        try requireAlive()
+        return try base.checkKey(for: identifier)
+    }
+
+    func allKeyIdentifiers() throws -> [String] {
+        try requireAlive()
+        return try base.allKeyIdentifiers()
+    }
+
+    func deleteKey(for identifier: String) throws {
+        try requireAlive()
+        try base.deleteKey(for: identifier)
+    }
+}
+
+final class WalletInterruptedWriteTests: XCTestCase {
+    private var scratch: [URL] = []
+
+    override func tearDown() {
+        DurableFileWriter.checkpointObserver = nil
+        for url in scratch { try? FileManager.default.removeItem(at: url) }
+        scratch = []
+        super.tearDown()
+    }
+
+    private func makeDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ik2-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        scratch.append(directory)
+        return directory
+    }
+
+    private func upgradedTwoAccountDevice() throws -> (Installation, AccountItem, AccountItem) {
+        let device = try Installation()
+        let first = try HistoricalWriter.phraseImport(phrase12, username: "First", order: 0, isSelected: true,
+                                                      keystore: device.keychain.base)
+        let second = try HistoricalWriter.phraseImport(try phrase(entropy: 0x44, bytes: 16), username: "Second",
+                                                       order: 1, isSelected: false, keystore: device.keychain.base)
+        try KeySafetyStore.write([first, second], to: device.storeURL)
+        return (device, first, second)
+    }
+
+    /// A fresh process over `state` reaches a ready wallet, with and without
+    /// the explicit startup sweep, and leaves no helper file anywhere.
+    private func assertNextLaunchCompletes(_ state: KilledInstallation, accounts: [AccountItem],
+                                           file: StaticString = #filePath, line: UInt = #line) throws {
+        scratch.append(state.directory)
+        for sweepsFirst in [true, false] {
+            let label = "\(state.label), sweep first: \(sweepsFirst)"
+            let revived = try state.revive()
+            let keysBefore = try revived.keychain.bytes()
+            XCTAssertEqual(try revived.startup(sweepsHelperFilesFirst: sweepsFirst), .ready, label,
+                           file: file, line: line)
+            XCTAssertFalse(revived.settings.walletMigrationRecoveryRequired, label, file: file, line: line)
+            XCTAssertEqual(InterruptedWrite.helperFiles(under: revived.directory), [], label, file: file, line: line)
+            XCTAssertFalse(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: revived.storeURL),
+                           label, file: file, line: line)
+            XCTAssertEqual(try WalletAccountCommitJournalStore(baseURL: revived.directory,
+                recoveryGate: revived.isolatedGate()).unresolved().count, 0, label, file: file, line: line)
+            let snapshot = try XCTUnwrap(revived.networkStore().load(), label, file: file, line: line)
+            XCTAssertEqual(Set(snapshot.wallets.map(\.id)), Set(accounts.map(\.address)), label,
+                           file: file, line: line)
+            let snapshots = try InterruptedWrite.names(in: revived.directory.appendingPathComponent("SORA/WalletNetworks"))
+                .filter { $0.hasPrefix("wallet-network-") }
+            XCTAssertLessThanOrEqual(snapshots.count, 8, label, file: file, line: line)
+            for account in accounts {
+                XCTAssertTrue(try AppStore386Launch.canSign(account, keystore: revived.keychain), label,
+                              file: file, line: line)
+            }
+            // No existing Keychain item was changed or removed.
+            XCTAssertFalse(revived.keychain.changedExistingItems, label, file: file, line: line)
+            for (tag, bytes) in keysBefore {
+                XCTAssertEqual(try revived.keychain.fetchKey(for: tag), bytes, label, file: file, line: line)
+            }
+            // The launch after that one finds nothing left to do.
+            XCTAssertEqual(try revived.startup(sweepsHelperFilesFirst: false), .ready, label, file: file, line: line)
+        }
+    }
+
+    // MARK: 1. The writer and its helper files
+
+    func testOnlyTheWritersOwnNamesAreHelperFiles() {
+        let id = UUID().uuidString
+        XCTAssertEqual(DurableFileWriter.leftoverKind(ofEntryNamed: ".durable-\(id).tmp"), .temporary)
+        XCTAssertEqual(DurableFileWriter.leftoverKind(ofEntryNamed: ".durable-rollback-\(id).anchor"), .rollbackAnchor)
+        XCTAssertEqual(DurableFileWriter.leftoverKind(ofEntryNamed: ".durable-rollback-\(id).safety-anchor"),
+                       .safetyAnchor)
+        XCTAssertEqual(DurableFileWriter.leftoverKind(ofEntryNamed: ".durable-failed-\(id).withdrawn"), .withdrawn)
+        for name in ["active.json", "journal.json", "wallet-network-\(id).json", "wallet-account-\(id).json",
+                     "sora2-signed-v1.json", ".hidden", ".durable-", ".durable-.tmp", ".durable-\(id)",
+                     ".durable-\(id.lowercased()).tmp", ".durable-\(id).tmp.json", "x.durable-\(id).tmp",
+                     ".durable-\(id)-\(id).tmp", ".durable-capability-root-residue.anchor",
+                     ".durable-rollback-\(id).tmp", ".durable-failed-\(id).anchor", "durable-\(id).tmp"] {
+            XCTAssertNil(DurableFileWriter.leftoverKind(ofEntryNamed: name), name)
+        }
+    }
+
+    func testSweepRemovesHelperFilesAndNothingElse() throws {
+        let directory = try makeDirectory()
+        let published = directory.appendingPathComponent("journal.json")
+        try Data("published".utf8).write(to: published)
+        let hidden = directory.appendingPathComponent(".hidden")
+        try Data("not the writer's".utf8).write(to: hidden)
+        let planted = try InterruptedWrite.plantHelperFiles(in: directory, besides: published)
+        XCTAssertEqual(planted.count, 10)
+        // Entries with a helper name that the writer cannot have made.
+        let linkName = directory.appendingPathComponent(".durable-\(UUID().uuidString).tmp")
+        try FileManager.default.createSymbolicLink(at: linkName, withDestinationURL: published)
+        let folderName = directory.appendingPathComponent(".durable-rollback-\(UUID().uuidString).anchor")
+        try FileManager.default.createDirectory(at: folderName, withIntermediateDirectories: false)
+
+        // The strict listing leaves out nothing but the writer's own files.
+        let listed = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: directory, fileManager: .default, includingPropertiesForKeys: nil)
+        XCTAssertEqual(Set(listed.map(\.lastPathComponent)),
+                       ["journal.json", ".hidden", linkName.lastPathComponent, folderName.lastPathComponent])
+        // That listing has swept already; a sweep now finds only the two.
+        XCTAssertEqual(DurableFileWriter.sweepLeftovers(in: directory),
+                       DurableFileWriter.LeftoverSweep(removed: 0, kept: 2, deferredToActiveWrite: false))
+        XCTAssertEqual(try Data(contentsOf: published), Data("published".utf8))
+        XCTAssertEqual(try Data(contentsOf: hidden), Data("not the writer's".utf8))
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: linkName.path), published.path)
+        var info = stat()
+        XCTAssertEqual(lstat(published.path, &info), 0)
+        XCTAssertEqual(info.st_nlink, 1, "the extra names of the published file are gone")
+
+        // Counted when the sweep itself removes them.
+        let again = try InterruptedWrite.plantHelperFiles(in: directory, besides: published)
+        XCTAssertEqual(DurableFileWriter.sweepLeftovers(in: directory),
+                       DurableFileWriter.LeftoverSweep(removed: again.count, kept: 2, deferredToActiveWrite: false))
+        // A missing directory is nothing to sweep.
+        XCTAssertEqual(DurableFileWriter.sweepLeftovers(in: directory.appendingPathComponent("absent")),
+                       DurableFileWriter.LeftoverSweep())
+    }
+
+    func testAWriteInProgressIsNeverSweptAndNeverFailsAListing() throws {
+        let directory = try makeDirectory()
+        let target = directory.appendingPathComponent("journal.json")
+        try DurableFileWriter.write(Data("old".utf8), to: target, fileManager: .default,
+                                    protection: .completeUntilFirstUserAuthentication)
+        var seen: [DurableFileWriter.Checkpoint] = []
+        try InterruptedWrite.observing(below: directory, { checkpoint, _ in
+            seen.append(checkpoint)
+            let namesBefore = try InterruptedWrite.names(in: directory)
+            XCTAssertFalse(InterruptedWrite.helperFiles(under: directory).isEmpty, checkpoint.rawValue)
+            // Another thread's sweep or strict listing at this instant.
+            var sweep = DurableFileWriter.LeftoverSweep()
+            var listed: [String] = []
+            let other = Thread {
+                sweep = DurableFileWriter.sweepLeftovers(in: directory)
+                listed = ((try? DurableFileWriter.contentsIgnoringLeftovers(
+                    of: directory, fileManager: .default, includingPropertiesForKeys: nil)) ?? [])
+                    .map(\.lastPathComponent)
+            }
+            let done = DispatchSemaphore(value: 0)
+            let waiter = Thread { other.start(); while !other.isFinished { usleep(500) }; done.signal() }
+            waiter.start()
+            done.wait()
+            XCTAssertEqual(sweep, DurableFileWriter.LeftoverSweep(removed: 0, kept: 0, deferredToActiveWrite: true),
+                           checkpoint.rawValue)
+            XCTAssertEqual(listed, ["journal.json"], checkpoint.rawValue)
+            XCTAssertEqual(try InterruptedWrite.names(in: directory), namesBefore, checkpoint.rawValue)
+        }, during: {
+            try DurableFileWriter.write(Data("new".utf8), to: target, fileManager: .default,
+                                        protection: .completeUntilFirstUserAuthentication)
+        })
+        XCTAssertEqual(seen, [.temporaryFileCreated, .temporaryFileWritten, .rollbackAnchorLinked,
+                              .rollbackAnchorSynchronized, .published, .publicationSynchronized,
+                              .displacedOriginalRemoved])
+        XCTAssertEqual(try Data(contentsOf: target), Data("new".utf8))
+        XCTAssertEqual(try InterruptedWrite.names(in: directory), ["journal.json"])
+        // Once the write has returned, the directory can be swept again.
+        XCTAssertFalse(DurableFileWriter.sweepLeftovers(in: directory).deferredToActiveWrite)
+    }
+
+    func testAKillAtAnyStepOfAWriteLeavesThePublishedFileWholeAndOnlySweepableFiles() throws {
+        for replacesExisting in [false, true] {
+            let directory = try makeDirectory()
+            let target = directory.appendingPathComponent("active.json")
+            if replacesExisting {
+                try DurableFileWriter.write(Data("old".utf8), to: target, fileManager: .default,
+                                            protection: .completeUntilFirstUserAuthentication)
+            }
+            var states: [(DurableFileWriter.Checkpoint, URL)] = []
+            try InterruptedWrite.observing(below: directory, { checkpoint, _ in
+                let copy = try self.makeDirectory()
+                try FileManager.default.removeItem(at: copy)
+                try InterruptedWrite.copyTree(at: directory, to: copy)
+                states.append((checkpoint, copy))
+            }, during: {
+                try DurableFileWriter.write(Data("new".utf8), to: target, fileManager: .default,
+                                            protection: .completeUntilFirstUserAuthentication)
+            })
+            XCTAssertEqual(states.count, replacesExisting ? 7 : 4)
+            var kindsSeen = Set<DurableFileWriter.LeftoverKind>()
+            for (checkpoint, killed) in states {
+                let label = "\(checkpoint.rawValue), replaces existing: \(replacesExisting)"
+                let published = killed.appendingPathComponent("active.json")
+                let before = try? Data(contentsOf: published)
+                // The published name holds the whole old or the whole new file.
+                if replacesExisting {
+                    XCTAssertTrue(before == Data("old".utf8) || before == Data("new".utf8), label)
+                } else {
+                    XCTAssertTrue(before == nil || before == Data("new".utf8), label)
+                }
+                let helpers = InterruptedWrite.helperFiles(under: killed)
+                helpers.compactMap(DurableFileWriter.leftoverKind(ofEntryNamed:)).forEach { kindsSeen.insert($0) }
+                let sweep = DurableFileWriter.sweepLeftovers(in: killed)
+                XCTAssertEqual(sweep, DurableFileWriter.LeftoverSweep(removed: helpers.count, kept: 0,
+                                                                      deferredToActiveWrite: false), label)
+                XCTAssertEqual(try InterruptedWrite.names(in: killed), before == nil ? [] : ["active.json"], label)
+                XCTAssertEqual(try? Data(contentsOf: published), before, label)
+                // The interrupted write can simply be made again.
+                try DurableFileWriter.write(Data("retry".utf8), to: published, fileManager: .default,
+                                            protection: .completeUntilFirstUserAuthentication)
+                XCTAssertEqual(try Data(contentsOf: published), Data("retry".utf8), label)
+                XCTAssertEqual(try InterruptedWrite.names(in: killed), ["active.json"], label)
+            }
+            XCTAssertEqual(kindsSeen, replacesExisting ? [.temporary, .rollbackAnchor] : [.temporary])
+        }
+    }
+
+    func testAnErrorAtAnyStepOfAWriteLeavesNoHelperFileAndAWholePublishedFile() throws {
+        struct InjectedFailure: Error {}
+        for replacesExisting in [false, true] {
+            for failing in DurableFileWriter.Checkpoint.allCases {
+                let directory = try makeDirectory()
+                let target = directory.appendingPathComponent("active.json")
+                if replacesExisting {
+                    try DurableFileWriter.write(Data("old".utf8), to: target, fileManager: .default,
+                                                protection: .completeUntilFirstUserAuthentication)
+                }
+                var reached = false
+                var later: [DurableFileWriter.Checkpoint] = []
+                var thrown: Error?
+                do {
+                    try InterruptedWrite.observing(below: directory, { checkpoint, _ in
+                        if checkpoint == failing, !reached {
+                            reached = true
+                            throw InjectedFailure()
+                        }
+                        if reached { later.append(checkpoint) }
+                    }, during: {
+                        try DurableFileWriter.write(Data("new".utf8), to: target, fileManager: .default,
+                                                    protection: .completeUntilFirstUserAuthentication)
+                    })
+                } catch {
+                    thrown = error
+                }
+                let label = "\(failing.rawValue), replaces existing: \(replacesExisting), then \(later.map(\.rawValue))"
+                // Whatever happened, the directory holds no helper file.
+                XCTAssertEqual(InterruptedWrite.helperFiles(under: directory), [], label)
+                let content = try? Data(contentsOf: target)
+                guard reached else {
+                    // A step this kind of write does not have.
+                    XCTAssertNil(thrown, label)
+                    XCTAssertEqual(content, Data("new".utf8), label)
+                    continue
+                }
+                if failing == .displacedOriginalRemoved {
+                    // The write was committed before this step; it reports success.
+                    XCTAssertNil(thrown, label)
+                    XCTAssertEqual(content, Data("new".utf8), label)
+                } else {
+                    XCTAssertNotNil(thrown, label)
+                    // A failed write leaves the old file (or no file) in place.
+                    XCTAssertEqual(content, replacesExisting ? Data("old".utf8) : nil, label)
+                    XCTAssertEqual(try InterruptedWrite.names(in: directory),
+                                   replacesExisting ? ["active.json"] : [], label)
+                }
+                // And the same write succeeds when it is made again.
+                try DurableFileWriter.write(Data("retry".utf8), to: target, fileManager: .default,
+                                            protection: .completeUntilFirstUserAuthentication)
+                XCTAssertEqual(try Data(contentsOf: target), Data("retry".utf8), label)
+                XCTAssertEqual(try InterruptedWrite.names(in: directory), ["active.json"], label)
+            }
+        }
+    }
+
+    func testAnErrorWhileAFailedWriteIsRolledBackLeavesNoHelperFile() throws {
+        struct InjectedFailure: Error {}
+        // The publication fails, and then the rollback (or the withdrawal of
+        // a new file) fails as well, at each of its steps.
+        for replacesExisting in [false, true] {
+            for second in [DurableFileWriter.Checkpoint.safetyAnchorLinked, .rolledBack, .failedPublicationWithdrawn] {
+                let directory = try makeDirectory()
+                let target = directory.appendingPathComponent("active.json")
+                if replacesExisting {
+                    try DurableFileWriter.write(Data("old".utf8), to: target, fileManager: .default,
+                                                protection: .completeUntilFirstUserAuthentication)
+                }
+                var reachedSecond = false
+                XCTAssertThrowsError(try InterruptedWrite.observing(below: directory, { checkpoint, _ in
+                    if checkpoint == .publicationSynchronized { throw InjectedFailure() }
+                    if checkpoint == second {
+                        reachedSecond = true
+                        throw InjectedFailure()
+                    }
+                }, during: {
+                    try DurableFileWriter.write(Data("new".utf8), to: target, fileManager: .default,
+                                                protection: .completeUntilFirstUserAuthentication)
+                }))
+                let label = "\(second.rawValue), replaces existing: \(replacesExisting), reached: \(reachedSecond)"
+                XCTAssertEqual(InterruptedWrite.helperFiles(under: directory), [], label)
+                // The published name holds a whole file: the old one, or the
+                // new one when the rollback itself could not be completed
+                // (what a kill at that instant leaves too).
+                let content = try? Data(contentsOf: target)
+                if replacesExisting {
+                    XCTAssertTrue(content == Data("old".utf8) || content == Data("new".utf8), label)
+                } else {
+                    XCTAssertNil(content, label)
+                }
+                try DurableFileWriter.write(Data("retry".utf8), to: target, fileManager: .default,
+                                            protection: .completeUntilFirstUserAuthentication)
+                XCTAssertEqual(try InterruptedWrite.names(in: directory), ["active.json"], label)
+            }
+        }
+    }
+
+    // MARK: 2. Each strict folder with each kind of helper file
+
+    func testPlantedHelperFilesInEveryWalletFolderAreGoneAfterStartup() throws {
+        for sweepsFirst in [true, false] {
+            let (device, first, second) = try upgradedTwoAccountDevice()
+            XCTAssertEqual(try device.startup(), .ready)
+            // A journal and a pending-transaction record exist, so each
+            // folder has a published file to plant extra names of.
+            let journals = try WalletAccountCommitJournalStore(baseURL: device.directory,
+                                                               recoveryGate: device.isolatedGate())
+            var commit = try journals.begin(walletId: "cnAnAccountAddedEarlier",
+                                            existingWalletIds: [first.address, second.address])
+            for stage in [WalletAccountCommitStage.secretsPersisted, .coreDataCommitted,
+                          .networkModelActivated, .activated] {
+                commit = try journals.advance(commit, to: stage)
+            }
+            let pending = try Sora2PendingSubmissionStore(baseURL: device.directory)
+            _ = try pending.stage(account: first.address, hash: "0x" + String(repeating: "ab", count: 32))
+            let keysBefore = try device.keychain.bytes()
+
+            let sora = device.directory.appendingPathComponent("SORA", isDirectory: true)
+            let attempt = try XCTUnwrap(try FileManager.default.contentsOfDirectory(
+                at: device.directory.appendingPathComponent("WalletMigrationSafety"),
+                includingPropertiesForKeys: nil).first)
+            let networks = sora.appendingPathComponent("WalletNetworks")
+            let commits = sora.appendingPathComponent("WalletAccountCommits")
+            let transactions = sora.appendingPathComponent("PendingTransactions")
+            let journal = try XCTUnwrap(try FileManager.default.contentsOfDirectory(
+                at: commits, includingPropertiesForKeys: nil).first)
+            var planted: [URL] = []
+            planted += try InterruptedWrite.plantHelperFiles(in: networks,
+                                                             besides: networks.appendingPathComponent("active.json"))
+            planted += try InterruptedWrite.plantHelperFiles(in: commits, besides: journal)
+            planted += try InterruptedWrite.plantHelperFiles(
+                in: transactions, besides: transactions.appendingPathComponent("sora2-signed-v1.json"))
+            planted += try InterruptedWrite.plantHelperFiles(in: attempt,
+                                                             besides: attempt.appendingPathComponent("journal.json"))
+            planted += try InterruptedWrite.plantHelperFiles(
+                in: attempt.appendingPathComponent("legacy-store"),
+                besides: attempt.appendingPathComponent("legacy-store/backup-manifest.json"))
+            planted += try InterruptedWrite.plantHelperFiles(in: attempt.appendingPathComponent("staging"))
+            XCTAssertEqual(planted.count, 58)
+
+            let accounts = [first, second].map(\.address)
+            let label = "sweep first: \(sweepsFirst)"
+            XCTAssertEqual(try device.startup(sweepsHelperFilesFirst: sweepsFirst), .ready, label)
+            XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, label)
+            if !sweepsFirst {
+                // Without the explicit sweep each folder is cleaned by its
+                // own check, when that check runs.
+                XCTAssertFalse(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: device.storeURL))
+                _ = try pending.all()
+                // "staging" is read only while an attempt is unfinished.
+                XCTAssertEqual(InterruptedWrite.helperFiles(under: attempt).filter { !$0.hasPrefix("staging/") },
+                               [], label)
+            } else {
+                XCTAssertEqual(InterruptedWrite.helperFiles(under: device.directory), [], label)
+            }
+            XCTAssertEqual(InterruptedWrite.helperFiles(under: sora), [], label)
+            XCTAssertFalse(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: device.storeURL), label)
+            XCTAssertEqual(Set(try XCTUnwrap(device.networkStore().load()).wallets.map(\.id)), Set(accounts), label)
+            XCTAssertEqual(try WalletAccountCommitJournalStore(baseURL: device.directory,
+                recoveryGate: device.isolatedGate()).unresolved().count, 0, label)
+            // Sending works: the next record is staged.
+            _ = try pending.stage(account: first.address, hash: "0x" + String(repeating: "cd", count: 32))
+            XCTAssertEqual(try pending.all().count, 2, label)
+            XCTAssertEqual(try device.keychain.bytes(), keysBefore, label)
+            XCTAssertTrue(try AppStore386Launch.canSign(first, keystore: device.keychain), label)
+        }
+    }
+}
+
+extension WalletInterruptedWriteTests {
+    private func snapshotNames(_ device: Installation) throws -> [String] {
+        try InterruptedWrite.names(in: device.directory.appendingPathComponent("SORA/WalletNetworks"))
+            .filter { $0.hasPrefix("wallet-network-") }
+    }
+
+    private func keyStatus(_ account: AccountItem, on device: Installation) throws -> WalletAccountKeyAvailability {
+        try WalletAccountKeyAvailability.status(for: account, keystore: device.keychain, settings: device.settings,
+            activeSnapshot: device.networkStore().load(), recoveryGate: device.isolatedGate())
+    }
+
+    private func transactionHash(_ byte: UInt8) -> String {
+        "0x" + String(repeating: String(format: "%02x", byte), count: 32)
+    }
+
+    // MARK: 3. A kill at any step, then a fresh start
+
+    func testAKillAtAnyStepOfTheFirstLaunchAfterTheUpgradeIsCompletedByTheNextLaunch() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        let states = try InterruptedWrite.killStates(of: device, label: "first launch") {
+            XCTAssertEqual(try device.startup(), .ready)
+        }
+        // Six writes in the migration attempt and two in WalletNetworks.
+        XCTAssertGreaterThanOrEqual(states.count, 32)
+        XCTAssertTrue(states.contains { !InterruptedWrite.helperFiles(under: $0.directory).isEmpty })
+        // Among them the state the audit names: the first snapshot is
+        // written and its pointer is not.
+        XCTAssertTrue(states.contains { state in
+            let names = (try? InterruptedWrite.names(
+                in: state.directory.appendingPathComponent("SORA/WalletNetworks"))) ?? []
+            return names.contains { $0.hasPrefix("wallet-network-") } && !names.contains("active.json")
+        })
+        for state in states {
+            try assertNextLaunchCompletes(state, accounts: [first, second])
+        }
+    }
+
+    func testAKillAtAnyStepOfAnAccountSwitchOrRemovalIsCompletedByTheNextLaunch() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        XCTAssertEqual(try device.startup(), .ready)
+        let store = try device.networkStore()
+        // Fill the folder to its bound of eight snapshots. From here on every
+        // activation passes through nine before it prunes.
+        for index in 0 ..< 8 {
+            try store.selectWallet(walletId: index % 2 == 0 ? second.address : first.address,
+                                   expectedAccounts: [first, second])
+        }
+        XCTAssertEqual(try snapshotNames(device).count, 8)
+        var states = try InterruptedWrite.killStates(of: device, label: "switch") {
+            try store.selectWallet(walletId: second.address, expectedAccounts: [first, second])
+        }
+        XCTAssertTrue(states.contains { state in
+            let names = (try? InterruptedWrite.names(
+                in: state.directory.appendingPathComponent("SORA/WalletNetworks"))) ?? []
+            return names.filter { $0.hasPrefix("wallet-network-") }.count == 9
+        })
+        // A removal records itself in the snapshot before the row is deleted.
+        states += try InterruptedWrite.killStates(of: device, label: "removal") {
+            try store.recordExplicitRemoval(walletId: second.address,
+                                            expectedWalletIds: [first.address, second.address],
+                                            selectedWalletId: second.address)
+        }
+        XCTAssertGreaterThanOrEqual(states.count, 22)
+        for state in states {
+            try assertNextLaunchCompletes(state, accounts: [first, second])
+        }
+    }
+
+    func testAKillAtAnyStepOfAnAccountJournalWriteLeavesAReadableJournal() throws {
+        let directory = try makeDirectory()
+        let gate = WalletRecoveryCapabilityGate(settings: InMemorySettingsManager(),
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let journals = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: gate)
+        var states: [(String, URL)] = []
+        var commit: WalletAccountCommitJournal?
+        try InterruptedWrite.observing(below: directory, { checkpoint, _ in
+            let copy = try self.makeDirectory()
+            try FileManager.default.removeItem(at: copy)
+            try InterruptedWrite.copyTree(at: directory, to: copy)
+            states.append((checkpoint.rawValue, copy))
+        }, during: {
+            var journal = try journals.begin(walletId: "cnNewAccount", existingWalletIds: ["cnExisting"])
+            for stage in [WalletAccountCommitStage.secretsPersisted, .coreDataCommitted,
+                          .networkModelActivated, .activated] {
+                journal = try journals.advance(journal, to: stage)
+            }
+            commit = journal
+        })
+        XCTAssertEqual(commit?.stage, .activated)
+        // One new journal file, then four replacements.
+        XCTAssertEqual(states.count, 4 + 4 * 7)
+        for (label, killed) in states {
+            // A fresh process reads the folder without an error: no journal
+            // yet, or the one journal at a whole earlier or later stage.
+            let revived = try WalletAccountCommitJournalStore(baseURL: killed, recoveryGate: gate)
+            let found = try revived.journalsForLegacyRecovery()
+            XCTAssertLessThanOrEqual(found.count, 1, label)
+            XCTAssertTrue(found.allSatisfy { $0.walletId == "cnNewAccount" }, label)
+            XCTAssertEqual(InterruptedWrite.helperFiles(under: killed), [], label)
+        }
+    }
+
+    // MARK: 4. Snapshot states of an interrupted activation
+
+    func testAFirstSnapshotWithoutItsPointerIsCompletedAndOtherPointerlessStatesStillFail() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        XCTAssertEqual(try device.startup(), .ready)
+        let networks = device.directory.appendingPathComponent("SORA/WalletNetworks")
+        let pointer = networks.appendingPathComponent("active.json")
+        let expected = try XCTUnwrap(device.networkStore().load())
+        let pointerBytes = try Data(contentsOf: pointer)
+        XCTAssertEqual(try snapshotNames(device).count, 1)
+        let snapshotFile = networks.appendingPathComponent(try XCTUnwrap(snapshotNames(device).first))
+
+        // The first activation wrote its snapshot and died before the pointer.
+        try FileManager.default.removeItem(at: pointer)
+        XCTAssertEqual(try device.networkStore().load(), expected)
+        XCTAssertEqual(try Data(contentsOf: pointer), pointerBytes)
+        try FileManager.default.removeItem(at: pointer)
+        XCTAssertEqual(try device.startup(sweepsHelperFilesFirst: false), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try Data(contentsOf: pointer), pointerBytes)
+        XCTAssertEqual(Set(try XCTUnwrap(device.networkStore().load()).wallets.map(\.id)),
+                       [first.address, second.address])
+
+        // Two snapshots and no pointer is not a state an interrupted
+        // activation leaves: nothing is guessed and nothing is written.
+        let copy = networks.appendingPathComponent("wallet-network-\(UUID().uuidString).json")
+        try FileManager.default.copyItem(at: snapshotFile, to: copy)
+        try FileManager.default.removeItem(at: pointer)
+        XCTAssertThrowsError(try device.networkStore().load()) {
+            guard case WalletNetworkMigrationError.snapshotVerificationFailed = $0 else { return XCTFail("\($0)") }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: pointer.path))
+        try FileManager.default.removeItem(at: copy)
+
+        // One snapshot that does not decode is not adopted either.
+        let snapshotBytes = try Data(contentsOf: snapshotFile)
+        try Data("not a snapshot".utf8).write(to: snapshotFile)
+        XCTAssertThrowsError(try device.networkStore().load())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: pointer.path))
+        try snapshotBytes.write(to: snapshotFile)
+        XCTAssertEqual(try device.networkStore().load(), expected)
+    }
+
+    // MARK: 5. An account removed in App Store 3.8.6 after this version ran
+
+    func testAnAccountRemovedInAppStore386IsRecordedAsRemovedAndTheOthersOpen() throws {
+        for removesSelected in [false, true] {
+            for latchedByAnEarlierBuild in [false, true] {
+                let label = "removes selected: \(removesSelected), latched: \(latchedByAnEarlierBuild)"
+                let (device, first, second) = try upgradedTwoAccountDevice()
+                XCTAssertEqual(try device.startup(), .ready, label)
+                XCTAssertEqual(try device.networkStore().load()?.wallets.count, 2, label)
+                let removed = removesSelected ? first : second
+                let kept = removesSelected ? second : first
+
+                // App Store 3.8.6 runs over this data again and the user
+                // removes an account there.
+                try AppStore386Removal.logoutAndClean(removed, storeURL: device.storeURL,
+                                                      keystore: device.keychain.base)
+                XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.address), [kept.address], label)
+                XCTAssertEqual(try AppStore386Launch.run(storeURL: device.storeURL, keystore: device.keychain.base,
+                                                         settings: device.settings).selected?.address,
+                               kept.address, label)
+                let keys = try device.keychain.bytes()
+                XCTAssertNil(keys[KeystoreTag.entropyTagForAddress(removed.address)], label)
+                XCTAssertNotNil(keys[KeystoreTag.secretKeyTagForAddress(removed.address)], label)
+                if latchedByAnEarlierBuild {
+                    // What 3.9.0 builds before this fix recorded here, on
+                    // every launch.
+                    device.settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                        .privacySafeRecoveryDescription(for: WalletNetworkMigrationError
+                            .legacyIdentityMismatch(removed.address)))
+                }
+
+                // Back in this version: the wallet opens.
+                XCTAssertEqual(try device.startup(), .ready, label)
+                XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, label)
+                let snapshot = try XCTUnwrap(device.networkStore().load(), label)
+                XCTAssertEqual(snapshot.wallets.map(\.id), [kept.address], label)
+                XCTAssertEqual(snapshot.selectedWalletId, kept.address, label)
+                XCTAssertTrue(snapshot.accounts.allSatisfy { $0.walletId == kept.address }, label)
+                XCTAssertTrue(try AppStore386Launch.canSign(kept, keystore: device.keychain), label)
+                XCTAssertEqual(try keyStatus(kept, on: device), .available, label)
+                // The removed account's items are exactly what 3.8.6 left.
+                XCTAssertEqual(try device.keychain.bytes(), keys, label)
+                XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems, label)
+                // The snapshot that listed it is kept; the next launch has
+                // nothing more to record.
+                XCTAssertGreaterThanOrEqual(try snapshotNames(device).count, 2, label)
+                XCTAssertEqual(try device.startup(), .ready, label)
+                XCTAssertEqual(try device.networkStore().load(), snapshot, label)
+            }
+        }
+    }
+
+    // MARK: 6. Records of unfinished transactions
+
+    func testAKillAtAnyStepOfATransactionRecordWriteNeverBlocksTheNextSend() throws {
+        let directory = try makeDirectory()
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        _ = try store.stage(account: "cnAccount", hash: transactionHash(0xa1))
+        var states: [(String, URL)] = []
+        try InterruptedWrite.observing(below: directory, { checkpoint, _ in
+            let copy = try self.makeDirectory()
+            try FileManager.default.removeItem(at: copy)
+            try InterruptedWrite.copyTree(at: directory, to: copy)
+            states.append((checkpoint.rawValue, copy))
+        }, during: {
+            _ = try store.stage(account: "cnAccount", hash: self.transactionHash(0xb2))
+        })
+        XCTAssertEqual(states.count, 7)
+        XCTAssertTrue(states.contains { !InterruptedWrite.helperFiles(under: $0.1).isEmpty })
+        for (label, killed) in states {
+            // A fresh process over that folder.
+            XCTAssertTrue(PendingTransactionRecords.isReadable(baseURL: killed), label)
+            let revived = try Sora2PendingSubmissionStore(baseURL: killed)
+            let before = try revived.all().count
+            XCTAssertTrue(before == 1 || before == 2, label)
+            _ = try revived.stage(account: "cnAccount", hash: transactionHash(0xc3))
+            XCTAssertEqual(try revived.all().count, before + 1, label)
+            XCTAssertEqual(InterruptedWrite.helperFiles(under: killed), [], label)
+        }
+    }
+
+    func testAWriteOfAnotherJournalInProgressDoesNotRefuseASend() throws {
+        let directory = try makeDirectory()
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        let folder = directory.appendingPathComponent("SORA/PendingTransactions")
+        _ = try store.stage(account: "cnAccount", hash: transactionHash(0xa1))
+        let other = folder.appendingPathComponent("polkamarkt-v1.json")
+        try DurableFileWriter.write(Data("[]".utf8), to: other, fileManager: .default,
+                                    protection: .completeUntilFirstUserAuthentication)
+        var staged = 0
+        var busy = false
+        try InterruptedWrite.observing(below: directory, { _, _ in
+            guard !busy else { return }
+            busy = true
+            defer { busy = false }
+            XCTAssertFalse(InterruptedWrite.helperFiles(under: folder).isEmpty)
+            staged += 1
+            _ = try store.stage(account: "cnAccount", hash: self.transactionHash(0xb0 + UInt8(staged)))
+            XCTAssertEqual(try store.all().count, 1 + staged)
+        }, during: {
+            try DurableFileWriter.write(Data("[ ]".utf8), to: other, fileManager: .default,
+                                        protection: .completeUntilFirstUserAuthentication)
+        })
+        XCTAssertEqual(staged, 7)
+        XCTAssertEqual(try Data(contentsOf: other), Data("[ ]".utf8))
+        XCTAssertEqual(try InterruptedWrite.names(in: folder), ["polkamarkt-v1.json", "sora2-signed-v1.json"])
+    }
+
+    func testUnreadableTransactionRecordsShowRecoveryAndCanBeSetAside() throws {
+        let (device, first, second) = try upgradedTwoAccountDevice()
+        XCTAssertEqual(try device.startup(), .ready)
+        let store = try Sora2PendingSubmissionStore(baseURL: device.directory)
+        _ = try store.stage(account: first.address, hash: transactionHash(0xa1))
+        let folder = device.directory.appendingPathComponent("SORA/PendingTransactions")
+        let journal = folder.appendingPathComponent("sora2-signed-v1.json")
+        let keys = try device.keychain.bytes()
+        let root = device.directory.appendingPathComponent("WalletSetAside")
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: device.isolatedGate())
+
+        for (index, breakage) in ["an entry this version does not know", "a journal that does not decode"]
+            .enumerated() {
+            if index == 0 {
+                try Data("a later version's journal".utf8).write(
+                    to: folder.appendingPathComponent("sora2-signed-v2.json"))
+            } else {
+                try Data("not a journal".utf8).write(to: journal)
+            }
+            let before = try Dictionary(uniqueKeysWithValues: InterruptedWrite.names(in: folder).map {
+                ($0, try Data(contentsOf: folder.appendingPathComponent($0)))
+            })
+
+            // Every send is refused...
+            XCTAssertThrowsError(try store.stage(account: first.address, hash: transactionHash(0xb2)), breakage)
+            XCTAssertFalse(PendingTransactionRecords.isReadable(baseURL: device.directory), breakage)
+            // ...so the next launch says so on the recovery screen, where
+            // "Try again" is offered together with the action that fixes it.
+            XCTAssertEqual(try device.startup(), .recoveryRequired, breakage)
+            XCTAssertTrue(WalletMigrationRecoveryMarker.capture(device.settings).isRetryableStartupFailure, breakage)
+            let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(device.settings), breakage)
+            XCTAssertEqual(diagnostic.phase, .pendingTransactions, breakage)
+            XCTAssertEqual(diagnostic.userMessage, WalletUX.text("SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted."))
+            let options = WalletRecoveryStateProbe.recovery(migrator: try device.migrator(),
+                keystore: device.keychain, settings: device.settings,
+                pendingTransactionsBaseURL: device.directory).options
+            XCTAssertTrue(options.canSetAsideTransactionRecords, breakage)
+            XCTAssertTrue(options.canRetry, breakage)
+            XCTAssertTrue(options.hasForwardActionBesidesRetry, breakage)
+            XCTAssertEqual(try device.startup(), .recoveryRequired, "Try again alone cannot pass: \(breakage)")
+
+            // The action: the records are moved, nothing is deleted.
+            let moved = try XCTUnwrap(PendingTransactionRecords.setAside(applicationSupportURL: device.directory,
+                setAsideRootURL: root, lifecycleCoordinator: coordinator), breakage)
+            let movedFolder = moved.appendingPathComponent("PendingTransactions")
+            XCTAssertEqual(try Dictionary(uniqueKeysWithValues: InterruptedWrite.names(in: movedFolder).map {
+                ($0, try Data(contentsOf: movedFolder.appendingPathComponent($0)))
+            }), before, breakage)
+            XCTAssertEqual(try InterruptedWrite.names(in: folder), [], breakage)
+            XCTAssertTrue(PendingTransactionRecords.isReadable(baseURL: device.directory), breakage)
+
+            // "Try again" now passes, and sending works with the store that
+            // was created before the folder moved.
+            XCTAssertEqual(try device.startup(), .ready, breakage)
+            XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, breakage)
+            _ = try store.stage(account: first.address, hash: transactionHash(0xc3 + UInt8(index)))
+            XCTAssertEqual(try store.all().count, 1, breakage)
+
+            // Accounts, keys and the wallet database are as they were.
+            XCTAssertEqual(try device.keychain.bytes(), keys, breakage)
+            XCTAssertEqual(Set(try XCTUnwrap(device.networkStore().load()).wallets.map(\.id)),
+                           [first.address, second.address], breakage)
+            XCTAssertEqual(try KeySafetyStore.rows(at: device.storeURL).map(\.address),
+                           [first.address, second.address], breakage)
+            XCTAssertTrue(try AppStore386Launch.canSign(first, keystore: device.keychain), breakage)
+        }
+        XCTAssertEqual(try InterruptedWrite.names(in: root).count, 2)
+        // Nothing to move is not an error.
+        try FileManager.default.removeItem(at: folder)
+        XCTAssertNil(try PendingTransactionRecords.setAside(applicationSupportURL: device.directory,
+            setAsideRootURL: root, lifecycleCoordinator: coordinator))
+        XCTAssertTrue(PendingTransactionRecords.isReadable(baseURL: device.directory))
+    }
+
+    func testTheRecoveryScreenOffersToSetTheRecordsAsideOnlyWhenTheyCannotBeRead() throws {
+        func descendants(_ view: UIView) -> [UIView] { view.subviews + view.subviews.flatMap(descendants) }
+        func recordsButton(_ controller: UIViewController) throws -> UIButton {
+            try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+                .first { $0.accessibilityIdentifier == "wallet-recovery-set-aside-transaction-records" })
+        }
+        func options(unreadable: Bool) -> WalletRecoveryOptions {
+            WalletRecoveryState.recovery(retryable: true, accountsMissingKeys: 0, accountsWithPhrase: 0,
+                                         retainedPinUsable: false, transactionRecordsUnreadable: unreadable).options
+        }
+        let controller = WalletRecoveryViewController(reason: "fixture", onRetry: {}, onSetAside: {})
+        controller.loadViewIfNeeded()
+        XCTAssertTrue(try recordsButton(controller).isHidden)
+        controller.apply(options(unreadable: true))
+        XCTAssertFalse(try recordsButton(controller).isHidden)
+        XCTAssertTrue(try recordsButton(controller).isEnabled)
+        XCTAssertEqual(try recordsButton(controller).title(for: .normal),
+                       WalletUX.text("Set aside unfinished transaction records"))
+        controller.apply(options(unreadable: false))
+        XCTAssertTrue(try recordsButton(controller).isHidden)
+        // Where "Try again" is not available (a recovery screen shown inside
+        // the app), the action that needs it is not shown either.
+        let passive = WalletRecoveryViewController(reason: "fixture")
+        passive.loadViewIfNeeded()
+        passive.apply(options(unreadable: true))
+        XCTAssertTrue(try recordsButton(passive).isHidden)
+
+        // The body names the action this state offers, not a wallet restore.
+        let settings = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: settings, maximumAttempts: 1) {
+            try WalletStartupDiagnostic.check(.pendingTransactions) {
+                throw PendingTransactionJournalNamespace.Failure.invalidNamespace
+            }
+        }, .recoveryRequired)
+        let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+        XCTAssertEqual(diagnostic.phase, .pendingTransactions)
+        let records = WalletRecoveryViewController(reason: "fixture", diagnostic: diagnostic, onRetry: {},
+                                                   onSetAside: {})
+        records.loadViewIfNeeded()
+        let body = try XCTUnwrap(descendants(records.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-body" }?.text)
+        XCTAssertTrue(body.contains(diagnostic.userMessage))
+        XCTAssertTrue(body.contains(WalletUX.text("If setting the records aside does not help, contact SORA support with the app version shown below. Never share your recovery phrase.")))
+        XCTAssertFalse(body.contains(WalletUX.text("SORA stopped before changing anything and did not delete or replace any wallet data. Try again, restore with your recovery phrase or Google Drive backup, or contact SORA support with the app version shown below. Never share your recovery phrase.")))
+
+        // Every new text is in the English and the Japanese table.
+        for key in [
+            "Set aside unfinished transaction records",
+            "Set aside unfinished transaction records?",
+            "SORA will move its records of transactions that were still being confirmed to a separate folder on this iPhone. Nothing is deleted, and your accounts, keys and funds are not changed. SORA will no longer be able to tell you whether your most recent transaction went through, so check your activity before you send it again.",
+            "Set aside",
+            "Could not set the records aside",
+            "If setting the records aside does not help, contact SORA support with the app version shown below. Never share your recovery phrase.",
+            "SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted.",
+        ] {
+            for language in ["en", "ja"] {
+                let table = try XCTUnwrap(Bundle(path: try XCTUnwrap(
+                    Bundle.main.path(forResource: language, ofType: "lproj"))))
+                let text = table.localizedString(forKey: key, value: "\u{1}missing", table: "Localizable")
+                XCTAssertNotEqual(text, "\u{1}missing", "\(language): \(key)")
+                XCTAssertFalse(text.isEmpty, "\(language): \(key)")
+                if language == "ja" { XCTAssertNotEqual(text, key, key) }
+            }
+        }
+    }
+
+    // MARK: 7. The three multi-step writes of N6
+
+    func testAKillDuringTheRestoreOfAShortPhraseLeavesAnAccountTheNextLaunchCompletes() throws {
+        let address = "cnAnyAddress"
+        let entropyTag = KeystoreTag.entropyTagForAddress(address)
+        let seedTag = KeystoreTag.seedTagForAddress(address)
+        let secretTag = KeystoreTag.secretKeyTagForAddress(address)
+        let seed = Data(repeating: 2, count: 32), secret = Data(repeating: 3, count: 64)
+        // A phrase that derives everything goes first; a 3/6/9-word entropy
+        // derives nothing, so the seed that proves the account goes first.
+        XCTAssertEqual(UserStorageMigrator.restoreWriteOrder(address: address,
+            entropy: Data(repeating: 1, count: 16), rawSeed: seed, secret: secret).map(\.1),
+            [entropyTag, seedTag, secretTag])
+        for shortBytes in [4, 8, 12] {
+            XCTAssertEqual(UserStorageMigrator.restoreWriteOrder(address: address,
+                entropy: Data(repeating: 1, count: shortBytes), rawSeed: seed, secret: secret).map(\.1),
+                [seedTag, entropyTag, secretTag])
+        }
+
+        for words in [3, 6, 9] {
+            for survivingAdds in [1, 2] {
+                let label = "\(words) words, dies after \(survivingAdds) Keychain write(s)"
+                let short = try shortPhrase(words: words)
+                let original = try Installation()
+                let account = try HistoricalWriter.phraseImport(short, keystore: original.keychain.base)
+                try KeySafetyStore.write([account], to: original.storeURL)
+                XCTAssertEqual(try original.startup(), .ready, label)
+                // A new iPhone: the files came back, the keys did not.
+                let restored = try Installation()
+                try FileManager.default.removeItem(at: restored.directory)
+                try FileManager.default.copyItem(at: original.directory, to: restored.directory)
+                XCTAssertEqual(try restored.startup(), .ready, label)
+                XCTAssertEqual(try keyStatus(account, on: restored), .keysMissing, label)
+
+                // The user restores with the phrase and the process dies
+                // between two Keychain writes.
+                let dying = DyingKeychain(base: restored.keychain, survivingAdds: survivingAdds)
+                let store = try restored.networkStore()
+                let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: restored.storeURL,
+                    modelDirectory: UserStorageParams.modelDirectory, keystore: dying, settings: restored.settings,
+                    fileManager: .default, recoveryGate: restored.isolatedGate(),
+                    availableCapacity: { _ in Int64.max }, loadWalletNetworkSnapshot: { try store.load() })
+                XCTAssertThrowsError(try migrator.restoreKeysForReadOnlyAccount(address: account.address,
+                    mnemonic: short, derivationPath: "", networkStore: store,
+                    lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: restored.isolatedGate())), label)
+                XCTAssertTrue(dying.isDead, label)
+                XCTAssertEqual(restored.keychain.added, Array([KeystoreTag.seedTagForAddress(account.address),
+                    KeystoreTag.entropyTagForAddress(account.address)].prefix(survivingAdds)), label)
+
+                // The next launch finds an account its seed proves and adds
+                // the signing key App Store 3.8.6 needs. No second restore.
+                XCTAssertEqual(try restored.startup(), .ready, label)
+                XCTAssertFalse(restored.settings.walletMigrationRecoveryRequired, label)
+                XCTAssertEqual(try keyStatus(account, on: restored), .available, label)
+                XCTAssertTrue(try AppStore386Launch.canSign(account, keystore: restored.keychain), label)
+                for tag in [KeystoreTag.seedTagForAddress(account.address),
+                            KeystoreTag.secretKeyTagForAddress(account.address)] {
+                    XCTAssertEqual(try restored.keychain.fetchKey(for: tag),
+                                   try original.keychain.fetchKey(for: tag), label)
+                }
+                XCTAssertFalse(restored.keychain.changedExistingItems, label)
+            }
+        }
+    }
+
+    func testAKillDuringAnInPlaceKeyRestoreIsCompletedByTheNextLaunchWithThePhrase() throws {
+        for survivingAdds in [1, 2] {
+            let label = "dies after \(survivingAdds) Keychain write(s)"
+            let original = try Installation()
+            let first = try HistoricalWriter.phraseImport(phrase12, username: "First", order: 0, isSelected: true,
+                                                          keystore: original.keychain.base)
+            let secondPhrase = try phrase(entropy: 0x44, bytes: 16)
+            let second = try HistoricalWriter.phraseImport(secondPhrase, username: "Second", order: 1,
+                                                           isSelected: false, keystore: original.keychain.base)
+            try KeySafetyStore.write([first, second], to: original.storeURL)
+            XCTAssertEqual(try original.startup(), .ready, label)
+            // A new iPhone: the files came back, the keys did not.
+            let restored = try Installation()
+            try FileManager.default.removeItem(at: restored.directory)
+            try FileManager.default.copyItem(at: original.directory, to: restored.directory)
+            XCTAssertEqual(try restored.startup(), .ready, label)
+            let selection = try restored.selectedWalletSettings(accounts: [first, second])
+
+            // Add account > import the second account's phrase; the process
+            // dies between two Keychain writes.
+            let dying = DyingKeychain(base: restored.keychain, survivingAdds: survivingAdds)
+            let factory = AccountOperationFactory(keystore: dying, recoveryGate: restored.isolatedGate())
+            let operation = factory.prepareAccountOperation(
+                request: AccountCreationRequest(username: "Imported", type: .sora, derivationPath: "",
+                                                cryptoType: .sr25519),
+                mnemonic: try IRMnemonicCreator(language: .english).mnemonic(fromList: secondPhrase))
+            operation.start()
+            let prepared = try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+            XCTAssertThrowsError(try restored.insert(prepared, into: selection, factory: factory), label)
+            XCTAssertTrue(dying.isDead, label)
+            // The phrase is written first and the signing key last.
+            XCTAssertEqual(restored.keychain.added, Array([KeystoreTag.entropyTagForAddress(second.address),
+                KeystoreTag.seedTagForAddress(second.address)].prefix(survivingAdds)), label)
+            XCTAssertTrue(restored.keychain.deleted.isEmpty, label)
+            XCTAssertFalse(restored.settings.walletMigrationRecoveryRequired, label)
+
+            // The next launch completes the account: phrase, seed and key,
+            // byte for byte what App Store 3.8.6 had written.
+            XCTAssertEqual(try restored.startup(), .ready, label)
+            for tag in [KeystoreTag.entropyTagForAddress(second.address),
+                        KeystoreTag.seedTagForAddress(second.address),
+                        KeystoreTag.secretKeyTagForAddress(second.address)] {
+                XCTAssertEqual(try restored.keychain.fetchKey(for: tag), try original.keychain.fetchKey(for: tag),
+                               "\(label): \(tag.suffix(10))")
+            }
+            XCTAssertEqual(try keyStatus(second, on: restored), .available, label)
+            XCTAssertTrue(try AppStore386Launch.canSign(second, keystore: restored.keychain), label)
+            XCTAssertFalse(restored.keychain.changedExistingItems, label)
+        }
+    }
+
+    func testOnTheRealKeychainAnInterruptedAccountWriteIsCompletedAddOnly() throws {
+        let real = Keychain()
+        let entropy = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) })
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let gate = WalletRecoveryCapabilityGate(settings: InMemorySettingsManager(),
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        func prepare() throws -> PreparedAccount {
+            let operation = AccountOperationFactory(keystore: real, recoveryGate: gate).prepareAccountOperation(
+                request: AccountCreationRequest(username: "Real Keychain", type: .sora, derivationPath: "",
+                                                cryptoType: .sr25519),
+                mnemonic: try IRMnemonicCreator(language: .english).mnemonic(fromList: phrase))
+            operation.start()
+            return try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        }
+        let account = try prepare().account
+        let entropyTag = KeystoreTag.entropyTagForAddress(account.address)
+        let seedTag = KeystoreTag.seedTagForAddress(account.address)
+        let secretTag = KeystoreTag.secretKeyTagForAddress(account.address)
+        // Only the items this test creates, for an address it generated.
+        addTeardownBlock {
+            for tag in [entropyTag, seedTag, secretTag] { try? real.deleteKey(for: tag) }
+        }
+        for tag in [entropyTag, seedTag, secretTag] { XCTAssertFalse(try real.checkKey(for: tag)) }
+
+        // The process dies after the first of the three writes.
+        XCTAssertThrowsError(try prepare().persist(to: DyingKeychain(base: real, survivingAdds: 1)))
+        XCTAssertEqual(try real.fetchKey(for: entropyTag), entropy)
+        XCTAssertFalse(try real.checkKey(for: seedTag))
+        XCTAssertFalse(try real.checkKey(for: secretTag))
+
+        // What the next start's backfill does for an account that has its
+        // phrase and no signing key: add the seed, then the key.
+        XCTAssertEqual(try WalletScopedKeyCompletion.addMissingCopies(for: account, keystore: real, recoveryGate: gate),
+                       .added([seedTag, secretTag]))
+        XCTAssertEqual(try real.fetchKey(for: entropyTag), entropy)
+        XCTAssertTrue(try AppStore386Launch.canSign(account, keystore: real))
+        let stored = try [entropyTag, seedTag, secretTag].map { try real.fetchKey(for: $0) }
+
+        // Importing the same phrase again adopts the three items as they are.
+        try prepare().persist(to: real)
+        XCTAssertEqual(try [entropyTag, seedTag, secretTag].map { try real.fetchKey(for: $0) }, stored)
+    }
+
+    func testSetUpAgainKilledAtAnyPointContinuesInTheSameFolder() throws {
+        struct ProcessDied: Error {}
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try device.keychain.base.addKey(Data("1234".utf8), with: KeystoreTag.pincode.rawValue)
+        try KeySafetyStore.write([account], to: device.storeURL)
+        device.settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
+        XCTAssertEqual(try device.startup(), .ready)
+        // Readable transaction records stay where they are.
+        _ = try Sora2PendingSubmissionStore(baseURL: device.directory)
+            .stage(account: account.address, hash: transactionHash(0xa1))
+        device.settings.setWalletMigrationRecovery(reason: "Some other integrity check")
+        let marker = WalletMigrationRecoveryMarker.capture(device.settings)
+        let keys = try device.keychain.bytes()
+        let storeBytes = try Data(contentsOf: device.storeURL)
+        func paths(_ device: Installation) -> WalletLocalStateSetAside.Paths {
+            WalletLocalStateSetAside.Paths(storeURL: device.storeURL, applicationSupportURL: device.directory,
+                setAsideRootURL: device.directory.appendingPathComponent("WalletSetAside"))
+        }
+        func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
+        let root = paths(device).setAsideRootURL
+
+        // 1. The process dies after the last move, before the wallet
+        // settings are removed and the recovery marker is cleared. On the
+        // way, the state at the start of the third move is kept for part 2.
+        var killedBetweenMoves: KilledInstallation?
+        var moves = 0
+        XCTAssertThrowsError(try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: marker,
+            paths: paths(device), lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: device.isolatedGate()),
+            beforeMove: { _ in
+                moves += 1
+                if moves == 3 { killedBetweenMoves = try InterruptedWrite.capture(device, label: "between moves") }
+            }, afterMoves: { throw ProcessDied() })) { XCTAssertTrue($0 is ProcessDied) }
+        XCTAssertGreaterThanOrEqual(moves, 4)
+        let folders = try InterruptedWrite.names(in: root)
+        XCTAssertEqual(folders.count, 1)
+        let folder = root.appendingPathComponent(folders[0])
+        XCTAssertTrue(exists(folder.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        XCTAssertFalse(exists(device.storeURL))
+        XCTAssertTrue(device.settings.hasRetainedWalletSettings())
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(device.settings), marker)
+        // The next launch shows the recovery screen again; the user chooses
+        // the action again, and it continues in that folder.
+        let completed = try WalletLocalStateSetAside.setAside(settings: device.settings, expectedMarker: marker,
+            paths: paths(device), lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(completed.lastPathComponent, folder.lastPathComponent)
+        XCTAssertEqual(try InterruptedWrite.names(in: root), folders)
+        XCTAssertFalse(exists(folder.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("CoreData/UserDataModel.sqlite")), storeBytes)
+        XCTAssertFalse(device.settings.hasRetainedWalletSettings())
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertTrue(exists(device.directory.appendingPathComponent("SORA/PendingTransactions/sora2-signed-v1.json")))
+        XCTAssertFalse(exists(folder.appendingPathComponent("PendingTransactions")))
+        XCTAssertEqual(try device.keychain.bytes(), keys)
+        XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems)
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+
+        // 2. The process dies between two moves.
+        let revived = try XCTUnwrap(killedBetweenMoves).revive()
+        scratch.append(try XCTUnwrap(killedBetweenMoves).directory)
+        let revivedRoot = paths(revived).setAsideRootURL
+        let started = try InterruptedWrite.names(in: revivedRoot)
+        XCTAssertEqual(started.count, 1)
+        let startedFolder = revivedRoot.appendingPathComponent(started[0])
+        XCTAssertTrue(exists(startedFolder.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        XCTAssertTrue(exists(startedFolder.appendingPathComponent("CoreData/UserDataModel.sqlite")))
+        XCTAssertTrue(exists(revived.directory.appendingPathComponent("SORA/WalletNetworks")))
+        // Meanwhile the transaction records became unreadable: this time
+        // they are set aside with the rest.
+        try Data("a later version's journal".utf8).write(to: revived.directory
+            .appendingPathComponent("SORA/PendingTransactions/sora2-signed-v2.json"))
+        let revivedMarker = WalletMigrationRecoveryMarker.capture(revived.settings)
+        XCTAssertTrue(revivedMarker.required)
+        let continued = try WalletLocalStateSetAside.setAside(settings: revived.settings,
+            expectedMarker: revivedMarker, paths: paths(revived),
+            lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: revived.isolatedGate()))
+        // One folder holds everything, each file once.
+        XCTAssertEqual(try InterruptedWrite.names(in: revivedRoot), started)
+        XCTAssertEqual(continued.lastPathComponent, started[0])
+        XCTAssertFalse(exists(continued.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)))
+        XCTAssertEqual(try Data(contentsOf: continued.appendingPathComponent("CoreData/UserDataModel.sqlite")),
+                       storeBytes)
+        for name in ["CoreData/WalletMigrationSafety", "WalletNetworks", "WalletAccountCommits",
+                     "PendingTransactions/sora2-signed-v1.json", "PendingTransactions/sora2-signed-v2.json"] {
+            XCTAssertTrue(exists(continued.appendingPathComponent(name)), name)
+        }
+        XCTAssertFalse(try InterruptedWrite.names(in: continued).contains { $0.contains(".") && $0.hasPrefix("Wallet") },
+                       "no file was set aside twice under a second name")
+        XCTAssertFalse(exists(revived.storeURL))
+        XCTAssertFalse(exists(revived.directory.appendingPathComponent("SORA/WalletNetworks")))
+        XCTAssertFalse(revived.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try revived.keychain.bytes(), keys)
+        XCTAssertEqual(try revived.startup(), .ready)
+        XCTAssertEqual(try revived.rootDecision(selected: nil), [.welcomeBack])
+    }
 }
