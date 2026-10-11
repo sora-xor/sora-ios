@@ -135,9 +135,11 @@ public final class InputFieldConfiguration<Type: InputField>: SoramitsuViewConfi
         owner.descriptionLabel.sora.textColor = state.descriptionColor
     }
 
-    /// Fill, border and focus glow (spec §7.5).
+    /// Fill, border and focus glow (spec §7.5). A password field gets the
+    /// focused border only: secrets never glow (spec §1.8).
     private func applyInputChrome() {
         guard let owner else { return }
-        NeonInputStyle.apply(to: owner.stackView, state: state, isEnabled: isEnabled, cornerRadius: 16)
+        NeonInputStyle.apply(to: owner.stackView, state: state, isEnabled: isEnabled, cornerRadius: 16,
+                             focusGlow: !owner.textField.isSecureTextEntry)
     }
 }

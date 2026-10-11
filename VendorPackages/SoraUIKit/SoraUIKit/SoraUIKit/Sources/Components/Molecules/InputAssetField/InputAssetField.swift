@@ -96,6 +96,10 @@ public final class InputAssetField: UIControl, Molecule {
 private extension InputAssetField {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
+        // The focus glow is a shadow around the card, which fills this
+        // control. Clipping here left only the four corners of the glow.
+        // The content sits 16 pt inside the card, so nothing overflows.
+        sora.clipsToBounds = false
         
         sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.textField.becomeFirstResponder()

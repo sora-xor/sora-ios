@@ -78,6 +78,9 @@ final class InputAssetsView: SoramitsuView {
 
     private func setup() {
         sora.backgroundColor = .custom(uiColor: .clear)
+        // The cards reach the edges of this view; clipping would cut their
+        // focus glow.
+        sora.clipsToBounds = false
         translatesAutoresizingMaskIntoConstraints = false
         addSubviews(firstAsset, secondAsset, middleButton)
     }
