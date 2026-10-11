@@ -1013,3 +1013,4 @@
 // in1-indexer: prices and market data from the live indexer (3.9.0)
 "Price unavailable" = "価格を取得できません";
 "Prices as of %@" = "%@ 時点の価格";
+"Activity as of %@. Newer transactions will appear when the list can be updated." = "%@ 時点のアクティビティです。一覧を更新できるようになると、新しい取引が表示されます。";
