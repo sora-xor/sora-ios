@@ -239,23 +239,9 @@ final class LegacyWalletUpgradeViewController: UIViewController {
         stack.axis = .vertical
         stack.spacing = 20
         stack.setCustomSpacing(28, after: assurances)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        let scrollView = UIScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scrollView)
-        scrollView.addSubview(stack)
-        NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(greaterThanOrEqualTo: scrollView.contentLayoutGuide.topAnchor, constant: 32),
-            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
-            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -48),
-            stack.centerYAnchor.constraint(equalTo: scrollView.frameLayoutGuide.centerYAnchor).prioritized(.defaultLow),
-        ])
+        // Centred when it fits; scrolls at large text sizes so "Upgrade
+        // wallet" and the details are always reachable (spec §9.4).
+        WalletSafeMode.installScrollingContent(stack, in: view)
     }
 
     /// A row with a cyan check and `text.primary` copy (spec §7.17).
