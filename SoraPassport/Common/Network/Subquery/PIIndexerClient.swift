@@ -1083,6 +1083,24 @@ struct PIReadQualification: Equatable {
 struct PIQualifiedRead<Value> {
     let value: Value
     let qualification: PIReadQualification?
+    /// For a value taken from the last good snapshot: when that snapshot
+    /// was saved. `nil` for a live read.
+    var savedAt: Date? = nil
+    /// PI's health record changed between this read's own preflight and
+    /// postflight. A multi-page read then treats a changed count or a
+    /// repeated row as "the indexer moved, read again", not as a broken
+    /// response.
+    var checkpointAdvanced = false
+
+    /// The same read with another view of its value.
+    func map<Other>(_ transform: (Value) -> Other) -> PIQualifiedRead<Other> {
+        PIQualifiedRead<Other>(
+            value: transform(value),
+            qualification: qualification,
+            savedAt: savedAt,
+            checkpointAdvanced: checkpointAdvanced
+        )
+    }
 }
 
 struct PIMobileChainNode: Decodable, Equatable {
@@ -1714,6 +1732,13 @@ final class PIIndexerClient {
         )
     }()
 
+    #if DEBUG
+    private static let debugTreatsProductionAsUnreachable =
+        ProcessInfo.processInfo.environment[
+            "SORA_DEBUG_PI_UNREACHABLE"
+        ] == "1"
+    #endif
+
     /// A read that hit `staleCheckpoint` is tried again this many times
     /// before the last good value is used.
     static let maximumStaleCheckpointRetries = 2
@@ -1906,9 +1931,10 @@ final class PIIndexerClient {
         _ health: PIHealth,
         nowEpochSeconds: Int = Int(Date().timeIntervalSince1970)
     ) throws {
+        // Who answered: these never change for the reviewed production
+        // service, so a mismatch is another service and is never papered
+        // over with older data.
         guard
-            health.ok,
-            health.repositoryReady,
             health.service == "polkaswap-indexer",
             health.serviceId == "pi.soramitsu.io",
             health.schemaVersion == 1,
@@ -1917,14 +1943,24 @@ final class PIIndexerClient {
             health.chainId == "sora:mainnet",
             health.network == "mainnet",
             health.publicBaseUrl == endpoint,
-            health.publicBaseUrl?.absoluteString == endpoint.absoluteString,
+            health.publicBaseUrl?.absoluteString == endpoint.absoluteString
+        else {
+            throw PIIndexerError.invalidServiceIdentity
+        }
+        // Whether it is ready: the right service that is starting up,
+        // restarting or reporting a problem has no usable checkpoint for
+        // now. That is temporary, so it takes the bounded retry and the
+        // last good value like any other missing checkpoint.
+        guard
+            health.ok,
+            health.repositoryReady,
             health.workerAvailable,
             health.workerReady == true,
             health.workerReadinessReason == nil,
             health.workerLifecycle == "running",
             health.workerStartupComplete == true
         else {
-            throw PIIndexerError.invalidServiceIdentity
+            throw PIIndexerError.staleCheckpoint
         }
         // PI schema v1 exposes a coherent worker finalized/indexed checkpoint,
         // but not the older top-level genesis/hash aliases. The reviewed
@@ -1994,6 +2030,12 @@ final class PIIndexerClient {
     /// service, chain or block at the same height, means a different or
     /// rolled-back indexer answered, and is rejected. This is the rule the
     /// Android client applies (`requireSettledResponseCheckpoint`).
+    ///
+    /// Forward progress is bounded: a postflight more than
+    /// `maximumCheckpointAdvancePerRequest` blocks after the preflight means
+    /// the response was received long before the postflight was read (the
+    /// app was suspended in between, for example). It is then not known to
+    /// be current at the later checkpoint, and the read starts again.
     static func settledResponseCheckpoint(
         preflight: PIHealth,
         postflight: PIHealth
@@ -2001,10 +2043,60 @@ final class PIIndexerClient {
         if preflight == postflight {
             return preflight
         }
-        guard isSameIndexerAtOrAfter(preflight, postflight) else {
+        guard
+            isSameIndexerAtOrAfter(preflight, postflight),
+            isWithinAdvance(
+                maximumCheckpointAdvancePerRequest,
+                from: preflight,
+                to: postflight
+            )
+        else {
             throw PIIndexerError.staleCheckpoint
         }
         return postflight
+    }
+
+    /// One request and its two health reads take a few hundred milliseconds
+    /// and at most the 20 s request timeout each; PI indexes a block every
+    /// six seconds. Twenty blocks (two minutes) is far more than a healthy
+    /// read needs and far less than a suspended app loses.
+    static let maximumCheckpointAdvancePerRequest = 20
+    /// The same for a whole multi-page read (five minutes of blocks).
+    static let maximumCheckpointAdvancePerWalk = 50
+
+    static func isWithinAdvance(
+        _ maximum: Int,
+        from before: PIHealth,
+        to after: PIHealth
+    ) -> Bool {
+        guard
+            let beforeHeight = before.finalizedCheckpoint,
+            let afterHeight = after.finalizedCheckpoint
+        else {
+            return false
+        }
+        let (advance, overflow) =
+            afterHeight.subtractingReportingOverflow(beforeHeight)
+        return !overflow && advance <= maximum
+    }
+
+    /// Pages of one live read must all lie within
+    /// `maximumCheckpointAdvancePerWalk` blocks of its first page, so a read
+    /// that was interrupted for a long time is never completed with old
+    /// pages and labelled with a new checkpoint.
+    static func validateWalkAdvance(
+        first: PIReadQualification,
+        current: PIReadQualification
+    ) throws {
+        guard
+            current.source != .live || isWithinAdvance(
+                maximumCheckpointAdvancePerWalk,
+                from: first.health,
+                to: current.health
+            )
+        else {
+            throw PIIndexerError.staleCheckpoint
+        }
     }
 
     static func isSameIndexerAtOrAfter(
@@ -2650,10 +2742,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.mobileConfig.withEveryFeatureOff,
-            qualification: result.qualification
-        )
+        return result.map(\.mobileConfig.withEveryFeatureOff)
     }
 
     private func qualifiedFlaggedMobileConfig(
@@ -2680,10 +2769,7 @@ final class PIIndexerClient {
                 try Self.validateMobileConfig(payload.mobileConfig)
             }
         )
-        return PIQualifiedRead(
-            value: result.value.mobileConfig,
-            qualification: result.qualification
-        )
+        return result.map(\.mobileConfig)
     }
 
     /// Explicit fail-closed gate for callers that require a PI account-balance query. Never
@@ -2738,10 +2824,7 @@ final class PIIndexerClient {
                 try Self.validateAssets(payload.assets.values)
             }
         )
-        return PIQualifiedRead(
-            value: result.value.assets,
-            qualification: result.qualification
-        )
+        return result.map(\.assets)
     }
 
     func allAssets(
@@ -2828,10 +2911,7 @@ final class PIIndexerClient {
                 try Self.validatePools(payload.poolXYKs.values)
             }
         )
-        return PIQualifiedRead(
-            value: result.value.poolXYKs,
-            qualification: result.qualification
-        )
+        return result.map(\.poolXYKs)
     }
 
     func allPoolXYKs(
@@ -2948,10 +3028,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.referrerRewards,
-            qualification: result.qualification
-        )
+        return result.map(\.referrerRewards)
     }
 
     func allReferrerRewards(
@@ -3101,6 +3178,7 @@ final class PIIndexerClient {
         var seenItemIdentities = Set<String>()
         var expectedTotalCount: Int?
         var expectedQualification: PIReadQualification?
+        var firstQualification: PIReadQualification?
         var consumedCount = 0
         var checkpointMoved = false
         // A transaction indexed between two pages changes the count and
@@ -3123,6 +3201,11 @@ final class PIIndexerClient {
             guard let qualification = read.qualification else {
                 throw PIIndexerError.missingChainIdentityCapability
             }
+            if read.checkpointAdvanced {
+                // PI moved while this very page was being read, so the
+                // page can already differ from the ones before it.
+                checkpointMoved = true
+            }
             if let previous = expectedQualification {
                 // The walk may follow the indexer forward; it never mixes
                 // sources, indexers or a checkpoint that went backwards.
@@ -3133,6 +3216,14 @@ final class PIIndexerClient {
                 if previous.health != qualification.health {
                     checkpointMoved = true
                 }
+            }
+            if let firstQualification {
+                try Self.validateWalkAdvance(
+                    first: firstQualification,
+                    current: qualification
+                )
+            } else {
+                firstQualification = qualification
             }
             // The returned page is attributed to the latest checkpoint,
             // which bounds every row read so far.
@@ -3311,10 +3402,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.historyElements,
-            qualification: result.qualification
-        )
+        return result.map(\.historyElements)
     }
 
     /// Looks up only the bounded pending hash set for one exact account.
@@ -3489,10 +3577,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.markets,
-            qualification: result.qualification
-        )
+        return result.map(\.markets)
     }
 
     func allMarkets(
@@ -3599,10 +3684,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.marketSnapshots,
-            qualification: result.qualification
-        )
+        return result.map(\.marketSnapshots)
     }
 
     func allMarketSnapshots(
@@ -3682,10 +3764,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.accountPositions,
-            qualification: result.qualification
-        )
+        return result.map(\.accountPositions)
     }
 
     func allAccountPositions(
@@ -3765,10 +3844,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.accountTrades,
-            qualification: result.qualification
-        )
+        return result.map(\.accountTrades)
     }
 
     func allAccountTrades(
@@ -3828,10 +3904,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.polkamarktSignals,
-            qualification: result.qualification
-        )
+        return result.map(\.polkamarktSignals)
     }
 
     private enum CachePolicy {
@@ -4019,6 +4092,15 @@ final class PIIndexerClient {
         )
         request.setValue("no-cache", forHTTPHeaderField: "Pragma")
 
+        #if DEBUG
+        // Debug builds only: lets the "PI cannot be reached" screens be
+        // looked at on a simulator (`SIMCTL_CHILD_SORA_DEBUG_PI_UNREACHABLE=1
+        // xcrun simctl launch ...`). Not compiled into Release builds.
+        if Self.debugTreatsProductionAsUnreachable,
+           session === Self.productionSession {
+            throw URLError(.notConnectedToInternet)
+        }
+        #endif
         let (bytes, response) = try await session.bytes(for: request)
         let http = try Self.validateHTTPResponse(
             response,
@@ -4044,6 +4126,7 @@ final class PIIndexerClient {
         let payload = try decode(Payload.self, data: data)
         try validateAtResponseTime?(payload, clock.nowEpochSeconds)
         var qualification: PIReadQualification?
+        var checkpointAdvanced = false
         if let preflightHealth {
             // Attribute the response to the checkpoint PI reports after it.
             // The indexer may have moved forward since the preflight; it may
@@ -4058,6 +4141,7 @@ final class PIIndexerClient {
                 ),
                 source: .live
             )
+            checkpointAdvanced = preflightHealth != postflightHealth
         }
         // A decoded response is not cache-eligible until all operation-
         // specific identity and checkpoint bounds have passed.
@@ -4072,7 +4156,8 @@ final class PIIndexerClient {
         }
         return PIQualifiedRead(
             value: payload,
-            qualification: qualification
+            qualification: qualification,
+            checkpointAdvanced: checkpointAdvanced
         )
     }
 
@@ -4336,6 +4421,7 @@ final class PIIndexerClient {
         var seenItemIdentities = Set<String>()
         var expectedTotalCount: Int?
         var expectedQualification: PIReadQualification?
+        var firstQualification: PIReadQualification?
         var checkpointMoved = false
         // While PI keeps indexing, a row can be added, removed or moved
         // between two pages, which shows up as a changed count or a repeated
@@ -4351,9 +4437,22 @@ final class PIIndexerClient {
                     ? expectedQualification?.health
                     : nil
             let read = try await loader(cursor, previousLiveHealth)
+            if read.checkpointAdvanced {
+                // PI moved while this very page was being read, so the
+                // page can already differ from the ones before it.
+                checkpointMoved = true
+            }
             if requireQualification {
                 guard let qualification = read.qualification else {
                     throw PIIndexerError.missingChainIdentityCapability
+                }
+                if let firstQualification {
+                    try Self.validateWalkAdvance(
+                        first: firstQualification,
+                        current: qualification
+                    )
+                } else {
+                    firstQualification = qualification
                 }
                 if let previous = expectedQualification {
                     // Never compose one logical result from cached and live
@@ -4539,7 +4638,8 @@ final class PIIndexerClient {
             try validate(snapshot.nodes, qualification)
             return PIQualifiedRead(
                 value: snapshot.nodes,
-                qualification: qualification
+                qualification: qualification,
+                savedAt: entry.savedAt
             )
         } catch {
             await cache.remove(key: key)
