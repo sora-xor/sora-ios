@@ -116,6 +116,7 @@ final class ChainSyncService {
 
     private(set) var retryAttempt: Int = 0
     private(set) var isSyncing: Bool = false
+    private var isSyncRequestedAgain: Bool = false
     private let mutex = NSLock()
 
     private lazy var scheduler = Scheduler(with: self, callbackQueue: DispatchQueue.global())
@@ -146,7 +147,11 @@ final class ChainSyncService {
 
     private func performSyncUpIfNeeded() {
         guard !isSyncing else {
-            logger?.debug("Tried to sync up chains but already syncing")
+            // Remember the request. Whoever asked has something new for the
+            // chain (the on-chain asset list or the remote node list arrived),
+            // and the running sync may already have read the old value.
+            isSyncRequestedAgain = true
+            logger?.debug("Tried to sync up chains but already syncing; will sync again")
             return
         }
 
@@ -362,6 +367,9 @@ final class ChainSyncService {
         }
 
         isSyncing = false
+        // A failed sync is retried below, and the retry reads everything again.
+        let shouldSyncAgain = isSyncRequestedAgain
+        isSyncRequestedAgain = false
 
         switch result {
         case let .success(changes):
@@ -380,6 +388,10 @@ final class ChainSyncService {
             )
 
             eventCenter.notify(with: event)
+
+            if shouldSyncAgain {
+                performSyncUpIfNeeded()
+            }
         case let .failure(error):
             logger?.error("Chain synchronization failed")
 
