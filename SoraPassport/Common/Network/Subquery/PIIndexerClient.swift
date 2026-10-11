@@ -1714,15 +1714,29 @@ final class PIIndexerClient {
         "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5"
 
     /// The client behind the shared price and pool catalogs.
-    static let shared = PIIndexerClient()
+    static let shared = PIIndexerClient(session: catalogSession)
 
     /// One session for every production client, so a multi-page read reuses
     /// its connection instead of opening a new one per client.
-    private static let productionSession: URLSession = {
+    private static let productionSession = makeProductionSession(
+        waitsForConnectivity: true
+    )
+
+    /// The session of the shared catalogs. With no connection a catalog
+    /// read fails at once instead of waiting 30 s for one: the catalog
+    /// store has the last good catalog to show and its own retry schedule,
+    /// and screens must not sit behind a request that cannot start.
+    static let catalogSession = makeProductionSession(
+        waitsForConnectivity: false
+    )
+
+    private static func makeProductionSession(
+        waitsForConnectivity: Bool
+    ) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20
         configuration.timeoutIntervalForResource = 30
-        configuration.waitsForConnectivity = true
+        configuration.waitsForConnectivity = waitsForConnectivity
         configuration.httpMaximumConnectionsPerHost = 4
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -1731,7 +1745,7 @@ final class PIIndexerClient {
             delegate: PIRedirectRejectingDelegate.shared,
             delegateQueue: nil
         )
-    }()
+    }
 
     #if DEBUG
     private static let debugTreatsProductionAsUnreachable =
@@ -2846,7 +2860,7 @@ final class PIIndexerClient {
         maximumPages: Int = 20
     ) async throws -> PIQualifiedRead<[PIAsset]> {
         try await lastGoodCatalog(
-            name: "MobileAssetsCatalog",
+            name: Self.assetsCatalogName,
             itemIdentity: { $0.id },
             validate: { values, _ in try Self.validateAssets(values) }
         ) {
@@ -2931,7 +2945,7 @@ final class PIIndexerClient {
         maximumPages: Int = 20
     ) async throws -> PIQualifiedRead<[PIPoolXYK]> {
         try await lastGoodCatalog(
-            name: "MobilePoolXYKsCatalog",
+            name: Self.poolsCatalogName,
             itemIdentity: { $0.id },
             validate: { values, _ in try Self.validatePools(values) }
         ) {
@@ -4098,7 +4112,8 @@ final class PIIndexerClient {
         // looked at on a simulator (`SIMCTL_CHILD_SORA_DEBUG_PI_UNREACHABLE=1
         // xcrun simctl launch ...`). Not compiled into Release builds.
         if Self.debugTreatsProductionAsUnreachable,
-           session === Self.productionSession {
+           session === Self.productionSession ||
+            session === Self.catalogSession {
             throw URLError(.notConnectedToInternet)
         }
         #endif
@@ -4576,14 +4591,7 @@ final class PIIndexerClient {
         validate: @escaping ([Node], PIReadQualification) throws -> Void,
         live: () async throws -> PIQualifiedRead<[Node]>
     ) async throws -> PIQualifiedRead<[Node]> {
-        var identity = Data(endpoint.absoluteString.utf8)
-        identity.append(0)
-        identity.append(Data(scope.utf8))
-        let digest = Data(SHA256.hash(data: identity))
-            .map { String(format: "%02x", $0) }
-            .joined()
-        let key = "\(name)-\(digest)"
-
+        let key = catalogKey(name: name, scope: scope)
         let liveError: Error
         do {
             let read = try await live()
@@ -4616,11 +4624,44 @@ final class PIIndexerClient {
             liveError = error
         }
 
+        guard let saved = await savedCatalog(
+            name: name,
+            scope: scope,
+            itemIdentity: itemIdentity,
+            validate: validate
+        ) else {
+            throw liveError
+        }
+        return saved
+    }
+
+    private func catalogKey(name: String, scope: String) -> String {
+        var identity = Data(endpoint.absoluteString.utf8)
+        identity.append(0)
+        identity.append(Data(scope.utf8))
+        let digest = Data(SHA256.hash(data: identity))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "\(name)-\(digest)"
+    }
+
+    /// The last good catalog as an earlier live read saved it, without any
+    /// request: `.cache` qualified, with the time it was saved. `nil` when
+    /// there is none, when it is older than `lastGoodCatalogMaximumAge`, or
+    /// when it no longer passes the checks a response has to pass (it is
+    /// then removed).
+    private func savedCatalog<Node: Codable & Equatable>(
+        name: String,
+        scope: String = "",
+        itemIdentity: @escaping (Node) -> String,
+        validate: @escaping ([Node], PIReadQualification) throws -> Void
+    ) async -> PIQualifiedRead<[Node]>? {
+        let key = catalogKey(name: name, scope: scope)
         guard let entry = await cache.load(
             key: key,
             maximumAge: Self.lastGoodCatalogMaximumAge
         ) else {
-            throw liveError
+            return nil
         }
         do {
             let snapshot = try decode(
@@ -4644,9 +4685,33 @@ final class PIIndexerClient {
             )
         } catch {
             await cache.remove(key: key)
-            throw liveError
+            return nil
         }
     }
+
+    /// The asset catalog the last successful `qualifiedAllAssets` saved, for
+    /// showing prices marked with their time while this run's first read is
+    /// on its way. No request is made.
+    func savedAllAssets() async -> PIQualifiedRead<[PIAsset]>? {
+        await savedCatalog(
+            name: Self.assetsCatalogName,
+            itemIdentity: { $0.id },
+            validate: { values, _ in try Self.validateAssets(values) }
+        )
+    }
+
+    /// The pool catalog the last successful `qualifiedAllPoolXYKs` saved.
+    /// No request is made.
+    func savedAllPoolXYKs() async -> PIQualifiedRead<[PIPoolXYK]>? {
+        await savedCatalog(
+            name: Self.poolsCatalogName,
+            itemIdentity: { $0.id },
+            validate: { values, _ in try Self.validatePools(values) }
+        )
+    }
+
+    private static let assetsCatalogName = "MobileAssetsCatalog"
+    private static let poolsCatalogName = "MobilePoolXYKsCatalog"
 
     private func compact(_ dictionary: [String: Any?]) -> [String: Any] {
         dictionary.compactMapValues { $0 }
@@ -4712,24 +4777,30 @@ struct PICatalogSnapshot<Node> {
 /// One shared reader for a PI catalog that many screens ask for at once.
 ///
 /// - A live catalog is reused for `freshFor` without any request.
-/// - After that a refresh starts, once for all callers. A caller is not kept
-///   waiting when there is something reasonable to show: a catalog younger
-///   than `staleFor` is returned at once and replaced when the refresh ends
-///   (`onChange` tells the screens). Only a caller with nothing to show, or
-///   with a catalog older than `staleFor`, waits for the refresh.
+/// - After that a refresh starts, once for all callers. A caller is never
+///   kept waiting when there is anything to show: the catalog this run
+///   holds, or the one an earlier run saved (`saved`, looked at once), is
+///   returned at once and replaced when the refresh ends (`onChange` tells
+///   the screens). It carries its time (`asOf`) unless it is live, younger
+///   than `staleFor` and PI answered the last time it was asked. Only a
+///   caller with nothing at all to show waits for the refresh.
 /// - After a failed read the next one waits (`retryDelays`, growing with each
 ///   failure in a row). Until then callers get the last good catalog, marked
 ///   with its time, or the error when there is none, without any request.
 /// - The last good catalog is used for at most `lastGoodFor` after it was
-///   read from PI, and only after the failures the client itself accepts as
-///   "PI cannot be read right now" (`allowsLastGood`). A response that does
-///   not decode or fails validation is never replaced by older data.
+///   read from PI. It is shown while a read is on its way and after the
+///   failures the client itself accepts as "PI cannot be read right now"
+///   (`allowsLastGood`). Once PI has answered with a response that does not
+///   decode or fails validation, older data is no longer shown in its
+///   place, until a read succeeds or fails in the accepted way.
 ///
 /// All ages are measured on a clock that keeps counting while the device
 /// sleeps, so a catalog loaded before the phone was locked is old when the
 /// phone is unlocked hours later.
 actor PICatalogStore<Node> {
     typealias Loader = () async throws -> PIQualifiedRead<[Node]>
+    /// The catalog an earlier run saved, read without any request.
+    typealias SavedLoader = () async -> PIQualifiedRead<[Node]>?
 
     static var defaultRetryDelays: [TimeInterval] { [15, 30, 60, 120, 300] }
 
@@ -4763,22 +4834,30 @@ actor PICatalogStore<Node> {
     private let wallClock: () -> Date
     private let allowsLastGood: (Error) -> Bool
     private let onChange: (() -> Void)?
+    private let saved: SavedLoader?
     private let load: Loader
 
     private var held: Held?
     private var failuresInARow = 0
     private var nextAttemptAt: TimeInterval = 0
+    /// The most recent read that finished did not give a live catalog.
+    private var lastReadFailed = false
     private var lastError: Error?
     private var flight: Flight?
+    private var savedRead: Task<Void, Never>?
+    private var savedWasRead = false
 
     /// - Parameters:
-    ///   - staleFor: How old a live catalog may be and still be shown while
-    ///     its refresh is running. Never less than `freshFor`.
+    ///   - staleFor: How old a live catalog may be and still be shown
+    ///     without its time while its refresh is running. Never less than
+    ///     `freshFor`.
     ///   - uptime: A clock that never goes backwards and counts sleep.
     ///     Wall-clock time is not used for ages, so changing the device
     ///     clock neither forces nor blocks a refresh.
     ///   - onChange: Called after every finished read, successful or not:
     ///     what `snapshot()` returns may have changed.
+    ///   - saved: The catalog an earlier run saved, with the time it was
+    ///     saved. Asked once, when the first caller finds nothing held.
     init(
         freshFor: TimeInterval,
         staleFor: TimeInterval? = nil,
@@ -4792,6 +4871,7 @@ actor PICatalogStore<Node> {
             PIIndexerClient.allowsLastGoodValue($0)
         },
         onChange: (() -> Void)? = nil,
+        saved: SavedLoader? = nil,
         load: @escaping Loader
     ) {
         self.freshFor = freshFor
@@ -4802,6 +4882,7 @@ actor PICatalogStore<Node> {
         self.wallClock = wallClock
         self.allowsLastGood = allowsLastGood
         self.onChange = onChange
+        self.saved = saved
         self.load = load
     }
 
@@ -4812,29 +4893,30 @@ actor PICatalogStore<Node> {
     }
 
     func snapshot() async throws -> PICatalogSnapshot<Node> {
-        let now = uptime()
-        if let held, held.isLive, now - held.loadedAt < freshFor {
-            return PICatalogSnapshot(values: held.values, asOf: nil)
+        if let fresh = fresh(at: uptime()) {
+            return fresh
         }
-        if now < nextAttemptAt {
-            // Backing off after a failure: no request.
-            if let lastGood = lastGoodAfterFailure(at: now) {
-                return lastGood
-            }
-            throw lastError ?? PIIndexerError.staleCheckpoint
+        // Ask PI before looking at the disk, so that the request does not
+        // wait for the file.
+        if flight == nil, uptime() >= nextAttemptAt {
+            startFlight()
         }
+        await readSavedOnce()
 
-        let current = flight ?? startFlight()
-        if failuresInARow == 0 {
-            if let held, held.isLive, now - held.loadedAt < staleFor {
-                // Close enough to current: show it now. The refresh that
-                // is running replaces it and announces itself.
-                return PICatalogSnapshot(values: held.values, asOf: nil)
-            }
-        } else if let lastGood = lastGoodAfterFailure(at: now) {
-            // PI has been failing: do not make every screen wait for the
-            // next attempt as well.
-            return lastGood
+        let now = uptime()
+        if let fresh = fresh(at: now) {
+            // The read ended while the saved catalog was looked at.
+            return fresh
+        }
+        if let shown = presentable(at: now) {
+            // Something can be shown: the caller does not wait. The read
+            // that is running, or the next one after the backoff, replaces
+            // it and announces itself.
+            return shown
+        }
+        guard let current = flight else {
+            // Nothing to show and the next read is not due yet: no request.
+            throw lastError ?? PIIndexerError.staleCheckpoint
         }
 
         do {
@@ -4844,16 +4926,16 @@ actor PICatalogStore<Node> {
             }
             // PI could not be read and the client fell back to the
             // snapshot on disk. What this run holds is at least as new.
-            if let lastGood = lastGoodAfterFailure(at: uptime()) {
-                return lastGood
+            if let shown = presentable(at: uptime()) {
+                return shown
             }
             return PICatalogSnapshot(
                 values: read.value,
                 asOf: read.savedAt ?? wallClock()
             )
         } catch {
-            if let lastGood = lastGoodAfterFailure(at: uptime()) {
-                return lastGood
+            if let shown = presentable(at: uptime()) {
+                return shown
             }
             throw error
         }
@@ -4861,12 +4943,13 @@ actor PICatalogStore<Node> {
 
     /// The app is in front again: whatever made PI unreadable before (no
     /// network in the background, a locked device) may be over, so the next
-    /// caller tries at once instead of sitting out a backoff that was
-    /// earned hours ago.
+    /// caller starts a read at once instead of sitting out a backoff that
+    /// was earned hours ago. What the last read said about PI still stands
+    /// until that read ends: the catalog held keeps its time, and callers
+    /// still do not wait for the read.
     func clearBackoff() {
         failuresInARow = 0
         nextAttemptAt = 0
-        lastError = nil
     }
 
     /// Returns when no read is running. For tests.
@@ -4876,6 +4959,42 @@ actor PICatalogStore<Node> {
         }
     }
 
+    private func fresh(at now: TimeInterval) -> PICatalogSnapshot<Node>? {
+        guard let held, held.isLive, now - held.loadedAt < freshFor else {
+            return nil
+        }
+        return PICatalogSnapshot(values: held.values, asOf: nil)
+    }
+
+    /// Once per run: the catalog an earlier run saved becomes the one held
+    /// when this run has none yet. Callers that arrive while the file is
+    /// read wait for the same read.
+    private func readSavedOnce() async {
+        guard let saved, !savedWasRead else { return }
+        if savedRead == nil {
+            savedRead = Task { [weak self] in
+                let read = await saved()
+                await self?.adopt(saved: read)
+            }
+        }
+        await savedRead?.value
+    }
+
+    private func adopt(saved read: PIQualifiedRead<[Node]>?) {
+        savedWasRead = true
+        savedRead = nil
+        guard held == nil, let read else { return }
+        let date = read.savedAt ?? wallClock()
+        let age = max(0, wallClock().timeIntervalSince(date))
+        held = Held(
+            values: read.value,
+            loadedAt: uptime() - age,
+            date: date,
+            isLive: false
+        )
+    }
+
+    @discardableResult
     private func startFlight() -> Flight {
         let id = UUID()
         let load = self.load
@@ -4915,6 +5034,7 @@ actor PICatalogStore<Node> {
                 )
             }
             lastError = nil
+            lastReadFailed = true
             scheduleRetry(from: now)
         } else {
             held = Held(
@@ -4926,6 +5046,7 @@ actor PICatalogStore<Node> {
             failuresInARow = 0
             nextAttemptAt = 0
             lastError = nil
+            lastReadFailed = false
         }
         onChange?()
     }
@@ -4934,6 +5055,7 @@ actor PICatalogStore<Node> {
         guard flight?.id == id else { return }
         flight = nil
         lastError = error
+        lastReadFailed = true
         scheduleRetry(from: uptime())
         onChange?()
     }
@@ -4951,9 +5073,12 @@ actor PICatalogStore<Node> {
         return held
     }
 
-    /// The last good catalog, marked with its time, when the latest failure
-    /// is one that older data may stand in for.
-    private func lastGoodAfterFailure(
+    /// What may be shown without waiting for PI. Nothing when PI's latest
+    /// answer could not be used (older data must not stand in for it) or
+    /// when the catalog held is older than `lastGoodFor`. Otherwise the
+    /// catalog held, marked with its time unless it is live, younger than
+    /// `staleFor`, and PI answered the last time it was asked.
+    private func presentable(
         at now: TimeInterval
     ) -> PICatalogSnapshot<Node>? {
         if let lastError, !allowsLastGood(lastError) {
@@ -4962,7 +5087,12 @@ actor PICatalogStore<Node> {
         guard let held = lastGood(at: now) else {
             return nil
         }
-        return PICatalogSnapshot(values: held.values, asOf: held.date)
+        let isCurrent = held.isLive && !lastReadFailed &&
+            now - held.loadedAt < staleFor
+        return PICatalogSnapshot(
+            values: held.values,
+            asOf: isCurrent ? nil : held.date
+        )
     }
 }
 
@@ -4976,8 +5106,9 @@ enum PICatalogs {
     )
 
     /// Prices and market data change slowly on screen; ten minutes matches
-    /// what the fiat and market-cap services cached before. A catalog up to
-    /// thirty minutes old is shown while its refresh is running.
+    /// what the fiat and market-cap services cached before. While a refresh
+    /// is running the catalog held is shown: as it is up to thirty minutes,
+    /// with its time after that.
     static let assets: PICatalogStore<PIAsset> = {
         _ = foregroundObserver
         return PICatalogStore<PIAsset>(
@@ -4989,6 +5120,9 @@ enum PICatalogs {
                     object: nil
                 )
             },
+            saved: {
+                await PIIndexerClient.shared.savedAllAssets()
+            },
             load: {
                 try await PIIndexerClient.shared.qualifiedAllAssets()
             }
@@ -4997,9 +5131,16 @@ enum PICatalogs {
 
     static let pools: PICatalogStore<PIPoolXYK> = {
         _ = foregroundObserver
-        return PICatalogStore<PIPoolXYK>(freshFor: 60, staleFor: 600) {
-            try await PIIndexerClient.shared.qualifiedAllPoolXYKs()
-        }
+        return PICatalogStore<PIPoolXYK>(
+            freshFor: 60,
+            staleFor: 600,
+            saved: {
+                await PIIndexerClient.shared.savedAllPoolXYKs()
+            },
+            load: {
+                try await PIIndexerClient.shared.qualifiedAllPoolXYKs()
+            }
+        )
     }()
 
     private static let foregroundObserver: NSObjectProtocol =
