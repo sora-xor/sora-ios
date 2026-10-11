@@ -49,9 +49,7 @@ protocol SplashViewProtocol: AnyObject {
 final class SplashPresenterFactory {
     static func createSplashPresenter(with window: SoraWindow) {
         let presenter = SplashPresenter(window: window)
-        let interactor = SplashInteractor(settings: SettingsManager.shared,
-                                          socketService: WebSocketService.shared,
-                                          configService: ConfigService.shared)
+        let interactor = SplashInteractor(settings: SettingsManager.shared)
         let wireframe = SplashWireframe()
         let view = SplashViewController()
         view.presenter = presenter
