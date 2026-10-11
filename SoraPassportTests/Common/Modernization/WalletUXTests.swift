@@ -1293,6 +1293,10 @@ final class SoraNeonDesignTests: XCTestCase {
             // Ink on neon in dark, white on accent in light.
             check(.fgInverted, .accentPrimary)
             check(.fgInverted, .additionalPolkaswap)
+            // The Polkaswap brand fill is 4.33:1 as text on its light
+            // container; labels there use the text token.
+            check(.additionalPolkaswapText, .additionalPolkaswapContainer)
+            check(.additionalPolkaswapText, .bgSurface)
         }
     }
 
@@ -1406,7 +1410,424 @@ final class SoraNeonDesignTests: XCTestCase {
         }
     }
 
+    // MARK: - Review fixes for the foundation
+
+    /// Text bar buttons ("Add node", "Edit", "Skip", "Create pool") were red
+    /// (`#EE2233` / `accentPrimary`), which is 3.3:1 on a light bar and
+    /// reads as an error. The bar appearance now styles them in one place.
+    @MainActor
+    func testBarTextButtonsUseColoursThatAreReadableOnBars() throws {
+        // Worst-case bars of spec §3: the bar tint over white content (dark
+        // theme) or black content (light theme).
+        let worstBar: [SoramitsuThemeType: UIColor] = [.dark: UIColor(hex: "#3B3B41"), .light: UIColor(hex: "#C2C2C6")]
+        for theme in [SoramitsuThemeType.dark, .light] {
+            let tokens = NeonTokens.tokens(for: theme)
+            let bar = try XCTUnwrap(worstBar[theme])
+            let (standard, scrollEdge) = NeonChrome.navigationBarAppearances(tokens: tokens)
+            for appearance in [standard, scrollEdge] {
+                for button in [appearance.buttonAppearance, appearance.doneButtonAppearance] {
+                    let color = try XCTUnwrap(button.normal.titleTextAttributes[.foregroundColor] as? UIColor)
+                    XCTAssertGreaterThanOrEqual(WalletUX.contrast(color, bar), 4.5, "\(theme)")
+                    XCTAssertEqual(color, NeonChrome.barButtonTitleColor(tokens: tokens))
+                    let font = try XCTUnwrap(button.normal.titleTextAttributes[.font] as? UIFont)
+                    XCTAssertEqual(font.fontName, FontType.textBoldS.font.fontName)
+                }
+                // Back titles stay hidden in every state.
+                for state in [appearance.backButtonAppearance.normal, appearance.backButtonAppearance.highlighted,
+                              appearance.backButtonAppearance.focused, appearance.backButtonAppearance.disabled] {
+                    XCTAssertEqual(state.titleTextAttributes[.foregroundColor] as? UIColor, UIColor.clear)
+                }
+            }
+        }
+
+        // A screen no longer gives its bar button a colour of its own.
+        let nodes = NodesViewController()
+        nodes.presenter = NeonNodesPresenterStub()
+        nodes.loadViewIfNeeded()
+        nodes.setup(with: [])
+        let addNode = try XCTUnwrap(nodes.navigationItem.rightBarButtonItem)
+        XCTAssertNil(addNode.titleTextAttributes(for: .normal)?[.foregroundColor])
+    }
+
+    /// Opened from More, the node list is the root of a modal. Its only
+    /// ways out were pull-down gestures; it now also has a Close button.
+    @MainActor
+    func testModalNodeListHasAVisibleCloseButton() throws {
+        let host = UIViewController()
+        let window = UIWindow.makeSoraSceneWindow()
+        window.rootViewController = host
+        window.isHidden = false
+        defer {
+            host.dismiss(animated: false)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        let modal = NodesViewController()
+        modal.presenter = NeonNodesPresenterStub()
+        let navigation = UINavigationController(rootViewController: modal)
+        host.present(navigation, animated: false)
+        modal.loadViewIfNeeded()
+        modal.setup(with: [])
+        let close = try XCTUnwrap(modal.navigationItem.leftBarButtonItem)
+        XCTAssertEqual(close.accessibilityLabel, R.string.localizable.commonClose(preferredLanguages: nil))
+        XCTAssertNotNil(modal.navigationItem.rightBarButtonItem, "Add node stays")
+
+        // Pushed (as from the PIN screen) it keeps the Back arrow instead.
+        let pushed = NodesViewController()
+        pushed.presenter = NeonNodesPresenterStub()
+        navigation.pushViewController(pushed, animated: false)
+        pushed.loadViewIfNeeded()
+        pushed.setup(with: [])
+        XCTAssertNil(pushed.navigationItem.leftBarButtonItem)
+    }
+
+    /// The glow is opt-in for the one screen-level CTA, is never drawn in a
+    /// table or collection cell, and becomes a ring under "Reduce effects".
+    /// Before, every filled primary button glowed, also in lists.
+    @MainActor
+    func testButtonGlowIsOptInNeverInListsAndARingInTheMinimalTier() throws {
+        try XCTSkipIf(FxPolicy.current.tier != .full || !FxPolicy.current.glows,
+                      "needs the default effect tier (no Reduce Transparency, Increase Contrast or Low Power Mode)")
+        let previous = SoramitsuUI.shared.themeMode
+        let storedReduceEffects = UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey)
+        defer {
+            SoramitsuUI.shared.themeMode = previous
+            setReduceEffects(false)
+            if storedReduceEffects == nil { UserDefaults.standard.removeObject(forKey: FxPolicy.reduceEffectsKey) }
+        }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        func glows(_ view: UIView) -> Int { view.layer.sublayers?.filter { $0.shadowOpacity > 0 }.count ?? 0 }
+        func rings(_ view: UIView) -> Int { view.layer.sublayers?.filter { $0 is NeonRingLayer }.count ?? 0 }
+
+        let plain = SoramitsuButton()
+        XCTAssertEqual(glows(plain), 0, "off unless the screen asks for it")
+        XCTAssertTrue(plain.layer.sublayers?.contains { $0 is CAGradientLayer } ?? false,
+                      "the neon fill does not depend on the glow")
+
+        let cta = SoramitsuButton()
+        cta.sora.glows = true
+        XCTAssertEqual(glows(cta), 1)
+        XCTAssertFalse(cta.clipsToBounds, "a clipped button would hide its glow")
+
+        // Whether a button sits in a cell is known once it is in a window.
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+        let inCell = SoramitsuButton()
+        inCell.sora.glows = true
+        cell.contentView.addSubview(inCell)
+        window.addSubview(cell)
+        XCTAssertEqual(glows(inCell), 0, "never in a table cell")
+        let item = UICollectionViewCell(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
+        let inItem = SoramitsuButton()
+        inItem.sora.glows = true
+        item.contentView.addSubview(inItem)
+        window.addSubview(item)
+        XCTAssertEqual(glows(inItem), 0, "never in a collection cell")
+
+        // The Safe Mode and onboarding buttons follow the same rules.
+        let host = UIViewController()
+        let scene = UIWindow.makeSoraSceneWindow()
+        scene.rootViewController = host
+        scene.isHidden = false
+        defer { scene.isHidden = true; scene.rootViewController = nil }
+        let neon = WalletNeonButton(style: .primary)
+        neon.frame = CGRect(x: 20, y: 80, width: 240, height: 56)
+        host.view.addSubview(neon)
+        let neonCell = UITableViewCell(style: .default, reuseIdentifier: nil)
+        neonCell.frame = CGRect(x: 0, y: 200, width: 300, height: 60)
+        let neonInCell = WalletNeonButton(style: .primary)
+        neonInCell.frame = CGRect(x: 20, y: 2, width: 240, height: 56)
+        neonCell.contentView.addSubview(neonInCell)
+        host.view.addSubview(neonCell)
+        settle()
+        XCTAssertGreaterThan(neon.layer.shadowOpacity, 0)
+        XCTAssertEqual(neonInCell.layer.shadowOpacity, 0, "never in a table cell")
+
+        // MINIMAL tier: a 1.5 pt ring in the glow colour, no blur.
+        setReduceEffects(true)
+        settle()
+        XCTAssertEqual(FxPolicy.current.tier, .minimal)
+        XCTAssertEqual(glows(cta), 0)
+        XCTAssertEqual(rings(cta), 1)
+        XCTAssertEqual(glows(inCell), 0)
+        XCTAssertEqual(rings(inCell), 0)
+        XCTAssertEqual(neon.layer.shadowOpacity, 0)
+        XCTAssertEqual(rings(neon), 1)
+        XCTAssertEqual(rings(neonInCell), 0)
+        let ring = try XCTUnwrap(cta.layer.sublayers?.compactMap { $0 as? NeonRingLayer }.first)
+        XCTAssertEqual(ring.borderWidth, 1.5)
+        XCTAssertEqual(ring.borderColor, NeonTokens.dark.glowPrimary.color.withAlphaComponent(0.8).cgColor)
+
+        setReduceEffects(false)
+        settle()
+        XCTAssertEqual(glows(cta), 1)
+        XCTAssertEqual(rings(cta), 0)
+        XCTAssertGreaterThan(neon.layer.shadowOpacity, 0)
+        XCTAssertEqual(rings(neon), 0)
+    }
+
+    /// An accessibility or power change used to re-apply the whole palette,
+    /// rebuilding every label. It now sends one effects-only update, and
+    /// nothing when the resulting policy did not change.
+    @MainActor
+    func testEffectChangesSendOneEffectsUpdate() throws {
+        try XCTSkipIf(FxPolicy.current.tier != .full || FxPolicy.reduceEffects,
+                      "needs the default effect tier")
+        let storedReduceEffects = UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey)
+        defer {
+            setReduceEffects(false)
+            if storedReduceEffects == nil { UserDefaults.standard.removeObject(forKey: FxPolicy.reduceEffectsKey) }
+        }
+        let spy = NeonStyleSpy()
+        SoramitsuUI.updates.addObserver(spy)
+        defer { SoramitsuUI.updates.removeObserver(spy) }
+
+        setReduceEffects(true)
+        XCTAssertEqual(spy.received.map(\.rawValue), [UpdateOptions.effects.rawValue])
+        XCTAssertFalse(UpdateOptions.effects.contains(.palette))
+
+        // The same policy again (several system notifications arrive for one
+        // change): nothing is posted.
+        let quiet = expectation(forNotification: .neonFxChanged, object: nil)
+        quiet.isInverted = true
+        FxPolicy.reduceEffects = true
+        wait(for: [quiet], timeout: 0.3)
+        XCTAssertEqual(spy.received.count, 1)
+
+        setReduceEffects(false)
+        XCTAssertEqual(spy.received.map(\.rawValue), [UpdateOptions.effects.rawValue, UpdateOptions.effects.rawValue])
+    }
+
+    /// A caller's attributed title kept its own colour on the neon fill:
+    /// white on the dark swap gradient (3.6:1). It now takes the label
+    /// colour of the fill and of the disabled state.
+    @MainActor
+    func testAttributedButtonTitlesFollowTheFillAndTheDisabledState() throws {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        func titleColor(_ button: SoramitsuButton) -> UIColor? {
+            let label = descendants(button).compactMap { $0 as? UILabel }.first { ($0.attributedText?.length ?? 0) > 0 }
+            return label?.attributedText?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
+        }
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        let swap = SoramitsuButton()
+        swap.sora.backgroundColor = .additionalPolkaswap
+        swap.sora.attributedText = SoramitsuTextItem(text: "Start staking", fontData: FontType.buttonM,
+                                                     textColor: .custom(uiColor: .white), alignment: .center)
+        let remove = SoramitsuButton()
+        remove.sora.backgroundColor = .additionalPolkaswapContainer
+        remove.sora.attributedText = SoramitsuTextItem(text: "Remove", fontData: FontType.buttonM,
+                                                       textColor: .additionalPolkaswapText, alignment: .center)
+        for theme in [SoramitsuThemeType.dark, .light] {
+            SoramitsuUI.shared.themeMode = .manual(theme)
+            let tokens = NeonTokens.tokens(for: theme)
+            XCTAssertEqual(titleColor(swap), tokens.onAccent, "ink on neon in dark, white in light")
+            swap.sora.isEnabled = false
+            XCTAssertEqual(titleColor(swap), tokens.textDisabled)
+            swap.sora.isEnabled = true
+            XCTAssertEqual(titleColor(swap), tokens.onAccent)
+            // Off the neon fill the caller's colour is kept.
+            XCTAssertEqual(titleColor(remove), tokens.polkaswapText)
+        }
+    }
+
+    /// The custom bar draws its notch and active-item pill only before
+    /// Liquid Glass, and the whole swap disc (glow and fill included) can
+    /// move to the system bar if the custom bar cannot be installed.
+    @MainActor
+    func testTabBarChromeAndSwapDisc() throws {
+        let frame = CGRect(x: 0, y: 0, width: 390, height: 83)
+        XCTAssertEqual(TabBar(frame: frame).drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
+        // The bar's own drawing: plain layers, not the layers of UIKit's views.
+        func pill(_ bar: TabBar) -> CALayer? {
+            bar.layer.sublayers?.first { !($0 is CAShapeLayer) && $0.cornerRadius == 1.5 && $0.delegate == nil }
+        }
+        func chromeShapes(_ bar: TabBar) -> Int {
+            bar.layer.sublayers?.filter { $0 is CAShapeLayer && $0.delegate == nil }.count ?? 0
+        }
+        func items() -> [UITabBarItem] {
+            (0 ..< 5).map { UITabBarItem(title: "Tab \($0)", image: UIImage(systemName: "circle.fill"), tag: $0) }
+        }
+
+        // iOS 26+: nothing is painted over the system Liquid Glass bar.
+        let glass = TabBar(frame: frame, drawsLegacyChrome: false)
+        glass.items = items()
+        glass.selectedItem = glass.items?.first
+        glass.draw(glass.bounds)
+        glass.layoutIfNeeded()
+        XCTAssertEqual(chromeShapes(glass), 0)
+        XCTAssertNil(pill(glass))
+
+        // iOS 16–25: notch, hairline and a 16 × 3 pill over the selected item.
+        let legacy = TabBar(frame: frame, drawsLegacyChrome: true)
+        legacy.items = items()
+        legacy.selectedItem = legacy.items?.first
+        legacy.draw(legacy.bounds)
+        legacy.layoutIfNeeded()
+        XCTAssertEqual(chromeShapes(legacy), 2, "the notched fill and its top hairline")
+        let indicator = try XCTUnwrap(pill(legacy))
+        let itemViews = legacy.subviews
+            .filter { $0 is UIControl && $0 !== legacy.coverButton && $0 !== legacy.middleButton }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        if itemViews.count == 5 {
+            XCTAssertFalse(indicator.isHidden)
+            XCTAssertEqual(indicator.frame.size, CGSize(width: 16, height: 3))
+            XCTAssertEqual(indicator.frame.midX, itemViews[0].frame.midX, accuracy: 0.5)
+            XCTAssertGreaterThanOrEqual(indicator.frame.minY, 0)
+            legacy.selectedItem = legacy.items?[3]
+            legacy.updateSelectionIndicator(animated: false)
+            XCTAssertEqual(indicator.frame.midX, itemViews[3].frame.midX, accuracy: 0.5)
+            // The centre item is the swap disc, not a tab.
+            legacy.selectedItem = legacy.items?[2]
+            legacy.updateSelectionIndicator(animated: false)
+            XCTAssertTrue(indicator.isHidden)
+        } else {
+            // On a Liquid Glass runtime the item views are not the bar's own
+            // subviews: the pill stays hidden instead of guessing a place.
+            XCTAssertTrue(indicator.isHidden)
+        }
+
+        // The swap-in itself (key-value coding on `_tabBar`) works on this
+        // system. If a future iOS renames that storage this fails here
+        // first; the app then keeps the system bar and moves the disc onto it.
+        let controller = MainTabBarViewController()
+        controller.loadViewIfNeeded()
+        XCTAssertTrue(controller.tabBar is TabBar)
+        XCTAssertEqual((controller.tabBar as? TabBar)?.drawsLegacyChrome, !NeonChrome.usesLiquidGlass)
+
+        // Fallback: the disc moves as a whole.
+        let system = UITabBar(frame: frame)
+        glass.installSwapDisc(in: system)
+        for view in [glass.coverButton, glass.middleButton, glass.middleButtonTitleLabel] as [UIView] {
+            XCTAssertTrue(view.superview === system)
+        }
+        XCTAssertEqual(system.subviews.filter { $0 is GlowHostView }.count, 1)
+        XCTAssertEqual(system.subviews.filter { $0 is NeonGradientView }.count, 1)
+        XCTAssertFalse(glass.subviews.contains { $0 is GlowHostView || $0 is NeonGradientView })
+        system.layoutIfNeeded()
+        XCTAssertEqual(glass.middleButton.frame.midX, system.bounds.midX, accuracy: 0.5)
+        let fill = try XCTUnwrap(system.subviews.first { $0 is NeonGradientView })
+        XCTAssertEqual(fill.frame, glass.middleButton.frame)
+    }
+
+    /// On a small screen or at a large text size the 1.x upgrade screen
+    /// centred its content on the visible frame, so the content followed the
+    /// scroll offset and its last actions could never be scrolled into view;
+    /// the low-storage panel did not scroll at all.
+    @MainActor
+    func testSafeModePanelsScrollToTheirLastAction() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 300))
+        defer { window.isHidden = true; window.rootViewController = nil }
+
+        func assertReachable(_ view: UIView, in scroll: UIScrollView, _ message: String,
+                             file: StaticString = #filePath, line: UInt = #line) {
+            scroll.superview?.layoutIfNeeded()
+            XCTAssertGreaterThan(scroll.contentSize.height, scroll.bounds.height, "content is taller than the screen",
+                                 file: file, line: line)
+            // Scroll to the end, as a user would, and lay out again.
+            for _ in 0 ..< 3 {
+                scroll.contentOffset = CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height))
+                scroll.superview?.setNeedsLayout()
+                scroll.superview?.layoutIfNeeded()
+                scroll.layoutIfNeeded()
+            }
+            let visible = scroll.convert(scroll.bounds, to: nil).insetBy(dx: -1, dy: -1)
+            XCTAssertTrue(visible.contains(view.convert(view.bounds, to: nil)), message, file: file, line: line)
+        }
+
+        let upgrade = LegacyWalletUpgradeViewController(onConfirm: {})
+        window.rootViewController = upgrade
+        window.isHidden = false
+        upgrade.view.layoutIfNeeded()
+        let upgradeScroll = try XCTUnwrap(descendants(upgrade.view).compactMap { $0 as? UIScrollView }.first)
+        let details = try XCTUnwrap(descendants(upgradeScroll).compactMap { $0 as? UIButton }.last)
+        XCTAssertEqual(details.title(for: .normal), WalletUX.text("What happens during the upgrade?"))
+        assertReachable(details, in: upgradeScroll, "the last action can be scrolled into view")
+        let confirm = try XCTUnwrap(descendants(upgradeScroll).compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == RetainedMigrationEvidenceHarness.continueUpgradeAccessibilityIdentifier
+        })
+        XCTAssertTrue(CGRect(origin: .zero, size: upgradeScroll.contentSize)
+            .contains(confirm.convert(confirm.bounds, to: upgradeScroll)), "Upgrade wallet is inside the scrollable content")
+        // And the top is still there after scrolling back.
+        upgradeScroll.contentOffset = .zero
+        upgrade.view.setNeedsLayout()
+        upgrade.view.layoutIfNeeded()
+        let title = try XCTUnwrap(descendants(upgradeScroll).compactMap { $0 as? UILabel }
+            .first { $0.text == WalletUX.text("Upgrade your wallet") })
+        XCTAssertTrue(upgradeScroll.convert(upgradeScroll.bounds, to: nil).insetBy(dx: -1, dy: -1)
+            .contains(title.convert(title.bounds, to: nil)))
+
+        let splashWindow = SoraWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 300))
+        let presenter = SplashPresenter(window: splashWindow)
+        let splash = SplashViewController()
+        splash.presenter = presenter
+        presenter.view = splash
+        window.rootViewController = splash
+        splash.showStorageSpaceRetry {}
+        splash.view.layoutIfNeeded()
+        let retry = try XCTUnwrap(descendants(splash.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-upgrade-storage-retry" })
+        let panelScroll = try XCTUnwrap(sequence(first: retry as UIView, next: \.superview)
+            .compactMap { $0 as? UIScrollView }.first, "the low-storage panel scrolls")
+        assertReachable(retry, in: panelScroll, "Check again can be scrolled into view")
+
+        // Content that fits is centred, not pinned to the top.
+        let tall = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 1400))
+        defer { tall.isHidden = true; tall.rootViewController = nil }
+        let roomy = LegacyWalletUpgradeViewController(onConfirm: {})
+        tall.rootViewController = roomy
+        tall.isHidden = false
+        roomy.view.layoutIfNeeded()
+        let roomyScroll = try XCTUnwrap(descendants(roomy.view).compactMap { $0 as? UIScrollView }.first)
+        let stack = try XCTUnwrap(roomyScroll.subviews.compactMap { $0 as? UIStackView }.first)
+        XCTAssertEqual(roomyScroll.contentSize.height, roomyScroll.bounds.height, accuracy: 0.5)
+        XCTAssertEqual(stack.frame.midY, roomyScroll.bounds.height / 2, accuracy: 1)
+    }
+
+    /// Links in the Welcome terms were red and told apart by colour only.
+    @MainActor
+    func testWelcomeTermsLinksAreCyanAndUnderlined() throws {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        let welcome = WelcomeViewController()
+        for theme in [SoramitsuThemeType.dark, .light] {
+            SoramitsuUI.shared.themeMode = .manual(theme)
+            let tokens = NeonTokens.tokens(for: theme)
+            welcome.decorate(label: welcome.termsLabel)
+            let attributes = try XCTUnwrap(welcome.termsLabel.linkAttributes)
+            XCTAssertEqual(attributes[.foregroundColor] as? UIColor, tokens.link)
+            XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
+            XCTAssertGreaterThanOrEqual(WalletUX.contrast(tokens.link, tokens.surface), 4.5)
+            let text = try XCTUnwrap(welcome.termsLabel.attributedText)
+            XCTAssertEqual(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, tokens.textSecondary)
+        }
+    }
+
+    /// Waits for the effect policy change to reach every observer.
+    @MainActor
+    private func setReduceEffects(_ value: Bool) {
+        guard FxPolicy.reduceEffects != value else { return }
+        let changed = expectation(forNotification: .neonFxChanged, object: nil)
+        FxPolicy.reduceEffects = value
+        wait(for: [changed], timeout: 2)
+    }
+
+    /// Lets pending button configuration updates and layout run.
+    @MainActor
+    private func settle() {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+    }
+
     private func descendants(_ view: UIView) -> [UIView] {
         view.subviews.flatMap { [$0] + descendants($0) }
     }
+}
+
+private final class NeonNodesPresenterStub: NodesPresenterProtocol {
+    func setup() {}
+}
+
+private final class NeonStyleSpy: NSObject, SoramitsuObserver {
+    private(set) var received: [UpdateOptions] = []
+    func styleDidChange(options: UpdateOptions) { received.append(options) }
 }
