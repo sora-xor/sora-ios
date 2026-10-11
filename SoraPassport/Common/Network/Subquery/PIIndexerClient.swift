@@ -2982,9 +2982,16 @@ final class PIIndexerClient {
         return result.map(\.assets)
     }
 
+    /// The asset and pool catalogs are read whole, and every price in the
+    /// app depends on that read. Registering an asset on SORA needs no
+    /// permission, so the catalog grows; its walk gets the most pages the
+    /// pager allows (10,000 rows at 100 per page; 957 assets and 432 pools
+    /// on 12 October 2026).
+    static let maximumCatalogPages = 100
+
     func allAssets(
         pageSize: Int = 100,
-        maximumPages: Int = 20
+        maximumPages: Int = maximumCatalogPages
     ) async throws -> [PIAsset] {
         try await qualifiedAllAssets(
             pageSize: pageSize,
@@ -2997,7 +3004,7 @@ final class PIIndexerClient {
     /// last good catalog.
     func qualifiedAllAssets(
         pageSize: Int = 100,
-        maximumPages: Int = 20
+        maximumPages: Int = maximumCatalogPages
     ) async throws -> PIQualifiedRead<[PIAsset]> {
         try await lastGoodCatalog(
             name: Self.assetsCatalogName,
@@ -3071,7 +3078,7 @@ final class PIIndexerClient {
 
     func allPoolXYKs(
         pageSize: Int = 100,
-        maximumPages: Int = 20
+        maximumPages: Int = maximumCatalogPages
     ) async throws -> [PIPoolXYK] {
         try await qualifiedAllPoolXYKs(
             pageSize: pageSize,
@@ -3082,7 +3089,7 @@ final class PIIndexerClient {
     /// Every XYK pool PI knows; qualified like `qualifiedAllAssets`.
     func qualifiedAllPoolXYKs(
         pageSize: Int = 100,
-        maximumPages: Int = 20
+        maximumPages: Int = maximumCatalogPages
     ) async throws -> PIQualifiedRead<[PIPoolXYK]> {
         try await lastGoodCatalog(
             name: Self.poolsCatalogName,

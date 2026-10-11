@@ -47,7 +47,9 @@ enum PIMarketCapLiquidityValidator {
 }
 
 enum PIMarketCapCatalogValidator {
-    static let maximumRequestedAssetCount = 2_000
+    /// As many assets as the catalog walk can return
+    /// (`PIIndexerClient.maximumCatalogPages` pages of 100).
+    static let maximumRequestedAssetCount = 10_000
     static let maximumAssetIDBytes = 256
 
     static func validatedRequestedAssetIDs(
