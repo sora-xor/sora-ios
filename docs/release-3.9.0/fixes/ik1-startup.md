@@ -75,13 +75,24 @@ the splash was visible goes on afterwards.
   `AssetManager.networkAssets`, and the registry is synced so that the chain
   row and every screen that follows it get the list. It is loaded once per
   process.
-- The coordinator does not create the chain registry. While startup has not
-  booted it (recovery screen, low storage, 1.x upgrade) no list is needed and
-  nothing is sent. `SplashInteractor.bootChainRegistry` creates the registry
-  on the main thread, then calls `chainRegistryWillBoot()`, then boots it.
-  The order matters: creating the registry reads the app's window (UIKit),
-  and the loader uses the registry from its own queue as soon as it hears of
-  the boot. The registry is therefore created first, by the main thread.
+- The coordinator does not create the chain registry (creating it reads the
+  app's window, and this work runs on background queues). It uses the
+  registry once it knows that somebody has started it. While nobody has
+  (recovery screen, low storage, the 1.x upgrade screen) there is no wallet
+  on screen that needs a list, and nothing is sent.
+- **The registry is started in two places, and the coordinator is told at
+  both.** Startup boots it (`SplashInteractor.bootChainRegistry`). The
+  wallet starts it again when it opens (`ServiceCoordinator.setup`, run by
+  `MainTabBarInteractor`), and for a 1.x wallet that is the first start:
+  its startup ends at the upgrade screen and boots nothing, and after
+  "Upgrade wallet" and the PIN the wallet opens without another run of
+  startup. Both places create the registry on the main thread, then call
+  `chainRegistryWillBoot()`, then start it. The order matters: the loader
+  uses the registry from its own queue as soon as it hears of the start.
+  As a second line, a node that connects is reported by the registry itself
+  (`nodeDidConnect()`), and that report alone also counts as "started".
+  (Review round 3: until then only startup told the coordinator, so the
+  wallet of a 1.x user never asked for its asset list after the upgrade.)
 
 ### The loader: `AssetsInfoProvider`
 
@@ -115,6 +126,18 @@ Rewritten as a small state machine on its own serial queue.
 - `retryNow` starts an attempt early (the node has just connected, startup
   was restarted, the user tapped "Try again"). Attempts started this way are
   at least 5 seconds apart, and a wake-up never postpones a planned attempt.
+- **A node that keeps connecting and failing is not asked every 5 seconds.**
+  The registry wakes the loader every time a node connects. On a node whose
+  last attempts failed, a wake-up may bring the next attempt no closer to the
+  last one than 5, 10, 20, 40 and then 60 seconds (after 1, 2, 3, 4 and more
+  failed attempts on that node; `RetryPolicy.wakeUpInterval`). That is never
+  less than the planned wait, so a node that accepts the socket and drops it
+  again gets the same 2, 4, 8, 16, 32, 60 second waits as a node that stays
+  connected and fails. The count is kept per node: after a failover the new
+  node has not failed and is asked after the plain 5 seconds. An explicit
+  user action ("Try again", a restart of startup) clears the counts.
+  (Review round 3: before, a wake-up replaced the planned attempt by one 5
+  seconds after the last, however many attempts had failed.)
 - `cancel()` and `deinit` cancel the timers and the request in flight.
 - **The time limits and waits run on the loader's own serial queue.** They
   first ran on the shared utility queue. When a wallet opens on a slow node
@@ -145,6 +168,8 @@ loaded over the chain registry's connection:
   it stayed over a wallet that was connected again. The registry now takes it
   down when a node connects (`NodeConnectionFailover.connected()` reports
   that it was shown).
+- The registry calls the coordinator after it has released its own lock: the
+  work that is woken asks the registry for its connection.
 
 **Failover fix (found on the simulator).** `WebSocketEngine.reconnect(url:)`
 (vendored `SSFUtils`) reused the Starscream engine of the old node for the
@@ -212,7 +237,12 @@ arrives later, so the screens have to follow it:
     over them. Replacing the tabs closes whatever is pushed or presented (a
     recovery phrase being read, the node list, app settings). Until the user
     is back the rebuild waits and looks again once a second;
-  - a rebuild that cannot be done is tried three times, not for ever.
+  - a rebuild that cannot be done is tried three times, not for ever;
+  - the wait ends when waiting cannot help: the tabs were replaced by the
+    recovery screen of a failed account switch, or they belong to another
+    wallet than the selected one. The recovery screen is never built over.
+    (Review round 3: such a wait went on looking once a second for the rest
+    of the session.)
 - **No balances are loaded, and none are saved, for a wallet without an asset
   list** (`AssetProvider`). Every balance provider of an account shares one
   cache entry. The provider of the tabs built without a list loaded "no
@@ -261,16 +291,22 @@ The change is the order of startup and the network code around it.
 - A new wallet created on a fresh install while no node answers opens with
   its loading rows and gets its assets when a node answers, without a
   relaunch and without closing a screen the user is on.
+- A wallet upgraded from 1.x opens with its loading rows and shows its
+  assets a few seconds later, without a relaunch (review round 3).
 - The "Network unavailable. Retrying connection…" status goes away when a
   node is connected again.
 - After an account switch or a language change the middle tab shows
   "Polkaswap" once, not twice.
-- A returning node gets one small request per client, not a flood.
+- A returning node gets one small request per client, not a flood, and a
+  node that keeps dropping its connections is asked at growing intervals of
+  up to a minute.
 - No new strings.
 
 ## Tests
 
-`SoraPassportTests/Common/Modernization/StartupNetworkTests.swift`, 37 tests.
+`SoraPassportTests/Common/Modernization/StartupNetworkTests.swift`, 52 tests
+(37 from the first two passes, 15 from review round 3, listed under "Review
+round 3" below).
 The loader tests use a stub connection that answers inside `callMethod` (the
 case that used to recurse) and timers fired by the test, so waits and request
 counts are exact.
@@ -292,7 +328,9 @@ Loader (`AssetsInfoProvider`):
 - `testANodeThatOnlyReturnsFullPagesEndsTheAttempt`,
   `testANodeThatRepeatsAPageEndsTheAttemptAtOnce`.
 - `testNothingIsSentUntilTheConnectionIsConnected`.
-- `testRetryNowNeverBringsAttemptsCloserThanTheMinimumAndNeverPostpones`.
+- `testRetryNowNeverBringsAttemptsCloserThanTheMinimumAndNeverPostpones`
+  (its second half now uses "Try again"; the wake-ups of a node have their
+  own tests, see review round 3).
 - `testReleasingTheLoaderTakesItsRequestOffTheNodeAndStopsItsTimers`,
   `testCancelStopsTheLoader`.
 - `testRetryWaitsDoubleUpToTheCeilingAndJitterOnlyShortensThem`.
@@ -367,12 +405,12 @@ part of the unit run) was moved to the new interface.
 
 - Debug `build-for-testing` for the simulator succeeds (the app and the
   three test bundles, `SoraPassportIntegrationTests` included).
-- `SoraPassportTests`, Debug, iOS 27.0 simulator, whole target: 531 tests,
+- `SoraPassportTests`, Debug, iOS 27.0 simulator, whole target: 546 tests,
   0 failures, 2 skipped (`Sora2MainnetLiveSigningTests` skips itself unless
-  it is enabled for the live network). 494 before this task plus the 37 new
-  ones.
-- `StartupNetworkTests` alone: 37 of 37, also with every CPU core kept busy
-  by other processes during the run.
+  it is enabled for the live network). 494 before this task plus the 52 of
+  this task.
+- `StartupNetworkTests` alone: 52 of 52. (The 37 tests of the first two
+  passes were also run with every CPU core kept busy by other processes.)
 - The unsigned Release build for `generic/platform=iOS` succeeds.
 - `SoraPassportDev` builds for the simulator.
 - `Package.resolved` is unchanged.
@@ -446,6 +484,159 @@ Not run: a physical iPhone and airplane mode (the simulator has none). With
 no network at all the storage checks start the same way; the unit test with a
 configuration service and a node that never answer covers the order.
 
+## Review round 3
+
+Four findings of the adversarial review of the second pass. All four were
+checked against the code and are real; all four are fixed.
+
+### 1. A wallet opened after a 1.x upgrade never asked for its asset list (major)
+
+Found by review; confirmed in the code. The loader got a connection only
+after `chainRegistryWillBoot()`, and only `SplashInteractor.bootChainRegistry`
+called it. A 1.x wallet (Keychain items `seedEntropy`, optionally
+`privateKey`, and `pincode`; no account store, so no chain store either)
+ends startup at the upgrade screen without booting the registry
+(`performStorageMigration`, `deferredForLegacyUpgrade`). "Upgrade wallet"
+ends in `decideModuleSynchroniously()`, the PIN follows, and the wallet
+opens with no further run of startup. `ServiceCoordinator.setup()` (from
+`MainTabBarInteractor.init`) started the registry and told nobody. The
+loader's timers, the node's "connected" report and "Try again" all ended
+in "no connection", for the rest of the process. The wallet showed loading
+rows and no asset until the app was closed. A late remote node list was
+dropped the same way. This was a regression of this task: before it, the
+list was loaded before the storage checks, so this user got it. The same
+applies to an app that was deleted and installed again where only the 1.x
+Keychain items are left.
+
+Fix (commit "Load the asset list for a wallet whose registry startup did
+not boot"):
+
+- `ServiceCoordinator.setup()` creates the registry (main thread), calls
+  `chainRegistryWillBoot()`, then subscribes and syncs. Same order as
+  startup. `ServiceCoordinator` takes the coordinator and the registry as
+  parameters with the app's own as defaults.
+- `StartupNetworkCoordinator.nodeDidConnect()` also marks the registry as
+  started. The registry calls it itself, so the registry exists whoever
+  started it. This covers any other place that may start the registry.
+- `ChainRegistry` makes that call through a closure given at creation
+  (default: the app's coordinator) and after releasing its own lock.
+
+Not chosen: running startup again after the upgrade. It would work, but it
+changes the routing of the 1.x upgrade (a key-handling flow) for a network
+reason, and it adds a second splash between "Upgrade wallet" and the PIN.
+
+### 2. A node that keeps reconnecting was asked every 5 seconds (minor)
+
+Real. See "A node that keeps connecting and failing" above (commit "Back
+off the asset loader's wake-ups on a node that keeps failing"). Both of the
+reviewer's suggestions are combined: the distance of wake-up attempts grows
+with the failed attempts, and it is counted per node, so a real failover is
+not held back by the node that failed. At most 16 nodes are remembered.
+
+### 3. The tab rebuild's 1 Hz look could go on for ever (minor)
+
+Real: after an account switch that ends on the recovery screen, or with
+tabs of another wallet than the selected one, `canReplaceTabs` was false
+for good and the timer kept firing. See "the wait ends when waiting cannot
+help" above (commit "End the wait of the wallet's tab rebuild when waiting
+cannot help"). The check has a third answer (`Replacement.unavailable`),
+`handleAccountBoundRebuildFailure` stops a wait at once, and a rebuild that
+itself ends on the recovery screen is not tried again. The guard that used
+to stand before the check is now only inside it: one place decides.
+
+### 4. Two fixes were tested below their production wiring (minor)
+
+Real. Added:
+
+- `testTheRegistryTakesTheOutageStatusDownWhenANodeConnectsAndTellsTheWaitingWork`:
+  the production `ChainRegistry` on a chain store in memory with a
+  connection pool, a status presenter and a "node connected" hook of the
+  test's own. Every node fails and the status is shown; a node connects and
+  it is taken down once; a second outage shows and takes it down again; a
+  connection without an outage takes nothing down; the saved node is
+  updated.
+- Four tests of the production `MainTabBarWireframe` on a real tab bar
+  controller in a window (the selected wallet, the asset list, the timer
+  and the builder of the tabs are given by the test through
+  `MainTabBarWireframe.AssetListEnvironment`):
+  `testTheWalletsTabsAreBuiltAgainForALateListOnceTheUserIsBackAtATabsFirstScreen`,
+  `testAnAccountSwitchThatEndsOnTheRecoveryScreenEndsTheWaitAndIsNeverBuiltOver`,
+  `testTabsOfAnotherWalletThanTheSelectedOneAreNotReplacedByTheAssetListCheck`,
+  `testARebuildForALateListThatEndsOnTheRecoveryScreenIsTriedOnce`.
+
+### The other new tests
+
+- Finding 1: `testANodeThatConnectsIsEnoughWhenStartupDidNotBootTheRegistry`
+  (the coordinator gets `startupDidBegin()` and `nodeDidConnect()`, never
+  `chainRegistryWillBoot()`, and loads and publishes the list; a remote
+  node list that arrives afterwards reaches the registry),
+  `testTheWaitingLoaderFindsARegistryThatTheWalletStartedLater`, and
+  `testAWalletOpenedAfterAStartupThatBootedNoRegistryStillGetsItsAssetList`:
+  the production `SplashInteractor`, `MainTabBarInteractor`,
+  `ServiceCoordinator`, coordinator and loader. The storage checks are
+  replaced by one that ends without booting, as the deferral for the 1.x
+  upgrade does. The real checks read the app's own account store and
+  Keychain and cannot be put into that state inside the test host;
+  `RootInteractor` takes no part in starting the registry. The full path is
+  the simulator check below.
+- Finding 2: `testANodeThatKeepsConnectingAndFailingIsAskedWithGrowingWaits`
+  (five wake-ups after every failed attempt: the waits stay 2, 4, 8, 16,
+  32, 60, 60, 60 s),
+  `testAWakeUpNeverBringsAttemptsOnOneNodeCloserThanItsGrowingDistance`,
+  `testAWakeUpAfterAFailoverToAnotherNodeDoesNotWaitForTheFailedNode`,
+  `testTheDistanceOfWakeUpsOnOneNodeDoublesUpToTheCeiling`.
+- Finding 3, on `WalletAssetListRebuild` itself:
+  `testTheWaitEndsWhenTheTabsCanNoLongerBeReplacedAtAll`,
+  `testStoppingTheWaitCancelsItsTimerAndTheNextCheckDecidesAnew`,
+  `testARebuildThatEndsOnTheRecoveryScreenIsNotTriedAgain`.
+
+Each fix was taken out again to see its tests fail (logs in
+`scratchpad/work/logs-ios-keys/fix5/`):
+
+- Without the four fixes (`test-mutantA.log`): 12 of the 15 new tests fail,
+  the ones named for findings 1 to 4 above. The three that pass do not
+  depend on a fix (`testTheWaitingLoaderFinds…`, `testStoppingTheWait…`,
+  `testTheWalletsTabsAreBuiltAgainForALateList…`).
+- With the wiring broken the way the review described
+  (`test-mutantB.log`): the recovery guard removed from the wireframe's
+  check (the tabs are built over the recovery screen: 2 tests fail), the
+  `?? false` of the registry inverted (the status is "taken down" without
+  having been shown: the registry test fails), and the coordinator told
+  after the registry was started instead of before (the order test fails).
+
+### Verification of this round (Xcode 27.0)
+
+- Debug `build-for-testing` for the simulator succeeds.
+- `SoraPassportTests`, whole target: 546 tests, 0 failures, 2 skipped.
+  `StartupNetworkTests` alone: 52 of 52, run again after the last build.
+- The unsigned Release build for `generic/platform=iOS` succeeds.
+- `SoraPassportDev` was not built again: no file was added and no target
+  membership changed. `project.pbxproj` and `Package.resolved` are
+  untouched. No new strings.
+
+### Seen on the simulator: a 1.x wallet after the upgrade
+
+Files: `scratchpad/work/shots-ios-keys/ik1/fix5/`.
+
+The simulator was erased (its two throwaway wallets were copied aside
+first: Keychain database and app data in
+`scratchpad/work/ik1-tools/fix5/simA-backup-before-1x/`). A test that is
+not part of the repository wrote the three Keychain items of SORA 1.5.1
+(`privateKey`, `seedEntropy` of a new 15-word phrase, `pincode`) with the
+code copied from that release, as `WalletKeySafetyTests` does. The app was
+then deleted and installed again, so only those items were left.
+
+| Step | Result |
+|---|---|
+| Launch | "Upgrade your wallet" at the first screenshot, 5 s after the launch command (`L1-1x-launch-5s.png`) |
+| "Upgrade wallet" | PIN screen 3 s later (`L1-1x-after-upgrade-tap.png`); the console reports the scoped key copies added for 1 account |
+| PIN | The wallet opens with loading rows (`L1-1x-after-pin-0.png`). The registry is started by the wallet (console: node `wss://ws.mof.sora.org` at 05:45:29.8). **957 assets loaded at 05:45:33.0**, 3.2 s later, and the tabs are built again 0.13 s after that. The wallet shows XOR, VAL, PSWAP and the others without a tap or a relaunch (`L1-1x-after-pin-16s.png`) |
+
+Before the fix this wallet stayed on the loading rows (review finding 1; the
+unit tests above fail without the fix). The simulator now holds this
+upgraded throwaway wallet (PIN pattern as before: left column top to
+bottom, twice).
+
 ## Human or ops actions
 
 - None for release.
@@ -488,6 +679,9 @@ configuration service and a node that never answer covers the order.
   texts: the alert "Not backed up!" with "I will risk it" (its text also
   says "loose" for "lose"), and the button "Continue with Google". They are
   not in the string tables.
+- In a Japanese session the wallet's first screen shows "Send", "Receive"
+  and "SORA2 · Change network" in English
+  (`shots-ios-keys/ik1/fix5/L1-1x-after-pin-16s.png`).
 - A recovery marker that is only the flag `walletMigrationRecoveryRequired`,
   with no recorded cause, is not cleared by "Try again" (check R1). No
   released version writes such a marker; the recovery screen's other actions
