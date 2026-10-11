@@ -4355,6 +4355,18 @@ enum NexusKeyDerivation {
 /// Copy-on-write local store. Each snapshot remains immutable. Activation is
 /// a small atomic pointer write performed only after decoding and equality
 /// checks pass, so an interrupted upgrade continues to use the old snapshot.
+///
+/// An activation is three steps: write the new snapshot file, write the
+/// pointer, prune old snapshots. A process that dies between two steps leaves
+/// one of these states, and every later read completes it instead of failing:
+/// - hidden helper files of the file writer: swept, never read;
+/// - one snapshot more than the retained count (died before pruning): read
+///   as it is, and the oldest surplus snapshot is pruned;
+/// - a first snapshot without a pointer (died before the first pointer
+///   write): the pointer is written for that snapshot once it decodes and
+///   validates, exactly as the interrupted activation was about to do.
+/// Anything else that is unexpected (another file name, a snapshot that does
+/// not decode, a pointer whose digest does not match) still fails closed.
 final class WalletNetworkStore {
     struct LegacyFirstSnapshotEvidence {
         fileprivate let fileName: String
@@ -4694,6 +4706,10 @@ final class WalletNetworkStore {
         // Existing orphaned or unexpected evidence must never be overwritten
         // and reinterpreted as a fresh wallet model.
         _ = try loadUnlocked()
+        // The read above prunes a surplus snapshot left by an interrupted
+        // activation on a best-effort basis. Before another snapshot is
+        // added the directory must be back within its bound.
+        try pruneSurplusSnapshotUnlocked()
         try validate(snapshot)
 
         let data = try encoder.encode(snapshot)
@@ -4818,6 +4834,84 @@ final class WalletNetworkStore {
         else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
+    }
+
+    /// Completes the pruning step of an activation that was interrupted
+    /// after its snapshot was written. The active snapshot is protected; of
+    /// the others the oldest is removed, as the interrupted call would have
+    /// done. No-op when the directory is within its bound.
+    private func pruneSurplusSnapshotUnlocked() throws {
+        let namespace = try validatedNamespaceUnlocked()
+        guard
+            namespace.snapshotURLs.count > Self.retainedSnapshotCount,
+            let pointerURL = namespace.pointerURL
+        else {
+            return
+        }
+        let pointer = try verifiedPointerUnlocked(
+            at: pointerURL,
+            in: namespace
+        )
+        try pruneSnapshotsUnlocked(
+            protecting: [pointer.fileName],
+            maximumCount: Self.retainedSnapshotCount
+        )
+    }
+
+    /// Writes the pointer a first activation did not live to write. Applies
+    /// only to the exact state that leaves: one snapshot file, no pointer.
+    /// The snapshot was decoded and validated by the namespace check; here it
+    /// also passes the same topology admission as any first activation. The
+    /// pointer is written last, so a second interruption leaves this same
+    /// state again.
+    private func rebuildMissingPointerUnlocked(
+        in namespace: NamespaceContents
+    ) throws {
+        guard
+            namespace.pointerURL == nil,
+            namespace.snapshotURLs.count == 1,
+            let snapshotURL = namespace.snapshotURLs.first
+        else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        let data = try readBoundedData(
+            at: snapshotURL,
+            maximumBytes: Self.maximumSnapshotBytes
+        )
+        let snapshot: WalletNetworkSnapshot
+        do {
+            snapshot = try decoder.decode(
+                WalletNetworkSnapshot.self,
+                from: data
+            )
+            try validate(snapshot)
+        } catch {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        try verifyTopologyAdmission(current: nil, proposed: snapshot)
+        let pointer = ActivePointer(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            fileName: snapshotURL.lastPathComponent,
+            sha256: Self.sha256(data)
+        )
+        let pointerData = try encoder.encode(pointer)
+        guard pointerData.count <= Self.maximumPointerBytes else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        do {
+            try DurableFileWriter.write(
+                pointerData,
+                to: directoryURL.appendingPathComponent("active.json"),
+                fileManager: fileManager,
+                protection: .completeUntilFirstUserAuthentication
+            )
+        } catch {
+            // Transient (for example a full disk). The next read tries again.
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        Logger.shared.info(
+            "Wallet network model: pointer of an interrupted first activation completed"
+        )
     }
 
     private func pruneSnapshotsUnlocked(
@@ -5035,26 +5129,86 @@ final class WalletNetworkStore {
         return lhsData == rhsData
     }
 
+    /// - Parameter allowingTransitionalSnapshot: true only inside an
+    ///   activation, between its pointer write and its own pruning. A read
+    ///   outside that window that finds one snapshot too many is looking at
+    ///   an interrupted activation and prunes it.
     private func loadUnlocked(
         allowingTransitionalSnapshot: Bool = false
     ) throws -> WalletNetworkSnapshot? {
-        let namespace = try validatedNamespaceUnlocked()
+        var namespace = try validatedNamespaceUnlocked()
+        if namespace.pointerURL == nil, namespace.snapshotURLs.count == 1 {
+            // A first activation wrote its snapshot and did not live to
+            // write the pointer. Finish it; the caller then verifies the
+            // snapshot against the database and the keys as at any start.
+            try rebuildMissingPointerUnlocked(in: namespace)
+            namespace = try validatedNamespaceUnlocked()
+        }
         guard let pointerURL = namespace.pointerURL else {
-            // A new installation has an empty directory. Snapshot files
-            // without an active pointer instead prove that activation was
-            // interrupted or the pointer was lost; rebuilding over them would
-            // silently reinterpret recovery evidence as a fresh namespace.
+            // A new installation has an empty directory. Several snapshot
+            // files without a pointer are not a state an interrupted
+            // activation leaves; rebuilding over them would silently
+            // reinterpret recovery evidence as a fresh namespace.
             guard namespace.snapshotURLs.isEmpty else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
             }
             return nil
         }
-        let maximumSnapshots = Self.retainedSnapshotCount +
-            (allowingTransitionalSnapshot ? 1 : 0)
-        guard namespace.snapshotURLs.count <= maximumSnapshots else {
+        // One snapshot above the retained count is the state between an
+        // activation's snapshot write and its pruning. More is not.
+        guard
+            namespace.snapshotURLs.count <= Self.retainedSnapshotCount + 1
+        else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
+        let pointer = try verifiedPointerUnlocked(
+            at: pointerURL,
+            in: namespace
+        )
+        let snapshotData = try readBoundedData(
+            at: directoryURL.appendingPathComponent(pointer.fileName),
+            maximumBytes: Self.maximumSnapshotBytes
+        )
+        guard Self.sha256(snapshotData) == pointer.sha256 else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        let snapshot: WalletNetworkSnapshot
+        do {
+            snapshot = try decoder.decode(
+                WalletNetworkSnapshot.self,
+                from: snapshotData
+            )
+            try validate(snapshot)
+        } catch {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        if !allowingTransitionalSnapshot,
+           namespace.snapshotURLs.count > Self.retainedSnapshotCount {
+            // Best effort: the active snapshot is already verified. If the
+            // surplus cannot be removed now, the next read or the next
+            // activation (which requires it) tries again.
+            do {
+                try pruneSnapshotsUnlocked(
+                    protecting: [pointer.fileName],
+                    maximumCount: Self.retainedSnapshotCount
+                )
+                Logger.shared.info(
+                    "Wallet network model: pruning of an interrupted activation completed"
+                )
+            } catch {
+                Logger.shared.warning(
+                    "Wallet network model: surplus snapshot kept (prune deferred)"
+                )
+            }
+        }
+        return snapshot
+    }
+
+    private func verifiedPointerUnlocked(
+        at pointerURL: URL,
+        in namespace: NamespaceContents
+    ) throws -> ActivePointer {
         let pointer: ActivePointer
         do {
             pointer = try decoder.decode(
@@ -5082,24 +5236,7 @@ final class WalletNetworkStore {
         else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
-        let snapshotData = try readBoundedData(
-            at: directoryURL.appendingPathComponent(pointer.fileName),
-            maximumBytes: Self.maximumSnapshotBytes
-        )
-        guard Self.sha256(snapshotData) == pointer.sha256 else {
-            throw WalletNetworkMigrationError.snapshotVerificationFailed
-        }
-        let snapshot: WalletNetworkSnapshot
-        do {
-            snapshot = try decoder.decode(
-                WalletNetworkSnapshot.self,
-                from: snapshotData
-            )
-            try validate(snapshot)
-        } catch {
-            throw WalletNetworkMigrationError.snapshotVerificationFailed
-        }
-        return snapshot
+        return pointer
     }
 
     private func validateDirectory() throws {
