@@ -6687,6 +6687,40 @@ final class PIActivityRefreshTests: XCTestCase {
         XCTAssertEqual(history.requests, [1, 1, 2])
     }
 
+    /// More operations in one day than fit on a page: every row of page 2
+    /// belongs to the day that is on screen already. Such a page was kept
+    /// in memory, never drawn and never counted; the spinner stayed and
+    /// each scroll to the end read the same page and kept it once more.
+    @MainActor
+    func testAPageOfADayAlreadyOnScreenIsDrawnAndCounted() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], day: "1"))
+        history.set(2, page(["a3", "a4"], day: "1"))
+        history.set(3, page(["b1"], day: "2", endReached: true))
+        let viewModel = viewModel(history)
+
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("page 2 drawn") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2", "a3", "a4"]
+        }
+        XCTAssertEqual(viewModel.pageNumber, 2)
+        XCTAssertEqual(viewModel.sections.count, 1)
+
+        viewModel.updateContent()
+        await wait("page 3 drawn") {
+            ActivityTestList.drawnRows(viewModel)
+                == ["a1", "a2", "a3", "a4", "b1"]
+        }
+        XCTAssertEqual(viewModel.pageNumber, 3)
+        XCTAssertEqual(history.requests, [1, 2, 3])
+        XCTAssertEqual(
+            ActivityTestList.rows(viewModel),
+            ["a1", "a2", "a3", "a4", "b1"]
+        )
+    }
+
     /// The history has more pages than the client reads: the list ends
     /// there, without a row that offers what cannot be had.
     @MainActor

@@ -329,9 +329,10 @@ extension ActivityViewModel: ActivityViewModelProtocol {
 
         updateSections(with: sections)
 
-        let updateSections = Set(sections)
-        let currentSectionsSet = Set(self.sections)
-        if !updateSections.intersection(currentSectionsSet).isEmpty {
+        // A page that brought rows is drawn and counted, also when every
+        // one of its rows belongs to a day that is on screen already and
+        // no section was added for it.
+        if !sections.isEmpty {
             reload()
         } else if endReached {
             // Nothing to draw and nothing more to ask for.
