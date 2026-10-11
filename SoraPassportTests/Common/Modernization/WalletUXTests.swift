@@ -1251,6 +1251,22 @@ private final class WalletUXNetworkStatusSpy: ApplicationStatusPresentable {
 /// theme plumbing.
 final class SoraNeonDesignTests: XCTestCase {
 
+    /// "Reduce effects" is the app's own preference, and only these tests
+    /// write it. A run that is killed while a test holds it at `true` leaves
+    /// it set on that simulator: tests that need the default effect tier
+    /// then skipped themselves on every later run, and the installed app
+    /// stayed in the MINIMAL tier. It is cleared before and after every test
+    /// here, through the policy so that every observer follows.
+    override func setUp() {
+        super.setUp()
+        MainActor.assumeIsolated { resetReduceEffects() }
+    }
+
+    override func tearDown() {
+        MainActor.assumeIsolated { resetReduceEffects() }
+        super.tearDown()
+    }
+
     func testBundledSoraFontLoads() {
         // Before 3.9.0 the font name was built from enum case names
         // ("headline-one") and every style fell back to the system font.
@@ -1486,15 +1502,9 @@ final class SoraNeonDesignTests: XCTestCase {
     /// Before, every filled primary button glowed, also in lists.
     @MainActor
     func testButtonGlowIsOptInNeverInListsAndARingInTheMinimalTier() throws {
-        try XCTSkipIf(FxPolicy.current.tier != .full || !FxPolicy.current.glows,
-                      "needs the default effect tier (no Reduce Transparency, Increase Contrast or Low Power Mode)")
+        try requireDefaultEffectTier()
         let previous = SoramitsuUI.shared.themeMode
-        let storedReduceEffects = UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey)
-        defer {
-            SoramitsuUI.shared.themeMode = previous
-            setReduceEffects(false)
-            if storedReduceEffects == nil { UserDefaults.standard.removeObject(forKey: FxPolicy.reduceEffectsKey) }
-        }
+        defer { SoramitsuUI.shared.themeMode = previous }
         SoramitsuUI.shared.themeMode = .manual(.dark)
         func glows(_ view: UIView) -> Int { view.layer.sublayers?.filter { $0.shadowOpacity > 0 }.count ?? 0 }
         func rings(_ view: UIView) -> Int { view.layer.sublayers?.filter { $0 is NeonRingLayer }.count ?? 0 }
@@ -1571,13 +1581,7 @@ final class SoraNeonDesignTests: XCTestCase {
     /// nothing when the resulting policy did not change.
     @MainActor
     func testEffectChangesSendOneEffectsUpdate() throws {
-        try XCTSkipIf(FxPolicy.current.tier != .full || FxPolicy.reduceEffects,
-                      "needs the default effect tier")
-        let storedReduceEffects = UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey)
-        defer {
-            setReduceEffects(false)
-            if storedReduceEffects == nil { UserDefaults.standard.removeObject(forKey: FxPolicy.reduceEffectsKey) }
-        }
+        try requireDefaultEffectTier()
         let spy = NeonStyleSpy()
         SoramitsuUI.updates.addObserver(spy)
         defer { SoramitsuUI.updates.removeObserver(spy) }
@@ -1784,6 +1788,245 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(stack.frame.midY, roomyScroll.bounds.height / 2, accuracy: 1)
     }
 
+    /// The amount card on Send and Swap was a Soramitsu view with a
+    /// configuration of its own, while the field drew the input chrome
+    /// (fill, border, focus glow) on the same layer. A style update reaches
+    /// the two in no defined order. When the card's came second it put back
+    /// its palette fill, cleared the border colour and removed the focus
+    /// glow until the field was focused again. One writer draws it now, from
+    /// the first display on.
+    @MainActor
+    func testAmountCardChromeSurvivesStyleUpdatesInAnyOrder() throws {
+        try requireDefaultEffectTier()
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+
+        let host = UIViewController()
+        let window = UIWindow.makeSoraSceneWindow()
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let field = InputAssetField()
+        host.view.addSubview(field)
+        let width = field.widthAnchor.constraint(equalToConstant: 320)
+        NSLayoutConstraint.activate([
+            field.topAnchor.constraint(equalTo: host.view.topAnchor, constant: 120),
+            field.leadingAnchor.constraint(equalTo: host.view.leadingAnchor, constant: 16),
+            width
+        ])
+        host.view.layoutIfNeeded()
+        let card = try XCTUnwrap(field.subviews.first)
+        XCTAssertEqual(card.frame, field.bounds)
+        XCTAssertGreaterThan(card.bounds.height, 0)
+        XCTAssertFalse(field.clipsToBounds, "the card fills the control: a clipping control leaves only the glow's corners")
+
+        func assertChrome(_ tokens: NeonTokens, focused: Bool, glow: Bool, _ message: String,
+                          file: StaticString = #filePath, line: UInt = #line) {
+            XCTAssertEqual(card.backgroundColor, tokens.inputFill, message, file: file, line: line)
+            XCTAssertEqual(card.layer.borderColor, (focused ? tokens.cyan : tokens.borderInput).cgColor, message,
+                           file: file, line: line)
+            XCTAssertEqual(card.layer.borderWidth, focused ? 1.5 : 1, message, file: file, line: line)
+            XCTAssertEqual(card.layer.cornerRadius, 24, message, file: file, line: line)
+            XCTAssertFalse(card.clipsToBounds, "a clipped card would hide its glow", file: file, line: line)
+            if glow {
+                XCTAssertEqual(card.layer.shadowOpacity, tokens.glowFocus.rest, message, file: file, line: line)
+                XCTAssertEqual(card.layer.shadowColor, tokens.glowFocus.color.cgColor, message, file: file, line: line)
+                // An explicit path the size of the card (spec §10.3).
+                let path = card.layer.shadowPath?.boundingBoxOfPath ?? .zero
+                XCTAssertEqual(path.width, card.bounds.width, accuracy: 0.5, message, file: file, line: line)
+                XCTAssertEqual(path.height, card.bounds.height, accuracy: 0.5, message, file: file, line: line)
+            } else {
+                XCTAssertEqual(card.layer.shadowOpacity, 0, message, file: file, line: line)
+            }
+        }
+        /// The style keeps its observers in a hash table and notifies them in
+        /// no defined order. This replays the worst one: the field first,
+        /// then the card, if the card has a configuration of its own.
+        func notifyFieldThenCard(_ options: UpdateOptions) {
+            field.sora.styleDidChange(options: options)
+            (card as? SoramitsuView)?.sora.styleDidChange(options: options)
+        }
+        let dark = NeonTokens.dark
+        let light = NeonTokens.light
+
+        // Before the first focus: the input chrome, not a bare palette card.
+        assertChrome(dark, focused: false, glow: false, "at rest, never focused")
+
+        field.sora.state = .focused
+        assertChrome(dark, focused: true, glow: true, "focused")
+
+        // The reported case: Low Power Mode off, Reduce Motion toggled.
+        notifyFieldThenCard(.effects)
+        assertChrome(dark, focused: true, glow: true, "after an effects update")
+        notifyFieldThenCard(.palette)
+        assertChrome(dark, focused: true, glow: true, "after a palette update")
+
+        // The same through the real notifications, in whatever order.
+        setReduceEffects(true)
+        settle()
+        assertChrome(dark, focused: true, glow: false, "MINIMAL tier: border only")
+        setReduceEffects(false)
+        settle()
+        assertChrome(dark, focused: true, glow: true, "back in the FULL tier, without focusing again")
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        assertChrome(light, focused: true, glow: false, "light: no focus glow")
+        notifyFieldThenCard(.palette)
+        assertChrome(light, focused: true, glow: false, "light, after a palette update")
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        assertChrome(dark, focused: true, glow: true, "dark again")
+
+        // The glow follows the card when its size changes.
+        width.constant = 280
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        settle()
+        XCTAssertEqual(card.bounds.width, 280)
+        assertChrome(dark, focused: true, glow: true, "after a size change")
+
+        field.sora.state = .default
+        assertChrome(dark, focused: false, glow: false, "at rest again")
+        notifyFieldThenCard(.effects)
+        notifyFieldThenCard(.palette)
+        assertChrome(dark, focused: false, glow: false, "at rest, after style updates")
+    }
+
+    /// The focus glow of a field was cut by the field itself: `InputField`
+    /// showed a strip of it under the field, the amount card only its four
+    /// corners. It is now drawn whole or not at all: never around a secret,
+    /// never in a list cell, and not where an ancestor would cut it. The
+    /// focused border is always there.
+    @MainActor
+    func testFocusGlowIsDrawnWholeOrNotAtAll() throws {
+        try requireDefaultEffectTier()
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        let tokens = NeonTokens.dark
+
+        let host = UIViewController()
+        let window = UIWindow.makeSoraSceneWindow()
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let width = host.view.bounds.width
+        XCTAssertGreaterThan(width, 300)
+
+        func place(_ view: UIView, in container: UIView, top: CGFloat, inset: CGFloat) {
+            container.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.topAnchor.constraint(equalTo: container.topAnchor, constant: top),
+                view.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: inset),
+                view.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -inset)
+            ])
+        }
+        func box(at y: CGFloat, height: CGFloat, inset: CGFloat, clips: Bool) -> UIView {
+            let view = UIView(frame: CGRect(x: inset, y: y, width: width - 2 * inset, height: height))
+            view.clipsToBounds = clips
+            host.view.addSubview(view)
+            return view
+        }
+        /// The focused border is there with or without the glow.
+        func assertGlow(_ field: UIView, _ expected: Bool, _ message: String,
+                        file: StaticString = #filePath, line: UInt = #line) {
+            guard let chrome = field.subviews.first else { return XCTFail("no chrome view", file: file, line: line) }
+            XCTAssertEqual(chrome.layer.borderColor, tokens.cyan.cgColor, message, file: file, line: line)
+            XCTAssertEqual(chrome.layer.borderWidth, 1.5, message, file: file, line: line)
+            guard expected else {
+                return XCTAssertEqual(chrome.layer.shadowOpacity, 0, message, file: file, line: line)
+            }
+            XCTAssertEqual(chrome.layer.shadowOpacity, tokens.glowFocus.rest, message, file: file, line: line)
+            XCTAssertEqual(chrome.layer.shadowColor, tokens.glowFocus.color.cgColor, message, file: file, line: line)
+            let path = chrome.layer.shadowPath?.boundingBoxOfPath ?? .zero
+            XCTAssertGreaterThan(chrome.bounds.height, 0, message, file: file, line: line)
+            XCTAssertEqual(path.width, chrome.bounds.width, accuracy: 0.5, message, file: file, line: line)
+            XCTAssertEqual(path.height, chrome.bounds.height, accuracy: 0.5, message, file: file, line: line)
+            // Nothing between the field and the window cuts it.
+            let reach = chrome.layer.shadowRadius * 2
+            XCTAssertEqual(reach, 12, message, file: file, line: line)
+            var ancestor = chrome.superview
+            while let current = ancestor {
+                if current.clipsToBounds {
+                    let glow = chrome.convert(chrome.bounds.insetBy(dx: -reach, dy: -reach), to: current)
+                    XCTAssertTrue(current.bounds.insetBy(dx: -0.5, dy: -0.5).contains(glow),
+                                  "\(message): cut by \(type(of: current))", file: file, line: line)
+                }
+                ancestor = current.superview
+            }
+        }
+
+        // On a screen, 24 pt from the edges: the whole glow.
+        let name = InputField()
+        place(name, in: host.view, top: 80, inset: 24)
+        // A password and the field the recovery phrase is typed into: none.
+        let password = InputField()
+        password.textField.isSecureTextEntry = true
+        place(password, in: host.view, top: 170, inset: 24)
+        let phrase = InputTextView()
+        place(phrase, in: host.view, top: 260, inset: 24)
+        // In a list cell: none.
+        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+        cell.frame = CGRect(x: 0, y: 350, width: width, height: 100)
+        host.view.addSubview(cell)
+        let inCell = InputField()
+        place(inCell, in: cell.contentView, top: 20, inset: 24)
+        // In a container that clips at the edges of the field: none.
+        let tight = box(at: 470, height: 60, inset: 24, clips: true)
+        let inTight = InputField()
+        place(inTight, in: tight, top: 0, inset: 0)
+        // In a clipping container that leaves the glow its 12 pt: whole.
+        let roomy = box(at: 550, height: 84, inset: 12, clips: true)
+        let inRoomy = InputField()
+        place(inRoomy, in: roomy, top: 12, inset: 12)
+        // The swap cards reach the edges of their host view.
+        let cards = InputAssetsView()
+        place(cards, in: host.view, top: 650, inset: 16)
+        host.view.layoutIfNeeded()
+
+        for field in [name, password, inCell, inTight, inRoomy] {
+            XCTAssertFalse(field.clipsToBounds, "a clipping field cuts its own glow")
+            field.sora.state = .focused
+        }
+        phrase.sora.state = .focused
+        XCTAssertFalse(cards.clipsToBounds)
+        XCTAssertFalse(cards.firstAsset.clipsToBounds)
+        cards.firstAsset.sora.state = .focused
+
+        assertGlow(name, true, "on a screen")
+        assertGlow(password, false, "a password never glows")
+        assertGlow(phrase, false, "the phrase field never glows")
+        assertGlow(inCell, false, "never in a list cell")
+        assertGlow(inTight, false, "no room: border only")
+        assertGlow(inRoomy, true, "12 pt of room")
+        assertGlow(cards.firstAsset, true, "swap card")
+
+        // The surroundings can change while a field is focused.
+        tight.clipsToBounds = false
+        inTight.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        assertGlow(inTight, true, "the container stopped clipping")
+        tight.clipsToBounds = true
+        inTight.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        assertGlow(inTight, false, "the container clips again")
+
+        // A style update keeps each answer.
+        setReduceEffects(true)
+        settle()
+        assertGlow(name, false, "MINIMAL tier")
+        setReduceEffects(false)
+        settle()
+        assertGlow(name, true, "FULL tier again")
+        assertGlow(password, false, "a password, after an effects update")
+        assertGlow(phrase, false, "the phrase field, after an effects update")
+        assertGlow(inCell, false, "in a cell, after an effects update")
+        assertGlow(inTight, false, "no room, after an effects update")
+
+        name.sora.state = .default
+        XCTAssertEqual(name.subviews.first?.layer.shadowOpacity, 0)
+        XCTAssertEqual(name.subviews.first?.layer.borderColor, tokens.borderInput.cgColor)
+    }
+
     /// Links in the Welcome terms were red and told apart by colour only.
     @MainActor
     func testWelcomeTermsLinksAreCyanAndUnderlined() throws {
@@ -1803,13 +2046,43 @@ final class SoraNeonDesignTests: XCTestCase {
         }
     }
 
-    /// Waits for the effect policy change to reach every observer.
+    /// Sets the app's "Reduce effects" preference and waits until the
+    /// change has reached every observer. Nothing is posted, and nothing is
+    /// waited for, when the resulting tier is the same (with Reduce
+    /// Transparency on it is MINIMAL either way).
     @MainActor
     private func setReduceEffects(_ value: Bool) {
         guard FxPolicy.reduceEffects != value else { return }
-        let changed = expectation(forNotification: .neonFxChanged, object: nil)
+        let tier = FxPolicy.current.tier
+        // The policy posts on the next main-queue turn, so the expectation
+        // below is in place before the notification.
         FxPolicy.reduceEffects = value
+        guard FxPolicy.current.tier != tier else { return }
+        let changed = expectation(forNotification: .neonFxChanged, object: nil)
         wait(for: [changed], timeout: 2)
+    }
+
+    /// Back to "never set", whatever an earlier test or a killed run left.
+    @MainActor
+    private func resetReduceEffects() {
+        setReduceEffects(false)
+        UserDefaults.standard.removeObject(forKey: FxPolicy.reduceEffectsKey)
+    }
+
+    /// Skips only for system settings a test cannot change. The app's own
+    /// preference is cleared in `setUp`; if it ever is not, this fails
+    /// instead of skipping.
+    @MainActor
+    private func requireDefaultEffectTier() throws {
+        let power = ProcessInfo.processInfo
+        try XCTSkipIf(UIAccessibility.isReduceTransparencyEnabled || UIAccessibility.isDarkerSystemColorsEnabled
+                        || power.isLowPowerModeEnabled || power.thermalState == .serious
+                        || power.thermalState == .critical,
+                      "needs the default system settings (no Reduce Transparency, Increase Contrast, Low Power Mode or thermal pressure)")
+        XCTAssertNil(UserDefaults.standard.object(forKey: FxPolicy.reduceEffectsKey),
+                     "the app's own Reduce effects preference is cleared before every test")
+        XCTAssertEqual(FxPolicy.current.tier, .full)
+        XCTAssertTrue(FxPolicy.current.glows)
     }
 
     /// Lets pending button configuration updates and layout run.
