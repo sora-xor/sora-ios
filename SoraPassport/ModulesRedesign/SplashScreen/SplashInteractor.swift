@@ -437,6 +437,143 @@ enum WalletStorageStartup {
     }
 }
 
+extension WalletStorageStartup {
+    struct Checks: Equatable {
+        let outcome: WalletStorageStartupOutcome
+        /// A wallet of the pre-account-model releases is waiting for its
+        /// explicit upgrade confirmation; no database was created.
+        let deferredForLegacyUpgrade: Bool
+    }
+
+    /// The wallet storage checks of one launch, in the order the app runs
+    /// them on its storage queue before it routes anywhere:
+    ///
+    /// 1. remove the hidden helper files a durable write leaves when the
+    ///    process dies inside it. They are not wallet data, and no check may
+    ///    fail because of them;
+    /// 2. resolve an interrupted startup verification and an interrupted
+    ///    account commit;
+    /// 3. migrate and verify the wallet database;
+    /// 4. check that the records of unfinished transactions can be read.
+    ///    Every send first records the transaction there. If they cannot be
+    ///    read, that is said now, on the recovery screen with its "set
+    ///    aside" action, instead of refusing every send later.
+    ///
+    /// `SplashInteractor` calls this with the defaults. The other parameters
+    /// exist so tests run this same sequence over an isolated installation.
+    static func runChecks(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        storeURL: URL = UserStorageParams.storageURL,
+        modelDirectory: String = UserStorageParams.modelDirectory,
+        applicationSupportURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        databaseMigrator: UserStorageMigrator? = nil,
+        fileManager: FileManager = .default,
+        sweepsHelperFiles: Bool = true,
+        retryDelay: ((Int) -> Void)? = nil
+    ) -> Checks {
+        if sweepsHelperFiles {
+            WalletInterruptedWriteCleanup.run(
+                storeURL: storeURL,
+                applicationSupportURL: applicationSupportURL,
+                fileManager: fileManager
+            )
+        }
+
+        let dbMigrator = databaseMigrator ?? UserStorageMigrator(
+            targetVersion: UserStorageParams.modelVersion,
+            storeURL: storeURL,
+            modelDirectory: modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: fileManager
+        )
+        let hasUnresolvedAccountCommit = {
+            try !WalletAccountCommitJournalStore(
+                fileManager: fileManager,
+                baseURL: applicationSupportURL,
+                recoveryGate: recoveryGate
+            ).unresolved().isEmpty
+        }
+//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
+        var deferredForLegacyUpgrade = false
+        let accountCommitRecovery: () throws -> Void = {
+            try WalletStartupVerificationRecovery.recoverIfNeeded(
+                storeURL: storeURL,
+                modelDirectory: modelDirectory,
+                keystore: keystore,
+                settings: settings,
+                baseURL: applicationSupportURL,
+                lifecycleCoordinator: lifecycleCoordinator
+            )
+            try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: storeURL,
+                modelDirectory: modelDirectory,
+                keystore: keystore,
+                settings: settings,
+                baseURL: applicationSupportURL,
+                lifecycleCoordinator: lifecycleCoordinator,
+                recoveryGate: recoveryGate
+            )
+        }
+        let migration: () throws -> Void = {
+            guard try !hasUnresolvedAccountCommit() else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            if !settings.walletMigrationRecoveryRequired,
+               try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: fileManager.fileExists(atPath: storeURL.path),
+                keystore: keystore,
+                hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: try WalletNetworkStore(
+                    fileManager: fileManager,
+                    baseURL: applicationSupportURL,
+                    recoveryGate: recoveryGate
+                ).load()
+            ) {
+                // This pre-account-model state has retained legacy entropy
+                // and, in 1.x, its verified Iroha key. Do not create an
+                // empty replacement store; Root presents the explicit,
+                // journaled upgrade confirmation and verifies the resulting
+                // SORA identity while retaining the original Keychain entry.
+                deferredForLegacyUpgrade = true
+                return
+            }
+            try dbMigrator.migrateAtStartup(
+                lifecycleCoordinator: lifecycleCoordinator,
+                hasUnresolvedAccountCommit: hasUnresolvedAccountCommit
+            )
+            try WalletStartupDiagnostic.check(.pendingTransactions) {
+                try PendingTransactionRecords.requireReadable(
+                    baseURL: applicationSupportURL,
+                    fileManager: fileManager
+                )
+            }
+        }
+        let outcome: WalletStorageStartupOutcome
+        if let retryDelay {
+            outcome = run(
+                settings: settings,
+                accountCommitRecovery: accountCommitRecovery,
+                retryDelay: retryDelay,
+                migration: migration
+            )
+        } else {
+            outcome = run(
+                settings: settings,
+                accountCommitRecovery: accountCommitRecovery,
+                migration: migration
+            )
+        }
+        return Checks(
+            outcome: outcome,
+            deferredForLegacyUpgrade: deferredForLegacyUpgrade
+        )
+    }
+}
+
 /// Older builds latched any unexpected framework error as a permanent wallet
 /// failure. Retry only that exact marker, retaining the ordinary operation gate
 /// until the complete installed account inventory and network keys are proven.
@@ -691,66 +828,9 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func performStorageMigration() {
-        // Before any check reads the wallet folders: remove the hidden helper
-        // files a durable write leaves when the process dies inside it. They
-        // are not wallet data, and no check may fail because of them.
-        WalletInterruptedWriteCleanup.run()
-
-        let keychain = Keychain()
-        let dbMigrator = UserStorageMigrator(
-            targetVersion: UserStorageParams.modelVersion,
-            storeURL: UserStorageParams.storageURL,
-            modelDirectory: UserStorageParams.modelDirectory,
-            keystore: keychain,
-            settings: settings,
-            fileManager: FileManager.default
-        )
-//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
-        var deferredForLegacyUpgrade = false
-        let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
-            try WalletStartupVerificationRecovery.recoverIfNeeded(
-                storeURL: UserStorageParams.storageURL,
-                modelDirectory: UserStorageParams.modelDirectory,
-                keystore: keychain,
-                settings: self.settings
-            )
-            try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
-                storeURL: UserStorageParams.storageURL,
-                modelDirectory: UserStorageParams.modelDirectory,
-                keystore: keychain,
-                settings: self.settings
-            )
-        }) {
-            let unresolvedCommits =
-                try WalletAccountCommitJournalStore().unresolved()
-            guard unresolvedCommits.isEmpty else {
-                throw UserStorageMigrationError.interruptedMigration
-            }
-            if !settings.walletMigrationRecoveryRequired,
-               try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
-                storeExists: FileManager.default.fileExists(
-                    atPath: UserStorageParams.storageURL.path
-                ),
-                keystore: keychain,
-                hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
-                snapshot: try WalletNetworkStore().load()
-            ) {
-                // This pre-account-model state has retained legacy entropy
-                // and, in 1.x, its verified Iroha key. Do not create an
-                // empty replacement store; Root presents the explicit,
-                // journaled upgrade confirmation and verifies the resulting
-                // SORA identity while retaining the original Keychain entry.
-                deferredForLegacyUpgrade = true
-                return
-            }
-            try dbMigrator.migrateAtStartup()
-            // Every send first records the transaction in this folder. If it
-            // cannot be read, say so now, on the recovery screen with its
-            // "set aside" action, instead of refusing every send later.
-            try WalletStartupDiagnostic.check(.pendingTransactions) {
-                try PendingTransactionRecords.requireReadable()
-            }
-        }
+        let checks = WalletStorageStartup.runChecks(settings: settings, keystore: Keychain())
+        let outcome = checks.outcome
+        let deferredForLegacyUpgrade = checks.deferredForLegacyUpgrade
 
         switch outcome {
         case .needsStorageSpace:
@@ -956,7 +1036,9 @@ final class SplashInteractor: SplashInteractorProtocol {
         selectedAddress: String?,
         store: WalletNetworkStore,
         keystore: KeystoreProtocol,
-        settings: SettingsManagerProtocol
+        settings: SettingsManagerProtocol,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws {
         // On a clean install there is no wallet to activate. Creating an empty
         // snapshot here writes a retained-wallet marker before onboarding and
@@ -969,7 +1051,9 @@ final class SplashInteractor: SplashInteractorProtocol {
         try WalletNetworkModelMigrator(
             keystore: keystore,
             store: store,
-            settings: settings
+            settings: settings,
+            lifecycleCoordinator: lifecycleCoordinator,
+            recoveryGate: recoveryGate
         ).migrate(accounts: accounts, selectedAddress: selectedAddress)
     }
 }
