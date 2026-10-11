@@ -838,6 +838,19 @@ final class PolkamarktRPCClient {
         return hash
     }
 
+    /// The hash this node holds at `blockNumber`, normalized (lowercase,
+    /// no prefix), or nil when it has no block at that height.
+    func blockHash(at blockNumber: Int) async throws -> String? {
+        guard blockNumber >= 0 else {
+            return nil
+        }
+        let maybeHash: String? = try await call(
+            RPCMethod.getBlockHash,
+            parameters: [blockNumber]
+        )
+        return maybeHash.flatMap(PolkamarktTransactionHash.normalized)
+    }
+
     func header(at blockHash: String) async throws -> Block.Header {
         try await call(
             RPCMethod.getHeader,

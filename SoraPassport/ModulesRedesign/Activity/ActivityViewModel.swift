@@ -537,6 +537,13 @@ extension ActivityViewModel: EventVisitorProtocol {
             self.view?.resetPagination()
         }
     }
+
+    /// A sent transaction received its final status: show it.
+    func processPendingSubmissionsResolved(event _: Sora2PendingSubmissionsResolved) {
+        DispatchQueue.main.async {
+            self.view?.resetPagination()
+        }
+    }
 }
 
 extension ActivityViewModel: Localizable {
