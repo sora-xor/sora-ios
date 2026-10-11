@@ -138,10 +138,14 @@ enum OrdinaryWalletAccountCommitRecovery {
                     // the caller checked), the account was removed afterwards
                     // by a version that knows no journal: App Store 3.8.6,
                     // run over this data again after the import was cut
-                    // short. One removed account must not lock the others.
-                    // The journal is closed; the network model, rebuilt from
-                    // the database later in this start, records the removal.
-                    // A database with no account at all is not that state.
+                    // short. (A row whose transaction did not survive a
+                    // power loss, although the synced journal had advanced,
+                    // ends here too.) One such account must not lock the
+                    // others. The journal is closed; the network model,
+                    // rebuilt from the database later in this start, records
+                    // the removal; the account's Keychain items stay and a
+                    // later import adopts them. A database with no account
+                    // at all is not that state.
                     guard !accounts.isEmpty else {
                         throw Failure.committedAccountMissing
                     }
