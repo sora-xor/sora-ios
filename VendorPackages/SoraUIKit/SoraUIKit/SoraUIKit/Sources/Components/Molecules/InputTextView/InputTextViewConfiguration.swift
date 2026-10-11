@@ -95,9 +95,12 @@ public final class InputTextViewConfiguration<Type: InputTextView>: SoramitsuVie
         owner.descriptionLabel.sora.textColor = state.descriptionColor
     }
 
-    /// Fill, border and focus glow (spec §7.5).
+    /// Fill and border (spec §7.5). No focus glow: this is the field the
+    /// recovery phrase or seed is typed into, and secrets never glow
+    /// (spec §1.8).
     private func applyInputChrome() {
         guard let owner else { return }
-        NeonInputStyle.apply(to: owner.stackView, state: state.fieldState, isEnabled: isEnabled, cornerRadius: 16)
+        NeonInputStyle.apply(to: owner.stackView, state: state.fieldState, isEnabled: isEnabled, cornerRadius: 16,
+                             focusGlow: false)
     }
 }
