@@ -66,11 +66,32 @@ struct RemoteConfig {
 final class ConfigService {
     static let shared = ConfigService()
     private let operationManager: OperationManager = OperationManager()
-    var config: RemoteConfig = RemoteConfig()
+    private let configLock = NSLock()
+    private var storedConfig = RemoteConfig()
+
+    /// The bundled configuration until the remote one has been answered.
+    /// Startup does not wait for that answer, so it can be written while the
+    /// chain sync reads the node list: access is locked.
+    var config: RemoteConfig {
+        get {
+            configLock.lock()
+            defer { configLock.unlock() }
+            return storedConfig
+        }
+        set {
+            configLock.lock()
+            storedConfig = newValue
+            configLock.unlock()
+        }
+    }
 }
 
 extension ConfigService: ConfigServiceProtocol {
-    
+
+    /// Asks PI for the remote configuration. `completion` is called when the
+    /// request has ended, with or without an answer; this can take as long as
+    /// the request's own time limits allow, so nothing at launch may wait
+    /// for it (see `StartupNetworkCoordinator`).
     func setupConfig(completion: @escaping () -> Void) {
         let queryOperation = SubqueryConfigInfoOperation<SoraConfig>()
         
