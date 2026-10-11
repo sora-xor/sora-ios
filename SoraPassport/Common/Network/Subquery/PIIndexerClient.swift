@@ -2743,6 +2743,17 @@ final class PIIndexerClient {
         else {
             throw PIIndexerError.invalidChainIdentity
         }
+        // PI publishes a reward in the token's smallest unit, a whole
+        // number ("183330193640403131" is 0.18 XOR). The Friends screen
+        // converts it from that unit, so any other form is refused here
+        // as a handled error instead of reaching the conversion.
+        guard values.allSatisfy({
+            PIHistoryCheckpointValidator.isNonNegativeIntegerQuantity(
+                $0.amount
+            )
+        }) else {
+            throw PIIndexerError.invalidQuantity
+        }
         let heights = try values.map {
             try exactNonNegativeInt($0.blockHeight)
         }
