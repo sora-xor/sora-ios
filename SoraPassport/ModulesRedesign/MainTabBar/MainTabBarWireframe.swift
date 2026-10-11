@@ -396,10 +396,12 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             }
         }
 
+        // No title, as in the first build (`MainTabBarViewFactory`): the
+        // custom tab bar draws the label of the middle button itself. With a
+        // title the system drew "Polkaswap" a second time under it after
+        // every rebuild (account switch, language change).
         let fakeSwapViewController = UIViewController()
         fakeSwapViewController.tabBarItem.isEnabled = false
-        fakeSwapViewController.title = R.string.localizable
-            .tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
 
         // Every controller below was built from the same selected account,
         // provider and wallet context. Publish the complete graph once so a
