@@ -1897,10 +1897,6 @@ final class PIIndexerClient {
     /// before the last good value is used.
     static let maximumStaleCheckpointRetries = 2
     static let staleCheckpointRetryDelay: TimeInterval = 0.4
-    /// How far this device's clock may differ from the PI server's `Date`
-    /// header and still be corrected by it. Covers a wrong time zone or a
-    /// hand-set clock; beyond it the device clock is used unchanged.
-    static let maximumTrustedClockSkew: TimeInterval = 26 * 60 * 60
     /// Catalog snapshots (assets, pools, referral rewards) older than this
     /// are not shown.
     static let lastGoodCatalogMaximumAge = TimeInterval(24 * 60 * 60)
@@ -2055,29 +2051,34 @@ final class PIIndexerClient {
         return httpDateFormatter.date(from: value)
     }
 
-    /// Uses the server's `Date` when it is present and within
-    /// `maximumTrustedClockSkew` of the device clock; otherwise the device
-    /// clock. A missing, malformed or wildly different header never makes
-    /// the check more permissive than the device clock alone.
+    /// Uses the server's `Date` whenever the header is present and well
+    /// formed, however far the device clock is from it; otherwise the
+    /// device clock.
+    ///
+    /// PI's timestamps are compared with the time PI itself reports in the
+    /// same response, over the same TLS connection. Whoever could forge that
+    /// header could forge the timestamps next to it, so a limit on the
+    /// distance to the device clock would add no safety. It would only keep
+    /// prices and Activity from a phone whose date was set by hand.
     static func responseClock(
         dateHeader: String?,
         deviceNow: Date = Date()
     ) -> ResponseClock {
-        let device = deviceNow.timeIntervalSince1970
+        let device = Int(
+            deviceNow.timeIntervalSince1970.rounded(.towardZero)
+        )
         guard
-            let server = httpDate(dateHeader)?.timeIntervalSince1970,
-            device.isFinite,
-            abs(server - device) <= maximumTrustedClockSkew
+            let server = httpDate(dateHeader)?.timeIntervalSince1970
         else {
             return ResponseClock(
-                nowEpochSeconds: Int(device.rounded(.towardZero)),
+                nowEpochSeconds: device,
                 deviceSkewSeconds: 0
             )
         }
         let now = Int(server.rounded(.towardZero))
         return ResponseClock(
             nowEpochSeconds: now,
-            deviceSkewSeconds: now - Int(device.rounded(.towardZero))
+            deviceSkewSeconds: now - device
         )
     }
 
