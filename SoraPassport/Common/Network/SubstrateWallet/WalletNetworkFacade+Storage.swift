@@ -117,7 +117,10 @@ extension WalletNetworkFacade {
                     }
 
                     guard case let .amounts(accountData) = reading else {
-                        return BalanceData.unavailable(identifier: asset.identifier)
+                        return BalanceData.unavailable(
+                            identifier: asset.identifier,
+                            notRead: reading == .notRead
+                        )
                     }
 
                     var context: BalanceContext = BalanceContext(context: [:])
@@ -171,7 +174,11 @@ extension WalletNetworkFacade {
 /// chain.
 enum WalletBalanceReading: Equatable {
     case amounts(AccountData)
+    /// The node answered and the app does not understand the answer.
     case unavailable
+    /// The request for this asset got no answer in this read (a timeout,
+    /// a dropped connection). Nothing new is known about the balance.
+    case notRead
 
     /// XOR, from `System.Account` as the runtime metadata decoded it. No
     /// stored value is an account that holds nothing.
@@ -186,10 +193,14 @@ enum WalletBalanceReading: Equatable {
     }
 
     /// Any other token, from its `Tokens.Accounts` storage value. A read
-    /// that failed is unavailable for this pass, not zero.
+    /// that failed is not read in this pass, never zero.
     static func token(storage: Result<OrmlAccountStorage, Error>) -> WalletBalanceReading {
         guard case let .success(storage) = storage else {
-            return .unavailable
+            if case let .failure(error) = storage, error is DecodingError {
+                // An answer arrived and is not a storage value.
+                return .unavailable
+            }
+            return .notRead
         }
         guard let hex = storage.hex else {
             return .amounts(AccountData(free: 0, reserved: 0, miscFrozen: 0, feeFrozen: 0))
@@ -231,17 +242,30 @@ struct OrmlAccountStorage: Decodable {
 extension BalanceData {
     static let unavailableContextKey = "balanceUnavailable"
 
+    /// The value of `unavailableContextKey` when the request got no answer,
+    /// as opposed to an answer that was not understood ("1").
+    static let notReadContextValue = "notRead"
+
     /// An entry for an asset whose balance could not be read. Its `balance`
     /// carries no information and must not be shown.
-    static func unavailable(identifier: String) -> BalanceData {
+    ///
+    /// - Parameter notRead: The request got no answer in this read, so
+    ///   nothing new is known; otherwise the answer was not understood.
+    static func unavailable(identifier: String, notRead: Bool = false) -> BalanceData {
         BalanceData(
             identifier: identifier,
             balance: AmountDecimal(value: 0),
-            context: [unavailableContextKey: "1"]
+            context: [unavailableContextKey: notRead ? notReadContextValue : "1"]
         )
     }
 
+    /// The balance could not be read, for either reason.
     var isUnavailable: Bool {
-        context?[Self.unavailableContextKey] == "1"
+        context?[Self.unavailableContextKey] != nil
+    }
+
+    /// The balance could not be read because its request got no answer.
+    var balanceWasNotRead: Bool {
+        context?[Self.unavailableContextKey] == Self.notReadContextValue
     }
 }
