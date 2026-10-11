@@ -7,6 +7,7 @@ import Network
 import RobinHood
 import SoraKeystore
 import SSFUtils
+import UIKit
 import XCTest
 @testable import SoraPassport
 
@@ -875,24 +876,173 @@ final class StartupNetworkTests: XCTestCase {
         withExtendedLifetime((interactor, second)) {}
     }
 
-    // MARK: - Chain sync picks up a list that arrives during a sync
+    // MARK: - The chain registry is created on the main thread
 
-    private final class SyncObserver: EventVisitorProtocol {
-        let expectation: XCTestExpectation
-        init(_ expectation: XCTestExpectation) { self.expectation = expectation }
-        func processChainSyncDidComplete(event _: ChainSyncDidComplete) { expectation.fulfill() }
+    private final class BootLog {
+        private(set) var events: [String] = []
+        func add(_ event: String) { events.append(event) }
+        func reset() { events = [] }
     }
 
-    /// The first whitelist request waits until the test lets it fail.
+    private final class RecordingNetwork: StartupNetworkCoordinating {
+        let log: BootLog
+        init(log: BootLog) { self.log = log }
+        func startupDidBegin() { log.add("startup_began") }
+        func chainRegistryWillBoot() { log.add("background_work_told") }
+    }
+
+    private final class RecordingRegistry: ChainRegistryProtocol {
+        let log: BootLog
+        init(log: BootLog) { self.log = log }
+        var availableChainIds: Set<ChainModel.Id>? { nil }
+        func getConnection(for _: ChainModel.Id) -> ChainConnection? { nil }
+        func getRuntimeProvider(for _: ChainModel.Id) -> RuntimeProviderProtocol? { nil }
+        func getAssetManager(for _: ChainModel.Id) -> AssetManagerProtocol { fatalError("not used") }
+        func getChain(for _: ChainModel.Id) -> ChainModel? { nil }
+        func getActiveNode(for _: ChainModel.Id) -> ChainNodeModel? { nil }
+        func subscribeToChians() {}
+        func chainsSubscribe(_: AnyObject, runningInQueue _: DispatchQueue,
+                             updateClosure _: @escaping ([DataProviderChange<ChainModel>]) -> Void) {}
+        func chainsUnsubscribe(_: AnyObject) {}
+        func performHotBoot() { log.add("hot_boot") }
+        func performColdBoot() { log.add("cold_boot") }
+        func syncUp() {}
+    }
+
+    /// Creating the registry reads the app's window, which only the main
+    /// thread may do. The asset loader uses the registry from its own queue
+    /// as soon as it hears of the boot, and it used to hear of it one
+    /// statement before the main thread first touched the registry: the
+    /// loader's queue could be the one that created it.
+    func testTheChainRegistryIsCreatedOnTheMainThreadBeforeTheBackgroundWorkHearsOfTheBoot() {
+        let log = BootLog()
+        let network = RecordingNetwork(log: log)
+        let registry = RecordingRegistry(log: log)
+        let create: () -> ChainRegistryProtocol = {
+            XCTAssertTrue(Thread.isMainThread)
+            log.add("registry_created")
+            return registry
+        }
+
+        SplashInteractor.bootChainRegistry(hasSelectedAccount: true, network: network, registry: create)
+        XCTAssertEqual(log.events, ["registry_created", "background_work_told", "hot_boot"])
+
+        log.reset()
+        SplashInteractor.bootChainRegistry(hasSelectedAccount: false, network: network, registry: create)
+        XCTAssertEqual(log.events, ["registry_created", "background_work_told", "cold_boot"])
+    }
+
+    // MARK: - The loader's limits keep their length
+
+    func testTheLoadersTimersFireOnItsOwnQueueAndCanBeCancelled() {
+        let key = DispatchSpecificKey<String>()
+        let own = DispatchQueue(label: "StartupNetworkTests.timer")
+        own.setSpecific(key: key, value: "own")
+        let timer = AssetsInfoProvider.timer(on: own)
+
+        let fired = expectation(description: "the timer fired")
+        let cancel = timer(0.05) {
+            XCTAssertEqual(DispatchQueue.getSpecific(key: key), "own")
+            fired.fulfill()
+        }
+        wait(for: [fired], timeout: 5)
+        cancel()
+
+        let cancelled = expectation(description: "a cancelled timer does not fire")
+        cancelled.isInverted = true
+        let cancelSecond = timer(0.05) { cancelled.fulfill() }
+        cancelSecond()
+        wait(for: [cancelled], timeout: 0.4)
+    }
+
+    /// A wallet that opens on a slow node puts many blocking requests on the
+    /// shared queues, which have a limited number of threads for the whole
+    /// app. The loader's timers used to fire on the shared utility queue: in
+    /// a run on the simulator a 20 s timeout fired after 47 s. With the
+    /// app's own timer (none is given here) the timeout and the wait before
+    /// the next attempt keep their length while every shared thread is taken.
+    func testTimeoutAndRetryKeepTheirLengthWhileTheSharedQueuesAreBlocked() {
+        let release = DispatchSemaphore(value: 0)
+        let blocked = 256
+        for _ in 0 ..< blocked {
+            DispatchQueue.global(qos: .utility).async { release.wait() }
+        }
+        defer {
+            for _ in 0 ..< blocked { release.signal() }
+        }
+        // Let the shared pool fill up.
+        usleep(300_000)
+
+        // The first request is never answered; after that the node is healthy.
+        let healthy = self.healthy()
+        node.answer = { call in call.id == 1 ? .silent : healthy(call) }
+        var policy = self.policy()
+        policy.keysPageTimeout = 0.3
+        policy.initialDelay = 0.2
+        let loaded = expectation(description: "the list arrives")
+        let provider = AssetsInfoProvider(
+            connection: { [node] in node },
+            storageKeyFactory: StorageKeyFactory(),
+            chainId: { "chain" },
+            policy: policy,
+            random: { 0 },
+            logger: nil
+        )
+        let start = Date()
+        provider.load { _ in loaded.fulfill() }
+        wait(for: [loaded], timeout: 10)
+
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5, "0.3 s timeout and 0.2 s wait, not the length of the blockage")
+        XCTAssertEqual(node.cancelled, [1], "the request that timed out was taken off the node")
+        XCTAssertEqual(node.calls.count, 4, "one silent request, then the two key pages and the values")
+        withExtendedLifetime(provider) {}
+    }
+
+    // MARK: - The node outage status
+
+    /// When every node has failed once, a status at the top of the screen says
+    /// that the network is unavailable. Only a change of the device's
+    /// reachability took it down, so after a node outage or a captive network
+    /// it stayed over a wallet that was connected again. The registry now
+    /// takes it down when `connected()` says that it was shown.
+    func testANodeThatConnectsTakesTheOutageStatusDownOnce() {
+        let nodes = [
+            ChainNodeModel(url: URL(string: "wss://one.invalid")!, name: "One", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://two.invalid")!, name: "Two", apikey: nil)
+        ]
+        var failover = NodeConnectionFailover()
+        XCTAssertFalse(failover.connected(), "nothing was shown")
+
+        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertFalse(failover.connected(), "one node failed and the next connected: nothing was shown")
+
+        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertTrue(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertTrue(failover.connected(), "the status was shown: it is taken down")
+        XCTAssertFalse(failover.connected(), "once")
+
+        // The next outage shows it again, and the next connection takes it down again.
+        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertTrue(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
+        XCTAssertTrue(failover.connected())
+    }
+
+    // MARK: - Chain sync picks up a list that arrives during a sync
+
+    /// The first whitelist request waits until the test lets it end, with a
+    /// failure or with the list the test gives it.
     private final class GatedDataFactory: DataOperationFactoryProtocol {
         let started = DispatchSemaphore(value: 0)
         private let gate = DispatchSemaphore(value: 0)
         private let lock = NSLock()
         private var isOpen = false
+        private var answer: Data?
 
-        func open() {
+        func open(with data: Data? = nil) {
             lock.lock()
             isOpen = true
+            answer = data
             lock.unlock()
             gate.signal()
         }
@@ -906,20 +1056,131 @@ final class StartupNetworkTests: XCTestCase {
                     started.signal()
                     gate.wait()
                 }
-                throw URLError(.timedOut)
+                lock.lock()
+                let answer = self.answer
+                lock.unlock()
+                guard let answer else { throw URLError(.timedOut) }
+                return answer
             }
         }
     }
 
-    func testAnAssetListThatArrivesDuringAChainSyncReachesTheChain() throws {
+    /// A chain store in memory. One save, chosen by the test, waits until the
+    /// test lets it go on: the pass it belongs to has then read everything
+    /// and written nothing.
+    private final class GatedChainRepository: DataProviderRepositoryProtocol {
+        typealias Model = ChainModel
+
+        let heldSaveStarted = DispatchSemaphore(value: 0)
+        private let gate = DispatchSemaphore(value: 0)
+        private let lock = NSLock()
+        private var stored: [ChainModel] = []
+        private var saves = 0
+        private let heldSave: Int
+
+        /// - Parameter heldSave: the number (1 for the first) of the save to hold.
+        init(holdingSave heldSave: Int) { self.heldSave = heldSave }
+
+        var snapshot: [ChainModel] { lock.lock(); defer { lock.unlock() }; return stored }
+        var listedAssetIds: Set<String> { Set(snapshot.first?.assets.map { $0.assetId } ?? []) }
+        func releaseHeldSave() { gate.signal() }
+
+        func fetchAllOperation(with _: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+            ClosureOperation { self.snapshot }
+        }
+
+        func saveOperation(_ updates: @escaping () throws -> [ChainModel],
+                           _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
+            ClosureOperation { [self] in
+                let changed = try updates()
+                let removed = try deletions()
+                lock.lock()
+                saves += 1
+                let number = saves
+                lock.unlock()
+                if number == heldSave {
+                    heldSaveStarted.signal()
+                    gate.wait()
+                }
+                lock.lock()
+                defer { lock.unlock() }
+                stored.removeAll { old in
+                    removed.contains(old.chainId) || changed.contains { $0.chainId == old.chainId }
+                }
+                stored.append(contentsOf: changed)
+            }
+        }
+
+        func saveBatchOperation(_ updates: @escaping () throws -> [ChainModel],
+                                _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
+            saveOperation(updates, deletions)
+        }
+
+        func fetchOperation(by ids: @escaping () throws -> [String],
+                            options _: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+            ClosureOperation { let selected = try ids(); return self.snapshot.filter { selected.contains($0.chainId) } }
+        }
+
+        func fetchOperation(by id: @escaping () throws -> String,
+                            options _: RepositoryFetchOptions) -> BaseOperation<ChainModel?> {
+            ClosureOperation { let selected = try id(); return self.snapshot.first { $0.chainId == selected } }
+        }
+
+        func fetchOperation(by _: RepositorySliceRequest,
+                            options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
+            fetchAllOperation(with: options)
+        }
+
+        func replaceOperation(_ models: @escaping () throws -> [ChainModel]) -> BaseOperation<Void> {
+            saveOperation(models, { self.snapshot.map(\.chainId) })
+        }
+
+        func deleteAllOperation() -> BaseOperation<Void> { replaceOperation { [] } }
+        func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { self.snapshot.count } }
+    }
+
+    /// Gives the chain sync the whitelists the test chooses.
+    private final class StubWhitelistStore: AssetWhitelistStoring {
+        let lastGood: AssetWhitelist
+        let remote: AssetWhitelist
+        init(lastGood: AssetWhitelist, remote: AssetWhitelist) {
+            self.lastGood = lastGood
+            self.remote = remote
+        }
+        func current() -> AssetWhitelist { lastGood }
+        func acceptRemote(_: Data) -> AssetWhitelist? { remote }
+    }
+
+    private var xorAndVal: [AssetInfo] {
+        [
+            AssetInfo(id: WalletAssetId.xor.rawValue, symbol: "XOR", chainId: "", precision: 18,
+                      icon: nil, displayName: "SORA", visible: true),
+            AssetInfo(id: WalletAssetId.val.rawValue, symbol: "VAL", chainId: "", precision: 18,
+                      icon: nil, displayName: "SORA Validator Token", visible: true)
+        ]
+    }
+
+    private func whitelist(admitting ids: [String], source: AssetWhitelist.Source) throws -> AssetWhitelist {
+        let entries: [[String: Any]] = ids.map {
+            ["address": $0, "symbol": "S", "name": "N", "decimals": 18, "icon": "icon"]
+        }
+        let data = try JSONSerialization.data(withJSONObject: entries)
+        return try XCTUnwrap(AssetWhitelist.decode(data, source: source))
+    }
+
+    private func storedAssetIds(in repository: CoreDataRepository<ChainModel, CDChain>) -> Set<String> {
+        let fetch = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        OperationQueue().addOperations([fetch], waitUntilFinished: true)
+        guard case let .success(chains) = fetch.result else { return [] }
+        return Set(chains.first?.assets.map { $0.assetId } ?? [])
+    }
+
+    /// The whitelist is fetched over HTTP after the chain has been saved, and
+    /// that request can take as long as its timeout on a slow or filtered
+    /// network. An asset list that arrives meanwhile used to wait for it.
+    func testAnAssetListThatArrivesDuringTheWhitelistRequestReachesTheChainAtOnce() throws {
         AssetManager.networkAssets = []
         let repository = ChainRepositoryFactory(storageFacade: SubstrateStorageTestFacade()).createRepository()
-        let eventCenter = EventCenter()
-        // Bootstrap pass and end of the first sync, then the same for the second.
-        let finished = expectation(description: "two syncs")
-        finished.expectedFulfillmentCount = 4
-        let observer = SyncObserver(finished)
-        eventCenter.add(observer: observer, dispatchIn: nil)
         let factory = GatedDataFactory()
         let operations = OperationQueue()
         let service = ChainSyncService(
@@ -927,38 +1188,124 @@ final class StartupNetworkTests: XCTestCase {
             assetsUrl: URL(string: "https://whitelist.invalid/whitelist.json"),
             dataFetchFactory: factory,
             repository: AnyDataProviderRepository(repository),
-            eventCenter: eventCenter,
+            eventCenter: EventCenter(),
             operationQueue: operations,
             whitelistStore: AssetWhitelistStore(directory: directory, bundledURL: R.file.whitelistJson(), logger: nil)
         )
+        defer { factory.open() }
 
         // Startup boots the registry before the asset list exists.
         service.syncUp()
         XCTAssertEqual(factory.started.wait(timeout: .now() + 10), .success)
+        XCTAssertTrue(storedAssetIds(in: repository).isEmpty)
 
         // The list arrives while that sync is still waiting for the whitelist.
-        AssetManager.networkAssets = [
-            AssetInfo(id: WalletAssetId.xor.rawValue, symbol: "XOR", chainId: "", precision: 18,
-                      icon: nil, displayName: "SORA", visible: true),
-            AssetInfo(id: WalletAssetId.val.rawValue, symbol: "VAL", chainId: "", precision: 18,
-                      icon: nil, displayName: "SORA Validator Token", visible: true)
-        ]
+        AssetManager.networkAssets = xorAndVal
         service.syncUp()
+
+        let expected: Set<String> = [WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue]
+        XCTAssertTrue(poll(for: 10) { self.storedAssetIds(in: repository) == expected },
+                      "the list is saved while the whitelist request is still running")
+        XCTAssertTrue(service.isSyncing, "and that request has not ended")
+
+        // The whitelist request fails at last: the sync ends, the list stays.
         factory.open()
-
-        wait(for: [finished], timeout: 20)
+        XCTAssertTrue(poll(for: 10) { !service.isSyncing })
         operations.waitUntilAllOperationsAreFinished()
-        withExtendedLifetime(observer) {}
+        XCTAssertEqual(storedAssetIds(in: repository), expected)
+    }
 
-        let fetch = repository.fetchAllOperation(with: RepositoryFetchOptions())
-        operations.addOperations([fetch], waitUntilFinished: true)
-        guard case let .success(chains) = fetch.result else {
-            throw BaseOperationError.parentOperationCancelled
+    /// A request made while the first pass is running (it has read the old
+    /// value) is served as soon as that pass has saved, not after the
+    /// whitelist request.
+    func testAnAssetListThatArrivesDuringTheFirstPassIsSavedBeforeTheWhitelistAnswers() throws {
+        AssetManager.networkAssets = []
+        let repository = GatedChainRepository(holdingSave: 1)
+        let factory = GatedDataFactory()
+        let operations = OperationQueue()
+        let service = ChainSyncService(
+            typesUrl: nil,
+            assetsUrl: URL(string: "https://whitelist.invalid/whitelist.json"),
+            dataFetchFactory: factory,
+            repository: AnyDataProviderRepository(repository),
+            eventCenter: EventCenter(),
+            operationQueue: operations,
+            whitelistStore: AssetWhitelistStore(directory: directory, bundledURL: R.file.whitelistJson(), logger: nil)
+        )
+        defer {
+            repository.releaseHeldSave()
+            factory.open()
         }
-        let chain = try XCTUnwrap(chains.first)
-        let listed = Set(chain.assets.map { $0.assetId })
-        XCTAssertEqual(listed, [WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue],
-                       "the request made during the sync was not lost")
+
+        service.syncUp()
+        // The first pass has read an empty list and is about to save.
+        XCTAssertEqual(repository.heldSaveStarted.wait(timeout: .now() + 10), .success)
+        AssetManager.networkAssets = xorAndVal
+        service.syncUp()
+        repository.releaseHeldSave()
+
+        let expected: Set<String> = [WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue]
+        XCTAssertTrue(poll(for: 10) { repository.listedAssetIds == expected },
+                      "the request made during the first pass is served")
+        XCTAssertEqual(factory.started.wait(timeout: .now() + 10), .success)
+        XCTAssertTrue(service.isSyncing, "while the whitelist request is still running")
+
+        factory.open()
+        XCTAssertTrue(poll(for: 10) { !service.isSyncing })
+        operations.waitUntilAllOperationsAreFinished()
+        XCTAssertEqual(repository.listedAssetIds, expected)
+    }
+
+    /// The pass that saves a new value during the whitelist request and the
+    /// pass that applies the whitelist both read the stored chain and save
+    /// what they made of it. They run one after the other: the older answer
+    /// (made with the last good whitelist) is never saved over the newer one.
+    func testAPassDuringTheWhitelistRequestNeverOverwritesThePassWithTheNewWhitelist() throws {
+        AssetManager.networkAssets = []
+        let xor = WalletAssetId.xor.rawValue
+        let val = WalletAssetId.val.rawValue
+        // The last good whitelist does not list VAL yet; the new one does.
+        let store = StubWhitelistStore(
+            lastGood: try whitelist(admitting: [xor], source: .lastKnownGood),
+            remote: try whitelist(admitting: [xor, val], source: .remote)
+        )
+        let repository = GatedChainRepository(holdingSave: 2)
+        let factory = GatedDataFactory()
+        let operations = OperationQueue()
+        let service = ChainSyncService(
+            typesUrl: nil,
+            assetsUrl: URL(string: "https://whitelist.invalid/whitelist.json"),
+            dataFetchFactory: factory,
+            repository: AnyDataProviderRepository(repository),
+            eventCenter: EventCenter(),
+            operationQueue: operations,
+            whitelistStore: store
+        )
+        defer {
+            repository.releaseHeldSave()
+            factory.open()
+        }
+
+        service.syncUp()
+        XCTAssertEqual(factory.started.wait(timeout: .now() + 10), .success)
+
+        // The asset list arrives: its pass has read the last good whitelist
+        // and is held just before it saves.
+        AssetManager.networkAssets = xorAndVal
+        service.syncUp()
+        XCTAssertEqual(repository.heldSaveStarted.wait(timeout: .now() + 10), .success)
+
+        // The whitelist request answers now. Its pass must wait.
+        factory.open(with: Data("[]".utf8))
+        usleep(700_000)
+        XCTAssertTrue(repository.listedAssetIds.isEmpty, "nothing was saved around the held pass")
+        XCTAssertTrue(service.isSyncing)
+
+        repository.releaseHeldSave()
+        XCTAssertTrue(poll(for: 10) { !service.isSyncing })
+        operations.waitUntilAllOperationsAreFinished()
+        XCTAssertEqual(repository.listedAssetIds, [xor, val],
+                       "the chain ends with the answer made with the new whitelist")
     }
 
     // MARK: - Failing over to another node
@@ -1145,10 +1492,15 @@ final class StartupNetworkTests: XCTestCase {
     }
 
     private final class TabBarOutput: MainTabBarInteractorOutputProtocol {
-        let rebuilt: XCTestExpectation
+        private(set) var assetListChecks = 0
+        private(set) var accountRebuilds = 0
         private(set) var walletTabReloads = 0
-        init(rebuilt: XCTestExpectation) { self.rebuilt = rebuilt }
-        func didUserChange() { rebuilt.fulfill() }
+        var onAssetListCheck: (() -> Void)?
+        func didReceiveWalletAssetList() {
+            assetListChecks += 1
+            onAssetListCheck?()
+        }
+        func didUserChange() { accountRebuilds += 1 }
         func didReloadSelectedNetwork() { walletTabReloads += 1 }
         func didReloadSelectedAccount() {}
         func didUpdateWalletInfo() {}
@@ -1159,20 +1511,524 @@ final class StartupNetworkTests: XCTestCase {
         func didLanguageChange() {}
     }
 
-    func testTheArrivalOfTheFirstAssetListRebuildsEveryTab() {
+    /// `WalletAssetListArrived` is posted once. The tab bar starts listening
+    /// when it has appeared (`setup`), so a list that arrived after the tabs
+    /// were built and before that was announced to nobody. `setup` now asks.
+    func testTheTabBarLooksForTheAssetListWhenItStartsListeningAndOnTheEvent() {
         let eventCenter = EventCenter()
         let interactor = MainTabBarInteractor(eventCenter: eventCenter,
                                               serviceCoordinator: StubServiceCoordinator(),
                                               keystoreImportService: StubKeystoreImportService())
-        let rebuilt = expectation(description: "all tabs are built again")
-        let output = TabBarOutput(rebuilt: rebuilt)
+        let output = TabBarOutput()
         interactor.presenter = output
+
+        // Posted before anyone listens: lost.
+        let lost = expectation(description: "the early event was delivered to nobody")
+        eventCenter.notify(with: WalletAssetListArrived()) { lost.fulfill() }
+        wait(for: [lost], timeout: 5)
+        XCTAssertEqual(output.assetListChecks, 0)
+
         interactor.setup()
+        XCTAssertEqual(output.assetListChecks, 1, "the tab bar looks for itself when it starts listening")
 
+        let checked = expectation(description: "the event leads to the same check")
+        output.onAssetListCheck = { checked.fulfill() }
         eventCenter.notify(with: WalletAssetListArrived())
-
-        wait(for: [rebuilt], timeout: 5)
-        XCTAssertEqual(output.walletTabReloads, 0, "not the reload of the wallet tab alone")
+        wait(for: [checked], timeout: 5)
+        XCTAssertEqual(output.assetListChecks, 2)
+        XCTAssertEqual(output.accountRebuilds, 0, "not the unconditional rebuild of an account switch")
+        XCTAssertEqual(output.walletTabReloads, 0, "and not the reload of the wallet tab alone")
         withExtendedLifetime(interactor) {}
+    }
+
+    private final class RecordingWireframe: MainTabBarWireframeProtocol {
+        var walletContext: CommonWalletContextProtocol {
+            get { fatalError("not used") }
+            set {}
+        }
+        private(set) var calls: [String] = []
+        func showNewWalletView(on _: MainTabBarViewProtocol?) { calls.append("reload_wallet_tab") }
+        func reloadWalletContent() { calls.append("reload_content") }
+        func presentAccountImport(on _: MainTabBarViewProtocol?) {}
+        func presentClaim(on _: MainTabBarViewProtocol?, with _: MigrationServiceProtocol) {}
+        func removeClaim(on _: MainTabBarViewProtocol?) {}
+        func showTransactionSuccess(on _: MainTabBarViewProtocol?) {}
+        func recreateWalletViewController(on _: MainTabBarViewProtocol?) { calls.append("rebuild_all") }
+        func rebuildWalletForArrivedAssetListIfNeeded(on _: MainTabBarViewProtocol?) { calls.append("asset_list_check") }
+    }
+
+    /// The reload of the wallet tab alone (a node change) reads the asset
+    /// list again, after which the manager posts no event for a first list.
+    /// The other tabs would stay as they were built, so the check follows.
+    func testEveryReloadOfTheWalletIsFollowedByTheAssetListCheck() {
+        let presenter = MainTabBarPresenter()
+        let wireframe = RecordingWireframe()
+        presenter.wireframe = wireframe
+
+        presenter.didReceiveWalletAssetList()
+        XCTAssertEqual(wireframe.calls, ["asset_list_check"],
+                       "the first list goes through the check, never straight to a rebuild")
+        presenter.didReloadSelectedNetwork()
+        XCTAssertEqual(wireframe.calls.suffix(2), ["reload_wallet_tab", "asset_list_check"])
+        presenter.didUpdateWalletInfo()
+        XCTAssertEqual(wireframe.calls.suffix(2), ["reload_content", "asset_list_check"])
+    }
+
+    // MARK: - The rebuild takes no screen away from the user
+
+    /// Timers of `WalletAssetListRebuild`, fired by the test.
+    private final class ManualSchedule {
+        private var entries: [(delay: TimeInterval, fire: () -> Void, isDone: Bool)] = []
+
+        var schedule: WalletAssetListRebuild.Scheduler {
+            { [self] delay, fire in
+                let index = entries.count
+                entries.append((delay, fire, false))
+                return { [self] in entries[index].isDone = true }
+            }
+        }
+
+        var pending: [TimeInterval] { entries.filter { !$0.isDone }.map(\.delay) }
+
+        func fireNext() {
+            guard let index = entries.firstIndex(where: { !$0.isDone }) else { return }
+            entries[index].isDone = true
+            entries[index].fire()
+        }
+    }
+
+    /// The wallet as the rebuild sees it.
+    private final class WalletStandIn {
+        var assets: [AssetInfo]? = []
+        var canReplaceTabs = true
+        var rebuildWorks = true
+        private(set) var rebuilds = 0
+        weak var rebuild: WalletAssetListRebuild?
+
+        func check() {
+            rebuild?.rebuildIfNeeded(
+                currentAssets: { [unowned self] in self.assets },
+                canReplaceTabs: { [unowned self] in self.canReplaceTabs },
+                rebuild: { [unowned self] in
+                    self.rebuilds += 1
+                    if self.rebuildWorks { self.rebuild?.tabsWereBuilt(from: self.assets ?? []) }
+                }
+            )
+        }
+    }
+
+    func testTabsBuiltWithoutAssetsAreBuiltAgainOnceWhenTheListIsThere() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+
+        // The check made when the tab bar appears, before any list: nothing.
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0)
+        XCTAssertTrue(schedule.pending.isEmpty, "nothing waits and nothing polls while there is no list")
+
+        // The list arrived without an event that anyone heard. The next check
+        // (the tab bar appears, the wallet reloads) finds it.
+        wallet.assets = xorAndVal
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertFalse(rebuild.isBuiltWithoutAssets)
+
+        // The event, or any later check, does not build them a second time.
+        wallet.check()
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertTrue(schedule.pending.isEmpty)
+    }
+
+    func testTabsBuiltFromAListAreNeverReplacedByAnAssetListCheck() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: false, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0, "a screen in use is not replaced because the list changed")
+        XCTAssertTrue(schedule.pending.isEmpty)
+    }
+
+    /// The user opened More and is reading a recovery phrase, or is in the
+    /// node list, when the list arrives. Replacing the tabs then would close
+    /// that screen without a word.
+    func testTheRebuildWaitsUntilNoScreenWouldBeTakenAway() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.canReplaceTabs = false
+
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0, "the screen the user is on stays")
+        XCTAssertTrue(rebuild.isWaiting)
+        XCTAssertEqual(schedule.pending, [WalletAssetListRebuild.recheckInterval], "it looks again in a second")
+
+        // Still there a second later, and the second after that.
+        schedule.fireNext()
+        schedule.fireNext()
+        XCTAssertEqual(wallet.rebuilds, 0)
+        XCTAssertEqual(schedule.pending.count, 1, "one timer at a time")
+
+        // Another check while it waits (the event, a balance update) does not
+        // add a second timer.
+        wallet.check()
+        XCTAssertEqual(schedule.pending.count, 1)
+
+        // The user is back at the first screen of the tab.
+        wallet.canReplaceTabs = true
+        schedule.fireNext()
+        XCTAssertEqual(wallet.rebuilds, 1)
+        XCTAssertFalse(rebuild.isWaiting)
+        XCTAssertTrue(schedule.pending.isEmpty, "and nothing polls any more")
+    }
+
+    func testAnAccountSwitchWhileTheRebuildWaitsEndsTheWait() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.canReplaceTabs = false
+        wallet.check()
+        XCTAssertTrue(rebuild.isWaiting)
+
+        // The tabs are built for the other account, from the list.
+        rebuild.tabsWereBuilt(from: xorAndVal)
+        XCTAssertFalse(rebuild.isWaiting)
+        XCTAssertTrue(schedule.pending.isEmpty)
+        wallet.canReplaceTabs = true
+        wallet.check()
+        XCTAssertEqual(wallet.rebuilds, 0)
+    }
+
+    func testARebuildThatDoesNotWorkIsTriedAFewTimesAndThenLeftAlone() {
+        let schedule = ManualSchedule()
+        let rebuild = WalletAssetListRebuild(isBuiltWithoutAssets: true, schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.rebuildWorks = false
+
+        wallet.check()
+        for _ in 0 ..< 10 { schedule.fireNext() }
+        XCTAssertEqual(wallet.rebuilds, WalletAssetListRebuild.maximumFailedRebuilds)
+        XCTAssertTrue(schedule.pending.isEmpty, "no endless loop of rebuilds")
+        XCTAssertTrue(rebuild.isBuiltWithoutAssets, "the next check may still build them")
+    }
+
+    func testTheWaitEndsWithItsOwner() {
+        let schedule = ManualSchedule()
+        var rebuild: WalletAssetListRebuild? = WalletAssetListRebuild(isBuiltWithoutAssets: true,
+                                                                     schedule: schedule.schedule)
+        let wallet = WalletStandIn()
+        wallet.rebuild = rebuild
+        wallet.assets = xorAndVal
+        wallet.canReplaceTabs = false
+        wallet.check()
+        XCTAssertEqual(schedule.pending.count, 1)
+        rebuild = nil
+        XCTAssertTrue(schedule.pending.isEmpty, "the wallet was closed: its timer is cancelled")
+    }
+
+    @MainActor
+    func testTabsAreReplacedOnlyWhileEveryTabShowsItsFirstScreenAndNothingIsPresented() {
+        let tabs = UITabBarController()
+        let wallet = UINavigationController(rootViewController: UIViewController())
+        let more = UINavigationController(rootViewController: UIViewController())
+        tabs.viewControllers = [wallet, UIViewController(), more]
+        let window = UIWindow.makeSoraSceneWindow()
+        window.rootViewController = tabs
+        window.isHidden = false
+        defer {
+            tabs.dismiss(animated: false)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        // UIKit ends a transition, also one without animation, on a later
+        // turn of the run loop. The rebuild then simply looks again.
+        func becomesReplaceable() -> Bool {
+            let deadline = Date().addingTimeInterval(3)
+            while !WalletAssetListRebuild.canReplaceTabs(of: tabs), Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+            return WalletAssetListRebuild.canReplaceTabs(of: tabs)
+        }
+        XCTAssertTrue(becomesReplaceable())
+
+        // A screen pushed on a tab, also on one that is not selected.
+        more.pushViewController(UIViewController(), animated: false)
+        XCTAssertFalse(WalletAssetListRebuild.canReplaceTabs(of: tabs))
+        more.popViewController(animated: false)
+        XCTAssertTrue(becomesReplaceable())
+
+        // A screen presented over the tabs, from the tab bar or from a tab.
+        tabs.present(UIViewController(), animated: false)
+        XCTAssertFalse(WalletAssetListRebuild.canReplaceTabs(of: tabs))
+        tabs.dismiss(animated: false)
+        XCTAssertTrue(becomesReplaceable())
+        wallet.present(UIViewController(), animated: false)
+        XCTAssertFalse(WalletAssetListRebuild.canReplaceTabs(of: tabs))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        XCTAssertFalse(WalletAssetListRebuild.canReplaceTabs(of: tabs), "and it stays so while the screen is up")
+    }
+
+    func testTheRebuildTimerRunsOnTheMainRunLoop() {
+        let fired = expectation(description: "the timer fired")
+        let cancel = WalletAssetListRebuild.mainRunLoopTimer(0.05) {
+            XCTAssertTrue(Thread.isMainThread)
+            fired.fulfill()
+        }
+        wait(for: [fired], timeout: 5)
+        cancel()
+
+        let cancelled = expectation(description: "a cancelled timer does not fire")
+        cancelled.isInverted = true
+        let cancelSecond = WalletAssetListRebuild.mainRunLoopTimer(0.05) { cancelled.fulfill() }
+        cancelSecond()
+        wait(for: [cancelled], timeout: 0.4)
+    }
+
+    // MARK: - The asset manager announces the first list
+
+    private final class ArrivalObserver: EventVisitorProtocol {
+        private let lock = NSLock()
+        private var count = 0
+        var arrivals: Int { lock.lock(); defer { lock.unlock() }; return count }
+        func processWalletAssetListArrived(event _: WalletAssetListArrived) {
+            lock.lock()
+            count += 1
+            lock.unlock()
+        }
+    }
+
+    /// The production wiring behind `WalletAssetListArrived`: a real
+    /// `AssetManager` on a chain store in memory. The wallet is set up while
+    /// the chain has no asset; the chain sync then saves the chain with the
+    /// list. One event is posted, and none when the list of a wallet that
+    /// already shows assets changes.
+    func testTheAssetManagerAnnouncesTheFirstListOfAWalletSetUpWithoutAssetsAndOnlyThat() throws {
+        let facade = SubstrateStorageTestFacade()
+        let repository = ChainRepositoryFactory(storageFacade: facade).createRepository()
+        let observable = CoreDataContextObservable(
+            service: facade.databaseService,
+            mapper: repository.dataMapper,
+            predicate: { _ in true }
+        )
+        observable.start { XCTAssertNil($0) }
+        let operations = OperationQueue()
+        let provider = StreamableProvider(
+            source: AnyStreamableSource(SoraPassport.EmptyStreamableSource<ChainModel>()),
+            repository: AnyDataProviderRepository(repository),
+            observable: AnyDataProviderRepositoryObservable(observable),
+            operationManager: OperationManager(operationQueue: operations)
+        )
+        let eventCenter = EventCenter()
+        let observer = ArrivalObserver()
+        eventCenter.add(observer: observer, dispatchIn: nil)
+        let chainId = "0x" + String(repeating: "7a", count: 32)
+        let assetStorage: CoreDataRepository<AssetInfo, CDAssetInfo> = facade.createRepository()
+        let manager = AssetManager(
+            storage: AnyDataProviderRepository(assetStorage),
+            chainProvider: provider,
+            chainId: chainId,
+            operationManager: OperationManager(operationQueue: operations),
+            eventCenter: eventCenter
+        )
+        let pswap = AssetInfo(id: WalletAssetId.pswap.rawValue, symbol: "PSWAP", chainId: "", precision: 18,
+                              icon: nil, displayName: "Polkaswap", visible: true)
+        let node = ChainNodeModel(url: URL(string: "wss://node.invalid")!, name: "Node", apikey: nil)
+
+        // What the chain sync saves: the chain made of the list it has.
+        func save(_ assets: [AssetInfo]) throws {
+            let chain = ChainSyncService.preparedChain(
+                chainId: chainId, addressPrefix: 69, name: "SORA", nodes: [node], typesURL: nil,
+                local: nil, assets: assets, whitelist: .empty
+            )
+            XCTAssertEqual(chain.assets.count, assets.count)
+            let operation = repository.saveOperation({ [chain] }, { [] })
+            operations.addOperations([operation], waitUntilFinished: true)
+            guard case .success = operation.result else {
+                throw BaseOperationError.parentOperationCancelled
+            }
+        }
+        func flushEvents() {
+            let flushed = expectation(description: "events delivered")
+            eventCenter.notify(with: ChainSyncDidStart()) { flushed.fulfill() }
+            wait(for: [flushed], timeout: 10)
+        }
+        func waitForAssets(_ count: Int) {
+            let deadline = Date().addingTimeInterval(10)
+            while manager.getAssetList()?.count != count, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+            XCTAssertEqual(manager.getAssetList()?.count, count)
+        }
+
+        // A first launch: the chain is saved before any list exists, and the
+        // wallet is opened.
+        try save([])
+        manager.setup(for: SelectedWalletSettings(storageFacade: UserDataStorageTestFacade(),
+                                                  operationQueue: OperationQueue()))
+        XCTAssertEqual(manager.getAssetList()?.isEmpty, true, "the wallet shows no asset")
+        flushEvents()
+        XCTAssertEqual(observer.arrivals, 0)
+
+        // The list arrives and the chain sync saves it.
+        //
+        // The manager starts to listen in the background (RobinHood registers
+        // an observer after a fetch of its own), and a save made before it
+        // listens is not announced to it. On a busy machine that took longer
+        // than the two saves above. So the list is saved, in two alternating
+        // forms, until the manager shows it: from then on it listens.
+        var arriving = xorAndVal
+        let listening = Date().addingTimeInterval(30)
+        while manager.getAssetList()?.isEmpty != false, Date() < listening {
+            try save(arriving)
+            arriving = arriving.count == 2 ? [xorAndVal[0]] : xorAndVal
+            let nextSave = Date().addingTimeInterval(0.5)
+            while manager.getAssetList()?.isEmpty != false, Date() < nextSave {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+        }
+        XCTAssertEqual(manager.getAssetList()?.isEmpty, false, "the wallet has its first list")
+        flushEvents()
+        XCTAssertEqual(observer.arrivals, 1, "the first list of a wallet that showed no asset is announced")
+
+        // A later change of a list that is shown is not announced: the
+        // screens in use are not replaced for it.
+        try save(xorAndVal + [pswap])
+        waitForAssets(3)
+        flushEvents()
+        XCTAssertEqual(observer.arrivals, 1, "one event, for the first list only")
+        withExtendedLifetime((manager, observer, provider)) {}
+    }
+
+    // MARK: - A wallet built without an asset list leaves the saved balances alone
+
+    /// The balance cache in memory: one entry per account, shared by every
+    /// balance provider of that account, as in the app.
+    private final class BalanceCache: DataProviderRepositoryProtocol {
+        typealias Model = SingleValueProviderObject
+
+        private let lock = NSLock()
+        private var stored: [String: SingleValueProviderObject] = [:]
+
+        var all: [SingleValueProviderObject] { lock.lock(); defer { lock.unlock() }; return Array(stored.values) }
+
+        func balances(of account: String) -> [BalanceData]? {
+            all.first { $0.identifier == account }.flatMap { try? JSONDecoder().decode([BalanceData].self, from: $0.payload) }
+        }
+
+        func fetchAllOperation(with _: RepositoryFetchOptions) -> BaseOperation<[SingleValueProviderObject]> {
+            ClosureOperation { self.all }
+        }
+
+        func saveOperation(_ updates: @escaping () throws -> [SingleValueProviderObject],
+                           _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
+            ClosureOperation { [self] in
+                let changed = try updates()
+                let removed = try deletions()
+                lock.lock()
+                defer { lock.unlock() }
+                removed.forEach { stored[$0] = nil }
+                changed.forEach { stored[$0.identifier] = $0 }
+            }
+        }
+
+        func saveBatchOperation(_ updates: @escaping () throws -> [SingleValueProviderObject],
+                                _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
+            saveOperation(updates, deletions)
+        }
+
+        func fetchOperation(by ids: @escaping () throws -> [String],
+                            options _: RepositoryFetchOptions) -> BaseOperation<[SingleValueProviderObject]> {
+            ClosureOperation { let selected = try ids(); return self.all.filter { selected.contains($0.identifier) } }
+        }
+
+        func fetchOperation(by id: @escaping () throws -> String,
+                            options _: RepositoryFetchOptions) -> BaseOperation<SingleValueProviderObject?> {
+            ClosureOperation { let selected = try id(); return self.all.first { $0.identifier == selected } }
+        }
+
+        func fetchOperation(by _: RepositorySliceRequest,
+                            options: RepositoryFetchOptions) -> BaseOperation<[SingleValueProviderObject]> {
+            fetchAllOperation(with: options)
+        }
+
+        func replaceOperation(_ models: @escaping () throws -> [SingleValueProviderObject]) -> BaseOperation<Void> {
+            saveOperation(models, { self.all.map(\.identifier) })
+        }
+
+        func deleteAllOperation() -> BaseOperation<Void> { replaceOperation { [] } }
+        func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { self.all.count } }
+    }
+
+    /// Waits on the main run loop: the asset provider takes its balances there.
+    private func waitOnMain(for seconds: TimeInterval = 10, until condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while !condition(), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        return condition()
+    }
+
+    /// Startup does not wait for the asset list, so the wallet's tabs can be
+    /// built without one and are built again when it arrives. The provider of
+    /// the tabs without a list used to load "no balances" and save that over
+    /// the account's cached balances, which every provider of the account
+    /// shares. On the simulator the tabs that were built again then showed
+    /// an empty asset card until the next launch.
+    func testAWalletBuiltWithoutAnAssetListNeitherLoadsNorOverwritesTheSavedBalances() {
+        let account = "balances-of-the-account"
+        let cache = BalanceCache()
+        let xor = WalletAssetId.xor.rawValue
+        let saved = [BalanceData(identifier: xor, balance: AmountDecimal(value: 5))]
+
+        // What `BalanceProviderFactory` builds: a provider on the account's cache entry.
+        func balanceProvider(answering balances: [BalanceData], requests: Counter) -> SingleValueProvider<[BalanceData]> {
+            SingleValueProvider(
+                targetIdentifier: account,
+                source: AnySingleValueProviderSource {
+                    requests.increment()
+                    return CompoundOperationWrapper(targetOperation: ClosureOperation<[BalanceData]?> { balances })
+                },
+                repository: AnyDataProviderRepository(cache),
+                updateTrigger: DataProviderEventTrigger.onInitialization
+            )
+        }
+
+        // A wallet with its asset list: the balances are loaded and cached.
+        let firstRequests = Counter()
+        let withList = AssetProvider(assetInfos: xorAndVal) { _ in
+            balanceProvider(answering: saved, requests: firstRequests)
+        }
+        XCTAssertTrue(waitOnMain { withList.getBalances(with: [xor]) == saved })
+        XCTAssertEqual(firstRequests.value, 1)
+        XCTAssertEqual(cache.balances(of: account), saved)
+
+        // The tabs built before any list has arrived: with no asset the node
+        // has no balance to give, and that answer must not be saved.
+        let emptyRequests = Counter()
+        let withoutList = AssetProvider(assetInfos: []) { _ in
+            balanceProvider(answering: [], requests: emptyRequests)
+        }
+        XCTAssertFalse(waitOnMain(for: 0.5) { emptyRequests.value > 0 }, "nothing is asked without an asset list")
+        XCTAssertEqual(cache.balances(of: account), saved, "the cached balances are not replaced by an empty list")
+        XCTAssertTrue(withoutList.getBalances(with: [xor]).isEmpty)
+
+        // The list arrives and the tabs are built again: they get the balances.
+        let rebuiltRequests = Counter()
+        let rebuilt = AssetProvider(assetInfos: xorAndVal) { _ in
+            balanceProvider(answering: saved, requests: rebuiltRequests)
+        }
+        XCTAssertTrue(waitOnMain { rebuilt.getBalances(with: [xor]) == saved })
+        XCTAssertEqual(cache.balances(of: account), saved)
+        withExtendedLifetime((withList, withoutList, rebuilt)) {}
     }
 }
