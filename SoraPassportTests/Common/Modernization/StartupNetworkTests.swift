@@ -6,6 +6,7 @@ import Foundation
 import Network
 import RobinHood
 import SoraKeystore
+import struct SSFModels.RuntimeVersion
 import SSFUtils
 import UIKit
 import XCTest
@@ -966,6 +967,64 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertEqual(syncs.value, 1, "a changed node list reaches the registry")
     }
 
+    /// Startup is not the only one to start the chain registry. The loader
+    /// got a connection only after startup had said that it boots the
+    /// registry, so a registry started by anyone else was never used: the
+    /// list was never requested, and a late remote node list was dropped.
+    /// A node that connects is reported by the registry itself.
+    func testANodeThatConnectsIsEnoughWhenStartupDidNotBootTheRegistry() {
+        node.answer = healthy()
+        let config = StubConfigService()
+        let syncs = Counter()
+        let published = Loaded()
+        let coordinator = makeCoordinator(config: config, syncs: syncs, published: published)
+
+        coordinator.startupDidBegin()
+        settle()
+        XCTAssertTrue(node.calls.isEmpty, "nobody has started the registry: it is not touched")
+        XCTAssertEqual(timers.pending.count, 1, "the loader looks again later")
+
+        // No `chainRegistryWillBoot()`. The registry reports a connected node.
+        coordinator.nodeDidConnect()
+        settle()
+        XCTAssertEqual(node.calls.count, 3, "two key pages and the values")
+        XCTAssertEqual(published.all.count, 1)
+        XCTAssertEqual(published.all.first?.count, 3)
+        XCTAssertEqual(syncs.value, 1, "the registry reads the new list")
+        XCTAssertTrue(timers.pending.isEmpty)
+
+        // The remote node list arrives after that: it reaches the registry too.
+        let extra = config.config.defaultNodes.union([
+            ChainNodeModel(url: URL(string: "wss://extra.invalid")!, name: "Extra", apikey: nil)
+        ])
+        config.answer(nodes: extra)
+        XCTAssertEqual(syncs.value, 2)
+    }
+
+    /// Without that report the timers alone must find the registry once the
+    /// wallet has said that it starts it.
+    func testTheWaitingLoaderFindsARegistryThatTheWalletStartedLater() {
+        node.answer = healthy()
+        let syncs = Counter()
+        let published = Loaded()
+        let coordinator = makeCoordinator(config: StubConfigService(), syncs: syncs, published: published)
+
+        coordinator.startupDidBegin()
+        settle()
+        for _ in 0 ..< 3 {
+            timers.fireNext()
+            settle()
+        }
+        XCTAssertTrue(node.calls.isEmpty, "however long it waits, nothing is sent before the registry is started")
+        XCTAssertEqual(timers.pending, [16], "it goes on looking, at growing intervals")
+
+        coordinator.chainRegistryWillBoot() // `ServiceCoordinator.setup`
+        settle()
+        XCTAssertEqual(node.calls.count, 3)
+        XCTAssertEqual(published.all.first?.count, 3)
+        XCTAssertEqual(syncs.value, 1)
+    }
+
     // MARK: - Startup order
 
     func testWalletStorageChecksStartWhileTheConfigurationAndTheAssetListArePending() {
@@ -1034,13 +1093,13 @@ final class StartupNetworkTests: XCTestCase {
         func getAssetManager(for _: ChainModel.Id) -> AssetManagerProtocol { fatalError("not used") }
         func getChain(for _: ChainModel.Id) -> ChainModel? { nil }
         func getActiveNode(for _: ChainModel.Id) -> ChainNodeModel? { nil }
-        func subscribeToChians() {}
+        func subscribeToChians() { log.add("chains_subscribed") }
         func chainsSubscribe(_: AnyObject, runningInQueue _: DispatchQueue,
                              updateClosure _: @escaping ([DataProviderChange<ChainModel>]) -> Void) {}
         func chainsUnsubscribe(_: AnyObject) {}
         func performHotBoot() { log.add("hot_boot") }
         func performColdBoot() { log.add("cold_boot") }
-        func syncUp() {}
+        func syncUp() { log.add("synced") }
     }
 
     /// Creating the registry reads the app's window, which only the main
@@ -1064,6 +1123,100 @@ final class StartupNetworkTests: XCTestCase {
         log.reset()
         SplashInteractor.bootChainRegistry(hasSelectedAccount: false, network: network, registry: create)
         XCTAssertEqual(log.events, ["registry_created", "background_work_told", "cold_boot"])
+    }
+
+    // MARK: - A wallet opened after a startup that booted nothing
+
+    /// Tells the coordinator, and notes when.
+    private final class ForwardingNetwork: StartupNetworkCoordinating {
+        let log: BootLog
+        let target: StartupNetworkCoordinating
+        init(log: BootLog, target: StartupNetworkCoordinating) {
+            self.log = log
+            self.target = target
+        }
+        func startupDidBegin() {
+            log.add("startup_began")
+            target.startupDidBegin()
+        }
+        func chainRegistryWillBoot() {
+            log.add("background_work_told")
+            target.chainRegistryWillBoot()
+        }
+    }
+
+    private final class StubSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
+        func createStartSubscriptions(type _: SNAddressType, engine _: JSONRPCEngine) throws -> [WebSocketSubscribing] { [] }
+        func createSubscriptions(address _: String, type _: SNAddressType,
+                                 engine _: JSONRPCEngine) throws -> [WebSocketSubscribing] { [] }
+    }
+
+    private final class StubMigrationService: MigrationServiceProtocol {
+        func checkMigration() {}
+        func requestMigration(completion _: @escaping MigrationResultClosure) {}
+    }
+
+    /// A 1.x wallet (only the old global Keychain items, no account store).
+    /// Startup ends at the upgrade screen and boots no registry
+    /// (`SplashInteractor.performStorageMigration`, "deferred for legacy
+    /// upgrade"). After "Upgrade wallet" and the PIN the wallet is opened
+    /// without another run of startup, and `MainTabBarInteractor` starts the
+    /// registry through `ServiceCoordinator.setup()`. Nobody told the
+    /// coordinator, so the asset list was never requested: the upgraded
+    /// wallet showed loading rows and no asset until the app was closed.
+    ///
+    /// This runs the production `SplashInteractor`, `MainTabBarInteractor`,
+    /// `ServiceCoordinator`, `StartupNetworkCoordinator` and loader. The
+    /// storage checks stand for the checks that end at the upgrade screen.
+    func testAWalletOpenedAfterAStartupThatBootedNoRegistryStillGetsItsAssetList() {
+        node.answer = healthy()
+        let config = StubConfigService()
+        let syncs = Counter()
+        let published = Loaded()
+        let coordinator = makeCoordinator(config: config, syncs: syncs, published: published)
+
+        let deferred = expectation(description: "the storage checks end without booting the registry")
+        let splash = SplashInteractor(settings: InMemorySettingsManager(), network: coordinator, storageChecks: {
+            deferred.fulfill()
+        })
+        splash.setup()
+        wait(for: [deferred], timeout: 5)
+        settle()
+        XCTAssertTrue(node.calls.isEmpty, "the upgrade screen needs no list")
+
+        // "Upgrade wallet", then the PIN: the wallet's tab bar is created.
+        let log = BootLog()
+        let registry = RecordingRegistry(log: log)
+        let services = ServiceCoordinator(
+            eventCenter: EventCenter(),
+            subscriptionsFactory: StubSubscriptionFactory(),
+            migrationService: StubMigrationService(),
+            network: ForwardingNetwork(log: log, target: coordinator),
+            chainRegistry: {
+                XCTAssertTrue(Thread.isMainThread, "the registry is created by its first use, on the main thread")
+                if log.events.isEmpty { log.add("registry_created") }
+                return registry
+            }
+        )
+        let tabBar = MainTabBarInteractor(eventCenter: EventCenter(),
+                                          serviceCoordinator: services,
+                                          keystoreImportService: StubKeystoreImportService())
+        XCTAssertEqual(log.events, ["registry_created", "background_work_told", "chains_subscribed", "synced"],
+                       "the registry exists before the background work hears of it, and is started after")
+
+        settle()
+        XCTAssertEqual(node.calls.count, 3, "the list is requested over the registry's connection")
+        XCTAssertEqual(published.all.count, 1)
+        XCTAssertEqual(published.all.first?.count, 3)
+        XCTAssertEqual(syncs.value, 1, "and the registry reads it")
+
+        // A remote node list that arrives now reaches the registry too.
+        let extra = config.config.defaultNodes.union([
+            ChainNodeModel(url: URL(string: "wss://extra.invalid")!, name: "Extra", apikey: nil)
+        ])
+        config.answer(nodes: extra)
+        XCTAssertEqual(syncs.value, 2)
+        withExtendedLifetime((splash, tabBar, services)) {}
     }
 
     // MARK: - The loader's limits keep their length
@@ -1160,6 +1313,216 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
         XCTAssertTrue(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
         XCTAssertTrue(failover.connected())
+    }
+
+    private final class StatusRecorder: NetworkAvailabilityLayerInteractorOutputProtocol {
+        private(set) var events: [String] = []
+        func didDecideUnreachableNodesAllertPresentation() { events.append("nodes_unreachable_shown") }
+        func didDecideUnreachableStatusPresentation() { events.append("device_unreachable_shown") }
+        func didDecideReachableStatusPresentation() { events.append("taken_down") }
+    }
+
+    /// The registry's pool: one connection, which the registry moves from
+    /// node to node.
+    private final class StubPool: ConnectionPoolProtocol {
+        let connection: StubNode
+        private let lock = NSLock()
+        private var isSetUp = false
+        private weak var delegate: ConnectionPoolDelegate?
+
+        init(connection: StubNode) { self.connection = connection }
+
+        func setupConnection(for chain: ChainModel) throws -> ChainConnection {
+            try setupConnection(for: chain, ignoredUrl: nil)
+        }
+
+        func setupConnection(for chain: ChainModel, ignoredUrl: URL?) throws -> ChainConnection {
+            guard let node = SoraNodeConnectionPolicy.candidates(for: chain).first(where: { $0.url != ignoredUrl }) else {
+                throw NSError(domain: "StubPool", code: 1)
+            }
+            lock.lock()
+            defer { lock.unlock() }
+            if !isSetUp {
+                isSetUp = true
+                connection.url = node.url
+            }
+            return connection
+        }
+
+        func getConnection(for _: ChainModel.Id) -> ChainConnection? {
+            lock.lock()
+            defer { lock.unlock() }
+            return isSetUp ? connection : nil
+        }
+
+        func setDelegate(_ delegate: ConnectionPoolDelegate) { self.delegate = delegate }
+    }
+
+    private final class StubRuntimeProvider: RuntimeProviderProtocol {
+        let chainId: ChainModel.Id
+        var snapshot: RuntimeSnapshot? { nil }
+        init(chainId: ChainModel.Id) { self.chainId = chainId }
+        func setup() {}
+        func setupHot() {}
+        func replaceTypesUsage(_: ChainModel.TypesUsage) {}
+        func cleanup() {}
+        func fetchCoderFactoryOperation(with _: TimeInterval,
+                                        closure _: RuntimeMetadataClosure?) -> BaseOperation<RuntimeCoderFactoryProtocol> {
+            ClosureOperation { throw BaseOperationError.parentOperationCancelled }
+        }
+    }
+
+    private final class StubRuntimePool: RuntimeProviderPoolProtocol {
+        func setupRuntimeProvider(for chain: ChainModel) -> RuntimeProviderProtocol {
+            StubRuntimeProvider(chainId: chain.chainId)
+        }
+        func setupHotRuntimeProvider(for chain: ChainModel, runtimeItem _: RuntimeMetadataItem,
+                                     commonTypes _: Data) -> RuntimeProviderProtocol {
+            StubRuntimeProvider(chainId: chain.chainId)
+        }
+        func destroyRuntimeProvider(for _: ChainModel.Id) {}
+        func getRuntimeProvider(for _: ChainModel.Id) -> RuntimeProviderProtocol? { nil }
+    }
+
+    private final class StubRegistryServices: ChainSyncServiceProtocol, CommonTypesSyncServiceProtocol,
+        RuntimeSyncServiceProtocol, SnapshotHotBootBuilderProtocol, SpecVersionSubscriptionFactoryProtocol,
+        SpecVersionSubscriptionProtocol {
+        func syncUp() {}
+        func startHotBoot() {}
+        func register(chain _: ChainModel, with _: ChainConnection) {}
+        func unregister(chainId _: ChainModel.Id) {}
+        func apply(version _: RuntimeVersion, for _: ChainModel.Id) {}
+        func applyReplacingCachedMetadata(version _: RuntimeVersion, for _: ChainModel.Id) {}
+        func hasChain(with _: ChainModel.Id) -> Bool { false }
+        func isChainSyncing(_: ChainModel.Id) -> Bool { false }
+        func createSubscription(for _: ChainModel.Id, connection _: JSONRPCEngine) -> SpecVersionSubscriptionProtocol { self }
+        func subscribe() {}
+        func unsubscribe() {}
+    }
+
+    /// The wiring of the fix above in the production `ChainRegistry`: a real
+    /// registry on a chain store in memory, with a connection pool, a status
+    /// presenter and a "node connected" hook of the test's own. Every node
+    /// fails, the status is shown; a node connects, the status is taken down
+    /// once and the waiting work is told.
+    func testTheRegistryTakesTheOutageStatusDownWhenANodeConnectsAndTellsTheWaitingWork() throws {
+        let facade = SubstrateStorageTestFacade()
+        let repository = ChainRepositoryFactory(storageFacade: facade).createRepository()
+        let observable = CoreDataContextObservable(
+            service: facade.databaseService,
+            mapper: repository.dataMapper,
+            predicate: { _ in true }
+        )
+        observable.start { XCTAssertNil($0) }
+        let operations = OperationQueue()
+        let chainProvider = StreamableProvider(
+            source: AnyStreamableSource(SoraPassport.EmptyStreamableSource<ChainModel>()),
+            repository: AnyDataProviderRepository(repository),
+            observable: AnyDataProviderRepositoryObservable(observable),
+            operationManager: OperationManager(operationQueue: operations)
+        )
+        let services = StubRegistryServices()
+        let pool = StubPool(connection: node)
+        let status = StatusRecorder()
+        let connects = Counter()
+        let registry = ChainRegistry(
+            snapshotHotBootBuilder: services,
+            runtimeProviderPool: StubRuntimePool(),
+            connectionPool: pool,
+            chainSyncService: services,
+            runtimeSyncService: services,
+            commonTypesSyncService: services,
+            chainProvider: chainProvider,
+            specVersionSubscriptionFactory: services,
+            logger: nil,
+            eventCenter: EventCenter(),
+            chainRepository: AnyDataProviderRepository(repository),
+            operationManager: OperationManager(operationQueue: operations),
+            networkStatusPresenter: status,
+            nodeDidConnect: { connects.increment() }
+        )
+        // `connectionUpdated` saves the node that worked, in the app's settings.
+        let savedURL = SettingsManager.shared.lastSuccessfulUrl
+        defer {
+            if let savedURL {
+                SettingsManager.shared.lastSuccessfulUrl = savedURL
+            } else {
+                SettingsManager.shared.removeValue(for: SettingsKey.lastSuccessfulUrl.rawValue)
+            }
+        }
+
+        // A chain with two nodes, saved before the registry starts to listen.
+        let chainId = "0x" + String(repeating: "5c", count: 32)
+        let chain = ChainSyncService.preparedChain(
+            chainId: chainId, addressPrefix: 69, name: "Test chain",
+            nodes: [
+                ChainNodeModel(url: URL(string: "wss://one.invalid")!, name: "One", apikey: nil),
+                ChainNodeModel(url: URL(string: "wss://two.invalid")!, name: "Two", apikey: nil)
+            ],
+            typesURL: nil, local: nil, assets: [], whitelist: .empty
+        )
+        let candidates = SoraNodeConnectionPolicy.candidates(for: chain).map(\.url)
+        XCTAssertEqual(candidates.count, 2)
+        let save = repository.saveOperation({ [chain] }, { [] })
+        operations.addOperations([save], waitUntilFinished: true)
+        registry.performColdBoot()
+        XCTAssertTrue(waitOnMain { registry.getChain(for: chainId) != nil }, "the registry knows the chain")
+        XCTAssertEqual(node.url, candidates[0], "and has connected to its first node")
+
+        /// The registry works on a queue of its own and shows the status on
+        /// the main queue. It queues the status before it calls the hook, so
+        /// once the hook was called one more turn of the main queue is enough.
+        func afterConnect(_ count: Int) {
+            XCTAssertTrue(waitOnMain { connects.value == count })
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+
+        // The first node connects. Nothing was shown, nothing is taken down.
+        node.state = .connected
+        registry.connectionUpdated(url: candidates[0])
+        afterConnect(1)
+        XCTAssertEqual(status.events, [])
+        XCTAssertEqual(SettingsManager.shared.lastSuccessfulUrl, candidates[0], "the node that worked is saved")
+
+        // An outage: the first node fails, the registry moves to the second.
+        node.state = .connecting(attempt: 2)
+        registry.connectionNeedsReconnect(url: candidates[0], attempt: 2)
+        XCTAssertTrue(waitOnMain { self.node.url == candidates[1] }, "failover to the next node")
+        XCTAssertEqual(status.events, [], "one node left to try: no status yet")
+        // The second fails too: every node has failed.
+        registry.connectionNeedsReconnect(url: candidates[1], attempt: 2)
+        XCTAssertTrue(waitOnMain { status.events == ["nodes_unreachable_shown"] })
+        XCTAssertEqual(node.url, candidates[0], "it goes on trying, from the first node")
+        XCTAssertEqual(connects.value, 1)
+
+        // A node connects: the status is taken down, once.
+        node.state = .connected
+        registry.connectionUpdated(url: candidates[0])
+        afterConnect(2)
+        XCTAssertEqual(status.events, ["nodes_unreachable_shown", "taken_down"])
+
+        // It reconnects later without an outage in between: not again.
+        registry.connectionUpdated(url: candidates[0])
+        afterConnect(3)
+        XCTAssertEqual(status.events, ["nodes_unreachable_shown", "taken_down"])
+
+        // The next outage shows the status again, and the next node takes it down again.
+        node.state = .connecting(attempt: 2)
+        registry.connectionNeedsReconnect(url: candidates[0], attempt: 2)
+        XCTAssertTrue(waitOnMain { self.node.url == candidates[1] })
+        registry.connectionNeedsReconnect(url: candidates[1], attempt: 2)
+        XCTAssertTrue(waitOnMain { status.events.count == 3 })
+        node.state = .connected
+        registry.connectionUpdated(url: candidates[0])
+        afterConnect(4)
+        XCTAssertEqual(status.events, ["nodes_unreachable_shown", "taken_down", "nodes_unreachable_shown", "taken_down"])
+
+        // A connection the registry does not own is none of its business.
+        registry.connectionUpdated(url: URL(string: "wss://elsewhere.invalid")!)
+        registry.connectionUpdated(url: candidates[0])
+        afterConnect(5)
+        XCTAssertEqual(status.events.count, 4)
+        withExtendedLifetime((registry, chainProvider, observable)) {}
     }
 
     // MARK: - Chain sync picks up a list that arrives during a sync

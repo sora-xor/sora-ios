@@ -550,10 +550,12 @@ protocol StartupNetworkCoordinating: AnyObject {
     /// restore, account removal, node change). Returns at once.
     func startupDidBegin()
 
-    /// Called just before startup boots the chain registry. From then on the
+    /// Called just before the chain registry is started, wherever that is
+    /// done: by startup (`SplashInteractor.bootChainRegistry`) and by the
+    /// wallet when it opens (`ServiceCoordinator.setup`). From then on the
     /// registry's connection, which fails over between nodes, is used, from a
     /// background queue. The caller has created the registry on the main
-    /// thread before this call (`SplashInteractor.bootChainRegistry`).
+    /// thread before this call. May be called any number of times.
     func chainRegistryWillBoot()
 }
 
@@ -572,6 +574,14 @@ protocol StartupNetworkCoordinating: AnyObject {
 ///   The live list is loaded over the chain registry's own connection (the one
 ///   that fails over between the selected, bundled and configured nodes and
 ///   records the last node that worked) and is then given to the registry.
+///
+/// The coordinator never creates the chain registry (creating it reads the
+/// app's window, and this work runs on background queues). It uses the
+/// registry once it knows that it has been started. Startup is not the only
+/// one to start it: a startup that ends at the 1.x upgrade screen boots
+/// nothing, and the wallet that opens after the upgrade starts the registry
+/// itself. So the coordinator is told at each of these places, and a node
+/// that connects is proof enough on its own.
 ///
 /// One instance lives for the whole process, so a list that could not be
 /// loaded while the splash was visible is still loaded later.
@@ -631,9 +641,12 @@ final class StartupNetworkCoordinator: StartupNetworkCoordinating {
         provider?.retryNow(resettingBackoff: false)
     }
 
-    /// The chain registry's connection has just connected to a node.
+    /// The chain registry's connection has just connected to a node. Called
+    /// by the registry itself, so the registry exists and has been started,
+    /// whoever started it.
     func nodeDidConnect() {
         lock.lock()
+        isRegistryBooted = true
         let provider = self.provider
         lock.unlock()
         provider?.retryNow(resettingBackoff: false)
@@ -666,8 +679,8 @@ final class StartupNetworkCoordinator: StartupNetworkCoordinating {
             self.isRefreshingConfig = false
             let isRegistryBooted = self.isRegistryBooted
             self.lock.unlock()
-            // Before the boot there is nothing to update: the boot itself
-            // reads the configuration.
+            // Before the registry is started there is nothing to update:
+            // whoever starts it syncs it, and the sync reads the configuration.
             guard isRegistryBooted, self.configService.config.defaultNodes != nodesBefore else { return }
             self.syncChains()
         }
@@ -699,8 +712,9 @@ final class StartupNetworkCoordinator: StartupNetworkCoordinating {
         lock.lock()
         let isRegistryBooted = self.isRegistryBooted
         lock.unlock()
-        // The registry is not created for this: while startup has not booted
-        // it (recovery screen, low storage, 1.x upgrade) no list is needed.
+        // The registry is not created for this. While nobody has started it
+        // (recovery screen, low storage, the 1.x upgrade screen) there is no
+        // wallet on screen that needs a list.
         return isRegistryBooted ? chainConnection() : nil
     }
 
