@@ -46,7 +46,24 @@ protocol AssetManagerProtocol: AnyObject {
 }
 
 final class AssetManager: AssetManagerProtocol {
-    static var networkAssets: [AssetInfo] = [] //very dirty, bur we need to pass network assets into initialization of the chain.
+    /// The on-chain asset list of this session, read by the chain sync. It is
+    /// empty until the list has been loaded; the chain sync then keeps the
+    /// assets saved in the chain store. The list is loaded in the background
+    /// and read on the chain sync's queue, so access is locked.
+    static var networkAssets: [AssetInfo] {
+        get {
+            networkAssetsLock.lock()
+            defer { networkAssetsLock.unlock() }
+            return storedNetworkAssets
+        }
+        set {
+            networkAssetsLock.lock()
+            storedNetworkAssets = newValue
+            networkAssetsLock.unlock()
+        }
+    }
+    private static let networkAssetsLock = NSLock()
+    private static var storedNetworkAssets: [AssetInfo] = []
 
     private let storage: AnyDataProviderRepository<AssetInfo>
     private let operationManager: OperationManagerProtocol
