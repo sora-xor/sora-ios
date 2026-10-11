@@ -587,6 +587,11 @@ struct PIQuantity: Codable, Equatable, Hashable, CustomStringConvertible, Sendab
         try container.encode(rawValue)
     }
 
+    /// The value is zero, however it is written (`0`, `0.00`, `-0.0`).
+    var isZero: Bool {
+        rawValue.utf8.allSatisfy { $0 == 0x30 || $0 == 0x2E || $0 == 0x2D }
+    }
+
     /// Floating point conversion is deliberately available only to chart and
     /// presentation adapters. Balances, fees, quotes and transaction inputs
     /// retain `rawValue` through validation and signing.

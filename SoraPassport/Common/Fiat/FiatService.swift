@@ -38,6 +38,20 @@ struct PIExactFiatData: Equatable, Sendable {
     let priceUsd: PIQuantity?
 }
 
+extension PIAsset {
+    /// The asset's price as the screens use it. PI publishes a price of
+    /// exactly `0` for an asset it could not price (on 11 October 2026 that
+    /// included bridged ETH, which has liquidity and daily volume). That is
+    /// "no price", not "worth nothing": the holding gets no fiat text and
+    /// is left out of totals, like an asset PI has no price field for.
+    var fiatData: PIExactFiatData {
+        PIExactFiatData(
+            id: id,
+            priceUsd: priceUSD.flatMap { $0.isZero ? nil : $0 }
+        )
+    }
+}
+
 protocol FiatServiceObserverProtocol: AnyObject {
     func processFiat(data: [PIExactFiatData])
 }
@@ -93,9 +107,7 @@ actor FiatService: FiatServiceProtocol {
         do {
             let catalog = try await catalog()
             return FiatSnapshot(
-                data: catalog.values.map {
-                    PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
-                },
+                data: catalog.values.map(\.fiatData),
                 asOf: catalog.asOf
             )
         } catch {
