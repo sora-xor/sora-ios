@@ -164,13 +164,15 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     ///     for every round. `nil`, or a connection that is not connected,
     ///     means "not now": nothing is sent and the provider looks again later.
     ///   - chainId: the chain the assets belong to, read when a list arrives.
+    ///   - timer: the timeouts and the waits between attempts. `nil` (the
+    ///     app) runs them on `queue`; see `timer(on:)`.
     ///   - queue: a serial queue; all work of the provider runs on it.
     init(
         connection: @escaping () -> Connection?,
         storageKeyFactory: StorageKeyFactoryProtocol,
         chainId: @escaping () -> String = { "" },
         policy: RetryPolicy = RetryPolicy(),
-        timer: @escaping Timer = AssetsInfoProvider.dispatchTimer,
+        timer: Timer? = nil,
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         random: @escaping () -> Double = { Double.random(in: 0 ..< 1) },
         logger: LoggerProtocol? = Logger.shared,
@@ -180,7 +182,7 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         self.chainId = chainId
         assetInfoKey = try! storageKeyFactory.assetsInfoKeysPaged().toHex(includePrefix: true)
         self.policy = policy
-        self.timer = timer
+        self.timer = timer ?? Self.timer(on: queue)
         self.now = now
         self.random = random
         self.logger = logger
@@ -196,10 +198,20 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         }
     }
 
-    static let dispatchTimer: Timer = { delay, fire in
-        let item = DispatchWorkItem(block: fire)
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + max(0, delay), execute: item)
-        return { item.cancel() }
+    /// Timers that fire on `queue`, the provider's own serial queue.
+    ///
+    /// They used to fire on the shared utility queue. That queue has a limited
+    /// number of threads for the whole app, and a wallet that opens puts many
+    /// blocking requests on the shared queues at once. While those wait for a
+    /// slow node no shared thread is free, so a 20 s timeout fired after 47 s
+    /// and every later attempt slipped by as much. A serial queue is given a
+    /// thread of its own whenever it has work, so the limits keep their length.
+    static func timer(on queue: DispatchQueue) -> Timer {
+        { delay, fire in
+            let item = DispatchWorkItem(block: fire)
+            queue.asyncAfter(deadline: .now() + max(0, delay), execute: item)
+            return { item.cancel() }
+        }
     }
 
     // MARK: - AssetsInfoProviderProtocol
@@ -462,7 +474,9 @@ protocol StartupNetworkCoordinating: AnyObject {
     func startupDidBegin()
 
     /// Called just before startup boots the chain registry. From then on the
-    /// registry's connection, which fails over between nodes, is used.
+    /// registry's connection, which fails over between nodes, is used, from a
+    /// background queue. The caller has created the registry on the main
+    /// thread before this call (`SplashInteractor.bootChainRegistry`).
     func chainRegistryWillBoot()
 }
 
