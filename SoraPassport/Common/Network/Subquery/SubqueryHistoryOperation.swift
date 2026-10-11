@@ -841,12 +841,11 @@ public final class SubqueryHistoryOperation<ResultType>:
                 urlError
             )
         }
-        if let indexerError = error as? PIIndexerError,
-           case let .httpStatus(code) = indexerError {
-            return
-                code == 408 ||
-                code == 429 ||
-                (500 ... 599).contains(code)
+        if let indexerError = error as? PIIndexerError {
+            // PI unreachable or overloaded, or without one consistent fresh
+            // checkpoint even after the bounded retry: show the last page
+            // that passed block-hash validation instead of an empty list.
+            return indexerError.allowsOfflineFallback
         }
         let nsError = error as NSError
         guard nsError.domain == NSURLErrorDomain else {
