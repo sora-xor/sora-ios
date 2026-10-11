@@ -8,15 +8,15 @@ public final class InputAssetField: UIControl, Molecule {
 
     public let sora: InputAssetFieldConfiguration<InputAssetField>
 
-    let containerView: SoramitsuView = {
-        let view = SoramitsuView()
-        view.sora.cornerRadius = .max
-        view.sora.material = .solid
-        view.sora.backgroundColor = .bgSurface
-        view.sora.borderWidth = 1
-        // The focus glow is a shadow on this view; clipping would hide it.
-        // The content sits 16 pt inside the edges, so nothing overflows.
-        view.sora.clipsToBounds = false
+    /// The amount card. A plain view on purpose, like the chrome host of
+    /// `InputField` and `InputTextView`: the field's configuration is the
+    /// only writer of its fill, border and focus glow (`NeonInputStyle`).
+    /// As a Soramitsu view it had a configuration of its own that answered
+    /// the same style updates in no defined order, and when it came second
+    /// it put back the palette fill, cleared the border colour and removed
+    /// the focus glow.
+    let containerView: UIView = {
+        let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -135,6 +135,10 @@ private extension InputAssetField {
             inputedFiatAmountLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             inputedFiatAmountLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
         ])
+
+        // The input chrome from the first display on, not only after the
+        // first focus.
+        sora.updateView()
     }
 }
 

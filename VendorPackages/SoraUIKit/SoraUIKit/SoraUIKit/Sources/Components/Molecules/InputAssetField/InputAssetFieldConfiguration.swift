@@ -77,10 +77,12 @@ public final class InputAssetFieldConfiguration<Type: InputAssetField>: Soramits
         assetChoiceHandler?()
     }
 
+    /// Fill, border and focus glow of the amount card (spec §7.5). This is
+    /// their only writer.
     func updateView() {
         guard let owner else { return }
         // The amount card keeps the card radius; it is a hero input (spec §8.11).
         NeonInputStyle.apply(to: owner.containerView, state: state, isEnabled: true,
-                             cornerRadius: owner.containerView.layer.cornerRadius)
+                             cornerRadius: style.radii.radius(.max, size: owner.containerView.bounds.size))
     }
 }
