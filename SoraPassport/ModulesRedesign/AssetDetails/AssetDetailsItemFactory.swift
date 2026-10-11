@@ -91,18 +91,29 @@ final class AssetDetailsItemFactory {
                                wireframe: AssetDetailsWireframeProtocol,
                                frozenDetailsHandler: ((BalanceContext) -> Void)?
     ) -> TransferableItem {
-        let balance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first ?? BalanceData(identifier: "",
-                                                                                                     balance: AmountDecimal(value: 0))
+        let readBalance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first
+        // A balance that could not be read is shown as unavailable, not as
+        // the zero the placeholder below carries, and no value or frozen
+        // part is worked out from that zero.
+        let balanceUnavailable = readBalance == nil && (assetsProvider?
+            .unavailableBalanceAssetIds(among: [assetInfo.identifier])
+            .contains(assetInfo.identifier) ?? false)
+        let balance = readBalance ?? BalanceData(identifier: "",
+                                                 balance: AmountDecimal(value: 0))
 
         // Without a price the value is unknown: no fiat text, not "$0".
-        let fiatBalanceText = WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
+        let fiatBalanceText = balanceUnavailable
+            ? ""
+            : WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
 
         let balanceContext = BalanceContext(context: balance.context ?? [:])
         let frozen = balanceContext.frozen
         let referral = referralBalance ?? Decimal(0)
-        let frozenAmount = Amount(value: frozen + referral)
+        let frozenAmount = Amount(value: balanceUnavailable ? 0 : frozen + referral)
 
-        let frozenFiat = WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
+        let frozenFiat = balanceUnavailable
+            ? ""
+            : WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
         
         transferableItemService.usdPrice = usdPrice
         transferableItemService.balanceContext = balanceContext
@@ -113,12 +124,8 @@ final class AssetDetailsItemFactory {
                                                 frozenAmount: frozenAmount,
                                                 frozenFiatAmount: frozenFiat,
                                                 service: transferableItemService,
-                                                balanceData: balance)
-        // A balance that could not be read is shown as unavailable, not as
-        // the zero the placeholder above carries.
-        transferableItem.balanceUnavailable = assetsProvider?
-            .unavailableBalanceAssetIds(among: [assetInfo.identifier])
-            .contains(assetInfo.identifier) ?? false
+                                                balanceData: balance,
+                                                balanceUnavailable: balanceUnavailable)
 
         transferableItem.actionHandler = { [weak self] type in
             switch type {

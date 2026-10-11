@@ -39,6 +39,9 @@ final class TransferableItemService {
     
     @Published var publishedFrozenAmount: Amount?
     @Published var frozenFiat: String?
+    /// The balance could not be read. While this is so nothing above is
+    /// published: the amounts would be those of a placeholder.
+    @Published private(set) var balanceUnavailable = false
     
     var referralBalance: Decimal?
     var balanceContext: BalanceContext?
@@ -48,6 +51,23 @@ final class TransferableItemService {
     private let assetInfo: AssetInfo
     private var assetsProvider: AssetProviderProtocol
     private let referralFactory: ReferralsOperationFactoryProtocol
+    private let stateLock = NSLock()
+    /// Each setup has a number. The one that looks up the referral balance
+    /// publishes only if no later setup (or "unavailable") came meanwhile.
+    private var setupNumber = 0
+
+    private func nextSetup() -> Int {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        setupNumber += 1
+        return setupNumber
+    }
+
+    private func isCurrent(_ number: Int) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return setupNumber == number
+    }
 
     init(assetInfo: AssetInfo,
          eventCenter: EventCenterProtocol,
@@ -59,11 +79,22 @@ final class TransferableItemService {
         self.assetsProvider.add(observer: self)
     }
     
+    /// The balance could not be read: say so, and publish no amount, value
+    /// or frozen part worked out from a placeholder.
+    func setupUnavailable() {
+        _ = nextSetup()
+        balanceUnavailable = true
+    }
+
     func setup(with balance: BalanceData) {
+        let number = nextSetup()
         Task {
-            referralBalance = await assetInfo.isFeeAsset ? getReferralBalance() : nil
+            let readReferralBalance = await assetInfo.isFeeAsset ? getReferralBalance() : nil
+            guard isCurrent(number) else { return }
+            referralBalance = readReferralBalance
             balanceContext = BalanceContext(context: balance.context ?? [:])
             
+            balanceUnavailable = false
             balanceAmount = balance.balance.decimalValue
             fiatBalanceText = WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
             
@@ -103,7 +134,14 @@ final class TransferableItemService {
 
 extension TransferableItemService: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        guard let assetBalance = data.first(where: { $0.identifier == assetInfo.assetId }) else { return }
-        setup(with: assetBalance)
+        if let assetBalance = data.first(where: { $0.identifier == assetInfo.assetId }) {
+            // Also the way back: a balance that could not be read before
+            // and is read now replaces "Balance unavailable".
+            setup(with: assetBalance)
+        } else if assetsProvider
+            .unavailableBalanceAssetIds(among: [assetInfo.assetId])
+            .contains(assetInfo.assetId) {
+            setupUnavailable()
+        }
     }
 }

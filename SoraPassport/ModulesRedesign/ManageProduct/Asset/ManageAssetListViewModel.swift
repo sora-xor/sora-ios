@@ -69,6 +69,8 @@ final class ManageAssetListViewModel {
             let marketCapInfo = priceInfo?.marketCapInfo ?? []
             
             assetItems.forEach { item in
+                // No value is worked out from a balance that was not read.
+                guard !item.balanceUnavailable else { return }
                 
                 let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
                 
@@ -209,26 +211,42 @@ extension ManageAssetListViewModel: AssetProviderObserverProtocol {
     }
 }
 
+extension ManageAssetListViewModel {
+    /// The list that is saved after editing: the rows as edited, then every
+    /// asset of the wallet that had no row (its balance had not arrived
+    /// when the list was built). Saving only the rows would take such an
+    /// asset out of the wallet until the next start.
+    static func listToSave(edited: [AssetInfo], current: [AssetInfo]) -> [AssetInfo] {
+        let editedIds = Set(edited.map(\.identifier))
+        return edited + current.filter { !editedIds.contains($0.identifier) }
+    }
+}
+
 private extension ManageAssetListViewModel {
     func items(with balanceItems: [BalanceData]) async {
         let fiatData = priceInfo?.fiatData ?? []
         let marketCapInfo = priceInfo?.marketCapInfo ?? []
         
-        assetItems = balanceItems.compactMap { balance in
-            let priceDelta = marketCapInfo.first(where: { $0.assetId == balance.identifier })?.hourDelta
-            guard let assetInfo = assetManager?.assetInfo(for: balance.identifier),
-                  let viewModel = assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                             assetInfo: assetInfo,
-                                                                             fiatData: fiatData,
-                                                                             mode: mode,
-                                                                             priceDelta: priceDelta) else {
-                return nil
-            }
-            
-            let item = AssetListItem(assetInfo: assetInfo,
-                                     assetViewModel: viewModel,
-                                     balance: balance.balance.decimalValue)
-            
+        let mode = self.mode
+        let factory = assetViewModelFactory
+        let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
+        // An asset whose balance could not be read keeps its row. Leaving
+        // it out would also drop it from the list that is saved after
+        // editing.
+        let items = factory.assetListItems(
+            assetIds: ids,
+            balances: balanceItems,
+            unavailable: assetsProvider?.unavailableBalanceAssetIds(among: ids) ?? [],
+            mode: mode
+        ) { balance, assetInfo in
+            factory.createAssetViewModel(with: balance,
+                                         assetInfo: assetInfo,
+                                         fiatData: fiatData,
+                                         mode: mode,
+                                         priceDelta: marketCapInfo.first(where: { $0.assetId == balance.identifier })?.hourDelta)
+        }
+        items.forEach { item in
+            let assetInfo = item.assetInfo
             item.assetHandler = { [weak self] identifier in
                 self?.showAssetDetails(with: assetInfo)
             }
@@ -236,9 +254,8 @@ private extension ManageAssetListViewModel {
             item.favoriteHandle = { item in
                 item.assetInfo.visible = !item.assetInfo.visible
             }
-            
-            return item
-        }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+        }
+        assetItems = items.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
 
         let assetIds = balanceItems.map { $0.identifier }
         priceInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
@@ -254,8 +271,10 @@ private extension ManageAssetListViewModel {
 
     func saveUpdates() {
         let assetInfos = self.assetItems.map({ $0.assetInfo })
-        assetManager?.saveAssetList(assetInfos)
-    }    
+        assetManager?.saveAssetList(
+            Self.listToSave(edited: assetInfos, current: assetManager?.getAssetList() ?? [])
+        )
+    }
     
     func setupTableViewItems(with items: [AssetListItem]) {
         if mode == .edit || isActiveSearch {
@@ -263,8 +282,10 @@ private extension ManageAssetListViewModel {
             return
         }
 
-        let aboveZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) != nil || $0.assetInfo.visible || !$0.balance.isZero }
-        let underZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) == nil && !$0.assetInfo.visible && $0.balance.isZero }
+        // An asset whose balance could not be read is not a zero balance:
+        // it is never put behind "show zero balances".
+        let aboveZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) != nil || $0.assetInfo.visible || !$0.balance.isZero || $0.balanceUnavailable }
+        let underZero = items.filter { WalletAssetId(rawValue: $0.assetInfo.assetId) == nil && !$0.assetInfo.visible && $0.balance.isZero && !$0.balanceUnavailable }
         var resultItems: [SoramitsuTableViewItemProtocol] = aboveZero
         
         if aboveZero.count < items.count, underZero.count > 0 {
