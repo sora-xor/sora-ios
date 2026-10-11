@@ -1027,3 +1027,9 @@
 "This total does not include balances that could not be read" = "取得できなかった残高は、この合計に含まれていません";
 "This node answers on its WebSocket address but not over HTTPS at the same address. The app needs both: balances use the WebSocket, and fee estimates and sends use HTTPS. With this node balances would load and every send would fail, so it was not saved. Use a node that serves wss:// and https:// at the same address." = "このノードは WebSocket のアドレスでは応答しますが、同じアドレスの HTTPS には応答しません。アプリには両方が必要です。残高の表示には WebSocket を、手数料の見積もりと送信には HTTPS を使います。このノードでは残高は表示されますが送信はすべて失敗するため、保存していません。同じアドレスで wss:// と https:// の両方に応答するノードを使用してください。";
 "This node does not answer over HTTPS, so it can't send transactions" = "このノードは HTTPS に応答しないため、取引を送信できません";
+"The SORA network did not accept this request. Please try again." = "SORA ネットワークがこのリクエストを受け付けませんでした。もう一度お試しください。";
+"Sent transaction" = "送信した取引";
+"Waiting for the network to confirm it" = "ネットワークの確認を待っています";
+"Confirmed by the network" = "ネットワークで確認されました";
+"It failed on the network" = "ネットワーク上で失敗しました";
+"The network did not include it. Nothing was sent." = "ネットワークに取り込まれませんでした。何も送信されていません。";
