@@ -5094,6 +5094,14 @@ final class WalletNetworkStore {
     /// existing wallet, secret-source classification, SORA public key, or
     /// deterministic Nexus child can be removed or rewritten only through a
     /// separately verified explicit operation.
+    ///
+    /// The display name is not part of a wallet's identity. It is metadata
+    /// that follows the wallet database, as the selection does: a rename
+    /// saves the account row first and the snapshot second, and App Store
+    /// 3.8.6 saves only the row. A snapshot that still holds the earlier
+    /// name (the process died or the write failed between the two saves, or
+    /// the rename happened in 3.8.6) is brought up to date by the next
+    /// activation instead of failing every later start.
     private func verifyMonotonicActivation(
         current: WalletNetworkSnapshot,
         proposed: WalletNetworkSnapshot
@@ -5111,16 +5119,19 @@ final class WalletNetworkStore {
             proposedWallets.values.allSatisfy({ $0.count == 1 }),
             proposedAccounts.values.allSatisfy({ $0.count == 1 }),
             current.wallets.allSatisfy({ wallet in
-                guard let proposedWallet = proposedWallets[wallet.id]?.first else {
+                guard
+                    let proposedWallet = proposedWallets[wallet.id]?.first,
+                    proposedWallet.id == wallet.id,
+                    proposedWallet.existingSoraAddress ==
+                        wallet.existingSoraAddress
+                else {
                     return false
                 }
-                if proposedWallet == wallet { return true }
-                // The only permitted rewrite: a read-only placeholder whose
-                // keys were restored and proven gets its real source.
-                return wallet.secretSource == .signingUnavailable &&
-                    proposedWallet.id == wallet.id &&
-                    proposedWallet.displayName == wallet.displayName &&
-                    proposedWallet.existingSoraAddress == wallet.existingSoraAddress
+                // The only permitted rewrite of the source: a read-only
+                // placeholder whose keys were restored and proven gets its
+                // real source. The display name may differ (see above).
+                return proposedWallet.secretSource == wallet.secretSource ||
+                    wallet.secretSource == .signingUnavailable
             }),
             current.accounts.allSatisfy({ account in
                 proposedAccounts[account.id]?.first == account
