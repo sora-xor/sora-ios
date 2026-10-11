@@ -57,9 +57,14 @@ final class PoolsItemService {
     private let priceRetryLock = NSLock()
     private var priceRetry: Task<Void, Never>?
     private var priceFailures = 0
+    private var lastPools: [PoolInfo]?
+    private var pricesObserver: NSObjectProtocol?
 
     deinit {
         priceRetry?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
     }
 
     init(
@@ -73,6 +78,19 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        lastPools = pools
+        if pricesObserver == nil {
+            // Prices were refreshed in the background, or the app came back
+            // to the foreground: value the pools again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self, let pools = self.lastPools else { return }
+                self.setup(with: pools)
+            }
+        }
         if fiatData.isEmpty {
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
@@ -106,7 +124,11 @@ final class PoolsItemService {
             schedulePriceRetry(needed: !pricesAvailable, pools: pools)
             
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                var viewModel = self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                // The price read is over: a pool without a price shows no
+                // value instead of a placeholder that never ends.
+                viewModel?.priceLoadFinished = true
+                return viewModel
             }
             updateHandler?()
         }

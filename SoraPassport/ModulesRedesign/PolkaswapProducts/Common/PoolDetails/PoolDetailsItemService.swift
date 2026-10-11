@@ -34,7 +34,11 @@ import BigInt
 
 
 protocol PoolDetailsItemServiceProtocol: AnyObject {
+    /// Empty while the value is loading.
     var tvlTextPublisher: Published<String>.Publisher { get }
+    /// The price read has finished without a price for this pool: the
+    /// header then shows no value instead of a placeholder that never ends.
+    var tvlUnavailablePublisher: Published<Bool>.Publisher { get }
     var detailsPublisher: Published<[DetailViewModel]>.Publisher { get }
     func setup(with poolInfo: PoolInfo)
 }
@@ -42,6 +46,15 @@ protocol PoolDetailsItemServiceProtocol: AnyObject {
 final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
     @Published var tvlText: String = ""
     var tvlTextPublisher: Published<String>.Publisher { $tvlText }
+    @Published var tvlUnavailable = false
+    var tvlUnavailablePublisher: Published<Bool>.Publisher { $tvlUnavailable }
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
     
     @Published var details: [DetailViewModel] = []
     var detailsPublisher: Published<[DetailViewModel]>.Publisher { $details }
@@ -65,23 +78,39 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
     }
     
     func setup(with poolInfo: PoolInfo) {
-        Task { [weak self] in
-            guard let self else { return }
-            let fiatData = await self.fiatService.getFiat()
-            // Without a price the value is unknown; the header keeps its
-            // loading placeholder instead of showing "$0 TVL".
-            guard let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue else {
-                return
+        if pricesObserver == nil {
+            // Prices arrived or were refreshed: value the pool again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadValue(of: poolInfo)
             }
-            let reserves = poolInfo.baseAssetReserves ?? .zero
-            self.tvlText = "$" + (priceUsd * reserves * 2).formatNumber() + " TVL"
         }
+        loadValue(of: poolInfo)
         
         Task { [weak self] in
             guard let self else { return }
             let apy = await self.apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
             let details = self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)
             self.details = details
+        }
+    }
+
+    private func loadValue(of poolInfo: PoolInfo) {
+        Task { [weak self] in
+            guard let self else { return }
+            let fiatData = await self.fiatService.getFiat()
+            // Without a price the value is unknown: the header shows no
+            // value, neither "$0 TVL" nor a placeholder that never ends.
+            guard let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue else {
+                self.tvlUnavailable = true
+                return
+            }
+            let reserves = poolInfo.baseAssetReserves ?? .zero
+            self.tvlUnavailable = false
+            self.tvlText = "$" + (priceUsd * reserves * 2).formatNumber() + " TVL"
         }
     }
 }
