@@ -84,6 +84,9 @@ final class ExplorePoolCell: SoramitsuTableViewCell {
             poolView.amountUpLabel.sora.text = price
             poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
         }
+        // An empty rate means the APY read finished with nothing to show:
+        // no empty pill. The label keeps its place in the layout.
+        poolView.amountUpLabel.alpha = viewModel.apy?.isEmpty == true ? 0 : 1
     }
 }
 
