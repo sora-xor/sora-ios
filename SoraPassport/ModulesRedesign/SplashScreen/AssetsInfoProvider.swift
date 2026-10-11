@@ -61,8 +61,12 @@ protocol AssetsInfoProviderProtocol: AnyObject {
 
     /// Asks for the next attempt now instead of at the end of the current
     /// wait, for example because the node has just connected. Attempts stay
-    /// at least `RetryPolicy.minimumRoundInterval` apart. `resettingBackoff`
-    /// is for an explicit user action: the waits start from the shortest again.
+    /// at least `RetryPolicy.minimumRoundInterval` apart, and further apart
+    /// on a node whose last attempts failed (see
+    /// `RetryPolicy.wakeUpInterval`), so a node that keeps connecting and
+    /// failing is asked with the same growing waits as one that stays
+    /// connected. `resettingBackoff` is for an explicit user action: the
+    /// waits start from the shortest again.
     func retryNow(resettingBackoff: Bool)
 
     /// Stops loading. No request stays queued on the connection.
@@ -106,6 +110,8 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         /// so that clients do not retry in step when a node returns.
         var jitter: Double = 0.2
         /// Rounds asked for with `retryNow` start at least this far apart.
+        /// On a node whose last rounds failed the distance grows, see
+        /// `wakeUpInterval(afterFailures:)`.
         var minimumRoundInterval: TimeInterval = 5
         /// The largest page a Substrate node serves.
         var keysPageSize: UInt32 = 1_000
@@ -122,7 +128,35 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
             let spread = min(max(jitter, 0), 1) * min(max(random, 0), 1)
             return max(0, base * (1 - spread))
         }
+
+        /// The least distance between two rounds on the same node when the
+        /// second one is asked for by `retryNow`, after `failures` failed
+        /// rounds in a row on that node: `minimumRoundInterval`, doubled
+        /// (`multiplier`) by each further failure, up to `maximumDelay`
+        /// (5, 10, 20, 40 and then 60 s).
+        ///
+        /// Without this a wake-up replaced the planned, backed-off attempt
+        /// by one `minimumRoundInterval` after the last, however many rounds
+        /// had failed. The chain registry wakes the loader every time a node
+        /// connects, so a node that accepted the socket and dropped it again
+        /// was asked every 5 seconds by every client for as long as it did so.
+        func wakeUpInterval(afterFailures failures: Int) -> TimeInterval {
+            guard failures > 1 else { return minimumRoundInterval }
+            let exponent = Double(min(failures, 64) - 1)
+            let ceiling = max(maximumDelay, minimumRoundInterval)
+            return min(ceiling, minimumRoundInterval * pow(max(multiplier, 1), exponent))
+        }
     }
+
+    /// The rounds on one node since the last list or reset.
+    private struct NodeHistory {
+        var failedRounds = 0
+        var lastRoundStart: TimeInterval
+    }
+
+    /// Nodes remembered at a time. A wallet has a handful of nodes; the
+    /// limit only keeps the memory bounded whatever the node list becomes.
+    private static let rememberedNodes = 16
 
     private struct InFlightRequest {
         let serial: UInt64
@@ -150,6 +184,8 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     private var failedRounds = 0
     private var idleChecks = 0
     private var lastRoundStart: TimeInterval?
+    private var nodeHistory: [String: NodeHistory] = [:]
+    private var roundNode: String?
     private var keys: [String] = []
     private var lastKey: String?
     private var loadedPages = 0
@@ -231,10 +267,11 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
             if resettingBackoff {
                 self.failedRounds = 0
                 self.idleChecks = 0
+                self.nodeHistory = [:]
             }
             guard !self.isRoundActive else { return }
             let current = self.now()
-            let earliest = max(current, (self.lastRoundStart ?? -.infinity) + self.policy.minimumRoundInterval)
+            let earliest = max(current, self.earliestRoundOnWakeUp())
             if let scheduled = self.scheduledRoundTime, scheduled <= earliest {
                 return
             }
@@ -253,6 +290,8 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
             self.isCancelled = true
             self.isRoundActive = false
             self.completion = nil
+            self.nodeHistory = [:]
+            self.roundNode = nil
             self.clearScheduledRound()
             if let inFlight = self.inFlight {
                 self.inFlight = nil
@@ -268,6 +307,32 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         isStarted && !isFinished && !isCancelled
     }
 
+    /// The earliest time at which a round asked for by `retryNow` may start.
+    private func earliestRoundOnWakeUp() -> TimeInterval {
+        var earliest = (lastRoundStart ?? -.infinity) + policy.minimumRoundInterval
+        // The node that is connected now. Another node (the registry failed
+        // over) has no failed round yet and is asked without a longer wait.
+        if let engine = connection(), let history = nodeHistory[Self.nodeKey(of: engine)] {
+            earliest = max(
+                earliest,
+                history.lastRoundStart + policy.wakeUpInterval(afterFailures: history.failedRounds)
+            )
+        }
+        return earliest
+    }
+
+    private static func nodeKey(of engine: Connection) -> String {
+        engine.url?.absoluteString ?? ""
+    }
+
+    private func rememberRoundStart(on node: String, at start: TimeInterval) {
+        if nodeHistory[node] == nil, nodeHistory.count >= Self.rememberedNodes,
+           let oldest = nodeHistory.min(by: { $0.value.lastRoundStart < $1.value.lastRoundStart }) {
+            nodeHistory[oldest.key] = nil
+        }
+        nodeHistory[node, default: NodeHistory(lastRoundStart: start)].lastRoundStart = start
+    }
+
     private func beginRound() {
         guard isLoading, !isRoundActive else { return }
         guard let engine = connection(), case .connected = engine.state else {
@@ -278,7 +343,11 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         }
         idleChecks = 0
         isRoundActive = true
-        lastRoundStart = now()
+        let start = now()
+        lastRoundStart = start
+        let node = Self.nodeKey(of: engine)
+        roundNode = node
+        rememberRoundStart(on: node, at: start)
         keys = []
         lastKey = nil
         loadedPages = 0
@@ -340,6 +409,8 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         isRoundActive = false
         isFinished = true
         keys = []
+        nodeHistory = [:]
+        roundNode = nil
         clearScheduledRound()
         let completion = self.completion
         self.completion = nil
@@ -351,6 +422,12 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         keys = []
         lastKey = nil
         failedRounds += 1
+        if let roundNode {
+            // Gone after a reset (`retryNow(resettingBackoff: true)`): the
+            // count for this node then starts with its next round.
+            nodeHistory[roundNode]?.failedRounds += 1
+        }
+        roundNode = nil
         let delay = policy.delay(afterFailures: failedRounds, random: random())
         // A fixed code and numbers only: never keys or node answers.
         logger?.warning("Asset list: attempt \(failedRounds) failed (\(code)); next in \(Int(delay.rounded())) s")

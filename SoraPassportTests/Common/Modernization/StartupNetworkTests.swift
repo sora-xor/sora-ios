@@ -40,11 +40,16 @@ final class StartupNetworkTests: XCTestCase {
     /// Answers on the caller's thread, inside `callMethod`, unless told to stay
     /// silent. That is the hardest case for the loader: an answer that is
     /// handled inline would recurse.
-    private final class StubNode: JSONRPCEngine, ConnectionStateReporting {
-        var url: URL? = URL(string: "wss://node.invalid")
+    ///
+    /// It is also what the chain registry holds as its connection: `reconnect`
+    /// moves it to another node, as a failover does.
+    private final class StubNode: JSONRPCEngine, ConnectionStateReporting, ConnectionAutobalancing {
         var pendingEngineRequests: [JSONRPCRequest] { [] }
+        var ranking: [ConnectionRank] { [] }
+        func set(ranking _: [ConnectionRank]) {}
 
         private let lock = NSLock()
+        private var currentURL = URL(string: "wss://node.invalid")
         private var nextId: UInt16 = 0
         private var recorded: [Call] = []
         private var cancelledIds: [UInt16] = []
@@ -55,6 +60,11 @@ final class StartupNetworkTests: XCTestCase {
         var state: WebSocketEngine.State {
             get { lock.lock(); defer { lock.unlock() }; return currentState }
             set { lock.lock(); currentState = newValue; lock.unlock() }
+        }
+
+        var url: URL? {
+            get { lock.lock(); defer { lock.unlock() }; return currentURL }
+            set { lock.lock(); currentURL = newValue; lock.unlock() }
         }
 
         var answer: (Call) -> Answer {
@@ -136,7 +146,7 @@ final class StartupNetworkTests: XCTestCase {
 
         func generateRequestId() -> UInt16 { 0 }
         func addSubscription(_: JSONRPCSubscribing) {}
-        func reconnect(url _: URL) {}
+        func reconnect(url: URL) { self.url = url }
         func connectIfNeeded() {}
         func disconnectIfNeeded() {}
         func unsubsribe(_: UInt16) throws {}
@@ -616,26 +626,150 @@ final class StartupNetworkTests: XCTestCase {
         XCTAssertEqual(node.calls.count, 5)
         XCTAssertEqual(timers.pending, [8])
 
-        // 18 s: more than the minimum after the last attempt, and before the
-        // planned one. A wake-up starts an attempt at once.
-        timers.advance(by: 6)
-        provider.retryNow(resettingBackoff: false)
-        settle()
-        XCTAssertEqual(node.calls.count, 6)
-        XCTAssertEqual(timers.pending, [16], "it failed too: next at 34 s")
-
-        // Right after an attempt a wake-up is held back to the minimum
-        // interval (23 s), however often it comes.
+        // 13 s: the user taps "Try again", and again, and again. The attempt
+        // is brought forward to the minimum interval after the last one
+        // (17 s), however often it is asked for.
+        timers.advance(by: 1)
         for _ in 0 ..< 20 {
-            provider.retryNow(resettingBackoff: false)
+            provider.retryNow(resettingBackoff: true)
         }
         settle()
+        XCTAssertEqual(node.calls.count, 5)
+        XCTAssertEqual(timers.pending, [4])
+        timers.fireNext() // 17 s: it fails; the waits start from the shortest again
+        settle()
         XCTAssertEqual(node.calls.count, 6)
-        XCTAssertEqual(timers.pending, [5])
+        XCTAssertEqual(timers.pending, [2])
+        withExtendedLifetime(provider) {}
+    }
+
+    /// The chain registry wakes the loader every time a node connects. A
+    /// wake-up used to replace the planned attempt by one 5 s after the last,
+    /// however many attempts had failed. A node that accepted the socket and
+    /// dropped it again (a brown-out, a restart loop) was therefore asked
+    /// every 5 s by every client for as long as it did so.
+    func testANodeThatKeepsConnectingAndFailingIsAskedWithGrowingWaits() {
+        node.answer = { _ in .failure }
+        let provider = makeProvider(connection: { [node] in node })
+        provider.load { _ in XCTFail("nothing to deliver") }
+        settle()
+        XCTAssertEqual(node.calls.count, 1)
+
+        var waits: [TimeInterval] = []
+        for attempt in 1 ... 8 {
+            // The node drops the socket, the attempt fails, and the node
+            // accepts the socket again: the registry reports "connected".
+            for _ in 0 ..< 5 {
+                provider.retryNow(resettingBackoff: false)
+            }
+            settle()
+            XCTAssertEqual(node.calls.count, attempt, "the wake-up starts no attempt of its own")
+            XCTAssertEqual(timers.pending.count, 1)
+            waits.append(timers.fireNext() ?? -1)
+            settle()
+        }
+        XCTAssertEqual(waits, [2, 4, 8, 16, 32, 60, 60, 60], "the waits of a node that stays connected and fails")
+        XCTAssertEqual(node.calls.count, 9)
+        XCTAssertTrue(node.calls.allSatisfy { $0.isKeysPage && $0.startKey == nil })
+        withExtendedLifetime(provider) {}
+    }
+
+    /// A wake-up still helps where it should: when an attempt took long (the
+    /// node did not answer) the next one may start as soon as the growing
+    /// distance from the last start allows, and no sooner.
+    func testAWakeUpNeverBringsAttemptsOnOneNodeCloserThanItsGrowingDistance() {
+        node.answer = { _ in .silent }
+        let provider = makeProvider(connection: { [node] in node })
+        provider.load { _ in XCTFail("nothing to deliver") }
+        settle()
+
+        // Attempt 1 at 0 s times out at 7 s; the next is planned for 9 s.
+        timers.fireNext()
+        settle()
+        XCTAssertEqual(timers.pending, [2])
+        // One failure: 5 s after the last start have passed. At once.
+        provider.retryNow(resettingBackoff: false)
+        settle()
+        XCTAssertEqual(node.calls.count, 2, "attempt 2 at 7 s")
+        XCTAssertEqual(timers.pending, [keysTimeout])
+
+        // Attempt 2 times out at 14 s; the next is planned for 18 s.
+        timers.fireNext()
+        settle()
+        XCTAssertEqual(timers.pending, [4])
+        // Two failures: not before 7 + 10 = 17 s.
+        provider.retryNow(resettingBackoff: false)
+        settle()
+        XCTAssertEqual(node.calls.count, 2)
+        XCTAssertEqual(timers.pending, [3])
+        timers.fireNext() // attempt 3 at 17 s
+        settle()
+        XCTAssertEqual(node.calls.count, 3)
+
+        // Attempt 3 times out at 24 s; the next is planned for 32 s.
+        timers.fireNext()
+        settle()
+        XCTAssertEqual(timers.pending, [8])
+        // Three failures: 17 + 20 = 37 s would be later than the planned 32 s.
+        provider.retryNow(resettingBackoff: false)
+        settle()
+        XCTAssertEqual(timers.pending, [8], "the planned attempt stays")
+        XCTAssertEqual(node.calls.count, 3)
+        withExtendedLifetime(provider) {}
+    }
+
+    /// The registry fails over to another node. That node has not failed:
+    /// it is asked after the short minimum interval, not after the wait the
+    /// dead node had earned.
+    func testAWakeUpAfterAFailoverToAnotherNodeDoesNotWaitForTheFailedNode() throws {
+        let failed = try XCTUnwrap(URL(string: "wss://failed.invalid"))
+        let next = try XCTUnwrap(URL(string: "wss://next.invalid"))
+        node.url = failed
+        node.answer = { _ in .failure }
+        let loaded = Loaded()
+        let provider = makeProvider(connection: { [node] in node })
+        provider.load { loaded.add($0) }
+        settle()
+        for _ in 0 ..< 3 { // attempts at 0, 2, 6 and 14 s; the next is planned for 30 s
+            timers.fireNext()
+            settle()
+        }
+        XCTAssertEqual(node.calls.count, 4)
+        XCTAssertEqual(timers.pending, [16])
+
+        // 16 s: the same node connects again. 14 + 40 s is later than 30 s.
+        timers.advance(by: 2)
+        provider.retryNow(resettingBackoff: false)
+        settle()
+        XCTAssertEqual(node.calls.count, 4)
+        XCTAssertEqual(timers.pending, [16])
+
+        // 16 s: the registry has moved the connection to the next node.
+        node.reconnect(url: next)
+        node.answer = healthy()
+        provider.retryNow(resettingBackoff: false)
+        settle()
+        XCTAssertEqual(node.calls.count, 4, "attempts stay 5 s apart whatever the node")
+        XCTAssertEqual(timers.pending, [3], "14 + 5 = 19 s")
         timers.fireNext()
         settle()
         XCTAssertEqual(node.calls.count, 7)
+        XCTAssertEqual(loaded.all.first?.count, 3)
+        XCTAssertTrue(timers.pending.isEmpty)
         withExtendedLifetime(provider) {}
+    }
+
+    func testTheDistanceOfWakeUpsOnOneNodeDoublesUpToTheCeiling() {
+        let policy = AssetsInfoProvider.RetryPolicy()
+        XCTAssertEqual((0 ... 8).map { policy.wakeUpInterval(afterFailures: $0) }, [5, 5, 10, 20, 40, 60, 60, 60, 60])
+        XCTAssertEqual(policy.wakeUpInterval(afterFailures: -3), 5)
+        XCTAssertEqual(policy.wakeUpInterval(afterFailures: Int.max), 60)
+        for failures in 1 ... 12 {
+            XCTAssertGreaterThanOrEqual(
+                policy.wakeUpInterval(afterFailures: failures), policy.delay(afterFailures: failures, random: 0),
+                "a wake-up never allows less than the planned wait"
+            )
+        }
     }
 
     func testReleasingTheLoaderTakesItsRequestOffTheNodeAndStopsItsTimers() {
