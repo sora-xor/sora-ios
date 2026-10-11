@@ -47,8 +47,16 @@ protocol PriceInfoServiceProtocol: AnyObject {
 
 actor PriceInfoService {
     static let shared = PriceInfoService()
-    private let fiatService = FiatService.shared
-    private let marketCapService = MarketCapService.shared
+    private let fiatService: FiatService
+    private let marketCapService: MarketCapService
+
+    init(
+        fiatService: FiatService = .shared,
+        marketCapService: MarketCapService = .shared
+    ) {
+        self.fiatService = fiatService
+        self.marketCapService = marketCapService
+    }
     
     private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
         async let fiat = self.fiatService.getFiatSnapshot()
@@ -69,7 +77,9 @@ extension PriceInfoService: PriceInfoServiceProtocol {
     /// catalog behind both services does the caching (ten minutes), the
     /// single flight and the backoff after a failure, so this neither keeps
     /// a first answer for the rest of the session nor walks PI again on
-    /// every call while PI is failing.
+    /// every call while PI is failing. Neither service caches on top of
+    /// the catalog, so the prices and the 24-hour changes of one answer
+    /// are from the same catalog.
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo {
         await downloadInfo(for: assetIds)
     }
