@@ -504,13 +504,35 @@ final class StartupNetworkTests: XCTestCase {
     }
 
     func testANodeThatOnlyReturnsFullPagesEndsTheAttempt() {
-        node.answer = { [xorKey, valKey] call in
-            call.isKeysPage ? .result([xorKey, valKey]) : .failure
+        // Every page is full and new: the attempt ends at the page limit.
+        let lock = NSLock()
+        var served = 0
+        node.answer = { [prefix] call in
+            guard call.isKeysPage else { return .failure }
+            lock.lock()
+            served += 1
+            let page = served
+            lock.unlock()
+            return .result((0 ..< 2).map { prefix + String(format: "%04x%04x", page, $0) })
         }
         let provider = makeProvider(connection: { [node] in node }, policy: policy(maximumPages: 3))
         provider.load { _ in XCTFail("nothing to deliver") }
         settle()
         XCTAssertEqual(node.calls.count, 3, "paging is bounded")
+        XCTAssertTrue(node.calls.allSatisfy(\.isKeysPage))
+        XCTAssertEqual(timers.pending, [2])
+        withExtendedLifetime(provider) {}
+    }
+
+    func testANodeThatRepeatsAPageEndsTheAttemptAtOnce() {
+        // The node ignores the start key and serves the first page again.
+        node.answer = { [xorKey, valKey] call in
+            call.isKeysPage ? .result([xorKey, valKey]) : .failure
+        }
+        let provider = makeProvider(connection: { [node] in node })
+        provider.load { _ in XCTFail("nothing to deliver") }
+        settle()
+        XCTAssertEqual(node.calls.count, 2, "the repeated page is noticed on its first return")
         XCTAssertTrue(node.calls.allSatisfy(\.isKeysPage))
         XCTAssertEqual(timers.pending, [2])
         withExtendedLifetime(provider) {}
