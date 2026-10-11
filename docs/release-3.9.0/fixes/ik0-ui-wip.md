@@ -81,8 +81,8 @@ Found on the simulator in this task:
   and on Swap / liquidity (`PolkaswapViewController`). It is static there
   (no pulse on money screens). The phrase screen's "Continue" has no glow:
   nothing glows next to secrets.
-- `InputAssetField`: the amount card no longer clips, so its focus glow is
-  visible.
+- `InputAssetField`: the amount card no longer clips. (That alone did not
+  make its focus glow visible; see "Review round 2" below.)
 
 ### Button titles follow the fill
 
@@ -155,9 +155,9 @@ Found on the simulator in this task:
 
 UI only. No code that reads, writes, moves or deletes wallet keys, the
 account store, migration state or settings was touched. In `RootWireframe`
-and `SplashViewController` only the layout of two panels changed. Two
+and `SplashViewController` only the layout of two panels changed. Four
 tests switch the `neon.reduceEffects` preference (the key added in i6) on
-and put it back.
+and off; the test class removes the key before and after every test.
 
 ## User-visible effects
 
@@ -218,6 +218,130 @@ the fixes: 14 tests, 0 failures, on iOS 27.0, 26.5 and 18.4 simulators.
   phrase-screen shots show the phrase of a throwaway simulator wallet and
   are kept outside that folder.
 
+## Review round 2 (amount card, focus glow, test hygiene)
+
+Two minor findings from the review of this task, and one defect found while
+checking them on the simulator.
+
+### The amount card had two writers (review finding 1, real)
+
+The card of `InputAssetField` (the amount field on Send, Swap and
+liquidity) was a `SoramitsuView` with a configuration of its own, while
+the field's configuration drew the input chrome (fill, border, focus glow)
+on the same layer. A style update reaches the two in no defined order (the
+style keeps its observers in a hash table). When the card's handler ran
+second:
+
+- after an effects update (Low Power Mode off, Reduce Transparency
+  toggled) it cleared the focus glow until the field was focused again;
+- after a theme change it also put back the palette fill and cleared the
+  border colour, so a focused or failed field lost its coloured border.
+
+Fix: the card is a plain `UIView`, like the chrome host of `InputField` and
+`InputTextView`. `InputAssetFieldConfiguration.updateView()` is its only
+writer, and the chrome is applied from the first display on. Nothing else
+in the app draws a shadow on a Soramitsu view's layer from outside (checked
+by search), so `SoramitsuViewConfiguration.applyShadowStyle()` is unchanged.
+
+### The focus glow was cut by the field itself (found on the simulator)
+
+Looking at the result showed that the glow this finding is about was never
+drawn properly. Every input molecule clipped to its own bounds (the default
+of a Soramitsu configuration), and the glow is a shadow around a view that
+fills those bounds:
+
+- `InputField` (account name and every other text field): only a 4 pt strip
+  of glow under the field, with hard edges. Visible in the earlier
+  `ios27-dark-account-name.png`.
+- `InputAssetField`: only the four corners of the glow. On Swap the host
+  view of the two cards clipped as well.
+- `InputTextView` (the field the recovery phrase or seed is typed into):
+  the same strip, next to a secret.
+
+Fix (`SUK/Neon/NeonInputStyle.swift` and the three molecules):
+
+- `InputField` and `InputAssetField` no longer clip. All of their content
+  is constrained inside their bounds, so nothing else changes.
+  `InputAssetsView` (the two swap cards) no longer clips either.
+- The glow is drawn whole or not at all. `NeonInputStyle` draws it only
+  when no clipping ancestor is closer than the glow reaches (12 pt in
+  dark), re-checked on every layout of the field, and never inside a table
+  or collection cell (spec §4.5). Otherwise the field shows the 1.5 pt cyan
+  border alone, as it does in light mode.
+- Secrets never glow (spec §1.8): `InputTextView` and any `InputField` with
+  secure text entry (passwords) keep the focused border only.
+
+Where the glow now shows in dark mode: the account name field in
+onboarding (seen in the real app), the amount card as Send and Swap /
+liquidity embed it (16 pt inside a full-width container; seen in a hosted
+harness with the same layout), and any other plain text field with 12 pt
+of free room around it. Password fields, the phrase field, fields in list
+cells and fields in tight clipping containers show the border only. Light
+mode is unchanged (no focus glow there).
+
+### `FxPolicy.reduceEffects` could miss its first change
+
+`NeonFxCenter` takes its baseline when it is created. If it was created by
+the very write that changed the preference, it compared the new policy
+with itself and posted nothing. The setter now creates the centre before
+it writes. In the app the centre always exists before any UI does, so this
+only showed in unit tests (the app skips UI start-up under tests), where it
+made the clean-up below time out.
+
+### Test hygiene (review finding 2, real)
+
+Two tests wrote the app's own `neon.reduceEffects` preference and restored
+it only in `defer`, and skipped themselves when the effect tier was not
+the default. A test run killed at the wrong moment left the key at `true`
+on that simulator: both tests then skipped on every later run and the
+installed dev app stayed in the MINIMAL tier.
+
+- `SoraNeonDesignTests.setUp` and `tearDown` clear the key, through the
+  policy so that every observer follows.
+- Tests that need the default tier skip only for system settings a test
+  cannot change (Reduce Transparency, Increase Contrast, Low Power Mode,
+  thermal pressure). If the app's own key is ever still set, they fail
+  instead of skipping.
+
+### Tests of this round
+
+| Test | What it proves |
+|---|---|
+| `testAmountCardChromeSurvivesStyleUpdatesInAnyOrder` | Fill, border, radius and glow of the amount card after effects and palette updates delivered field-first-then-card (the worst order), through the real notifications, in both themes, after a size change and at rest. The card is drawn before the first focus. |
+| `testFocusGlowIsDrawnWholeOrNotAtAll` | Whole glow on a screen, with 12 pt of room in a clipping container and on the swap cards (no ancestor cuts it); none for a password, the phrase field, a field in a list cell and a field in a tight clipping container; follows the container when it stops or starts clipping; the same answers after an effects update. |
+
+Fails before, passes after:
+
+- New tests on the previous production code: 50 failed assertions in the
+  two tests ("after an effects update": glow 0.0 instead of 0.35; "cut by
+  InputField"; "a password never glows"; "never in a list cell").
+- Previous tests with a stale `neon.reduceEffects = true` written into the
+  simulator app's preferences: both tests skipped and the key stayed.
+- New tests with the same stale key, before the `FxPolicy` fix: the
+  clean-up timed out waiting for `.neonFxChanged`. After it: 3 of 3
+  selected tests pass, none skipped, and the key is gone afterwards.
+
+### Verification of this round (Xcode 27.0)
+
+- Debug `build-for-testing` (simulator), `SoraPassportDev` (simulator) and
+  the unsigned Release build for `generic/platform=iOS` succeed.
+- `SoraPassportTests`, Debug, iOS 27.0, `Sora2MainnetLiveSigningTests`
+  skipped (needs the live network): 492 tests, 0 failures, none skipped
+  (490 before this round plus the 2 new ones).
+
+### Seen on the simulator (iOS 27.0)
+
+- Real app, dark: account name screen (whole glow around the focused
+  field, no strip) and the phrase import screen (focused border, no glow).
+  No account was created.
+- Temporary hosted test (not committed), dark and light: swap cards and
+  Send card at rest, focused, in the MINIMAL tier, focused again after an
+  effects change (the glow is back without refocusing), failed plus second
+  card focused; text fields focused on a screen, as a password, as the
+  phrase field, in a list cell and in a tight clipping container.
+- Screenshots: `scratchpad/work/shots-ios-keys/fix2/final/` (12 files,
+  one of them the clipped glow before the fix).
+
 ## Human or ops actions
 
 - None for release. Device QA should include one iPhone on iOS 16 to 18
@@ -228,6 +352,11 @@ the fixes: 14 tests, 0 failures, on iOS 27.0, 26.5 and 18.4 simulators.
 
 - "Reduce effects" still has no switch in Settings (the key and all
   fallbacks exist).
+- The caret of text fields is not cyan yet (§7.5): white or black in
+  `InputField`, red in the phrase field.
+- Text fields inside a clipping container that leaves less than 12 pt
+  around them show the focused border without the glow. Giving those
+  screens the room is a layout change per screen.
 - Links in the swap disclaimer and the migration screen are still red.
 - The Welcome description and the "Not backed up" alert have no Japanese
   text (existing strings).
