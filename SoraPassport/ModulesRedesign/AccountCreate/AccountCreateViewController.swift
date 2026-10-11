@@ -257,10 +257,7 @@ final class AccountCreateViewController: SoramitsuViewController {
                                              style: .plain,
                                              target: self,
                                              action: #selector(actionSkip))
-            skipButton.setTitleTextAttributes([
-                .font: FontType.textBoldS.font,
-                .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
-            ], for: .normal)
+            // Styled by the bar appearance (`NeonChrome`): no red text on bars.
             return skipButton
         case .view:
             let infoItem = UIBarButtonItem(image: R.image.linkInfo(),

@@ -168,10 +168,8 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
                                               style: .plain,
                                               target: self,
                                               action: #selector(createPool))
-        cratePoolButton.setTitleTextAttributes([
-            .font: FontType.textBoldS.font,
-            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
-        ], for: .normal)
+        // Styled by the bar appearance (`NeonChrome`), which follows the
+        // theme: no red text on bars.
 
         navigationItem.rightBarButtonItem = cratePoolButton
         if ProductSurfacePolicy.showsPolkamarkt,

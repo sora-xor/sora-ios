@@ -76,6 +76,15 @@ public enum NeonChrome {
         return appearance
     }
 
+    /// Colour of text bar buttons ("Add node", "Edit", "Skip"). Bars carry
+    /// no red text. On dark bars cyan is 7.35:1 against the worst-case bar;
+    /// on light bars only `text.primary` and `text.secondary` reach 4.5:1,
+    /// so the title is `text.primary` there (spec §2.6-6, §3.2). Icons keep
+    /// the bar tint (cyan), which passes the 3:1 they need.
+    public static func barButtonTitleColor(tokens: NeonTokens = .current) -> UIColor {
+        tokens.isDark ? tokens.cyan : tokens.textPrimary
+    }
+
     /// Navigation bar appearances: (standard, scroll edge).
     /// Back-button titles are hidden (the app shows the arrow only).
     public static func navigationBarAppearances(tokens: NeonTokens = .current,
@@ -86,8 +95,22 @@ public enum NeonChrome {
         func configure(_ appearance: UINavigationBarAppearance) {
             appearance.titleTextAttributes = [.foregroundColor: tokens.textPrimary, .font: titleFont]
             appearance.largeTitleTextAttributes = [.foregroundColor: tokens.textPrimary, .font: largeTitleFont]
-            appearance.backButtonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
-            appearance.backButtonAppearance.highlighted.titleTextAttributes = [.foregroundColor: UIColor.clear]
+            // Text bar buttons: one style for every screen, re-applied with
+            // the theme. Set before the back button, which stays hidden.
+            let buttonFont = FontType.textBoldS.font
+            let buttonColor = barButtonTitleColor(tokens: tokens)
+            for button in [appearance.buttonAppearance, appearance.doneButtonAppearance] {
+                button.normal.titleTextAttributes = [.foregroundColor: buttonColor, .font: buttonFont]
+                button.highlighted.titleTextAttributes = [.foregroundColor: buttonColor.withAlphaComponent(0.6),
+                                                          .font: buttonFont]
+                button.focused.titleTextAttributes = [.foregroundColor: buttonColor, .font: buttonFont]
+                button.disabled.titleTextAttributes = [.foregroundColor: tokens.textDisabled, .font: buttonFont]
+            }
+            let hidden: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.clear]
+            appearance.backButtonAppearance.normal.titleTextAttributes = hidden
+            appearance.backButtonAppearance.highlighted.titleTextAttributes = hidden
+            appearance.backButtonAppearance.focused.titleTextAttributes = hidden
+            appearance.backButtonAppearance.disabled.titleTextAttributes = hidden
         }
         let standard = UINavigationBarAppearance()
         let scrollEdge = UINavigationBarAppearance()
