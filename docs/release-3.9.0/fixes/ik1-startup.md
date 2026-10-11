@@ -77,8 +77,11 @@ the splash was visible goes on afterwards.
   process.
 - The coordinator does not create the chain registry. While startup has not
   booted it (recovery screen, low storage, 1.x upgrade) no list is needed and
-  nothing is sent. `SplashInteractor.bootstrapWalletNetworks` calls
-  `chainRegistryWillBoot()` just before the hot or cold boot.
+  nothing is sent. `SplashInteractor.bootChainRegistry` creates the registry
+  on the main thread, then calls `chainRegistryWillBoot()`, then boots it.
+  The order matters: creating the registry reads the app's window (UIKit),
+  and the loader uses the registry from its own queue as soon as it hears of
+  the boot. The registry is therefore created first, by the main thread.
 
 ### The loader: `AssetsInfoProvider`
 
@@ -113,6 +116,12 @@ Rewritten as a small state machine on its own serial queue.
   was restarted, the user tapped "Try again"). Attempts started this way are
   at least 5 seconds apart, and a wake-up never postpones a planned attempt.
 - `cancel()` and `deinit` cancel the timers and the request in flight.
+- **The time limits and waits run on the loader's own serial queue.** They
+  first ran on the shared utility queue. When a wallet opens on a slow node
+  it puts many blocking requests on the shared queues, and no shared thread
+  was free: on the simulator a 20 second limit fired after 47 seconds and
+  every later attempt slipped by as much. A serial queue gets a thread of its
+  own; in the same check the limits are now 20.0 seconds.
 
 ### The connection: the chain registry's, which fails over
 
@@ -130,6 +139,12 @@ loaded over the chain registry's connection:
   longer read by this app;
 - `ChainRegistry.connectionUpdated` tells the coordinator that a node has
   connected, so the list is requested at once instead of at the next timer.
+- When every node has failed once, a status at the top of the screen says
+  "Network unavailable. Retrying connection…". Only a change of the device's
+  reachability took it down, so after a node outage or on a captive network
+  it stayed over a wallet that was connected again. The registry now takes it
+  down when a node connects (`NodeConnectionFailover.connected()` reports
+  that it was shown).
 
 **Failover fix (found on the simulator).** `WebSocketEngine.reconnect(url:)`
 (vendored `SSFUtils`) reused the Starscream engine of the old node for the
@@ -157,8 +172,20 @@ stay unset then, and a Release build compares custom nodes against it).
 
 `ChainSyncService` dropped a sync request that arrived while a sync was
 running. The running sync could already have read the old asset list or node
-list, and it can wait a long time for the remote whitelist. The request is now
-remembered and one more sync runs when the current one ends.
+list. The request is now remembered.
+
+A sync has two parts: it saves the chain from what is known (nodes, asset
+list, last good whitelist), then fetches the whitelist over HTTP and saves
+again. The HTTP request can take as long as its timeout on a slow or
+filtered network, so a new asset list does not wait for it:
+
+- a request made during the first part is served as soon as that part has
+  saved, before the whitelist request;
+- a request made during the whitelist request is saved at once, with the
+  last good whitelist;
+- every pass over the chain store runs after the one before it (each reads
+  the stored chain and saves what it made of it), so the pass with the new
+  whitelist is never overwritten by an older answer.
 
 ### A wallet opened before any asset list exists
 
@@ -173,9 +200,26 @@ arrives later, so the screens have to follow it:
 - `AssetManager` posts `WalletAssetListArrived` when the chain's assets
   arrive while the wallet is open and shows none
   (`AssetManager.needsWalletRebuild`).
-- `MainTabBarInteractor` then has every tab built again
-  (`recreateWalletViewController`, the rebuild used for an account switch and
-  a language change), so all tabs come from the same list.
+- Every tab is then built again (`recreateWalletViewController`, the rebuild
+  used for an account switch and a language change), so all tabs come from
+  the same list. `WalletAssetListRebuild` (in `MainTabBarWireframe.swift`)
+  decides when:
+  - from the list the tabs were built from and the list as it is now, not
+    from the event alone. The event is posted once and the tab bar only
+    listens once it has appeared, so the tab bar also looks when it starts
+    listening and after every reload of the wallet tab;
+  - only while every tab shows its first screen and nothing is presented
+    over them. Replacing the tabs closes whatever is pushed or presented (a
+    recovery phrase being read, the node list, app settings). Until the user
+    is back the rebuild waits and looks again once a second;
+  - a rebuild that cannot be done is tried three times, not for ever.
+- **No balances are loaded, and none are saved, for a wallet without an asset
+  list** (`AssetProvider`). Every balance provider of an account shares one
+  cache entry. The provider of the tabs built without a list loaded "no
+  balances" and saved that over the cached balances; the tabs built again
+  with the list then read the empty answer and showed an asset card with no
+  row until the next launch (seen on the simulator, check R6 below). Without
+  a list the asset rows now keep their loading state.
 - A list that only gains or loses some assets does not rebuild anything, as
   before: a screen in use is not replaced.
 - The rebuild path gave the middle tab a title, and the system drew it a
@@ -215,8 +259,10 @@ The change is the order of startup and the network code around it.
   asset list follow when a node answers. If no node answers, the wallet shows
   its usual loading rows.
 - A new wallet created on a fresh install while no node answers opens with
-  an empty asset card and gets its assets when a node answers, without a
-  relaunch.
+  its loading rows and gets its assets when a node answers, without a
+  relaunch and without closing a screen the user is on.
+- The "Network unavailable. Retrying connection…" status goes away when a
+  node is connected again.
 - After an account switch or a language change the middle tab shows
   "Polkaswap" once, not twice.
 - A returning node gets one small request per client, not a flood.
@@ -224,7 +270,7 @@ The change is the order of startup and the network code around it.
 
 ## Tests
 
-`SoraPassportTests/Common/Modernization/StartupNetworkTests.swift`, 20 tests.
+`SoraPassportTests/Common/Modernization/StartupNetworkTests.swift`, 37 tests.
 The loader tests use a stub connection that answers inside `callMethod` (the
 case that used to recurse) and timers fired by the test, so waits and request
 counts are exact.
@@ -250,6 +296,11 @@ Loader (`AssetsInfoProvider`):
 - `testReleasingTheLoaderTakesItsRequestOffTheNodeAndStopsItsTimers`,
   `testCancelStopsTheLoader`.
 - `testRetryWaitsDoubleUpToTheCeilingAndJitterOnlyShortensThem`.
+- `testTheLoadersTimersFireOnItsOwnQueueAndCanBeCancelled` and
+  `testTimeoutAndRetryKeepTheirLengthWhileTheSharedQueuesAreBlocked`: the
+  app's own timer while 256 blocks hold the shared utility queue; a 0.3 s
+  limit and a 0.2 s wait end in time. Fails with the timer on the shared
+  queue (the list never arrives within 10 s).
 
 Coordinator and startup:
 
@@ -262,23 +313,52 @@ Coordinator and startup:
   node that never answers. The storage checks start; a second interactor
   (a restart) starts them again without a second configuration request or a
   second node request.
+- `testTheChainRegistryIsCreatedOnTheMainThreadBeforeTheBackgroundWorkHearsOfTheBoot`:
+  the production `SplashInteractor.bootChainRegistry` for a hot and a cold
+  boot.
 
 Other:
 
-- `testAnAssetListThatArrivesDuringAChainSyncReachesTheChain`: the production
-  `ChainSyncService` on an in-memory chain store. Fails without the fix (the
-  second request is dropped; the chain has no assets).
+- The production `ChainSyncService` with a whitelist request and a chain
+  store that the test holds open:
+  `testAnAssetListThatArrivesDuringTheWhitelistRequestReachesTheChainAtOnce`
+  (on an in-memory Core Data chain store),
+  `testAnAssetListThatArrivesDuringTheFirstPassIsSavedBeforeTheWhitelistAnswers`
+  and
+  `testAPassDuringTheWhitelistRequestNeverOverwritesThePassWithTheNewWhitelist`.
+  The last one fails without the ordering of the passes (the chain ends with
+  the older answer).
+- `testANodeThatConnectsTakesTheOutageStatusDownOnce`.
 - `testFailingOverToAnotherNodeClosesTheOldConnectionAndIsNotDisturbedByIt`:
   the real `WebSocketEngine` against two loopback servers in the test
   process. Fails without the fix (the connection to the old node stays open).
-- `testOnlyAWalletBuiltWithoutAnyAssetIsBuiltAgainWhenTheListArrives` and
-  `testTheArrivalOfTheFirstAssetListRebuildsEveryTab` (the production
-  `MainTabBarInteractor` on an event center of its own).
+- `testOnlyAWalletBuiltWithoutAnyAssetIsBuiltAgainWhenTheListArrives`.
+- `testTheAssetManagerAnnouncesTheFirstListOfAWalletSetUpWithoutAssetsAndOnlyThat`:
+  the production `AssetManager` on an in-memory chain store; one event for
+  the first list, none for a later change.
+- `testTheTabBarLooksForTheAssetListWhenItStartsListeningAndOnTheEvent` (the
+  production `MainTabBarInteractor` on an event center of its own) and
+  `testEveryReloadOfTheWalletIsFollowedByTheAssetListCheck` (the production
+  `MainTabBarPresenter`).
+- `WalletAssetListRebuild`:
+  `testTabsBuiltWithoutAssetsAreBuiltAgainOnceWhenTheListIsThere`,
+  `testTabsBuiltFromAListAreNeverReplacedByAnAssetListCheck`,
+  `testTheRebuildWaitsUntilNoScreenWouldBeTakenAway`,
+  `testAnAccountSwitchWhileTheRebuildWaitsEndsTheWait`,
+  `testARebuildThatDoesNotWorkIsTriedAFewTimesAndThenLeftAlone`,
+  `testTheWaitEndsWithItsOwner`, `testTheRebuildTimerRunsOnTheMainRunLoop`, and
+  `testTabsAreReplacedOnlyWhileEveryTabShowsItsFirstScreenAndNothingIsPresented`
+  (real `UITabBarController` and navigation controllers in a window: a
+  pushed screen on any tab and a presented screen hold the rebuild back).
+- `testAWalletBuiltWithoutAnAssetListNeitherLoadsNorOverwritesTheSavedBalances`:
+  the production `AssetProvider` with RobinHood's `SingleValueProvider` on
+  one shared cache entry. Fails without the fix (the provider without a list
+  asks for balances and the saved balances are replaced by an empty list).
 
-The two "fails without the fix" results were checked by reverting each fix,
-rebuilding and running the test (3 failures), then restoring it. The other
-tests use interfaces that did not exist before; the old behaviour itself is
-the verifier's reproduction on the simulator, repeated below with the fix.
+The "fails without the fix" results were checked by reverting each fix,
+rebuilding and running the test, then restoring it. The other tests use
+interfaces that did not exist before; the old behaviour itself is the
+verifier's reproduction on the simulator, repeated below with the fix.
 
 `SoraPassportIntegrationTests/AssetsInfoProviderTests.swift` (live node, not
 part of the unit run) was moved to the new interface.
@@ -287,15 +367,29 @@ part of the unit run) was moved to the new interface.
 
 - Debug `build-for-testing` for the simulator succeeds (the app and the
   three test bundles, `SoraPassportIntegrationTests` included).
-- `SoraPassportTests`, Debug, iOS 27.0 simulator, whole target: 514 tests,
+- `SoraPassportTests`, Debug, iOS 27.0 simulator, whole target: 531 tests,
   0 failures, 2 skipped (`Sora2MainnetLiveSigningTests` skips itself unless
-  it is enabled for the live network). 494 before this task plus the 20 new
+  it is enabled for the live network). 494 before this task plus the 37 new
   ones.
+- `StartupNetworkTests` alone: 37 of 37, also with every CPU core kept busy
+  by other processes during the run.
 - The unsigned Release build for `generic/platform=iOS` succeeds.
 - `SoraPassportDev` builds for the simulator.
 - `Package.resolved` is unchanged.
 
+One test was unreliable and was corrected in the second pass:
+`testTheAssetManagerAnnouncesTheFirstListOfAWalletSetUpWithoutAssetsAndOnlyThat`
+failed once in a full run that shared the machine with a Release build. The
+test saved the list before the asset manager's listener was registered
+(RobinHood registers an observer after a fetch of its own, and a save in
+between is not announced to it). The test now saves until the manager shows
+the list. The same gap exists in the app for the few milliseconds after the
+asset manager is created; it is not changed here.
+
 ## Seen on the simulator (iOS 27.0, Debug build, iPhone 17 Pro)
+
+Two rounds. The first table is the first pass. The second table repeats the
+checks with the final code and adds the states the second pass changed.
 
 The saved node was set by editing `lastSuccessfulUrl` in the app container's
 preferences with the simulator shut down, as in DYN-IOS. The node the app
@@ -326,6 +420,28 @@ app console of every run, the stand-in node's request logs
 empty wallet that S7 showed before the rebuild was added). The wallet in these checks is a
 throwaway simulator wallet.
 
+### Second pass, final code
+
+Same method. Files: `scratchpad/work/shots-ios-keys/ik1/fix4/` (screenshots,
+app consoles, stand-in node logs `R2-`, `R6-` and `R7-standin-node.log`).
+Tools: `scratchpad/work/ik1-tools/fix4/`.
+
+| Check | Result |
+|---|---|
+| R1. Existing wallet with a recovery marker set by hand, saved node `wss://127.0.0.1:9`, selected node connects and never answers | Recovery screen at the second screenshot (4.5 s after the process started). The node got no connection at all. "Try again" ran startup again and was back on the recovery screen at once, again without a request. (The marker was a bare flag without a recorded cause; such a marker is not cleared by a retry, by design. The other actions of the screen stay.) |
+| R2. Existing wallet, saved node refuses, selected node is silent for 70 s, answers "no keys" for 70 s, then serves | PIN screen at the first screenshot (2 s). In 180 s the node got 7 key-page requests, 15 to 56 s apart, no value query without keys, and 1 value query with 3 keys. Each time limit was 20.0 s (47 s in the first pass, before the loader had its own queue). |
+| R3. Fresh install on a second simulator, saved node refuses | Welcome at the second screenshot (4 s). Storage checks and routing done 0.21 s after startup began. Node chosen: `wss://ws.mof.sora.org`. 957 assets loaded after 3.7 s. |
+| R4. App deleted and installed again, Keychain kept, saved node refuses | Welcome back at the second screenshot (4 s). "Set up this iPhone again" (two confirmations, then "Continue without restoring") leads to Welcome; a new wallet is created and opens with its assets. The saved node was replaced by `wss://ws.mof.sora.org`. |
+| R6. Wallet without a saved asset list, node silent for 45 s, then serves three assets; 30 s later the node is stopped | PIN, then the wallet with loading rows. The list arrived 48 s after launch and the tabs were built again 0.03 s later, without a tap. After the failover to `wss://ws.mof.sora.org` the asset card showed **no row** (`R6-wallet-after-node-dies-failover.png`), also after a pull to refresh. Cause and fix: the balance cache, see "A wallet opened before any asset list exists". |
+| R7. R6 again with that fix; the user is in More > App settings when the list arrives | The screen stays (`R7-pushed-screen-after-list.png`): no rebuild for the 17 s it was open, then the tabs were built again within 1 s of closing it. After the failover the wallet shows XOR, VAL and PSWAP (`R7-wallet-after-failover.png`). |
+| R6b. Relaunch with the selected node stopped | PIN at the first screenshot; failover; 957 assets loaded 4.6 s after launch; the wallet opens with its assets. |
+
+The simulator now holds a new throwaway wallet. The first pass's wallet was
+copied aside before the app was deleted for R4 (app data and Keychain
+database in `scratchpad/work/ik1-tools/fix4/simA-backup/`); its Keychain
+items were not removed. R3 ran on a second simulator created for it
+(`SORA-Fix-keys-B`), which only reached Welcome and was deleted afterwards.
+
 Not run: a physical iPhone and airplane mode (the simulator has none). With
 no network at all the storage checks start the same way; the unit test with a
 configuration service and a node that never answer covers the order.
@@ -349,7 +465,13 @@ configuration service and a node that never answer covers the order.
 - A socket that reconnects to the same node keeps its Starscream engine, as
   before. Only the switch to another node gets a new one.
 - A fresh install has no bundled asset list (3.8.6 has `DefaultAssets`).
-  Until the first list arrives a new wallet shows an empty asset card.
+  Until the first list arrives a new wallet shows its loading rows.
+- A wallet whose node never answers the runtime version shows loading rows
+  although balances are cached (the registry's hot boot from saved metadata
+  is disabled in `ChainRegistry.performHotBoot`, as before).
+- A node that disappears without closing the connection is noticed at the
+  next ping, up to about 20 seconds later (seen in checks R6 and R7); the
+  failover then takes 1 to 2 seconds.
 - The wallet opening screen ("Opening wallet") is unchanged apart from "Try
   again". It waits for the chain's connection and runtime, not for assets.
 - `WebSocketService` and `WebSocketEngineFactory` have no user left. They are
@@ -359,3 +481,14 @@ configuration service and a node that never answer covers the order.
   (Nexus portfolio, Polkamarkt) are read from the saved flags when a screen
   is built; on the very first launch the answer can arrive after that.
   Release builds hide these surfaces whatever PI says.
+
+## Seen in passing, for other tasks
+
+- Creating an account in a Japanese session (check R5) shows two English
+  texts: the alert "Not backed up!" with "I will risk it" (its text also
+  says "loose" for "lose"), and the button "Continue with Google". They are
+  not in the string tables.
+- A recovery marker that is only the flag `walletMigrationRecoveryRequired`,
+  with no recorded cause, is not cleared by "Try again" (check R1). No
+  released version writes such a marker; the recovery screen's other actions
+  work.
