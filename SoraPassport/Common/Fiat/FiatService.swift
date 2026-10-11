@@ -52,26 +52,31 @@ struct FiatServiceObserver {
 
 actor FiatService: FiatServiceProtocol {
     static let shared = FiatService()
-    private let client = PIIndexerClient()
-    private var expiredDate = Date.distantPast
-    private var fiatData: [PIExactFiatData] = []
 
-    func getFiat() async -> [PIExactFiatData] {
-        if !fiatData.isEmpty, Date() < expiredDate {
-            return fiatData
+    private let assets: () async throws -> [PIAsset]
+
+    /// Prices come from the shared asset catalog, which also feeds market
+    /// data: one walk of PI serves every screen, a failed walk is not
+    /// repeated before its backoff has passed, and the last good catalog is
+    /// shown meanwhile.
+    init(
+        assets: @escaping () async throws -> [PIAsset] = {
+            try await PICatalogs.assets.values()
         }
+    ) {
+        self.assets = assets
+    }
 
+    /// Empty when no price is known. Callers must show that as "price
+    /// unavailable", never as a value of zero. An unavailable price never
+    /// affects balances or authorizes a transaction.
+    func getFiat() async -> [PIExactFiatData] {
         do {
-            let response = try await client.allAssets().map {
+            return try await assets().map {
                 PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
             }
-            fiatData = response
-            expiredDate = Date().addingTimeInterval(600)
-            return response
         } catch {
-            // Preserve the last fully validated PI snapshot. An unavailable
-            // price must never affect balances or authorize a transaction.
-            return fiatData
+            return []
         }
     }
 }

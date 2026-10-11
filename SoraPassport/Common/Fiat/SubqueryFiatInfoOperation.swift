@@ -31,15 +31,17 @@
 import Foundation
 
 public final class SubqueryFiatInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
-    private let client: PIIndexerClient
+    private let baseUrl: URL
 
     public init(baseUrl: URL) {
-        client = PIIndexerClient(endpoint: baseUrl)
+        self.baseUrl = baseUrl
         super.init()
     }
 
     override public func execute() async throws -> ResultType {
-        let values = try await client.allAssets().map { asset in
+        // The shared catalog reads the reviewed production PI only.
+        try PIIndexerClient.validateProductionEndpoint(baseUrl)
+        let values = try await PICatalogs.assets.values().map { asset in
             PIExactFiatData(
                 id: asset.id,
                 priceUsd: asset.priceUSD
