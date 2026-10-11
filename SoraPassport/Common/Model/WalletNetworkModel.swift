@@ -256,6 +256,13 @@ enum WalletMigrationSafetyNamespaceAdmission {
 /// Existing targets are
 /// accepted only when they are regular files; their protection class and
 /// POSIX permissions are carried onto the replacement.
+///
+/// While a write runs, the target's directory also holds hidden helper files
+/// (see `LeftoverKind`). The published file is the only state: it always names
+/// either the complete old content or the complete new content. The helper
+/// files are removed before `write` returns, whether it succeeds or throws. A
+/// process that dies inside a write cannot remove them, so they are swept
+/// later (`sweepLeftovers`) and never count as wallet data or as evidence.
 enum DurableFileWriter {
     enum Failure: LocalizedError {
         case invalidTarget
@@ -281,6 +288,16 @@ enum DurableFileWriter {
         let permissions: mode_t
     }
 
+    /// The hidden names one write creates beside its target.
+    private struct HelperNames {
+        let temporary = ".durable-\(UUID().uuidString).tmp"
+        let rollback = ".durable-rollback-\(UUID().uuidString).anchor"
+        let safety = ".durable-rollback-\(UUID().uuidString).safety-anchor"
+        let withdrawn = ".durable-failed-\(UUID().uuidString).withdrawn"
+
+        var all: [String] { [temporary, rollback, safety, withdrawn] }
+    }
+
     static func write(
         _ data: Data,
         to targetURL: URL,
@@ -292,6 +309,10 @@ enum DurableFileWriter {
             containing: targetURL
         )
         defer { _ = Darwin.close(context.descriptor) }
+        // From here until this call returns, a sweep leaves this directory
+        // alone: the hidden names below belong to a write in progress.
+        let activeDirectory = try beginWrite(in: context.descriptor)
+        defer { endWrite(in: activeDirectory) }
 
         let originalState = try regularFileState(
             named: context.targetName,
@@ -323,9 +344,9 @@ enum DurableFileWriter {
             originalProtection = nil
         }
 
-        let temporaryName = ".durable-\(UUID().uuidString).tmp"
-        let rollbackName =
-            ".durable-rollback-\(UUID().uuidString).anchor"
+        let helperNames = HelperNames()
+        let temporaryName = helperNames.temporary
+        let rollbackName = helperNames.rollback
         let temporaryURL = context.directoryURL
             .appendingPathComponent(temporaryName)
         let rollbackURL = context.directoryURL
@@ -343,6 +364,18 @@ enum DurableFileWriter {
         var temporaryIdentity: FileIdentity?
         var rollbackIdentity: FileIdentity?
         var wasRenamed = false
+        // Declared before the defer below, so it runs after it: the last step
+        // of every exit, successful or not, removes the hidden names this
+        // call created and still finds. An I/O error inside a write therefore
+        // leaves nothing behind for a later directory check to trip over.
+        defer {
+            removeOwnHelperFiles(
+                helperNames,
+                preparedIdentity: temporaryIdentity,
+                originalIdentity: originalState?.identity,
+                context: context
+            )
+        }
         defer {
             _ = Darwin.close(descriptor)
             if !wasRenamed, let temporaryIdentity {
@@ -365,6 +398,7 @@ enum DurableFileWriter {
 
         let openedState = try regularDescriptorState(descriptor)
         temporaryIdentity = openedState.identity
+        try reach(.temporaryFileCreated, context)
         let permissions = originalState?.permissions ?? mode_t(0o600)
         guard Darwin.fchmod(descriptor, permissions) == 0 else {
             throw Failure.fileSystemFailure
@@ -403,6 +437,7 @@ enum DurableFileWriter {
 
         try writeAll(data, to: descriptor)
         try synchronize(descriptor)
+        try reach(.temporaryFileWritten, context)
 
         guard try regularFileState(
             named: temporaryName,
@@ -434,12 +469,13 @@ enum DurableFileWriter {
 
         // Keep the exact old inode under a random, exclusive hidden name until
         // the atomically published replacement has passed its final identity
-        // and protection checks. A failed rollback deliberately leaves this
-        // anchor untouched; it is recovery evidence, not an automatically
-        // discoverable/exportable backup. Once linkat succeeds, no defer path
-        // removes the anchor: a concurrent target change could make it the only
-        // remaining name for the original inode. Only committed-success cleanup
-        // or an identity-verified atomic rollback may consume it.
+        // and protection checks, so a failed publication can be rolled back
+        // to exactly the old file. The anchor is a helper, not a backup:
+        // committed-success cleanup or an identity-verified rollback consumes
+        // it, and the final cleanup of this call removes it otherwise, but
+        // only while the target still names a file this call knows (the old
+        // or the new one). After a concurrent change of the target it is left
+        // for the later sweep.
         if let originalState {
             guard
                 Darwin.linkat(
@@ -453,6 +489,7 @@ enum DurableFileWriter {
                 throw Failure.fileSystemFailure
             }
             rollbackIdentity = originalState.identity
+            try reach(.rollbackAnchorLinked, context)
             do {
                 guard
                     try regularFileState(
@@ -479,6 +516,7 @@ enum DurableFileWriter {
                     from: context.descriptor,
                     maximumDepth: 4
                 )
+                try reach(.rollbackAnchorSynchronized, context)
             } catch {
                 throw Failure.invalidTarget
             }
@@ -522,6 +560,7 @@ enum DurableFileWriter {
                     in: context.descriptor
                 )
                 do {
+                    try reach(.published, context)
                     guard
                         displacedIdentity == originalState.identity,
                         try regularFileState(
@@ -593,6 +632,7 @@ enum DurableFileWriter {
                     throw Failure.fileSystemFailure
                 }
                 wasRenamed = true
+                try reach(.published, context)
             }
             try afterAtomicPublication?(targetURL)
             try synchronize(context.descriptor)
@@ -600,6 +640,7 @@ enum DurableFileWriter {
                 from: context.descriptor,
                 maximumDepth: 4
             )
+            try reach(.publicationSynchronized, context)
             guard try regularFileState(
                 named: context.targetName,
                 in: context.descriptor
@@ -622,9 +663,10 @@ enum DurableFileWriter {
                 // The new target is already identity/protection verified and
                 // its publication is directory/ancestor synced. Anchor cleanup
                 // is therefore non-failing: an exact old anchor is removed
-                // best-effort, while any cleanup or sync failure leaves it in
-                // place and must not turn a committed write into an ambiguous
-                // thrown failure.
+                // best-effort, and a cleanup or sync failure must not turn a
+                // committed write into an ambiguous thrown failure. What this
+                // step cannot remove, the final cleanup of this call or the
+                // later sweep removes.
                 let didRemoveDisplacedOriginal =
                     discardRollbackAnchorAfterCommit(
                         rollbackName: temporaryName,
@@ -638,6 +680,9 @@ enum DurableFileWriter {
                         fileManager: fileManager
                     )
                 if didRemoveDisplacedOriginal {
+                    // Nothing after this point may throw: the write is
+                    // committed. The checkpoint is an observer only.
+                    try? reach(.displacedOriginalRemoved, context)
                     let didRemoveRollback =
                         discardRollbackAnchorAfterCommit(
                             rollbackName: rollbackName,
@@ -661,6 +706,7 @@ enum DurableFileWriter {
                     try restoreOriginalAfterFailedPublication(
                         rollbackName: rollbackName,
                         rollbackURL: rollbackURL,
+                        safetyName: helperNames.safety,
                         originalState: originalState,
                         publishedIdentity: temporaryIdentity,
                         displacedOriginalName: temporaryName,
@@ -672,13 +718,16 @@ enum DurableFileWriter {
                     )
                     rollbackIdentity = nil
                 } catch {
-                    // A failed rollback preserves at least one exact old-inode
-                    // name: rollbackName before the exchange, the displaced
-                    // original temporary name after publication, or the second
-                    // safety anchor created by the rollback routine.
+                    // The rollback could not be proved. The target names
+                    // either the old file or the complete new one, which is
+                    // exactly what a process death at this point would leave;
+                    // every caller already treats a thrown write as "may have
+                    // been published". The helper names are removed by the
+                    // final cleanup or the later sweep.
                 }
             } else if originalState == nil {
                 try? removeFailedNewPublication(
+                    withdrawnName: helperNames.withdrawn,
                     publishedIdentity: temporaryIdentity,
                     retainedProtection: retainedProtection,
                     context: context,
@@ -710,6 +759,7 @@ enum DurableFileWriter {
     private static func restoreOriginalAfterFailedPublication(
         rollbackName: String,
         rollbackURL: URL,
+        safetyName: String,
         originalState: FileState,
         publishedIdentity: FileIdentity?,
         displacedOriginalName: String,
@@ -719,8 +769,6 @@ enum DurableFileWriter {
         context: DirectoryContext,
         fileManager: FileManager
     ) throws {
-        let safetyName =
-            ".durable-rollback-\(UUID().uuidString).safety-anchor"
         let safetyURL = context.directoryURL
             .appendingPathComponent(safetyName)
         guard
@@ -764,6 +812,7 @@ enum DurableFileWriter {
         else {
             throw Failure.fileSystemFailure
         }
+        try reach(.safetyAnchorLinked, context)
         do {
             guard
                 try regularFileState(
@@ -836,6 +885,7 @@ enum DurableFileWriter {
             // wallet inode remains named by safetyName/displacedOriginalName.
             throw Failure.fileSystemFailure
         }
+        try reach(.rolledBack, context)
 
         guard
             try regularFileState(
@@ -1194,13 +1244,12 @@ enum DurableFileWriter {
     }
 
     private static func removeFailedNewPublication(
+        withdrawnName: String,
         publishedIdentity: FileIdentity?,
         retainedProtection: FileProtectionType,
         context: DirectoryContext,
         fileManager: FileManager
     ) throws {
-        let withdrawnName =
-            ".durable-failed-\(UUID().uuidString).withdrawn"
         let withdrawnURL = context.directoryURL.appendingPathComponent(
             withdrawnName
         )
@@ -1229,6 +1278,7 @@ enum DurableFileWriter {
             named: withdrawnName,
             in: context.descriptor
         )
+        try reach(.failedPublicationWithdrawn, context)
         guard withdrawnIdentity == publishedIdentity else {
             // The target changed between observation and withdrawal. Restore
             // that exact concurrent entry only when the target is still absent;
@@ -1297,6 +1347,353 @@ enum DurableFileWriter {
                 throw Failure.fileSystemFailure
             }
         }
+    }
+
+    // MARK: - Helper files of an interrupted write
+
+    /// The hidden names `write` creates beside its target. Each carries a
+    /// random UUID, so the four patterns identify this writer's files exactly.
+    enum LeftoverKind: Equatable {
+        /// `.durable-<UUID>.tmp`: the new content before publication, or the
+        /// old file displaced by the atomic exchange.
+        case temporary
+        /// `.durable-rollback-<UUID>.anchor`: a second name of the old file.
+        case rollbackAnchor
+        /// `.durable-rollback-<UUID>.safety-anchor`: a third name of the old
+        /// file, held while a failed publication is rolled back.
+        case safetyAnchor
+        /// `.durable-failed-<UUID>.withdrawn`: a new file taken back from its
+        /// target name after its publication failed.
+        case withdrawn
+    }
+
+    /// Classifies an entry name. Only the exact names `write` generates
+    /// match: fixed prefix, the canonical upper-case UUID, fixed suffix.
+    static func leftoverKind(ofEntryNamed name: String) -> LeftoverKind? {
+        func matches(prefix: String, suffix: String) -> Bool {
+            guard
+                name.hasPrefix(prefix),
+                name.hasSuffix(suffix),
+                name.utf8.count ==
+                    prefix.utf8.count + 36 + suffix.utf8.count
+            else {
+                return false
+            }
+            let identifier = String(
+                name.dropFirst(prefix.count).dropLast(suffix.count)
+            )
+            return UUID(uuidString: identifier)?.uuidString == identifier
+        }
+        if matches(prefix: ".durable-rollback-", suffix: ".safety-anchor") {
+            return .safetyAnchor
+        }
+        if matches(prefix: ".durable-rollback-", suffix: ".anchor") {
+            return .rollbackAnchor
+        }
+        if matches(prefix: ".durable-failed-", suffix: ".withdrawn") {
+            return .withdrawn
+        }
+        if matches(prefix: ".durable-", suffix: ".tmp") {
+            return .temporary
+        }
+        return nil
+    }
+
+    /// True for a regular file (not a link, not a directory) whose name only
+    /// this writer creates.
+    static func isLeftoverFile(at url: URL) -> Bool {
+        guard leftoverKind(ofEntryNamed: url.lastPathComponent) != nil else {
+            return false
+        }
+        var status = stat()
+        let result = url.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else {
+                return -1
+            }
+            return Darwin.lstat(path, &status)
+        }
+        return result == 0 &&
+            (status.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG)
+    }
+
+    struct LeftoverSweep: Equatable {
+        /// Helper files removed by this sweep.
+        var removed = 0
+        /// Entries with a helper name that were left in place (not a regular
+        /// file, or the removal failed).
+        var kept = 0
+        /// A write is in progress in this directory in this process, so
+        /// nothing was touched. The next sweep takes care of it.
+        var deferredToActiveWrite = false
+    }
+
+    private struct DirectoryIdentity: Hashable {
+        let device: dev_t
+        let inode: ino_t
+    }
+
+    private static let activityLock = NSLock()
+    private static var activeWriteCounts: [DirectoryIdentity: Int] = [:]
+
+    private static func beginWrite(
+        in directoryDescriptor: Int32
+    ) throws -> DirectoryIdentity {
+        var status = stat()
+        guard Darwin.fstat(directoryDescriptor, &status) == 0 else {
+            throw Failure.invalidTarget
+        }
+        let identity = DirectoryIdentity(
+            device: status.st_dev,
+            inode: status.st_ino
+        )
+        // A sweep holds this lock for its whole run, so a write can never
+        // begin in a directory while that directory is being swept.
+        activityLock.lock()
+        activeWriteCounts[identity, default: 0] += 1
+        activityLock.unlock()
+        return identity
+    }
+
+    private static func endWrite(in identity: DirectoryIdentity) {
+        activityLock.lock()
+        if let count = activeWriteCounts[identity], count > 1 {
+            activeWriteCounts[identity] = count - 1
+        } else {
+            activeWriteCounts[identity] = nil
+        }
+        activityLock.unlock()
+    }
+
+    /// Removes the helper files an interrupted write left in `directoryURL`.
+    ///
+    /// Safe by construction:
+    /// - only regular files whose name matches `leftoverKind` are removed, so
+    ///   a published file (a journal, a snapshot, a pointer, a store copy) can
+    ///   never be removed;
+    /// - nothing is removed while a write is in progress in the same
+    ///   directory in this process, and no write can begin there during the
+    ///   sweep;
+    /// - a helper file is never the only copy of published state. `write`
+    ///   publishes with one atomic rename, so the target name holds the whole
+    ///   old file or the whole new file at every instant. A helper holds an
+    ///   extra name of the old file, the old file that was just replaced, or
+    ///   new content that was never published (the caller was not told it was
+    ///   saved).
+    ///
+    /// Never throws: a directory that cannot be read or an entry that cannot
+    /// be removed is reported, and the directory's own check then ignores the
+    /// helper names (`contentsIgnoringLeftovers`).
+    @discardableResult
+    static func sweepLeftovers(in directoryURL: URL) -> LeftoverSweep {
+        var result = LeftoverSweep()
+        let descriptor = Darwin.open(
+            directoryURL.path,
+            O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_DIRECTORY
+        )
+        guard descriptor >= 0 else {
+            return result
+        }
+        defer { _ = Darwin.close(descriptor) }
+        var status = stat()
+        guard
+            Darwin.fstat(descriptor, &status) == 0,
+            (status.st_mode & mode_t(S_IFMT)) == mode_t(S_IFDIR)
+        else {
+            return result
+        }
+        let identity = DirectoryIdentity(
+            device: status.st_dev,
+            inode: status.st_ino
+        )
+
+        activityLock.lock()
+        defer { activityLock.unlock() }
+        guard activeWriteCounts[identity] == nil else {
+            result.deferredToActiveWrite = true
+            return result
+        }
+        guard let names = entryNames(inDirectory: descriptor) else {
+            return result
+        }
+        for name in names where leftoverKind(ofEntryNamed: name) != nil {
+            var entry = stat()
+            guard
+                Darwin.fstatat(
+                    descriptor,
+                    name,
+                    &entry,
+                    AT_SYMLINK_NOFOLLOW
+                ) == 0
+            else {
+                if errno != ENOENT {
+                    result.kept += 1
+                }
+                continue
+            }
+            guard (entry.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG) else {
+                // The writer creates regular files only. Anything else with
+                // such a name is not its own and is left for the directory's
+                // strict check to judge.
+                result.kept += 1
+                continue
+            }
+            if Darwin.unlinkat(descriptor, name, 0) == 0 {
+                result.removed += 1
+            } else if errno != ENOENT {
+                result.kept += 1
+            }
+        }
+        if result.removed > 0 {
+            _ = Darwin.fsync(descriptor)
+        }
+        return result
+    }
+
+    /// The entries of a wallet directory as its strict check must see them:
+    /// the writer's helper files are swept first and, where a sweep cannot
+    /// remove them now (a write is in progress, or the removal failed),
+    /// left out of the result. Every other entry is returned unchanged, so
+    /// an unexpected name still fails the caller's check.
+    static func contentsIgnoringLeftovers(
+        of directoryURL: URL,
+        fileManager: FileManager,
+        includingPropertiesForKeys keys: [URLResourceKey]?
+    ) throws -> [URL] {
+        let entries = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: keys,
+            options: []
+        )
+        guard entries.contains(where: {
+            leftoverKind(ofEntryNamed: $0.lastPathComponent) != nil
+        }) else {
+            return entries
+        }
+        sweepLeftovers(in: directoryURL)
+        return try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: keys,
+            options: []
+        ).filter { !isLeftoverFile(at: $0) }
+    }
+
+    private static func entryNames(
+        inDirectory descriptor: Int32
+    ) -> [String]? {
+        let duplicate = Darwin.dup(descriptor)
+        guard duplicate >= 0 else {
+            return nil
+        }
+        guard let stream = Darwin.fdopendir(duplicate) else {
+            _ = Darwin.close(duplicate)
+            return nil
+        }
+        defer { _ = Darwin.closedir(stream) }
+        Darwin.rewinddir(stream)
+        var names: [String] = []
+        while let entry = Darwin.readdir(stream) {
+            let name = withUnsafePointer(to: &entry.pointee.d_name) {
+                $0.withMemoryRebound(
+                    to: CChar.self,
+                    capacity: Int(entry.pointee.d_namlen) + 1
+                ) { String(cString: $0) }
+            }
+            if name != ".", name != ".." {
+                names.append(name)
+            }
+        }
+        return names
+    }
+
+    /// Last step of every `write`: removes the hidden names this call created
+    /// and still finds. A name is removed only when it holds a file this call
+    /// knows:
+    /// - the file it created itself, under a hidden name. That file was not
+    ///   published, or it was published and taken back; the caller is told
+    ///   the write failed;
+    /// - the old file, while the target still names the old or the new file.
+    ///   Then the hidden name is an extra name of the published old file, or
+    ///   the old file that the new one has replaced.
+    /// Anything else (another writer changed the target, or the name holds an
+    /// unknown file) is left alone and is the later sweep's to judge.
+    private static func removeOwnHelperFiles(
+        _ names: HelperNames,
+        preparedIdentity: FileIdentity?,
+        originalIdentity: FileIdentity?,
+        context: DirectoryContext
+    ) {
+        // `try?` would not tell an absent target from an unreadable one.
+        let targetIdentity: FileIdentity?
+        do {
+            targetIdentity = try entryIdentity(
+                named: context.targetName,
+                in: context.descriptor
+            )
+        } catch {
+            return
+        }
+        let targetIsKnown = targetIdentity != nil &&
+            (targetIdentity == preparedIdentity ||
+                targetIdentity == originalIdentity)
+        var didRemove = false
+        for name in names.all {
+            guard
+                let state = try? regularFileState(
+                    named: name,
+                    in: context.descriptor
+                )
+            else {
+                continue
+            }
+            let holdsPrepared = preparedIdentity != nil &&
+                state.identity == preparedIdentity &&
+                targetIdentity != preparedIdentity
+            let holdsOriginal = originalIdentity != nil &&
+                state.identity == originalIdentity &&
+                targetIsKnown
+            guard holdsPrepared || holdsOriginal else {
+                continue
+            }
+            if Darwin.unlinkat(context.descriptor, name, 0) == 0 {
+                didRemove = true
+            }
+        }
+        if didRemove {
+            _ = Darwin.fsync(context.descriptor)
+        }
+    }
+
+    // MARK: - Checkpoints (tests)
+
+    /// The steps of a write, in order, at which a process death leaves a
+    /// different set of files.
+    enum Checkpoint: String, CaseIterable {
+        case temporaryFileCreated
+        case temporaryFileWritten
+        case rollbackAnchorLinked
+        case rollbackAnchorSynchronized
+        case published
+        case publicationSynchronized
+        case displacedOriginalRemoved
+        case safetyAnchorLinked
+        case rolledBack
+        case failedPublicationWithdrawn
+    }
+
+    #if DEBUG
+        /// Tests observe the directory at a checkpoint (to copy what a kill at
+        /// that instant leaves) or throw from it (an I/O error at that step).
+        /// Never set in the app. Not compiled into Release builds.
+        static var checkpointObserver: ((Checkpoint, URL) throws -> Void)?
+    #endif
+
+    private static func reach(
+        _ checkpoint: Checkpoint,
+        _ context: DirectoryContext
+    ) throws {
+        #if DEBUG
+            try checkpointObserver?(checkpoint, context.directoryURL)
+        #endif
     }
 
     /// Makes a newly copied immutable backup durable before a journal can
