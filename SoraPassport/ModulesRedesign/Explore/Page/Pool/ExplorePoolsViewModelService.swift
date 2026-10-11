@@ -45,40 +45,89 @@ final class ExplorePoolsViewModelService {
         return shimmersAssetItems
     }()
     
+    private let fiatService: FiatServiceProtocol
+    private let pause: (TimeInterval) async -> Void
+    private var loading: Task<Void, Never>?
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        loading?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
+
     init(
         itemFactory: ExploreItemFactory,
         poolsService: ExplorePoolsServiceInputProtocol,
-        apyService: APYServiceProtocol
+        apyService: APYServiceProtocol,
+        fiatService: FiatServiceProtocol = FiatService.shared,
+        pause: @escaping (TimeInterval) async -> Void = { seconds in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
     ) {
         self.poolsService = poolsService
         self.itemFactory = itemFactory
         self.apyService = apyService
+        self.fiatService = fiatService
+        self.pause = pause
     }
-    
-    func setup() {
-        Task {
-            let fiatData = await FiatService.shared.getFiat()
-            let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
-            
-            viewModels = pools.enumerated().compactMap { (index, pool) in
-                return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
-            }
-            
-            async let viewModels = (pools.enumerated().concurrentMap { (index, pool) in
-                let apy = await self.apyService.getApy(for: pool.baseAssetId, targetAssetId: pool.targetAssetId)
-                return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy, apyLoaded: true)
-            })
 
-            let result = (try? await viewModels) ?? []
-            
-            if result.isEmpty {
-                // The node or the pool list was not ready. Ask again, but
-                // not in a tight loop.
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                setup()
-            } else {
-                self.viewModels = result
+    /// How long to wait before asking for the pool list again after it
+    /// came back empty: 2 s, 4 s, 8 s and so on, one minute at most.
+    static func retryDelay(afterAttempts attempts: Int) -> TimeInterval {
+        min(60, 2 * pow(2, Double(max(0, min(attempts, 8)))))
+    }
+
+    func setup() {
+        if pricesObserver == nil {
+            // Prices arrived or were refreshed: value the pools again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.reload()
             }
         }
+        reload()
+    }
+
+    private func reload() {
+        loading?.cancel()
+        // The service is held only while one round is running, so the
+        // retries end when the screen that owns it is released.
+        loading = Task { [weak self, pause] in
+            var attempts = 0
+            while !Task.isCancelled {
+                guard let loaded = await self?.loadOnce() else { return }
+                if loaded { return }
+                // The node or the pool list was not ready. Ask again, each
+                // time after a longer pause.
+                await pause(Self.retryDelay(afterAttempts: attempts))
+                attempts += 1
+            }
+        }
+    }
+
+    /// One round. `false` when there was nothing to show.
+    private func loadOnce() async -> Bool {
+        let fiatData = await fiatService.getFiat()
+        let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
+        guard !Task.isCancelled else { return true }
+
+        viewModels = pools.enumerated().compactMap { (index, pool) in
+            return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
+        }
+
+        let result: [ExplorePoolViewModel] = (try? await pools.enumerated().concurrentMap { (index, pool) -> ExplorePoolViewModel in
+            let apy = await self.apyService.getApy(for: pool.baseAssetId, targetAssetId: pool.targetAssetId)
+            return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy, apyLoaded: true)
+        }) ?? []
+        guard !Task.isCancelled else { return true }
+
+        guard !result.isEmpty else { return false }
+        viewModels = result
+        return true
     }
 }
