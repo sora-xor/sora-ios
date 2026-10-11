@@ -532,12 +532,25 @@ struct PIQuantity: Codable, Equatable, Hashable, CustomStringConvertible, Sendab
         guard !exponentText.isEmpty else {
             return lexeme
         }
+        // The JSON grammar puts no limit on the digits of an exponent, and
+        // `Int("-9223372036854775808")` is `Int.min`, which has no absolute
+        // value. So the size is bounded on the digits, before any
+        // arithmetic: at most four significant ones.
+        let exponentDigits = exponentText
+            .drop { $0 == "+" || $0 == "-" }
+            .drop { $0 == "0" }
         guard
-            let exponent = Int(exponentText),
-            abs(exponent) <= maximumWireBytes
+            exponentDigits.count <= 4,
+            let exponentSize = exponentDigits.isEmpty
+                ? 0
+                : Int(exponentDigits),
+            exponentSize <= maximumWireBytes
         else {
             throw PIIndexerError.invalidQuantity
         }
+        let exponent = exponentText.hasPrefix("-")
+            ? -exponentSize
+            : exponentSize
         let digits = integer + fraction
         let point = integer.count + exponent
         var whole: String
