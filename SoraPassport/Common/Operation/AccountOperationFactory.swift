@@ -110,18 +110,28 @@ final class PreparedAccount {
         }
         let secretTag = KeystoreTag.secretKeyTagForAddress(account.address)
         let derivationTag = KeystoreTag.deriviationTagForAddress(account.address)
-        // The path first: phrase or seed items written without it would
-        // derive another address if the writes were interrupted. Then the
-        // secret, which proves the account on its own.
+        // The writes are separate Keychain calls, and the process can die
+        // between any two. Their order makes every such state one that the
+        // next start completes by itself:
+        // - the path first: phrase or seed items written without it would
+        //   derive another address;
+        // - then the phrase, then the seed: the items nothing else can derive.
+        //   An account that has them and no secret yet is proven by them, and
+        //   the startup backfill adds the missing seed and secret
+        //   (`LegacyGlobalEntropyScopedBackfill`);
+        // - the secret last. Written first, a kill after it would leave an
+        //   account that signs but never receives its phrase: the backfill
+        //   skips an account that has a secret, and a second import of the
+        //   same phrase is refused as a duplicate.
         let optionalMaterial: [(String, Data)?] = [
             derivation.map { (derivationTag, $0) },
-            Optional((secretTag, secretKey)),
             entropy.map {
                 (KeystoreTag.entropyTagForAddress(account.address), $0)
             },
             seed.map {
                 (KeystoreTag.seedTagForAddress(account.address), $0)
             },
+            Optional((secretTag, secretKey)),
         ]
         let material = optionalMaterial.compactMap { $0 }
         do {

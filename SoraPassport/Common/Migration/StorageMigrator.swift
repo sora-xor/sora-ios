@@ -651,13 +651,9 @@ final class UserStorageMigrator {
         try checkpoint()
         try requireAuthority()
         try gate.requireMutableWalletAccess()
-        // Phrase first, then seed, then secret: an interrupted restore leaves
-        // the richest source, and the startup backfill completes the rest.
-        for (value, tag, isSecret) in [
-            (entropy, KeystoreTag.entropyTagForAddress(address), false),
-            (rawSeed, KeystoreTag.seedTagForAddress(address), false),
-            (secret, KeystoreTag.secretKeyTagForAddress(address), true),
-        ] {
+        for (value, tag, isSecret) in Self.restoreWriteOrder(
+            address: address, entropy: entropy, rawSeed: rawSeed, secret: secret
+        ) {
             guard let value else { continue }
             try requireAuthority()
             guard try WalletScopedKeyWrite.addIfAbsent(
@@ -674,6 +670,33 @@ final class UserStorageMigrator {
         ) == .conflict {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
+    }
+
+    /// The order in which a restore adds an account's items. The writes are
+    /// separate Keychain calls, so the process can die between any two. The
+    /// order makes every such state one the next start completes by itself:
+    /// the first item written is always one that proves the account alone,
+    /// and from which the startup backfill derives what is still missing
+    /// (`LegacyGlobalEntropyScopedBackfill`, `WalletScopedKeyCompletion`).
+    ///
+    /// - A 12 to 24-word phrase: the phrase first. It derives the seed and
+    ///   the secret.
+    /// - A 3, 6 or 9-word phrase of App Store 3.8.6: its seed first, then the
+    ///   short entropy. That entropy derives nothing and proves nothing by
+    ///   itself, so an account left with only that item would stay read-only,
+    ///   and a second restore would be refused because an item exists.
+    /// - A secret (JSON backup) last: the phrase and the seed, when a restore
+    ///   has them, are the items no later step can derive.
+    static func restoreWriteOrder(
+        address: String, entropy: Data?, rawSeed: Data?, secret: Data?
+    ) -> [(Data?, String, Bool)] {
+        let entropyWrite = (entropy, KeystoreTag.entropyTagForAddress(address), false)
+        let seedWrite = (rawSeed, KeystoreTag.seedTagForAddress(address), false)
+        let secretWrite = (secret, KeystoreTag.secretKeyTagForAddress(address), true)
+        let phraseDerives = entropy.map(WalletMnemonicWordPolicy.isDerivableEntropy) ?? false
+        return phraseDerives
+            ? [entropyWrite, seedWrite, secretWrite]
+            : [seedWrite, entropyWrite, secretWrite]
     }
 
     private func missingKeyRecoveryGate(baseURL: URL?) throws

@@ -241,7 +241,8 @@ enum WalletLocalStateSetAside {
         fileManager: FileManager = .default,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         closeDatabase: () -> Void = {},
-        beforeMove: (URL) throws -> Void = { _ in }
+        beforeMove: (URL) throws -> Void = { _ in },
+        afterMoves: () throws -> Void = {}
     ) throws -> URL {
         let lease = lifecycleCoordinator.acquire()
         defer { lease.release() }
@@ -257,6 +258,28 @@ enum WalletLocalStateSetAside {
         let folder = reused ?? paths.setAsideRootURL.appendingPathComponent(
             "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        // 0. Journal the attempt before anything moves. The marker stays
+        // until the last step below has finished, so a process that dies at
+        // any point in between (after some moves, before the settings are
+        // removed, before the recovery marker is cleared) leaves a folder the
+        // next attempt finds and continues in. The write is synchronised: a
+        // marker that could be lost while the moves survive would split the
+        // earlier data across two folders.
+        let incompleteMarkerURL = folder.appendingPathComponent(incompleteMarkerName)
+        if !exists(incompleteMarkerURL) {
+            do {
+                try Data("Some wallet files were moved here and others were not. Nothing was deleted.".utf8)
+                    .write(to: incompleteMarkerURL, options: [.atomic])
+                try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: incompleteMarkerURL)
+            } catch {
+                if reused == nil {
+                    // Nothing has moved yet; leave no empty folder behind.
+                    try? fileManager.removeItem(at: folder)
+                }
+                throw error
+            }
+        }
 
         // 1. A copy of the wallet settings, before anything changes.
         let keys = walletSettingKeys(in: settings)
@@ -320,8 +343,7 @@ enum WalletLocalStateSetAside {
                 }
             }
             guard restored else {
-                try? Data("Some wallet files were moved here and others were not. Nothing was deleted.".utf8)
-                    .write(to: folder.appendingPathComponent(incompleteMarkerName), options: [.atomic])
+                // The marker written in step 0 stays: a retry continues here.
                 Logger.shared.warning("Wallet storage: set-aside incomplete; earlier data kept in place")
                 throw Failure.incomplete(folder: folder)
             }
@@ -333,9 +355,7 @@ enum WalletLocalStateSetAside {
             }
             throw error
         }
-        if exists(folder.appendingPathComponent(incompleteMarkerName)) {
-            try? fileManager.removeItem(at: folder.appendingPathComponent(incompleteMarkerName))
-        }
+        try afterMoves()
 
         // 3. Remove the wallet settings that were copied above.
         for key in keys {
@@ -357,6 +377,8 @@ enum WalletLocalStateSetAside {
                 }
             }
         }
+        // 5. Every step is done: the folder is complete.
+        try? fileManager.removeItem(at: incompleteMarkerURL)
         Logger.shared.info("Wallet storage: earlier data set aside on request; Keychain unchanged")
         return folder
     }
