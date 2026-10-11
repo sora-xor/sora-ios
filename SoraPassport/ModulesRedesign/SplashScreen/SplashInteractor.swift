@@ -129,6 +129,7 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         case networkSnapshot = "network_snapshot"
         case selectedAccount = "selected_account"
         case networkBootstrap = "network_bootstrap"
+        case pendingTransactions = "pending_transactions"
     }
 
     enum Cause: String, Codable {
@@ -189,6 +190,9 @@ struct WalletStartupDiagnostic: Codable, Equatable {
     }
 
     var userMessage: String {
+        if phase == .pendingTransactions {
+            return WalletUX.text("SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted.")
+        }
         switch cause {
         case .missingSecret, .keychainMissing:
             if secretChecks?.origin == .savedManifest {
@@ -687,6 +691,11 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func performStorageMigration() {
+        // Before any check reads the wallet folders: remove the hidden helper
+        // files a durable write leaves when the process dies inside it. They
+        // are not wallet data, and no check may fail because of them.
+        WalletInterruptedWriteCleanup.run()
+
         let keychain = Keychain()
         let dbMigrator = UserStorageMigrator(
             targetVersion: UserStorageParams.modelVersion,
@@ -735,6 +744,12 @@ final class SplashInteractor: SplashInteractorProtocol {
                 return
             }
             try dbMigrator.migrateAtStartup()
+            // Every send first records the transaction in this folder. If it
+            // cannot be read, say so now, on the recovery screen with its
+            // "set aside" action, instead of refusing every send later.
+            try WalletStartupDiagnostic.check(.pendingTransactions) {
+                try PendingTransactionRecords.requireReadable()
+            }
         }
 
         switch outcome {
