@@ -1151,3 +1151,11 @@
 "Check wallet again" = "Vérifier à nouveau le portefeuille";
 "Wallet verification needs attention. Check your saved wallet again." = "La vérification du portefeuille nécessite votre attention. Vérifiez à nouveau votre portefeuille enregistré.";
 "Wallet services are not ready. Try again or choose another node." = "Les services du portefeuille ne sont pas prêts. Réessayez ou choisissez un autre nœud.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "Système";
+"neon.theme.dark" = "Sombre";
+"neon.theme.light" = "Clair";
+"neon.reduce.effects" = "Réduire les effets";
+"neon.pin.clear" = "Effacer le PIN";
+"neon.pin.count" = "%d chiffres saisis sur %d";

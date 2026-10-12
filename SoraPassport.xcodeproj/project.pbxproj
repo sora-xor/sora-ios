@@ -2461,6 +2461,14 @@
 		FE80F1C394A9727F8CFA2708 /* SoraKeystore in Frameworks */ = {isa = PBXBuildFile; productRef = 2FFFD6AF43210B79AE7D802B /* SoraKeystore */; };
 		FF3AD4F4EC3875BF5F9135AB /* appConfig.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0208CEDB217F04D80043FCD7 /* appConfig.plist */; };
 		FFD9BE41939D9893E8B0E6C8 /* NodesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3645269B28C146B000260340 /* NodesResponse.swift */; };
+		D78E6F60FC684AE61864AD50 /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */; };
+		843DEB673E9B89BC5DD435F9 /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */; };
+		4FCE5A2F1FE5B183371467C2 /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */; };
+		9B7010482202132123C1B8E8 /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */; };
+		7EB5BD4BCF3ECDADE7678620 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */; };
+		7B18837AA69BEE5AD9A28D99 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */; };
+		5AC68FE4A78F9D43A025B7ED /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */; };
+		A354FC02ECAF7D8075754793 /* Inter-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -3802,6 +3810,10 @@
 		EC9F6901510AF8A4769C7B41 /* SoraPassportDev.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoraPassportDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewFactory.swift; sourceTree = "<group>"; };
 		F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerProtocols.swift; sourceTree = "<group>"; };
+		39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Regular.ttf"; sourceTree = "<group>"; };
+		F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-SemiBold.ttf"; sourceTree = "<group>"; };
+		729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
+		D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-LICENSE.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -4409,6 +4421,10 @@
 		02787BED2182FC8B009D3ED6 /* Fonts */ = {
 			isa = PBXGroup;
 			children = (
+				39442F1B24CDF7A3ECEFEFD2 /* Inter-Regular.ttf */,
+				F2D2C49C7A09766DE2DD1DE7 /* Inter-SemiBold.ttf */,
+				729D25BB164AA875C0963DE1 /* Inter-Bold.ttf */,
+				D86E621EB87B6232EF8679DD /* Inter-LICENSE.txt */,
 				55A85FEB27628BD300A6C6AC /* Sora-Light.otf */,
 				84FA009F226A1D57005DA950 /* sora-Bold.otf */,
 				84FA009D226A1D57005DA950 /* sora-ExtraBold.otf */,
@@ -7639,6 +7655,10 @@
 				5ED216D7294886AA0052C740 /* Localizable.strings in Resources */,
 				5ED216D9294886AA0052C740 /* Localizable.stringsdict in Resources */,
 				02623EC02178C0930011250E /* Assets.xcassets in Resources */,
+				D78E6F60FC684AE61864AD50 /* Inter-Regular.ttf in Resources */,
+				4FCE5A2F1FE5B183371467C2 /* Inter-SemiBold.ttf in Resources */,
+				7EB5BD4BCF3ECDADE7678620 /* Inter-Bold.ttf in Resources */,
+				5AC68FE4A78F9D43A025B7ED /* Inter-LICENSE.txt in Resources */,
 				55A85FEC27628CFF00A6C6AC /* Sora-Light.otf in Resources */,
 				5ED216E0294888090052C740 /* runtime-polkadot.json in Resources */,
 				0208CEDC217F04D80043FCD7 /* appConfig.plist in Resources */,
@@ -7690,6 +7710,10 @@
 				14261DB3AEBA5BD92AF42080 /* Localizable.strings in Resources */,
 				913A53EEA71B1D993B161ACB /* Localizable.stringsdict in Resources */,
 				44F4D3475AE4C0CDCB0B2C52 /* Assets.xcassets in Resources */,
+				843DEB673E9B89BC5DD435F9 /* Inter-Regular.ttf in Resources */,
+				9B7010482202132123C1B8E8 /* Inter-SemiBold.ttf in Resources */,
+				7B18837AA69BEE5AD9A28D99 /* Inter-Bold.ttf in Resources */,
+				A354FC02ECAF7D8075754793 /* Inter-LICENSE.txt in Resources */,
 				E35B378368A7CC9F4980F50B /* Sora-Light.otf in Resources */,
 				2AC120A9ADFDE0075F86E3FF /* runtime-polkadot.json in Resources */,
 				FF3AD4F4EC3875BF5F9135AB /* appConfig.plist in Resources */,

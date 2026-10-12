@@ -11,6 +11,213 @@ import Darwin
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
+    @MainActor
+    func testNeonPINKeysDeleteAndClearPreserveFourAndSixDigitInput() throws {
+        for count in [4, 6] {
+            let controller = PincodeViewController()
+            let presenter = NeonPINVisualPresenter(view: controller, count: count)
+            controller.presenter = presenter
+            controller.loadViewIfNeeded()
+            for digit in [1, 2, 0] { controller.numpadView.buttons[digit].sendActions(for: .touchUpInside) }
+            XCTAssertEqual(presenter.input, "120")
+            controller.numpadView.backspaceButton.sendActions(for: .touchUpInside)
+            XCTAssertEqual(presenter.input, "12")
+            controller.numpadViewDidClearInput(controller.numpadView)
+            XCTAssertEqual(presenter.input, "")
+            let dots = try XCTUnwrap(descendants(controller.view).first { $0.accessibilityIdentifier == "InputFieldAccessibilityId" })
+            XCTAssertEqual(dots.accessibilityValue, R.string.localizable.neonPinCount(0, count, preferredLanguages: .currentLocale))
+            for key in controller.numpadView.buttons {
+                XCTAssertEqual(key.accessibilityLabel, String(key.tag))
+                XCTAssertTrue(key.accessibilityTraits.contains(.button))
+            }
+        }
+    }
+
+    @MainActor
+    func testBackupRequiresRevealAndClearsRenderedWordsOnBackground() throws {
+        let controller = AccountCreateViewController()
+        controller.localizationManager = LocalizationManager.shared
+        controller.mode = .view
+        controller.presenter = NeonBackupVisualPresenter()
+        controller.loadViewIfNeeded()
+        controller.set(mnemonic: ["public", "synthetic", "preview", "words"])
+        controller.set(backupDerivationPath: "//public-preview")
+        let reveal = try XCTUnwrap(descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-backup-reveal" } as? UIButton)
+        func renderedWords() -> [String] {
+            descendants(controller.view).compactMap { ($0 as? UILabel)?.text }.filter { ["public", "synthetic", "preview", "words"].contains($0) }
+        }
+        XCTAssertTrue(renderedWords().isEmpty)
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertEqual(Set(renderedWords()), Set(["public", "synthetic", "preview", "words"]))
+        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        XCTAssertTrue(renderedWords().isEmpty)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertTrue(renderedWords().isEmpty, "returning never re-reveals a phrase")
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertEqual(renderedWords().count, 4, "the grid supports repeated hide/reveal")
+        NotificationCenter.default.post(name: UIScreen.capturedDidChangeNotification, object: nil)
+        XCTAssertTrue(renderedWords().isEmpty)
+    }
+
+    @MainActor
+    func testMnemonicGridRemovesOldWordsWhenColumnsAndCountShrink() {
+        let grid = MnemonicDisplayView(frame: .zero)
+        grid.bind(words: ["old1", "old2", "old3", "old4"], columnsCount: 2)
+        grid.bind(words: ["new1", "new2"], columnsCount: 1)
+        let text = descendants(grid).compactMap { ($0 as? UILabel)?.text }
+        XCTAssertTrue(text.contains("new1")); XCTAssertTrue(text.contains("new2"))
+        XCTAssertFalse(text.contains { $0.hasPrefix("old") })
+        grid.bind(words: [], columnsCount: 2)
+        XCTAssertTrue(descendants(grid).compactMap { ($0 as? UILabel)?.text }.isEmpty)
+    }
+
+    @MainActor
+    func testRecoveryPhraseAlsoRequiresASeparateRevealAfterThePIN() throws {
+        let controller = WalletRecoveryPhraseViewController(entries: [
+            .init(address: "public-preview", name: "Preview", words: ["public", "synthetic"], derivationPath: nil)
+        ])
+        controller.loadViewIfNeeded()
+        let words = try XCTUnwrap(descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-recovery-phrase-words" } as? UILabel)
+        let reveal = try XCTUnwrap(descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-recovery-phrase-reveal" } as? UIButton)
+        XCTAssertNil(words.text)
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertTrue(words.text?.contains("synthetic") == true)
+        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        XCTAssertNil(words.text)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertNil(words.text)
+    }
+
+    @MainActor
+    func testRawSeedExportRequiresRevealAndHidesAgainAfterCapture() throws {
+        let controller = AccountExportRawSeedViewController()
+        controller.presenter = NeonRawSeedVisualPresenter()
+        controller.loadViewIfNeeded()
+        controller.set(rawSeed: "0xPUBLIC_SYNTHETIC_PREVIEW", derivationPath: "//public")
+        let value = try XCTUnwrap(descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-value" } as? UILabel)
+        let reveal = try XCTUnwrap(descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-reveal" } as? UIButton)
+        XCTAssertNil(value.text)
+        reveal.sendActions(for: .touchUpInside)
+        XCTAssertEqual(value.text, "0xPUBLIC_SYNTHETIC_PREVIEW")
+        NotificationCenter.default.post(name: UIScreen.capturedDidChangeNotification, object: nil)
+        XCTAssertNil(value.text)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertNil(value.text)
+    }
+
+    @MainActor
+    func testImportShieldCoversBackgroundWithoutDiscardingTypedMaterial() throws {
+        let controller = UIViewController()
+        controller.loadViewIfNeeded()
+        let field = UITextField()
+        field.text = "public-synthetic-import"
+        controller.view.addSubview(field)
+        let shield = WalletSensitiveScreenShield(controller: controller)
+        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        let cover = try XCTUnwrap(controller.view.subviews.last)
+        XCTAssertEqual(cover.accessibilityIdentifier, "wallet-secret-capture-shield")
+        XCTAssertEqual(cover.backgroundColor?.cgColor.alpha, 1)
+        XCTAssertEqual(field.text, "public-synthetic-import")
+        shield.refresh()
+        XCTAssertNil(controller.view.subviews.first { $0.accessibilityIdentifier == "wallet-secret-capture-shield" })
+        XCTAssertEqual(field.text, "public-synthetic-import")
+    }
+
+    @MainActor
+    func testNeonBodyFontsAreActuallyRegisteredInTheApp() throws {
+        XCTAssertEqual(try XCTUnwrap(UIFont(name: "Inter-Regular", size: 16)).familyName, "Inter")
+        XCTAssertNotNil(UIFont(name: "Inter-SemiBold", size: 16))
+        XCTAssertNotNil(UIFont(name: "Inter-Bold", size: 16))
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.textM
+        label.sora.text = "Body font"
+        let renderedFont = try XCTUnwrap(label.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+        XCTAssertEqual(renderedFont.fontName, "Inter-Regular")
+    }
+
+    @MainActor
+    func testCaptureNeonReleaseVisualEvidence() async throws {
+        guard ProcessInfo.processInfo.environment["SORA_CAPTURE_RECOVERY_UI"] == "1" else {
+            throw XCTSkip("Opt-in production-screen capture")
+        }
+        let previousWindow = UIApplication.shared.keyWindow
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let previousLanguage = LocalizationManager.shared.selectedLocalization
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("NeonReleaseVisualEvidence", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        defer {
+            previousWindow?.makeKeyAndVisible()
+            SoramitsuUI.shared.themeMode = previousTheme
+            LocalizationManager.shared.selectedLocalization = previousLanguage
+        }
+        for language in ["en", "ja", "ar"] {
+            LocalizationManager.shared.selectedLocalization = language
+            for theme in [SoramitsuThemeType.light, .dark] {
+                SoramitsuUI.shared.themeMode = .manual(theme)
+                for large in [false, true] {
+                    let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+                    window.overrideUserInterfaceStyle = theme == .dark ? .dark : .light
+                    for count in [4, 6, 0, -1, -2, -3, -4] {
+                        let controller: UIViewController
+                        if count <= -3 {
+                            let seed = AccountExportRawSeedViewController()
+                            seed.presenter = NeonRawSeedVisualPresenter()
+                            controller = UINavigationController(rootViewController: seed)
+                            seed.loadViewIfNeeded()
+                            seed.set(rawSeed: "0x" + String(repeating: "0123456789abcdef", count: 4), derivationPath: "//public-preview")
+                        } else if count < 0 {
+                            let backup = AccountCreateViewController()
+                            backup.localizationManager = LocalizationManager.shared
+                            backup.mode = .view
+                            backup.presenter = NeonBackupVisualPresenter()
+                            controller = UINavigationController(rootViewController: backup)
+                            backup.loadViewIfNeeded()
+                            backup.set(mnemonic: Array(repeating: "abandon", count: 11) + ["about"])
+                            backup.set(backupDerivationPath: "//public-preview")
+                        } else if count == 0 {
+                            controller = UINavigationController(rootViewController: AppSettingsFactory.createAppSettings().controller)
+                        } else {
+                            let pin = PincodeViewController()
+                            pin.mode = .securedInput
+                            pin.presenter = NeonPINVisualPresenter(view: pin, count: count)
+                            controller = pin
+                        }
+                        let host = UIViewController()
+                        host.addChild(controller); host.view.addSubview(controller.view); controller.didMove(toParent: host)
+                        controller.view.translatesAutoresizingMaskIntoConstraints = false
+                        NSLayoutConstraint.activate([
+                            controller.view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                            controller.view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+                            controller.view.topAnchor.constraint(equalTo: host.view.topAnchor),
+                            controller.view.bottomAnchor.constraint(equalTo: host.view.bottomAnchor)
+                        ])
+                        host.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: large ? .accessibilityExtraExtraExtraLarge : .large), forChild: controller)
+                        window.rootViewController = host; window.makeKeyAndVisible()
+                        await drainPINCallbacks()
+                        if count == -2 {
+                            (descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-backup-reveal" } as? UIButton)?.sendActions(for: .touchUpInside)
+                        } else if count == -4 {
+                            (descendants(controller.view).first { $0.accessibilityIdentifier == "wallet-raw-seed-reveal" } as? UIButton)?.sendActions(for: .touchUpInside)
+                        }
+                        window.layoutIfNeeded()
+                        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+                        let image = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
+                        let name = "\(language)-\(theme == .dark ? "dark" : "light")-\(large ? "AX5" : "normal")-\(count == 0 ? "settings" : (count < 0 ? "backup\(count)" : "pin\(count)")).png"
+                        try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent(name))
+                        if let scroll = descendants(controller.view).compactMap({ $0 as? UIScrollView }).first {
+                            scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
+                            scroll.layoutIfNeeded()
+                            let bottom = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
+                            try XCTUnwrap(bottom.pngData()).write(to: output.appendingPathComponent(name.replacingOccurrences(of: ".png", with: "-bottom.png")))
+                        }
+                    }
+                    window.isHidden = true; window.rootViewController = nil
+                }
+            }
+        }
+    }
+
     /// Opt-in visual evidence from production controllers on the simulator.
     /// Synthetic states exercise layout only; routing is tested separately.
     @MainActor
@@ -2308,4 +2515,44 @@ private final class RecoveryOnboardingVisualPresenter: OnboardingMainPresenterPr
     func activateSignup() {}
     func activateAccountRestore() {}
     func activateCloudStorageConnection() {}
+}
+
+private final class NeonPINVisualPresenter: PinSetupPresenterProtocol {
+    weak var view: PincodeViewController?
+    let count: Int
+    var input = ""
+    init(view: PincodeViewController, count: Int) { self.view = view; self.count = count }
+    func start() { view?.updatePinCodeSymbolsCount(with: count); view?.didChangeAccessoryState(enabled: true) }
+    func cancel() { }
+    func activateBiometricAuth() { }
+    func submit(pin: String) { }
+    func deleteButtonTapped() {
+        if !input.isEmpty { input.removeLast() }
+        update()
+    }
+    func padButtonTapped(with symbol: String) {
+        guard input.count < count else { return }
+        input += symbol; update()
+    }
+    func updatePinButtonTapped() { }
+    private func update() {
+        view?.updateInputedCircles(with: input.count)
+        view?.setupDeleteButton(isHidden: input.isEmpty)
+    }
+}
+
+private final class NeonBackupVisualPresenter: AccountCreatePresenterProtocol {
+    func setup() { }
+    func activateInfo() { }
+    func proceed() { }
+    func share() { }
+    func restoredApp() { }
+    func skip() { }
+    func backupToGoogle() { }
+}
+
+private final class NeonRawSeedVisualPresenter: AccountExportRawSeedPresenterProtocol {
+    func exportRawSeed() { }
+    func copyRawSeed() { }
+    func exportJSON() { }
 }

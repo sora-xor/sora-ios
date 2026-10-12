@@ -1151,3 +1151,11 @@
 "Check wallet again" = "בדיקת הארנק שוב";
 "Wallet verification needs attention. Check your saved wallet again." = "אימות הארנק דורש תשומת לב. יש לבדוק שוב את הארנק השמור.";
 "Wallet services are not ready. Try again or choose another node." = "שירותי הארנק עדיין אינם מוכנים. יש לנסות שוב או לבחור צומת אחר.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "מערכת";
+"neon.theme.dark" = "כהה";
+"neon.theme.light" = "בהיר";
+"neon.reduce.effects" = "צמצום אפקטים";
+"neon.pin.clear" = "ניקוי PIN";
+"neon.pin.count" = "הוזנו %d מתוך %d ספרות";

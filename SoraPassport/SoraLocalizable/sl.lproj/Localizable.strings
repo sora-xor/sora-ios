@@ -1151,3 +1151,11 @@
 "Check wallet again" = "Ponovno preveri denarnico";
 "Wallet verification needs attention. Check your saved wallet again." = "Preverjanje denarnice zahteva pozornost. Ponovno preverite shranjeno denarnico.";
 "Wallet services are not ready. Try again or choose another node." = "Storitve denarnice še niso pripravljene. Poskusite znova ali izberite drugo vozlišče.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "Sistem";
+"neon.theme.dark" = "Temno";
+"neon.theme.light" = "Svetlo";
+"neon.reduce.effects" = "Zmanjšaj učinke";
+"neon.pin.clear" = "Počisti PIN";
+"neon.pin.count" = "Vnesenih %d od %d števk";

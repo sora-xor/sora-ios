@@ -66,7 +66,7 @@ existing wallet:
 - [ ] Cold launch: Splash, then the PIN screen. The wallet opens with the
       same accounts and balances.
 - [ ] Background the app longer than the PIN timeout, then return. The PIN
-      lock appears. The app switcher shows the blur overlay.
+      lock appears. The app switcher shows the opaque SORA cover.
 - [ ] Send and swap confirmation: the blocking spinner is visible while the
       transaction is submitted.
 - [ ] Toasts (e.g. "copied") appear.

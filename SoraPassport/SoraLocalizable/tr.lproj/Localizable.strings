@@ -1151,3 +1151,11 @@
 "Check wallet again" = "Cüzdanı yeniden kontrol et";
 "Wallet verification needs attention. Check your saved wallet again." = "Cüzdan doğrulaması dikkat gerektiriyor. Kayıtlı cüzdanınızı yeniden kontrol edin.";
 "Wallet services are not ready. Try again or choose another node." = "Cüzdan hizmetleri henüz hazır değil. Yeniden deneyin veya başka bir düğüm seçin.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "Sistem";
+"neon.theme.dark" = "Koyu";
+"neon.theme.light" = "Açık";
+"neon.reduce.effects" = "Efektleri azalt";
+"neon.pin.clear" = "PIN’i temizle";
+"neon.pin.count" = "%2$d hanenin %1$d tanesi girildi";

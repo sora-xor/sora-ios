@@ -94,6 +94,9 @@
 		<string>sora-Regular.otf</string>
 		<string>sora-SemiBold.otf</string>
 		<string>Sora-Light.otf</string>
+		<string>Inter-Regular.ttf</string>
+		<string>Inter-SemiBold.ttf</string>
+		<string>Inter-Bold.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

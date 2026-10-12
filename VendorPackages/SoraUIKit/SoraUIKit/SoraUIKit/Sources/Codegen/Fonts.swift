@@ -11,8 +11,7 @@ enum FontWeight: String, CaseIterable {
 }
 
 enum FontFamily: String, CaseIterable {
-    /// Body text. The spec's body face (Inter) is not bundled with the iOS
-    /// app, so it renders in the system font (spec §5.1 fallback).
+    /// Body text. Inter 4.1 is bundled with the app under the SIL OFL 1.1.
     case text = "Inter"
     /// Display, headlines, buttons, hero numerals, PIN digits. Bundled
     /// (`Sora-*.otf`, registered through `UIAppFonts`).
@@ -20,7 +19,7 @@ enum FontFamily: String, CaseIterable {
     /// Addresses, hashes, raw seed, codes: the platform monospace.
     case mono = "SystemMono"
 
-    var isBundled: Bool { self == .headline }
+    var isBundled: Bool { self != .mono }
 }
 
 public enum FontType {

@@ -1376,3 +1376,11 @@
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN.";
 "New app PIN" = "New app PIN";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "System";
+"neon.theme.dark" = "Dark";
+"neon.theme.light" = "Light";
+"neon.reduce.effects" = "Reduce effects";
+"neon.pin.clear" = "Clear PIN";
+"neon.pin.count" = "%d of %d digits entered";

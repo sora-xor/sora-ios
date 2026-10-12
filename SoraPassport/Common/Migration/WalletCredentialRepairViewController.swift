@@ -23,6 +23,7 @@ final class WalletCredentialRepairViewController: UIViewController {
     private let inputs = UIStackView()
     private var busy = false
     private var observers: [NSObjectProtocol] = []
+    private var secretShield: WalletSensitiveScreenShield?
 
     init(account: AccountItem, service: WalletCredentialRepair,
          currentAccounts: @escaping () throws -> [AccountItem], onSuccess: @escaping (AccountItem) -> Void,
@@ -137,6 +138,12 @@ final class WalletCredentialRepairViewController: UIViewController {
                 [weak self] _ in self?.clearSensitiveInputs()
             })
         }
+        secretShield = WalletSensitiveScreenShield(controller: self)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        secretShield?.refresh()
     }
 
     @objc private func sourceChanged() {

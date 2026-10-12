@@ -1228,3 +1228,11 @@
 "New app PIN" = "新しいアプリのPIN";
 "Collapsed" = "折りたたみ";
 "Expanded" = "展開済み";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "システム";
+"neon.theme.dark" = "ダーク";
+"neon.theme.light" = "ライト";
+"neon.reduce.effects" = "視覚効果を減らす";
+"neon.pin.clear" = "PINを消去";
+"neon.pin.count" = "%2$d桁中%1$d桁を入力済み";

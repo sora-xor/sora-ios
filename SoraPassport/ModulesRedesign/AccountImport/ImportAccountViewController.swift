@@ -36,6 +36,7 @@ final class ImportAccountViewController: SoramitsuViewController {
     var presenter: AccountImportPresenterProtocol?
     
     private let scrollView = UIScrollView()
+    private var secretShield: WalletSensitiveScreenShield?
 
     private var viewModel: InputViewModelProtocol?
     private var sourceViewModel: InputViewModelProtocol?
@@ -106,8 +107,14 @@ final class ImportAccountViewController: SoramitsuViewController {
         setupConstraints()
         presenter?.setup()
         usernameField.textView.becomeFirstResponder()
+        secretShield = WalletSensitiveScreenShield(controller: self)
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        secretShield?.refresh()
+    }
+
     func setupView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.keyboardDismissMode = .interactive

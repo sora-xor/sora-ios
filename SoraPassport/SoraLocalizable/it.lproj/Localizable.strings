@@ -913,3 +913,11 @@
 "polkamarkt.ticket.slippage" = "Slippage";
 "polkamarkt.ticket.takerFee" = "Taker fee";
 "networkFeeText" = "Network fee";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "Sistema";
+"neon.theme.dark" = "Scuro";
+"neon.theme.light" = "Chiaro";
+"neon.reduce.effects" = "Riduci effetti";
+"neon.pin.clear" = "Cancella PIN";
+"neon.pin.count" = "%d di %d cifre inserite";
