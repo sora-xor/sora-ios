@@ -2304,3 +2304,12 @@ failed-attempt history and external release gates are in VERIFICATION.md.
 Firebase Analytics remains enabled for app metrics. Advertising storage, advertising user data, and ad personalization default to denied and are denied again at startup to override retained SDK consent. Existing analytics storage and collection choices are not overwritten at runtime. The FirebaseAnalyticsCore product removes IDFA collection capability while preserving the existing Firebase project, Crashlytics, and Google Drive sign-in identity. No wallet keys, recovery phrases, or account identifiers are added to analytics events.
 
 Configuration follows [Firebase data collection](https://firebase.google.com/docs/analytics/ios/configure-data-collection) and [Google app consent controls](https://developers.google.com/tag-platform/security/guides/app-consent?platform=ios).
+
+## Restore the original launch animation
+
+Fast local startup no longer jumps over the original SORA ring-and-logo
+introduction. The splash begins when it is visible, waits for both startup and
+the introduction, and plays its ending once. A slower startup holds at the logo
+without repeating the introduction. The existing animation asset and dark-theme
+colors are preserved. Reduce Effects and the system Reduce Motion setting use a
+static logo, and a storage-retry prompt cancels pending navigation.
