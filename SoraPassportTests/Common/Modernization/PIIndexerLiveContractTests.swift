@@ -2650,9 +2650,10 @@ final class PIPriceDisplayTests: XCTestCase {
         service.moneyText = "$0"
         let item = AssetsItem(title: "Assets",
             assetProvider: PriceTestAssetProvider(balances: balances()), service: service)
+        let account = AccountTableViewItem(accountName: "Public fixture")
         let table = SoramitsuTableView()
         table.sora.estimatedRowHeight = UITableView.automaticDimension
-        table.sora.sections = [SoramitsuTableViewSection(rows: [item])]
+        table.sora.sections = [SoramitsuTableViewSection(rows: [account, item])]
         let controller = UIViewController()
         controller.view.addSubview(table)
         NSLayoutConstraint.activate([
@@ -2675,9 +2676,17 @@ final class PIPriceDisplayTests: XCTestCase {
         func cards(in view: UIView) -> [AssetsCell] {
             (view as? AssetsCell).map { [$0] } ?? view.subviews.flatMap { cards(in: $0) }
         }
-        for update in 0..<6 {
+        func headers(in view: UIView) -> [AccountCell] {
+            (view as? AccountCell).map { [$0] } ?? view.subviews.flatMap { headers(in: $0) }
+        }
+        let originalHeader = try XCTUnwrap(table.cellForItem(item: account))
+        let originalCard = try XCTUnwrap(table.cellForItem(item: item))
+        let checkingHeight = originalHeader.bounds.height
+        let states: [WalletAccountCapability.State] = [.signing, .missingKeys, .checking, .signing, .watchOnly, .signing]
+        for (update, state) in states.enumerated() {
             service.moneyText = "$\(update)"
-            RedesignWalletViewController.refresh(items: [item], in: table)
+            account.capability = state
+            RedesignWalletViewController.refresh(items: [account, item], in: table)
             controller.view.layoutIfNeeded()
             for frame in 0..<3 {
                 if frame > 0 { try await Task.sleep(nanoseconds: 16_000_000) }
@@ -2685,6 +2694,17 @@ final class PIPriceDisplayTests: XCTestCase {
                 XCTAssertEqual(rendered.count, 1, "Update \(update), frame \(frame): outgoing cards must not overlap")
                 let current = try XCTUnwrap(table.cellForItem(item: item))
                 XCTAssertTrue(rendered.first === current)
+                XCTAssertTrue(current === originalCard, "A live card update must not create an outgoing snapshot")
+                let renderedHeaders = headers(in: table).filter { !$0.isHidden && $0.alpha > 0 && !$0.bounds.isEmpty }
+                XCTAssertEqual(renderedHeaders.count, 1)
+                let header = try XCTUnwrap(table.cellForItem(item: account))
+                XCTAssertTrue(header === originalHeader)
+                XCTAssertTrue(header.layer.animationKeys()?.isEmpty ?? true)
+                if state == .signing {
+                    XCTAssertLessThan(header.bounds.height, checkingHeight - 10,
+                        "Removing checking text must immediately release its height")
+                }
+                XCTAssertTrue(table.sora.sections[0].rows[0] === account)
                 XCTAssertTrue(current.layer.animationKeys()?.isEmpty ?? true,
                     "Balance refresh must not fade or move the entire transparent card")
             }
