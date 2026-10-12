@@ -1244,3 +1244,135 @@
 "Your restored wallets are saved, but the PIN protection update could not finish. Try again before using them." = "Your restored wallets are saved, but the PIN protection update could not finish. Try again before using them.";
 
 "Wallet restore" = "Wallet restore";
+
+/* Recovery and preserved wallet data */
+"A protected recovery export contains public wallet metadata but no phrase, seed, private key, PIN, signed payload, or Keychain item." = "A protected recovery export contains public wallet metadata but no phrase, seed, private key, PIN, signed payload, or Keychain item.";
+"App PIN" = "App PIN";
+"Backup password" = "Backup password";
+"Choose the app PIN for the returned wallets. Their files will move back, their keys will stay on this iPhone, and SORA will check them before opening. From now on, these wallets will use this PIN." = "Choose the app PIN for the returned wallets. Their files will move back, their keys will stay on this iPhone, and SORA will check them before opening. From now on, these wallets will use this PIN.";
+"Choose the existing wallet" = "Choose the existing wallet";
+"Choose the saved wallet data to check. Your current wallet must be empty." = "Choose the saved wallet data to check. Your current wallet must be empty.";
+"Choose the saved wallet whose keys you want to restore." = "Choose the saved wallet whose keys you want to restore.";
+"Confirm app PIN" = "Confirm app PIN";
+"Contact SORA support if you need help. Never share your recovery phrase, private key or PIN." = "Contact SORA support if you need help. Never share your recovery phrase, private key or PIN.";
+"Copy instructions" = "Copy instructions";
+"Could not prepare wallet setup" = "Could not prepare wallet setup";
+"Create export" = "Create export";
+"Create protected recovery export?" = "Create protected recovery export?";
+"Earlier wallet data not opened" = "Earlier wallet data not opened";
+"Encrypted backup found. Enter its backup password to verify and restore the saved account." = "Encrypted backup found. Enter its backup password to verify and restore the saved account.";
+"Enter the PIN that protected these wallets. If they used different PINs, you will be asked for each one." = "Enter the PIN that protected these wallets. If they used different PINs, you will be asked for each one.";
+"Enter the password you set for this SORA Google Drive backup. The password stays on this iPhone. SORA will verify that the backup matches your saved account before restoring missing keys." = "Enter the password you set for this SORA Google Drive backup. The password stays on this iPhone. SORA will verify that the backup matches your saved account before restoring missing keys.";
+"Enter this wallet’s recovery phrase on this iPhone. It must match the existing account. Add your original derivation path only if you used one." = "Enter this wallet’s recovery phrase on this iPhone. It must match the existing account. Add your original derivation path only if you used one.";
+"It does not contain your phrase, seed, private key, PIN, signed transaction payloads, or any Keychain item. Keychain secrets stay only on this device." = "It does not contain your phrase, seed, private key, PIN, signed transaction payloads, or any Keychain item. Keychain secrets stay only on this device.";
+"Keep any existing recovery phrase or encrypted JSON backup offline." = "Keep any existing recovery phrase or encrypted JSON backup offline.";
+"Keep the export private and share it only through an official support channel whose identity you have verified." = "Keep the export private and share it only through an official support channel whose identity you have verified.";
+"Keychain secrets remain only on this device." = "Keychain secrets remain only on this device.";
+"Keychain secrets stay only on this device." = "Keychain secrets stay only on this device.";
+"Missing credentials restored. Verifying the complete wallet…" = "Missing credentials restored. Verifying the complete wallet…";
+"Never send anyone your phrase, seed, private key, or PIN." = "Never send anyone your phrase, seed, private key, or PIN.";
+"No detailed check was recorded by the previous build." = "No detailed check was recorded by the previous build.";
+"No recovery package was published." = "No recovery package was published.";
+"Open SORA support" = "Open SORA support";
+"Original derivation path (optional)" = "Original derivation path (optional)";
+"Protect the returned wallets" = "Protect the returned wallets";
+"Protect your recovery options" = "Protect your recovery options";
+"Protected export created." = "Protected export created.";
+"Recovery export stopped safely" = "Recovery export stopped safely";
+"Recovery phrase" = "Recovery phrase";
+"Restore with your recovery phrase using the button below." = "Restore with your recovery phrase using the button below.";
+"SORA could not prepare the new wallet setup. The earlier wallet keys and their ownership PIN protection are unchanged. Try again, or restore the wallets first." = "SORA could not prepare the new wallet setup. The earlier wallet keys and their ownership PIN protection are unchanged. Try again, or restore the wallets first.";
+"SORA could not verify the wallet for this operation. Your existing wallet data has been kept." = "SORA could not verify the wallet for this operation. Your existing wallet data has been kept.";
+"Saved wallet data %d" = "Saved wallet data %d";
+"Set up this iPhone again keeps the earlier files in a separate folder on this iPhone." = "Set up this iPhone again keeps the earlier files in a separate folder on this iPhone.";
+"Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup." = "Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup.";
+"The earlier data could not be returned safely. Its files and keys have been kept. Reopen SORA to resume an interrupted return, or restore with your original backup." = "The earlier data could not be returned safely. Its files and keys have been kept. Reopen SORA to resume an interrupted return, or restore with your original backup.";
+"The earlier files were kept. Reopen SORA to continue, or try again." = "The earlier files were kept. Reopen SORA to continue, or try again.";
+"The export can contain public wallet metadata, including addresses, account names, preferences, and transaction history." = "The export can contain public wallet metadata, including addresses, account names, preferences, and transaction history.";
+"The installed wallet, settings, recovery marker, and Keychain were not changed." = "The installed wallet, settings, recovery marker, and Keychain were not changed.";
+"The phrase and derivation path could not be verified for this account, or the keys could not be saved. Existing accounts and keys were not replaced. Check your original backup and try again." = "The phrase and derivation path could not be verified for this account, or the keys could not be saved. Existing accounts and keys were not replaced. Check your original backup and try again.";
+"The retained account could not be read for recovery. Its data has not been changed." = "The retained account could not be read for recovery. Its data has not been changed.";
+"These wallets were saved by an older version without an ownership PIN. Restore them with their recovery phrase or Google Drive backup. The earlier files and keys remain on this iPhone." = "These wallets were saved by an older version without an ownership PIN. Restore them with their recovery phrase or Google Drive backup. The earlier files and keys remain on this iPhone.";
+"Try again to run the wallet checks once more." = "Try again to run the wallet checks once more.";
+"Unlock this iPhone, then try again." = "Unlock this iPhone, then try again.";
+"Unlock your existing backup" = "Unlock your existing backup";
+"Use Copy recovery details when contacting SORA support." = "Use Copy recovery details when contacting SORA support.";
+"Use earlier wallet data" = "Use earlier wallet data";
+"Use the earlier wallet data again" = "Use the earlier wallet data again";
+"Verify and restore" = "Verify and restore";
+"Verifying preserved files. Wallet data and Keychain will not be changed." = "Verifying preserved files. Wallet data and Keychain will not be changed.";
+"Verifying the backup against the saved account…" = "Verifying the backup against the saved account…";
+"Wallet keys not restored" = "Wallet keys not restored";
+"You can also restore from your encrypted Google Drive backup." = "You can also restore from your encrypted Google Drive backup.";
+"You can set aside the unreadable records of unfinished transactions below. Your wallet keys will not change." = "You can set aside the unreadable records of unfinished transactions below. Your wallet keys will not change.";
+
+/* ik4 authenticated credential repair and recovery details */
+"Available" = "Available";
+"Backup recovery: %@" = "Backup recovery: %@";
+"Confirm the repair before changing this wallet's credentials." = "Confirm the repair before changing this wallet's credentials.";
+"Confirm wallet repair" = "Confirm wallet repair";
+"Current app PIN" = "Current app PIN";
+"Current failure: %@" = "Current failure: %@";
+"Enter the current app PIN to restore the downloaded backup for this account." = "Enter the current app PIN to restore the downloaded backup for this account.";
+"Enter the recovery phrase, raw seed, or JSON backup that restores this exact wallet address." = "Enter the recovery phrase, raw seed, or JSON backup that restores this exact wallet address.";
+"Google Drive" = "Google Drive";
+"JSON backup password" = "JSON backup password";
+"Latest verification: not recorded; retry required" = "Latest verification: not recorded; retry required";
+"Original recovery trigger: %@" = "Original recovery trigger: %@";
+"Original recovery trigger: legacy record (details unavailable)" = "Original recovery trigger: legacy record (details unavailable)";
+"Protected data when copied: %@" = "Protected data when copied: %@";
+"Raw seed" = "Raw seed";
+"Recovery phrase, raw seed, or JSON backup" = "Recovery phrase, raw seed, or JSON backup";
+"Recovery report format: 2" = "Recovery report format: 2";
+"Repair wallet" = "Repair wallet";
+"Repair wallet credentials" = "Repair wallet credentials";
+"Retry repair" = "Retry repair";
+"Review repair" = "Review repair";
+"Supply a backup for the address below. Failed credentials will be preserved on this iPhone before replacement. This wallet will use the current app PIN." = "Supply a backup for the address below. Failed credentials will be preserved on this iPhone before replacement. This wallet will use the current app PIN.";
+"The backup could not be verified or the repair could not finish. Check the backup and PIN, then try again. Preserved credentials are unchanged." = "The backup could not be verified or the repair could not finish. Check the backup and PIN, then try again. Preserved credentials are unchanged.";
+"The repair could not be completed. Preserved credentials remain on this iPhone. Retry the repair before using this wallet." = "The repair could not be completed. Preserved credentials remain on this iPhone. Retry the repair before using this wallet.";
+"The supplied backup must restore this exact address. Failed credentials will be preserved before replacement, and this wallet will use the current app PIN." = "The supplied backup must restore this exact address. Failed credentials will be preserved before replacement, and this wallet will use the current app PIN.";
+"This wallet cannot be repaired in its current state. Return to recovery and try again." = "This wallet cannot be repaired in its current state. Return to recovery and try again.";
+"Unavailable" = "Unavailable";
+"Unknown" = "Unknown";
+"Verifying and preserving wallet credentials…" = "Verifying and preserving wallet credentials…";
+"Wallet credentials repaired." = "Wallet credentials repaired.";
+
+/* ik4 recovery diagnostic explanations */
+"The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved." = "The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved.";
+"SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account." = "SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account.";
+"A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved." = "A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved.";
+"iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again." = "iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again.";
+"iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced." = "iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced.";
+"iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation." = "iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation.";
+"The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access." = "The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access.";
+"SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved." = "SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved.";
+"SORA needs more free storage to retain a verified recovery copy before completing this upgrade." = "SORA needs more free storage to retain a verified recovery copy before completing this upgrade.";
+"SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved." = "SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved.";
+
+/* ik4 read-only accounts and signing preflight */
+"A wallet credential repair must finish before sending. Open Restore keys to retry the repair." = "A wallet credential repair must finish before sending. Open Restore keys to retry the repair.";
+"Checking keys…" = "Checking keys…";
+"Checking this account’s signing keys…" = "Checking this account’s signing keys…";
+"Keys repaired; wallet checks need attention" = "Keys repaired; wallet checks need attention";
+"Read-only" = "Read-only";
+"Restore keys for this account" = "Restore keys for this account";
+"Retry" = "Retry";
+"Signing keys for this account are missing from this iPhone. Restore its backup to send." = "Signing keys for this account are missing from this iPhone. Restore its backup to send.";
+"The stored signing keys do not prove this account. Restore its backup to send. Existing credentials will be preserved." = "The stored signing keys do not prove this account. Restore its backup to send. Existing credentials will be preserved.";
+"This account was added as watch-only. Sending is disabled." = "This account was added as watch-only. Sending is disabled.";
+"Wallet keys or safety checks are unavailable. Unlock this iPhone and retry. If this continues, reopen the app for recovery." = "Wallet keys or safety checks are unavailable. Unlock this iPhone and retry. If this continues, reopen the app for recovery.";
+"Watch-only" = "Watch-only";
+"Your repaired keys and preserved originals are saved. Reopen the app to complete wallet recovery before sending." = "Your repaired keys and preserved originals are saved. Reopen the app to complete wallet recovery before sending.";
+
+"PIN verification unavailable. Try again" = "PIN verification unavailable. Try again";
+
+"PIN verification unavailable" = "PIN verification unavailable";
+
+"Your wallet screen is still protected. Try entering your PIN again." = "Your wallet screen is still protected. Try entering your PIN again.";
+
+/* Explicit retained-key repair during import */
+"This backup proves the imported address, but different credentials remain on this iPhone. The earlier credentials will be preserved before repair." = "This backup proves the imported address, but different credentials remain on this iPhone. The earlier credentials will be preserved before repair.";
+"Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used.";
+"Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN.";
+"New app PIN" = "New app PIN";

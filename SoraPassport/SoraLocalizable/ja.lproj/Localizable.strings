@@ -812,7 +812,7 @@
 "create.backup.password.button.text" = "Set backup password";
 "create.backup.password.is.secure" = "Password is highly secure";
 "create.backup.password.matched" = "Password matched";
-"onboarding.description" = "SORA is an on-chain governance system where producers make proposals for funding, and all XOR token holders decide on the best goods and services to be created. Accepting XOR as payment then builds the SORA economy.";
+"onboarding.description" = "SORAで資産の送受信や交換ができます。新しいリカバリーフレーズを作るにはアカウントを作成し、既存のフレーズを使うにはアカウントをインポートしてください。";
 "select.account.import" = "Select account to import";
 "enter.password.title" = "Enter password";
 "enter.password.description" = "Enter backup password for the selected account to import";
@@ -820,9 +820,9 @@
 "imported.account.title" = "Account imported";
 "succesfully.imported.account.title" = "You have succesfully imported an account";
 "import.more.title" = "Import more";
-"import.account.not.backed.up" = "Not backed up!";
-"import.account.not.backed.up.alert.description" = "If your device gets lost or stolen, you will loose your wallet and all your funds forever.";
-"import.account.not.backed.up.alert.action.title" = "I will risk it";
+"import.account.not.backed.up" = "バックアップがありません";
+"import.account.not.backed.up.alert.description" = "この端末にアクセスできなくなると、リカバリーフレーズなどのバックアップがなければウォレットを復元できません。";
+"import.account.not.backed.up.alert.action.title" = "バックアップせずに続ける";
 "passphrase.write" = "Write down your passphrase";
 "account.options.delete.backup" = "Delete Google backup";
 "account.options.backup.google" = "Backup to Google";
@@ -1088,3 +1088,143 @@
 "Your restored wallets are saved, but the PIN protection update could not finish. Try again before using them." = "復元したウォレットは保存されていますが、PIN保護の更新を完了できませんでした。使用する前にもう一度お試しください。";
 
 "Wallet restore" = "ウォレットの復元";
+
+/* Recovery and preserved wallet data */
+"A protected recovery export contains public wallet metadata but no phrase, seed, private key, PIN, signed payload, or Keychain item." = "保護された復元用エクスポートにはウォレットの公開情報が含まれますが、復元フレーズ、シード、秘密鍵、PIN、署名済みデータ、キーチェーン項目は含まれません。";
+"App PIN" = "アプリのPIN";
+"Backup password" = "バックアップのパスワード";
+"Choose the app PIN for the returned wallets. Their files will move back, their keys will stay on this iPhone, and SORA will check them before opening. From now on, these wallets will use this PIN." = "戻すウォレットを保護するアプリのPINを決めてください。ファイルを元に戻し、鍵はこのiPhoneに保持したまま、SORAが確認してからウォレットを開きます。以後、これらのウォレットにはこのPINを使用します。";
+"Choose the existing wallet" = "既存のウォレットを選択";
+"Choose the saved wallet data to check. Your current wallet must be empty." = "確認する保存済みウォレットデータを選んでください。現在のウォレットが空の場合にのみ戻せます。";
+"Choose the saved wallet whose keys you want to restore." = "鍵を復元する保存済みウォレットを選んでください。";
+"Confirm app PIN" = "アプリのPINを確認";
+"Contact SORA support if you need help. Never share your recovery phrase, private key or PIN." = "お困りの場合はSORAサポートにお問い合わせください。復元フレーズ、秘密鍵、PINは絶対に共有しないでください。";
+"Copy instructions" = "説明をコピー";
+"Could not prepare wallet setup" = "ウォレットの設定を準備できませんでした";
+"Create export" = "エクスポートを作成";
+"Create protected recovery export?" = "保護された復元用エクスポートを作成しますか？";
+"Earlier wallet data not opened" = "以前のウォレットデータを開けませんでした";
+"Encrypted backup found. Enter its backup password to verify and restore the saved account." = "暗号化されたバックアップが見つかりました。バックアップのパスワードを入力して、保存済みアカウントを確認し、復元してください。";
+"Enter the PIN that protected these wallets. If they used different PINs, you will be asked for each one." = "これらのウォレットを保護していたPINを入力してください。異なるPINを使用していた場合は、それぞれのPINを確認します。";
+"Enter the password you set for this SORA Google Drive backup. The password stays on this iPhone. SORA will verify that the backup matches your saved account before restoring missing keys." = "このSORAのGoogleドライブバックアップに設定したパスワードを入力してください。パスワードはこのiPhoneの外に送信されません。SORAはバックアップが保存済みアカウントと一致することを確認してから、不足している鍵を復元します。";
+"Enter this wallet’s recovery phrase on this iPhone. It must match the existing account. Add your original derivation path only if you used one." = "このiPhoneで、このウォレットの復元フレーズを入力してください。既存のアカウントと一致する必要があります。以前に派生パスを使っていた場合のみ、そのパスも入力してください。";
+"It does not contain your phrase, seed, private key, PIN, signed transaction payloads, or any Keychain item. Keychain secrets stay only on this device." = "復元フレーズ、シード、秘密鍵、PIN、署名済み取引データ、キーチェーン項目は含まれません。キーチェーンの秘密情報はこのデバイスにのみ保持されます。";
+"Keep any existing recovery phrase or encrypted JSON backup offline." = "お持ちの復元フレーズや暗号化JSONバックアップをオフラインで保管してください。";
+"Keep the export private and share it only through an official support channel whose identity you have verified." = "エクスポートは非公開で保管し、身元を確認した公式サポート窓口にのみ共有してください。";
+"Keychain secrets remain only on this device." = "キーチェーンの秘密情報は引き続きこのデバイスにのみ保持されます。";
+"Keychain secrets stay only on this device." = "キーチェーンの秘密情報はこのデバイスにのみ保持されます。";
+"Missing credentials restored. Verifying the complete wallet…" = "不足していた認証情報を復元しました。ウォレット全体を確認しています…";
+"Never send anyone your phrase, seed, private key, or PIN." = "復元フレーズ、シード、秘密鍵、PINを誰にも送信しないでください。";
+"No detailed check was recorded by the previous build." = "以前のビルドでは詳細な確認結果が記録されていません。";
+"No recovery package was published." = "復元パッケージは作成されませんでした。";
+"Open SORA support" = "SORAサポートを開く";
+"Original derivation path (optional)" = "元の派生パス（任意）";
+"Protect the returned wallets" = "戻すウォレットを保護";
+"Protect your recovery options" = "復元手段を保護";
+"Protected export created." = "保護されたエクスポートを作成しました。";
+"Recovery export stopped safely" = "復元用エクスポートを安全に停止しました";
+"Recovery phrase" = "復元フレーズ";
+"Restore with your recovery phrase using the button below." = "下のボタンから復元フレーズで復元できます。";
+"SORA could not prepare the new wallet setup. The earlier wallet keys and their ownership PIN protection are unchanged. Try again, or restore the wallets first." = "SORAは新しいウォレットの設定を準備できませんでした。以前のウォレットの鍵と、所有者のPINによる保護は変わっていません。もう一度試すか、先にウォレットを復元してください。";
+"SORA could not verify the wallet for this operation. Your existing wallet data has been kept." = "この操作に必要なウォレットの確認ができませんでした。既存のウォレットデータは保持されています。";
+"Saved wallet data %d" = "保存済みウォレットデータ %d";
+"Set up this iPhone again keeps the earlier files in a separate folder on this iPhone." = "「このiPhoneを再設定」すると、以前のファイルはこのiPhoneの別のフォルダに保持されます。";
+"Sign in to the Google account used for this wallet’s backup. SORA will read its encrypted backup." = "このウォレットのバックアップに使用したGoogleアカウントにログインしてください。SORAが暗号化されたバックアップを読み込みます。";
+"The earlier data could not be returned safely. Its files and keys have been kept. Reopen SORA to resume an interrupted return, or restore with your original backup." = "以前のデータを安全に戻せませんでした。ファイルと鍵は保持されています。SORAを開き直して中断した処理を再開するか、元のバックアップから復元してください。";
+"The earlier files were kept. Reopen SORA to continue, or try again." = "以前のファイルは保持されています。SORAを開き直して続けるか、もう一度試してください。";
+"The export can contain public wallet metadata, including addresses, account names, preferences, and transaction history." = "エクスポートには、アドレス、アカウント名、設定、取引履歴などのウォレットの公開情報が含まれる場合があります。";
+"The installed wallet, settings, recovery marker, and Keychain were not changed." = "インストール済みのウォレット、設定、復元マーカー、キーチェーンは変更されていません。";
+"The phrase and derivation path could not be verified for this account, or the keys could not be saved. Existing accounts and keys were not replaced. Check your original backup and try again." = "このアカウントの復元フレーズと派生パスを確認できなかったか、鍵を保存できませんでした。既存のアカウントと鍵は置き換えていません。元のバックアップを確認して、もう一度試してください。";
+"The retained account could not be read for recovery. Its data has not been changed." = "復元のために保持されているアカウントを読み取れませんでした。データは変更されていません。";
+"These wallets were saved by an older version without an ownership PIN. Restore them with their recovery phrase or Google Drive backup. The earlier files and keys remain on this iPhone." = "これらのウォレットは、所有者のPINを保存しない以前のバージョンで保存されました。復元フレーズまたはGoogleドライブのバックアップで復元してください。以前のファイルと鍵はこのiPhoneに保持されています。";
+"Try again to run the wallet checks once more." = "「もう一度試す」でウォレットの確認を再実行できます。";
+"Unlock this iPhone, then try again." = "このiPhoneのロックを解除して、もう一度試してください。";
+"Unlock your existing backup" = "既存のバックアップのロックを解除";
+"Use Copy recovery details when contacting SORA support." = "SORAサポートにお問い合わせの際は「復元の詳細をコピー」を使用してください。";
+"Use earlier wallet data" = "以前のウォレットデータを使用";
+"Use the earlier wallet data again" = "以前のウォレットデータを再び使用";
+"Verify and restore" = "確認して復元";
+"Verifying preserved files. Wallet data and Keychain will not be changed." = "保存されたファイルを確認しています。ウォレットデータとキーチェーンは変更されません。";
+"Verifying the backup against the saved account…" = "バックアップが保存済みアカウントと一致するか確認しています…";
+"Wallet keys not restored" = "ウォレットの鍵を復元できませんでした";
+"You can also restore from your encrypted Google Drive backup." = "暗号化されたGoogleドライブのバックアップからも復元できます。";
+"You can set aside the unreadable records of unfinished transactions below. Your wallet keys will not change." = "下のボタンから、読み取れない未完了取引の記録を別に保管できます。ウォレットの鍵は変更されません。";
+
+/* ik4 authenticated credential repair and recovery details */
+"Available" = "利用可能";
+"Backup recovery: %@" = "バックアップからの復元: %@";
+"Confirm the repair before changing this wallet's credentials." = "このウォレットの鍵を変更する前に、修復内容を確認してください。";
+"Confirm wallet repair" = "ウォレットの修復を確認";
+"Current app PIN" = "現在のアプリのPIN";
+"Current failure: %@" = "現在の問題: %@";
+"Enter the current app PIN to restore the downloaded backup for this account." = "ダウンロードしたバックアップをこのアカウントに復元するには、現在のアプリのPINを入力してください。";
+"Enter the recovery phrase, raw seed, or JSON backup that restores this exact wallet address." = "このウォレットアドレスを復元できるリカバリーフレーズ、シード、またはJSONバックアップを入力してください。";
+"Google Drive" = "Google ドライブ";
+"JSON backup password" = "JSONバックアップのパスワード";
+"Latest verification: not recorded; retry required" = "最新の検証: 記録なし。再試行が必要です";
+"Original recovery trigger: %@" = "復旧が必要になった最初の原因: %@";
+"Original recovery trigger: legacy record (details unavailable)" = "復旧が必要になった最初の原因: 旧バージョンの記録（詳細不明）";
+"Protected data when copied: %@" = "コピー時の保護データの状態: %@";
+"Raw seed" = "シード";
+"Recovery phrase, raw seed, or JSON backup" = "リカバリーフレーズ、シード、またはJSONバックアップ";
+"Recovery report format: 2" = "復旧レポート形式: 2";
+"Repair wallet" = "ウォレットを修復";
+"Repair wallet credentials" = "ウォレットの鍵を修復";
+"Retry repair" = "修復を再試行";
+"Review repair" = "修復内容を確認";
+"Supply a backup for the address below. Failed credentials will be preserved on this iPhone before replacement. This wallet will use the current app PIN." = "以下のアドレスのバックアップを入力してください。問題のある鍵は、置き換える前にこのiPhoneに保管します。このウォレットは現在のアプリのPINで保護されます。";
+"The backup could not be verified or the repair could not finish. Check the backup and PIN, then try again. Preserved credentials are unchanged." = "バックアップを検証できなかったか、修復を完了できませんでした。バックアップとPINを確認して、再試行してください。保管した元の鍵は変更していません。";
+"The repair could not be completed. Preserved credentials remain on this iPhone. Retry the repair before using this wallet." = "修復を完了できませんでした。保管した鍵はこのiPhoneに残っています。このウォレットを使用する前に、修復を再試行してください。";
+"The supplied backup must restore this exact address. Failed credentials will be preserved before replacement, and this wallet will use the current app PIN." = "入力したバックアップは、このアドレスを復元できる必要があります。問題のある鍵は置き換える前に保管し、このウォレットは現在のアプリのPINで保護されます。";
+"This wallet cannot be repaired in its current state. Return to recovery and try again." = "現在の状態ではこのウォレットを修復できません。復旧画面に戻って再試行してください。";
+"Unavailable" = "利用不可";
+"Unknown" = "不明";
+"Verifying and preserving wallet credentials…" = "ウォレットの鍵を検証して保管しています…";
+"Wallet credentials repaired." = "ウォレットの鍵を修復しました。";
+
+/* ik4 recovery diagnostic explanations */
+"The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved." = "保管された移行記録から、このアカウントの署名用の鍵を特定できませんでした。この検証だけでは、キーチェーンの記録がないとは判断できません。既存のアカウントデータは保管されています。";
+"SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account." = "保存されたアカウントは見つかりましたが、許可されたキーチェーンの読み取りでは、一致する署名用の鍵を確認できませんでした。鍵が削除されたと判断したわけではありません。元のリカバリーフレーズがあれば、既存のウォレットの鍵を復元する操作で、このアカウントを復元できます。";
+"A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved." = "一致するウォレットの鍵の記録が見つかりましたが、内容が空でした。既存のアカウントデータと他の鍵は保管されています。";
+"iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again." = "iOSが保護されたキーチェーンの読み取りを許可しませんでした。このiPhoneのロックを解除して、再試行してください。";
+"iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced." = "iOSがこのアプリのキーチェーンへのアクセスを拒否しました。詳細にシステムの状態コードを記録しました。ウォレットデータは置き換えていません。";
+"iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation." = "ウォレットの鍵を確認中に、iOSからエラーが返されました。この操作の失敗だけで、鍵がないとは判断していません。";
+"The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access." = "保存されたアカウントと復旧用の記録が一致しませんでした。SORAは両方を保管し、ウォレットへのアクセスを許可する前に停止しました。";
+"SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved." = "保存されたウォレットのデータベースを検証できませんでした。既存のファイルと復旧用コピーは保管されています。";
+"SORA needs more free storage to retain a verified recovery copy before completing this upgrade." = "アップグレードを完了する前に、検証済みの復旧用コピーを保管するための空き容量が必要です。";
+"SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved." = "最新のウォレット検証を完了できませんでした。以下の詳細で失敗した検証を確認できます。既存のウォレットデータは保管されています。";
+
+/* ik4 read-only accounts and signing preflight */
+"A wallet credential repair must finish before sending. Open Restore keys to retry the repair." = "送信する前に、ウォレットの鍵の修復を完了する必要があります。「鍵を復元」から修復を再試行してください。";
+"Checking keys…" = "鍵を確認中…";
+"Checking this account’s signing keys…" = "このアカウントの署名用の鍵を確認しています…";
+"Keys repaired; wallet checks need attention" = "鍵は修復済みです。ウォレットの検証が必要です";
+"Read-only" = "閲覧のみ";
+"Restore keys for this account" = "このアカウントの鍵を復元";
+"Retry" = "再試行";
+"Signing keys for this account are missing from this iPhone. Restore its backup to send." = "このアカウントの署名用の鍵がこのiPhoneにありません。送信するには、バックアップから復元してください。";
+"The stored signing keys do not prove this account. Restore its backup to send. Existing credentials will be preserved." = "保存された署名用の鍵がこのアカウントと一致しません。送信するには、バックアップから復元してください。既存の鍵は保管されます。";
+"This account was added as watch-only. Sending is disabled." = "このアカウントは閲覧専用として追加されています。送信はできません。";
+"Wallet keys or safety checks are unavailable. Unlock this iPhone and retry. If this continues, reopen the app for recovery." = "ウォレットの鍵を読み取れないか、安全性の検証を実行できません。このiPhoneのロックを解除して再試行してください。問題が続く場合は、アプリを開き直して復旧してください。";
+"Watch-only" = "閲覧専用";
+"Your repaired keys and preserved originals are saved. Reopen the app to complete wallet recovery before sending." = "修復した鍵と保管した元の鍵は保存されています。送信する前に、アプリを開き直してウォレットの復旧を完了してください。";
+
+"PIN verification unavailable. Try again" = "PINを確認できません。もう一度お試しください";
+
+"PIN verification unavailable" = "PINを確認できません";
+
+"Your wallet screen is still protected. Try entering your PIN again." = "ウォレット画面は引き続き保護されています。PINをもう一度入力してください。";
+
+"Send" = "送信";
+
+"Receive" = "受信";
+
+"SORA2 · Change network" = "SORA2・ネットワークを変更";
+
+/* Explicit retained-key repair during import */
+"This backup proves the imported address, but different credentials remain on this iPhone. The earlier credentials will be preserved before repair." = "このバックアップがインポートするアドレスと一致することを確認しましたが、このiPhoneには異なる鍵が残っています。修復前に以前の鍵を保管します。";
+"Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "復元するウォレット用に、新しいアプリのPINを設定して確認してください。以前のインストールで使用していたPINは使いません。";
+"Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "修復を確認するため、現在のアプリのPINを入力してください。復元したウォレットにはこのPINを使用します。";
+"New app PIN" = "新しいアプリのPIN";
+"Collapsed" = "折りたたみ";
+"Expanded" = "展開済み";
