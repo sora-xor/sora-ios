@@ -1151,10 +1151,9 @@ enum WalletPinPrompt {
                 "Too many attempts. Try again in %d min, or use your recovery phrase or Google Drive backup.",
                 minutes)
         case .noRetainedPin?:
-            return WalletUX.text("No PIN from an earlier install was found. Use your recovery phrase or Google Drive backup.")
-        case .earlierPinNotKept?:
-            return WalletUX.text("SORA could not save a copy of the PIN you used before. Nothing was changed. Try again.")
+            return WalletUX.text("These wallets have no saved ownership PIN. Restore them with your recovery phrase or Google Drive backup.")
         case nil:
+            if let error = error as? WalletOwnerPIN.Failure { return error.localizedDescription }
             if let error = error as? AccountCreateError, case .retainedKeyConflict = error {
                 return WalletUX.text("This iPhone already has different saved keys for this wallet. Nothing was changed. Contact SORA support.")
             }
@@ -1187,6 +1186,7 @@ enum WalletPinPrompt {
 final class WalletRecoveryPhraseViewController: UIViewController {
     private var entries: [WalletRecoveryPhraseReveal.Entry]
     private let wordsLabel = UILabel()
+    private let derivationStack = UIStackView()
     /// Opaque card holding the words; hidden with them.
     private let wordsCard = GlassView()
     private let hiddenLabel = UILabel()
@@ -1248,7 +1248,9 @@ final class WalletRecoveryPhraseViewController: UIViewController {
         doneButton.accessibilityIdentifier = "wallet-recovery-phrase-done"
         doneButton.addTarget(self, action: #selector(done), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, wordsCard, hiddenLabel, doneButton])
+        derivationStack.axis = .vertical
+        derivationStack.spacing = 12
+        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, wordsCard, derivationStack, hiddenLabel, doneButton])
         stack.axis = .vertical
         stack.spacing = 20
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -1295,12 +1297,27 @@ final class WalletRecoveryPhraseViewController: UIViewController {
     }
 
     private func setWordsVisible(_ visible: Bool) {
+        derivationStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        derivationStack.isHidden = !visible
         if visible {
             wordsLabel.text = entries.map { entry in
                 let words = entry.words.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
                 let name = entry.name.isEmpty ? String(entry.address.prefix(8)) + "…" : entry.name
                 return "\(name)\n\(words)"
             }.joined(separator: "\n\n")
+            for entry in entries {
+                guard let path = entry.derivationPath, !path.isEmpty else { continue }
+                let label = UILabel()
+                WalletSafeMode.body(label, alignment: .natural)
+                label.text = "\(entry.name)\n\(WalletUX.text("Also save this derivation path:"))\n\(path)"
+                let button = WalletSafeMode.button(.tertiary, title: WalletUX.text("Copy derivation path"))
+                button.addAction(UIAction { _ in
+                    UIPasteboard.general.setItems([["public.utf8-plain-text": path]],
+                        options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
+                }, for: .touchUpInside)
+                derivationStack.addArrangedSubview(label)
+                derivationStack.addArrangedSubview(button)
+            }
         } else {
             wordsLabel.text = nil
         }
@@ -1320,8 +1337,8 @@ final class WalletRecoveryPhraseViewController: UIViewController {
     }
 
     @objc private func done() {
-        wordsLabel.text = nil
         entries = []
+        setWordsVisible(false)
         dismiss(animated: true)
     }
 }
@@ -1335,8 +1352,8 @@ enum WalletSetUpAgainConfirmation {
         let first = UIAlertController(
             title: WalletUX.text("Set up this iPhone again?"),
             message: movesWalletData
-                ? WalletUX.text("SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted, and the earlier wallet data is moved to a separate folder on this iPhone. On the next screen you can restore the wallets whose keys are on this iPhone with the PIN you used before, or any wallet with its recovery phrase or Google Drive backup.")
-                : WalletUX.text("SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup, and the wallets found on this iPhone from Add account with the PIN you used before."),
+                ? WalletUX.text("SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted, and the earlier wallet data is moved to a separate folder on this iPhone. You can restore any wallet with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored with that PIN.")
+                : WalletUX.text("SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN."),
             preferredStyle: .alert
         )
         first.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
@@ -1365,6 +1382,15 @@ enum WalletRetainedWalletRestoreFlow {
     enum Outcome {
         case restored(count: Int, failed: Int)
         case nothingRestored(message: String)
+        case setupRequired(count: Int, message: String)
+    }
+
+    /// A post-commit callback failure does not undo a verified account row.
+    /// Reconcile against the authorized address set before deciding the result.
+    static func committedAddresses(current: [AccountItem], authorized: Set<String>,
+                                   existingBefore: Set<String>, welcomeBack: Bool) -> Set<String> {
+        Set(current.map(\.address)).intersection(authorized)
+            .subtracting(welcomeBack ? [] : existingBefore)
     }
 
     static func run(
@@ -1373,56 +1399,102 @@ enum WalletRetainedWalletRestoreFlow {
         setBusy: @escaping (Bool) -> Void,
         completion: @escaping (Outcome) -> Void
     ) {
-        WalletPinPrompt.present(on: controller, message: WalletUX.text(
-            "Enter the PIN you used for SORA on this iPhone. Wallets whose saved keys match their address will be restored."
-        )) { pin in
+        let message = scope == .welcomeBack
+            ? WalletUX.text("Enter the PIN that protected these wallets. Only wallets owned by that PIN will be restored, and this app will use that PIN.")
+            : WalletUX.text("Enter the PIN that protected the wallets you want to restore.")
+        WalletPinPrompt.present(on: controller, message: message) { ownerPIN in
             setBusy(true)
             DispatchQueue.global(qos: .userInitiated).async {
-                var pin = pin
-                defer { pin.removeAll(keepingCapacity: false) }
-                let keychain = Keychain()
-                let outcome: Outcome
-                do {
-                    let matchedCurrentPin = try WalletRetainedPinGate.verify(
-                        pin, keystore: keychain, settings: SettingsManager.shared, scope: scope)
-                    if scope == .welcomeBack {
-                        // Wallets that are not restored now (one fails, or
-                        // the user adds others later) stay restorable from
-                        // Add account with this same PIN.
-                        _ = try? WalletRetainedPinGate.preserveEarlierInstallPin(keystore: keychain)
-                    }
-                    let existing = try WalletAccountAddresses.current()
-                    let inventory = try RetainedKeychainWalletDiscovery.inventory(
-                        keystore: keychain, excluding: existing)
-                    let result = RetainedKeychainWalletDiscovery.restore(
-                        inventory.adoptable,
-                        existing: existing,
-                        keystore: keychain,
-                        selectedWalletSettings: SelectedWalletSettings.shared
-                    )
-                    if !result.restored.isEmpty {
-                        if scope == .welcomeBack {
-                            // A PIN that matched only an earlier copy is not
-                            // the PIN the app asks for next: set a new one
-                            // first (PIN setup keeps the current one).
-                            WalletPendingPinSetup.settleAfterWelcomeBackRestore(
-                                matchedCurrentPin: matchedCurrentPin, settings: SettingsManager.shared)
+                let result = Result { () -> WalletOwnerPIN.RetainedAuthorization in
+                    let keychain = Keychain()
+                    let service = WalletOwnerPIN(keystore: keychain, settings: SettingsManager.shared)
+                    let accounts = try service.prepareRetainedAuthentication { try WalletAccountAddresses.accounts() }
+                    if scope == .welcomeBack, !accounts.isEmpty {
+                        guard try service.requiresInitialSetup(accounts: accounts) else {
+                            throw WalletOwnerPIN.Failure.authenticationRequired
                         }
-                        outcome = .restored(count: result.restored.count, failed: result.failedAddresses.count)
-                    } else if let error = result.firstError {
-                        outcome = .nothingRestored(message: WalletPinPrompt.message(for: error))
-                    } else {
-                        outcome = .nothingRestored(message: WalletUX.text(
-                            "No wallet on this iPhone could be verified. Use your recovery phrase or Google Drive backup."))
                     }
-                } catch {
-                    outcome = .nothingRestored(message: WalletPinPrompt.message(for: error))
+                    let existing = scope == .welcomeBack ? Set<String>() : Set(accounts.map(\.address))
+                    let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain, excluding: existing)
+                    return try service.authorizeRetained(ownerPIN, addresses: Set(inventory.adoptable.map(\.address)))
                 }
                 DispatchQueue.main.async {
                     setBusy(false)
-                    completion(outcome)
+                    switch result {
+                    case let .failure(error): completion(.nothingRestored(message: WalletPinPrompt.message(for: error)))
+                    case let .success(grant):
+                        if scope == .welcomeBack {
+                            restore(grant: grant, appPIN: ownerPIN, scope: scope,
+                                    setBusy: setBusy, completion: completion)
+                        } else {
+                            WalletPinPrompt.present(on: controller, message: WalletUX.text(
+                                "Enter this app's PIN. The restored wallets will from now on be protected by this app's PIN."
+                            )) { currentPIN in
+                                restore(grant: grant, appPIN: currentPIN, scope: scope,
+                                        setBusy: setBusy, completion: completion)
+                            }
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    private static func restore(grant: WalletOwnerPIN.RetainedAuthorization, appPIN: String,
+                                scope: WalletRetainedPinGate.Scope, setBusy: @escaping (Bool) -> Void,
+                                completion: @escaping (Outcome) -> Void) {
+        setBusy(true)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let keychain = Keychain(), settings = SettingsManager.shared
+            let service = WalletOwnerPIN(keystore: keychain, settings: settings)
+            let outcome: Outcome
+            var existing = Set<String>()
+            do {
+                let accounts = try service.prepareRetainedAuthentication { try WalletAccountAddresses.accounts() }
+                if scope == .afterSetup {
+                    _ = try service.authenticateCurrent(appPIN, currentAccounts: { try WalletAccountAddresses.accounts() })
+                } else if !accounts.isEmpty {
+                    guard Set(accounts.map(\.address)).isSubset(of: grant.addresses),
+                          try service.requiresInitialSetup(accounts: accounts) else {
+                        throw WalletOwnerPIN.Failure.authenticationRequired
+                    }
+                }
+                existing = Set(accounts.map(\.address))
+                let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: keychain, excluding: existing)
+                let attempted = inventory.adoptable.filter { grant.addresses.contains($0.address) }
+                let result = RetainedKeychainWalletDiscovery.restore(
+                    attempted, existing: existing, keystore: keychain,
+                    selectedWalletSettings: SelectedWalletSettings.shared,
+                    prepareOwnership: { wallet in try service.prepareRebinding(address: wallet.address, to: appPIN,
+                                                                             consumeSetupIntent: scope == .afterSetup) },
+                    ownershipAuthorization: grant)
+                let lease = WalletLifecycleCoordinator.shared.acquire()
+                defer { lease.release() }
+                let current = try WalletAccountAddresses.accounts()
+                try service.settleRebindings(currentAddresses: Set(current.map(\.address)))
+                let committed = committedAddresses(current: current, authorized: grant.addresses,
+                    existingBefore: existing, welcomeBack: scope == .welcomeBack)
+                if !committed.isEmpty {
+                    if scope == .welcomeBack { try service.setInitialPIN(appPIN, accounts: current) }
+                    let failed = Set(result.failedAddresses).subtracting(committed).count
+                    outcome = .restored(count: committed.count, failed: failed)
+                } else {
+                    outcome = .nothingRestored(message: result.firstError.map(WalletPinPrompt.message) ?? WalletUX.text(
+                        "No wallet on this iPhone could be verified. Use your recovery phrase or Google Drive backup."))
+                }
+            } catch {
+                let current = (try? WalletAccountAddresses.accounts()) ?? []
+                let committed = committedAddresses(current: current, authorized: grant.addresses,
+                    existingBefore: existing, welcomeBack: scope == .welcomeBack)
+                if scope == .welcomeBack, !committed.isEmpty {
+                    outcome = .setupRequired(count: committed.count, message: WalletUX.text(
+                        "Your restored wallets are saved. Complete PIN setup to continue. Your wallet keys are unchanged."))
+                } else if !committed.isEmpty {
+                    outcome = .nothingRestored(message: WalletUX.text(
+                        "Your restored wallets are saved, but the PIN protection update could not finish. Try again before using them."))
+                } else { outcome = .nothingRestored(message: WalletPinPrompt.message(for: error)) }
+            }
+            DispatchQueue.main.async { setBusy(false); completion(outcome) }
         }
     }
 
@@ -1484,7 +1556,7 @@ final class WalletWelcomeBackViewController: UIViewController {
 
         let bodyLabel = UILabel()
         WalletSafeMode.body(bodyLabel)
-        bodyLabel.text = WalletUX.text("We found SORA data from an earlier install on this iPhone. Choose how to continue. Nothing will be deleted.")
+        bodyLabel.text = WalletUX.text("We found SORA data from an earlier install on this iPhone. Choose how to continue. Nothing will be deleted. Wallets saved by older versions without an ownership PIN need your recovery phrase or Google Drive backup.")
 
         restoreFoundButton.accessibilityIdentifier = "wallet-welcome-back-restore-found"
         restoreFoundButton.isHidden = true
@@ -1676,6 +1748,13 @@ final class WalletWelcomeBackViewController: UIViewController {
             case let .nothingRestored(message):
                 self.showError(message)
                 self.refreshOptions()
+            case let .setupRequired(_, message):
+                let alert = UIAlertController(title: WalletUX.text("Complete PIN setup"),
+                    message: message, preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: WalletUX.text("Continue"), style: .default) { _ in
+                    self.onWalletsRestored()
+                })
+                self.present(alert, animated: true)
             }
         }
     }

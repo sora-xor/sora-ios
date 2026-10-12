@@ -271,8 +271,8 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
                     controller.present(WalletRetainedWalletRestoreFlow.partialAlert(
                         restored: count, failed: failed, onOK: finish), animated: true)
                 }
-            case let .nothingRestored(message):
-                let alert = UIAlertController(title: WalletUX.text("Nothing was changed"), message: message,
+            case let .setupRequired(_, message), let .nothingRestored(message):
+                let alert = UIAlertController(title: WalletUX.text("Wallet restore"), message: message,
                                               preferredStyle: .alert)
                 alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
                 controller.present(alert, animated: true)

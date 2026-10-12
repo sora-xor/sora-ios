@@ -57,3 +57,45 @@ being integrated on `codex/upgrade-safety-20261012`; it is not a release verdict
   obtainable 1.x implementations, beyond the copied historical storage writers.
 - Full-suite results, independent review, backup-screen screenshots and the
   final device/upgrade matrix. Re-run unsigned Release after all changes.
+
+## Independent review follow-up (12 October)
+
+The read-only review of commit `95a6dabb` found three remaining gaps, recorded in
+`audit-2026-10-12/ios/identity-independent-review.json`. Current integration
+changes make availability and both startup-manifest paths independently prove
+surviving sources when no direct key exists. An unreadable sibling cannot block
+a valid source, and saved auxiliary-only manifests now recheck identity and a
+signature rather than mere presence. Recovery phrase reveal includes the
+verified path/password with its own copy action and the same capture/background
+protection as the phrase. Tests across all three crypto types, stale/unreadable
+siblings and full Core Data migration passed in `owner-pin-third.log`, as did
+the phrase/path round trip. One unrelated global-entropy mismatch classification
+was corrected after that run and is being rechecked. The earlier remaining-work
+list still applies; quarantine repair and historical dependency vectors are
+not completed by these changes.
+
+## Typed historical phrases
+
+Typed 3/6/9-word restore now asks for the wallet's known SORA address. Both the
+validation operation and the final name-screen import require that exact address
+before any secret persistence. The address travels through both onboarding and
+Add account. A missing/empty address, another wallet's address, or a missing
+required derivation path is rejected without writes. The new regression cases
+exercise all three short lengths across sr25519, ed25519 and ECDSA and verify the
+retained writer's exact signing key and production signature. These cases passed in the 106-test targeted run
+`pin-review-short-import-4.log`; they are not included in the older full-suite
+result below.
+
+The pre-follow-up Debug unit run (`owner-pin-full-debug.log`) completed 781 tests,
+with five skips and zero failures. Its separate physical-IPA migration evidence
+UI test was incorrectly runnable on a simulator; it now explicitly skips there.
+The long legacy activation interruption test was sampled while running and was
+actively deriving/verifying keys; it completed successfully. This result predates
+the final independent PIN corrections and typed short-phrase changes.
+
+The import screen now exposes crypto type and optional derivation path under
+Advanced options, and an encrypted JSON import accepts its backup password.
+Previously those setter hooks were empty and the selected controls could not
+reach the request. Controller-to-input-model and typed-address presenter tests
+pass in the same targeted run. Screenshot review and all production locales
+remain pending.

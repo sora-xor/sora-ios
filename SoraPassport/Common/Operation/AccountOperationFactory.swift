@@ -57,6 +57,8 @@ protocol AccountOperationFactoryProtocol {
 /// `persist`, so typing/scanning a candidate cannot mutate Keychain.
 final class PreparedAccount {
     let account: AccountItem
+    private var suppliedOwnershipProof: Bool
+    private var retainedOwnershipProof = false
 
     private let stateLock = NSLock()
     private var secretKey: Data
@@ -72,7 +74,8 @@ final class PreparedAccount {
         entropy: Data?,
         seed: Data?,
         derivationPath: String?,
-        recoveryGate: WalletRecoveryCapabilityGate = .shared
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        suppliedOwnershipProof: Bool = false
     ) throws {
         try LegacySoraIdentityValidator.validate(
             address: account.address,
@@ -86,6 +89,7 @@ final class PreparedAccount {
             recoveryGate: recoveryGate
         )
         self.account = account
+        self.suppliedOwnershipProof = suppliedOwnershipProof
         self.secretKey = secretKey
         self.entropy = entropy
         self.seed = seed
@@ -108,6 +112,42 @@ final class PreparedAccount {
             stateLock.unlock()
             throw AccountCreateError.duplicated
         }
+        do {
+            let absent = try missingMaterialLocked(in: keystore)
+            var written: [String] = []
+            do {
+                for (tag, value) in absent {
+                    try keystore.addKey(value, with: tag)
+                    written.append(tag)
+                }
+            } catch {
+                // Each of these tags was proven absent under the lifecycle
+                // lease, so removing only tags written by this failed attempt
+                // cannot delete an installed or adopted item.
+                for tag in written.reversed() {
+                    try? keystore.deleteKey(for: tag)
+                }
+                throw error
+            }
+            isConsumed = true
+            wipeLocked()
+            stateLock.unlock()
+        } catch {
+            stateLock.unlock()
+            throw error
+        }
+    }
+
+    /// Called under the same lifecycle lease as persistence, before creating
+    /// ownership metadata. A rejected import must leave no Keychain items.
+    func validatePersistence(to keystore: KeystoreProtocol) throws {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !isConsumed else { throw AccountCreateError.duplicated }
+        _ = try missingMaterialLocked(in: keystore)
+    }
+
+    private func missingMaterialLocked(in keystore: KeystoreProtocol) throws -> [(String, Data)] {
         let secretTag = KeystoreTag.secretKeyTagForAddress(account.address)
         let derivationTag = KeystoreTag.deriviationTagForAddress(account.address)
         // The writes are separate Keychain calls, and the process can die
@@ -144,65 +184,72 @@ final class PreparedAccount {
                 material.append((tag, value))
             }
         }
-        do {
-            // A JSON-only import already proves the derived secret, so a
-            // retained path is unrelated auxiliary data and stays untouched.
-            // Phrase/seed writes still require a compatible path.
-            var existingSecret: Data? = try keystore.loadIfKeyExists(secretTag)
-            defer { if let count = existingSecret?.count { existingSecret?.resetBytes(in: 0..<count) } }
-            let adoptsWorkingSecret = existingSecret.map {
-                LegacySoraIdentityValidator.storedSecret($0, matches: secretKey, cryptoType: account.cryptoType)
-            } == true
-            if adoptsWorkingSecret, material.contains(where: { $0.0 != secretTag }) {
-                // Repair can fill gaps without overwriting older backup bytes.
-                // If their retained path differs, only the secret is compatible.
-                let retainedPath = try keystore.loadIfKeyExists(derivationTag)
-                if retainedPath != nil && retainedPath != derivation {
-                    material = material.filter { $0.0 == secretTag }
-                }
-            } else if derivation == nil, entropy != nil || seed != nil,
-                      let retainedPath = try keystore.loadIfKeyExists(derivationTag), !retainedPath.isEmpty {
+        // A JSON-only import already proves the derived secret, so a
+        // retained path is unrelated auxiliary data and stays untouched.
+        // Phrase/seed writes still require a compatible path.
+        var existingSecret: Data? = try keystore.loadIfKeyExists(secretTag)
+        defer { if let count = existingSecret?.count { existingSecret?.resetBytes(in: 0..<count) } }
+        let adoptsWorkingSecret = existingSecret.map {
+            LegacySoraIdentityValidator.storedSecret($0, matches: secretKey, cryptoType: account.cryptoType)
+        } == true
+        if adoptsWorkingSecret, material.contains(where: { $0.0 != secretTag }) {
+            // Repair can fill gaps without overwriting older backup bytes.
+            // If their retained path differs, only the secret is compatible.
+            let retainedPath = try keystore.loadIfKeyExists(derivationTag)
+            if retainedPath != nil && retainedPath != derivation {
+                material = material.filter { $0.0 == secretTag }
+            }
+        } else if derivation == nil, entropy != nil || seed != nil,
+                  let retainedPath = try keystore.loadIfKeyExists(derivationTag), !retainedPath.isEmpty {
+            throw AccountCreateError.retainedKeyConflict
+        }
+        var absent: [(String, Data)] = []
+        for (tag, value) in material {
+            guard try keystore.checkKey(for: tag) else {
+                absent.append((tag, value))
+                continue
+            }
+            var retained = try keystore.fetchKey(for: tag)
+            defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+            let matches = tag == secretTag
+                ? LegacySoraIdentityValidator.storedSecret(
+                    retained, matches: value, cryptoType: account.cryptoType)
+                : LegacySoraIdentityValidator.constantTimeEqual(retained, value)
+            guard matches else {
+                if adoptsWorkingSecret && tag != secretTag { continue }
                 throw AccountCreateError.retainedKeyConflict
             }
-            var absent: [(String, Data)] = []
-            for (tag, value) in material {
-                guard try keystore.checkKey(for: tag) else {
-                    absent.append((tag, value))
-                    continue
-                }
-                var retained = try keystore.fetchKey(for: tag)
-                defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
-                let matches = tag == secretTag
-                    ? LegacySoraIdentityValidator.storedSecret(
-                        retained, matches: value, cryptoType: account.cryptoType)
-                    : LegacySoraIdentityValidator.constantTimeEqual(retained, value)
-                guard matches else {
-                    if adoptsWorkingSecret && tag != secretTag { continue }
-                    throw AccountCreateError.retainedKeyConflict
-                }
-            }
-            var written: [String] = []
-            do {
-                for (tag, value) in absent {
-                    try keystore.addKey(value, with: tag)
-                    written.append(tag)
-                }
-            } catch {
-                // Each of these tags was proven absent under the lifecycle
-                // lease, so removing only tags written by this failed attempt
-                // cannot delete an installed or adopted item.
-                for tag in written.reversed() {
-                    try? keystore.deleteKey(for: tag)
-                }
-                throw error
-            }
-            isConsumed = true
-            wipeLocked()
-            stateLock.unlock()
-        } catch {
-            stateLock.unlock()
-            throw error
         }
+        return absent
+    }
+
+    func restrictToRetainedOwnership(_ grant: WalletOwnerPIN.RetainedAuthorization?) {
+        suppliedOwnershipProof = false
+        retainedOwnershipProof = grant?.addresses.contains(account.address) == true
+    }
+
+    func prepareInitialPINSetup(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                               operationID: UUID) throws {
+        guard suppliedOwnershipProof || retainedOwnershipProof else { return }
+        try WalletOwnerPIN(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+            .prepareInitialSetup(account: account, operationID: operationID)
+    }
+
+    /// Called by the journaled insert only. Factories prove material supplied
+    /// for create/import; retained-wallet discovery deliberately has no grant.
+    func prepareOwnershipBinding(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                                 existingAccounts: [AccountItem]? = nil) throws {
+        let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+        let initialSetup: Bool
+        if let existingAccounts {
+            initialSetup = try existingAccounts.isEmpty || ownerPIN.requiresInitialSetup(accounts: existingAccounts)
+        } else { initialSetup = try ownerPIN.requiresInitialSetup(accounts: [account]) }
+        guard suppliedOwnershipProof, !initialSetup,
+              var pin = try keystore.loadIfKeyExists(KeystoreTag.pincode.rawValue) else { return }
+        defer { pin.resetBytes(in: 0..<pin.count) }
+        guard let value = String(data: pin, encoding: .utf8) else { throw WalletOwnerPIN.Failure.invalidPIN }
+        try WalletOwnerPIN(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+            .prepareRebinding(address: account.address, to: value, consumeSetupIntent: true)
     }
 
     func discard() {
@@ -314,7 +361,8 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                 derivationPath: request.derivationPath.isEmpty
                     ? nil
                     : request.derivationPath,
-                recoveryGate: self.recoveryGate
+                recoveryGate: self.recoveryGate,
+                suppliedOwnershipProof: true
             )
         }
     }
@@ -379,7 +427,8 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                 derivationPath: request.derivationPath.isEmpty
                     ? nil
                     : request.derivationPath,
-                recoveryGate: self.recoveryGate
+                recoveryGate: self.recoveryGate,
+                suppliedOwnershipProof: true
             )
         }
     }
@@ -436,7 +485,8 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                 entropy: nil,
                 seed: nil,
                 derivationPath: nil,
-                recoveryGate: self.recoveryGate
+                recoveryGate: self.recoveryGate,
+                suppliedOwnershipProof: true
             )
         }
     }

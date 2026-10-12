@@ -38,15 +38,16 @@ protocol ScreenAuthorizationWireframeProtocol: AnyObject {
 
 final class PinViewFactory {
     
-    fileprivate static func extractedFunc(_ config: ApplicationConfig) -> PinSetupInteractor {
+    fileprivate static func extractedFunc(_ config: ApplicationConfig, authorization: WalletOwnerPIN.Authorization) -> PinSetupInteractor {
         return PinSetupInteractor(secretManager: KeychainManager.shared,
                                   settingsManager: SettingsManager.shared,
                                   biometryAuth: BiometryAuth(),
-                                  config: config as ApplicationConfigProtocol
+                                  config: config as ApplicationConfigProtocol,
+                                  authorization: authorization
         )
     }
     
-    static func createRedesignPinEditView() -> PinSetupViewProtocol? {
+    static func createRedesignPinEditView(authorization: WalletOwnerPIN.Authorization) -> PinSetupViewProtocol? {
         let pinSetupView = PincodeViewController()
 
         pinSetupView.mode = .create
@@ -58,7 +59,7 @@ final class PinViewFactory {
         )
 
         let config = ApplicationConfig.shared!
-        let interactor = extractedFunc(config)
+        let interactor = extractedFunc(config, authorization: authorization)
 
         pinSetupView.presenter = presenter
         presenter.view = pinSetupView
@@ -85,7 +86,7 @@ final class PinViewFactory {
                                             settingsManager: SettingsManager.shared,
                                             biometryAuth: BiometryAuth(),
                                             config: config as ApplicationConfigProtocol,
-                                            earlierPinKeystore: Keychain()
+                                            ownerPINKeystore: Keychain()
         )
 
         pinSetupView.presenter = presenter

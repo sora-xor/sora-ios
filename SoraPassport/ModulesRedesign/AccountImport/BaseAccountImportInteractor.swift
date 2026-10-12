@@ -181,6 +181,29 @@ class BaseAccountImportInteractor {
         }
     }
 
+    /// A short historical phrase restores a user-supplied identity. Merely
+    /// accepting the word count would silently create a different wallet after
+    /// a typo or missing path. Both validation and final import use this check.
+    func prepareMnemonic(_ request: AccountImportMnemonicRequest) throws -> BaseOperation<PreparedAccount> {
+        let expected = request.expectedAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+            throw AccountCreateError.invalidMnemonicFormat
+        }
+        let count = mnemonic.allWords().count
+        guard allowedMnemonicWordCounts.contains(count) ||
+                (WalletMnemonicWordPolicy.retainedShortWordCounts.contains(count) &&
+                    expected?.isEmpty == false) else {
+            throw AccountCreateError.invalidMnemonicFormat
+        }
+        let operation = accountOperationFactory.prepareAccountOperation(
+            request: AccountCreationRequest(username: request.username, type: request.networkType,
+                derivationPath: request.derivationPath, cryptoType: request.cryptoType), mnemonic: mnemonic)
+        if let expected {
+            return Self.requireAddress(expected, of: operation)
+        }
+        return operation
+    }
+
     /// Runs the preparation, then refuses an account whose address differs
     /// from the backup's. The prepared secrets are wiped, never persisted.
     static func requireAddress(
@@ -206,28 +229,12 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
 
     func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        guard
-            let mnemonic = try? mnemonicCreator.mnemonic(
-                fromList: request.mnemonic
-            ),
-            allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
-        else {
-            presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
-            return
+        do {
+            importAccountUsingOperation(try prepareMnemonic(request), completion: completion)
+        } catch {
+            presenter?.didReceiveAccountImport(error: error)
+            completion?(.failure(error))
         }
-
-        let creationRequest = AccountCreationRequest(username: request.username,
-                                                     type: request.networkType,
-                                                     derivationPath: request.derivationPath,
-                                                     cryptoType: request.cryptoType)
-
-        let accountOperation =
-            accountOperationFactory.prepareAccountOperation(
-                request: creationRequest,
-                mnemonic: mnemonic
-            )
-
-        importAccountUsingOperation(accountOperation, completion: completion)
     }
 
     func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
@@ -243,30 +250,14 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
     
     func validateAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        guard
-            let mnemonic = try? mnemonicCreator.mnemonic(
-                fromList: request.mnemonic
-            ),
-            allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
-        else {
-            presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
-            return
+        do {
+            validateAccountUsingOperation(try prepareMnemonic(request), completion: completion)
+        } catch {
+            if let completion { completion(.failure(error)) }
+            else { presenter?.didReceiveAccountImport(error: error) }
         }
-        
-        let creationRequest = AccountCreationRequest(username: request.username,
-                                                     type: request.networkType,
-                                                     derivationPath: request.derivationPath,
-                                                     cryptoType: request.cryptoType)
-        
-        let operation =
-            accountOperationFactory.prepareAccountOperation(
-                request: creationRequest,
-                mnemonic: mnemonic
-            )
-        
-        validateAccountUsingOperation(operation, completion: completion)
     }
-    
+
     func validateAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
         let operation =
             accountOperationFactory.prepareAccountOperation(request: request)

@@ -122,17 +122,18 @@ enum WalletRecoveryStateProbe {
     ) -> WalletRecoveryState {
         let inventory = (try? RetainedKeychainWalletDiscovery.inventory(keystore: keystore))
             ?? RetainedKeychainWalletDiscovery.Inventory()
+        let bound = (try? WalletOwnerPIN.boundAddresses(keystore: keystore)) ?? []
+        let owned = inventory.adoptable.filter { bound.contains($0.address) }
         return .welcomeBack(
-            adoptableWallets: inventory.adoptable.count,
-            walletsWithPhrase: inventory.adoptable.filter(\.hasPhrase).count,
+            adoptableWallets: owned.count,
+            walletsWithPhrase: owned.filter(\.hasPhrase).count,
             retainedPinUsable: WalletRetainedPinGate.isUsable(keystore: keystore, settings: settings,
                                                               scope: .welcomeBack)
         )
     }
 
     /// After a wallet exists: wallets an earlier install left in the
-    /// Keychain that are not in the wallet yet, when a copy of the earlier
-    /// install's PIN (kept as onboarding started) can restore them. Empty
+    /// Keychain that are not in the wallet yet, whose own saved PIN binding can restore them. Empty
     /// otherwise. Read-only; call from a background queue.
     static func retainedWalletsAfterSetup(
         keystore: KeystoreProtocol,
@@ -140,9 +141,10 @@ enum WalletRecoveryStateProbe {
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) -> [RetainedKeychainWallet] {
         guard WalletRetainedPinGate.hasRetainedPin(keystore: keystore, scope: .afterSetup) else { return [] }
-        return (try? RetainedKeychainWalletDiscovery.inventory(
+        let bound = (try? WalletOwnerPIN.boundAddresses(keystore: keystore)) ?? []
+        return ((try? RetainedKeychainWalletDiscovery.inventory(
             keystore: keystore, excluding: existingAddresses, recoveryGate: recoveryGate
-        ).adoptable) ?? []
+        ).adoptable) ?? []).filter { bound.contains($0.address) }
     }
 
     static func recovery(

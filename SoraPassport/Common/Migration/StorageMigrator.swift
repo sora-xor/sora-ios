@@ -2586,15 +2586,18 @@ final class UserStorageMigrator {
                     // Direct signing proof does not depend on auxiliary
                     // readability. Keep readable records in the manifest as
                     // evidence; auxiliary read failures cannot demote a key.
+                    var entropyError: Error?, seedError: Error?, pathError: Error?
                     var entropy: Data?
                     do { entropy = try fetchEntropyForAddress(address, diagnostic: observation) }
-                    catch where secret != nil || LegacySoraIdentityValidator.isAccountIdentityFailure(error) { }
+                    catch {
+                        if !LegacySoraIdentityValidator.isAccountIdentityFailure(error) { entropyError = error }
+                    }
                     var seed: Data?
                     do {
                         seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
                             try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
                         }
-                    } catch where secret != nil { }
+                    } catch { seedError = error }
                     defer {
                         Self.wipeSensitive(&secret)
                         Self.wipeSensitive(&entropy)
@@ -2602,7 +2605,7 @@ final class UserStorageMigrator {
                     }
                     var derivation: String?
                     do { derivation = try keystore.fetchDeriviationForAddress(address, diagnostic: observation) }
-                    catch where secret != nil { }
+                    catch { pathError = error }
                     guard
                         let cryptoValue = UInt8(exactly: cryptoRaw),
                         let cryptoType = CryptoType(rawValue: cryptoValue),
@@ -2634,12 +2637,14 @@ final class UserStorageMigrator {
                     // thrown above and are retried, never absorbed here.
                     var signingUnavailable = false
                     if isExplicitWatchOnly {
+                        if let error = entropyError ?? seedError ?? pathError { throw error }
                         try LegacySoraIdentityValidator.validate(
                             address: address, publicKey: publicKey, cryptoType: cryptoType,
                             networkType: networkType, derivationPath: derivation,
                             entropy: nil, rawSeed: nil, secret: nil, recoveryGate: recoveryGate
                         )
                     } else if secret == nil, entropy == nil, seed == nil {
+                        if let error = entropyError ?? seedError ?? pathError { throw error }
                         signingUnavailable = true
                     } else {
                         do {
@@ -2653,9 +2658,12 @@ final class UserStorageMigrator {
                                     settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
                                     order: 0, isSelected: false)
                                 var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
-                                    readEntropy: { entropy }, readSeed: { seed }, readPath: { derivation })
+                                    readEntropy: { if let entropyError { throw entropyError }; return entropy },
+                                    readSeed: { if let seedError { throw seedError }; return seed },
+                                    readPath: { if let pathError { throw pathError }; return derivation })
                                 defer { backup.wipe() }
                                 guard backup.entropy != nil || backup.seed != nil else {
+                                    if let error = backup.firstReadError { throw error }
                                     throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
                                 }
                             }
@@ -2793,43 +2801,54 @@ final class UserStorageMigrator {
                 else {
                     throw UserStorageMigrationError.missingWalletSecret(account.address)
                 }
-                if account.hasSecretKey {
-                    var secret = try WalletSecretDiagnostics.observe(.scopedSecret, into: observation) {
-                        try keystore.fetchSecretKeyForAddress(account.address)
-                    }
-                    defer { Self.wipeSensitive(&secret) }
-                    guard let secret,
-                          let cryptoValue = UInt8(exactly: account.cryptoType),
-                          let cryptoType = CryptoType(rawValue: cryptoValue),
-                          let networkType = SNAddressType(exactly: account.networkType) else {
-                        throw UserStorageMigrationError.emptyWalletSecret(account.address)
-                    }
+                if isExplicitWatchOnly { continue }
+                guard let cryptoValue = UInt8(exactly: account.cryptoType),
+                      let cryptoType = CryptoType(rawValue: cryptoValue),
+                      let networkType = SNAddressType(exactly: account.networkType) else {
+                    throw UserStorageMigrationError.accountInventoryMismatch
+                }
+                func proves(_ secret: Data) throws -> Bool {
                     let publicKey = try LegacySoraIdentityValidator.publicKeyForSecret(address: account.address,
                         networkType: networkType, cryptoType: cryptoType, secret: secret)
-                    guard Data(SHA256.hash(data: publicKey)).hexString == account.publicKeySHA256 else {
-                        throw UserStorageMigrationError.accountInventoryMismatch
-                    }
+                    guard Data(SHA256.hash(data: publicKey)).hexString == account.publicKeySHA256 else { return false }
                     try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
                         publicKey: publicKey, cryptoType: cryptoType, networkType: networkType,
                         secret: secret, recoveryGate: recoveryGate)
+                    return true
+                }
+                if var secret = try WalletSecretDiagnostics.observe(.scopedSecret, into: observation, {
+                    try keystore.fetchSecretKeyForAddress(account.address)
+                }) {
+                    defer { secret.resetBytes(in: 0..<secret.count) }
+                    guard try proves(secret) else { throw UserStorageMigrationError.accountInventoryMismatch }
                     continue
                 }
-                if account.hasEntropy {
-                    var entropy = try fetchEntropyForAddress(account.address, diagnostic: observation)
-                    defer { Self.wipeSensitive(&entropy) }
-                    guard entropy?.isEmpty == false else {
-                        throw UserStorageMigrationError.emptyWalletSecret(account.address)
-                    }
-                }
-                if account.hasSeed {
-                    var seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
+                var entropy: Data?, seed: Data?, readError: Error?
+                defer { Self.wipeSensitive(&entropy); Self.wipeSensitive(&seed) }
+                do { entropy = try fetchEntropyForAddress(account.address, diagnostic: observation) }
+                catch { readError = error }
+                do {
+                    seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
                         try keystore.fetchSeedForAddress(account.address)
                     }
-                    defer { Self.wipeSensitive(&seed) }
-                    guard seed?.isEmpty == false else {
-                        throw UserStorageMigrationError.emptyWalletSecret(account.address)
-                    }
+                } catch { readError = readError ?? error }
+                let path = try keystore.fetchDeriviationForAddress(account.address, diagnostic: observation)
+                var matched = false
+                for source in [(entropy, Optional<Data>.none), (Optional<Data>.none, seed)] {
+                    if let seed = source.1, ![32, 64].contains(seed.count) { continue }
+                    do {
+                        guard var material = try WalletScopedKeyDerivation.derive(cryptoType: cryptoType,
+                            derivationPath: path, entropy: source.0, rawSeed: source.1) else { continue }
+                        defer { material.wipe() }
+                        if try proves(material.secret) { matched = true; break }
+                    } catch { continue }
                 }
+                try recoveryGate.requireAuthorizedLifecycleContinuation()
+                guard matched else {
+                    if let readError { throw readError }
+                    throw UserStorageMigrationError.accountInventoryMismatch
+                }
+
             } catch {
                 WalletStartupDiagnostic.retainSecretChecks(observation.snapshot, error: error)
                 throw error

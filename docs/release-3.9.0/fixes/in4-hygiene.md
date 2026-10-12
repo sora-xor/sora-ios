@@ -81,3 +81,12 @@ PIN audit confirms older builds can bypass the new protection. Replace build
 App Store Connect, and provide a tested upgrade path for testers. Confirm current
 age-rating answers, review notes, screenshots and last-compatible-version settings.
 Export-compliance declarations remain the publisher's legal determination.
+
+## Simulator evidence-runner guard
+
+The full Debug run on 12 October executed the protected production-IPA migration
+UI runner on a simulator. It failed because the production bundle was absent;
+a rebuilt development app cannot satisfy that runner's evidence contract.
+`RetainedMigrationEvidenceUITests` now skips on simulators before launch. Its
+physical-device behavior is unchanged. The 781 unit tests in that run passed
+(five intended skips). The targeted UI skip rerun is pending.

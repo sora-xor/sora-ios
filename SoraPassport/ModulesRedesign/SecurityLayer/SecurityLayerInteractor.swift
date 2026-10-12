@@ -49,8 +49,14 @@ final class SecurityLayerInteractor {
         // from Welcome back), `pincode` is an earlier install's PIN: asking
         // for it on return from the background could stop a user who does
         // not remember it, with no way on.
-        guard !WalletPendingPinSetup.isPending(settings) else { return false }
         do {
+            if let account = settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) {
+                guard try !WalletOwnerPIN(keystore: keystore, settings: settings)
+                    .requiresInitialSetup(accounts: [account]) else { return false }
+            } else if WalletPendingPinSetup.isPending(settings) {
+                // Only an onboarding presentation hint when no wallet row is selected.
+                return false
+            }
             let hasPincode = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
             return hasPincode
         } catch {
