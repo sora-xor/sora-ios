@@ -145,23 +145,24 @@ final class PreparedAccount {
             }
         }
         do {
-            // A retained derivation path for this address must equal the
-            // requested one (an absent request path equals no retained tag),
-            // because a phrase or seed with another path derives another
-            // address. A secret-only import (JSON) carries no path: it is
-            // adopted when the retained items, read with their own path,
-            // and this secret all prove this account.
-            if derivation == nil, try keystore.checkKey(for: derivationTag) {
-                var retained = try keystore.fetchKey(for: derivationTag)
-                defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
-                if !retained.isEmpty {
-                    guard entropy == nil, seed == nil,
-                          try retainedPathMaterialProves(
-                              path: String(data: retained, encoding: .utf8), keystore: keystore)
-                    else {
-                        throw AccountCreateError.retainedKeyConflict
-                    }
+            // A JSON-only import already proves the derived secret, so a
+            // retained path is unrelated auxiliary data and stays untouched.
+            // Phrase/seed writes still require a compatible path.
+            var existingSecret: Data? = try keystore.loadIfKeyExists(secretTag)
+            defer { if let count = existingSecret?.count { existingSecret?.resetBytes(in: 0..<count) } }
+            let adoptsWorkingSecret = existingSecret.map {
+                LegacySoraIdentityValidator.storedSecret($0, matches: secretKey, cryptoType: account.cryptoType)
+            } == true
+            if adoptsWorkingSecret, material.contains(where: { $0.0 != secretTag }) {
+                // Repair can fill gaps without overwriting older backup bytes.
+                // If their retained path differs, only the secret is compatible.
+                let retainedPath = try keystore.loadIfKeyExists(derivationTag)
+                if retainedPath != nil && retainedPath != derivation {
+                    material = material.filter { $0.0 == secretTag }
                 }
+            } else if derivation == nil, entropy != nil || seed != nil,
+                      let retainedPath = try keystore.loadIfKeyExists(derivationTag), !retainedPath.isEmpty {
+                throw AccountCreateError.retainedKeyConflict
             }
             var absent: [(String, Data)] = []
             for (tag, value) in material {
@@ -176,6 +177,7 @@ final class PreparedAccount {
                         retained, matches: value, cryptoType: account.cryptoType)
                     : LegacySoraIdentityValidator.constantTimeEqual(retained, value)
                 guard matches else {
+                    if adoptsWorkingSecret && tag != secretTag { continue }
                     throw AccountCreateError.retainedKeyConflict
                 }
             }
@@ -200,35 +202,6 @@ final class PreparedAccount {
         } catch {
             stateLock.unlock()
             throw error
-        }
-    }
-
-    /// For a secret-only import over retained items that carry a path:
-    /// the retained phrase or seed (read with that path) and this secret must
-    /// all prove the account. Called with the state lock held.
-    private func retainedPathMaterialProves(path: String?, keystore: KeystoreProtocol) throws -> Bool {
-        guard let path else { return false }
-        var retainedEntropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
-        var retainedSeed = try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(account.address))
-        defer {
-            if let count = retainedEntropy?.count { retainedEntropy?.resetBytes(in: 0 ..< count) }
-            if let count = retainedSeed?.count { retainedSeed?.resetBytes(in: 0 ..< count) }
-        }
-        do {
-            try LegacySoraIdentityValidator.validate(
-                address: account.address,
-                publicKey: account.publicKeyData,
-                cryptoType: account.cryptoType,
-                networkType: account.networkType,
-                derivationPath: path,
-                entropy: retainedEntropy,
-                rawSeed: retainedSeed,
-                secret: secretKey,
-                recoveryGate: recoveryGate
-            )
-            return true
-        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-            return false
         }
     }
 

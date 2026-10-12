@@ -5670,6 +5670,41 @@ final class WalletNetworkStore {
 /// Nexus migration admits only eligible 12- or 24-word master phrases.
 /// Retained 15/18/21-word, raw-seed, secret-only, and watch-only wallets stay SORA2-only.
 enum LegacySoraIdentityValidator {
+    /// The already-derived secret is the signing authority. Auxiliary backup
+    /// records must never be parsed, re-derived or compared along this path.
+    static func validateSigningSecret(
+        address: String, publicKey: Data, cryptoType: CryptoType,
+        networkType: SNAddressType, secret: Data,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws {
+        try validate(address: address, publicKey: publicKey, cryptoType: cryptoType,
+                     networkType: networkType, derivationPath: nil, entropy: nil,
+                     rawSeed: nil, secret: secret, recoveryGate: recoveryGate)
+    }
+
+    static func publicKeyForSecret(address: String, networkType: SNAddressType,
+                                   cryptoType: CryptoType, secret: Data) throws -> Data {
+        guard hasValidSecretLength(secret, cryptoType: cryptoType) else {
+            throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+        }
+        switch cryptoType {
+        case .sr25519:
+            return try SS58AddressFactory().accountId(fromAddress: address, type: networkType)
+        case .ed25519:
+            return try Ed25519KeypairFactory().createKeypairFromSeed(secret.miniSeed, chaincodeList: []).publicKey().rawData()
+        case .ecdsa:
+            return try EcdsaKeypairFactory().createKeypairFromSeed(secret, chaincodeList: []).publicKey().rawData()
+        }
+    }
+
+    static func hasValidSecretLength(_ secret: Data, cryptoType: CryptoType) -> Bool {
+        switch cryptoType {
+        case .sr25519: return secret.count == 64
+        case .ed25519: return secret.count == 32 || secret.count == 64
+        case .ecdsa: return secret.count == 32
+        }
+    }
+
     static func validate(
         address: String,
         publicKey: Data,
@@ -5683,6 +5718,14 @@ enum LegacySoraIdentityValidator {
     ) throws {
         try recoveryGate
             .requireAuthorizedLifecycleContinuation()
+        guard publicKey.count == (cryptoType == .ecdsa ? 33 : 32),
+              secret.map({ hasValidSecretLength($0, cryptoType: cryptoType) }) != false,
+              rawSeed.map({ $0.count == 32 || $0.count == 64 }) != false else {
+            throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+        }
+        if let secret, cryptoType == .sr25519 {
+            try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: cryptoType, publicKey: publicKey)
+        }
         let publicAddress = try SS58AddressFactory().address(
             fromAccountId: publicKey,
             type: networkType
@@ -5867,13 +5910,19 @@ enum LegacySoraIdentityValidator {
     /// two derivations of the same soft path differ in bytes 32..<64. Compare
     /// the scalar only; the caller then proves the stored 64 bytes with a
     /// signature that verifies against the account public key.
-    /// ed25519 and ecdsa seeds are compared in full.
+    /// ed25519 uses its first 32 seed bytes; its redundant public half is
+    /// reconstructed for export. Ecdsa scalars are compared in full.
     static func storedSecret(_ stored: Data, matches expected: Data, cryptoType: CryptoType) -> Bool {
         switch cryptoType {
         case .sr25519:
             guard stored.count == 64, expected.count == 64 else { return false }
             return constantTimeEqual(Data(stored.prefix(32)), Data(expected.prefix(32)))
-        case .ed25519, .ecdsa:
+        case .ed25519:
+            guard hasValidSecretLength(stored, cryptoType: cryptoType),
+                  hasValidSecretLength(expected, cryptoType: cryptoType) else { return false }
+            return constantTimeEqual(Data(stored.prefix(32)), Data(expected.prefix(32)))
+        case .ecdsa:
+            guard stored.count == 32, expected.count == 32 else { return false }
             return constantTimeEqual(stored, expected)
         }
     }
@@ -6311,43 +6360,48 @@ final class WalletNetworkModelMigrator {
         isExplicitWatchOnly: Bool
     ) throws -> SigningMaterial {
         var material = SigningMaterial()
-        if let current {
-            // The migrator's injected store is the authority for this
-            // lifecycle transaction. Never resolve a retained global
-            // entropy record through a separately loaded default store.
-            do {
-                material.entropy = try keystore.fetchEntropyForAddress(
-                    account.address,
-                    activeSnapshot: current,
-                    recoveryGate: recoveryGate
-                )
-            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-                // The retained global entropy does not prove this account.
-                // It stays untouched; this account has no global source.
-                material.entropy = nil
-            }
-        } else {
-            // Scoped credentials take precedence. The migration-only
-            // fallback below proves any retained global entropy against
-            // this exact account before the first snapshot is activated.
-            material.entropy = try keystore.loadIfKeyExists(
-                KeystoreTag.entropyTagForAddress(account.address)
-            )
+        if isExplicitWatchOnly {
+            // Preserve the existing contradiction check: a watch-only label
+            // cannot silently acquire authority from retained private material.
+            material.secret = try keystore.fetchSecretKeyForAddress(account.address)
+            material.entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+            material.rawSeed = try keystore.fetchSeedForAddress(account.address)
+            return material
         }
-        material.rawSeed = try keystore.fetchSeedForAddress(account.address)
         material.secret = try keystore.fetchSecretKeyForAddress(account.address)
-        if current == nil, !material.hasAny, !isExplicitWatchOnly,
-           account.cryptoType == .sr25519,
-           account.networkType == SNAddressType(chain: .sora) {
+        // Prove a present direct key first. A wrong direct key stays read-only;
+        // a valid auxiliary record must not hide a damaged signing key.
+        if let secret = material.secret {
             do {
-                material.entropy = try keystore.fetchLegacyEntropyBeforeNetworkActivation(
-                    for: account.address,
-                    recoveryGate: recoveryGate
-                )
+                try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                    publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                    networkType: account.networkType, secret: secret, recoveryGate: recoveryGate)
             } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-                material.entropy = nil
+                return material
             }
         }
+        var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
+            readEntropy: {
+                if let current {
+                    return try self.keystore.fetchEntropyForAddress(account.address,
+                        activeSnapshot: current, recoveryGate: self.recoveryGate)
+                }
+                if let scoped = try self.keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address)) {
+                    return scoped
+                }
+                if account.cryptoType == .sr25519, account.networkType == SNAddressType(chain: .sora) {
+                    return try self.keystore.fetchLegacyEntropyBeforeNetworkActivation(
+                        for: account.address, recoveryGate: self.recoveryGate)
+                }
+                return nil
+            }, readSeed: { try self.keystore.fetchSeedForAddress(account.address) },
+            readPath: { try self.keystore.fetchDeriviationForAddress(account.address) })
+        defer { backup.wipe() }
+        material.entropy = backup.entropy
+        material.rawSeed = backup.seed
+        if !material.hasAny, let error = backup.firstReadError,
+           !LegacySoraIdentityValidator.isAccountIdentityFailure(error) { throw error }
+
         return material
     }
 
@@ -6586,6 +6640,12 @@ final class WalletNetworkModelMigrator {
         rawSeed: Data?,
         secret: Data?
     ) throws {
+        if let secret {
+            try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                networkType: account.networkType, secret: secret, recoveryGate: recoveryGate)
+            return
+        }
         try LegacySoraIdentityValidator.validate(
             address: account.address,
             publicKey: account.publicKeyData,

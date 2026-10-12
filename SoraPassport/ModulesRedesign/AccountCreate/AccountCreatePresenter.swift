@@ -199,6 +199,10 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
 }
 
 extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
+    func didReceive(backupDerivationPath: String) {
+        view?.set(backupDerivationPath: backupDerivationPath)
+    }
+
     func didReceive(words: [String], afterConfirmationFail: Bool) {
     }
     

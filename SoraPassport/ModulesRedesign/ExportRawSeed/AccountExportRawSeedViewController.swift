@@ -36,6 +36,10 @@ import Anchorage
 final class AccountExportRawSeedViewController: SoramitsuViewController, ControllerBackedProtocol {
 
     var presenter: AccountExportRawSeedPresenterProtocol!
+    private var hasSeed = false
+    private var backupPath = ""
+    private let pathLabel = UILabel()
+    private let copyPathButton = UIButton(type: .system)
 
     private var containerView: SoramitsuView = {
         SoramitsuView().then {
@@ -86,8 +90,15 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         presenter.exportRawSeed()
     }
 
-    func set(rawSeed: String) {
-        descriptionLabel.sora.text = rawSeed
+    func set(rawSeed: String, derivationPath: String) {
+        backupPath = derivationPath
+        pathLabel.text = WalletUX.text("Also save this derivation path:") + "\n" + derivationPath
+        pathLabel.isHidden = derivationPath.isEmpty
+        copyPathButton.isHidden = derivationPath.isEmpty
+        hasSeed = !rawSeed.isEmpty
+        descriptionLabel.sora.text = hasSeed ? rawSeed : WalletUX.text(
+            "No matching raw seed is available on this iPhone. Use JSON export to back up a verified signing key.")
+        copyButton.sora.title = hasSeed ? R.string.localizable.copyToClipboard(preferredLanguages: languages) : WalletUX.text("Export JSON")
     }
 
     private func configure() {
@@ -98,12 +109,21 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
 
         view.addSubview(containerView)
 
+        pathLabel.numberOfLines = 0
+        pathLabel.textColor = .label
+        pathLabel.font = .preferredFont(forTextStyle: .body)
+        pathLabel.isHidden = true
+        copyPathButton.setTitle(WalletUX.text("Copy derivation path"), for: .normal)
+        copyPathButton.addTarget(self, action: #selector(copyPath), for: .touchUpInside)
+        copyPathButton.isHidden = true
         stackView.removeArrangedSubviews()
         containerView.addSubview(stackView)
         stackView.addArrangedSubviews([
             titleLabel,
             descriptionLabel,
-            copyButton
+            copyButton,
+            pathLabel,
+            copyPathButton
         ])
         containerView.do {
             $0.horizontalAnchors == view.horizontalAnchors + 16
@@ -115,8 +135,14 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         }
     }
 
+    @objc private func copyPath() {
+        guard !backupPath.isEmpty else { return }
+        UIPasteboard.general.string = backupPath
+    }
+
     @objc
     private func copyTapped(){
+        guard hasSeed else { presenter.exportJSON(); return }
         copyButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
         presenter.copyRawSeed()
     }

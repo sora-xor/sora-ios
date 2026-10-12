@@ -205,11 +205,41 @@ private enum AppStore386Launch {
                                                             publicKey: publicKey)).sign(payload)
             return SNSignatureVerifier().verify(signature, forOriginalData: payload, using: publicKey)
         case .ed25519, .ecdsa:
-            try Sora2SignatureVerifier.verify(signature: Sora2Ed25519SeedSigner.sign(payload, seed: secret),
+            let signature = try HistoricalCompatibilitySigner(account: account, secret: secret).sign(payload)
+            try Sora2SignatureVerifier.verify(signature: signature,
                                               originalData: payload, secretKey: secret, account: account)
             return true
         }
     }
+}
+
+private final class HistoricalCompatibilitySigner: SigningWrapperProtocol {
+    let account: AccountItem
+    let secret: Data
+    init(account: AccountItem, secret: Data) { self.account = account; self.secret = secret }
+    func sign(_ data: Data) throws -> IRSignatureProtocol {
+        switch account.cryptoType {
+        case .sr25519: return try signSr25519(data, secretKeyData: secret, publicKeyData: account.publicKeyData)
+        case .ed25519: return try signEd25519(data, secretKey: secret)
+        case .ecdsa: return try signEcdsa(data, secretKey: secret)
+        }
+    }
+}
+
+private final class AuxiliaryReadFailureKeychain: KeystoreProtocol {
+    let base: KeystoreProtocol
+    init(_ base: KeystoreProtocol) { self.base = base }
+    private func check(_ tag: String) throws {
+        if tag.hasSuffix("-entropy") || tag.hasSuffix("-seed") || tag.hasSuffix("-deriv") {
+            throw KeystoreError.unexpectedFail
+        }
+    }
+    func fetchKey(for identifier: String) throws -> Data { try check(identifier); return try base.fetchKey(for: identifier) }
+    func checkKey(for identifier: String) throws -> Bool { try check(identifier); return try base.checkKey(for: identifier) }
+    func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
+    func addKey(_ key: Data, with identifier: String) throws { throw KeystoreError.unexpectedFail }
+    func updateKey(_ key: Data, with identifier: String) throws { throw KeystoreError.unexpectedFail }
+    func deleteKey(for identifier: String) throws { throw KeystoreError.unexpectedFail }
 }
 
 private enum KeySafetyStore {
@@ -531,6 +561,113 @@ private func shortPhrase(words: Int) throws -> String {
 
 final class WalletKeySafetyTests: XCTestCase {
 
+    func testWorkingHistoricalSecretsSurviveStaleBackupsAndJSONRoundTrip() throws {
+        let cases: [(CryptoType, String)] = [(.sr25519, "/soft"), (.sr25519, "//hard"),
+            (.sr25519, "//hard///password"), (.ed25519, "//hard"), (.ecdsa, "//hard")]
+        for (crypto, path) in cases {
+            let device = try Installation()
+            let account = try HistoricalWriter.phraseImport(phrase12, path: path,
+                cryptoType: crypto, keystore: device.keychain.base)
+            let originalSecret = try device.keychain.fetchKey(for: KeystoreTag.secretKeyTagForAddress(account.address))
+            if crypto == .ed25519 {
+                // 3.8.6 signs using the seed even if a JSON's redundant public half is damaged.
+                try device.keychain.base.saveSecretKey(Data(originalSecret.prefix(32)) + Data(repeating: 0x42, count: 32),
+                                                       address: account.address)
+            }
+            try device.keychain.base.saveSeed(Data(repeating: 0x73, count: 32), address: account.address)
+            try device.keychain.base.saveEntropy(Data(repeating: 0x27, count: 16), address: account.address)
+            try device.keychain.base.saveDeriviation("not a derivation path", address: account.address)
+            let before = try device.keychain.bytes()
+            let gate = device.isolatedGate()
+            let retainedSecret = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account,
+                keystore: device.keychain, recoveryGate: gate))
+            let payload = Data("historical signing compatibility".utf8)
+            let signature = try HistoricalCompatibilitySigner(account: account, secret: retainedSecret).sign(payload)
+            XCTAssertNoThrow(try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                secretKey: retainedSecret, account: account))
+            var backup = try WalletBackupMaterial.load(for: account, keystore: device.keychain, recoveryGate: gate)
+            XCTAssertNil(backup.entropy)
+            XCTAssertNil(backup.seed)
+            XCTAssertEqual(backup.derivationStatus, .mismatch)
+            backup.wipe()
+            let discovered = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address,
+                keystore: device.keychain, recoveryGate: gate))
+            XCTAssertEqual(discovered.cryptoType, crypto)
+            XCTAssertFalse(discovered.hasPhrase)
+            let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: discovered,
+                username: account.username, keystore: device.keychain, recoveryGate: gate)
+            try prepared.persist(to: device.keychain)
+            try KeySafetyStore.write([account], to: device.storeURL)
+            XCTAssertEqual(try device.startup(), .ready)
+            let store = try device.networkStore()
+            try WalletNetworkModelMigrator(keystore: device.keychain, store: store, settings: device.settings,
+                lifecycleCoordinator: device.coordinator, recoveryGate: gate).migrate(
+                    accounts: [account], selectedAddress: account.address)
+            XCTAssertEqual(try store.load()?.wallets.first?.secretSource, .legacySecret)
+            let json = try KeystoreExportWrapper(keystore: device.keychain).export(account: account, password: "fixture-password")
+            let definition = try JSONDecoder().decode(KeystoreDefinition.self, from: json)
+            let exported = try KeystoreExtractor().extractFromDefinition(definition, password: "fixture-password")
+            XCTAssertEqual(exported.address, account.address)
+            XCTAssertEqual(exported.publicKeyData, account.publicKeyData)
+            try WalletCloudBackupRecoveryService.validateSecretEncoding(exported.secretKeyData,
+                cryptoType: crypto, publicKey: account.publicKeyData)
+            try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                publicKey: account.publicKeyData, cryptoType: crypto, networkType: account.networkType,
+                secret: exported.secretKeyData, recoveryGate: gate)
+            XCTAssertEqual(try device.keychain.bytes(), before)
+            XCTAssertFalse(device.keychain.changedExistingItems)
+        }
+    }
+
+    func testUnreadableAuxiliaryTagsCannotBlockAProvenDirectSecret() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        let keys = AuxiliaryReadFailureKeychain(device.keychain)
+        let gate = device.isolatedGate()
+        XCTAssertNotNil(try LegacySoraSecretResolver.resolve(account: account, keystore: keys, recoveryGate: gate))
+        XCTAssertEqual(try WalletAccountKeyAvailability.status(for: account, keystore: keys,
+            settings: device.settings, activeSnapshot: nil, recoveryGate: gate), .available)
+        let discovered = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address,
+            keystore: keys, recoveryGate: gate))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: discovered,
+            username: account.username, keystore: keys, recoveryGate: gate)
+        XCTAssertNoThrow(try prepared.persist(to: keys))
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keys, recoveryGate: gate)
+        XCTAssertEqual(backup.phraseStatus, .unreadable)
+        XCTAssertEqual(backup.seedStatus, .unreadable)
+        backup.wipe()
+    }
+
+    func testBackupSourcesAreVerifiedIndependentlyAfterHistoricalDoubleImport() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, path: "//1", cryptoType: .ecdsa,
+                                                       keystore: device.keychain.base)
+        let child = try device.keychain.fetchKey(for: KeystoreTag.secretKeyTagForAddress(account.address))
+        let imported = try HistoricalWriter.seedImport(child, cryptoType: .ecdsa, keystore: device.keychain.base)
+        XCTAssertEqual(imported.address, account.address)
+        // The old writer leaves parent entropy/path next to the newly imported child seed.
+        let before = try device.keychain.bytes()
+        var backup = try WalletBackupMaterial.load(for: account, keystore: device.keychain, recoveryGate: device.isolatedGate())
+        XCTAssertEqual(backup.phraseStatus, .matching)
+        XCTAssertEqual(backup.seedStatus, .mismatch)
+        backup.wipe()
+        XCTAssertNotNil(try LegacySoraSecretResolver.resolve(account: account,
+            keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+
+    func testMalformedDirectSecretsFailBeforeNativeCryptoAndDoNotUseFallbacks() throws {
+        for crypto in [CryptoType.sr25519, .ed25519, .ecdsa] {
+            let device = try Installation()
+            let account = try HistoricalWriter.phraseImport(phrase12, cryptoType: crypto, keystore: device.keychain.base)
+            for length in [0, 1, 31, 33, 63, 65] {
+                try device.keychain.base.saveSecretKey(Data(repeating: 1, count: length), address: account.address)
+                XCTAssertThrowsError(try LegacySoraSecretResolver.resolve(account: account,
+                    keystore: device.keychain, recoveryGate: device.isolatedGate()))
+            }
+        }
+    }
+
     // MARK: §0.2 retryable startup markers
 
     func testRetryableMarkerPredicateCoversEveryFixedCode() throws {
@@ -700,6 +837,48 @@ final class WalletKeySafetyTests: XCTestCase {
                 XCTAssertEqual(WalletMigrationRecoveryMarker.capture(device.settings), marker, condition)
             }
         }
+    }
+
+    func testDriveRecoveryUsesVerifiedJSONDespiteStaleOtherFormatsAndCryptoMetadata() throws {
+        for crypto in [CryptoType.ed25519, .ecdsa] {
+            let reference = try Installation()
+            let account = try HistoricalWriter.phraseImport(phrase12, path: "//1", cryptoType: crypto,
+                                                           keystore: reference.keychain.base)
+            let password = "historical-drive-password"
+            let json = try KeystoreExportWrapper(keystore: reference.keychain).export(account: account, password: password)
+            var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: appStore386Backup(
+                address: account.address, phrase: try phrase(entropy: 7, bytes: 16),
+                seed: Data(repeating: 9, count: 32), password: password)) as? [String: Any])
+            fields["json"] = ["substrateJson": try XCTUnwrap(String(data: json, encoding: .utf8))]
+            let device = try Installation()
+            try KeySafetyStore.write([account], to: device.storeURL)
+            device.settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                .privacySafeRecoveryDescription(for: UserStorageMigrationError.missingWalletSecret("x")))
+            try WalletCloudBackupRecoveryService.restore(data: JSONSerialization.data(withJSONObject: fields),
+                password: password, account: account, migrator: device.migrator(), baseURL: device.directory,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: device.isolatedGate()))
+            XCTAssertEqual(device.keychain.added, [KeystoreTag.secretKeyTagForAddress(account.address)])
+            XCTAssertEqual(try device.startup(), .ready)
+            XCTAssertTrue(try AppStore386Launch.canSign(account, keystore: device.keychain))
+        }
+    }
+
+    func testOnboardingBackupFallsThroughToTheFirstSourceThatProvesItsAddress() throws {
+        let device = try Installation()
+        let expected = try HistoricalWriter.phraseImport(phrase12, cryptoType: .ecdsa, keystore: device.keychain.base)
+        let factory = AccountOperationFactory(keystore: InMemoryKeychain(), recoveryGate: device.isolatedGate())
+        let wrongMnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: phrase(entropy: 8, bytes: 16))
+        let wrong = factory.prepareAccountOperation(request: AccountCreationRequest(username: "Wrong", type: .sora,
+            derivationPath: "", cryptoType: .sr25519), mnemonic: wrongMnemonic)
+        let correctSeed = try device.keychain.fetchKey(for: KeystoreTag.seedTagForAddress(expected.address))
+        let correct = factory.prepareAccountOperation(request: AccountImportSeedRequest(seed: correctSeed.toHex(),
+            username: "Correct", networkType: .sora, derivationPath: "", cryptoType: .ecdsa))
+        let operation = BaseAccountImportInteractor.firstMatchingAddress(expected.address, candidates: [wrong, correct])
+        operation.start()
+        let prepared = try XCTUnwrap(operation.result).get()
+        XCTAssertEqual(prepared.account.address, expected.address)
+        prepared.discard()
+        XCTAssertEqual(try device.keychain.allKeyIdentifiers().count, 3)
     }
 
     func testCloudStorageOpenBackupProvesPasswordWithoutKeyVerifier() throws {
@@ -1878,9 +2057,9 @@ final class WalletKeySafetyTests: XCTestCase {
         // One wallet is already in the wallet; another one's items changed
         // after the inventory, so its restore fails on its own.
         let selection = try device.selectedWalletSettings(accounts: [existing])
-        let originalSeed = try device.keychain.fetchKey(for: KeystoreTag.seedTagForAddress(failing.address))
-        try device.keychain.base.updateKey(Data(repeating: 9, count: 32),
-                                           with: KeystoreTag.seedTagForAddress(failing.address))
+        let originalSecret = try device.keychain.fetchKey(for: KeystoreTag.secretKeyTagForAddress(failing.address))
+        try device.keychain.base.updateKey(Data(repeating: 9, count: 64),
+                                           with: KeystoreTag.secretKeyTagForAddress(failing.address))
         var result = RetainedKeychainWalletDiscovery.restore(inventory.adoptable, existing: [existing.address],
             keystore: device.keychain, selectedWalletSettings: selection, lifecycleCoordinator: device.coordinator,
             recoveryGate: device.isolatedGate())
@@ -1891,7 +2070,7 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems)
         // Retrying with the addresses already in the wallet excluded restores
         // only the one that is missing.
-        try device.keychain.base.updateKey(originalSeed, with: KeystoreTag.seedTagForAddress(failing.address))
+        try device.keychain.base.updateKey(originalSecret, with: KeystoreTag.secretKeyTagForAddress(failing.address))
         let retry = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain,
             excluding: [existing.address, other.address], recoveryGate: device.isolatedGate())
         XCTAssertEqual(retry.adoptable.map(\.address), [failing.address])
@@ -1982,23 +2161,24 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertEqual(device.keychain.added, [])
         XCTAssertEqual(try device.keychain.bytes(), before)
 
-        // Retained items under the path that do not derive this account are
-        // a conflict: nothing is written and the next import still works.
+        // A JSON-only import proves the secret independently of stale
+        // auxiliary bytes. Add the absent secret and preserve those bytes.
         let conflicting = try Installation()
         try conflicting.keychain.base.addKey(Data("//0".utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
         try conflicting.keychain.base.addKey(Data(repeating: 7, count: 16),
                                              with: KeystoreTag.entropyTagForAddress(account.address))
+        let retained = try conflicting.keychain.bytes()
         let conflictingFactory = AccountOperationFactory(keystore: conflicting.keychain,
                                                          recoveryGate: conflicting.isolatedGate())
         let selection = try conflicting.selectedWalletSettings()
-        XCTAssertThrowsError(try conflicting.insert(PreparedAccount(account: account, secretKey: secret, entropy: nil,
+        let restored = try conflicting.insert(PreparedAccount(account: account, secretKey: secret, entropy: nil,
             seed: nil, derivationPath: nil, recoveryGate: conflicting.isolatedGate()), into: selection,
-            factory: conflictingFactory)) {
-            guard case AccountCreateError.retainedKeyConflict = $0 else { return XCTFail("\($0)") }
-        }
-        XCTAssertEqual(conflicting.keychain.added, [])
+            factory: conflictingFactory)
+        XCTAssertEqual(restored.address, account.address)
+        XCTAssertEqual(conflicting.keychain.added, [KeystoreTag.secretKeyTagForAddress(account.address)])
+        for (tag, bytes) in retained { XCTAssertEqual(try conflicting.keychain.fetchKey(for: tag), bytes) }
+        XCTAssertFalse(conflicting.keychain.changedExistingItems)
         XCTAssertFalse(conflicting.settings.walletMigrationRecoveryRequired)
-        XCTAssertNoThrow(try conflicting.importPhrase(phrase(entropy: 0x35, bytes: 16), into: selection))
     }
 
     func testTheEarlierPinIsKeptWhenOnboardingStartsSoFoundWalletsStayRestorable() throws {

@@ -45,6 +45,9 @@ enum Sora2Ed25519SeedSigner {
         _ originalData: Data,
         seed sourceSeed: Data
     ) throws -> EDSignature {
+        guard sourceSeed.count == 32 || sourceSeed.count == 64 else {
+            throw SigningWrapperError.keysNotVerified
+        }
         var seed = sourceSeed.miniSeed
         defer {
             seed.resetBytes(in: seed.startIndex ..< seed.endIndex)
@@ -70,6 +73,9 @@ extension SigningWrapperProtocol {
     func signSr25519(_ originalData: Data, secretKeyData: Data, publicKeyData: Data) throws
         -> IRSignatureProtocol {
 
+        guard secretKeyData.count == 64, publicKeyData.count == 32 else {
+            throw SigningWrapperError.keysNotVerified
+        }
         let privateKey = try SNPrivateKey(rawData: secretKeyData)
         let publicKey = try SNPublicKey(rawData: publicKeyData)
 
@@ -87,6 +93,7 @@ extension SigningWrapperProtocol {
     }
 
     func signEcdsa(_ originalData: Data, secretKey: Data) throws -> IRSignatureProtocol {
+        guard secretKey.count == 32 else { throw SigningWrapperError.keysNotVerified }
         let keypairFactory = EcdsaKeypairFactory()
         let privateKey = try keypairFactory
             .createKeypairFromSeed(secretKey.miniSeed, chaincodeList: [])

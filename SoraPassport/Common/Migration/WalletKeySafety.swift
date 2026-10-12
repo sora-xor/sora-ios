@@ -88,7 +88,7 @@ enum OrdinaryWalletAccountCommitRecovery {
             ) else {
                 return false
             }
-            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+                var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
             defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
             guard WalletMnemonicWordPolicy.isDerivableEntropy(entropy) else { return false }
             var phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
@@ -860,6 +860,29 @@ enum RetainedKeychainWalletDiscovery {
               type == soraType else {
             return nil
         }
+        // Discovery must be possible even when unrelated backup tags are
+        // unreadable or stale. A direct secret is never replaced by a fallback.
+        if var direct = try keystore.loadIfKeyExists(KeystoreTag.secretKeyTagForAddress(address)) {
+            defer { direct.resetBytes(in: direct.startIndex ..< direct.endIndex) }
+            for cryptoType in [CryptoType.sr25519, .ed25519, .ecdsa] {
+                guard LegacySoraIdentityValidator.hasValidSecretLength(direct, cryptoType: cryptoType) else { continue }
+                do {
+                    guard let publicKey = try candidatePublicKey(address: address, cryptoType: cryptoType,
+                        entropy: nil, seed: nil, secret: direct, derivationPath: nil) else { continue }
+                    try LegacySoraIdentityValidator.validateSigningSecret(address: address, publicKey: publicKey,
+                        cryptoType: cryptoType, networkType: type, secret: direct, recoveryGate: recoveryGate)
+                    let account = AccountItem(address: address, cryptoType: cryptoType, networkType: type,
+                        username: "", publicKeyData: publicKey,
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: false)
+                    var backup = try WalletBackupMaterial.load(for: account, keystore: keystore, recoveryGate: recoveryGate)
+                    defer { backup.wipe() }
+                    return RetainedKeychainWallet(address: address, publicKey: publicKey, cryptoType: cryptoType,
+                        networkType: type, derivationPath: backup.derivationStatus == .matching ? backup.derivationPath : nil,
+                        hasPhrase: backup.phraseStatus == .matching)
+                } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) { continue }
+            }
+            return nil
+        }
         var entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(address))
         var seed = try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
         var secret = try keystore.loadIfKeyExists(KeystoreTag.secretKeyTagForAddress(address))
@@ -977,6 +1000,17 @@ enum RetainedKeychainWalletDiscovery {
         guard let proven = try prove(address: wallet.address, keystore: keystore, recoveryGate: recoveryGate),
               proven == wallet else {
             throw AccountCreateError.retainedKeyConflict
+        }
+        if var direct = try keystore.fetchSecretKeyForAddress(wallet.address) {
+            defer { direct.resetBytes(in: direct.startIndex ..< direct.endIndex) }
+            let account = AccountItem(address: wallet.address, cryptoType: wallet.cryptoType,
+                networkType: wallet.networkType, username: username, publicKeyData: wallet.publicKey,
+                settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+            var backup = try WalletBackupMaterial.load(for: account, keystore: keystore, recoveryGate: recoveryGate)
+            defer { backup.wipe() }
+            return try PreparedAccount(account: account, secretKey: direct, entropy: backup.entropy,
+                seed: backup.seed, derivationPath: backup.derivationStatus == .matching ? backup.derivationPath : nil,
+                recoveryGate: recoveryGate)
         }
         var entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(wallet.address))
         defer { if let count = entropy?.count { entropy?.resetBytes(in: 0 ..< count) } }
@@ -1204,6 +1238,18 @@ enum WalletAccountKeyAvailability: Equatable {
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> WalletAccountKeyAvailability {
         if settings.bool(for: "wallet.watchOnly.\(account.address)") == true { return .watchOnly }
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        if var direct = try keystore.fetchSecretKeyForAddress(account.address) {
+            defer { direct.resetBytes(in: direct.startIndex ..< direct.endIndex) }
+            do {
+                try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                    publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                    networkType: account.networkType, secret: direct, recoveryGate: recoveryGate)
+                return .available
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                return .keysNotVerified
+            }
+        }
         var entropy: Data?
         do {
             if let activeSnapshot {
@@ -1253,6 +1299,94 @@ enum WalletAccountAddresses {
         let queue = OperationQueue()
         queue.addOperations([operation], waitUntilFinished: true)
         return Set(try operation.extractNoCancellableResultData().map(\.address))
+    }
+}
+
+/// Each optional backup source is proved independently. A working direct key
+/// neither blesses stale backup bytes nor depends on their readability.
+struct WalletBackupMaterial {
+    enum Failure: LocalizedError {
+        case noMatchingPhrase
+        var errorDescription: String? {
+            WalletUX.text("No matching recovery phrase is available on this iPhone. Use JSON export to back up a verified signing key.")
+        }
+    }
+    enum Status: Equatable { case absent, unreadable, mismatch, matching }
+    var entropy: Data?
+    var seed: Data?
+    var derivationPath: String?
+    var phraseStatus: Status = .absent
+    var seedStatus: Status = .absent
+    var derivationStatus: Status = .absent
+    var firstReadError: Error?
+
+    mutating func wipe() {
+        if let count = entropy?.count { entropy?.resetBytes(in: 0..<count) }
+        if let count = seed?.count { seed?.resetBytes(in: 0..<count) }
+        entropy = nil
+        seed = nil
+    }
+
+    static func load(
+        for account: AccountItem, keystore: KeystoreProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws -> Self {
+        try assess(for: account, recoveryGate: recoveryGate,
+            readEntropy: { try keystore.fetchEntropyForAddress(account.address) },
+            readSeed: { try keystore.fetchSeedForAddress(account.address) },
+            readPath: { try keystore.fetchDeriviationForAddress(account.address) })
+    }
+
+    static func assess(
+        for account: AccountItem, recoveryGate: WalletRecoveryCapabilityGate,
+        readEntropy: () throws -> Data?, readSeed: () throws -> Data?,
+        readPath: () throws -> String?
+    ) throws -> Self {
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        var result = Self()
+        var pathReadable = true
+        do { result.derivationPath = try readPath() }
+        catch {
+            pathReadable = false
+            result.derivationStatus = .unreadable
+            result.firstReadError = error
+        }
+        var entropy: Data?, seed: Data?
+        defer {
+            if let count = entropy?.count { entropy?.resetBytes(in: 0..<count) }
+            if let count = seed?.count { seed?.resetBytes(in: 0..<count) }
+        }
+        do { entropy = try readEntropy() }
+        catch { result.phraseStatus = .unreadable; result.firstReadError = result.firstReadError ?? error }
+        do { seed = try readSeed() }
+        catch { result.seedStatus = .unreadable; result.firstReadError = result.firstReadError ?? error }
+        func proves(entropy: Data?, seed: Data?) -> Bool {
+            guard pathReadable else { return false }
+            do {
+                try LegacySoraIdentityValidator.validate(address: account.address,
+                    publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                    networkType: account.networkType, derivationPath: result.derivationPath,
+                    entropy: entropy, rawSeed: seed, secret: nil, recoveryGate: recoveryGate)
+                return true
+            } catch { return false }
+        }
+        if let entropy {
+            if WalletMnemonicWordPolicy.isDerivableEntropy(entropy), proves(entropy: entropy, seed: nil) {
+                result.entropy = entropy
+                result.phraseStatus = .matching
+            } else { result.phraseStatus = pathReadable ? .mismatch : .unreadable }
+        }
+        if let seed {
+            if proves(entropy: nil, seed: seed) {
+                result.seed = seed
+                result.seedStatus = .matching
+            } else { result.seedStatus = pathReadable ? .mismatch : .unreadable }
+        }
+        if pathReadable, result.derivationPath != nil {
+            result.derivationStatus = result.entropy != nil || result.seed != nil ? .matching : .mismatch
+        }
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
+        return result
     }
 }
 

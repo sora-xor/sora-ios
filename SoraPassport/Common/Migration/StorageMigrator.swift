@@ -624,6 +624,34 @@ final class UserStorageMigrator {
                 throw UserStorageMigrationError.accountInventoryMismatch
             }
         }
+        // A historical Drive backup may contain independent sources from
+        // different imports. Keep only those that prove this account; valid
+        // JSON must still recover it when the phrase or parent seed is stale.
+        var verifiedBackup = try WalletBackupMaterial.assess(for: account, recoveryGate: gate,
+            readEntropy: { entropy }, readSeed: { rawSeed }, readPath: { derivationPath })
+        defer { verifiedBackup.wipe() }
+        var matchingSecret: Data?
+        if let secret {
+            do {
+                try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                    publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                    networkType: account.networkType, secret: secret, recoveryGate: gate)
+                matchingSecret = secret
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) { }
+        }
+        defer { if let count = matchingSecret?.count { matchingSecret?.resetBytes(in: 0..<count) } }
+        // Short historical phrases cannot be expanded, but when their stored
+        // seed proves the address, retain their original entropy as evidence.
+        let shortEntropy = entropy.flatMap {
+            [4, 8, 12].contains($0.count) && verifiedBackup.seed != nil ? $0 : nil
+        }
+        let entropy = verifiedBackup.entropy ?? shortEntropy
+        let rawSeed = verifiedBackup.seed
+        let secret = matchingSecret
+        let derivationPath = entropy != nil || rawSeed != nil ? derivationPath : ""
+        guard entropy != nil || rawSeed != nil || secret != nil else {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }
         let absentTags = [KeystoreTag.entropyTagForAddress(address),
             KeystoreTag.secretKeyTagForAddress(address), KeystoreTag.seedTagForAddress(address)]
         guard try absentTags.allSatisfy({ try !keystore.checkKey(for: $0) }) else {
@@ -2555,23 +2583,26 @@ final class UserStorageMigrator {
                     var secret = try WalletSecretDiagnostics.observe(.scopedSecret, into: observation) {
                         try keystore.loadIfKeyExists(KeystoreTag.secretKeyTagForAddress(address))
                     }
+                    // Direct signing proof does not depend on auxiliary
+                    // readability. Keep readable records in the manifest as
+                    // evidence; auxiliary read failures cannot demote a key.
                     var entropy: Data?
+                    do { entropy = try fetchEntropyForAddress(address, diagnostic: observation) }
+                    catch where secret != nil || LegacySoraIdentityValidator.isAccountIdentityFailure(error) { }
+                    var seed: Data?
                     do {
-                        entropy = try fetchEntropyForAddress(address, diagnostic: observation)
-                    } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-                        // Retained global entropy that does not prove this
-                        // address belongs to another account. Leave it as is.
-                        entropy = nil
-                    }
-                    var seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
-                        try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
-                    }
+                        seed = try WalletSecretDiagnostics.observe(.scopedSeed, into: observation) {
+                            try keystore.loadIfKeyExists(KeystoreTag.seedTagForAddress(address))
+                        }
+                    } catch where secret != nil { }
                     defer {
                         Self.wipeSensitive(&secret)
                         Self.wipeSensitive(&entropy)
                         Self.wipeSensitive(&seed)
                     }
-                    let derivation = try keystore.fetchDeriviationForAddress(address, diagnostic: observation)
+                    var derivation: String?
+                    do { derivation = try keystore.fetchDeriviationForAddress(address, diagnostic: observation) }
+                    catch where secret != nil { }
                     guard
                         let cryptoValue = UInt8(exactly: cryptoRaw),
                         let cryptoType = CryptoType(rawValue: cryptoValue),
@@ -2612,17 +2643,22 @@ final class UserStorageMigrator {
                         signingUnavailable = true
                     } else {
                         do {
-                            try LegacySoraIdentityValidator.validate(
-                                address: address,
-                                publicKey: publicKey,
-                                cryptoType: cryptoType,
-                                networkType: networkType,
-                                derivationPath: derivation,
-                                entropy: entropy,
-                                rawSeed: seed,
-                                secret: secret,
-                                recoveryGate: recoveryGate
-                            )
+                            if let secret {
+                                try LegacySoraIdentityValidator.validateSigningSecret(address: address,
+                                    publicKey: publicKey, cryptoType: cryptoType, networkType: networkType,
+                                    secret: secret, recoveryGate: recoveryGate)
+                            } else {
+                                let account = AccountItem(address: address, cryptoType: cryptoType,
+                                    networkType: networkType, username: username, publicKeyData: publicKey,
+                                    settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                                    order: 0, isSelected: false)
+                                var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
+                                    readEntropy: { entropy }, readSeed: { seed }, readPath: { derivation })
+                                defer { backup.wipe() }
+                                guard backup.entropy != nil || backup.seed != nil else {
+                                    throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+                                }
+                            }
                         } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
                             signingUnavailable = true
                         }
@@ -2762,9 +2798,21 @@ final class UserStorageMigrator {
                         try keystore.fetchSecretKeyForAddress(account.address)
                     }
                     defer { Self.wipeSensitive(&secret) }
-                    guard secret?.isEmpty == false else {
+                    guard let secret,
+                          let cryptoValue = UInt8(exactly: account.cryptoType),
+                          let cryptoType = CryptoType(rawValue: cryptoValue),
+                          let networkType = SNAddressType(exactly: account.networkType) else {
                         throw UserStorageMigrationError.emptyWalletSecret(account.address)
                     }
+                    let publicKey = try LegacySoraIdentityValidator.publicKeyForSecret(address: account.address,
+                        networkType: networkType, cryptoType: cryptoType, secret: secret)
+                    guard Data(SHA256.hash(data: publicKey)).hexString == account.publicKeySHA256 else {
+                        throw UserStorageMigrationError.accountInventoryMismatch
+                    }
+                    try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                        publicKey: publicKey, cryptoType: cryptoType, networkType: networkType,
+                        secret: secret, recoveryGate: recoveryGate)
+                    continue
                 }
                 if account.hasEntropy {
                     var entropy = try fetchEntropyForAddress(account.address, diagnostic: observation)

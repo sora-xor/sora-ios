@@ -1044,3 +1044,11 @@
 "Confirmed by the network" = "ネットワークで確認されました";
 "It failed on the network" = "ネットワーク上で失敗しました";
 "The network did not include it. Nothing was sent." = "ネットワークに取り込まれませんでした。何も送信されていません。";
+
+"No matching recovery phrase is available on this iPhone. Use JSON export to back up a verified signing key." = "このiPhoneには、このアカウントと一致するリカバリーフレーズがありません。検証済みの署名鍵をバックアップするには、JSON形式でエクスポートしてください。";
+
+"No matching raw seed is available on this iPhone. Use JSON export to back up a verified signing key." = "このiPhoneには、このアカウントと一致するシードがありません。検証済みの署名鍵をバックアップするには、JSON形式でエクスポートしてください。";
+
+"Also save this derivation path:" = "この派生パスも保存してください：";
+
+"Copy derivation path" = "派生パスをコピー";

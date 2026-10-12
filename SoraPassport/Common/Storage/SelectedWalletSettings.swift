@@ -106,7 +106,19 @@ enum WalletReadOnlyAccountKeyRestore {
               networkType == imported.networkType,
               settings?.allKeys().contains("wallet.watchOnly.\(imported.address)") != true
         else { return false }
-        return try !keystore.hasScopedSigningMaterial(for: imported.address)
+        if try !keystore.hasScopedSigningMaterial(for: imported.address) { return true }
+        if var secret = try keystore.fetchSecretKeyForAddress(imported.address) {
+            defer { secret.resetBytes(in: secret.startIndex ..< secret.endIndex) }
+            do {
+                try LegacySoraIdentityValidator.validateSigningSecret(address: imported.address,
+                    publicKey: imported.publicKeyData, cryptoType: imported.cryptoType,
+                    networkType: imported.networkType, secret: secret, recoveryGate: .shared)
+                var backup = try WalletBackupMaterial.load(for: imported, keystore: keystore)
+                defer { backup.wipe() }
+                return backup.phraseStatus != .matching || backup.seedStatus != .matching
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) { return false }
+        }
+        return false
     }
 }
 
@@ -1509,12 +1521,9 @@ final class WalletCloudBackupRecoveryService {
             throw WalletCloudBackupRecoveryError.invalidBackup
         }
         guard backup.address == account.address else { throw WalletCloudBackupRecoveryError.identityMismatch }
-        if let crypto = backup.cryptoType, !crypto.isEmpty {
-            guard crypto.lowercased() == account.cryptoType.typeString.lowercased() ||
-                    crypto == String(account.cryptoType.rawValue) else {
-                throw WalletCloudBackupRecoveryError.identityMismatch
-            }
-        }
+        // Older writers put the default crypto type here even for another
+        // account type. The account identity and each actual source, including
+        // the JSON's own encoding type, are authoritative.
         let encryption = EncryptionService()
         func decrypt(_ value: String?) throws -> String? {
             guard let value, !value.isEmpty else { return nil }
@@ -1534,9 +1543,14 @@ final class WalletCloudBackupRecoveryService {
                 throw WalletCloudBackupRecoveryError.incorrectPassword
             }
         }
-        var phrase = try decrypt(backup.encryptedMnemonicPhrase)
+        var firstSourceError: Error?
+        func readSource<T>(_ action: () throws -> T) -> T? {
+            do { return try action() }
+            catch { firstSourceError = firstSourceError ?? error; return nil }
+        }
+        var phrase = readSource { try decrypt(backup.encryptedMnemonicPhrase) } ?? nil
         defer { phrase = nil }
-        let path = try decrypt(backup.encryptedSubstrateDerivationPath) ?? ""
+        let path = (readSource { try decrypt(backup.encryptedSubstrateDerivationPath) } ?? nil) ?? ""
         var entropy: Data?
         var seed: Data?
         var secret: Data?
@@ -1545,28 +1559,24 @@ final class WalletCloudBackupRecoveryService {
             if let count = seed?.count { seed?.resetBytes(in: 0..<count) }
             if let count = secret?.count { secret?.resetBytes(in: 0..<count) }
         }
-        if let phrase, !phrase.isEmpty {
-            // 3/6/9-word phrases (App Store 3.8.6) are accepted here with
-            // their seed: the address is known and the restore proves it.
-            guard var material = try? UserStorageMigrator.knownAddressPhraseMaterial(phrase, derivationPath: path)
-            else {
-                throw WalletCloudBackupRecoveryError.invalidBackup
-            }
+        if let phrase, !phrase.isEmpty,
+           var material = readSource({ try UserStorageMigrator.knownAddressPhraseMaterial(phrase, derivationPath: path) }) {
             entropy = material.entropy
             seed = material.rawSeed
             material.wipe()
         }
-        if let seedString = try decrypt(backup.encryptedSeed?.substrateSeed), !seedString.isEmpty {
-            guard let decoded = try? Data(hexStringSSF: seedString), [32, 64].contains(decoded.count) else {
-                throw WalletCloudBackupRecoveryError.invalidBackup
-            }
-            seed = decoded
+        if let seedString = readSource({ try decrypt(backup.encryptedSeed?.substrateSeed) }) ?? nil, !seedString.isEmpty {
+            if let decoded = try? Data(hexStringSSF: seedString), [32, 64].contains(decoded.count) {
+                // This seed and the phrase entropy are independently proved by
+                // the migrator, so either can survive a stale sibling source.
+                seed = decoded
+            } else { firstSourceError = firstSourceError ?? WalletCloudBackupRecoveryError.invalidBackup }
         }
         if let json = backup.json?.substrateJson, !json.isEmpty {
-            secret = try extractJSONSecret(json, password: password, account: account)
+            secret = readSource { try extractJSONSecret(json, password: password, account: account) }
         }
         guard entropy != nil || seed != nil || secret != nil else {
-            throw WalletCloudBackupRecoveryError.unsupportedBackup
+            throw firstSourceError ?? WalletCloudBackupRecoveryError.unsupportedBackup
         }
         try migrator.restoreMissingBackupMaterial(address: account.address, expectedAccount: account,
             entropy: entropy, rawSeed: seed, secret: secret, derivationPath: path,

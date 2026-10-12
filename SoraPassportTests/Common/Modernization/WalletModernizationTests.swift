@@ -9466,6 +9466,7 @@ final class WalletModernizationTests: XCTestCase {
     private func interruptedDatabaseStartup(
         directory: URL, accounts: [AccountItem], keys: InMemoryKeychain,
         settings: InMemorySettingsManager,
+        readOnlyAddresses: Set<String> = [],
         checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
         unresolvedAccountCommit: @escaping () throws -> Bool = { false }
     ) throws {
@@ -9490,8 +9491,13 @@ final class WalletModernizationTests: XCTestCase {
             let seed = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
             let payload = Data("restart-signing-qualification".utf8)
             let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: seed)
-            try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
-                                             secretKey: seed, account: account)
+            if readOnlyAddresses.contains(account.address) {
+                XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                                                                      secretKey: seed, account: account))
+            } else {
+                try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                                                 secretKey: seed, account: account)
+            }
         }
         XCTAssertFalse(settings.walletMigrationRecoveryRequired)
     }
@@ -10483,7 +10489,7 @@ final class WalletModernizationTests: XCTestCase {
                 let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
                     ($0, try keys.fetchKey(for: $0))
                 })
-                for condition in ["valid", "activationRestart", "alteredBackup", "changedKey", "typedFailure", "newerBoundMarker"] {
+                for condition in ["valid", "activationRestart", "alteredBackup", "changedBackup", "changedKey", "typedFailure", "newerBoundMarker"] {
                     let directory = root.appendingPathComponent("failed-retry-\(condition)")
                     try FileManager.default.copyItem(at: installed, to: directory)
                     let retrySettings = InMemorySettingsManager()
@@ -10500,8 +10506,10 @@ final class WalletModernizationTests: XCTestCase {
                         var data = try Data(contentsOf: backup)
                         data[data.count - 1] ^= 1
                         try data.write(to: backup)
-                    } else if condition == "changedKey" {
+                    } else if condition == "changedBackup" {
                         try retryKeys.saveSeed(Data(repeating: 99, count: 32), address: accounts[0].address)
+                    } else if condition == "changedKey" {
+                        try retryKeys.saveSecretKey(Data(repeating: 99, count: 64), address: accounts[0].address)
                     } else if condition == "typedFailure" || condition == "newerBoundMarker" {
                         var journal = originalFailure
                         if condition == "typedFailure" {
@@ -10522,7 +10530,7 @@ final class WalletModernizationTests: XCTestCase {
                     // Every fixed failure code is retryable (§0.2), and one
                     // account whose keys do not match no longer blocks the
                     // others: it becomes read-only, its keys unchanged.
-                    if ["valid", "activationRestart", "typedFailure", "changedKey"].contains(condition) {
+                    if ["valid", "activationRestart", "typedFailure", "changedBackup", "changedKey"].contains(condition) {
                         if condition == "activationRestart" {
                             let journalGate = WalletRecoveryCapabilityGate(settings: retrySettings,
                                 unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false },
@@ -10551,12 +10559,14 @@ final class WalletModernizationTests: XCTestCase {
                         let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
                             recoveryGate: makeIsolatedRecoveryGate(settings: retrySettings)).load())
                         XCTAssertEqual(snapshot.wallets.first { $0.id == accounts[0].address }?.secretSource,
-                                       condition == "changedKey" ? .signingUnavailable : .rawSeed, condition)
+                                       condition == "changedKey" ? .signingUnavailable :
+                                        (condition == "changedBackup" ? .legacySecret : .rawSeed), condition)
                         XCTAssertEqual(snapshot.wallets.first { $0.id == accounts[1].address }?.secretSource,
                                        .rawSeed, condition)
                         for _ in 0..<2 {
                             try interruptedDatabaseStartup(directory: directory, accounts: accounts,
-                                keys: retryKeys, settings: retrySettings)
+                                keys: retryKeys, settings: retrySettings,
+                                readOnlyAddresses: condition == "changedKey" ? [accounts[0].address] : [])
                             XCTAssertEqual(try Data(contentsOf: retained), failureDataBeforeRetry)
                         }
                     } else {
@@ -11394,7 +11404,7 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     @MainActor
-    func testCloudBackupPresenterRejectsIdentityConflictsAndPreservesStoredDerivation() async throws {
+    func testCloudBackupPresenterUsesProvenKeychainSourcesAndPreservesStoredDerivation() async throws {
         let entropy = Data(repeating: 30, count: 16), otherEntropy = Data(repeating: 31, count: 16)
         let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
         let otherPhrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: otherEntropy).toString()
@@ -11428,7 +11438,7 @@ final class WalletModernizationTests: XCTestCase {
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "profile backup loading ends")
             view.onHide = { ended.fulfill() }
-            if scenario == "valid" {
+            if scenario != "switched-account" {
                 let started = expectation(description: "verified profile backup payload")
                 cloud.onSave = { started.fulfill() }
                 presenter.backupAccount(with: "synthetic-password")
@@ -11449,14 +11459,15 @@ final class WalletModernizationTests: XCTestCase {
                 presenter.backupAccount(with: "synthetic-password")
             }
             await fulfillment(of: [ended], timeout: 10)
-            XCTAssertEqual(cloud.saves.count, scenario == "valid" ? 1 : 0)
-            XCTAssertEqual(wireframe.successes, scenario == "valid" ? 1 : 0)
-            XCTAssertEqual(wireframe.failures.count, scenario == "valid" ? 0 : 1)
+            XCTAssertEqual(cloud.saves.count, scenario != "switched-account" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, scenario != "switched-account" ? 1 : 0)
+            XCTAssertEqual(wireframe.failures.count, scenario != "switched-account" ? 0 : 1)
             XCTAssertEqual(view.hides, 1)
             XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys)
         }
         // Released Ed25519 JSON imports retain seed + public key, not only a
-        // 32-byte seed. Back up those exact bytes and reject either conflicting half.
+        // 32-byte seed. Rebuild a damaged redundant half in the export, while
+        // refusing a seed that cannot prove the account and preserving all tags.
         let edSeed = Data(repeating: 42, count: 32)
         let edPair = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: [])
         let edPublic = edPair.publicKey().rawData()
@@ -11480,7 +11491,7 @@ final class WalletModernizationTests: XCTestCase {
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "retained Ed25519 backup completes")
             view.onHide = { ended.fulfill() }
-            if condition == "valid" {
+            if condition != "seed" {
                 let started = expectation(description: "retained Ed25519 backup prepared")
                 cloud.onSave = { started.fulfill() }
                 presenter.backupAccount(with: "synthetic-password")
@@ -11489,7 +11500,7 @@ final class WalletModernizationTests: XCTestCase {
                 let json = try XCTUnwrap(backup.json?.substrateJson).data(using: .utf8)!
                 let definition = try JSONDecoder().decode(KeystoreDefinition.self, from: json)
                 let exported = try KeystoreExtractor().extractFromDefinition(definition, password: "synthetic-password")
-                XCTAssertEqual(exported.secretKeyData, retainedSecret)
+                XCTAssertEqual(exported.secretKeyData, edSeed + edPublic)
                 XCTAssertEqual(exported.publicKeyData, edPublic)
                 XCTAssertNil(backup.passphrase)
                 XCTAssertEqual(backup.backupAccountType, [.json])
@@ -11498,8 +11509,8 @@ final class WalletModernizationTests: XCTestCase {
                 presenter.backupAccount(with: "synthetic-password")
             }
             await fulfillment(of: [ended], timeout: 10)
-            XCTAssertEqual(cloud.saves.count, condition == "valid" ? 1 : 0)
-            XCTAssertEqual(wireframe.successes, condition == "valid" ? 1 : 0)
+            XCTAssertEqual(cloud.saves.count, condition != "seed" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, condition != "seed" ? 1 : 0)
             XCTAssertEqual(try retainedEntropyKeyBytes(retainedKeys), original)
         }
     }
@@ -11703,7 +11714,7 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testCloudRecoveryRejectsWrongPasswordConflictsAndMalformedSecretWithoutWrites() throws {
+    func testCloudRecoveryRejectsWrongIdentityAndUsesIndependentlyProvenFormats() throws {
         let entropy = Data(repeating: 20, count: 20)
         let account = try retainedEntropyAccount(entropy: entropy)
         let password = "synthetic-backup-password"
@@ -11736,15 +11747,32 @@ final class WalletModernizationTests: XCTestCase {
                 }
                 let payload = try JSONSerialization.data(withJSONObject: fields)
                 var newer: WalletMigrationRecoveryMarker?
-                XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
-                    password: condition == "password" ? "wrong" : password, account: account, migrator: database,
-                    baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
-                        if condition == "newerMarker" {
-                            settings.walletMigrationRecoveryReason = "newer recovery evidence"
-                            newer = WalletMigrationRecoveryMarker.capture(settings)
-                        }
-                    }))
-                XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), original)
+                let restore = {
+                    try WalletCloudBackupRecoveryService.restore(data: payload,
+                        password: condition == "password" ? "wrong" : password, account: account, migrator: database,
+                        baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                            if condition == "newerMarker" {
+                                settings.walletMigrationRecoveryReason = "newer recovery evidence"
+                                newer = WalletMigrationRecoveryMarker.capture(settings)
+                            }
+                        })
+                }
+                if ["crypto", "seed", "malformedCipher", "malformedScalar"].contains(condition) {
+                    // A stale sibling source is not authority to invalidate
+                    // another independently verified format in this backup.
+                    try restore()
+                    let restored = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
+                    try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                        publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                        networkType: account.networkType, secret: restored, recoveryGate: self.makeIsolatedRecoveryGate())
+                    if condition == "seed" {
+                        XCTAssertNotEqual(try keys.fetchSeedForAddress(account.address), Data(repeating: 9, count: 32))
+                    }
+                    XCTAssertFalse(try self.retainedEntropyKeyBytes(keys).isEmpty)
+                } else {
+                    XCTAssertThrowsError(try restore())
+                    XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), original)
+                }
                 XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer ?? marker)
                 let text = WalletCloudBackupRecoveryError.userMessage(for:
                     NSError(domain: account.address, code: 1, userInfo: [NSLocalizedDescriptionKey: password]))

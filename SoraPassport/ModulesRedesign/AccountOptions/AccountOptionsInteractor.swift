@@ -78,7 +78,9 @@ final class AccountOptionsInteractor {
     }
     
     private func loadPhrase() throws -> IRMnemonicProtocol? {
-        guard let entropy = try keystore.fetchEntropyForAddress(account.address) else { return nil }
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore)
+        defer { backup.wipe() }
+        guard let entropy = backup.entropy else { return nil }
         let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
         return mnemonic
     }
@@ -91,8 +93,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
 
     var accountHasEntropy: Bool {
-        guard let result = try? keystore.checkEntropyForAddress(account.address) else { return false }
-        return result
+        (try? loadPhrase()) != nil
 
     }
 
@@ -103,7 +104,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                                                availableNetworks: Chain.allCases,
                                                defaultNetwork: .sora,
                                                availableCryptoTypes: CryptoType.allCases,
-                                               defaultCryptoType: .sr25519)
+                                               defaultCryptoType: account.cryptoType)
         return metadata
     }
 
@@ -159,7 +160,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             let account = OpenBackupAccount(name: self.currentAccount.username,
                                             address: self.currentAccount.address,
                                             passphrase: metadata?.mnemonic.joined(separator: " ") ?? "",
-                                            cryptoType: metadata?.defaultCryptoType.typeString ?? "SR25519",
+                                            cryptoType: currentAccount.cryptoType.typeString,
                                             substrateDerivationPath: "")
             completion?(account)
         }

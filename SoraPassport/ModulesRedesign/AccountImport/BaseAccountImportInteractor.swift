@@ -128,55 +128,57 @@ class BaseAccountImportInteractor {
     /// App Store 3.8.6 backups have no key verifier, so this is what proves
     /// that the restored keys belong to the backup.
     private func importAccount(_ account: OpenBackupAccount, password: String) {
-        let backupAccountTypes = account.backupAccountType ?? []
-        let expectedAddress = account.address
+        var candidates: [BaseOperation<PreparedAccount>] = []
+        let cryptoType = CryptoType(type: account.cryptoType ?? "SR25519")
+        if let phrase = account.passphrase, !phrase.isEmpty,
+           let mnemonic = try? mnemonicCreator.mnemonic(fromList: phrase),
+           allowedMnemonicWordCounts.contains(mnemonic.allWords().count) ||
+               WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count) {
+            let request = AccountCreationRequest(username: account.name ?? "", type: .sora,
+                derivationPath: account.substrateDerivationPath ?? "", cryptoType: cryptoType)
+            candidates.append(accountOperationFactory.prepareAccountOperation(request: request, mnemonic: mnemonic))
+        }
+        if let seed = account.encryptedSeed?.substrateSeed, !seed.isEmpty {
+            candidates.append(accountOperationFactory.prepareAccountOperation(request:
+                AccountImportSeedRequest(seed: seed, username: account.name ?? "", networkType: .sora,
+                    derivationPath: account.substrateDerivationPath ?? "", cryptoType: cryptoType)))
+        }
+        if let json = account.json?.substrateJson, !json.isEmpty {
+            // The JSON's encoding has its real crypto type. Historical Drive
+            // metadata sometimes incorrectly said SR25519 for other types.
+            let jsonCrypto = json.data(using: .utf8).flatMap {
+                try? JSONDecoder().decode(KeystoreDefinition.self, from: $0)
+            }.flatMap { try? AccountImportJsonFactory().createInfo(from: $0).cryptoType } ?? cryptoType
+            candidates.append(accountOperationFactory.prepareAccountOperation(request:
+                AccountImportKeystoreRequest(keystore: json, password: password, username: account.name ?? "",
+                    networkType: .sora, cryptoType: jsonCrypto)))
+        }
+        importAccountUsingOperation(Self.firstMatchingAddress(account.address, candidates: candidates), completion: nil)
+    }
 
-        if backupAccountTypes.contains(.passphrase) || (account.passphrase ?? "").isEmpty == false {
-            // A backup restores a known address, so the 3/6/9-word phrases App
-            // Store 3.8.6 accepted are allowed here (never for a new import).
-            // `requireAddress` below proves the phrase derives that address;
-            // such a wallet is SORA2-only (its short entropy is kept with the
-            // seed and secret, as 3.8.6 stored it).
-            guard
-                let mnemonic = try? mnemonicCreator.mnemonic(fromList: account.passphrase ?? ""),
-                allowedMnemonicWordCounts.contains(mnemonic.allWords().count) ||
-                    WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count)
-            else {
-                presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
-                return
+    /// Try backup formats in order without writing. A stale phrase/seed cannot
+    /// prevent a proven JSON from restoring the saved address. Gate and I/O
+    /// failures still propagate rather than being reclassified as bad backups.
+    static func firstMatchingAddress(
+        _ expectedAddress: String, candidates: [BaseOperation<PreparedAccount>]
+    ) -> BaseOperation<PreparedAccount> {
+        ClosureOperation {
+            var firstError: Error?
+            for candidate in candidates {
+                do {
+                    candidate.start()
+                    let prepared = try candidate.extractNoCancellableResultData()
+                    guard prepared.account.address == expectedAddress else {
+                        prepared.discard()
+                        throw AccountCreateError.backupIdentityMismatch
+                    }
+                    return prepared
+                } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                    firstError = firstError ?? error
+                }
             }
-            let request = AccountCreationRequest(username: account.name ?? "",
-                                                 type: .sora,
-                                                 derivationPath: account.substrateDerivationPath ?? "",
-                                                 cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            let operation = accountOperationFactory.prepareAccountOperation(request: request, mnemonic: mnemonic)
-            importAccountUsingOperation(Self.requireAddress(expectedAddress, of: operation), completion: nil)
-            return
+            throw firstError ?? ImportAccountError.unexpectedError
         }
-
-        if backupAccountTypes.contains(.seed) || (account.encryptedSeed?.substrateSeed ?? "").isEmpty == false {
-            let request = AccountImportSeedRequest(seed: account.encryptedSeed?.substrateSeed ?? "",
-                                                   username: account.name ?? "",
-                                                   networkType: .sora,
-                                                   derivationPath: account.substrateDerivationPath ?? "",
-                                                   cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            let operation = accountOperationFactory.prepareAccountOperation(request: request)
-            importAccountUsingOperation(Self.requireAddress(expectedAddress, of: operation), completion: nil)
-            return
-        }
-
-        if let substrateJson = account.json?.substrateJson, !substrateJson.isEmpty {
-            let request = AccountImportKeystoreRequest(keystore: substrateJson,
-                                                       password: password,
-                                                       username: account.name ?? "",
-                                                       networkType: .sora,
-                                                       cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            let operation = accountOperationFactory.prepareAccountOperation(request: request)
-            importAccountUsingOperation(Self.requireAddress(expectedAddress, of: operation), completion: nil)
-            return
-        }
-
-        presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)
     }
 
     /// Runs the preparation, then refuses an account whose address differs

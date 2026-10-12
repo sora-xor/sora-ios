@@ -186,8 +186,11 @@ class AccountBackupInteractor {
 
 extension AccountBackupInteractor: AccountCreateInteractorInputProtocol {
     private func loadPhrase() throws -> IRMnemonicProtocol {
-        let entropy = try keystore.fetchEntropyForAddress(account.address)
-        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy!)
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore)
+        defer { backup.wipe() }
+        guard let entropy = backup.entropy else { throw WalletBackupMaterial.Failure.noMatchingPhrase }
+        presenter.didReceive(backupDerivationPath: backup.derivationPath ?? "")
+        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
         return mnemonic
     }
 
@@ -199,7 +202,7 @@ extension AccountBackupInteractor: AccountCreateInteractorInputProtocol {
                                                    availableNetworks: Chain.allCases,
                                                    defaultNetwork: .sora,
                                                    availableCryptoTypes: CryptoType.allCases,
-                                                   defaultCryptoType: .sr25519)
+                                                   defaultCryptoType: account.cryptoType)
             presenter.didReceive(metadata: metadata)
         } catch {
             presenter.didReceiveMnemonicGeneration(error: error)
