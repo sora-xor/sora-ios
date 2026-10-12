@@ -1,7 +1,10 @@
-# Historical signing and backup compatibility — work in progress
+# Historical signing and backup compatibility
 
-Resumed from the credit-interrupted audit on 12 October 2026. The work below is
-being integrated on `codex/upgrade-safety-20261012`; it is not a release verdict.
+Resumed from the credit-interrupted audit on 12 October 2026. The integrated
+implementation includes authenticated quarantine/repair, known-address short
+phrase import, and original historical dependency fixtures. Early checkpoint
+notes below describe intermediate states; `../VERIFICATION.md` is the current
+evidence ledger. This document does not authorize a signed release.
 
 ## Implemented
 
@@ -47,7 +50,7 @@ being integrated on `codex/upgrade-safety-20261012`; it is not a release verdict
   before and after; no real wallet keys or funds are involved.
 - The full Debug unit suite is running after the backup-screen additions.
 
-## Required before this task is complete
+## Requirements recorded at the early checkpoint (now implemented)
 
 - Authenticated, explicitly confirmed quarantine-and-repair when the retained
   signing key does not prove the account. Preserve originals and journal
@@ -70,9 +73,8 @@ verified path/password with its own copy action and the same capture/background
 protection as the phrase. Tests across all three crypto types, stale/unreadable
 siblings and full Core Data migration passed in `owner-pin-third.log`, as did
 the phrase/path round trip. One unrelated global-entropy mismatch classification
-was corrected after that run and is being rechecked. The earlier remaining-work
-list still applies; quarantine repair and historical dependency vectors are
-not completed by these changes.
+was corrected after that run and is being rechecked. That review checkpoint predates the subsequently integrated quarantine repair
+and 134 original dependency vectors; consult the current verification ledger.
 
 ## Typed historical phrases
 
@@ -99,3 +101,13 @@ Previously those setter hooks were empty and the selected controls could not
 reach the request. Controller-to-input-model and typed-address presenter tests
 pass in the same targeted run. Screenshot review and all production locales
 remain pending.
+
+
+## Final continuation status
+
+The preceding checkpoint notes are retained as history. Current full suites,
+actual normal-app launches, original dependency provenance, translation coverage
+and final remaining external gates are recorded in [VERIFICATION](../VERIFICATION.md)
+and [UPGRADE-PATHS](../UPGRADE-PATHS.md). The integrated 134 original vectors,
+backup and repair cases are now exercised by the full suites; no signed-store or
+physical-device qualification is inferred from those simulator results.

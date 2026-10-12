@@ -261,73 +261,73 @@ existing wallet:
 
 ### Product and security decisions (confirm before release)
 
-- [ ] "Restore wallets found on this iPhone" restores wallets left in the
-      Keychain after a reinstall when the user enters the PIN used on this
-      iPhone before. That is the same authority App Store 3.8.6 needed to
-      open the wallet. Wrong PINs lead to waits of 1, 5, 15 and 30 minutes
-      (state in UserDefaults, so a reinstall resets it; the device passcode
-      still protects the Keychain). Before onboarding replaces that PIN, a
-      copy is kept in the Keychain (`earlierInstallPin-N`, add-only, one per
-      distinct PIN, no limit) so wallets not restored yet stay restorable
-      from Add account with the earlier PIN; this install's new PIN alone
-      never unlocks them. Keeping the copy is required before Welcome back
-      continues to onboarding and before PIN setup replaces an existing PIN.
-      Removing the last account does not delete these copies. Security
-      owner: accept, or require the phrase.
-- [ ] Until this install's PIN is set after Welcome back
-      (`wallet.pinSetupPendingAfterWelcomeBack` in UserDefaults), the app
-      opens PIN setup instead of PIN entry and does not ask for the earlier
-      PIN when it returns from the background. The flag is set only from
-      Welcome back, which has no account rows. Security owner: accept.
-- [ ] Accounts whose keys are missing or do not match are read-only (G-full).
-      A corrupted account therefore no longer stops the app; it shows as
-      read-only until restored or removed. Importing the account's phrase,
-      seed or Drive backup restores missing keys in place. Removing a
-      read-only account removes only its row; its Keychain items, the PIN
-      and the 1.x items stay. The Safe Mode UI task must show a clear
-      read-only badge and a restore action (domain API:
-      `WalletAccountKeyAvailability`, `restoreKeysForReadOnlyAccount`,
-      signing errors `keysNotOnThisDevice` / `keysNotVerified`).
-- [ ] "Set up this iPhone again" moves (never deletes) the wallet database,
-      migration backups, network model and commit journals into
-      `Documents/WalletSetAside/`. Nothing prunes that folder; a folder with
-      an `INCOMPLETE` file is one whose moves could not all be undone (a
-      retry continues in it). Superseded failed migration attempts in
-      `Documents/CoreData/WalletMigrationSuperseded/` are capped at the
-      newest 3. Support owner: agree how users are guided if they need data
-      from these folders.
+- [ ] Security owner reviews the implemented per-wallet PIN model: salted,
+      device-only scrypt ownership verifiers; persistent per-wallet attempt
+      limits using boot identity/uptime; sealed manual authorization; durable
+      rotation and rebind journals. The global app PIN and historical
+      `earlierInstallPin-*` copies cannot claim retained wallets. No new copies
+      are created. Unbound 3.8.6 wallets require a phrase or encrypted backup.
+- [x] Review first-PIN recovery using exact-account, operation-scoped Keychain
+      setup intents. Preferences flags alone grant no setup authority. An
+      interrupted rotation completes before any authentication, including
+      biometrics. Failed PIN saves do not report success.
+- [x] Read-only accounts show their capability, reason and restore action in
+      the account header/picker. Phrase/seed/JSON/Drive repairs require fresh
+      supplied proof, current PIN and explicit confirmation for failed keys;
+      every replaced byte is quarantined and verified first. Working keys stay
+      add-only. An empty reinstall chooses a fresh PIN and binds only the
+      supplied, proved wallet. Explicit watch-only accounts remain watch-only.
+- [x] Set-up-again preserves the allowlisted database, migration evidence,
+      network model, account journal, unreadable pending records and wallet
+      settings in a manifest-verified directory excluded from device backup.
+      Readable pending records stay live for reconciliation. An empty live
+      installation can return complete verified generations; each wallet with
+      retained keys requires owner-PIN proof before adopting the newly chosen
+      app PIN. Metadata-only generations have no retained-key owner to prove.
+      Unbound old wallets require supplied backups. Interrupted returns resume
+      only from a Keychain-sealed exact manifest.
+- [ ] Support verifies these recovery instructions on the actual signed build,
+      including partial failures, unavailable Keychain and unbound older wallets.
 
 ### For the Safe Mode / UI task
 
-- [ ] Render the actions from `WalletRecoveryOptions` (see `WalletRecoveryState`)
-      in the §9.2 order, and translate every Safe Mode string into all
-      production locales. i4 added English and Japanese only; the existing
-      recovery screen still has older hard-coded English text.
-- [ ] Welcome back currently routes phrase and Google Drive restore to the
-      onboarding welcome screen; deep-link to the import screens.
-- [ ] Show a "SORA network only" note after importing a 15/18/21-word phrase
-      (no Nexus accounts for those lengths).
-- [ ] Restyle the recovery-phrase screen (`WalletRecoveryPhraseViewController`:
+- [x] Recovery actions and explanation use the same `WalletRecoveryOptions`;
+      all 64 flag combinations are tested. Welcome back opens the requested
+      phrase/Drive flow directly. Root/recovery/PIN messages use string tables.
+- [x] Complete the recovery/authentication inventory in all 28 shipped locales:
+      235 keys each, 6,580 entries, placeholders validated. Exact scope and the
+      native-review manifest are in `recovery-translations.json`.
+- [ ] Complete native-language and longest-string/RTL/device review; structural
+      validation is not native review.
+- [ ] Verify the SORA-only explanation on the signed build after importing a
+      15/18/21-word phrase (no Nexus accounts for those lengths).
+- [ ] Review the restyled recovery-phrase screen on a signed physical device
+      (`WalletRecoveryPhraseViewController`:
       screenshot warning, words hidden in the app switcher and while the
       screen is captured) and the "Restore wallets found on this iPhone"
-      entry in Add account to the SORA Neon design.
+      entry in Add account for the SORA Neon design and usable controls.
 
 ### Device QA
 
-- [ ] Reinstall: on 3.8.6 create or import a wallet, delete the app,
-      install 3.9.0. Expect "Welcome back"; "Restore wallets found on this
-      iPhone" with the old PIN restores the wallet with the same address and
-      balance; the app then asks for that PIN. Repeat and choose "Restore
-      with recovery phrase": the import succeeds (no "already imported").
+- [ ] Unbound 3.8.6 reinstall: create or import a public test wallet on the
+      signed old app, delete it and install 3.9.0. Welcome back must require a
+      supplied phrase or encrypted backup; the old stored app PIN cannot claim
+      its retained keys. A matching import chooses a fresh PIN and retains the
+      expected address, with no false duplicate-account refusal.
+- [ ] Previously owner-bound reinstall: after a verified binding exists, delete
+      and reinstall. Manual owner-PIN restoration restores only matching wallets
+      and explicitly re-protects them with the chosen/current app PIN. Confirm
+      exact address and ownership isolation on the signed device build.
 - [ ] New iPhone: back up a 3.8.6 phone to iCloud (or Finder, unencrypted),
       restore it on another iPhone, install 3.9.0. The wallet opens; sending
       shows "This account's keys are not on this iPhone…". Add account →
       import that account's phrase: it is restored in place (same name,
       no "already imported") and can send.
-- [ ] Reinstall with two wallets: restore one with its phrase from Welcome
-      back (answer "Continue without them"), set a new PIN, then Add account
-      → "Restore wallets found on this iPhone" with the earlier PIN restores
-      the other one.
+- [ ] Reinstall with two previously owner-bound wallets: restore one with its
+      phrase from Welcome back (answer "Continue without them"), set a new PIN,
+      then Add account → "Restore wallets found on this iPhone" with the other
+      wallet's owner PIN restores only that wallet. Unbound 3.8.6 wallets remain
+      supplied-backup-only; the first wallet's new PIN must not claim them.
 - [ ] Remove a read-only account (and, separately, the last account when it
       is read-only): the Keychain keeps its items; the next launch of the
       last-account case shows Welcome back.
@@ -340,18 +340,21 @@ existing wallet:
 - [ ] Downgrade: on a TestFlight 3.9.0 build, upgrade a 1.x-era or
       global-only wallet, then install App Store 3.8.6 over it. The wallet
       opens and can send (it uses the new scoped `-secretKey`).
-- [ ] Kill the app right after tapping Import (twice, at different
-      moments); reopen. No recovery screen; importing again works.
+- [ ] Kill the app right after tapping Import (twice, at different moments);
+      reopen. Verified committed work resumes; an unresolved/failed proof opens
+      actionable recovery without deleting keys or claiming import success.
 - [ ] Welcome back actions (fix round 2): after a reinstall, tap each of
       "Restore with recovery phrase", "Restore from Google Drive" and "Set
-      up this iPhone again" (from a fresh Welcome back each time). Each one
-      opens onboarding.
+      up this iPhone again" (from a fresh Welcome back each time). Phrase and
+      Drive actions open the requested import directly; set-up-again preserves
+      existing data and offers the next explicit recovery/onboarding choice.
 - [ ] Stop before PIN setup: from Welcome back, restore with a phrase, then
       kill the app on the PIN setup screen. Reopening shows PIN setup, not
       the earlier PIN. After the new PIN is set, Add account → "Restore
-      wallets found on this iPhone" still accepts the earlier PIN.
-- [ ] 1.x upgrade: on a 1.x-era install, "Continue protected upgrade"
-      completes and opens the wallet. It must not spin forever.
+      wallets found on this iPhone" accepts an earlier owner PIN only for wallets
+      with a matching durable owner binding. Unbound wallets require a backup.
+- [ ] 1.x upgrade: on a 1.x-era install, "Upgrade wallet" completes and
+      reaches the verified PIN/wallet path. It must not spin forever.
 - [ ] New iPhone from iCloud: Add account → Import with the phrase of a
       read-only account, and Add account → Google Drive with its backup, each
       restore the keys. The account is not reported as already imported.
@@ -360,18 +363,12 @@ existing wallet:
 
 ### Before archiving
 
-- [ ] **Release blocker.** Refresh the bundled asset whitelist (not done
-      in this task: no downloads were allowed). On the first launch after
-      the update there is no saved list yet; if the whitelist server is
-      slow or unreachable, the bundled list decides which tokens are
-      listed, and today it hides every token newer than 2.3.1 (VXOR, for
-      example) until the live list arrives. Download
-      `https://whitelist.polkaswap2.io/whitelist.json`, check it is a JSON
-      array that lists XOR (`0x0200000000…`), replace
-      `SoraPassport/Resources/whitelist.json`, and review the diff (new and
-      removed tokens, renamed symbols). The bundled list is used only on a
-      first launch that cannot reach the whitelist server; it dates from
-      2.3.1 (185 entries).
+- [x] Refresh the bundled whitelist from the published source: 277 entries,
+      previously 185. The recorded diff adds 99 and removes 7 addresses and
+      changes 18 retained display names; symbols/precision stay unchanged.
+      Commit `62fb1889`; see `fixes/in4-hygiene.md` and the recorded source diff.
+- [ ] On a signed device, test first launch with the whitelist server unreachable:
+      the refreshed bundled/last-good fallback must remain usable and fail closed.
 
 ### Device QA
 
@@ -451,10 +448,9 @@ existing wallet:
       engineering owner signs off that both assurances hold for that flow:
       "Your original keys are not deleted or replaced" and "If a check
       fails, SORA stops safely and shows your options".
-- [ ] New Safe Mode strings exist in English and Japanese only (17 keys,
-      "SORA Neon Safe Mode screens" block at the end of
-      `Localizable.strings`); other locales fall back to English. Translate
-      before release, together with the i4 recovery strings.
+- [ ] Native review of the unified recovery translation inventory, including
+      all Safe Mode strings, and longest-string/RTL layout review after the
+      remaining locale additions. See the shared translation gate above.
 
 ### Device QA
 
@@ -463,7 +459,8 @@ existing wallet:
 - [ ] iOS 16–25: the tab bar keeps its notch with the chrome colour and a
       top hairline; check that items, the swap disc and the notch line up
       and that the disc and the area around it respond to taps. This path
-      could not be checked here (only iOS 27 simulators are installed).
+      has normal-app simulator evidence on 17.5 and 18.4; iOS 16 runtime and
+      the complete signed physical hit-target/theme matrix remain open.
 - [ ] iOS 26+: tab bar items switch, the selection capsule is the system
       Liquid Glass, and the swap disc opens Polkaswap.
 - [ ] Switch Settings → Appearance between System, Dark and Light while the
@@ -497,3 +494,33 @@ existing wallet:
       (and a hardware keyboard, if available), type quickly into the phrase
       field and confirm with 確定: no crash. Then import a phrase with the
       English keyboard: the import succeeds as before.
+
+## Recovery integration validation — 12 October 2026
+
+- [x] 72 targeted tests pass with one opt-in visual-capture skip (exit 0),
+      including 9 orphan-repair/PIN tests, 15 credential-repair tests, 9 owner-PIN
+      intent tests, 5 capability tests, 2 real import-routing tests and 32 UX
+      tests. Every simulated repair interruption preserves original bytes.
+- [x] Original dependency fixtures: 120 historical Substrate vectors pass every
+      migration checkpoint; 2 original 1.x vectors pass production derivation/
+      signing checks. This proves the tested source/dependency families, not
+      the missing 2.x source releases or signed-store upgrade matrix.
+- [x] 176 English/Japanese light/dark normal/maximum-font screenshots captured
+      from production controllers with synthetic display states. Layout review
+      fixed truncated reasons and backup choices. The latest Debug app launches
+      on iOS 17.5 with its real onboarding screen.
+- [x] Final iOS 27 full Debug and optimized Release each pass 843 tests,
+      8 opt-in skips, zero failures, Xcode exit 0. Full 17.5/18.4/26.5 Debug
+      runs each pass 838 tests/8 skips; later changes have focused/normal-app
+      checks and final iOS 27 full-suite coverage. Final ordinary unsigned
+      generic-device Release compile passes. Exact scope: VERIFICATION.md.
+- [x] Simulator historical-writer launch matrix: 56 distinct complete cases,
+      including actual two-uninstall ownership isolation, missing-PIN recovery,
+      original legacy names, erased-simulator/files-only restore, and authenticated
+      preserved-generation return with a new PIN. See the
+      exact scope, source adapters and retained failed attempts in VERIFICATION.md.
+- [ ] Complete signed historical-binary and physical-device upgrade/restore
+      evidence; simulator source qualification does not close this gate.
+- [ ] Verify actual App Store/TestFlight signing/identity continuity, public
+      link eligibility, Google identity and release metadata before publishing.
+      No upload or publication has been made by this continuation.

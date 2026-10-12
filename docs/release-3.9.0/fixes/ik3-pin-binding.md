@@ -48,10 +48,12 @@ auxiliary-source startup tests, and a passing recovery phrase/path round trip.
 One existing read-only inventory test exposed a global-entropy mismatch being
 classified as an I/O error; that distinction is corrected for the next run.
 
-The latest strengthened real-Keychain test deletes a temporary account database
-and a dedicated UserDefaults suite between installs. Its rerun is pending.
-Retries after a partially committed PIN write, the independent review, the full
-unit suite, older runtimes, and physical-device checks are still required.
+The strengthened real-Keychain test deletes a temporary account database and a
+dedicated UserDefaults suite between installs. It and interrupted PIN publication
+cases pass in the full Debug suites on iOS 17.5, 18.4, 26.5 and 27 (838 tests,
+8 opt-in skips each; exit 0). Independent review follow-ups are integrated.
+The separate normal-app two-uninstall UI sequence and optimized Release results
+are recorded in `../VERIFICATION.md`. Physical/store qualification remains open.
 
 ## Last public TestFlight source
 

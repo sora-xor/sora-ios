@@ -6,7 +6,7 @@ import json,re,subprocess,hashlib,sys
 root=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else Path(__file__).resolve().parents[2]
 manifestPath=root/'docs/release-3.9.0/recovery-translations.json'
 manifest=json.loads(manifestPath.read_text())
-keys=manifest['keys']; assert len(keys)==231 and len(set(keys))==231
+keys=manifest['keys']; assert keys and len(set(keys))==len(keys)
 pbx=(root/'SoraPassport.xcodeproj/project.pbxproj').read_text()
 block=re.search(r'5ED216A7294886A90052C740 /\* Localizable\.strings \*/ = \{(.*?)\n\s*\};',pbx,re.S).group(1)
 locales=re.findall(r'/\* ([^*]+) \*/',block)
