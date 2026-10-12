@@ -215,44 +215,52 @@ extension ActivityViewModel: ActivityViewModelProtocol {
     @MainActor
     private func loadContent() async {
         let list = listNumber
-        let requested = pageNumber + 1
-        do {
-            let page = try await historyService.getPageHistory(count: 50, page: requested, assetId: assetId)
-            // The list was started again, or this page already arrived,
-            // while this request was on its way.
-            guard list == listNumber, requested == pageNumber + 1 else { return }
-            show(page)
-        } catch {
-            guard list == listNumber, requested == pageNumber + 1 else { return }
-            guard pageNumber == 0 else {
-                if case PIIndexerError.paginationLimit = error {
-                    // The list is as long as it gets.
-                    endReached = true
-                    view?.stopPaginationLoader()
+        while list == listNumber, !endReached {
+            let requested = pageNumber + 1
+            do {
+                let page = try await historyService.getPageHistory(count: 50, page: requested, assetId: assetId)
+                // The list was started again, or this page already arrived,
+                // while this request was on its way.
+                guard list == listNumber, requested == pageNumber + 1 else { return }
+                guard show(page) else { return }
+                // The asset filter can leave a page empty even though
+                // older pages have matches. There is no new row to scroll
+                // to, so ask for the next page here.
+            } catch {
+                guard list == listNumber, requested == pageNumber + 1 else { return }
+                guard pageNumber == 0 else {
+                    if case PIIndexerError.paginationLimit = error {
+                        // The list is as long as it gets.
+                        endReached = true
+                        view?.stopPaginationLoader()
+                        return
+                    }
+                    // A further page could not be read and there is no saved
+                    // copy of it. Offer to load the list again instead of
+                    // leaving the spinner at its end.
+                    showRetryRow()
                     return
                 }
-                // A further page could not be read and there is no saved
-                // copy of it. Offer to load the list again instead of
-                // leaving the spinner at its end.
-                showRetryRow()
+                showFirstPageFailure()
                 return
             }
-            showFirstPageFailure()
         }
     }
 
+    /// Returns true when an accepted empty page needs the next page to
+    /// be read without waiting for another scroll.
     @MainActor
-    private func show(_ page: HistoryPage) {
+    private func show(_ page: HistoryPage) -> Bool {
         let isFirstPage = pageNumber == 0
         guard isFirstPage || Self.continues(shownPages, pageCachedAt: page.cachedAt) else {
             // The page that arrived is from another moment than the
             // list on screen. Leave the list as it is and offer to
             // load it again from its start.
             showRetryRow()
-            return
+            return false
         }
         removeRetryRow()
-        endReached = page.endReached
+        endReached = page.endReached || pageNumber + 1 >= PIIndexerClient.maximumHistoryPages
 
         if isFirstPage {
             sections = []
@@ -284,18 +292,11 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             firstPageDidEnd(behind: page.cachedAt != nil || page.errorMessage != nil)
         }
 
-        if isFirstPage && page.transactions.isEmpty && page.errorMessage == nil {
-            sections = notice
-            snapshot = createSnapshot()
-            setupEmptyLabel?()
-            return
-        }
-
         if isFirstPage && page.errorMessage != nil && page.transactions.isEmpty {
             sections = []
             snapshot = createSnapshot()
             setupErrorContent?()
-            return
+            return false
         }
 
         hideErrorContent?()
@@ -329,15 +330,16 @@ extension ActivityViewModel: ActivityViewModelProtocol {
 
         updateSections(with: sections)
 
-        // A page that brought rows is drawn and counted, also when every
-        // one of its rows belongs to a day that is on screen already and
-        // no section was added for it.
-        if !sections.isEmpty {
-            reload()
-        } else if endReached {
-            // Nothing to draw and nothing more to ask for.
-            view?.stopPaginationLoader()
+        // Count each accepted page, even when it merged into an existing
+        // day or the asset filter left no rows. Advancing before another
+        // response arrives also prevents the same page being merged twice.
+        reload()
+
+        if endReached, page.errorMessage == nil,
+           !self.sections.contains(where: { $0.items.contains(where: \.isActivity) }) {
+            setupEmptyLabel?()
         }
+        return page.transactions.isEmpty && page.errorMessage == nil && !endReached
     }
 
     /// Page 1 could not be loaded and there is no saved copy to show: the
@@ -443,7 +445,9 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         }
         if let page, page.cachedAt == nil, page.errorMessage == nil {
             startList()
-            show(page)
+            if show(page) {
+                await loadContent()
+            }
             return
         }
         refreshFailures += 1
@@ -451,7 +455,9 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             // Nothing is on screen but the "could not load" text, and a
             // saved copy can be read now: show it, and keep asking.
             startList()
-            show(page)
+            if show(page) {
+                await loadContent()
+            }
             return
         }
         scheduleRefresh()
