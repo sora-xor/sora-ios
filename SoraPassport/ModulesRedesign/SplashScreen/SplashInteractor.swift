@@ -196,21 +196,21 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         switch cause {
         case .missingSecret, .keychainMissing:
             if secretChecks?.origin == .savedManifest {
-                return "The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved."
+                return WalletUX.text("The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved.")
             }
-            return "SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account."
+            return WalletUX.text("SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account.")
         case .emptySecret:
-            return "A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved."
+            return WalletUX.text("A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved.")
         case .keychainSystem:
-            if systemCode == -25308 { return "iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again." }
-            if systemCode == -34018 { return "iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced." }
-            return "iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation."
+            if systemCode == -25308 { return WalletUX.text("iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again.") }
+            if systemCode == -34018 { return WalletUX.text("iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced.") }
+            return WalletUX.text("iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation.")
         case .snapshotVerification, .inventoryMismatch, .legacyIdentityMismatch, .legacyUpgradeProof:
-            return "The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access."
+            return WalletUX.text("The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access.")
         case .missingStore, .unknownStore, .unavailableModel:
-            return "SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved."
-        case .insufficientStorage: return "SORA needs more free storage to retain a verified recovery copy before completing this upgrade."
-        default: return "SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved."
+            return WalletUX.text("SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved.")
+        case .insufficientStorage: return WalletUX.text("SORA needs more free storage to retain a verified recovery copy before completing this upgrade.")
+        default: return WalletUX.text("SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved.")
         }
     }
 
@@ -500,6 +500,40 @@ extension WalletStorageStartup {
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
         var deferredForLegacyUpgrade = false
         let accountCommitRecovery: () throws -> Void = {
+            let paths: WalletLocalStateSetAside.Paths
+            if let applicationSupportURL {
+                paths = .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
+                              setAsideRootURL: storeURL.deletingLastPathComponent()
+                                .appendingPathComponent("WalletSetAside", isDirectory: true))
+            } else {
+                paths = try .production(fileManager: fileManager)
+            }
+            let returnLease = lifecycleCoordinator.acquire()
+            do {
+                try WalletPreservedGeneration.resume(paths: paths, settings: settings, keystore: keystore)
+                if try keystore.checkKey(for: WalletCredentialRepair.pendingTag) {
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let repairGate = WalletRecoveryCapabilityGate(settings: settings,
+                        unresolvedMigrationJournal: { dbMigrator.hasUnresolvedMigrationJournal() },
+                        unresolvedWalletCommitJournal: {
+                            try !WalletAccountCommitJournalStore(baseURL: applicationSupportURL).unresolved().isEmpty
+                        },
+                        migrationRecoveryMarker: marker.isDatabaseInterruption ? marker : nil,
+                        legacyAccountRecoveryMarker: marker.isLegacyAccountCommitInterruption ? marker : nil,
+                        startupVerificationMarker: marker.isRetryableStartupFailure ? marker : nil)
+                    let rows = WalletPreservedGeneration.exists(storeURL)
+                        ? try dbMigrator.preservedAccountInventory() : []
+                    try WalletCredentialRepair(keystore: keystore, settings: settings, recoveryGate: repairGate)
+                        .resumePending(accounts: rows)
+                }
+                returnLease.release()
+            } catch {
+                returnLease.release()
+                throw error
+            }
+            try WalletMissingDatabaseRecovery.preserveStaleMetadata(
+                settings: settings, keystore: keystore, paths: paths,
+                fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator)
             try WalletStartupVerificationRecovery.recoverIfNeeded(
                 storeURL: storeURL,
                 modelDirectory: modelDirectory,
@@ -566,6 +600,10 @@ extension WalletStorageStartup {
                 accountCommitRecovery: accountCommitRecovery,
                 migration: migration
             )
+        }
+        if outcome == .recoveryRequired {
+            do { try dbMigrator.preserveLegacyKeysDuringRecovery(lifecycleCoordinator: lifecycleCoordinator) }
+            catch { Logger.shared.warning("Wallet keys: recovery preservation deferred; original items kept") }
         }
         return Checks(
             outcome: outcome,
@@ -849,6 +887,15 @@ final class SplashInteractor: SplashInteractorProtocol {
         }
 
         if deferredForLegacyUpgrade {
+            completeSplashOnMain()
+            return
+        }
+
+        // Do not create an empty replacement SQLite store just to decide
+        // between onboarding and Welcome back. This also leaves an empty live
+        // namespace eligible for the explicit preserved-generation return.
+        if !WalletPreservedGeneration.exists(UserStorageParams.storageURL) {
+            SelectedWalletSettings.shared.commitInternalValue(nil)
             completeSplashOnMain()
             return
         }

@@ -94,6 +94,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         tableView.reloadData()
+        viewModel.walletItems.compactMap { $0 as? AccountTableViewItem }.forEach { $0.refreshCapability() }
     }
 
     private func setupView() {

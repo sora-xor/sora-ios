@@ -703,7 +703,7 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(current.secretChecks, saved.snapshot)
         XCTAssertEqual(current.phase, .databaseMigration)
         XCTAssertEqual(current.cause, .missingSecret)
-        XCTAssertTrue(current.userMessage.contains("manifest"))
+        XCTAssertEqual(current.userMessage, WalletUX.text("The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved."))
         XCTAssertFalse(current.summary.contains("synthetic-private-identifier"))
         let serialized = try XCTUnwrap(settings.string(for: SettingsKey.walletStartupDiagnostic.rawValue))
         XCTAssertLessThanOrEqual(serialized.utf8.count, 1_024)
@@ -11076,7 +11076,7 @@ final class WalletModernizationTests: XCTestCase {
                         XCTAssertNil(failure.secretChecks?.outcomes[.globalEntropy])
                         XCTAssertTrue(failingKeys.fetched.isEmpty)
                         XCTAssertFalse(failingKeys.checked.contains(KeystoreTag.legacyEntropy.rawValue))
-                        XCTAssertTrue(failure.userMessage.contains("Unlock this iPhone"))
+                        XCTAssertEqual(failure.userMessage, WalletUX.text("iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again."))
                         XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
                         XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
                     }
@@ -20540,7 +20540,8 @@ final class WalletModernizationTests: XCTestCase {
                 journalStore
             },
             lifecycleCoordinator: lifecycleCoordinator,
-            recoveryGate: recoveryGate
+            recoveryGate: recoveryGate,
+            keystore: keychain
         )
         let eventCenter = EventCenter(
             syncQueue: DispatchQueue(
@@ -20608,6 +20609,9 @@ final class WalletModernizationTests: XCTestCase {
                     },
                     lifecycleCoordinator: lifecycleCoordinator
                 )
+            },
+            initialPINAccounts: {
+                try WalletAccountAddresses.accounts(storageFacade: storageFacade)
             }
         )
         let presenter = LegacyUpgradeRootPresenterSpy()
@@ -20826,9 +20830,28 @@ final class WalletModernizationTests: XCTestCase {
             KeystoreTag.entropyTagForAddress(expectedAddress),
             KeystoreTag.seedTagForAddress(expectedAddress),
         ]
+        // The real selection singleton receives the same Keychain as its
+        // importer. This isolated fixture must do so too: the exact import
+        // journal grants initial PIN setup before any account row is inserted.
+        let setupTag = WalletOwnerPIN.setupPrefix + expectedAddress
+        let setupIntent = try JSONDecoder().decode(WalletOwnerPIN.SetupIntent.self,
+            from: keychain.fetchKey(for: setupTag))
+        XCTAssertEqual(setupIntent.account.address, expectedAddress)
+        XCTAssertEqual(setupIntent.account.publicKeyData, expectedPublicKey)
+        let commitURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+            at: directory.appendingPathComponent("SORA/WalletAccountCommits"),
+            includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("wallet-account-") })
+        let commitDecoder = JSONDecoder()
+        commitDecoder.dateDecodingStrategy = .iso8601
+        let setupCommit = try commitDecoder.decode(WalletAccountCommitJournal.self,
+            from: Data(contentsOf: commitURL))
+        XCTAssertEqual(setupIntent.operationID, setupCommit.id)
+        XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
+        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+        XCTAssertFalse(try keychain.checkKey(for: expectedAddress + WalletOwnerPIN.bindingSuffix))
         XCTAssertEqual(
             Set(try keychain.allKeyIdentifiers()),
-            originalIdentifiers.union(scopedCopies)
+            originalIdentifiers.union(scopedCopies).union([setupTag])
         )
         for (identifier, expectedValue) in originalValues {
             XCTAssertEqual(

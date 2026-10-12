@@ -71,6 +71,30 @@ final class PinViewFactory {
         return pinSetupView
     }
     
+    /// A conflict repair during empty onboarding may already have completed
+    /// explicit new-PIN setup. Never ask to overwrite that PIN a second time.
+    static func createPostImportPinView() -> PinSetupViewProtocol? {
+        guard let account = SelectedWalletSettings.shared.currentAccount else {
+            return createRedesignPinSetupView()
+        }
+        do {
+            let needsSetup = try needsPostImportPINSetup(keystore: Keychain(),
+                settings: SettingsManager.shared, accounts: [account])
+            return needsSetup ? createRedesignPinSetupView() : createRedesignSecuredPinView()
+        } catch {
+            // A secured screen cannot approve access without resolving the
+            // underlying Keychain failure; retry keeps the wallet protected.
+            return createRedesignSecuredPinView()
+        }
+    }
+
+    static func needsPostImportPINSetup(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                                       accounts: [AccountItem]) throws -> Bool {
+        if accounts.isEmpty { return true }
+        if try !keystore.checkKey(for: KeystoreTag.pincode.rawValue) { return true }
+        return try WalletOwnerPIN(keystore: keystore, settings: settings).requiresInitialSetup(accounts: accounts)
+    }
+
     static func createRedesignPinSetupView() -> PinSetupViewProtocol? {
         let pinSetupView = PincodeViewController()
 

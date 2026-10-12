@@ -7,7 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CD101226F004000000000002 /* SimulatorReleased23AccountMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226F004000000000001 /* SimulatorReleased23AccountMapper.swift */; };
+		CD101226F003000000000002 /* WalletSimulatorUpgradeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226F003000000000001 /* WalletSimulatorUpgradeUITests.swift */; };
+		CD101226F002000000000002 /* WalletSimulatorUpgradeFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226F001000000000002 /* WalletSimulatorUpgradeFixtureTests.swift */; };
+		CD101226F002000000000001 /* SimulatorReleased386AccountItemMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226F001000000000001 /* SimulatorReleased386AccountItemMapper.swift */; };
+		CD101226F002000000000000 /* SimulatorReleased386AccountOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226F001000000000000 /* SimulatorReleased386AccountOperationFactory.swift */; };
+		CD1012269012000000000012 /* HistoricalCrypto in Resources */ = {isa = PBXBuildFile; fileRef = CD1012269012000000000011 /* HistoricalCrypto */; };
 		CD1012269012000000000002 /* WalletOwnerPINIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1012269012000000000001 /* WalletOwnerPINIntentTests.swift */; };
+		CD101226C003000000000002 /* WalletCredentialRepairTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C003000000000001 /* WalletCredentialRepairTests.swift */; };
+		CD101226D006000000000002 /* WalletOrphanCredentialRepairTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226D006000000000001 /* WalletOrphanCredentialRepairTests.swift */; };
+		CD101226C005000000000002 /* WalletAccountCapabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C005000000000001 /* WalletAccountCapabilityTests.swift */; };
 		A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
 		A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
 		A66B00012F5B000000000003 /* IrohaConnectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000102 /* IrohaConnectSession.swift */; };
@@ -158,6 +167,10 @@
 		2CDD62BDF4AFAF446E92DEBD /* WalletRecoveryOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */; };
 		B1C960879F03A1D2F017E2D0 /* WalletKeySafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5851377C99649922C92E298 /* WalletKeySafety.swift */; };
 		5C17ECAC1C48107260000002 /* WalletOwnerPIN.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C17ECAC1C48107260000001 /* WalletOwnerPIN.swift */; };
+		CD101226C001000000000002 /* WalletCredentialRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C001000000000001 /* WalletCredentialRepair.swift */; };
+		CD101226D005000000000002 /* WalletMissingAccountRepairFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226D005000000000001 /* WalletMissingAccountRepairFlow.swift */; };
+		CD101226C004000000000002 /* WalletAccountCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C004000000000001 /* WalletAccountCapability.swift */; };
+		CD101226C002000000000002 /* WalletCredentialRepairViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C002000000000001 /* WalletCredentialRepairViewController.swift */; };
 		038D2D64AF0217B1612DCB80 /* InputPincodePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3662C4B32987C6B1002FABC8 /* InputPincodePresenter.swift */; };
 		039D890FED219D3D413319B7 /* FarmDetailsViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6EA42B1CD6B000002EE3 /* FarmDetailsViewModelProtocol.swift */; };
 		03DA114BB22C43223D92D137 /* AssetTransactionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FAE2BA05B57005A44BC /* AssetTransactionData.swift */; };
@@ -1192,6 +1205,10 @@
 		484E6D59134A9EEDE73C1355 /* WalletRecoveryOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */; };
 		9B5D6B7335ECE0E900A6903C /* WalletKeySafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5851377C99649922C92E298 /* WalletKeySafety.swift */; };
 		5C17ECAC1C48107260000003 /* WalletOwnerPIN.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C17ECAC1C48107260000001 /* WalletOwnerPIN.swift */; };
+		CD101226C001000000000003 /* WalletCredentialRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C001000000000001 /* WalletCredentialRepair.swift */; };
+		CD101226D005000000000003 /* WalletMissingAccountRepairFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226D005000000000001 /* WalletMissingAccountRepairFlow.swift */; };
+		CD101226C004000000000003 /* WalletAccountCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C004000000000001 /* WalletAccountCapability.swift */; };
+		CD101226C002000000000003 /* WalletCredentialRepairViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD101226C002000000000001 /* WalletCredentialRepairViewController.swift */; };
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
 		60CE93F74051F6FE1983A4C1 /* ChainStorage+Decodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497DFC25EF925900FD4F14 /* ChainStorage+Decodable.swift */; };
 		6160CCA9938E7A0197866DF0 /* QRCommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CEAD882B94938900D532E0 /* QRCommon.swift */; };
@@ -2471,7 +2488,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CD101226F004000000000001 /* SimulatorReleased23AccountMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorReleased23AccountMapper.swift; sourceTree = "<group>"; };
+		CD101226F003000000000001 /* WalletSimulatorUpgradeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletSimulatorUpgradeUITests.swift; sourceTree = "<group>"; };
+		CD101226F001000000000002 /* WalletSimulatorUpgradeFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletSimulatorUpgradeFixtureTests.swift; sourceTree = "<group>"; };
+		CD101226F001000000000001 /* SimulatorReleased386AccountItemMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorReleased386AccountItemMapper.swift; sourceTree = "<group>"; };
+		CD101226F001000000000000 /* SimulatorReleased386AccountOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorReleased386AccountOperationFactory.swift; sourceTree = "<group>"; };
+		CD1012269012000000000011 /* HistoricalCrypto */ = {isa = PBXFileReference; lastKnownFileType = folder; path = HistoricalCrypto; sourceTree = "<group>"; };
 		CD1012269012000000000001 /* WalletOwnerPINIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletOwnerPINIntentTests.swift; sourceTree = "<group>"; };
+		CD101226C003000000000001 /* WalletCredentialRepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletCredentialRepairTests.swift; sourceTree = "<group>"; };
+		CD101226D006000000000001 /* WalletOrphanCredentialRepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletOrphanCredentialRepairTests.swift; sourceTree = "<group>"; };
+		CD101226C005000000000001 /* WalletAccountCapabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletAccountCapabilityTests.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectProtocol.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000102 /* IrohaConnectSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectSession.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000103 /* IrohaConnectUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectUI.swift; sourceTree = "<group>"; };
@@ -3251,6 +3277,10 @@
 		96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletRecoveryOptions.swift; sourceTree = "<group>"; };
 		D5851377C99649922C92E298 /* WalletKeySafety.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletKeySafety.swift; sourceTree = "<group>"; };
 		5C17ECAC1C48107260000001 /* WalletOwnerPIN.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletOwnerPIN.swift; sourceTree = "<group>"; };
+		CD101226C001000000000001 /* WalletCredentialRepair.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletCredentialRepair.swift; sourceTree = "<group>"; };
+		CD101226D005000000000001 /* WalletMissingAccountRepairFlow.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletMissingAccountRepairFlow.swift; sourceTree = "<group>"; };
+		CD101226C004000000000001 /* WalletAccountCapability.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletAccountCapability.swift; sourceTree = "<group>"; };
+		CD101226C002000000000001 /* WalletCredentialRepairViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletCredentialRepairViewController.swift; sourceTree = "<group>"; };
 		60AAFDC6270EEEDB00916408 /* Migrating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Migrating.swift; sourceTree = "<group>"; };
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
 		7A19A88A0B3814538E7C55BA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -3961,8 +3991,15 @@
 			children = (
 				A66B00012F5B000000000110 /* IrohaConnectTests.swift */,
 				B66B00012F5B000000000110 /* WalletUXTests.swift */,
+				CD101226F004000000000001 /* SimulatorReleased23AccountMapper.swift */,
+				CD101226F001000000000002 /* WalletSimulatorUpgradeFixtureTests.swift */,
+				CD101226F001000000000001 /* SimulatorReleased386AccountItemMapper.swift */,
+				CD101226F001000000000000 /* SimulatorReleased386AccountOperationFactory.swift */,
 				B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */,
 				CD1012269012000000000001 /* WalletOwnerPINIntentTests.swift */,
+				CD101226C003000000000001 /* WalletCredentialRepairTests.swift */,
+				CD101226D006000000000001 /* WalletOrphanCredentialRepairTests.swift */,
+				CD101226C005000000000001 /* WalletAccountCapabilityTests.swift */,
 				A10000210000000000000001 /* WalletModernizationTests.swift */,
 				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
 				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
@@ -3971,6 +4008,7 @@
 				C3000006000000000000000A /* PIMobileConfigFallbackTests.swift */,
 				1A4D0E010000000000000002 /* PIIndexerLiveContractTests.swift */,
 				1A4D0E010000000000000004 /* PIIndexerFixtures */,
+				CD1012269012000000000011 /* HistoricalCrypto */,
 				B827C0EEAE933BF7A19F26CF /* DexInfoServiceTests.swift */,
 				E1C348A78224D3C4888184D9 /* AssetWhitelistTests.swift */,
 				1B1A57A27F00000000000002 /* StartupNetworkTests.swift */,
@@ -4216,6 +4254,7 @@
 			children = (
 				02623ED82178C0930011250E /* SoraPassportUITests.swift */,
 				E71D0A010000000000000004 /* RetainedMigrationEvidenceUITests.swift */,
+				CD101226F003000000000001 /* WalletSimulatorUpgradeUITests.swift */,
 				02623EDA2178C0930011250E /* Info.plist */,
 			);
 			path = SoraPassportUITests;
@@ -6159,6 +6198,10 @@
 				96BD737CCB8A942ACEE7F5BC /* WalletRecoveryOptions.swift */,
 				D5851377C99649922C92E298 /* WalletKeySafety.swift */,
 				5C17ECAC1C48107260000001 /* WalletOwnerPIN.swift */,
+				CD101226C001000000000001 /* WalletCredentialRepair.swift */,
+				CD101226D005000000000001 /* WalletMissingAccountRepairFlow.swift */,
+				CD101226C004000000000001 /* WalletAccountCapability.swift */,
+				CD101226C002000000000001 /* WalletCredentialRepairViewController.swift */,
 				60AAFDC6270EEEDB00916408 /* Migrating.swift */,
 				9447675528D9FADC00EC8F74 /* SelectedAccountMigrationPolicy.swift */,
 				9447675328D9F9E400EC8F74 /* SelectedAccountMigration.xcmappingmodel */,
@@ -7612,6 +7655,7 @@
 			files = (
 				945A576525DE8541003E4023 /* runtimeTestMetadata in Resources */,
 				1A4D0E010000000000000003 /* PIIndexerFixtures in Resources */,
+				CD1012269012000000000012 /* HistoricalCrypto in Resources */,
 				5E2855542A33498D0054BA92 /* validSingleAccountIOS.json in Resources */,
 				5E2855532A33498D0054BA92 /* validSingleAccountWeb.json in Resources */,
 			);
@@ -8446,6 +8490,10 @@
 				484E6D59134A9EEDE73C1355 /* WalletRecoveryOptions.swift in Sources */,
 				9B5D6B7335ECE0E900A6903C /* WalletKeySafety.swift in Sources */,
 				5C17ECAC1C48107260000003 /* WalletOwnerPIN.swift in Sources */,
+				CD101226C001000000000003 /* WalletCredentialRepair.swift in Sources */,
+				CD101226D005000000000003 /* WalletMissingAccountRepairFlow.swift in Sources */,
+				CD101226C004000000000003 /* WalletAccountCapability.swift in Sources */,
+				CD101226C002000000000003 /* WalletCredentialRepairViewController.swift in Sources */,
 				94497DCA25EF89A700FD4F14 /* SlashingSpans.swift in Sources */,
 				026AEA1B21A7CB46002EEB67 /* ErrorPresentable+AlertText.swift in Sources */,
 				36CEAD892B94938900D532E0 /* QRCommon.swift in Sources */,
@@ -8871,8 +8919,15 @@
 			files = (
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
 				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
+				CD101226F004000000000002 /* SimulatorReleased23AccountMapper.swift in Sources */,
+				CD101226F002000000000002 /* WalletSimulatorUpgradeFixtureTests.swift in Sources */,
+				CD101226F002000000000001 /* SimulatorReleased386AccountItemMapper.swift in Sources */,
+				CD101226F002000000000000 /* SimulatorReleased386AccountOperationFactory.swift in Sources */,
 				FA1C179D69061DA806EFAEC5 /* WalletKeySafetyTests.swift in Sources */,
 				CD1012269012000000000002 /* WalletOwnerPINIntentTests.swift in Sources */,
+				CD101226C003000000000002 /* WalletCredentialRepairTests.swift in Sources */,
+				CD101226D006000000000002 /* WalletOrphanCredentialRepairTests.swift in Sources */,
+				CD101226C005000000000002 /* WalletAccountCapabilityTests.swift in Sources */,
 				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
 				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
@@ -8946,6 +9001,7 @@
 			files = (
 				02623ED92178C0930011250E /* SoraPassportUITests.swift in Sources */,
 				E71D0A010000000000000005 /* RetainedMigrationEvidenceUITests.swift in Sources */,
+				CD101226F003000000000002 /* WalletSimulatorUpgradeUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -9654,6 +9710,10 @@
 				2CDD62BDF4AFAF446E92DEBD /* WalletRecoveryOptions.swift in Sources */,
 				B1C960879F03A1D2F017E2D0 /* WalletKeySafety.swift in Sources */,
 				5C17ECAC1C48107260000002 /* WalletOwnerPIN.swift in Sources */,
+				CD101226C001000000000002 /* WalletCredentialRepair.swift in Sources */,
+				CD101226D005000000000002 /* WalletMissingAccountRepairFlow.swift in Sources */,
+				CD101226C004000000000002 /* WalletAccountCapability.swift in Sources */,
+				CD101226C002000000000002 /* WalletCredentialRepairViewController.swift in Sources */,
 				AE3E6321A8175FC40F9DEF8F /* SlashingSpans.swift in Sources */,
 				9E1F1853AF8ABC260BAC1EAB /* ErrorPresentable+AlertText.swift in Sources */,
 				6160CCA9938E7A0197866DF0 /* QRCommon.swift in Sources */,

@@ -114,7 +114,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             pin.controller.didMove(toParent: container)
         } else {
             let retry = UIButton(type: .system)
-            retry.setTitle("PIN verification unavailable. Try again", for: .normal)
+            retry.setTitle(WalletUX.text("PIN verification unavailable. Try again"), for: .normal)
             retry.translatesAutoresizingMaskIntoConstraints = false
             retry.addTarget(self, action: #selector(retryAuthorization), for: .touchUpInside)
             container.view.addSubview(retry)
@@ -137,8 +137,8 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             // original wallet flow. A fresh interactor allows a safe retry.
             logger?.error("Resume PIN authorization failed")
             installPincode(on: lockWindow)
-            let message = UIAlertController(title: "PIN verification unavailable",
-                message: "Your wallet screen is still protected. Try entering your PIN again.", preferredStyle: .alert)
+            let message = UIAlertController(title: WalletUX.text("PIN verification unavailable"),
+                message: WalletUX.text("Your wallet screen is still protected. Try entering your PIN again."), preferredStyle: .alert)
             message.addAction(UIAlertAction(title: WalletUX.text("Try again"), style: .default))
             lockWindow.rootViewController?.present(message, animated: true)
             return

@@ -42,15 +42,52 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
     private lazy var networkButton = WalletUX.button("SORA2 · Change network") { [weak self] in self?.accountItem?.networkHandler?() }
     private lazy var sendButton = WalletUX.button("Send", primary: true) { [weak self] in self?.accountItem?.sendHandler?() }
     private lazy var receiveButton = WalletUX.button("Receive") { [weak self] in self?.accountItem?.scanQRHandler?() }
+    private let capabilityReason = UILabel()
+    private let capabilityBadge = UILabel()
+    private lazy var restoreKeysButton = WalletUX.button("Restore keys for this account") { [weak self] in
+        self?.accountItem?.restoreKeysHandler?()
+    }
     private let actions = UIStackView()
+    private let restoreTitle = UILabel()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        let stack = UIStackView(arrangedSubviews: [accountButton, networkButton, actions])
+        let stack = UIStackView(arrangedSubviews: [accountButton, networkButton, capabilityBadge, capabilityReason, restoreKeysButton, actions])
         stack.axis = .vertical
         stack.spacing = 4
         stack.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(stack)
+        WalletSafeMode.body(capabilityReason, alignment: .natural)
+        capabilityReason.setContentCompressionResistancePriority(.required, for: .vertical)
+        capabilityBadge.setContentCompressionResistancePriority(.required, for: .vertical)
+        capabilityBadge.font = .preferredFont(forTextStyle: .caption1)
+        capabilityBadge.adjustsFontForContentSizeCategory = true
+        capabilityBadge.textColor = WalletUX.foreground
+        capabilityBadge.numberOfLines = 0
+        capabilityBadge.accessibilityIdentifier = "wallet-selected-account-capability-badge"
+        capabilityReason.accessibilityIdentifier = "wallet-selected-account-read-only-reason"
+        restoreKeysButton.accessibilityIdentifier = "wallet-selected-account-restore-keys"
+        // UIButton.Configuration does not reliably contribute its wrapped
+        // title height to UITableView's self-sizing pass. A constrained label
+        // keeps the complete action and padding inside the capsule.
+        restoreTitle.text = restoreKeysButton.configuration?.title
+        restoreKeysButton.accessibilityLabel = restoreTitle.text
+        restoreKeysButton.configuration?.title = nil
+        restoreTitle.numberOfLines = 0
+        restoreTitle.textAlignment = .center
+        restoreTitle.textColor = WalletUX.foreground
+        restoreTitle.isAccessibilityElement = false
+        restoreTitle.accessibilityIdentifier = "wallet-selected-account-restore-title"
+        restoreTitle.setContentCompressionResistancePriority(.required, for: .vertical)
+        restoreTitle.translatesAutoresizingMaskIntoConstraints = false
+        restoreKeysButton.addSubview(restoreTitle)
+        NSLayoutConstraint.activate([
+            restoreTitle.leadingAnchor.constraint(equalTo: restoreKeysButton.leadingAnchor, constant: 20),
+            restoreTitle.trailingAnchor.constraint(equalTo: restoreKeysButton.trailingAnchor, constant: -20),
+            restoreTitle.topAnchor.constraint(equalTo: restoreKeysButton.topAnchor, constant: 15),
+            restoreTitle.bottomAnchor.constraint(equalTo: restoreKeysButton.bottomAnchor, constant: -15)
+        ])
+        updateRestoreTitle()
         accountButton.contentHorizontalAlignment = .leading
         accountButton.configuration?.image = UIImage(systemName: "chevron.down")
         accountButton.configuration?.imagePlacement = .trailing
@@ -68,10 +105,19 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         ])
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+    private func updateRestoreTitle() {
+        restoreTitle.font = UIFontMetrics(forTextStyle: .body).scaledFont(
+            for: FontType.buttonM.font, maximumPointSize: 26, compatibleWith: traitCollection)
+        restoreTitle.textColor = WalletUX.foreground
+    }
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateRestoreTitle()
+    }
     override func layoutSubviews() {
-        super.layoutSubviews()
         let axis: NSLayoutConstraint.Axis = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
         if actions.axis != axis { actions.axis = axis }
+        super.layoutSubviews()
     }
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
         guard let item = item as? AccountTableViewItem else { return }
@@ -79,6 +125,12 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         accountButton.configuration?.title = item.accountName
         accountButton.accessibilityLabel = item.accountName
         accountButton.accessibilityHint = WalletUX.text("Change account")
+        capabilityReason.text = item.capability.reason
+        capabilityBadge.text = item.capability.badge
+        capabilityBadge.isHidden = item.capability.badge == nil
+        capabilityReason.isHidden = item.capability == .signing
+        restoreKeysButton.isHidden = !item.capability.canRestore
+        sendButton.accessibilityHint = item.capability.reason
         networkButton.isHidden = !(
             ProductSurfacePolicy.showsNexusPortfolio &&
                 SettingsManager.shared.nexusEnabled

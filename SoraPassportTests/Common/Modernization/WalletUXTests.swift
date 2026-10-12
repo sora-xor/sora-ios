@@ -11,6 +11,146 @@ import Darwin
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
+    /// Opt-in visual evidence from production controllers on the simulator.
+    /// Synthetic states exercise layout only; routing is tested separately.
+    @MainActor
+    func testCaptureRecoveryVisualEvidence() async throws {
+        guard ProcessInfo.processInfo.environment["SORA_CAPTURE_RECOVERY_UI"] == "1" else {
+            throw XCTSkip("Enable SORA_CAPTURE_RECOVERY_UI for the isolated simulator visual audit")
+        }
+        let previousWindow = UIApplication.shared.keyWindow
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let previousLanguage = LocalizationManager.shared.selectedLocalization
+        let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        defer {
+            window.isHidden = true; window.rootViewController = nil
+            previousWindow?.makeKeyAndVisible()
+            SoramitsuUI.shared.themeMode = previousTheme
+            LocalizationManager.shared.selectedLocalization = previousLanguage
+        }
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("RecoveryVisualEvidence", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        func capture(_ name: String, _ controller: UIViewController, category: UIContentSizeCategory,
+                     configure: () -> Void = {}) async throws {
+            let host = UIViewController()
+            host.view.backgroundColor = WalletUX.page
+            host.addChild(controller); host.view.addSubview(controller.view); controller.didMove(toParent: host)
+            controller.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                controller.view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                controller.view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+                controller.view.topAnchor.constraint(equalTo: host.view.topAnchor),
+                controller.view.bottomAnchor.constraint(equalTo: host.view.bottomAnchor)
+            ])
+            host.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: category), forChild: controller)
+            window.rootViewController = host; window.makeKeyAndVisible()
+            await drainPINCallbacks()
+            configure()
+            window.layoutIfNeeded(); controller.view.layoutIfNeeded()
+            let scroll = descendants(controller.view).compactMap { $0 as? UIScrollView }
+                .first { !($0 is UITextView) }
+            for bottom in [false, true] {
+                if bottom, let scroll {
+                    scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height)), animated: false)
+                    scroll.layoutIfNeeded()
+                }
+                let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+                let rendered = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
+                let data = try XCTUnwrap(rendered.pngData())
+                try data.write(to: output.appendingPathComponent(name + (bottom ? "-bottom.png" : "-top.png")))
+            }
+        }
+        for language in ["en", "ja"] {
+            LocalizationManager.shared.selectedLocalization = language
+            for theme in [SoramitsuThemeType.light, .dark] {
+                SoramitsuUI.shared.themeMode = .manual(theme)
+                window.overrideUserInterfaceStyle = theme == .dark ? .dark : .light
+                for large in [false, true] {
+                    let category: UIContentSizeCategory = large ? .accessibilityExtraExtraExtraLarge : .large
+                    let prefix = language + (theme == .dark ? "-dark" : "-light") + (large ? "-maximum" : "-normal")
+                    for (label, state) in [
+                        ("recovery", WalletRecoveryState.recovery(retryable: true, accountsMissingKeys: 1,
+                            accountsWithPhrase: 1, retainedPinUsable: true)),
+                        ("records", .recovery(retryable: true, accountsMissingKeys: 0,
+                            accountsWithPhrase: 0, retainedPinUsable: false, transactionRecordsUnreadable: true)),
+                        ("nonretryable", .recovery(retryable: false, accountsMissingKeys: 0,
+                            accountsWithPhrase: 0, retainedPinUsable: false))
+                    ] {
+                        let screen = WalletRecoveryViewController(reason: nil, onRetry: {}, onSetAside: {}, onRestore: { _ in })
+                        try await capture(prefix + "-" + label, screen, category: category) { screen.apply(state.options) }
+                    }
+                    for bound in [false, true] {
+                        let welcome = WalletWelcomeBackViewController(keystore: InMemoryKeychain(), settings: InMemorySettingsManager(),
+                            onContinueToOnboarding: {}, onWalletsRestored: {}, onRestore: { _ in })
+                        try await capture(prefix + (bound ? "-welcome-bound" : "-welcome-unbound"), welcome, category: category) {
+                            welcome.apply(WalletRecoveryState.welcomeBack(adoptableWallets: bound ? 1 : 0,
+                                walletsWithPhrase: bound ? 1 : 0, retainedPinUsable: bound).options)
+                        }
+                    }
+                    try await capture(prefix + "-legacy", LegacyWalletUpgradeViewController(onConfirm: {}), category: category)
+                    let keys = InMemoryKeychain(), settings = InMemorySettingsManager()
+                    let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false },
+                        unresolvedWalletCommitJournal: { false }, credentialRepairPending: { false })
+                    let account = AccountItem(address: "cnPublicSyntheticPreviewAddress", cryptoType: .sr25519,
+                        networkType: 69, username: "Public preview", publicKeyData: Data(repeating: 0, count: 32),
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+                    let repair = WalletCredentialRepairViewController(account: account,
+                        service: WalletCredentialRepair(keystore: keys, settings: settings, recoveryGate: gate,
+                            activeSnapshot: { nil }), currentAccounts: { [account] }, onSuccess: { _ in })
+                    try await capture(prefix + "-repair", UINavigationController(rootViewController: repair), category: category)
+                    for (label, state) in [("missing", WalletAccountCapability.State.missingKeys),
+                                           ("invalid", .invalidKeys), ("watch-only", .watchOnly)] {
+                        let item = AccountTableViewItem(accountName: "Public preview")
+                        item.capability = state
+                        try await capture(prefix + "-header-" + label, RecoveryHeaderVisualController(item: item), category: category)
+                    }
+                    do {
+                        let onboarding = WelcomeViewController()
+                        onboarding.presenter = RecoveryOnboardingVisualPresenter()
+                        try await capture(prefix + "-onboarding-return", onboarding, category: category) {
+                            self.descendants(onboarding.view).first {
+                                $0.accessibilityIdentifier == "wallet-onboarding-earlier-data"
+                            }?.isHidden = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testRecoveryTextAndVisibleActionsUseTheSameFlags() throws {
+        let controller = WalletRecoveryViewController(reason: nil, onRetry: {}, onSetAside: {}, onRestore: { _ in })
+        controller.loadViewIfNeeded()
+        let buttons = descendants(controller.view).compactMap { $0 as? UIButton }
+        func button(_ suffix: String) throws -> UIButton {
+            try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-recovery-" + suffix })
+        }
+        for bits in 0..<64 {
+            var options = WalletRecoveryOptions()
+            options.canRetry = bits & 1 != 0
+            options.canRestoreFromPhrase = bits & 2 != 0
+            options.canRestoreFromDrive = bits & 4 != 0
+            options.canRestoreExistingKeys = bits & 8 != 0
+            options.canSetAsideTransactionRecords = bits & 16 != 0
+            options.canSetUpDeviceAgain = bits & 32 != 0
+            controller.apply(options)
+            XCTAssertEqual(try button("retry").isHidden, !options.canRetry)
+            XCTAssertEqual(try button("restore-phrase").isHidden, !options.canRestoreFromPhrase)
+            XCTAssertEqual(try button("restore-cloud-backup").isHidden, !options.canRestoreFromDrive)
+            XCTAssertEqual(try button("restore-keys").isHidden, !options.canRestoreExistingKeys)
+            XCTAssertEqual(try button("set-aside-transaction-records").isHidden, !options.canSetAsideTransactionRecords)
+            XCTAssertEqual(try button("set-up-again").isHidden, !options.canSetUpDeviceAgain)
+            let text = WalletRecoveryViewController.bodyText(diagnostic: nil, options: options)
+            XCTAssertEqual(text.contains(WalletUX.text("Try again to run the wallet checks once more.")), options.canRetry)
+            XCTAssertEqual(text.contains(WalletUX.text("Restore with your recovery phrase using the button below.")), options.canRestoreFromPhrase)
+            XCTAssertEqual(text.contains(WalletUX.text("You can also restore from your encrypted Google Drive backup.")), options.canRestoreFromDrive)
+            XCTAssertEqual(text.contains(WalletUX.text("Set up this iPhone again keeps the earlier files in a separate folder on this iPhone.")), options.canSetUpDeviceAgain)
+        }
+    }
+
+
 
     @MainActor
     func testAuthenticatedWalletOpeningRetriesLateServicesAndLeavesPIN() async throws {
@@ -191,7 +331,7 @@ final class WalletUXTests: XCTestCase {
     func testResumeAuthorizationPreservesRecoveryAndGoogleCompletionAfterTimeout() async throws {
         let previousKeyWindow = UIApplication.shared.keyWindow
         for pin in ["1234", "123456"] {
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+            let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
             defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKeyAndVisible() }
             let settings = InMemorySettingsManager()
             settings.biometryEnabled = false
@@ -264,7 +404,7 @@ final class WalletUXTests: XCTestCase {
             try await Task.sleep(nanoseconds: 600_000_000)
             XCTAssertTrue(wireframe.authorizationWindow === lockWindow, "An incorrect PIN cannot uncover recovery")
             for digit in pin { input.padButtonTapped(with: String(digit)) }
-            await drainPINCallbacks()
+            try await waitForWalletOpening { wireframe.authorizationWindow == nil }
             XCTAssertNil(wireframe.authorizationWindow)
             XCTAssertTrue(window.rootViewController === root)
             XCTAssertTrue(recovery.presentedViewController === backupPrompt, "Successful PIN must resume the outstanding import result")
@@ -281,6 +421,28 @@ final class WalletUXTests: XCTestCase {
             try await waitForWalletOpening { recovery.view.window == nil }
             XCTAssertNil(recovery.view.window)
         }
+    }
+
+    @MainActor
+    func testPINSetupErrorClearsConfirmationAndPresentsFromTheVisibleView() async {
+        let presenter = SetupPincodePresenter()
+        let view = WalletUXPINViewSpy()
+        let wireframe = WalletUXPINWireframeSpy()
+        presenter.view = view
+        presenter.wireframe = wireframe
+        presenter.savedPinCode = "123456"
+        presenter.inputedPinCode = "123456"
+        presenter.padButtonTapped(with: "9")
+        XCTAssertEqual(presenter.inputedPinCode, "123456", "A completed PIN must not accept a seventh digit")
+        presenter.didReceiveConfigError(WalletOwnerPIN.Failure.authenticationRequired)
+        await drainPINCallbacks()
+        XCTAssertEqual(presenter.savedPinCode, "")
+        XCTAssertEqual(presenter.inputedPinCode, "")
+        XCTAssertEqual(view.titles.last, R.string.localizable.pincodeSetYourPinCode(preferredLanguages: .currentLocale).capitalized)
+        XCTAssertTrue(wireframe.errorView === view)
+        XCTAssertTrue(wireframe.fallbackView === view)
+        XCTAssertEqual(wireframe.fallbackMessage, WalletUX.text("The PIN update could not be completed. Try again. Your wallet keys are unchanged."))
+        XCTAssertEqual(wireframe.mainCount, 0)
     }
 
     @MainActor
@@ -422,7 +584,7 @@ final class WalletUXTests: XCTestCase {
         XCTAssertTrue(window.rootViewController === original)
         XCTAssertTrue(loadingWindow.rootViewController === spinnerRoot)
         XCTAssertGreaterThan(lock.windowLevel.rawValue, loadingWindow.windowLevel.rawValue)
-        XCTAssertEqual((lock.rootViewController?.presentedViewController as? UIAlertController)?.title, "PIN verification unavailable")
+        XCTAssertEqual((lock.rootViewController?.presentedViewController as? UIAlertController)?.title, WalletUX.text("PIN verification unavailable"))
     }
 
     @MainActor
@@ -495,14 +657,16 @@ final class WalletUXTests: XCTestCase {
             .first { $0.accessibilityIdentifier == "wallet-recovery-copy-details" })
         copy.sendActions(for: .touchUpInside)
         let details = try XCTUnwrap(UIPasteboard.general.string)
-        XCTAssertTrue(details.contains(reason))
+        let trigger = WalletUX.format("Original recovery trigger: %@", "unexpected_failure")
+        XCTAssertTrue(details.contains(trigger))
         XCTAssertTrue(details.contains("Latest verification: network_bootstrap / keychain_system (-25308)"))
-        XCTAssertTrue(details.contains("Recovery report format: 2"))
-        XCTAssertTrue(details.contains("Protected data when copied: "))
+        XCTAssertTrue(details.contains(WalletUX.text("Recovery report format: 2")))
+        XCTAssertTrue(details.contains(WalletUX.format("Protected data when copied: %@",
+            UIApplication.shared.isProtectedDataAvailable ? WalletUX.text("Available") : WalletUX.text("Unavailable"))))
         XCTAssertTrue(details.contains("iOS: "))
-        XCTAssertTrue(details.contains("Current failure: \(diagnostic.userMessage)"))
+        XCTAssertTrue(details.contains(WalletUX.format("Current failure: %@", diagnostic.userMessage)))
         let latestRange = try XCTUnwrap(details.range(of: "Latest verification:"))
-        let originalRange = try XCTUnwrap(details.range(of: "Original recovery trigger:"))
+        let originalRange = try XCTUnwrap(details.range(of: trigger))
         XCTAssertLessThan(latestRange.lowerBound, originalRange.lowerBound)
         let visibleDiagnostic = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UILabel }
             .first { $0.accessibilityIdentifier == "wallet-recovery-diagnostic" })
@@ -518,13 +682,13 @@ final class WalletUXTests: XCTestCase {
         let historicalDetails = try XCTUnwrap(UIPasteboard.general.string)
         XCTAssertFalse(historicalDetails.contains(privateHistoricalText))
         XCTAssertTrue(historicalDetails.contains(diagnostic.summary))
-        XCTAssertTrue(historicalDetails.contains("Original recovery trigger: legacy record"))
+        XCTAssertTrue(historicalDetails.contains(WalletUX.text("Original recovery trigger: legacy record (details unavailable)")))
 
         let oldController = WalletRecoveryViewController(reason: reason, onRetry: {})
         oldController.loadViewIfNeeded()
         let oldDiagnostic = try XCTUnwrap(descendants(oldController.view).compactMap { $0 as? UILabel }
             .first { $0.accessibilityIdentifier == "wallet-recovery-diagnostic" })
-        XCTAssertTrue(try XCTUnwrap(oldDiagnostic.text).contains("Try again"))
+        XCTAssertTrue(try XCTUnwrap(oldDiagnostic.text).contains(WalletUX.text("No detailed check was recorded by the previous build.")))
 
         var stored = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(diagnostic)) as? [String: Any])
         stored["cause"] = "PRIVATE-ACCOUNT"
@@ -801,9 +965,9 @@ final class WalletUXTests: XCTestCase {
             let presenter = WalletUXRootPresenterSpy()
             root.presenter = presenter
             root.decideModuleSynchroniously()
-            // Keychain items alone (reinstall) lead to the welcome-back screen;
-            // settings or a network inventory without accounts stay in recovery.
-            XCTAssertEqual(presenter.decisions, kind == "pin" ? [.welcomeBack] : [.broken], kind)
+            // A PIN alone is not a wallet. This isolated Root check has not
+            // run startup's stale-metadata preservation for the other cases.
+            XCTAssertEqual(presenter.decisions, kind == "pin" ? [.onboarding] : [.broken], kind)
             XCTAssertEqual(try keychain.allKeyIdentifiers(), identifiersBefore, kind)
             XCTAssertEqual(settings.walletMigrationRecoveryRequired, kind != "pin", kind)
         }
@@ -1171,6 +1335,27 @@ final class WalletUXTests: XCTestCase {
     }
 }
 
+/// Uses the production self-sizing wallet-header cell for opt-in visual QA.
+final class RecoveryHeaderVisualController: UITableViewController {
+    let item: AccountTableViewItem
+    init(item: AccountTableViewItem) { self.item = item; super.init(style: .plain) }
+    required init?(coder: NSCoder) { nil }
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        tableView.backgroundColor = WalletUX.page
+        tableView.separatorStyle = .none
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 360
+    }
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { 1 }
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = AccountCell(style: .default, reuseIdentifier: nil)
+        cell.backgroundColor = .clear
+        cell.set(item: item, context: nil)
+        return cell
+    }
+}
+
 private final class WalletUXSecurityLayerStub: SecurityLayerInteractorInputProtocol {
     func setup() {}
 }
@@ -1228,6 +1413,17 @@ private final class WalletUXLocalAuthSpy: LocalAuthInteractorInputProtocol {
 }
 
 private final class WalletUXPINWireframeSpy: PinSetupWireframeProtocol {
+    weak var errorView: UIViewController?
+    weak var fallbackView: UIViewController?
+    var fallbackMessage: String?
+    func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
+        errorView = view?.controller
+        return false
+    }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+        fallbackView = view?.controller
+        fallbackMessage = message
+    }
     var mainCount = 0
     func dismiss(from view: PinSetupViewProtocol?) {}
     func showMain(from view: PinSetupViewProtocol?) { mainCount += 1 }
@@ -2104,4 +2300,12 @@ private final class NeonNodesPresenterStub: NodesPresenterProtocol {
 private final class NeonStyleSpy: NSObject, SoramitsuObserver {
     private(set) var received: [UpdateOptions] = []
     func styleDidChange(options: UpdateOptions) { received.append(options) }
+}
+
+private final class RecoveryOnboardingVisualPresenter: OnboardingMainPresenterProtocol {
+    func setup() {}
+    func viewWillAppear() {}
+    func activateSignup() {}
+    func activateAccountRestore() {}
+    func activateCloudStorageConnection() {}
 }

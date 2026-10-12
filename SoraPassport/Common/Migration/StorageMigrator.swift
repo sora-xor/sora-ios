@@ -141,7 +141,35 @@ private struct UserStorageMigrationAccount: Codable, Equatable {
     let hasSecretKey: Bool
     let hasEntropy: Bool
     let hasSeed: Bool
+    /// Decoded only for compatibility with earlier manifests. Never encoded:
+    /// a Substrate derivation path may include a mnemonic password.
     let derivationPath: String?
+    var derivationPathSHA256: String? = nil
+    var pathFingerprint: String? {
+        derivationPathSHA256 ?? derivationPath.map { Data(SHA256.hash(data: Data($0.utf8))).hexString }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case address, username, publicKeySHA256, cryptoType, networkType, order, isSelected
+        case hasSecretKey, hasEntropy, hasSeed, derivationPath, derivationPathSHA256, signingUnavailable
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(address, forKey: .address)
+        try container.encode(username, forKey: .username)
+        try container.encode(publicKeySHA256, forKey: .publicKeySHA256)
+        try container.encode(cryptoType, forKey: .cryptoType)
+        try container.encode(networkType, forKey: .networkType)
+        try container.encode(order, forKey: .order)
+        try container.encode(isSelected, forKey: .isSelected)
+        try container.encode(hasSecretKey, forKey: .hasSecretKey)
+        try container.encode(hasEntropy, forKey: .hasEntropy)
+        try container.encode(hasSeed, forKey: .hasSeed)
+        try container.encodeIfPresent(pathFingerprint, forKey: .derivationPathSHA256)
+        try container.encodeIfPresent(signingUnavailable, forKey: .signingUnavailable)
+    }
+
     /// True when no material on this device proves the account (missing or
     /// not matching). The account stays read-only; its Keychain items are not
     /// changed. Optional so manifests written by earlier builds still decode.
@@ -162,6 +190,7 @@ private struct UserStorageMigrationAccount: Codable, Equatable {
             hasEntropy: hasEntropy,
             hasSeed: hasSeed,
             derivationPath: derivationPath,
+            derivationPathSHA256: derivationPathSHA256,
             signingUnavailable: signingUnavailable
         )
     }
@@ -200,7 +229,7 @@ private struct UserStorageMigrationManifest: Codable, Equatable {
                     source.hasSecretKey == destination.hasSecretKey &&
                     source.hasEntropy == destination.hasEntropy &&
                     source.hasSeed == destination.hasSeed &&
-                    source.derivationPath == destination.derivationPath
+                    source.pathFingerprint == destination.pathFingerprint
                 // `signingUnavailable` is a projection of Keychain state, not
                 // database inventory; a resumed attempt does not compare it.
             }
@@ -467,6 +496,46 @@ final class UserStorageMigrator {
                 !keystore.checkKey(for: KeystoreTag.seedTagForAddress(account.address)) &&
                 settings.bool(for: "wallet.watchOnly.\(account.address)") != true
         }
+    }
+
+    /// Includes invalid retained credentials without presenting watch-only
+    /// accounts as broken wallets. This is public metadata and an in-memory
+    /// signing challenge; it never grants authentication or changes keys.
+    func accountsForCredentialRecovery(
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws -> [AccountItem] {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let gate = try credentialRecoveryGate(baseURL: baseURL)
+        let accounts = try readAccountInventory()
+        let snapshot = try loadWalletNetworkSnapshot()
+        let pending = try keystore.checkKey(for: WalletCredentialRepair.pendingTag)
+        return try accounts.filter { account in
+            guard settings.bool(for: "wallet.watchOnly.\(account.address)") != true,
+                  snapshot?.wallets.first(where: { $0.id == account.address })?.secretSource != .watchOnly
+            else { return false }
+            if pending { return true } // The explicit repair screen can resume its own exact intent.
+            do {
+                return try WalletAccountKeyAvailability.status(for: account, keystore: keystore,
+                    settings: settings, activeSnapshot: snapshot, recoveryGate: gate).isReadOnlyOnThisDevice
+            } catch {
+                try gate.requireCredentialRepairAccess()
+                return true
+            }
+        }
+    }
+
+    func credentialRecoveryGate(baseURL: URL? = nil) throws -> WalletRecoveryCapabilityGate {
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        try marker.requireUnchangedForStartupVerification(settings)
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { self.hasUnresolvedMigrationJournal() },
+            unresolvedWalletCommitJournal: {
+                try !WalletAccountCommitJournalStore(baseURL: baseURL).unresolved().isEmpty
+            }, startupVerificationMarker: marker)
+        try gate.requireCredentialRepairAccess()
+        return gate
     }
 
     /// Re-entering a backup repairs only absent credentials for an existing
@@ -740,7 +809,62 @@ final class UserStorageMigrator {
         return (marker, gate)
     }
 
+    /// Public metadata only, for authenticating a preserved generation before
+    /// it becomes the live database. This never changes keys or activates rows.
+    func preservedAccountInventory() throws -> [AccountItem] {
+        try readAccountInventory(allowEmpty: true)
+    }
+
+    /// App Store 3.8.6 may delete the global 1.x entropy when a row exists.
+    /// Preserve independently proven scoped copies even while another failure
+    /// blocks startup. This cannot clear recovery, replace any item, bind a
+    /// PIN, activate a wallet or grant signing access.
+    func preserveLegacyKeysDuringRecovery(lifecycleCoordinator: WalletLifecycleCoordinator) throws {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        guard marker.required, try keystore.checkKey(for: KeystoreTag.legacyEntropy.rawValue) else { return }
+        let accounts = try readAccountInventory()
+        let gate = WalletRecoveryCapabilityGate.forAddOnlyPreservation(settings: settings, marker: marker)
+        var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+        defer { entropy.resetBytes(in: 0..<entropy.count) }
+        guard WalletMnemonicWordPolicy.isDerivableEntropy(entropy),
+              var material = try WalletScopedKeyDerivation.derive(cryptoType: .sr25519,
+                derivationPath: nil, entropy: entropy, rawSeed: nil) else { return }
+        defer { material.wipe() }
+        for account in accounts where account.cryptoType == .sr25519 && account.networkType == Chain.sora.addressType() {
+            guard settings.bool(for: "wallet.watchOnly.\(account.address)") != true,
+                  try !keystore.checkKey(for: KeystoreTag.deriviationTagForAddress(account.address)) else { continue }
+            do {
+                try LegacySoraIdentityValidator.validate(address: account.address, publicKey: account.publicKeyData,
+                    cryptoType: .sr25519, networkType: account.networkType, derivationPath: nil,
+                    entropy: entropy, rawSeed: material.seed, secret: material.secret, recoveryGate: gate)
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) { continue }
+            let writes = [(KeystoreTag.entropyTagForAddress(account.address), entropy, false),
+                          (KeystoreTag.seedTagForAddress(account.address), material.seed, false),
+                          (KeystoreTag.secretKeyTagForAddress(account.address), material.secret, true)]
+            // Preflight the entire set before adding the first item. Different
+            // retained bytes are preserved for explicit authenticated repair.
+            var conflict = false
+            for (tag, data, _) in writes where try keystore.checkKey(for: tag) {
+                if try keystore.fetchKey(for: tag) != data { conflict = true }
+            }
+            guard !conflict else { continue }
+            for (tag, data, secret) in writes {
+                try gate.requireAuthorizedLifecycleContinuation()
+                guard try WalletScopedKeyWrite.addIfAbsent(data, tag: tag, isSecret: secret,
+                    cryptoType: .sr25519, keystore: keystore) != .differs else { break }
+            }
+        }
+    }
+
     private func readMissingKeyRecoveryAccounts(gate: WalletRecoveryCapabilityGate) throws -> [AccountItem] {
+        let accounts = try readAccountInventory()
+        try gate.requireMutableWalletAccess()
+        return accounts
+    }
+
+    private func readAccountInventory(allowEmpty: Bool = false) throws -> [AccountItem] {
         guard pathExistsNoFollow(storeURL), storeBundleIsRegularNoFollow(at: storeURL) else {
             throw UserStorageMigrationError.missingWalletStore
         }
@@ -792,16 +916,19 @@ final class UserStorageMigrator {
             }
         }
         let accounts = try result.get()
-        guard !accounts.isEmpty, accounts.count <= Self.maximumAccountsPerManifest,
+        guard (allowEmpty || !accounts.isEmpty), accounts.count <= Self.maximumAccountsPerManifest,
               Set(accounts.map(\.address)).count == accounts.count else {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
-        try gate.requireMutableWalletAccess()
         return accounts
     }
 
     func performMigration() throws {
         try recoveryGate.requireAuthorizedLifecycleContinuation()
+        let retainedSafety = migrationSafetyDirectory()
+        if pathExistsNoFollow(retainedSafety) {
+            try WalletPreservedDataProtection.excludeFromBackup(retainedSafety)
+        }
         // Resume only after independently checking the retained attempt, live
         // inventory and Keychain. The destination schema alone is insufficient.
         if hasUnresolvedMigrationJournal() || migrationRecoveryMarker != nil {
@@ -881,6 +1008,7 @@ final class UserStorageMigrator {
             .deletingLastPathComponent()
             .appendingPathComponent("WalletMigrationSafety", isDirectory: true)
         try fileManager.createDirectory(at: safetyDirectory, withIntermediateDirectories: true)
+        try WalletPreservedDataProtection.excludeFromBackup(safetyDirectory)
 
         let migrationID = UUID()
         let migrationDirectory = safetyDirectory
@@ -1924,7 +2052,7 @@ final class UserStorageMigrator {
         }
     }
 
-    private func hasUnresolvedMigrationJournal() -> Bool {
+    func hasUnresolvedMigrationJournal() -> Bool {
         let safetyDirectory = migrationSafetyDirectory()
         guard pathExistsNoFollow(safetyDirectory) else {
             return false
@@ -2262,7 +2390,13 @@ final class UserStorageMigrator {
                         account.derivationPath.map {
                             $0.utf8.count <= 1_024
                         } ?? true
-                    )
+                    ) && (account.derivationPathSHA256.map { hash in
+                        hash.count == 64 && hash.unicodeScalars.allSatisfy {
+                            (48 ... 57).contains($0.value) || (97 ... 102).contains($0.value)
+                        } && (account.derivationPath.map {
+                            Data(SHA256.hash(data: Data($0.utf8))).hexString == hash
+                        } ?? true)
+                    } ?? true)
             } &&
             hasValidSettingsSelection &&
             hasValidSelection
@@ -2694,7 +2828,8 @@ final class UserStorageMigrator {
                         hasSecretKey: secret != nil,
                         hasEntropy: entropy != nil,
                         hasSeed: seed != nil,
-                        derivationPath: derivation,
+                        derivationPath: nil,
+                        derivationPathSHA256: derivation.map { Data(SHA256.hash(data: Data($0.utf8))).hexString },
                         signingUnavailable: signingUnavailable ? true : nil
                     )
                 }

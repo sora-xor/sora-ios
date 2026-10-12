@@ -1145,3 +1145,9 @@
 "New app PIN" = "رمز PIN جديد للتطبيق";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "اختر رمز PIN جديدًا للتطبيق وأكده لهذه المحفظة المستعادة. لن يُستخدم رمز PIN من التثبيت السابق.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "أدخل رمز PIN الحالي للتطبيق لتأكيد الإصلاح. ستستخدم هذه المحفظة المستعادة ذلك الرمز.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "تغيير العقدة";
+"Check wallet again" = "التحقق من المحفظة مجددًا";
+"Wallet verification needs attention. Check your saved wallet again." = "يتطلب التحقق من المحفظة الانتباه. تحقّق من محفظتك المحفوظة مجددًا.";
+"Wallet services are not ready. Try again or choose another node." = "خدمات المحفظة ليست جاهزة بعد. حاول مجددًا أو اختر عقدة أخرى.";

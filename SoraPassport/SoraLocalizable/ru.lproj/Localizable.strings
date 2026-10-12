@@ -1145,3 +1145,9 @@
 "New app PIN" = "Новый PIN приложения";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Выберите и подтвердите новый PIN приложения для восстановленного кошелька. PIN прежней установки использоваться не будет.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Введите текущий PIN приложения, чтобы подтвердить исправление. Восстановленный кошелёк будет использовать этот PIN.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Сменить узел";
+"Check wallet again" = "Проверить кошелёк снова";
+"Wallet verification needs attention. Check your saved wallet again." = "Проверка кошелька требует внимания. Ещё раз проверьте сохранённый кошелёк.";
+"Wallet services are not ready. Try again or choose another node." = "Сервисы кошелька ещё не готовы. Повторите попытку или выберите другой узел.";

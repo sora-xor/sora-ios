@@ -71,6 +71,8 @@ final class EnterPasswordViewFactory {
                                                interactor: interactor,
                                                wireframe: wireframe,
                                                view: view)
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         interactor.presenter = viewModel
         view.viewModel = viewModel
 

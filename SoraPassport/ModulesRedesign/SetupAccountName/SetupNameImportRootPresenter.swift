@@ -150,9 +150,13 @@ extension SetupNameImportRootPresenter: UsernameSetupPresenterProtocol {
         }
         
        
-        importAccount { result in
-            if case .success = result {
-                endingBlock?()
+        importAccount { [weak self] result in
+            switch result {
+            case .success: endingBlock?()
+            case .failure(let error) where !(error is CancellationError):
+                self?.wireframe.present(message: error.localizedDescription,
+                    title: WalletUX.text("Wallet keys not restored"), closeAction: WalletUX.text("OK"), from: self?.view)
+            default: break
             }
         }
     }

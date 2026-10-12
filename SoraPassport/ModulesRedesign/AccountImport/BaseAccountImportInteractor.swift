@@ -41,6 +41,7 @@ enum ImportAccountError: Error {
 
 class BaseAccountImportInteractor {
     weak var presenter: AccountImportInteractorOutputProtocol!
+    var credentialRepairFlow: WalletMissingAccountRepairFlow?
 
     private(set) lazy var jsonDecoder = JSONDecoder()
     private(set) lazy var mnemonicCreator = IRMnemonicCreator()
@@ -77,6 +78,43 @@ class BaseAccountImportInteractor {
         self.defaultNetwork = defaultNetwork
         self.cloudStorage = cloudStorage
         self.allowedMnemonicWordCounts = allowedMnemonicWordCounts
+    }
+
+
+    /// Missing keys use the existing add-only import and PIN-setup transaction.
+    /// Only conflicting retained material needs the extra repair/PIN screen.
+    func existingAccountRequiringRepair(_ existing: AccountItem?, prepared: PreparedAccount,
+                                        selection: SelectedWalletSettingsProtocol) throws -> AccountItem? {
+        guard let existing else { return nil }
+        guard WalletCredentialRepair.sameIdentity(existing, prepared.account) else { throw AccountCreateError.duplicated }
+        if try selection.restoresKeysInPlace(existing: existing, imported: prepared.account) { return nil }
+        if let flow = credentialRepairFlow, try flow.requiresExplicitRepair(prepared) { return existing }
+        throw AccountCreateError.duplicated
+    }
+
+    /// Called under the normal import lease, before journals or secrets change.
+    /// Consent is asynchronous, so release that lease and revalidate in the
+    /// repair service after the user has supplied their PIN.
+    func requestExplicitCredentialRepairIfNeeded(_ prepared: PreparedAccount,
+        lifecycleLease: WalletLifecycleLease, eventCenter: EventCenterProtocol,
+        completion: ((Result<AccountItem, Error>?) -> Void)?) throws -> Bool {
+        guard let flow = credentialRepairFlow, try flow.requiresExplicitRepair(prepared) else { return false }
+        lifecycleLease.release()
+        Task { @MainActor [weak self] in
+            flow.begin(prepared) { result in
+                switch result {
+                case .success(let account):
+                    eventCenter.notify(with: SelectedAccountChanged(), completionOnMain: { [weak self] in
+                        self?.presenter?.didCompleteAccountImport()
+                        completion?(.success(account))
+                    })
+                case .failure(let error):
+                    if !(error is CancellationError) { self?.presenter?.didReceiveAccountImport(error: error) }
+                    completion?(.failure(error))
+                }
+            }
+        }
+        return true
     }
 
     private func setupKeystoreImportObserver() {

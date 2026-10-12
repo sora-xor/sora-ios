@@ -232,6 +232,7 @@ final class WalletOwnerPIN {
     func authenticateCurrent(_ pin: String, accounts: [AccountItem]) throws -> Authorization {
         try Self.synchronized {
             try recoverRotation()
+            try WalletCredentialRepair.requireNoPendingRepair(keystore: keystore)
             guard try pendingSetupIntents(accounts: accounts).isEmpty, Self.validPIN(pin) else {
                 throw Failure.authenticationRequired
             }
@@ -308,6 +309,23 @@ final class WalletOwnerPIN {
         try Self.synchronized { try !pendingSetupIntents(accounts: accounts).isEmpty }
     }
 
+    /// Routing-only preflight. A missing app PIN does not prove ownership of
+    /// retained signing rows. The writer repeats these checks under its lease.
+    func validateInitialSetupEligibility(accounts: [AccountItem]) throws {
+        try Self.synchronized {
+            guard !accounts.isEmpty else { throw Failure.authenticationRequired }
+            let intents = try pendingSetupIntents(accounts: accounts)
+            if !intents.isEmpty {
+                guard Set(intents.keys) == Set(accounts.map(\.address)),
+                      try proven(accounts).count == accounts.count else {
+                    throw Failure.authenticationRequired
+                }
+            } else if try !keystore.checkKey(for: KeystoreTag.pincode.rawValue) {
+                guard try proven(accounts).isEmpty else { throw Failure.authenticationRequired }
+            }
+        }
+    }
+
     /// Reconciliation and the actual row read share one lifecycle lease. A reset
     /// cannot substitute a different generation between proof and authentication.
     func authenticateCurrent(_ pin: String, currentAccounts: () throws -> [AccountItem]) throws -> Authorization {
@@ -321,6 +339,8 @@ final class WalletOwnerPIN {
     private func prepareAuthenticationWhileLeased(accounts: [AccountItem]) throws {
         try Self.synchronized {
             try recoverRotation()
+            try WalletCredentialRepair(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+                .resumePending(accounts: accounts)
             if try keystore.allKeyIdentifiers().contains(where: { $0.hasPrefix(Self.rebindPrefix) }) {
                 try recoveryGate.requireAuthorizedLifecycleContinuation()
                 try settleRebindings(currentAddresses: Set(accounts.map(\.address)))
@@ -337,6 +357,8 @@ final class WalletOwnerPIN {
         let accounts = try currentAccounts()
         try Self.synchronized {
             try recoverRotation()
+            try WalletCredentialRepair(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+                .resumePending(accounts: accounts)
             try settleRebindings(currentAddresses: Set(accounts.map(\.address)))
         }
         return accounts
@@ -351,6 +373,7 @@ final class WalletOwnerPIN {
     func setInitialPIN(_ pin: String, accounts: [AccountItem]) throws {
         try Self.synchronized {
             try recoverRotation()
+            try WalletCredentialRepair.requireNoPendingRepair(keystore: keystore)
             guard !accounts.isEmpty else { throw Failure.authenticationRequired }
             let intents = try pendingSetupIntents(accounts: accounts)
             if intents.isEmpty {
@@ -380,6 +403,7 @@ final class WalletOwnerPIN {
     func rotate(to pin: String, authorization: Authorization, accounts: [AccountItem]) throws {
         try Self.synchronized {
             try recoverRotation()
+            try WalletCredentialRepair.requireNoPendingRepair(keystore: keystore)
             var stored = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
             defer { stored.resetBytes(in: 0..<stored.count) }
             let accounts = try proven(accounts)
@@ -414,6 +438,43 @@ final class WalletOwnerPIN {
 
     func authorizeRetained(_ pin: String, addresses: Set<String>) throws -> RetainedAuthorization {
         RetainedAuthorization(addresses: try verifyRetained(pin, addresses: addresses))
+    }
+
+    /// Returning a preserved database must not let this install's PIN claim
+    /// another wallet. All retained material named by its rows needs an owner
+    /// grant before those rows can become ordinary authenticated accounts.
+    func requirePreservedOwners(accounts: [AccountItem], authorizations: [RetainedAuthorization]) throws {
+        let granted = authorizations.reduce(into: Set<String>()) { $0.formUnion($1.addresses) }
+        for account in accounts {
+            let tags = [KeystoreTag.secretKeyTagForAddress(account.address),
+                        KeystoreTag.entropyTagForAddress(account.address),
+                        KeystoreTag.seedTagForAddress(account.address)]
+            let hasScoped = try tags.contains { try keystore.checkKey(for: $0) }
+            let hasLegacy = try keystore.checkKey(for: KeystoreTag.legacyEntropy.rawValue)
+            guard !(hasScoped || hasLegacy) || granted.contains(account.address) else {
+                throw Failure.authenticationRequired
+            }
+        }
+    }
+
+    /// Explicitly chosen protection for a returned file set. The caller holds
+    /// the lifecycle lease and has proved the live wallet is empty. Rotation
+    /// remains durable even if the process stops before the first file moves.
+    func setPINForPreservedRestore(_ pin: String, accounts: [AccountItem],
+                                   authorizations: [RetainedAuthorization]) throws {
+        try Self.synchronized {
+            try recoverRotation()
+            try WalletCredentialRepair.requireNoPendingRepair(keystore: keystore)
+            try requirePreservedOwners(accounts: accounts, authorizations: authorizations)
+            guard Self.validPIN(pin) else { throw Failure.invalidPIN }
+            let verified = try proven(accounts)
+            if try keystore.checkKey(for: KeystoreTag.pincode.rawValue),
+               try keystore.fetchKey(for: KeystoreTag.pincode.rawValue) == Data(pin.utf8),
+               try verified.allSatisfy({ account in
+                   try read(Binding.self, tag: account.address + Self.bindingSuffix)?.matches(pin) == true
+               }) { return }
+            try writeRotation(pin, accounts: verified, finishSetup: true)
+        }
     }
 
     /// Returns only the wallets this PIN owns. A success never resets another

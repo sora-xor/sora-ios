@@ -2953,15 +2953,20 @@ final class Sora2LiveRuntimeTests: XCTestCase {
                 eventCenter: SilentEventCenter(),
                 operationManager: OperationManager(),
                 repository: AnyDataProviderRepository(chains),
-                nodeRepository: AnyDataProviderRepository(MemoryRepository<SoraPassport.ChainNodeModel>()),
+                nodeRepository: AnyDataProviderRepository(MemoryRepository<SoraPassport.ChainNodeModel>(lookupDelay: 0.1)),
                 substrateOperationFactory: ReachableNodeOperationFactory(),
                 chain: chain,
                 mode: .add,
                 signingRouteProbe: { url in
                     probed.append(url)
                     return route
-                }
+                },
+                genesisOperationFactory: { _ in ClosureOperation { chain.chainId } }
             )
+            // The app presenter owns its interactor while a request is in
+            // flight. Keep that lifetime in this async test as well: optimized
+            // Release is allowed to release the local after its last use.
+            defer { withExtendedLifetime(interactor) {} }
             interactor.presenter = output
             interactor.updateCustomNode(url: address, name: "Custom")
             let deadline = Date().addingTimeInterval(10)
@@ -2987,7 +2992,7 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertTrue(foreign.saved.isEmpty)
 
         let accepted = try await add(route: .available, to: chain)
-        XCTAssertTrue(accepted.output.errors.isEmpty)
+        XCTAssertTrue(accepted.output.errors.isEmpty, "\(accepted.output.errors)")
         XCTAssertEqual(accepted.output.added?.customNodes?.map(\.url), [address])
         XCTAssertEqual(accepted.saved.first?.customNodes?.map(\.url), [address])
 
@@ -4686,6 +4691,8 @@ private final class SilentEventCenter: EventCenterProtocol {
 private final class MemoryRepository<Model: RobinHood.Identifiable>: DataProviderRepositoryProtocol {
     private let lock = NSLock()
     private var stored: [Model] = []
+    private let lookupDelay: TimeInterval
+    init(lookupDelay: TimeInterval = 0) { self.lookupDelay = lookupDelay }
 
     var items: [Model] {
         lock.lock()
@@ -4736,6 +4743,7 @@ private final class MemoryRepository<Model: RobinHood.Identifiable>: DataProvide
         options _: RepositoryFetchOptions
     ) -> BaseOperation<Model?> {
         ClosureOperation {
+            if self.lookupDelay > 0 { Thread.sleep(forTimeInterval: self.lookupDelay) }
             let selected = try id()
             return self.items.first { $0.identifier == selected }
         }

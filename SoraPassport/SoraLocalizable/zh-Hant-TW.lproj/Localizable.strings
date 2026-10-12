@@ -1147,3 +1147,9 @@
 /* Wallet recovery and authentication — AI-translated, native review pending (2026-10-12). */
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "為此復原的錢包選擇並確認新的 App PIN。不會使用先前安裝的 PIN。";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "輸入目前的 App PIN 以確認修復。復原的錢包將使用此 PIN。";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "更換節點";
+"Check wallet again" = "重新檢查錢包";
+"Wallet verification needs attention. Check your saved wallet again." = "錢包驗證需要處理。請重新檢查已儲存的錢包。";
+"Wallet services are not ready. Try again or choose another node." = "錢包服務尚未就緒。請重試或選擇其他節點。";

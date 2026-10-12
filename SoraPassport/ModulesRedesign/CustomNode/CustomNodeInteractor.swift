@@ -45,7 +45,7 @@ final class CustomNodeInteractor {
     private let repository: AnyDataProviderRepository<ChainModel>
     private let nodeRepository: AnyDataProviderRepository<ChainNodeModel>
     private let substrateOperationFactory: SubstrateOperationFactoryProtocol
-    private var addCustomNodeOperationFactory: CustomNodeOperationFactoryProtocol?
+    private let genesisOperationFactory: (URL) -> BaseOperation<String>
     private let signingRouteProbe: (URL) async -> Sora2NodeSigningRoute
 
     init(settings: SettingsManagerProtocol,
@@ -58,7 +58,11 @@ final class CustomNodeInteractor {
          mode: NodeAction,
          signingRouteProbe: @escaping (URL) async -> Sora2NodeSigningRoute = {
              await Sora2NodeSigningRoute.probe(nodeURL: $0)
+         },
+         genesisOperationFactory: @escaping (URL) -> BaseOperation<String> = {
+             CustomNodeOperationFactory(url: $0).createGetGenesisBlockOperation()
          }) {
+        self.genesisOperationFactory = genesisOperationFactory
         self.signingRouteProbe = signingRouteProbe
         self.settings = settings
         self.eventCenter = eventCenter
@@ -82,9 +86,7 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
     }
 
     private func checkGenesisBlock(url: URL, name: String) {
-        let addCustomNodeOperationFactory = CustomNodeOperationFactory(url: url)
-
-        let operation = addCustomNodeOperationFactory.createGetGenesisBlockOperation()
+        let operation = genesisOperationFactory(url)
 
         operation.completionBlock = { [weak self] in
             guard let self = self else { return }
@@ -230,6 +232,10 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
             }
         }
 
+        // The duplicate lookup and network probe run independently. Saving
+        // must wait for both, otherwise a faster probe can make an unfinished
+        // lookup look cancelled (or race the uniqueness check).
+        saveOperation.addDependency(fetchNodeOperation)
         saveOperation.addDependency(fetchNetworkOperation)
 
         operationManager.enqueue(operations: [fetchNodeOperation, fetchNetworkOperation, saveOperation], in: .transient)

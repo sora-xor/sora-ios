@@ -45,6 +45,17 @@ enum KeystoreTag: String, CaseIterable {
 }
 
 extension KeystoreProtocol {
+    /// A PIN, username or derivation-path label alone is not a wallet key.
+    /// Enumeration failures propagate: an inaccessible Keychain is never a
+    /// fresh installation. Presence, including malformed bytes, is enough to
+    /// preserve the retained-wallet route without making a signing claim.
+    func hasRetainedWalletKeys() throws -> Bool {
+        try allKeyIdentifiers().contains { identifier in
+            identifier == KeystoreTag.legacyEntropy.rawValue || identifier == "privateKey" ||
+                ["-secretKey", "-entropy", "-seed"].contains { identifier.hasSuffix($0) }
+        }
+    }
+
     func hasRetainedWalletMaterial() throws -> Bool {
         let scopedWalletSuffixes = [
             "-secretKey",

@@ -440,7 +440,25 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
 
         validateAccount { [weak self] result in
             switch result {
-            case .success:
+            case .success(let existing):
+                if let existing, let self, let controller = self.view?.controller {
+                    let repairSource: WalletCredentialRepair.Source
+                    switch selectedSourceType {
+                    case .mnemonic: repairSource = .phrase
+                    case .seed: repairSource = .seed
+                    case .keystore: repairSource = .json
+                    }
+                    Task { @MainActor in
+                        WalletAccountCapability.presentRepair(account: existing, from: controller,
+                            configure: { repair in
+                                repair.setSuppliedMaterial(source: repairSource,
+                                    text: sourceViewModel.inputHandler.value,
+                                    derivationPath: self.derivationPathViewModel?.inputHandler.value ?? "",
+                                    backupPassword: self.passwordViewModel?.inputHandler.value ?? "")
+                            })
+                    }
+                    return
+                }
                 self?.wireframe.proceed(from: self?.view,
                                         sourceType: selectedSourceType,
                                         cryptoType: self?.selectedCryptoType ?? selectedCryptoType,

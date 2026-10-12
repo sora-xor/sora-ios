@@ -1145,3 +1145,9 @@
 "New app PIN" = "Új alkalmazás-PIN";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Válassz és erősíts meg egy új alkalmazás-PIN-t ehhez a visszaállított tárcához. Az előző telepítés PIN-kódja nem lesz használva.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "A javítás megerősítéséhez add meg az alkalmazás jelenlegi PIN-kódját. Ez a visszaállított tárca ezt a PIN-kódot használja majd.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Csomópont váltása";
+"Check wallet again" = "Tárca újbóli ellenőrzése";
+"Wallet verification needs attention. Check your saved wallet again." = "A tárca ellenőrzése figyelmet igényel. Ellenőrizd újra a mentett tárcádat.";
+"Wallet services are not ready. Try again or choose another node." = "A tárcaszolgáltatások még nem állnak készen. Próbáld újra, vagy válassz másik csomópontot.";

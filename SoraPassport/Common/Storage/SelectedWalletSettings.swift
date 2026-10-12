@@ -556,7 +556,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                         let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: legacySettings,
                                                       recoveryGate: recoveryGate)
                         let current = accounts.map(AccountItem.init(managedItem:))
-                        if try current.isEmpty || ownerPIN.requiresInitialSetup(accounts: current) {
+                        if let completedSetup = prepared.completedInitialPINSetup {
+                            try completedSetup.validate(account: prepared.account, currentAccounts: current,
+                                keystore: keystore, settings: legacySettings, recoveryGate: recoveryGate)
+                        } else if try current.isEmpty || ownerPIN.requiresInitialSetup(accounts: current) {
                             try prepared.prepareInitialPINSetup(keystore: keystore, settings: legacySettings,
                                                                 operationID: journal.id)
                             WalletPendingPinSetup.begin(legacySettings)
@@ -1541,6 +1544,36 @@ final class WalletCloudBackupRecoveryService {
                         migrator: UserStorageMigrator, baseURL: URL? = nil,
                         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
                         checkpoint: () throws -> Void = {}) throws {
+        try withDecodedMaterial(data: data, password: password, account: account) { entropy, seed, secret, path in
+            try migrator.restoreMissingBackupMaterial(address: account.address, expectedAccount: account,
+                entropy: entropy, rawSeed: seed, secret: secret, derivationPath: path,
+                baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
+        }
+    }
+
+    /// Decryption proves a password, not the account. Each candidate is
+    /// independently checked by the same supplied-material preparation used
+    /// for a local phrase/seed/JSON; stale siblings cannot bless another key.
+    static func prepareForRepair(data: Data, password: String, account: AccountItem,
+                                 service: WalletCredentialRepair) throws -> PreparedAccount {
+        try withDecodedMaterial(data: data, password: password, account: account) { entropy, seed, secret, path in
+            if let entropy, WalletMnemonicWordPolicy.isDerivableEntropy(entropy),
+               let mnemonic = try? IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy) {
+                var phrase = mnemonic.toString()
+                defer { phrase.removeAll(keepingCapacity: false) }
+                if let candidate = try? service.prepare(account: account, source: .phrase, text: phrase,
+                                                        derivationPath: path, backupPassword: "") { return candidate }
+            }
+            if let seed,
+               let candidate = try? service.prepare(account: account, source: .seed, text: seed.toHex(),
+                                                     derivationPath: path, backupPassword: "") { return candidate }
+            if let secret { return try service.prepareDirectSecret(account: account, secret: secret) }
+            throw WalletCloudBackupRecoveryError.identityMismatch
+        }
+    }
+
+    private static func withDecodedMaterial<T>(data: Data, password: String, account: AccountItem,
+        body: (Data?, Data?, Data?, String) throws -> T) throws -> T {
         guard !data.isEmpty, data.count <= maximumBackupBytes,
               let backup = try? JSONDecoder().decode(Backup.self, from: data) else {
             throw WalletCloudBackupRecoveryError.invalidBackup
@@ -1603,9 +1636,7 @@ final class WalletCloudBackupRecoveryService {
         guard entropy != nil || seed != nil || secret != nil else {
             throw firstSourceError ?? WalletCloudBackupRecoveryError.unsupportedBackup
         }
-        try migrator.restoreMissingBackupMaterial(address: account.address, expectedAccount: account,
-            entropy: entropy, rawSeed: seed, secret: secret, derivationPath: path,
-            baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
+        return try body(entropy, seed, secret, path)
     }
 
     private static func checkedScrypt(_ data: Data) throws -> ScryptParameters {
@@ -1623,7 +1654,7 @@ final class WalletCloudBackupRecoveryService {
         return params
     }
 
-    private static func extractJSONSecret(_ json: String, password: String, account: AccountItem) throws -> Data {
+    static func extractJSONSecret(_ json: String, password: String, account: AccountItem) throws -> Data {
         guard let bytes = json.data(using: .utf8), bytes.count <= maximumBackupBytes,
               let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: bytes),
               let info = try? KeystoreInfoFactory().createInfo(from: definition),

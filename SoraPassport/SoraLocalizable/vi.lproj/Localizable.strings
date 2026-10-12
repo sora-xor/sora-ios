@@ -1145,3 +1145,9 @@
 "New app PIN" = "Mã PIN ứng dụng mới";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Chọn và xác nhận mã PIN ứng dụng mới cho ví được khôi phục này. Mã PIN từ lần cài đặt trước sẽ không được dùng.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Nhập mã PIN ứng dụng hiện tại để xác nhận sửa chữa. Ví được khôi phục này sẽ dùng mã PIN đó.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Đổi nút";
+"Check wallet again" = "Kiểm tra lại ví";
+"Wallet verification needs attention. Check your saved wallet again." = "Việc xác minh ví cần được xử lý. Hãy kiểm tra lại ví đã lưu.";
+"Wallet services are not ready. Try again or choose another node." = "Các dịch vụ ví chưa sẵn sàng. Hãy thử lại hoặc chọn một nút khác.";

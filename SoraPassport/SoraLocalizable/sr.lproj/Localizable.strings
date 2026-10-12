@@ -1145,3 +1145,9 @@
 "New app PIN" = "Нови PIN апликације";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Изабери и потврди нови PIN апликације за овај враћени новчаник. PIN претходне инсталације неће бити коришћен.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "За потврду поправке унеси тренутни PIN апликације. Овај враћени новчаник ће користити тај PIN.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Промени чвор";
+"Check wallet again" = "Поново провери новчаник";
+"Wallet verification needs attention. Check your saved wallet again." = "Провера новчаника захтева пажњу. Поново проверите сачувани новчаник.";
+"Wallet services are not ready. Try again or choose another node." = "Услуге новчаника још нису спремне. Покушајте поново или изаберите други чвор.";
