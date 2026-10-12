@@ -949,7 +949,8 @@ indexer only.
   asset is not counted either. Neither is an audit finding or a change of
   3.9.0; both need their own fix and a look at the screen. (Round 5 fixed
   the first of the two and looked at the screen; see "Review round 5",
-  section 5. The second is still open.)
+  section 5. The filtered-page case is fixed in "Activity paging follow-up"
+  below.)
 - **Not seen in the running app.** As in rounds 2 and 3, the simulator
   wallet is behind a PIN this round does not have, and this round did not
   remove it or create another. The Debug build was installed and launched
@@ -1182,7 +1183,8 @@ PIN this round does not have, as in rounds 2 to 4.
   asset, a page whose rows are all filtered out is not counted, so the
   pages after it are not reached and the spinner at the end stays.
   Counting it would need the screen to go on to the next page by itself,
-  and reading page *n* costs *n* requests.
+  and reading page *n* costs *n* requests. This is resolved in
+  "Activity paging follow-up" below, within the same 20-page limit.
 - **The asset screen's three recent operations** (`RecentActivityItemService`)
   have no "as of" line and are read again with every balance update; not
   changed.
@@ -1215,3 +1217,77 @@ PIN this round does not have, as in rounds 2 to 4.
   not part of the wire review; App Store builds do not show Polkamarkt. They
   get the forward-only rule and the per-request retry, and keep their
   per-page cache.
+
+
+## Activity paging follow-up (12 October 2026)
+
+This is a pre-existing defect, also present in App Store 3.8.6
+(`354f176c`), not a regression introduced by 3.9.0. Round 5 already fixed
+counting a page whose rows all belong to a day on screen. This follow-up
+covers that case with stronger tests and fixes pages left empty by the
+per-page asset filter.
+
+`ActivityViewModel` now counts every accepted successful page, stops the
+pagination loader and publishes its snapshot, whether the page adds a
+section, merges into an existing day, or has no rows after filtering. An
+empty non-final page immediately leads to the next page; `endReached` or
+`PIIndexerClient.maximumHistoryPages` (20) ends the walk. No page 21 is
+requested, including when all 20 pages are empty. The empty-list label is
+shown only once the walk ends with no activity rows.
+
+The existing list/page response guards discard an answer for a page
+already accepted or a list that has been replaced. `continues(_:pageCachedAt:)`
+still decides whether a page may follow the list, including empty pages:
+an incompatible saved/current page is not counted or skipped and offers
+the existing retry row. Accepting a page removes that row and publishes
+the result. The "Activity as of" notice and quiet refresh remain; quiet
+refresh also continues if the replacement first page is empty.
+
+### Regression coverage
+
+Eleven new tests in `PIRound4ActivityTests` cover same-day pages and
+crossing answers; empty first, middle, final and sole pages; the 20-page
+limit; empty-page saved/current continuity and retry-row removal; quiet
+refresh through an empty first page; and the production factory and
+screen. The production `ActivityViewModelFactory` case preserves
+`currentDate` through an empty page, merges two same-day pages, adds the
+previous calendar day once, and resets the date when the list restarts.
+
+For the negative run, the original Set-intersection condition was
+restored temporarily on the round-5 baseline. All three selected tests
+failed: the same-day case requested `[1, 2, 2]`, kept six rows in memory
+but published two; an empty middle page never reached page 3; an empty
+last page was not counted. The original condition was removed again
+before verification of the fix.
+
+### Verification of the paging follow-up
+
+Xcode 27.0, scheme `SoraPassport`, Debug, simulator `SORA-Fix-net`
+(iPhone 17 Pro, iOS 27.0), 12 October 2026 (JST). Every `xcodebuild`
+invocation used `-onlyUsePackageVersionsFromResolvedFile`.
+
+- `PIRound4ActivityTests`: 15 tests, 0 failures.
+- `PIActivityRefreshTests`: 15 tests, 0 failures, including overlapping
+  reloads, saved/current continuity, the retry row and background refresh.
+- Whole `SoraPassportTests` target: 673 tests, 668 passed, 5 skipped,
+  0 failures (`all-unit-tests-final.xcresult`). The five skips are the
+  opt-in live-network tests. The full result also reports four Main Thread
+  Checker warnings in the unchanged `Sora2LiveRuntimeTests` tests.
+- The project file, package resolution files and string tables are unchanged.
+
+The production `ActivityViewController` and `ActivityViewModelFactory`
+were rendered and inspected in a test-host window on the simulator, with
+Japanese localization and stub history. Scrolling was through the table;
+its production `willDisplay` callback requested subsequent pages. The
+100-row same-day list reached transfer 100 once. The asset-filtered list
+reached transfers 51 and 52 after an empty page. Both lists stopped at an
+empty final page with no footer spinner or retry row, and another request
+to load more made no history call. This checks the production screen with
+controlled data; it is not a live account-history check.
+
+The local evidence is in `output/activity-paging/` (ignored by Git):
+`baseline.xcresult`, `activity-regression-final.xcresult`,
+`all-unit-tests-final.xcresult`, their test logs,
+and three inspected screenshots in `screens-verified/`:
+`activity-paging-long-list.png`, `activity-paging-long-list-end.png`, and
+`activity-paging-asset-filtered-end.png`.
