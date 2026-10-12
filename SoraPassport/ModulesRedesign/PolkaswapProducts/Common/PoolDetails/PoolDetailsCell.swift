@@ -48,6 +48,18 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
                 }
                 .store(in: &cancellables)
 
+            item.service?.tvlUnavailablePublisher
+                .receive(on: DispatchQueue.main)
+                .removeDuplicates()
+                .filter { $0 }
+                .sink { [weak self] _ in
+                    // No price for this pool: end the placeholder and show
+                    // no value. A value that arrives later replaces this.
+                    self?.headerView.subtitleLabel.sora.text = ""
+                    self?.headerView.subtitleLabel.sora.loadingPlaceholder.type = .none
+                }
+                .store(in: &cancellables)
+
             item.service?.detailsPublisher
                 .receive(on: DispatchQueue.main)
                 .removeDuplicates()

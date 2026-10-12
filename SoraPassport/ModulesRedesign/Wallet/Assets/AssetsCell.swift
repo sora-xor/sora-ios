@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import UIKit
 import SoraUIKit
 import SoraFoundation
 import Combine
@@ -45,6 +46,16 @@ final class AssetsCell: SoramitsuTableViewCell {
                     self?.moneyLabel.sora.text = value
                     self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.cornerRadius = !value.isEmpty ? .zero : .small
+                    // "Price unavailable" is a quiet notice, not an amount.
+                    let unavailable = self?.assetsItem?.service?.priceIsUnavailable ?? false
+                    self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.headline2
+                    self?.moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
+                }
+                .store(in: &cancellables)
+            item.service?.$priceNoteText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    self?.applyPriceNote(value)
                 }
                 .store(in: &cancellables)
             item.service?.$assetViewModels
@@ -72,11 +83,26 @@ final class AssetsCell: SoramitsuTableViewCell {
     private lazy var moneyLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
+        label.sora.dynamicTextStyle = .headline
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
         label.sora.textColor = .fgPrimary
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.cornerRadius = .small
         label.sora.alignment = localizationManager.isRightToLeft ? .left : .right
+        return label
+    }()
+
+    /// "Prices as of 09:02", under the total, while the prices shown are
+    /// not current.
+    private lazy var priceNoteLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.textXS
+        label.sora.numberOfLines = 0
+        label.sora.textColor = .fgSecondary
+        label.sora.alignment = localizationManager.isRightToLeft ? .left : .right
+        label.sora.isHidden = true
         return label
     }()
 
@@ -94,7 +120,7 @@ final class AssetsCell: SoramitsuTableViewCell {
         return view
     }()
 
-    private let mainInfoView: UIView = {
+    private let mainInfoView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.axis = .horizontal
@@ -121,6 +147,15 @@ final class AssetsCell: SoramitsuTableViewCell {
         setupConstraints()
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let stacked = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        let axis: NSLayoutConstraint.Axis = stacked ? .vertical : .horizontal
+        if mainInfoView.axis != axis { mainInfoView.sora.axis = axis }
+        let alignment: NSTextAlignment = stacked ? .natural : (localizationManager.isRightToLeft ? .left : .right)
+        if moneyLabel.sora.alignment != alignment { moneyLabel.sora.alignment = alignment }
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
@@ -128,9 +163,12 @@ final class AssetsCell: SoramitsuTableViewCell {
         contentView.addSubview(containerView)
         containerView.addSubview(fullStackView)
         
-        mainInfoView.addSubviews(arrowButton, moneyLabel)
+        mainInfoView.addArrangedSubviews(arrowButton, moneyLabel)
+        mainInfoView.spacing = 12
         fullStackView.addArrangedSubviews(mainInfoView)
         fullStackView.setCustomSpacing(16, after: mainInfoView)
+        fullStackView.addArrangedSubviews(priceNoteLabel)
+        fullStackView.setCustomSpacing(16, after: priceNoteLabel)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonExpand(preferredLanguages: locale.rLanguages)
@@ -149,16 +187,6 @@ final class AssetsCell: SoramitsuTableViewCell {
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            arrowButton.leadingAnchor.constraint(equalTo: mainInfoView.leadingAnchor),
-            arrowButton.topAnchor.constraint(equalTo: mainInfoView.topAnchor),
-            arrowButton.centerYAnchor.constraint(equalTo: mainInfoView.centerYAnchor),
-            arrowButton.trailingAnchor.constraint(equalTo: moneyLabel.leadingAnchor),
-            
-            moneyLabel.trailingAnchor.constraint(equalTo: mainInfoView.trailingAnchor),
-            moneyLabel.centerYAnchor.constraint(equalTo: arrowButton.centerYAnchor),
-            moneyLabel.heightAnchor.constraint(equalToConstant: 21),
-            moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
@@ -191,15 +219,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                 }
                 self.views[index].subtitleLabel.sora.loadingPlaceholder.type = assetModel.subtitle.isEmpty ? .shimmer : .none
 
-                if !assetModel.fiatText.isEmpty {
-                    self.views[index].amountUpLabel.sora.text = assetModel.fiatText
-                }
-                self.views[index].amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty ? .shimmer : .none
-
-                if let delta = assetModel.deltaPriceText {
-                    self.views[index].amountDownLabel.sora.attributedText = delta
-                }
-                self.views[index].amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil ? .shimmer : .none
+                self.applyPrice(of: assetModel, to: self.views[index])
                 self.views[index].sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
                     assetsItem?.assetHandler?(assetModel.identifier)
                 }
@@ -230,15 +250,7 @@ final class AssetsCell: SoramitsuTableViewCell {
             }
             assetView.subtitleLabel.sora.loadingPlaceholder.type = assetModel.subtitle.isEmpty ? .shimmer : .none
 
-            if !assetModel.fiatText.isEmpty {
-                assetView.amountUpLabel.sora.text = assetModel.fiatText
-            }
-            assetView.amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty ? .shimmer : .none
-
-            if let delta = assetModel.deltaPriceText {
-                assetView.amountDownLabel.sora.attributedText = delta
-            }
-            assetView.amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil ? .shimmer : .none
+            applyPrice(of: assetModel, to: assetView)
 
             assetView.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
                 assetsItem?.assetHandler?(assetModel.identifier)
@@ -254,6 +266,36 @@ final class AssetsCell: SoramitsuTableViewCell {
 
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
         setNeedsLayout()
+    }
+}
+
+private extension AssetsCell {
+    /// The fiat value and 24-hour change of one row. While the price read
+    /// is running both show a loading placeholder; once it has finished, a
+    /// row without a price shows nothing there.
+    func applyPrice(of assetModel: AssetViewModel, to view: MainScreenAssetView) {
+        let waiting = !assetModel.priceLoadFinished
+
+        if !assetModel.fiatText.isEmpty {
+            view.amountUpLabel.sora.text = assetModel.fiatText
+        } else if !waiting {
+            view.amountUpLabel.sora.text = ""
+        }
+        view.amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty && waiting ? .shimmer : .none
+
+        if let delta = assetModel.deltaPriceText {
+            view.amountDownLabel.sora.attributedText = WalletUX.readableAttributedText(delta.attributedString)
+        } else if !waiting {
+            view.amountDownLabel.sora.attributedText = NSAttributedString(string: "")
+        }
+        view.amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil && waiting ? .shimmer : .none
+    }
+
+    func applyPriceNote(_ text: String) {
+        priceNoteLabel.sora.text = text
+        priceNoteLabel.sora.isHidden = text.isEmpty
+        // A hidden row takes its spacing with it.
+        fullStackView.setCustomSpacing(text.isEmpty ? 16 : 4, after: mainInfoView)
     }
 }
 
@@ -282,4 +324,3 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
                                                                           alignment: alignment)
     }
 }
-

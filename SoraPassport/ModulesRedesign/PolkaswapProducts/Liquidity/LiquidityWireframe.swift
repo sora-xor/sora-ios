@@ -35,6 +35,208 @@ import RobinHood
 import sorawallet
 import SoraUIKit
 
+enum LiquidityConfirmationPreflightError: Swift.Error, Sendable {
+    case unavailable
+    case insufficientBalance(assetId: String)
+    case insufficientLiquidity
+    case feeChanged
+    case submissionUnknown
+}
+
+enum LiquidityTransferInfoFactoryError: Swift.Error {
+    case invalidAssets
+    case invalidAmounts
+    case invalidPool
+    case invalidTransactionType
+    /// The base asset is not the base of any DEX the app knows (for example KXOR).
+    case unknownDex
+}
+
+enum LiquidityFeeQualification {
+    static func accepts(freshFee: Decimal, reviewedFee: Decimal) -> Bool {
+        reviewedFee > 0 && freshFee > 0 && freshFee <= reviewedFee
+    }
+}
+
+/// One-shot, thread-safe authorization shared with the background signing
+/// operation. `viewWillDisappear` revokes it before a queued signer can read a
+/// secret; once revoked, this confirmation can never authorize another sign.
+final class LiquiditySigningAuthorization: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isAuthorized = true
+
+    func requireAuthorized() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard isAuthorized else {
+            throw CancellationError()
+        }
+    }
+
+    func revoke() {
+        lock.lock()
+        isAuthorized = false
+        lock.unlock()
+    }
+}
+
+/// Produces the canonical wire context consumed by the exact liquidity call
+/// builder. Review-stage estimation and final submission both use this factory.
+enum LiquidityTransferInfoFactory {
+    static func supply(
+        baseAssetId: String,
+        targetAssetId: String,
+        firstAssetAmount: Decimal,
+        secondAssetAmount: Decimal,
+        slippageTolerance: PolkaswapSlippage,
+        transactionType: TransactionType,
+        fee: Decimal,
+        assetManager: AssetManagerProtocol,
+        shareOfPool: String = "",
+        apy: String = ""
+    ) throws -> TransferInfo {
+        guard transactionType == .liquidityAdd
+                || transactionType == .liquidityAddNewPool
+                || transactionType == .liquidityAddToExistingPoolFirstTime else {
+            throw LiquidityTransferInfoFactoryError.invalidTransactionType
+        }
+        try validate(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            firstAssetAmount: firstAssetAmount,
+            secondAssetAmount: secondAssetAmount,
+            fee: fee,
+            assetManager: assetManager
+        )
+        let dex = try dexId(for: baseAssetId)
+
+        return transferInfo(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            firstAssetAmount: firstAssetAmount,
+            fee: fee,
+            context: [
+                TransactionContextKeys.transactionType: transactionType.rawValue,
+                TransactionContextKeys.firstAssetAmount: AmountDecimal(value: firstAssetAmount).stringValue,
+                TransactionContextKeys.secondAssetAmount: AmountDecimal(value: secondAssetAmount).stringValue,
+                TransactionContextKeys.slippage: slippageTolerance.contextValue,
+                TransactionContextKeys.dex: dex,
+                TransactionContextKeys.shareOfPool: shareOfPool,
+                TransactionContextKeys.sbApy: apy
+            ]
+        )
+    }
+
+    static func removal(
+        poolInfo: PoolInfo,
+        firstAssetAmount: Decimal,
+        secondAssetAmount: Decimal,
+        slippageTolerance: PolkaswapSlippage,
+        fee: Decimal,
+        assetManager: AssetManagerProtocol,
+        shareOfPool: String = "",
+        apy: String = ""
+    ) throws -> TransferInfo {
+        try validate(
+            baseAssetId: poolInfo.baseAssetId,
+            targetAssetId: poolInfo.targetAssetId,
+            firstAssetAmount: firstAssetAmount,
+            secondAssetAmount: secondAssetAmount,
+            fee: fee,
+            assetManager: assetManager
+        )
+        guard let baseAssetReserves = poolInfo.baseAssetReserves,
+              baseAssetReserves > 0,
+              let totalIssuances = poolInfo.totalIssuances,
+              totalIssuances > 0 else {
+            throw LiquidityTransferInfoFactoryError.invalidPool
+        }
+        let dex = try dexId(for: poolInfo.baseAssetId)
+
+        return transferInfo(
+            baseAssetId: poolInfo.baseAssetId,
+            targetAssetId: poolInfo.targetAssetId,
+            firstAssetAmount: firstAssetAmount,
+            fee: fee,
+            context: [
+                TransactionContextKeys.transactionType: TransactionType.liquidityRemoval.rawValue,
+                TransactionContextKeys.firstAssetAmount: AmountDecimal(value: firstAssetAmount).stringValue,
+                TransactionContextKeys.secondAssetAmount: AmountDecimal(value: secondAssetAmount).stringValue,
+                TransactionContextKeys.firstReserves: AmountDecimal(value: baseAssetReserves).stringValue,
+                TransactionContextKeys.totalIssuances: AmountDecimal(value: totalIssuances).stringValue,
+                TransactionContextKeys.shareOfPool: shareOfPool,
+                TransactionContextKeys.slippage: slippageTolerance.contextValue,
+                TransactionContextKeys.sbApy: apy,
+                TransactionContextKeys.dex: dex
+            ]
+        )
+    }
+
+    private static func validate(
+        baseAssetId: String,
+        targetAssetId: String,
+        firstAssetAmount: Decimal,
+        secondAssetAmount: Decimal,
+        fee: Decimal,
+        assetManager: AssetManagerProtocol
+    ) throws {
+        guard !baseAssetId.isEmpty,
+              !targetAssetId.isEmpty,
+              baseAssetId != targetAssetId,
+              assetManager.assetInfo(for: baseAssetId) != nil,
+              assetManager.assetInfo(for: targetAssetId) != nil else {
+            throw LiquidityTransferInfoFactoryError.invalidAssets
+        }
+        guard firstAssetAmount > 0,
+              secondAssetAmount > 0,
+              fee >= 0 else {
+            throw LiquidityTransferInfoFactoryError.invalidAmounts
+        }
+    }
+
+    /// The DEX of the pool's base asset, as read from the chain (XOR and XSTUSD are always
+    /// known). An unknown base is refused rather than guessed: a wrong DEX id fails on
+    /// chain after the fee is charged.
+    private static func dexId(for baseAssetId: String) throws -> String {
+        guard let dexId = DexInfoService.shared.knownDexId(forBaseAssetId: baseAssetId) else {
+            throw LiquidityTransferInfoFactoryError.unknownDex
+        }
+        return String(dexId)
+    }
+
+    private static func transferInfo(
+        baseAssetId: String,
+        targetAssetId: String,
+        firstAssetAmount: Decimal,
+        fee: Decimal,
+        context: [String: String]
+    ) -> TransferInfo {
+        let feeDescription = FeeDescription(
+            identifier: WalletAssetId.xor.rawValue,
+            assetId: WalletAssetId.xor.rawValue,
+            type: "fee",
+            parameters: [],
+            accountId: nil,
+            minValue: nil,
+            maxValue: nil,
+            context: nil
+        )
+        let networkFee = Fee(
+            value: AmountDecimal(value: fee),
+            feeDescription: feeDescription
+        )
+        return TransferInfo(
+            source: baseAssetId,
+            destination: targetAssetId,
+            amount: AmountDecimal(value: firstAssetAmount),
+            asset: baseAssetId,
+            details: "",
+            fees: [networkFee],
+            context: context
+        )
+    }
+}
+
 protocol LiquidityWireframeProtocol: AlertPresentable {
     func showChoiсeBaseAsset(on controller: UIViewController?,
                              assetManager: AssetManagerProtocol,
@@ -45,7 +247,11 @@ protocol LiquidityWireframeProtocol: AlertPresentable {
                              marketCapService: MarketCapServiceProtocol,
                              completion: @escaping (String) -> Void)
     
-    func showSlippageTolerance(on controller: UINavigationController?, currentLocale: Float, completion: @escaping (Float) -> Void)
+    func showSlippageTolerance(
+        on controller: UINavigationController?,
+        currentLocale: PolkaswapSlippage,
+        completion: @escaping (PolkaswapSlippage) -> Void
+    )
     
     func showChoiсeMarket(on controller: UINavigationController?,
                           selectedMarket: LiquiditySourceType,
@@ -57,28 +263,31 @@ protocol LiquidityWireframeProtocol: AlertPresentable {
         baseAssetId: String,
         targetAssetId: String,
         fiatService: FiatServiceProtocol,
-        poolsService: PoolsServiceInputProtocol?,
+        poolsService: PoolsServiceInputProtocol,
         assetManager: AssetManagerProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         details: [DetailViewModel],
         transactionType: TransactionType,
         fee: Decimal,
-        operationFactory: WalletNetworkOperationFactoryProtocol
+        operationFactory: WalletNetworkOperationFactoryProtocol,
+        feeChangeHandler: @escaping () -> Void
     )
     
     
     func showRemoveLiquidityConfirmation(
         on controller: UINavigationController?,
         poolInfo: PoolInfo,
+        poolsService: PoolsServiceInputProtocol,
         assetManager: AssetManagerProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         details: [DetailViewModel],
         fee: Decimal,
         operationFactory: WalletNetworkOperationFactoryProtocol,
+        feeChangeHandler: @escaping () -> Void,
         completionHandler: (() -> Void)?
     )
     
@@ -90,7 +299,7 @@ protocol LiquidityWireframeProtocol: AlertPresentable {
         eventCenter: EventCenterProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         market: LiquiditySourceType,
         details: [DetailViewModel],
         amounts: SwapQuoteAmounts,
@@ -101,7 +310,7 @@ protocol LiquidityWireframeProtocol: AlertPresentable {
         dexId: UInt32,
         quoteParams: PolkaswapMainInteractorQuoteParams,
         assetsProvider: AssetProviderProtocol?,
-        fiatData: [FiatData],
+        fiatData: [PIExactFiatData],
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?)
 }
 
@@ -136,7 +345,11 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSlippageTolerance(on controller: UINavigationController?, currentLocale: Float, completion: @escaping (Float) -> Void) {
+    func showSlippageTolerance(
+        on controller: UINavigationController?,
+        currentLocale: PolkaswapSlippage,
+        completion: @escaping (PolkaswapSlippage) -> Void
+    ) {
         let viewModel = SlippageToleranceViewModel(value: currentLocale)
         viewModel.completion = completion
         let view = SlippageToleranceViewController(viewModel: viewModel)
@@ -160,20 +373,22 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
         baseAssetId: String,
         targetAssetId: String,
         fiatService: FiatServiceProtocol,
-        poolsService: PoolsServiceInputProtocol?,
+        poolsService: PoolsServiceInputProtocol,
         assetManager: AssetManagerProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         details: [DetailViewModel],
         transactionType: TransactionType,
         fee: Decimal,
-        operationFactory: WalletNetworkOperationFactoryProtocol
+        operationFactory: WalletNetworkOperationFactoryProtocol,
+        feeChangeHandler: @escaping () -> Void
     ) {
 
         let viewModel = ConfirmSupplyLiquidityViewModel(wireframe: ConfirmWireframe(),
                                                         baseAssetId: baseAssetId,
                                                         targetAssetId: targetAssetId,
+                                                        poolsService: poolsService,
                                                         assetManager: assetManager,
                                                         firstAssetAmount: firstAssetAmount,
                                                         secondAssetAmount: secondAssetAmount,
@@ -181,6 +396,8 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
                                                         details: details,
                                                         transactionType: transactionType,
                                                         fee: fee,
+                                                        operationFactory: operationFactory,
+                                                        feeChangeHandler: feeChangeHandler,
                                                         walletService: WalletService(operationFactory: operationFactory))
         let view = ConfirmViewController(viewModel: viewModel)
         viewModel.view = view
@@ -190,23 +407,28 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
     func showRemoveLiquidityConfirmation(
         on controller: UINavigationController?,
         poolInfo: PoolInfo,
+        poolsService: PoolsServiceInputProtocol,
         assetManager: AssetManagerProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         details: [DetailViewModel],
         fee: Decimal,
         operationFactory: WalletNetworkOperationFactoryProtocol,
+        feeChangeHandler: @escaping () -> Void,
         completionHandler: (() -> Void)?
     ) {
 
         let viewModel = ConfirmRemoveLiquidityViewModel(wireframe: ConfirmWireframe(),
                                                         poolInfo: poolInfo,
+                                                        poolsService: poolsService,
                                                         assetManager: assetManager,
                                                         firstAssetAmount: firstAssetAmount,
                                                         secondAssetAmount: secondAssetAmount,
                                                         slippageTolerance: slippageTolerance,
                                                         details: details,
+                                                        operationFactory: operationFactory,
+                                                        feeChangeHandler: feeChangeHandler,
                                                         walletService: WalletService(operationFactory: operationFactory),
                                                         fee: fee)
         viewModel.completionHandler = completionHandler
@@ -223,7 +445,7 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
         eventCenter: EventCenterProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         market: LiquiditySourceType,
         details: [DetailViewModel],
         amounts: SwapQuoteAmounts,
@@ -234,7 +456,7 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
         dexId: UInt32,
         quoteParams: PolkaswapMainInteractorQuoteParams,
         assetsProvider: AssetProviderProtocol?,
-        fiatData: [FiatData],
+        fiatData: [PIExactFiatData],
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?) {
             guard let networkFacade = networkFacade else { return }
             let interactor = PolkaswapMainInteractor(operationManager: OperationManager(),

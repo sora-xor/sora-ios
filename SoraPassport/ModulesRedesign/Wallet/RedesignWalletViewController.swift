@@ -39,7 +39,8 @@ final class RedesignWalletViewController: SoramitsuViewController {
 
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        tableView.sora.backgroundColor = .custom(uiColor: .clear)
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
         tableView.sora.tableViewHeader = nil
         tableView.delaysContentTouches = true
@@ -89,8 +90,14 @@ final class RedesignWalletViewController: SoramitsuViewController {
         }
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        tableView.reloadData()
+    }
+
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .bgPage
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
     }
 

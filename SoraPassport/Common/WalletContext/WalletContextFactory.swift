@@ -95,7 +95,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
             throw WalletContextFactoryError.missingAccount
         }
 
-        logger.debug("Loading wallet account: \(selectedAccount.address)")
+        logger.debug("Loading selected wallet account")
 
         let networkType = selectedAccount.addressType
 
@@ -107,7 +107,9 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
             substrateStorageFacade.createRepository()
 
         let localStorageIdFactory = try ChainStorageIdFactory(chain: Chain.sora)
-        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
+        guard let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+            throw WalletContextFactoryError.missingConnection
+        }
         let extrinsicService = ExtrinsicService(address: selectedAccount.address,
                                                 cryptoType: selectedAccount.cryptoType,
                                                 runtimeRegistry: runtime,

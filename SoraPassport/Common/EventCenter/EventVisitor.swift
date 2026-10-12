@@ -68,6 +68,7 @@ protocol EventVisitorProtocol: AnyObject {
     func processLanguageChanged(event: LanguageChanged)
     func processAccountBackuped(event: AccountBackuped)
     func processNewBlockAppeared(event: NewBlockEvent)
+    func processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved)
 
 //    func processSelectedNodeUpdated(event: SelectedNodeChangedEvent)
 
@@ -95,6 +96,7 @@ extension EventVisitorProtocol {
     func processMigration(event: MigrationEvent) {}
     func processSuccsessMigration(event: MigrationSuccsessEvent) {}
     func processNewTransactionCreated(event: NewTransactionCreatedEvent) {}
+    func processPendingSubmissionsResolved(event _: Sora2PendingSubmissionsResolved) {}
 //    func processPurchaseCompletion(event: PurchaseCompleted) {}
 
     func processChainSyncDidStart(event _: ChainSyncDidStart) {}

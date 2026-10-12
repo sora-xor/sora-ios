@@ -34,24 +34,89 @@ import SoraFoundation
 import SoraUIKit
 import SoraKeystore
 
+enum MainTabBarAccountRebindPolicy {
+    static let expectedTabCount = 5
+
+    static func requiresRecoveryAfterRebuildFailure(
+        boundWalletId: String?,
+        selectedWalletId: String?
+    ) -> Bool {
+        guard selectedWalletId?.isEmpty == false else {
+            return true
+        }
+        return boundWalletId != selectedWalletId
+    }
+
+    static func canPresentAccountBoundRoute(
+        boundWalletId: String?,
+        selectedWalletId: String?,
+        routeWalletId: String?,
+        recoveryActive: Bool
+    ) -> Bool {
+        guard
+            !recoveryActive,
+            let selectedWalletId,
+            !selectedWalletId.isEmpty
+        else {
+            return false
+        }
+        return boundWalletId == selectedWalletId &&
+            routeWalletId == selectedWalletId
+    }
+}
+
 final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     var walletContext: CommonWalletContextProtocol
+    private var walletContextWalletId: String?
+    private var accountSwitchRecoveryActive = false
+    private var accountBindingId = UUID()
 
     init(walletContext: CommonWalletContextProtocol) {
         self.walletContext = walletContext
+        walletContextWalletId =
+            SelectedWalletSettings.shared.currentAccount?.address
+    }
+
+    private var walletContextMatchesSelectedWallet: Bool {
+        guard
+            let selectedWalletId =
+                SelectedWalletSettings.shared.currentAccount?.address,
+            !selectedWalletId.isEmpty
+        else {
+            return false
+        }
+        return walletContextWalletId == selectedWalletId
     }
 
     func showNewWalletView(on view: MainTabBarViewProtocol?) {
+        guard
+            !accountSwitchRecoveryActive,
+            walletContextMatchesSelectedWallet
+        else {
+            return
+        }
         if let view = view {
             MainTabBarViewFactory.reloadWalletView(on: view, wireframe: self)
         }
     }
 
     func reloadWalletContent() {
+        guard
+            !accountSwitchRecoveryActive,
+            walletContextMatchesSelectedWallet
+        else {
+            return
+        }
         try? walletContext.prepareAccountUpdateCommand().execute()
     }
 
     func removeClaim(on view: MainTabBarViewProtocol?) {
+        guard
+            !accountSwitchRecoveryActive,
+            walletContextMatchesSelectedWallet
+        else {
+            return
+        }
         guard let tabBarController = view?.controller else {
             return
         }
@@ -62,6 +127,12 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     }
 
     @MainActor func presentClaim(on view: MainTabBarViewProtocol?, with service: MigrationServiceProtocol) {
+        guard
+            !accountSwitchRecoveryActive,
+            walletContextMatchesSelectedWallet
+        else {
+            return
+        }
         guard let tabBarController = view?.controller else {
             return
         }
@@ -84,6 +155,12 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     }
 
     func presentAccountImport(on view: MainTabBarViewProtocol?) {
+        guard
+            !accountSwitchRecoveryActive,
+            walletContextMatchesSelectedWallet
+        else {
+            return
+        }
         guard let tabBarController = view?.controller else {
             return
         }
@@ -104,6 +181,12 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     }
 
     func showTransactionSuccess(on view: MainTabBarViewProtocol?) {
+        guard
+            !accountSwitchRecoveryActive,
+            walletContextMatchesSelectedWallet
+        else {
+            return
+        }
         if let view = view {
             let title = R.string.localizable.walletTransactionSubmitted(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
             let alert = ModalAlertFactory.createSuccessAlert(title)
@@ -113,17 +196,34 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     
     @MainActor
     func recreateWalletViewController(on view: MainTabBarViewProtocol?) {
+        guard let tabBarController = view as? UITabBarController else {
+            return
+        }
+        let selectedAccount = SelectedWalletSettings.shared.currentAccount
+        let selectedWalletId = selectedAccount?.address
+        let requiresRecovery = MainTabBarAccountRebindPolicy
+            .requiresRecoveryAfterRebuildFailure(
+                boundWalletId: walletContextWalletId,
+                selectedWalletId: selectedWalletId
+            )
+
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         assetManager.setup(for: SelectedWalletSettings.shared)
 
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
         guard
-            let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+            let selectedAccount,
             let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-                return
-            }
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())
+        else {
+            handleAccountBoundRebuildFailure(
+                requiresRecovery: requiresRecovery,
+                tabBarController: tabBarController,
+                view: view
+            )
+            return
+        }
         
         let farmingService = DemeterFarmingService(
             operationFactory: DemeterFarmingOperationFactory(engine: connection),
@@ -135,6 +235,11 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                             assetManager: assetManager,
                                                                             accountSettings: accountSettings,
                                                                             demeterFarmingService: farmingService) else {
+            handleAccountBoundRebuildFailure(
+                requiresRecovery: requiresRecovery,
+                tabBarController: tabBarController,
+                view: view
+            )
             return
         }
 
@@ -179,82 +284,180 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
 
         let feeProvider = FeeProvider()
 
-        let redesignViewController = MainTabBarViewFactory.createWalletRedesignController(walletContext: walletContext,
-                                                                                          assetManager: assetManager,
-                                                                                          poolsService: poolsService,
-                                                                                          assetsProvider: assetsProvider,
-                                                                                          poolsViewModelService: poolsViewModelService,
-                                                                                          assetsViewModelService: assetsViewModelService,
-                                                                                          editViewService: editViewService, 
-                                                                                          accountSettings: accountSettings,
-                                                                                          farmingService: farmingService, 
-                                                                                          feeProvider: feeProvider,
-                                                                                          localizationManager: LocalizationManager.shared)
-
-        let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
-                                                                            assetManager: assetManager,
-                                                                            networkFacade: walletContext.networkOperationFactory,
-                                                                            polkaswapNetworkFacade: polkaswapContext,
-                                                                            poolsService: poolsService,
-                                                                            accountSettings: accountSettings,
-                                                                            assetsProvider: assetsProvider,
-                                                                            farmingService: farmingService, 
-                                                                            feeProvider: feeProvider,
-                                                                            walletAssets: assetInfos)
-
-        guard let tabBarController = view as? UITabBarController else {
+        guard
+            let redesignViewController = MainTabBarViewFactory
+                .createWalletRedesignController(
+                    walletContext: walletContext,
+                    assetManager: assetManager,
+                    poolsService: poolsService,
+                    assetsProvider: assetsProvider,
+                    poolsViewModelService: poolsViewModelService,
+                    assetsViewModelService: assetsViewModelService,
+                    editViewService: editViewService,
+                    accountSettings: accountSettings,
+                    farmingService: farmingService,
+                    feeProvider: feeProvider,
+                    localizationManager: LocalizationManager.shared
+                ),
+            let investController = MainTabBarViewFactory.createInvestController(
+                walletContext: walletContext,
+                assetManager: assetManager,
+                networkFacade: walletContext.networkOperationFactory,
+                polkaswapNetworkFacade: polkaswapContext,
+                poolsService: poolsService,
+                accountSettings: accountSettings,
+                assetsProvider: assetsProvider,
+                farmingService: farmingService,
+                feeProvider: feeProvider,
+                walletAssets: assetInfos
+            ),
+            let activityController = MainTabBarViewFactory
+                .createActivityController(
+                    with: assetManager,
+                    assetInfos: assetInfos
+                ),
+            let settingsController = MainTabBarViewFactory
+                .createMoreMenuController(
+                    walletContext: walletContext,
+                    assetsProvider: assetsProvider,
+                    accountSettings: accountSettings
+                )
+        else {
+            handleAccountBoundRebuildFailure(
+                requiresRecovery: requiresRecovery,
+                tabBarController: tabBarController,
+                view: view
+            )
             return
         }
 
-        if var viewcontrollers = tabBarController.viewControllers {
-            viewcontrollers.remove(at: 0)
-            viewcontrollers.insert(redesignViewController ?? UIViewController(), at: 0)
-            tabBarController.viewControllers = viewcontrollers
-        }
-        
-        if var viewcontrollers = tabBarController.viewControllers {
-            viewcontrollers.remove(at: 1)
-            viewcontrollers.insert(investController ?? UIViewController(), at: 1)
-            tabBarController.viewControllers = viewcontrollers
-        }
-        
-        if var viewcontrollers = tabBarController.viewControllers {
-            guard let activityController = MainTabBarViewFactory.createActivityController(with: assetManager,
-                                                                                          assetInfos: assetInfos) else { return }
-            
-            viewcontrollers.remove(at: 3)
-            viewcontrollers.insert(activityController, at: 3)
-            tabBarController.viewControllers = viewcontrollers
-        }
-        
-        if var viewcontrollers = tabBarController.viewControllers {
-            view?.middleButtonHadler = {
-                guard let swapViewController = MainTabBarViewFactory.createSwapController(walletContext: walletContext,
-                                                                                          assetManager: assetManager,
-                                                                                          assetsProvider: assetsProvider,
-                                                                                          localizationManager: LocalizationManager.shared) else { return }
-                
-                guard let containerView = MainTabBarViewFactory.swapDisclamerController(completion: {
-                    UserDefaults.standard.set(true, forKey: "isDisclamerShown")
-                    view?.controller.present(swapViewController, animated: true)
-                }) else { return }
-
-                if ApplicationConfig.shared.isDisclamerShown {
-                    view?.controller.present(swapViewController, animated: true)
-                } else {
-                    view?.controller.present(containerView, animated: true)
-                }
+        let replacementBindingId = UUID()
+        view?.middleButtonHadler = { [weak self, weak view] in
+            guard
+                let self,
+                self.accountBindingId == replacementBindingId,
+                MainTabBarAccountRebindPolicy.canPresentAccountBoundRoute(
+                    boundWalletId: self.walletContextWalletId,
+                    selectedWalletId: SelectedWalletSettings.shared
+                        .currentAccount?.address,
+                    routeWalletId: selectedAccount.address,
+                    recoveryActive: self.accountSwitchRecoveryActive
+                )
+            else {
+                return
+            }
+            guard let swapViewController = MainTabBarViewFactory
+                .createSwapController(
+                    walletContext: walletContext,
+                    assetManager: assetManager,
+                    assetsProvider: assetsProvider,
+                    localizationManager: LocalizationManager.shared
+                )
+            else {
+                return
             }
 
-            let fakeSwapViewController = UIViewController()
-            fakeSwapViewController.tabBarItem.isEnabled = false
-            fakeSwapViewController.title = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
-            viewcontrollers.remove(at: 2)
-            viewcontrollers.insert(fakeSwapViewController, at: 2)
-            tabBarController.viewControllers = viewcontrollers
+            guard let containerView = MainTabBarViewFactory
+                .swapDisclamerController(
+                    completion: { [weak self, weak view] in
+                        guard
+                            let self,
+                            self.accountBindingId == replacementBindingId,
+                            MainTabBarAccountRebindPolicy
+                                .canPresentAccountBoundRoute(
+                                    boundWalletId: self.walletContextWalletId,
+                                    selectedWalletId: SelectedWalletSettings
+                                        .shared.currentAccount?.address,
+                                    routeWalletId: selectedAccount.address,
+                                    recoveryActive:
+                                        self.accountSwitchRecoveryActive
+                                )
+                        else {
+                            return
+                        }
+                        UserDefaults.standard.set(
+                            true,
+                            forKey: "isDisclamerShown"
+                        )
+                        view?.controller.present(
+                            swapViewController,
+                            animated: true
+                        )
+                    }
+                )
+            else {
+                return
+            }
+
+            if ApplicationConfig.shared.isDisclamerShown {
+                view?.controller.present(swapViewController, animated: true)
+            } else {
+                view?.controller.present(containerView, animated: true)
+            }
         }
+
+        let fakeSwapViewController = UIViewController()
+        fakeSwapViewController.tabBarItem.isEnabled = false
+        fakeSwapViewController.title = R.string.localizable
+            .tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
+
+        // Every controller below was built from the same selected account,
+        // provider and wallet context. Publish the complete graph once so a
+        // factory failure can never leave a retained old-account More tab.
+        let replacementViewControllers = [
+            redesignViewController,
+            investController,
+            fakeSwapViewController,
+            activityController,
+            settingsController,
+        ]
+        guard replacementViewControllers.count ==
+            MainTabBarAccountRebindPolicy.expectedTabCount,
+            SelectedWalletSettings.shared.currentAccount?.address ==
+                selectedAccount.address
+        else {
+            handleAccountBoundRebuildFailure(
+                requiresRecovery: true,
+                tabBarController: tabBarController,
+                view: view
+            )
+            return
+        }
+        self.walletContext = walletContext
+        walletContextWalletId = selectedAccount.address
+        accountBindingId = replacementBindingId
+        accountSwitchRecoveryActive = false
+        tabBarController.viewControllers = replacementViewControllers
+        tabBarController.tabBar.isHidden = false
         
         tabBarController.tabBar.semanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+    }
+
+    @MainActor
+    private func handleAccountBoundRebuildFailure(
+        requiresRecovery: Bool,
+        tabBarController: UITabBarController,
+        view: MainTabBarViewProtocol?
+    ) {
+        guard requiresRecovery else {
+            return
+        }
+
+        accountSwitchRecoveryActive = true
+        accountBindingId = UUID()
+        view?.middleButtonHadler = nil
+        let recoveryController = WalletRecoveryViewController(
+            reason: [
+                "The selected wallet was preserved, but SORA could not rebuild its account-bound screens safely.",
+                "Close and reopen SORA to retry. Do not delete or reinstall the app."
+            ].joined(separator: " ")
+        )
+        // The prior tabs retain the old account's providers. Remove the whole
+        // graph in one assignment so none can be exposed under the new durable
+        // selection while recovery/export assistance remains available.
+        tabBarController.viewControllers = [recoveryController]
+        tabBarController.selectedIndex = 0
+        tabBarController.tabBar.isHidden = true
     }
 
     // MARK: Private

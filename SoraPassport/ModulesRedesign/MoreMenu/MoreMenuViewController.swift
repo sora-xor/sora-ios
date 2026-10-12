@@ -57,11 +57,21 @@ final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtoc
 
         setupView()
         setupConstraints()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        // The tab keeps this controller alive while account selection and PI
+        // emergency capabilities can change elsewhere in the app. Rebuild the
+        // snapshot before it becomes visible so disabled production routes are
+        // not left in a stale menu.
         presenter?.reload()
     }
 
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         soramitsuView.addSubview(tableView)
         
         tableView.register(MoreMenuCell.self, forCellReuseIdentifier: "MoreMenuCell")

@@ -48,7 +48,6 @@ protocol AssetManagerProtocol: AnyObject {
 final class AssetManager: AssetManagerProtocol {
     static var networkAssets: [AssetInfo] = [] //very dirty, bur we need to pass network assets into initialization of the chain.
 
-    private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let storage: AnyDataProviderRepository<AssetInfo>
     private let operationManager: OperationManagerProtocol
     private let chainProvider: StreamableProvider<ChainModel>
@@ -73,19 +72,12 @@ final class AssetManager: AssetManagerProtocol {
         self.chainProvider = chainProvider
         self.chainId = chainId
 
-        self.accountRepository = AnyDataProviderRepository(
-            UserDataStorageFacade.shared
-            .createRepository(filter: nil,
-                              sortDescriptors: [],
-                              mapper: AnyCoreDataMapper(AccountItemMapper()))
-        )
-
         let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
             self?.handle(changes: changes)
         }
 
-        let failureClosure: (Swift.Error) -> Void = { error in
-            Logger.shared.error("Unexpected error chains listener setup: \(error)")
+        let failureClosure: (Swift.Error) -> Void = { _ in
+            Logger.shared.error("Asset chain listener setup failed")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -111,15 +103,35 @@ final class AssetManager: AssetManagerProtocol {
                 guard chain.chainId == self.chainId else {
                     return
                 }
-                self.chain = chain
+                self.updateChain(chain)
             case let .update(chain):
                 guard chain.chainId == self.chainId else {
                     return
                 }
-                self.chain = chain
+                self.updateChain(chain)
             case let .delete(_):
                 break
             }
+        }
+    }
+
+    /// The first chain sync after an update can use an older asset whitelist than the
+    /// live one; the live list arrives a moment later as a chain update. When the set of
+    /// listed assets changes after `setup`, the asset list is rebuilt, so a token that was
+    /// missing for a moment is listed again with the user's order and visibility.
+    private func updateChain(_ chain: ChainModel) {
+        let previousIds = Set(self.chain?.chainAssets.map(\.asset.assetId) ?? [])
+        self.chain = chain
+        let currentIds = Set(chain.chainAssets.map(\.asset.assetId))
+        guard previousIds != currentIds else {
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.accountSettings != nil else {
+                return
+            }
+            let chainAssets = self.chain?.chainAssets.map { $0.asset } ?? []
+            self.updateWhitelisted(chainAssets)
         }
     }
 
@@ -178,7 +190,7 @@ final class AssetManager: AssetManagerProtocol {
         return UInt(visibleAssets.count)
     }
 
-    private func defaultSort(_ a0: AssetInfo, _ a1: AssetInfo) -> Bool {
+    private static func defaultSort(_ a0: AssetInfo, _ a1: AssetInfo) -> Bool {
         let defAssetA = WalletAssetId(rawValue: a0.assetId)
         let defAssetB = WalletAssetId(rawValue: a1.assetId)
         if let assetA = defAssetA?.defaultSort,
@@ -194,67 +206,90 @@ final class AssetManager: AssetManagerProtocol {
     }
 
     private func updateWhitelisted(_ list: [AssetInfo]) {
-        var updated: [AssetInfo] = list
+        let arranged = Self.arrangedAssets(list, settings: settings)
+        self.assets = arranged
+        updateAssetList(arranged)
+    }
 
-        if let settings = self.settings,
-           let order = settings.orderedAssetIds,  //they are always ordered
-           !order.isEmpty {
-            updated = order.enumerated().compactMap { identifier in
-                if var asset = list.first(where: { $0.identifier == identifier.element }) {
-                    if let visibles = settings.visibleAssetIds {
-                        asset.visible = visibles.contains(where: { identifier in
-                            asset.identifier == identifier
-                        })
-                    }
-                    return asset
-                }
+    /// The asset list in the user's order and with their visibility. Assets the user has
+    /// not ordered yet follow; without any saved order, the default sort is used and only
+    /// the wallet's own assets are visible.
+    static func arrangedAssets(_ list: [AssetInfo], settings: AccountSettings?) -> [AssetInfo] {
+        guard let order = settings?.orderedAssetIds, !order.isEmpty else {
+            return list.sorted(by: defaultSort).map { asset in
+                var item = asset
+                item.visible = WalletAssetId(rawValue: item.assetId) != nil
+                return item
+            }
+        }
+        let ordered: [AssetInfo] = order.compactMap { identifier in
+            guard var asset = list.first(where: { $0.identifier == identifier }) else {
                 return nil
             }
-            
-            let updatedIds = updated.map { $0.assetId }
-            self.assets = updated + list.filter { !updatedIds.contains($0.identifier) }
-        } else { //default sort
-            updated =  list.sorted(by: defaultSort).map { asset in
-                var item = asset
-                if WalletAssetId(rawValue: item.assetId) != nil {
-                    item.visible = true
-                } else {
-                    item.visible = false
-                }
-                return item as AssetInfo
+            if let visibles = settings?.visibleAssetIds {
+                asset.visible = visibles.contains(asset.identifier)
             }
-            self.assets = updated
+            return asset
         }
-        updateAssetList(updated)
+        let orderedIds = ordered.map { $0.assetId }
+        return ordered + list.filter { !orderedIds.contains($0.identifier) }
     }
-    
-    func updateAssetList(_ list: [AssetInfo]) {
-        print("list = \(list)")
 
-        Logger.shared.info("ASSETS UPDATE \(self.assets?.count)")
-        var newOrder: [String] = []
-        var newVisible: [String] = []
-        if let assets = assets, assets.count > 0 {
-            newOrder = assets.enumerated().map { $0.element.identifier }
-            newVisible = assets.compactMap { return $0.visible ? $0.identifier : nil}
+    /// The order and visibility to save for `assets`. Ids the user had saved that are not
+    /// in `assets` are kept, each after the id it followed: an asset can be missing for a
+    /// while (an older whitelist on the first launch after an update, a whitelist outage,
+    /// a chain that is not loaded yet), and the user's choice must outlive that.
+    static func savedSelection(
+        for assets: [AssetInfo],
+        keeping previous: AccountSettings?
+    ) -> (ordered: [String], visible: [String]) {
+        var ordered: [String] = []
+        var placed = Set<String>()
+        for identifier in assets.map(\.identifier) where placed.insert(identifier).inserted {
+            ordered.append(identifier)
         }
-        settings?.orderedAssetIds = newOrder
-        settings?.visibleAssetIds = newVisible
-        self.persistAssets()
+        let listed = placed
+
+        // Walk the saved order; a missing id goes right after the id before it there.
+        var predecessor: String?
+        for identifier in previous?.orderedAssetIds ?? [] {
+            if listed.contains(identifier) {
+                predecessor = identifier
+                continue
+            }
+            guard placed.insert(identifier).inserted else {
+                continue
+            }
+            let position = predecessor.flatMap { ordered.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
+            ordered.insert(identifier, at: position)
+            predecessor = identifier
+        }
+
+        var visible = assets.filter(\.visible).map(\.identifier)
+        var shown = Set(visible)
+        for identifier in previous?.visibleAssetIds ?? []
+        where !listed.contains(identifier) && shown.insert(identifier).inserted {
+            visible.append(identifier)
+        }
+        return (ordered, visible)
     }
-    
+
+    func updateAssetList(_ list: [AssetInfo]) {
+        Logger.shared.info("ASSETS UPDATE \(self.assets?.count)")
+        saveSelection(of: assets ?? [])
+    }
+
     func saveAssetList(_ list: [AssetInfo]) {
         self.assets = list
 
         Logger.shared.info("ASSETS UPDATE \(self.assets?.count)")
-        var newOrder: [String] = []
-        var newVisible: [String] = []
-        if let assets = assets, assets.count > 0 {
-            newOrder = assets.enumerated().map { $0.element.identifier }
-            newVisible = assets.compactMap { return $0.visible ? $0.identifier : nil}
-        }
-        settings?.orderedAssetIds = newOrder
-        settings?.visibleAssetIds = newVisible
+        saveSelection(of: list)
+    }
+
+    private func saveSelection(of assets: [AssetInfo]) {
+        let selection = Self.savedSelection(for: assets, keeping: settings)
+        settings?.orderedAssetIds = selection.ordered
+        settings?.visibleAssetIds = selection.visible
         self.persistAssets()
     }
 
@@ -265,30 +300,14 @@ final class AssetManager: AssetManagerProtocol {
             return
         }
 
-        let updatedAccount = account.replacingSettings(updatedSettings)
-
-        let saveOperation = accountRepository.saveOperation {
-            [updatedAccount]
-        } _: {
-            []
-        }
-
-        saveOperation.completionBlock = { [weak self] in
-            self?.accountSettings?.performSave(value: updatedAccount) { result in
-                switch result {
-                case let .success(account):
-                    DispatchQueue.main.async {
-
-                    }
-                case .failure:
-                    break
-                }
+        accountSettings?.performUpdateAssetSettings(
+            account: account,
+            settings: updatedSettings
+        ) { result in
+            if case .failure = result {
+                Logger.shared.error("Unable to persist account asset settings")
             }
         }
-
-        let queue = OperationQueue()
-        queue.qualityOfService = .userInitiated
-        queue.addOperation(saveOperation)
     }
 
     func getAssetList() -> [AssetInfo]? {

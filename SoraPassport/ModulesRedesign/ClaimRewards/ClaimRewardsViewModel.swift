@@ -52,6 +52,7 @@ final class ClaimRewardsViewModel {
     private let walletService: WalletServiceProtocol
     private let wireframe: ConfirmTransactionWireframeProtocol
     private let assetManager: AssetManagerProtocol
+    private var pricesObservation: PIPricesObservation?
     
     private var userFarmInfo: UserFarm? {
         didSet {
@@ -65,7 +66,7 @@ final class ClaimRewardsViewModel {
         }
     }
     
-    private var fiatData: [FiatData] = [] {
+    private var fiatData: [PIExactFiatData] = [] {
         didSet {
             reload()
         }
@@ -124,10 +125,17 @@ extension ClaimRewardsViewModel: ClaimRewardsViewModelProtocol, AlertPresentable
                     isFarm: userFarmInfo.isFarm
                 ) ?? Decimal(0)
             } catch {
-                print("fee error: \(error)")
+                print("Claim fee calculation failed")
             }
             
             self?.fiatData = await self?.fiatService?.getFiat() ?? []
+        }
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Ask again when that read ends.
+        pricesObservation = PIPricesObservation { [weak self] in
+            Task { [weak self] in
+                self?.fiatData = await self?.fiatService?.getFiat() ?? []
+            }
         }
         
         guard let balance = assetsProvider?.getBalances(with: [WalletAssetId.xor.rawValue]).first else { return }
@@ -231,5 +239,3 @@ extension ClaimRewardsViewModel: ClaimRewardsViewModelProtocol, AlertPresentable
         }
     }
 }
-
-

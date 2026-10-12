@@ -67,6 +67,7 @@ final class ActivityViewController: SoramitsuViewController {
         tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.register(ActivityCell.self, forCellReuseIdentifier: "ActivityCell")
         tableView.register(ActivityErrorCell.self, forCellReuseIdentifier: "ActivityErrorCell")
+        tableView.register(ActivityNoticeCell.self, forCellReuseIdentifier: "ActivityNoticeCell")
         tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SoramitsuSpaceCell")
         if #available(iOS 15.0, *) {
             tableView.sectionHeaderTopPadding = 0
@@ -121,6 +122,11 @@ final class ActivityViewController: SoramitsuViewController {
             case .error(let item):
                 let cell: ActivityErrorCell? = tableView.dequeueReusableCell(withIdentifier: "ActivityErrorCell",
                                                                         for: indexPath) as? ActivityErrorCell
+                cell?.set(item: item)
+                return cell ?? UITableViewCell()
+            case .notice(let item):
+                let cell: ActivityNoticeCell? = tableView.dequeueReusableCell(withIdentifier: "ActivityNoticeCell",
+                                                                              for: indexPath) as? ActivityNoticeCell
                 cell?.set(item: item)
                 return cell ?? UITableViewCell()
             case .space(let item):
@@ -178,6 +184,10 @@ final class ActivityViewController: SoramitsuViewController {
         navigationItem.title = viewModel.title
 
         navigationController?.navigationBar.prefersLargeTitles = true
+
+        // A list that is the saved copy asks for the current one again
+        // when the user comes back to it.
+        viewModel.viewWillAppear()
     }
 
     private func setupView() {

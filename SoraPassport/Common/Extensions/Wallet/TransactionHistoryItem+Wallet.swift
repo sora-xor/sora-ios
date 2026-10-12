@@ -36,14 +36,74 @@ import SSFUtils
 import BigInt
 
 extension TransactionHistoryItem {
+    /// Creates the pending overlay from the call JSON captured from the exact
+    /// signed extrinsic. No amount, precision, slippage, or batch ordering is
+    /// reconstructed after signing.
+    static func createFromPreparedLiquidity(
+        _ info: TransferInfo,
+        transactionHash: Data,
+        senderAddress: String,
+        rawFee: String,
+        exactCall: JSON
+    ) throws -> TransactionHistoryItem {
+        guard
+            !senderAddress.isEmpty,
+            let fee = BigUInt(rawFee),
+            fee > 0,
+            info.type == .liquidityAdd ||
+                info.type == .liquidityAddNewPool ||
+                info.type == .liquidityAddToExistingPoolFirstTime ||
+                info.type == .liquidityRemoval
+        else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+
+        let runtimeCall = try exactCall.map(to: RuntimeCall<JSON>.self)
+        let callPath = CallCodingPath(
+            moduleName: runtimeCall.moduleName,
+            callName: runtimeCall.callName
+        )
+        let expectedPath: CallCodingPath
+        switch info.type {
+        case .liquidityAdd:
+            expectedPath = .depositLiquidity
+        case .liquidityAddNewPool,
+             .liquidityAddToExistingPoolFirstTime:
+            expectedPath = .utilityBatchAll
+        case .liquidityRemoval:
+            expectedPath = .withdrawLiquidity
+        default:
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        guard
+            callPath.moduleName == expectedPath.moduleName,
+            callPath.callName == expectedPath.callName
+        else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+
+        return TransactionHistoryItem(
+            sender: senderAddress,
+            receiver: info.destination,
+            status: .pending,
+            txHash: transactionHash.toHex(includePrefix: true),
+            timestamp: Int64(Date().timeIntervalSince1970),
+            fee: rawFee,
+            blockNumber: nil,
+            txIndex: nil,
+            callPath: callPath,
+            call: try JSONEncoder.scaleCompatible().encode(runtimeCall)
+        )
+    }
+
     static func createFromTransferInfo(
         _ info: TransferInfo,
         transactionHash: Data,
+        senderAddress: String,
         networkType: SNAddressType,
         addressFactory: SS58AddressFactoryProtocol
     ) throws -> TransactionHistoryItem {
 
-        let lpFee = String(info.fees.first(where: { $0.feeDescription.type == "lp" })?.value.decimalValue.toSubstrateAmount(precision: 18) ?? BigUInt(0))
         let transactionFee: String = String(info.fees.first(where: { $0.feeDescription.type == "fee" })?.value.decimalValue.toSubstrateAmount(precision: 18) ?? BigUInt(0))
 
         let timestamp = Int64(Date().timeIntervalSince1970)
@@ -54,11 +114,14 @@ extension TransactionHistoryItem {
         case .swap:
             let sender = info.asset
             let receiver = info.destination
-            let amountCall = info.amountCall ?? [:]
-            let sourceType: String = info.context?[TransactionContextKeys.marketType] ?? ""
-            let dexId: String = info.context?[TransactionContextKeys.dex] ?? "0"
-            let marketType: LiquiditySourceType = LiquiditySourceType(rawValue: sourceType) ?? .smart
-            let call = try? SubstrateCallFactory().swap(
+            guard let context = info.context,
+                  let amountCall = info.amountCall,
+                  let sourceType = context[TransactionContextKeys.marketType],
+                  let marketType = LiquiditySourceType(rawValue: sourceType),
+                  let dexId = context[TransactionContextKeys.dex] else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
+            let call = try SubstrateCallFactory().swap(
                 from: sender,
                 to: receiver,
                 dexId: dexId,
@@ -66,114 +129,87 @@ extension TransactionHistoryItem {
                 type: marketType.code,
                 filter: marketType.filter
             )
-            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
 
-        case .liquidityAdd, .liquidityAddNewPool:
-            let dexId: String = info.context?[TransactionContextKeys.dex] ?? "0"
-            let assetA: String = info.source
-            let assetB: String = info.destination
-            let desiredA =  AmountDecimal(string: info.context?[TransactionContextKeys.firstAssetAmount] ?? "0")!
-            let desiredB =  AmountDecimal(string: info.context?[TransactionContextKeys.secondAssetAmount] ?? "0")!
-            let slippage =  AmountDecimal(string: info.context?[TransactionContextKeys.slippage] ?? "0")!
-            let minA = desiredA.decimalValue * (1 - slippage.decimalValue / 100)
-            let minB = desiredB.decimalValue * (1 - slippage.decimalValue / 100)
-
-            let call = try? SubstrateCallFactory().depositLiquidity(
-                dexId: dexId,
-                assetA: assetA,
-                assetB: assetB,
-                desiredA: desiredA.decimalValue.toSubstrateAmount(precision: 18) ?? 0,
-                desiredB: desiredB.decimalValue.toSubstrateAmount(precision: 18) ?? 0,
-                minA: minA.toSubstrateAmount(precision: 18) ?? 0,
-                minB: minB.toSubstrateAmount(precision: 18) ?? 0
-            )
-            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
-            encodedCall = try JSONEncoder.scaleCompatible().encode(call)
-
-        case .liquidityAddToExistingPoolFirstTime:
-            //TODO: utility.batchAll with poolXYK.initializePool and poolXYK.depositLiquidity
-            callPath = CallCodingPath(moduleName: "Stub", callName: "Stub")
-            encodedCall = Data()
-
-        case .liquidityRemoval:
-            let dexId: String = info.context?[TransactionContextKeys.dex] ?? "0"
-            let assetA: String = info.source
-            let assetB: String = info.destination
-            let desiredA = AmountDecimal(string: info.context?[TransactionContextKeys.firstAssetAmount] ?? "0")!
-            let desiredB = AmountDecimal(string: info.context?[TransactionContextKeys.secondAssetAmount] ?? "0")!
-            let slippage =  AmountDecimal(string: info.context?[TransactionContextKeys.slippage] ?? "0")!
-            let minA = desiredA.decimalValue * (1 - slippage.decimalValue / 100)
-            let minB = desiredB.decimalValue * (1 - slippage.decimalValue / 100)
-
-            let call = try? SubstrateCallFactory().withdrawLiquidityCall(
-                dexId: dexId,
-                assetA: assetA,
-                assetB: assetB,
-                assetDesired: desiredA.decimalValue.toSubstrateAmount(precision: 18) ?? 0 ,
-                minA: minA.toSubstrateAmount(precision: 18) ?? 0,
-                minB: minB.toSubstrateAmount(precision: 18) ?? 0
-            )
-            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
-            encodedCall = try JSONEncoder.scaleCompatible().encode(call)
+        case .liquidityAdd,
+             .liquidityAddNewPool,
+             .liquidityAddToExistingPoolFirstTime,
+             .liquidityRemoval:
+            // Liquidity history must come from the exact prepared call above.
+            // Reconstructing it here can diverge in precision or batch shape.
+            throw WalletNetworkOperationFactoryError.invalidContext
             
         case .demeterClaimReward:
             let baseAsset: String = info.source
             let poolAsset: String = info.destination
-            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
-            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
+            guard let demeterContext = validatedDemeterContext(info) else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
 
-            let call = try? SubstrateCallFactory().claimRewardFromDemeterFarmCall(
+            let call = try SubstrateCallFactory().claimRewardFromDemeterFarmCall(
                 baseAssetId: baseAsset,
                 targetAssetId: poolAsset,
-                rewardAssetId: rewardAsset,
-                isFarm: isFarm
+                rewardAssetId: demeterContext.rewardAsset,
+                isFarm: demeterContext.isFarm
             )
-            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
             
         case .demeterDeposit:
             let baseAsset: String = info.source
             let poolAsset: String = info.destination
-            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
-            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
-            let amount = info.amount.decimalValue
+            guard let demeterContext = validatedDemeterContext(info),
+                  info.amount.decimalValue > 0,
+                  let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18),
+                  amount > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
 
-            let call = try? SubstrateCallFactory().depositLiquidityToDemeterFarmCall(
+            let call = try SubstrateCallFactory().depositLiquidityToDemeterFarmCall(
                 baseAssetId: baseAsset,
                 targetAssetId: poolAsset,
-                rewardAssetId: rewardAsset,
-                isFarm: isFarm,
-                amount: amount.toSubstrateAmount(precision: 18) ?? 0
+                rewardAssetId: demeterContext.rewardAsset,
+                isFarm: demeterContext.isFarm,
+                amount: amount
             )
-            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
             
         case .demeterWithdraw:
             let baseAsset: String = info.source
             let poolAsset: String = info.destination
-            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
-            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
-            let amount = info.amount.decimalValue
+            guard let demeterContext = validatedDemeterContext(info),
+                  info.amount.decimalValue > 0,
+                  let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18),
+                  amount > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
 
-            let call = try? SubstrateCallFactory().withdrawLiquidityFromDemeterFarmCall(
+            let call = try SubstrateCallFactory().withdrawLiquidityFromDemeterFarmCall(
                 baseAssetId: baseAsset,
                 targetAssetId: poolAsset,
-                rewardAssetId: rewardAsset,
-                isFarm: isFarm,
-                amount: amount.toSubstrateAmount(precision: 18) ?? 0
+                rewardAssetId: demeterContext.rewardAsset,
+                isFarm: demeterContext.isFarm,
+                amount: amount
             )
-            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
 
             
         // TODO: impl
         case .incoming, .outgoing, .migration, .reward, .slash, .extrinsic, .referral:
             let receiverAccountId = try Data(hexStringSSF: info.destination)
+            guard !info.asset.isEmpty,
+                  info.amount.decimalValue > 0,
+                  let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18),
+                  amount > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidAmount
+            }
 
             callPath = CallCodingPath.transfer
             let callArgs = SoraTransferCall(receiver: receiverAccountId,
-                                            amount: info.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0,
+                                            amount: amount,
                                             assetId: AssetId(wrappedValue: info.asset))
             let call = RuntimeCall<SoraTransferCall>(
                 moduleName: callPath.moduleName,
@@ -183,8 +219,11 @@ extension TransactionHistoryItem {
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
         }
 
+        guard !senderAddress.isEmpty else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
         return TransactionHistoryItem(
-            sender: SelectedWalletSettings.shared.currentAccount!.address,
+            sender: senderAddress,
             receiver: info.destination,
             status: .pending,
             txHash: transactionHash.toHex(includePrefix: true),
@@ -195,6 +234,21 @@ extension TransactionHistoryItem {
             callPath: callPath,
             call: encodedCall
         )
+    }
+
+    private static func validatedDemeterContext(
+        _ info: TransferInfo
+    ) -> (rewardAsset: String, isFarm: Bool)? {
+        guard !info.source.isEmpty,
+              !info.destination.isEmpty,
+              let context = info.context,
+              let rewardAsset = context[TransactionContextKeys.rewardAsset],
+              !rewardAsset.isEmpty,
+              let rawIsFarm = context[TransactionContextKeys.isFarm],
+              rawIsFarm == "0" || rawIsFarm == "1" else {
+            return nil
+        }
+        return (rewardAsset, rawIsFarm == "1")
     }
 }
 

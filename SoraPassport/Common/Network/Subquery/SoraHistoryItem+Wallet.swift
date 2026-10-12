@@ -136,17 +136,21 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             }
         }
 
-        print("Error: No tx type for: \(data)")
         return nil
     }
     
     private func createTransactionForSwap(
         _ swap: SubquerySwap
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: swap.targetAssetAmount) ?? .zero
-
-        let feeDecimal = Decimal(string: self.networkFee) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(swap.targetAssetAmount),
+            validatedDecimal(swap.baseAssetAmount) != nil,
+            let feeDecimal = validatedIntegerDecimal(self.networkFee),
+            let lpFeeDecimal = validatedDecimal(swap.liquidityProviderFee)
+        else {
+            return nil
+        }
         let fee = AssetTransactionFee(
             identifier: swap.targetAssetId,
             assetId: swap.targetAssetId,
@@ -154,7 +158,6 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             context: nil
         )
 
-        let lpFeeDecimal = Decimal(string: swap.liquidityProviderFee) ?? .zero
         let lpFee = AssetTransactionFee(
             identifier: swap.baseAssetId,
             assetId: swap.baseAssetId,
@@ -186,11 +189,16 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
-        let amount = Decimal.fromSubstrateAmount(
-            BigUInt(extrinsic.fee) ?? 0,
+    ) -> AssetTransactionData? {
+        guard
+            let rawFee = BigUInt(extrinsic.fee),
+            let amount = Decimal.fromSubstrateAmount(
+            rawFee,
             precision: asset.precision
-        ) ?? 0.0
+            )
+        else {
+            return nil
+        }
 
         let accountId = try? addressFactory.accountId(
             fromAddress: address,
@@ -225,7 +233,7 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status = success ? AssetTransactionStatus.commited : AssetTransactionStatus.rejected
 
         let peerAddress = transfer.sender == address ? transfer.receiver : transfer.sender
@@ -235,8 +243,12 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             type: networkType
         )
 
-        let amountDecimal = Decimal(string: transfer.amount) ?? .zero
-        let feeDecimal = Decimal(string: self.networkFee) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(transfer.amount),
+            let feeDecimal = validatedIntegerDecimal(self.networkFee)
+        else {
+            return nil
+        }
 
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
@@ -276,11 +288,16 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
     private func createTransactionForRewardOrSlash(
         _ rewardOrSlash: SubqueryRewardOrSlash,
         asset: WalletAsset
-    ) -> AssetTransactionData {
-        let amount = Decimal.fromSubstrateAmount(
-            BigUInt(rewardOrSlash.amount) ?? 0,
+    ) -> AssetTransactionData? {
+        guard
+            let rawAmount = BigUInt(rewardOrSlash.amount),
+            let amount = Decimal.fromSubstrateAmount(
+            rawAmount,
             precision: asset.precision
-        ) ?? 0.0
+            )
+        else {
+            return nil
+        }
 
         let type = rewardOrSlash.isReward ? TransactionType.reward.rawValue : TransactionType.slash.rawValue
 
@@ -318,13 +335,19 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: liquidity.targetAssetAmount) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(liquidity.targetAssetAmount),
+            validatedDecimal(liquidity.baseAssetAmount) != nil,
+            let feeDecimal = validatedIntegerDecimal(self.networkFee)
+        else {
+            return nil
+        }
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
-            amount: AmountDecimal(value: Decimal(string: self.networkFee) ?? .zero),
+            amount: AmountDecimal(value: feeDecimal),
             context: nil
         )
 
@@ -352,13 +375,19 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: liquidity.inputADesired) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(liquidity.inputADesired),
+            validatedDecimal(liquidity.inputBDesired) != nil,
+            let feeDecimal = validatedIntegerDecimal(self.networkFee)
+        else {
+            return nil
+        }
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
-            amount: AmountDecimal(value: Decimal(string: self.networkFee) ?? .zero),
+            amount: AmountDecimal(value: feeDecimal),
             context: nil
         )
 
@@ -387,13 +416,24 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         asset: WalletAsset,
         reason: String,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: referral.amount ?? "") ?? .zero
+        guard let feeDecimal = validatedIntegerDecimal(networkFee) else {
+            return nil
+        }
+        let amountDecimal: Decimal
+        if let rawAmount = referral.amount {
+            guard let value = validatedDecimal(rawAmount) else {
+                return nil
+            }
+            amountDecimal = value
+        } else {
+            amountDecimal = .zero
+        }
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
-            amount: AmountDecimal(value: Decimal(string: networkFee) ?? .zero),
+            amount: AmountDecimal(value: feeDecimal),
             context: nil
         )
 
@@ -425,5 +465,13 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             reason: nil,
             context: context
         )
+    }
+
+    private func validatedDecimal(_ rawValue: String) -> Decimal? {
+        try? HistoryTransactionMapper.validatedAmount(rawValue).decimalValue
+    }
+
+    private func validatedIntegerDecimal(_ rawValue: String) -> Decimal? {
+        try? HistoryTransactionMapper.validatedFee(rawValue).decimalValue
     }
 }

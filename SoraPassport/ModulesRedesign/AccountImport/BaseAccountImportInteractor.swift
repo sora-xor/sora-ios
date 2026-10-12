@@ -52,6 +52,7 @@ class BaseAccountImportInteractor {
     let supportedNetworks: [Chain]
     let defaultNetwork: Chain
     let cloudStorage: CloudStorageServiceProtocol?
+    let allowedMnemonicWordCounts: Set<Int>
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -59,7 +60,15 @@ class BaseAccountImportInteractor {
          keystoreImportService: KeystoreImportServiceProtocol,
          supportedNetworks: [Chain],
          defaultNetwork: Chain,
-         cloudStorage: CloudStorageServiceProtocol?) {
+         cloudStorage: CloudStorageServiceProtocol?,
+         allowedMnemonicWordCounts: Set<Int> =
+             WalletMnemonicWordPolicy.retainedSoraWordCounts) {
+        precondition(
+            !allowedMnemonicWordCounts.isEmpty &&
+                allowedMnemonicWordCounts.isSubset(
+                    of: WalletMnemonicWordPolicy.retainedSoraWordCounts
+                )
+        )
         self.accountOperationFactory = accountOperationFactory
         self.accountRepository = accountRepository
         self.operationManager = operationManager
@@ -67,6 +76,7 @@ class BaseAccountImportInteractor {
         self.supportedNetworks = supportedNetworks
         self.defaultNetwork = defaultNetwork
         self.cloudStorage = cloudStorage
+        self.allowedMnemonicWordCounts = allowedMnemonicWordCounts
     }
 
     private func setupKeystoreImportObserver() {
@@ -102,45 +112,88 @@ class BaseAccountImportInteractor {
         presenter.didReceiveAccountImport(metadata: metadata)
     }
 
-    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {}
+    func importAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
+    ) {}
     
-    func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {}
+    func validateAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?
+    ) {}
     
+    /// Imports a decrypted Google Drive backup. Whatever the backup holds
+    /// (phrase, seed or JSON), the derived account must be the address the
+    /// backup was saved for. That check runs before any Keychain write.
+    /// App Store 3.8.6 backups have no key verifier, so this is what proves
+    /// that the restored keys belong to the backup.
     private func importAccount(_ account: OpenBackupAccount, password: String) {
         let backupAccountTypes = account.backupAccountType ?? []
+        let expectedAddress = account.address
 
-        if backupAccountTypes.contains(.passphrase) {
-            let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
-                                                       username: account.name ?? "",
-                                                       networkType: .sora,
-                                                       derivationPath: account.substrateDerivationPath ?? "",
-                                                       cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            importAccountWithMnemonic(request: request)
+        if backupAccountTypes.contains(.passphrase) || (account.passphrase ?? "").isEmpty == false {
+            // A backup restores a known address, so the 3/6/9-word phrases App
+            // Store 3.8.6 accepted are allowed here (never for a new import).
+            // `requireAddress` below proves the phrase derives that address;
+            // such a wallet is SORA2-only (its short entropy is kept with the
+            // seed and secret, as 3.8.6 stored it).
+            guard
+                let mnemonic = try? mnemonicCreator.mnemonic(fromList: account.passphrase ?? ""),
+                allowedMnemonicWordCounts.contains(mnemonic.allWords().count) ||
+                    WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count)
+            else {
+                presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
+                return
+            }
+            let request = AccountCreationRequest(username: account.name ?? "",
+                                                 type: .sora,
+                                                 derivationPath: account.substrateDerivationPath ?? "",
+                                                 cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
+            let operation = accountOperationFactory.prepareAccountOperation(request: request, mnemonic: mnemonic)
+            importAccountUsingOperation(Self.requireAddress(expectedAddress, of: operation), completion: nil)
             return
         }
-        
-        
-        if  backupAccountTypes.contains(.seed) {
+
+        if backupAccountTypes.contains(.seed) || (account.encryptedSeed?.substrateSeed ?? "").isEmpty == false {
             let request = AccountImportSeedRequest(seed: account.encryptedSeed?.substrateSeed ?? "",
                                                    username: account.name ?? "",
                                                    networkType: .sora,
                                                    derivationPath: account.substrateDerivationPath ?? "",
                                                    cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            importAccountWithSeed(request: request)
+            let operation = accountOperationFactory.prepareAccountOperation(request: request)
+            importAccountUsingOperation(Self.requireAddress(expectedAddress, of: operation), completion: nil)
             return
         }
-        
-        if let substrateJson = account.json?.substrateJson {
+
+        if let substrateJson = account.json?.substrateJson, !substrateJson.isEmpty {
             let request = AccountImportKeystoreRequest(keystore: substrateJson,
                                                        password: password,
                                                        username: account.name ?? "",
                                                        networkType: .sora,
                                                        cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            importAccountWithKeystore(request: request)
-
+            let operation = accountOperationFactory.prepareAccountOperation(request: request)
+            importAccountUsingOperation(Self.requireAddress(expectedAddress, of: operation), completion: nil)
+            return
         }
-        
+
         presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)
+    }
+
+    /// Runs the preparation, then refuses an account whose address differs
+    /// from the backup's. The prepared secrets are wiped, never persisted.
+    static func requireAddress(
+        _ expectedAddress: String,
+        of operation: BaseOperation<PreparedAccount>
+    ) -> BaseOperation<PreparedAccount> {
+        ClosureOperation {
+            operation.start()
+            let prepared = try operation.extractNoCancellableResultData()
+            guard prepared.account.address == expectedAddress else {
+                prepared.discard()
+                throw AccountCreateError.backupIdentityMismatch
+            }
+            return prepared
+        }
     }
 }
 
@@ -151,7 +204,12 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
 
     func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+        guard
+            let mnemonic = try? mnemonicCreator.mnemonic(
+                fromList: request.mnemonic
+            ),
+            allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
+        else {
             presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
             return
         }
@@ -161,24 +219,34 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
                                                      derivationPath: request.derivationPath,
                                                      cryptoType: request.cryptoType)
 
-        let accountOperation = accountOperationFactory.newAccountOperation(request: creationRequest,
-                                                                           mnemonic: mnemonic)
+        let accountOperation =
+            accountOperationFactory.prepareAccountOperation(
+                request: creationRequest,
+                mnemonic: mnemonic
+            )
 
         importAccountUsingOperation(accountOperation, completion: completion)
     }
 
     func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
 
     func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+        guard
+            let mnemonic = try? mnemonicCreator.mnemonic(
+                fromList: request.mnemonic
+            ),
+            allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
+        else {
             presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
             return
         }
@@ -188,19 +256,24 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
                                                      derivationPath: request.derivationPath,
                                                      cryptoType: request.cryptoType)
         
-        let operation = accountOperationFactory.newAccountOperation(request: creationRequest,
-                                                                    mnemonic: mnemonic)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(
+                request: creationRequest,
+                mnemonic: mnemonic
+            )
         
         validateAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         validateAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         validateAccountUsingOperation(operation, completion: completion)
     }
 

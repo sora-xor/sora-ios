@@ -169,10 +169,9 @@ final class SwapViewModel {
         }
     }
     
-    var slippageTolerance: Float = 0.5 {
+    var slippageTolerance: PolkaswapSlippage = .defaultValue {
         didSet {
-            let slippageToleranceText = "\(slippageTolerance)%"
-            view?.update(slippageTolerance: slippageToleranceText)
+            view?.update(slippageTolerance: slippageTolerance.displayValue)
             loadQuote()
         }
     }
@@ -214,7 +213,7 @@ final class SwapViewModel {
     private var quoteParams: PolkaswapMainInteractorQuoteParams?
     
     private let feeProvider: FeeProviderProtocol
-    private var fiatData: [FiatData] = [] {
+    private var fiatData: [PIExactFiatData] = [] {
         didSet {
             updateAssetsBalance()
         }
@@ -225,7 +224,7 @@ final class SwapViewModel {
         }
     }
     private var dexId: UInt32 = 0
-    private var minBuy: Decimal = 0
+    private var slippageLimit: Decimal = 0
     private var selectedTokenId: String
     private var selectedSecondTokenId: String
     private weak var assetsProvider: AssetProviderProtocol?
@@ -241,17 +240,49 @@ final class SwapViewModel {
     }
 
     private var isEnoughtFirstAssetLiquidity: Bool {
-        if inputedFirstAmount > firstAssetBalance.balance.decimalValue {
+        hasSufficientSwapBalances()
+    }
+
+    private func hasSufficientSwapBalances() -> Bool {
+        let maximumSpend: Decimal
+        if swapVariant == .desiredOutput {
+            guard slippageLimit > 0 else { return false }
+            maximumSpend = slippageLimit
+        } else {
+            maximumSpend = inputedFirstAmount
+        }
+
+        guard fee > 0,
+              maximumSpend > 0,
+              maximumSpend <= firstAssetBalance.balance.decimalValue,
+              let assetManager,
+              let fromAsset = assetManager.assetInfo(for: firstAssetId),
+              let toAsset = assetManager.assetInfo(for: secondAssetId),
+              let feeAsset = assetManager.getAssetList()?.first(where: { $0.isFeeAsset }) else {
             return false
         }
 
-        if let fromAsset = assetManager?.assetInfo(for: firstAssetId),
-           fromAsset.isFeeAsset,
-           inputedFirstAmount + fee > firstAssetBalance.balance.decimalValue {
-            return false
+        if fromAsset.isFeeAsset {
+            return fromAsset.assetId == feeAsset.assetId
+                && maximumSpend + fee <= firstAssetBalance.balance.decimalValue
         }
 
-        return true
+        if toAsset.isFeeAsset {
+            let guaranteedReceive = swapVariant == .desiredInput
+                ? slippageLimit
+                : inputedSecondAmount
+            return toAsset.assetId == feeAsset.assetId
+                && guaranteedReceive > 0
+                && secondAssetBalance.balance.decimalValue + guaranteedReceive >= fee
+        }
+
+        guard let feeAssetBalance = assetsProvider?
+            .getBalances(with: [feeAsset.assetId])
+            .first else {
+            return false
+        }
+        return feeAssetBalance.identifier == feeAsset.assetId
+            && feeAssetBalance.balance.decimalValue >= fee
     }
     
     init(
@@ -268,14 +299,15 @@ final class SwapViewModel {
         lpServiceFee: LPFeeServiceProtocol,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
         warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
-        marketCapService: MarketCapServiceProtocol
+        marketCapService: MarketCapServiceProtocol,
+        feeProvider: FeeProviderProtocol = FeeProvider()
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
         self.wireframe = wireframe
         self.assetManager = assetManager
         self.detailsFactory = detailsFactory
-        self.feeProvider = FeeProvider()
+        self.feeProvider = feeProvider
         self.interactor = interactor
         self.networkFacade = networkFacade
         self.selectedTokenId = selectedTokenId
@@ -296,11 +328,11 @@ extension SwapViewModel: EventVisitorProtocol {
 }
 
 extension SwapViewModel: LiquidityViewModelProtocol {
-    func didSelect(variant: Float) {
+    func didSelect(variant: Decimal) {
         if focusedField == .one {
             guard firstAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
-            let value = firstAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
+            let value = firstAssetBalance.balance.decimalValue * variant
             let afterFee = isFeeAsset ? value - fee : value
             inputedFirstAmount = afterFee < 0 ? value : afterFee
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
@@ -310,7 +342,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
         if focusedField == .two {
             guard secondAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: secondAssetId)?.isFeeAsset ?? false
-            let value = secondAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
+            let value = secondAssetBalance.balance.decimalValue * variant
             let afterFee = isFeeAsset ? value - fee : value
             inputedSecondAmount = afterFee < 0 ? value : afterFee
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
@@ -322,7 +354,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
         firstAssetId = selectedTokenId
         secondAssetId = selectedSecondTokenId
         selectedMarket = .smart
-        slippageTolerance = 0.5
+        slippageTolerance = .defaultValue
 
         middleButtonActionHandler = { [weak self] in
             guard let self = self else { return }
@@ -427,7 +459,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                         fee: fee,
                                         swapVariant: swapVariant,
                                         networkFacade: networkFacade,
-                                        minMaxValue: minBuy,
+                                        minMaxValue: slippageLimit,
                                         dexId: dexId,
                                         quoteParams: quoteParams,
                                         assetsProvider: assetsProvider,
@@ -488,18 +520,6 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
                 return
             }
 
-            // check if exchanging to XOR, we'll receive enough XOR to pay nework fee from it
-            if let toAsset = self.assetManager?.assetInfo(for: self.secondAssetId),
-               toAsset.isFeeAsset {
-                let xorAmount = self.swapVariant == .desiredInput ? self.minBuy : self.inputedSecondAmount
-                let xorAmountFuture = self.secondAssetBalance.balance.decimalValue + xorAmount
-                guard xorAmountFuture > self.fee else {
-                    self.view?.update(isNeedLoadingState: false)
-                    self.view?.setupButton(isEnabled: false)
-                    return
-                }
-            }
-
             self.view?.setupButton(isEnabled: true)
         }
     }
@@ -557,13 +577,20 @@ extension SwapViewModel {
                        dexId: UInt32 = 0,
                        completion: (() -> Void)? = nil) {
         
-        Task { [weak self] in
+        // Review depends on the quote and the fee. Prices only decorate the
+        // amounts: they are read on the side and filled in when they arrive,
+        // so a slow or failed price read never holds Review back.
+        loadFiatData()
+
+        // On the main actor, like the price task beside it: the two change
+        // the same texts and details and must not do so at the same time.
+        Task { @MainActor [weak self] in
             guard let self else { return }
-            async let fiatData = fiatService?.getFiat() ?? []
-            async let fee = feeProvider.getFee(for: .swap)
-            let results = await (fiatData: fiatData, fee: fee)
-            self.fiatData = results.fiatData
-            self.fee = results.fee
+            let fee = await self.feeProvider.getFee(for: .swap)
+            // The balances are read again on every update, as they were
+            // when the prices were set at this point.
+            self.updateAssetsBalance()
+            self.fee = fee
             
             self.quote = quote
             self.quoteParams = params
@@ -581,22 +608,52 @@ extension SwapViewModel {
                                                                         quote: quote) else { return }
             self.amounts = amounts
             
-            let amount = self.swapVariant == .desiredInput ? self.inputedFirstAmount : self.inputedSecondAmount
-            let route = self.quote?.route.compactMap({ self.assetManager?.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
-            
-            self.minBuy = amounts.toAmount * (1 - Decimal(Double(self.slippageTolerance)) / 100.0)
-            self.details = self.detailsFactory.createSwapViewModels(fromAsset: fromAsset,
-                                                                    toAsset: toAsset,
-                                                                    slippage: Decimal(Double(self.slippageTolerance)),
-                                                                    amount: amount,
-                                                                    quote: amounts,
-                                                                    direction: self.swapVariant,
-                                                                    fiatData: self.fiatData,
-                                                                    swapFee: self.fee,
-                                                                    route: route ?? "",
-                                                                    viewModel: self)
+            self.slippageLimit = self.swapVariant == .desiredInput
+                ? self.slippageTolerance.minimumAmount(for: amounts.toAmount)
+                : self.slippageTolerance.maximumAmount(for: amounts.toAmount)
+            self.updateWarningModel()
+            self.details = self.makeDetails(fromAsset: fromAsset, toAsset: toAsset, amounts: amounts)
             self.view?.update(isNeedLoadingState: false)
             completion?()
+        }
+    }
+
+    private func makeDetails(fromAsset: AssetInfo, toAsset: AssetInfo, amounts: SwapQuoteAmounts) -> [DetailViewModel] {
+        let amount = swapVariant == .desiredInput ? inputedFirstAmount : inputedSecondAmount
+        let route = quote?.route.compactMap({ assetManager?.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
+        return detailsFactory.createSwapViewModels(fromAsset: fromAsset,
+                                                   toAsset: toAsset,
+                                                   slippage: slippageTolerance,
+                                                   amount: amount,
+                                                   quote: amounts,
+                                                   direction: swapVariant,
+                                                   fiatData: fiatData,
+                                                   swapFee: fee,
+                                                   route: route ?? "",
+                                                   viewModel: self)
+    }
+
+    /// Reads the prices beside the quote. When they differ from the ones in
+    /// use, the fiat texts and the details already on screen are worked out
+    /// again; nothing else depends on them.
+    private func loadFiatData() {
+        Task { @MainActor [weak self] in
+            let loaded = await self?.fiatService?.getFiat() ?? []
+            guard let self, loaded != self.fiatData else { return }
+            // Setting the prices also renews the balance texts and the fiat
+            // text of the first amount.
+            self.fiatData = loaded
+            let secondFiatText = self.setupInputedFiatText(from: self.inputedSecondAmount, assetId: self.secondAssetId)
+            self.view?.updateSecondAsset(fiatText: secondFiatText)
+
+            guard !self.details.isEmpty,
+                  let amounts = self.amounts,
+                  let params = self.quoteParams,
+                  params.fromAssetId == self.firstAssetId,
+                  params.toAssetId == self.secondAssetId,
+                  let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId),
+                  let toAsset = self.assetManager?.assetInfo(for: self.secondAssetId) else { return }
+            self.details = self.makeDetails(fromAsset: fromAsset, toAsset: toAsset, amounts: amounts)
         }
     }
     
@@ -611,14 +668,26 @@ extension SwapViewModel {
     func loadQuote() {
         view?.updateReviewButton(title: R.string.localizable.review(preferredLanguages: .currentLocale))
 
-        let amount: String
+        let amountValue: Decimal
+        let assetInfo: AssetInfo?
         if swapVariant == .desiredInput {
-            let assetInfo = assetManager?.assetInfo(for: firstAssetId)
-            amount = String(inputedFirstAmount.toSubstrateAmount(precision: Int16(assetInfo?.precision ?? 0)) ?? 0)
+            assetInfo = assetManager?.assetInfo(for: firstAssetId)
+            amountValue = inputedFirstAmount
         } else {
-            let assetInfo = assetManager?.assetInfo(for: secondAssetId)
-            amount = String(inputedSecondAmount.toSubstrateAmount(precision: Int16(assetInfo?.precision ?? 0)) ?? 0)
+            assetInfo = assetManager?.assetInfo(for: secondAssetId)
+            amountValue = inputedSecondAmount
         }
+        guard amountValue > 0,
+              let assetInfo,
+              let substratePrecision = Int16(exactly: assetInfo.precision),
+              let substrateAmount = amountValue.toSubstrateAmount(
+                precision: substratePrecision
+              ),
+              substrateAmount > 0 else {
+            view?.setupButton(isEnabled: false)
+            return
+        }
+        let amount = String(substrateAmount)
 
         // request quote
         guard let marketSourcer = marketSourcer,
@@ -665,16 +734,7 @@ extension SwapViewModel {
     }
     
     func checkBalances() -> Bool {
-        // check if balance is enough
-        if inputedFirstAmount > firstAssetBalance.balance.decimalValue {
-            view?.setupButton(isEnabled: false)
-            return false
-        }
-
-        // check if exchanging from XOR, and have not enough XOR to pay the fee
-        if let fromAsset = assetManager?.assetInfo(for: firstAssetId),
-           fromAsset.isFeeAsset,
-           inputedFirstAmount + fee > firstAssetBalance.balance.decimalValue {
+        guard hasSufficientSwapBalances() else {
             view?.setupButton(isEnabled: false)
             return false
         }
@@ -689,7 +749,10 @@ extension SwapViewModel {
         var isDisclamerHidden = true
 
         if feeAsset.assetId == firstAssetId {
-            isDisclamerHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+            let maximumSpend = swapVariant == .desiredOutput && slippageLimit > 0
+                ? slippageLimit
+                : inputedFirstAmount
+            isDisclamerHidden = firstAssetBalance.balance.decimalValue - maximumSpend - fee > fee
         } else {
             isDisclamerHidden = feeAssetBalance.balance.decimalValue - fee > fee
         }

@@ -59,51 +59,86 @@ final class CreateAccountService: CreateAccountServiceProtocol {
     func createAccount(request: AccountCreationRequest,
                        mnemonic: IRMnemonicProtocol,
                        completion: @escaping (Result<AccountItem, Error>?) -> Void) {
-        let operation = accountOperationFactory.newAccountOperation(request: request, mnemonic: mnemonic)
+        let operation = accountOperationFactory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
         guard currentOperation == nil else {
             return
         }
+        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
+        let lifecycleOperation =
+            lifecycleCoordinator.makeAcquireOperation()
+        operation.addDependency(lifecycleOperation)
 
-        let persistentOperation = accountRepository.saveOperation({
-            let accountItem = try operation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            return [accountItem]
-        }, { [] })
+        currentOperation = operation
+        let selectionEventCenter = eventCenter
 
-        persistentOperation.addDependency(operation)
-
-        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
-            let accountItem = try operation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-
-            return accountItem
-        }
-
-        connectionOperation.addDependency(persistentOperation)
-
-        currentOperation = connectionOperation
-
-        connectionOperation.completionBlock = { [weak self] in
-            DispatchQueue.main.async {
-                self?.currentOperation = nil
-
-                switch connectionOperation.result {
-                case .success(let accountItem):
-                    self?.settings.save(value: accountItem)
-                    self?.eventCenter.notify(with: SelectedAccountChanged())
-                case .none:
-                    let error = BaseOperationError.parentOperationCancelled
-                    completion(.failure(error))
-                case .some(.failure(_)):
-                    break
+        operation.completionBlock = { [weak self] in
+            let leaseResult = Result {
+                try lifecycleOperation.extractNoCancellableResultData()
+            }
+            let preparedResult = Result {
+                try operation.extractNoCancellableResultData()
+            }
+            guard let self else {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                DispatchQueue.main.async {
+                    completion(
+                        .failure(
+                            WalletNetworkMigrationError
+                                .lifecycleMutationBusy
+                        )
+                    )
                 }
-                
-                completion(connectionOperation.result)
+                return
+            }
+            do {
+                let lifecycleLease = try leaseResult.get()
+                let prepared = try preparedResult.get()
+                self.settings.performInsertAndSelect(
+                    prepared: prepared,
+                    persistSecrets: {
+                        try self.accountOperationFactory
+                            .persistPreparedAccount(prepared)
+                    },
+                    lifecycleLease: lifecycleLease
+                ) { [weak self] result in
+                    lifecycleLease.release()
+                    DispatchQueue.main.async {
+                        self?.currentOperation = nil
+                        switch result {
+                        case let .success(accountItem):
+                            selectionEventCenter.notify(
+                                with: SelectedAccountChanged(),
+                                completionOnMain: {
+                                    completion(.success(accountItem))
+                                }
+                            )
+                        case let .failure(error):
+                            completion(.failure(error))
+                        }
+                    }
+                }
+            } catch {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                DispatchQueue.main.async { [weak self] in
+                    self?.currentOperation = nil
+                    completion(.failure(error))
+                }
             }
         }
 
-        operationManager.enqueue(operations: [operation, persistentOperation, connectionOperation], in: .sync)
+        lifecycleCoordinator.enqueueOwnedAcquireOperation(
+            lifecycleOperation
+        )
+        operationManager.enqueue(
+            operations: [
+                operation,
+            ],
+            in: .sync
+        )
     }
 }
-
-

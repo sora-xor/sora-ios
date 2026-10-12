@@ -37,21 +37,46 @@ import SnapKit
 class SplashViewController: UIViewController, SplashViewProtocol {
     
     var presenter: SplashPresenter!
+    private var storageRetryView: UIView?
+    private var isWaitingForStorage = false
     
     private lazy var animationView: LottieAnimationView = {
         let animationView = LottieAnimationView(filePath: R.file.soraSplashJson.path()!)
         animationView.contentMode = .scaleAspectFit
         animationView.backgroundBehavior = .pauseAndRestore
         animationView.translatesAutoresizingMaskIntoConstraints = false
+        Self.applyNeonColors(to: animationView)
         return animationView
     }()
+
+    /// The splash animation was drawn for a light page: its rings are light
+    /// grey and the mark is SORA red. Recolour both for the theme in use so
+    /// dark mode has no light flash (spec §8.1).
+    private static func applyNeonColors(to animationView: LottieAnimationView) {
+        let tokens = NeonTokens.current
+        func lottie(_ color: UIColor) -> LottieColor {
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            return LottieColor(r: Double(red), g: Double(green), b: Double(blue), a: Double(alpha))
+        }
+        let rings: [UIColor] = tokens.isDark
+            ? [tokens.canvas, tokens.layer1, tokens.surface]
+            : [tokens.canvas, tokens.layer1, tokens.surfaceVariant]
+        animationView.setValueProvider(
+            GradientValueProvider(rings.map(lottie), locations: [0.75, 0.875, 1]),
+            keypath: AnimationKeypath(keypath: "**.Gradient Fill 1.Colors")
+        )
+        animationView.setValueProvider(
+            ColorValueProvider(lottie(tokens.brandRed)),
+            keypath: AnimationKeypath(keypath: "**.Fill 1.Color")
+        )
+    }
     
     private var messageLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
-        label.sora.font = FontType.headline3
-        label.sora.textColor = .fgPrimary
-        label.sora.supportsPaletteMode = false
+        label.sora.font = FontType.textS
+        label.sora.textColor = .fgSecondary
         label.sora.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -60,7 +85,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     private var loaderView: UIActivityIndicatorView = {
         let loaderView = UIActivityIndicatorView(style: .large)
         loaderView.translatesAutoresizingMaskIntoConstraints = false
-        loaderView.color = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
+        loaderView.color = NeonTokens.current.cyan
         return loaderView
     }()
     
@@ -72,7 +97,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }()
     
     override func viewDidLoad() {
-        view.backgroundColor = R.color.baseBackground()
+        view.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
         setupHierarchy()
         setupLayout()
         animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in
@@ -115,6 +140,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }
     
     private func showLoader() {
+        guard !isWaitingForStorage else { return }
         containerView.sora.isHidden = false
         loaderView.startAnimating()
     }
@@ -125,9 +151,62 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }
     
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void) {
+        storageRetryView?.removeFromSuperview()
+        storageRetryView = nil
+        isWaitingForStorage = false
         hideLoader()
         animationView.play(fromProgress: 0.8, toProgress: 1, loopMode: .playOnce) { (_) in
             completion()
         }
+    }
+
+    func showStorageSpaceRetry(onRetry: @escaping () -> Void) {
+        loadViewIfNeeded()
+        isWaitingForStorage = true
+        hideLoader()
+        animationView.pause()
+        storageRetryView?.removeFromSuperview()
+
+        // Safe Mode panel (spec §9.2 U4): calm, theme coloured, one action.
+        let title = UILabel()
+        WalletSafeMode.title(title, WalletUX.text("Free up some space"))
+
+        let message = UILabel()
+        WalletSafeMode.body(message)
+        message.text = WalletUX.text("Free up some storage on this iPhone, then check again. Your accounts and keys have not been changed.")
+
+        let retry = WalletSafeMode.button(.safe, title: WalletUX.text("Check again"))
+        retry.accessibilityIdentifier = "wallet-upgrade-storage-retry"
+        retry.addAction(UIAction { [weak self, weak retry] _ in
+            retry?.isEnabled = false
+            self?.isWaitingForStorage = false
+            self?.showLoader()
+            onRetry()
+        }, for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [
+            WalletSafeMode.centered(WalletSafeMode.shieldEmblem()), title, message, retry
+        ])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.setCustomSpacing(24, after: message)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let panel = GlassView()
+        panel.fill = .solid
+        panel.border = .safe
+        panel.shape = .rounded(24)
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        panel.contentView.addSubview(stack)
+        view.addSubview(panel)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: panel.contentView.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: panel.contentView.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: panel.contentView.topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(equalTo: panel.contentView.bottomAnchor, constant: -24),
+            panel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            panel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            panel.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
+        ])
+        storageRetryView = panel
     }
 }

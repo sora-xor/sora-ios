@@ -1,0 +1,118 @@
+configurations:
+# SSFAssetManagment
+    - sources:
+      - ../Sources/SSFAssetManagment
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFAssetManagmentTests
+      args:
+        autoMockableTestableImports: ["SSFAssetManagment", "SSFModels"]
+# SSFAssetManagmentStorage
+    - sources:
+      - ../Sources/SSFAssetManagmentStorage
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFAssetManagmentStorage
+      args:
+        autoMockableTestableImports: ["SSFAssetManagmentStorage", "SSFModels"]
+# SSFAccountManagment
+    - sources:
+      - ../Sources/SSFAccountManagment
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFAccountManagmentTests
+      args:
+        autoMockableTestableImports: ["SSFAccountManagment", "SSFModels", "SSFUtils", "RobinHood"]
+# SSFKeyPair
+    - sources:
+      - ../Sources/SSFKeyPair
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFKeyPair
+      args:
+        autoMockableTestableImports: ["IrohaCrypto", "SSFKeyPair", "SSFModels", "SSFCrypto"]
+# SSFQRService
+    - sources:
+      - ../Sources/SSFQRService
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFQRServiceTests
+      args:
+        autoMockableTestableImports: ["SSFQRService"]
+# SSFCloudStorage
+    - sources:
+      - ../Sources/SSFCloudStorage
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFCloudStorage
+      args:
+        autoMockableTestableImports: ["SSFCloudStorage"]
+# SSFRuntimeCodingService
+    - sources:
+      - ../Sources/SSFRuntimeCodingService
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFRuntimeCodingService
+      args:
+        autoMockableTestableImports: ["SSFRuntimeCodingService", "SSFUtils", "RobinHood", "SSFModels"]
+# SSFUtils
+    - sources:
+      - ../Sources/SSFUtils
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFUtils
+      args:
+        autoMockableTestableImports: ["SSFUtils", "BigInt"]
+# SSFNetwork
+    - sources:
+      - ../Sources/SSFNetwork
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFNetwork
+      args:
+        autoMockableTestableImports: ["SSFNetwork", "RobinHood"]
+# SSFXCM
+    - sources:
+      - ../Sources/SSFXCM
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFXCM
+      args:
+        autoMockableTestableImports: ["SSFXCM", "SSFUtils", "SSFNetwork", "SSFModels", "RobinHood", "BigInt", "SSFExtrinsicKit", "SSFChainRegistry", "SSFRuntimeCodingService", "SSFSigner", "SSFChainConnection", "SSFStorageQueryKit"]
+# SSFExtrinsicKit
+    - sources:
+      - ../Sources/SSFExtrinsicKit
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFExtrinsicKit
+      args:
+        autoMockableTestableImports: ["SSFUtils", "SSFCrypto", "SSFModels", "RobinHood", "SSFExtrinsicKit", "IrohaCrypto", "SSFRuntimeCodingService", "SSFSigner"]
+# SSFTransferService
+    - sources:
+      - ../Sources/SSFTransferService
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFTransferService
+      args:
+        autoMockableTestableImports: ["SSFTransferService", "SSFModels", "Web3", "Web3ContractABI"]
+# SSFChainRegistry
+    - sources:
+      - ../Sources/SSFChainRegistry
+      templates:
+        - ./Templates/AutoMockable.stencil
+      output:
+        ../Sources/MocksBasket/SSFChainRegistry
+      args:
+        autoMockableTestableImports: ["SSFChainRegistry","Web3", "SSFUtils", "RobinHood", "SSFModels", "SSFRuntimeCodingService", "SSFChainConnection", "SSFNetwork", "SSFLogger"]

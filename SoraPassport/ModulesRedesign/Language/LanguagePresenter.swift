@@ -30,7 +30,6 @@
 
 import SoraUIKit
 import SoraFoundation
-import SCard
 
 final class LanguagePresenter {
     weak var view: LanguageViewProtocol?
@@ -65,7 +64,7 @@ final class LanguagePresenter {
             let code = $0.code
 
             let targetLocale = Locale(identifier: $0.code)
-            let subtitle: String = $0.title(in: targetLocale)?.capitalized ?? ""
+            let subtitle = $0.title(in: targetLocale)?.capitalized ?? ""
 
             if let localizationManager = localizationManager {
                 let language = $0.title(in: localizationManager.selectedLocale)?.capitalized ?? ""

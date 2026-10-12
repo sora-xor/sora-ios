@@ -33,7 +33,7 @@ import sorawallet
 
 
 struct FiatTextBuilder {
-    func build(fiatData: [FiatData], amount: Decimal, assetId: String) -> String {
+    func build(fiatData: [PIExactFiatData], amount: Decimal, assetId: String) -> String {
         var fiatText = ""
         if let priceUsd = fiatData.first(where: { $0.id == assetId })?.priceUsd?.decimalValue {
             let fiatDecimal = amount * priceUsd

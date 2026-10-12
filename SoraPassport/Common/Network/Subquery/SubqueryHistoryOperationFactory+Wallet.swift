@@ -43,10 +43,8 @@ extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
                                                                            page: context.cursor ?? 1)
 
         let mappingOperation = ClosureOperation<WalletRemoteHistoryData> {
-            guard let response = try? queryOperation.extractNoCancellableResultData()
-            else {
-                return WalletRemoteHistoryData(historyItems: [], context: TransactionHistoryContext(context: [:]))
-            }
+            let response = try queryOperation
+                .extractNoCancellableResultData()
 
             let items = (response.items as? [WalletRemoteHistoryItemProtocol]) ?? []
             let cursor = (context.cursor ?? 1) + 1

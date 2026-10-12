@@ -56,7 +56,7 @@ final class ReceiveViewModel {
     private var currentImage: UIImage?
     private var amount: AmountDecimal?
     private var qrOperation: Operation?
-    private var fiatData: [FiatData] = []
+    private var fiatData: [PIExactFiatData] = []
     private weak var fiatService: FiatServiceProtocol?
     private weak var assetProvider: AssetProviderProtocol?
     private weak var assetManager: AssetManagerProtocol?
@@ -98,10 +98,17 @@ final class ReceiveViewModel {
 
 extension ReceiveViewModel: ReceiveViewModelProtocol {
     func viewDidLoad() {
-        Task { [weak self] in
-            self?.fiatData = await self?.fiatService?.getFiat() ?? []
-            let size = await UIScreen.main.bounds.width - 112
+        // The code and the address do not depend on prices and never wait
+        // for them. Prices only add a fiat text to a requested amount: they
+        // are read after the code has been asked for, and the item is built
+        // again when they arrive.
+        Task { @MainActor [weak self] in
+            let size = UIScreen.main.bounds.width - 112
             self?.generateQR(with: CGSize(width: size, height: size) )
+
+            guard self?.amount != nil else { return }
+            let loaded = await self?.fiatService?.getFiat() ?? []
+            self?.show(fiatData: loaded)
         }
     }
 }
@@ -133,11 +140,25 @@ private extension ReceiveViewModel {
         let persistentOperation = self.accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
         
         persistentOperation.completionBlock = { [weak self] in
-            guard let accounts = try? persistentOperation.extractNoCancellableResultData(),
-                  let receiveItem = self?.setupReceiveItem(with: accounts, generationResult: result) else { return }
-            self?.setupItems?([ receiveItem ])
+            guard let accounts = try? persistentOperation.extractNoCancellableResultData() else { return }
+            // On the main queue, where prices are applied too: the item is
+            // built either with the prices or before them, and in the second
+            // case their arrival builds it again.
+            DispatchQueue.main.async {
+                guard let receiveItem = self?.setupReceiveItem(with: accounts, generationResult: result) else { return }
+                self?.setupItems?([ receiveItem ])
+            }
         }
         OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
+    }
+
+    @MainActor
+    func show(fiatData loaded: [PIExactFiatData]) {
+        guard loaded != fiatData else { return }
+        fiatData = loaded
+        if let currentImage {
+            processOperation(result: .success(currentImage))
+        }
     }
     
     func createReceiveInfo() -> ReceiveInfo? {
@@ -203,7 +224,7 @@ private extension ReceiveViewModel {
                                   svgString: selectedAsset.icon)
     }
     
-    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [FiatData]) -> String {
+    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [PIExactFiatData]) -> String {
         let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
         var fiatBalanceText = ""
         
@@ -215,7 +236,7 @@ private extension ReceiveViewModel {
         return fiatBalanceText.isEmpty ? "\(balance)" : "\(balance) (\(fiatBalanceText))"
     }
     
-    func setupFiatText(from amount: Decimal, assetId: String, fiatData: [FiatData]) -> String {
+    func setupFiatText(from amount: Decimal, assetId: String, fiatData: [PIExactFiatData]) -> String {
         guard let asset = assetManager?.assetInfo(for: assetId) else { return "" }
         
         var fiatText = ""

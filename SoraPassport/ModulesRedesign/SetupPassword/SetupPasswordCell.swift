@@ -121,11 +121,12 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
     
     private lazy var checkView: CheckView = {
         let view = CheckView(title: R.string.localizable.createBackupPasswordWarningText(preferredLanguages: .currentLocale))
-        view.addTapGesture { [weak self] recognizer in
-            guard let checkView = recognizer.view as? CheckView else { return }
-            checkView.isSelected = !checkView.isSelected
-            self?.input.send(.checkViewChanged(checkView.isSelected))
+        view.onActivate = { [weak self, weak view] in
+            guard let view else { return }
+            view.isSelected.toggle()
+            self?.input.send(.checkViewChanged(view.isSelected))
         }
+        view.addTapGesture { [weak view] _ in view?.onActivate?() }
         return view
     }()
     

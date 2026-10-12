@@ -74,6 +74,12 @@ protocol GenerateQRWireframeProtocol: AnyObject {
                                  firstAssetAmount: Decimal,
                                  fee: Decimal,
                                  assetsProvider: AssetProviderProtocol?)
+
+    @MainActor
+    func showFeeEstimationError(
+        on controller: UIViewController?,
+        retry: @escaping () -> Void
+    )
     
     func showSend(on controller: UIViewController?,
                   selectedTokenId: String?,
@@ -217,6 +223,38 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         containerView.add(navigationController)
         
         controller?.present(containerView, animated: true)
+    }
+
+    @MainActor
+    func showFeeEstimationError(
+        on controller: UIViewController?,
+        retry: @escaping () -> Void
+    ) {
+        let alert = UIAlertController(
+            title: nil,
+            message: R.string.localizable.commonErrorRetry(
+                preferredLanguages: .currentLocale
+            ),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonCancel(
+                    preferredLanguages: .currentLocale
+                ),
+                style: .cancel
+            )
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonRetry(
+                    preferredLanguages: .currentLocale
+                ),
+                style: .default,
+                handler: { _ in retry() }
+            )
+        )
+        controller?.present(alert, animated: true)
     }
     
     @MainActor

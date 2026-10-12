@@ -32,18 +32,6 @@ import Foundation
 import CoreData
 
 extension NSPersistentStoreCoordinator {
-    static func destroyStore(at storeURL: URL) throws {
-        let persistentStoreCoordinator = NSPersistentStoreCoordinator(
-            managedObjectModel: NSManagedObjectModel()
-        )
-
-        try persistentStoreCoordinator.destroyPersistentStore(
-            at: storeURL,
-            ofType: NSSQLiteStoreType,
-            options: nil
-        )
-    }
-
     static func replaceStore(at targetURL: URL, withStoreAt sourceURL: URL) throws {
         let persistentStoreCoordinator = NSPersistentStoreCoordinator(
             managedObjectModel: NSManagedObjectModel()

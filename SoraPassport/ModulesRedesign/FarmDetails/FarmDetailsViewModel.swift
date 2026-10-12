@@ -64,6 +64,7 @@ final class FarmDetailsViewModel {
     private let detailsFactory: DetailViewModelFactoryProtocol
     private let itemFactory = PoolDetailsItemFactory()
     private let userFarmService: UserFarmsServiceProtocol
+    private var pricesObservation: PIPricesObservation?
 
     init(farm: Farm,
          poolInfo: PoolInfo? = nil,
@@ -136,6 +137,12 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     func viewDidLoad() {
         reload()
         poolViewModelsService?.setup()
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Value the farm again when that read ends,
+        // without first drawing it with no values at all.
+        pricesObservation = PIPricesObservation { [weak self] in
+            self?.reload(drawsWithoutPricesFirst: false)
+        }
         
         Task { [weak self] in
             let baseAssetId = self?.farm.baseAsset?.assetId ?? ""
@@ -150,14 +157,14 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         }
     }
     
-    private func reload() {
+    private func reload(drawsWithoutPricesFirst: Bool = true) {
         let userFarmInfo = poolInfo?.farms.first {
             $0.baseAssetId == farm.baseAsset?.assetId &&
             $0.poolAssetId == farm.poolAsset?.assetId &&
             $0.rewardAssetId == farm.rewardAsset?.assetId
         }
         
-        if let poolInfo {
+        if drawsWithoutPricesFirst, let poolInfo {
             snapshot = createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarmInfo)
         }
         
@@ -170,7 +177,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         }
     }
     
-    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [FiatData] = []) -> FarmDetailsSnapshot {
+    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [PIExactFiatData] = []) -> FarmDetailsSnapshot {
         var snapshot = FarmDetailsSnapshot()
         let sections = [ contentSection(poolInfo: poolInfo, userFarmInfo: userFarmInfo, fiatData: fiatData) ]
         snapshot.appendSections(sections)
@@ -179,7 +186,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         return snapshot
     }
     
-    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [FiatData] = []) -> FarmDetailsSection {
+    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [PIExactFiatData] = []) -> FarmDetailsSection {
         var items: [FarmDetailsSectionItem] = []
         
         var supplyLiquidityItem: SupplyPoolItem?

@@ -118,6 +118,10 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
         if let farmLiquidity = transaction as? FarmLiquidity {
             return farmLiquidityTransactionViewModel(from: farmLiquidity)
         }
+
+        if let submitted = transaction as? SubmittedTransaction {
+            return submittedTransactionViewModel(from: submitted)
+        }
       
         return nil
     }
@@ -141,6 +145,21 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
 }
 
 private extension ActivityViewModelFactory {
+    /// A sent transaction known only from the app's own journal: what it
+    /// is and what became of it. The journal does not keep amounts, so the
+    /// row shows none; the network's fee token stands for the network.
+    func submittedTransactionViewModel(from transaction: SubmittedTransaction) -> ActivityContentViewModel {
+        let feeAsset = walletAssets.first { $0.isFeeAsset }
+        let assetInfo = assetManager.assetInfo(for: feeAsset?.identifier ?? "")
+        return ActivityContentViewModel(txHash: transaction.base.txHash,
+                                        title: SubmittedTransaction.title,
+                                        subtitle: transaction.outcome.explanation,
+                                        typeTransactionImage: R.image.wallet.send(),
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
+                                        fiatText: "",
+                                        status: transaction.base.status)
+    }
+
     func transferTransactionViewModel(from transaction: TransferTransaction) -> ActivityContentViewModel {
         let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId }) ?? walletAssets.first { $0.isFeeAsset }
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")

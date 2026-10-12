@@ -32,7 +32,6 @@ import Foundation
 import SoraUIKit
 import RobinHood
 import SoraFoundation
-import SCard
 
 protocol RedesignWalletWireframeProtocol: AlertPresentable {
     func showFullListAssets(on controller: UIViewController?,
@@ -97,12 +96,6 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                          marketCapService: MarketCapServiceProtocol,
                          farmingService: DemeterFarmingServiceProtocol)
 
-    func showSoraCard(on viewController: UIViewController?,
-                      address: AccountAddress,
-                      balanceProvider: RobinHood.SingleValueProvider<[BalanceData]>?)
-
-    func showSoraCardExchange(on viewController: UIViewController?)
-
     func showManageAccount(on view: UIViewController, completion: @escaping () -> Void)
     
     func showGenerateQR(on controller: UIViewController?,
@@ -150,22 +143,6 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     
     init(feeProvider: FeeProviderProtocol) {
         self.feeProvider = feeProvider
-    }
-
-    func showSoraCard(
-        on viewController: UIViewController?,
-        address: AccountAddress,
-        balanceProvider: SingleValueProvider<[BalanceData]>?
-    ) {
-        guard let viewController else { return }
-        SCard.shared?.start(in: viewController)
-    }
-
-    func showSoraCardExchange(
-        on viewController: UIViewController?
-    ) {
-        guard let viewController else { return }
-        SCard.shared?.showExchange(in: viewController)
     }
 
     @MainActor

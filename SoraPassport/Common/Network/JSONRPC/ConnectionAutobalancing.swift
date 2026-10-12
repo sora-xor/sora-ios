@@ -48,3 +48,61 @@ extension ConnectionRank {
         rank = 0
     }
 }
+
+/// Node choice is connection state, not a change to the user's saved preference.
+/// Only the known SORA mainnet identity receives the bundled mainnet fallbacks.
+enum SoraNodeConnectionPolicy {
+    static let mainnetGenesis = "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5"
+    static let bundledMainnetNodes = [
+        ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "SORA Ministry of Finance", apikey: nil),
+        ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "SORA Ministry of Finance 2", apikey: nil),
+    ]
+
+    static func isMainnet(chainId: String, addressPrefix: UInt16) -> Bool {
+        chainId.lowercased() == mainnetGenesis && addressPrefix == 69
+    }
+
+    static func candidates(for chain: ChainModel) -> [ChainNodeModel] {
+        let bundled = isMainnet(chainId: chain.chainId, addressPrefix: chain.addressPrefix)
+            ? bundledMainnetNodes : []
+        let defaults = chain.nodes.sorted { $0.url.absoluteString < $1.url.absoluteString }
+        let custom = (chain.customNodes ?? []).sorted { $0.url.absoluteString < $1.url.absoluteString }
+        var seen: Set<URL> = []
+        return ([chain.selectedNode].compactMap { $0 } + bundled + defaults + custom).filter {
+            guard ["ws", "wss"].contains($0.url.scheme?.lowercased() ?? ""),
+                  $0.url.host?.isEmpty == false else { return false }
+            return seen.insert($0.url).inserted
+        }
+    }
+}
+
+struct NodeConnectionFailover {
+    struct Decision {
+        let nextNode: ChainNodeModel?
+        let shouldPresentUnavailable: Bool
+    }
+
+    private var failedURLs: Set<URL> = []
+    private var hasPresentedUnavailable = false
+
+    mutating func failed(url: URL, candidates: [ChainNodeModel]) -> Decision {
+        guard let current = candidates.firstIndex(where: { $0.url == url }) else {
+            return Decision(nextNode: nil, shouldPresentUnavailable: false)
+        }
+        failedURLs.insert(url)
+        let ordered = Array(candidates.dropFirst(current + 1)) + Array(candidates.prefix(current + 1))
+        if let next = ordered.first(where: { !failedURLs.contains($0.url) }) {
+            return Decision(nextNode: next, shouldPresentUnavailable: false)
+        }
+        let shouldPresent = !hasPresentedUnavailable
+        hasPresentedUnavailable = true
+        failedURLs.removeAll()
+        return Decision(nextNode: ordered.first(where: { $0.url != url }),
+                        shouldPresentUnavailable: shouldPresent)
+    }
+
+    mutating func connected() {
+        failedURLs.removeAll()
+        hasPresentedUnavailable = false
+    }
+}

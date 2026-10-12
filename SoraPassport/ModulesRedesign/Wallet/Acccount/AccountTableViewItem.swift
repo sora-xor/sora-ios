@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import UIKit
 import SoraUIKit
 import RobinHood
 
@@ -36,6 +37,8 @@ final class AccountTableViewItem: NSObject {
 
     var accountName: String
     var accountHandler: ((AccountTableViewItem) -> Void)?
+    var sendHandler: (() -> Void)?
+    var networkHandler: (() -> Void)?
     var scanQRHandler: (() -> Void)?
     var updateHandler: (() -> Void)?
     private let accountRepository: AnyDataProviderRepository<AccountItem>
@@ -85,7 +88,7 @@ extension AccountTableViewItem: SoramitsuTableViewItemProtocol {
     var clipsToBounds: Bool { false }
     
     func itemHeight(forWidth width: CGFloat, context: SoramitsuTableViewContext?) -> CGFloat {
-        40
+        UITableView.automaticDimension
     }
     
     func itemActionTap(with context: SoramitsuTableViewContext?) {

@@ -109,6 +109,7 @@ final class ChainRegistryFactory {
             repository: AnyDataProviderRepository(chainRepository),
             eventCenter: EventCenter.shared,
             operationQueue: OperationManagerFacade.runtimeBuildingQueue,
+            storeRepair: ChainStoreRepair(databaseService: repositoryFacade.databaseService),
             logger: Logger.shared
         )
 
@@ -122,7 +123,8 @@ final class ChainRegistryFactory {
             filesOperationFactory: filesOperationFactory,
             dataOperationFactory: dataFetchOperationFactory,
             eventCenter: EventCenter.shared,
-            operationQueue: OperationManagerFacade.runtimeBuildingQueue
+            operationQueue: OperationManagerFacade.runtimeBuildingQueue,
+            usesReviewedSoraBundle: true
         )
 
         let snapshotHotBootBuilder = SnapshotHotBootBuilder(
@@ -134,7 +136,7 @@ final class ChainRegistryFactory {
             logger: Logger.shared
         )
 
-        let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable
+        let window = UIApplication.shared.soraStatusPresentableWindow
         let networkStatusPresenter = NetworkAvailabilityLayerPresenter()
         networkStatusPresenter.localizationManager = LocalizationManager.shared
         networkStatusPresenter.view = window
@@ -179,8 +181,8 @@ final class ChainRegistryFactory {
         )
 
         chainObserver.start { error in
-            if let error = error {
-                Logger.shared.error("Chain database observer unexpectedly failed: \(error)")
+            if error != nil {
+                Logger.shared.error("Chain database observation failed")
             }
         }
 

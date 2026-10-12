@@ -85,7 +85,7 @@ final class SnapshotHotBootBuilder: SnapshotHotBootBuilderProtocol {
                 let result = try mergeOperation.extractNoCancellableResultData()
                 self?.handleMergeOperation(result: result)
             } catch {
-                self?.logger.error(error.localizedDescription)
+                self?.logger.error("Runtime hot-boot snapshot failed")
             }
         }
 

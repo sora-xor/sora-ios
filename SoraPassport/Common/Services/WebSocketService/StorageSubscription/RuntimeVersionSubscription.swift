@@ -34,7 +34,7 @@ import SSFUtils
 import SoraKeystore
 import Rswift
 import SSFModels
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 enum RuntimeVersionSubscriptionError: Error {
     case skipUnchangedVersion
@@ -82,8 +82,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                 self?.handle(runtimeVersion: runtimeVersion)
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] error, unsubscribed in
-                self?.logger.error("Did receive subscription error: \(error) \(unsubscribed)")
+            let failureClosure: (Error, Bool) -> Void = { [weak self] _, _ in
+                self?.logger.error("Runtime-version subscription failed")
             }
 
             let params: [String] = []
@@ -94,7 +94,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                 failureClosure: failureClosure
             )
         } catch {
-            logger.error("Can't subscribe to storage: \(error)")
+            logger.error("Runtime-version storage subscription failed")
         }
     }
 
@@ -155,7 +155,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                     self.logger
                         .debug("No need to update metadata for version \(runtimeVersion.specVersion)")
                 } else {
-                    self.logger.error("Did recieve error: \(error)")
+                    self.logger.error("Runtime-version update processing failed")
                 }
             }
         }

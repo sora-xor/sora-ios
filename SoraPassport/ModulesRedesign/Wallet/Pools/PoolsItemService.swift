@@ -37,7 +37,7 @@ final class PoolsItemService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let poolViewModelsFactory: PoolViewModelFactory
-    var fiatData: [FiatData] = []
+    var fiatData: [PIExactFiatData] = []
     var updateHandler: (() -> Void)?
     
     @Published var poolViewModels: [PoolViewModel] = [
@@ -48,8 +48,25 @@ final class PoolsItemService {
         PoolViewModel(identifier: "5", title: "", subtitle: "", fiatText: "")
     ]
     
+    /// Empty while loading, the total once prices are known, or the "price
+    /// unavailable" notice. Never "$0" for want of prices.
     @Published var moneyText: String = ""
-    
+    /// Set before `moneyText`, so the cell can style the notice.
+    private(set) var priceIsUnavailable = false
+
+    private let priceRetryLock = NSLock()
+    private var priceRetry: Task<Void, Never>?
+    private var priceFailures = 0
+    private var lastPools: [PoolInfo]?
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        priceRetry?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
+
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
@@ -61,6 +78,19 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        lastPools = pools
+        if pricesObserver == nil {
+            // Prices were refreshed in the background, or the app came back
+            // to the foreground: value the pools again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self, let pools = self.lastPools else { return }
+                self.setup(with: pools)
+            }
+        }
         if fiatData.isEmpty {
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
@@ -88,12 +118,62 @@ final class PoolsItemService {
                 return partialResult
             })
             
-            moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+            // As for the liquid assets: with pooled tokens and no price for
+            // any of the pools, the value is unknown, not "$0". Asking
+            // again only helps when the prices could not be read.
+            let pricesAvailable = Self.pricesKnown(for: pools.filter { $0.isFavorite }, fiatData: fiatData)
+            priceIsUnavailable = !pricesAvailable
+            moneyText = WalletUX.fiatTotalText(fiatDecimal, pricesAvailable: pricesAvailable)
+            schedulePriceRetry(needed: fiatData.isEmpty, pools: pools)
             
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                var viewModel = self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                // The price read is over: a pool without a price shows no
+                // value instead of a placeholder that never ends.
+                viewModel?.priceLoadFinished = true
+                return viewModel
             }
             updateHandler?()
+        }
+    }
+}
+
+extension PoolsItemService {
+    /// Whether a total can be given for these pool positions: the prices
+    /// were read, and at least one position has a price for both of its
+    /// assets (or there is no position at all).
+    static func pricesKnown(for pools: [PoolInfo], fiatData: [PIExactFiatData]) -> Bool {
+        guard !fiatData.isEmpty else { return false }
+        let held = pools.filter {
+            ($0.baseAssetPooledByAccount ?? 0) > 0 || ($0.targetAssetPooledByAccount ?? 0) > 0
+        }
+        guard !held.isEmpty else { return true }
+        return held.contains { pool in
+            fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue != nil &&
+                fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue != nil
+        }
+    }
+}
+
+private extension PoolsItemService {
+    /// While prices are unavailable, asks again by itself so the notice is
+    /// replaced as soon as PI answers; nothing is asked of the user.
+    func schedulePriceRetry(needed: Bool, pools: [PoolInfo]) {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        // A newer pool list replaces a retry planned for an older one.
+        priceRetry?.cancel()
+        priceRetry = nil
+        guard needed else {
+            priceFailures = 0
+            return
+        }
+        let delay = WalletUX.priceRetryDelay(afterFailures: priceFailures)
+        priceFailures += 1
+        priceRetry = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.setup(with: pools)
         }
     }
 }

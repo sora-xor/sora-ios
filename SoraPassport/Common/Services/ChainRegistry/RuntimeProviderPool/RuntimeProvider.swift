@@ -31,7 +31,6 @@
 import Foundation
 import RobinHood
 import SSFUtils
-import SSFUtils
 
 protocol RuntimeProviderProtocol: AnyObject, RuntimeCodingServiceProtocol {
     var chainId: ChainModel.Id { get }
@@ -88,7 +87,10 @@ final class RuntimeProvider {
         repository: AnyDataProviderRepository<RuntimeMetadataItem>
     ) {
         chainId = chainModel.chainId
-        typesUsage = chainModel.typesUsage
+        typesUsage = ReviewedSoraRuntimeSnapshotAdmission
+            .isReviewedSoraChain(chainModel.chainId)
+            ? .onlyOwn
+            : chainModel.typesUsage
         self.snapshotOperationFactory = snapshotOperationFactory
         self.snapshotHotOperationFactory = snapshotHotOperationFactory
         self.eventCenter = eventCenter
@@ -165,7 +167,7 @@ final class RuntimeProvider {
         case let .failure(error):
             currentWrapper = nil
 
-            logger?.debug("Failed to build snapshot for \(chainId): \(error)")
+            logger?.debug("Runtime snapshot build failed")
 
             let event = RuntimeCoderCreationFailed(chainId: chainId, error: error)
             eventCenter.notify(with: event)
@@ -338,16 +340,21 @@ extension RuntimeProvider: RuntimeProviderProtocol {
             mutex.unlock()
         }
 
-        guard typesUsage != newTypeUsage else {
+        let admittedUsage: ChainModel.TypesUsage =
+            ReviewedSoraRuntimeSnapshotAdmission
+                .isReviewedSoraChain(chainId)
+            ? .onlyOwn
+            : newTypeUsage
+        guard typesUsage != admittedUsage else {
             return
         }
 
         currentWrapper?.cancel()
         currentWrapper = nil
 
-        typesUsage = newTypeUsage
+        typesUsage = admittedUsage
 
-        buildSnapshot(with: newTypeUsage, dataHasher: dataHasher)
+        buildSnapshot(with: admittedUsage, dataHasher: dataHasher)
     }
 
     func cleanup() {

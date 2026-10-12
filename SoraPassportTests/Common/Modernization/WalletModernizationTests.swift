@@ -1,0 +1,21004 @@
+// This file is part of the SORA network and Polkaswap app.
+// SPDX-License-Identifier: BSD-4-Clause
+
+import BigInt
+import GoogleAPIClientForREST_Drive
+import GoogleAPIClientForRESTCore
+import GoogleSignIn
+import SSFCloudStorage
+import CoreData
+import CryptoKit
+import IrohaCrypto
+import RobinHood
+import Security
+import SoraKeystore
+import SSFCrypto
+import SSFUtils
+import UIKit
+import XCTest
+@testable import SoraPassport
+
+private struct RecoveryDriveTicket: GoogleServiceTicket {}
+private final class RecoveryDriveFixture: GoogleService {
+    var responses: [Any]
+    var queries: [GTLRQueryProtocol] = []
+    init(_ responses: [Any]) { self.responses = responses }
+    func set(authorizer: GTMFetcherAuthorizationProtocol?) {}
+    func executeQuery(_ query: GTLRQueryProtocol) async throws -> (ticket: GoogleServiceTicket, file: Any?) {
+        queries.append(query)
+        guard !responses.isEmpty else { throw WalletCloudBackupRecoveryError.unavailable }
+        return (RecoveryDriveTicket(), responses.removeFirst())
+    }
+}
+
+private final class PreservedBackupDriveFixture: GoogleService {
+    let name: String
+    var head = "original"
+    var version: Int64 = 1
+    var revisions: [String: Data] = [:]
+    var pinned = Set<String>()
+    var queries: [GTLRQueryProtocol] = []
+    var failure: String?
+    var folderExists = true
+    var duplicates = false
+    var afterPinReads = 0
+    init(name: String, original: Data?) {
+        self.name = name
+        revisions[head] = original
+    }
+    func set(authorizer: GTMFetcherAuthorizationProtocol?) {}
+    func file() -> GTLRDrive_File {
+        let value = GTLRDrive_File()
+        value.identifier = "synthetic-wallet-file"; value.name = name
+        value.mimeType = "application/json"; value.size = NSNumber(value: revisions[head]?.count ?? 0)
+        value.headRevisionId = head; value.version = NSNumber(value: version)
+        return value
+    }
+    func media(_ data: Data) -> GTLRDataObject {
+        let object = GTLRDataObject(); object.data = data; return object
+    }
+    func fail(_ phase: String) throws {
+        if failure == phase { throw NSError(domain: "synthetic-cloud-failure", code: 503) }
+    }
+    func executeQuery(_ query: GTLRQueryProtocol) async throws -> (ticket: GoogleServiceTicket, file: Any?) {
+        queries.append(query)
+        let result: Any
+        if let list = query as? GTLRDriveQuery_FilesList {
+            let files = GTLRDrive_FileList()
+            if list.q?.contains("backupFolder") == true {
+                let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"
+                folder.name = "backupFolder"; folder.mimeType = "application/vnd.google-apps.folder"
+                files.files = folderExists ? [folder] : []
+            } else {
+                files.files = revisions[head] == nil ? [] : (duplicates ? [file(), file()] : [file()])
+            }
+            result = files
+        } else if let pin = query as? GTLRDriveQuery_RevisionsUpdate {
+            try fail("pin")
+            let revision = try XCTUnwrap(pin.revisionId)
+            XCTAssertEqual((pin.bodyObject as? GTLRDrive_Revision)?.keepForever?.boolValue, true)
+            pinned.insert(revision); version += 1
+            let value = GTLRDrive_Revision(); value.identifier = revision; value.keepForever = true
+            result = value
+        } else if let get = query as? GTLRDriveQuery_RevisionsGet {
+            let revision = try XCTUnwrap(get.revisionId)
+            if get.downloadAsDataObjectType == "media" {
+                let bytes = try XCTUnwrap(revisions[revision])
+                result = media(failure == "preserved-media" ? Data("corrupt".utf8) : bytes)
+            } else {
+                let value = GTLRDrive_Revision(); value.identifier = revision
+                value.keepForever = NSNumber(value: pinned.contains(revision) && !(failure == "pin-verification" && revision == "original"))
+                result = value
+            }
+        } else if let get = query as? GTLRDriveQuery_FilesGet {
+            if get.downloadAsDataObjectType == "media" {
+                let bytes = try XCTUnwrap(revisions[head])
+                result = media(failure == "new-media" && head != "original" ? Data("corrupt".utf8) : bytes)
+            } else {
+                if pinned.contains("original") {
+                    afterPinReads += 1
+                    if failure == "concurrent-version" && afterPinReads == 2 { version += 1 }
+                }
+                result = file()
+            }
+        } else if let create = query as? GTLRDriveQuery_FilesCreate {
+            if let upload = create.uploadParameters {
+                try fail("create")
+                XCTAssertTrue(create.keepRevisionForever)
+                head = "created"; version += 1; revisions[head] = try XCTUnwrap(upload.data)
+                pinned.insert(head); result = file()
+            } else {
+                folderExists = true
+                let folder = GTLRDrive_File(); folder.identifier = "synthetic-folder"; result = folder
+            }
+        } else if let update = query as? GTLRDriveQuery_FilesUpdate {
+            try fail("update")
+            XCTAssertTrue(pinned.contains(head), "Existing head must be pinned before replacement")
+            XCTAssertTrue(update.keepRevisionForever)
+            XCTAssertEqual(update.fileId, "synthetic-wallet-file")
+            head = "updated-\(version)"; version += 1
+            revisions[head] = try XCTUnwrap(update.uploadParameters?.data)
+            pinned.insert(head)
+            try fail("lost-update-response")
+            result = file()
+        } else {
+            XCTFail("Unexpected Drive operation, including deletion")
+            throw WalletCloudBackupWriteError.invalidBackup
+        }
+        return (RecoveryDriveTicket(), result)
+    }
+}
+
+private final class BackupSavingCloudFixture: CloudStorageServiceProtocol {
+    var isUserAuthorized = true
+    var saves: [OpenBackupAccount] = []
+    var continuation: CheckedContinuation<Void, Error>?
+    var onSave: (() -> Void)?
+    func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
+    func getBackupAccounts() async throws -> [OpenBackupAccount] { XCTFail("Saving must not depend on an existing backup"); return [] }
+    func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("Saving must never delete an existing backup") }
+    func disconnect() { XCTFail("Saving must not disconnect Google") }
+    func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount {
+        XCTFail("Saving must not import a wallet"); return account
+    }
+    func saveBackup(account: OpenBackupAccount, password: String) async throws {
+        saves.append(account)
+        try await withCheckedThrowingContinuation {
+            continuation = $0
+            onSave?()
+        }
+    }
+    func complete(_ result: Result<Void, Error>) {
+        let pending = continuation; continuation = nil
+        pending?.resume(with: result)
+    }
+}
+
+private final class BackupSavingViewFixture: UIViewController, SetupPasswordViewProtocol {
+    var viewModel: SetupPasswordPresenterProtocol?
+    var shows = 0
+    var hides = 0
+    var onHide: (() -> Void)?
+    func showLoading() { XCTAssertTrue(Thread.isMainThread); shows += 1 }
+    func hideLoading() { XCTAssertTrue(Thread.isMainThread); hides += 1; onHide?() }
+}
+
+private final class BackupAccountCreatorFixture: CreateAccountServiceProtocol {
+    let account: AccountItem
+    var calls = 0
+    init(account: AccountItem) { self.account = account }
+    func createAccount(request: AccountCreationRequest, mnemonic: IRMnemonicProtocol,
+                       completion: @escaping (Result<AccountItem, Error>?) -> Void) {
+        calls += 1; completion(.success(account))
+    }
+}
+
+private final class BackupSavingWireframeFixture: SetupPasswordWireframeProtocol {
+    var activityIndicatorWindow: UIWindow?
+    var successes = 0
+    var failures: [String] = []
+    func showSetupPinCode() { XCTAssertTrue(Thread.isMainThread); successes += 1 }
+    func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+        XCTAssertTrue(Thread.isMainThread); failures.append(message ?? "")
+    }
+}
+
+/// Keeps synthetic wallet data in memory while using the production parser for
+/// Security's mixed wallet/framework attribute result, which InMemoryKeychain
+/// alone cannot represent.
+private final class MixedKeychainAttributesFixture: KeystoreProtocol {
+    let wallet = InMemoryKeychain()
+    private(set) var walletMutationCount = 0
+
+    func addKey(_ key: Data, with identifier: String) throws {
+        walletMutationCount += 1
+        try wallet.addKey(key, with: identifier)
+    }
+    func updateKey(_ key: Data, with identifier: String) throws {
+        walletMutationCount += 1
+        try wallet.updateKey(key, with: identifier)
+    }
+    func fetchKey(for identifier: String) throws -> Data { try wallet.fetchKey(for: identifier) }
+    func checkKey(for identifier: String) throws -> Bool { try wallet.checkKey(for: identifier) }
+    func deleteKey(for identifier: String) throws {
+        walletMutationCount += 1
+        try wallet.deleteKey(for: identifier)
+    }
+    func allKeyIdentifiers() throws -> [String] {
+        let tag = kSecAttrApplicationTag as String
+        let records = try wallet.allKeyIdentifiers().map { [tag: Data($0.utf8)] as [String: Any] }
+        let frameworkRecords: [[String: Any]] = [
+            [:], [tag: Data([0xff, 0xfe])], [tag: Data()],
+            [kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom],
+        ]
+        return try Keychain.keyIdentifiers(fromKeychainAttributes: records + frameworkRecords)
+    }
+}
+
+/// Records only synthetic test operations; it also models a native Security
+/// failure before any secret can be read.
+private final class DiagnosticKeychainFixture: KeystoreProtocol {
+    let backing: KeystoreProtocol
+    var failedIdentifier: String?
+    var failureStatus: OSStatus = errSecInteractionNotAllowed
+    private(set) var checked: [String] = []
+    private(set) var fetched: [String] = []
+    init(_ backing: KeystoreProtocol) { self.backing = backing }
+    func addKey(_ key: Data, with identifier: String) throws { try backing.addKey(key, with: identifier) }
+    func updateKey(_ key: Data, with identifier: String) throws { try backing.updateKey(key, with: identifier) }
+    func deleteKey(for identifier: String) throws { try backing.deleteKey(for: identifier) }
+    func allKeyIdentifiers() throws -> [String] { try backing.allKeyIdentifiers() }
+    func checkKey(for identifier: String) throws -> Bool {
+        checked.append(identifier)
+        if identifier == failedIdentifier { throw KeystoreSystemError(status: failureStatus) }
+        return try backing.checkKey(for: identifier)
+    }
+    func fetchKey(for identifier: String) throws -> Data {
+        fetched.append(identifier)
+        return try backing.fetchKey(for: identifier)
+    }
+}
+
+private struct LiquidityBatchWireFixture {
+    let call: JSON
+    let registerCallName: String
+    let initializeCallName: String
+}
+
+private struct SharedWalletDerivationFixture: Decodable {
+    struct Sora2Contract: Decodable {
+        let curve: String
+        let ss58Prefix: Int
+        let derivationVersion: Int
+        let derivationPath: String
+    }
+
+    struct Vector: Decodable {
+        struct Sora2: Decodable {
+            let directBip39Seed32Hex: String
+            let legacySora2MiniSeedHex: String
+            let publicKeyHex: String
+            let address: String
+        }
+
+        let name: String
+        let mnemonic: String
+        let sora2: Sora2?
+    }
+
+    let format: String
+    let sora2: Sora2Contract
+    let vectors: [Vector]
+}
+
+private final class LockedInvocationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage = false
+
+    func markCalled() {
+        lock.lock()
+        storage = true
+        lock.unlock()
+    }
+
+    var value: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+}
+
+private final class CountingSettingsManager: SettingsManagerProtocol {
+    private let backing = InMemorySettingsManager()
+    private(set) var recoveryMarkerReadCount = 0
+
+    func set(value: Bool, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: Int, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: Double, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: String, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: Data, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(anyValue: Any, for key: String) {
+        backing.set(anyValue: anyValue, for: key)
+    }
+
+    func bool(for key: String) -> Bool? {
+        if key == SettingsKey.walletMigrationRecoveryRequired.rawValue {
+            recoveryMarkerReadCount += 1
+        }
+        return backing.bool(for: key)
+    }
+
+    func integer(for key: String) -> Int? {
+        backing.integer(for: key)
+    }
+
+    func double(for key: String) -> Double? {
+        backing.double(for: key)
+    }
+
+    func string(for key: String) -> String? {
+        backing.string(for: key)
+    }
+
+    func data(for key: String) -> Data? {
+        backing.data(for: key)
+    }
+
+    func anyValue(for key: String) -> Any? {
+        backing.anyValue(for: key)
+    }
+
+    func allKeys() -> [String] {
+        backing.allKeys()
+    }
+
+    func removeValue(for key: String) {
+        backing.removeValue(for: key)
+    }
+
+    func removeAll() {
+        backing.removeAll()
+    }
+}
+
+private final class PersistedWriteObservingSettingsManager: SettingsManagerProtocol {
+    private let backing = InMemorySettingsManager()
+    private(set) var snapshots: [(key: String, state: [String: Any])] = []
+    func clearSnapshots() { snapshots.removeAll() }
+    private func recorded(_ key: String) {
+        snapshots.append((key, Dictionary(uniqueKeysWithValues: backing.allKeys().compactMap { name in
+            backing.anyValue(for: name).map { (name, $0) }
+        })))
+    }
+    func set(value: Bool, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: Int, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: Double, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: String, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(value: Data, for key: String) { backing.set(value: value, for: key); recorded(key) }
+    func set(anyValue: Any, for key: String) { backing.set(anyValue: anyValue, for: key); recorded(key) }
+    func bool(for key: String) -> Bool? { backing.bool(for: key) }
+    func integer(for key: String) -> Int? { backing.integer(for: key) }
+    func double(for key: String) -> Double? { backing.double(for: key) }
+    func string(for key: String) -> String? { backing.string(for: key) }
+    func data(for key: String) -> Data? { backing.data(for: key) }
+    func anyValue(for key: String) -> Any? { backing.anyValue(for: key) }
+    func allKeys() -> [String] { backing.allKeys() }
+    func removeValue(for key: String) { backing.removeValue(for: key); recorded(key) }
+    func removeAll() { backing.removeAll(); recorded("removeAll") }
+}
+
+private func makeLiquidityBatchWireFixture(
+    assetA: String,
+    assetB: String
+) throws -> LiquidityBatchWireFixture {
+    let callFactory = SoraPassport.SubstrateCallFactory()
+    let registerCall = try callFactory.register(
+        dexId: "0",
+        baseAssetId: assetA,
+        targetAssetId: assetB
+    )
+    let initializeCall = try callFactory.initializePool(
+        dexId: "0",
+        baseAssetId: assetA,
+        targetAssetId: assetB
+    )
+    let desiredA: BigUInt = 101
+    let desiredB: BigUInt = 202
+    let minimumA: BigUInt = 100
+    let minimumB: BigUInt = 200
+    let depositCallJSON = try callFactory.depositLiquidityScaleCompatibleJSON(
+        dexId: "0",
+        assetA: assetA,
+        assetB: assetB,
+        desiredA: desiredA,
+        desiredB: desiredB,
+        minA: minimumA,
+        minB: minimumB
+    )
+    let calls: [JSON] = [
+        try callFactory.scaleCompatibleJSON(for: registerCall),
+        try callFactory.scaleCompatibleJSON(for: initializeCall),
+        depositCallJSON,
+    ]
+    let batchCall = RuntimeCall<BatchArgs>(
+        moduleName: KnowRuntimeModule.Utitlity.name,
+        callName: KnowRuntimeModule.Utitlity.batchAll,
+        args: BatchArgs(calls: calls)
+    )
+    return LiquidityBatchWireFixture(
+        call: try callFactory.scaleCompatibleJSON(for: batchCall),
+        registerCallName: registerCall.callName,
+        initializeCallName: initializeCall.callName
+    )
+}
+
+final class WalletModernizationTests: XCTestCase {
+    private static let nexusXorAssetDefinitionID =
+        "6TEAJqbb8oEPmLncoNiMRbLEK6tw"
+
+    private static let tairaUUIDs = (
+        first: "809574f5-fee7-5e69-bfcf-52451e42d50f",
+        second: "fc56984b-2be7-431d-840e-21514d1883f0"
+    )
+
+    private func makeIsolatedRecoveryGate(
+        settings: SettingsManagerProtocol = InMemorySettingsManager()
+    ) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(
+            settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+    }
+
+    private func makeWalletNetworkStore(
+        baseURL: URL,
+        admissionPolicy: NexusNetworkAdmissionPolicy = .current
+    ) throws -> WalletNetworkStore {
+        try WalletNetworkStore(
+            baseURL: baseURL,
+            recoveryGate: makeIsolatedRecoveryGate(),
+            admissionPolicy: admissionPolicy
+        )
+    }
+
+    private func makeLifecycleCoordinator() -> WalletLifecycleCoordinator {
+        WalletLifecycleCoordinator(
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+    }
+
+    private func makeWalletNetworkMigrator(
+        keystore: KeystoreProtocol,
+        store: WalletNetworkStore,
+        settings: SettingsManagerProtocol,
+        admissionPolicy: NexusNetworkAdmissionPolicy = .current
+    ) -> WalletNetworkModelMigrator {
+        let recoveryGate = makeIsolatedRecoveryGate(settings: settings)
+        return WalletNetworkModelMigrator(
+            keystore: keystore,
+            store: store,
+            settings: settings,
+            lifecycleCoordinator: WalletLifecycleCoordinator(
+                recoveryGate: recoveryGate
+            ),
+            recoveryGate: recoveryGate,
+            admissionPolicy: admissionPolicy
+        )
+    }
+
+    private func makeUserStorageMigrator(
+        targetVersion: UserStorageVersion,
+        storeURL: URL,
+        modelDirectory: String,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        fileManager: FileManager,
+        recoveryGate: WalletRecoveryCapabilityGate? = nil,
+        availableCapacity: @escaping (URL) -> Int64? = { _ in Int64.max },
+        loadWalletNetworkSnapshot:
+            @escaping () throws -> WalletNetworkSnapshot? = { nil },
+        afterLegacyStoreCopyBeforeVerification:
+            ((URL) throws -> Void)? = nil,
+        beforeSafetyActivationVerification:
+            ((URL) throws -> Void)? = nil
+    ) -> UserStorageMigrator {
+        UserStorageMigrator(
+            targetVersion: targetVersion,
+            storeURL: storeURL,
+            modelDirectory: modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: fileManager,
+            recoveryGate: recoveryGate ??
+                makeIsolatedRecoveryGate(settings: settings),
+            availableCapacity: availableCapacity,
+            loadWalletNetworkSnapshot: loadWalletNetworkSnapshot,
+            afterLegacyStoreCopyBeforeVerification:
+                afterLegacyStoreCopyBeforeVerification,
+            beforeSafetyActivationVerification:
+                beforeSafetyActivationVerification
+        )
+    }
+
+    private static func tairaAdmissionInfo(
+        currentChainId: String = tairaUUIDs.second,
+        currentDeploymentEpoch: String = "200",
+        retiredDeploymentEpoch: String = "100"
+    ) -> [String: Any] {
+        let retiredChainId = currentChainId == tairaUUIDs.first
+            ? tairaUUIDs.second
+            : tairaUUIDs.first
+        return [
+            "SoraTairaDeploymentAdmissionContractId":
+                "sora-ios-taira-deployment-admission-v2",
+            "SoraTairaDeploymentManifestSha256":
+                String(repeating: "a", count: 64),
+            "SoraTairaDeploymentManifestSequenceNumber": "17",
+            "SoraTairaDeploymentAdmissionSha256":
+                String(repeating: "b", count: 64),
+            "SoraTairaCurrentChainId": currentChainId,
+            "SoraTairaRetiredChainId": retiredChainId,
+            "SoraTairaCurrentGenesisHash":
+                String(repeating: "c", count: 64),
+            "SoraTairaRetiredGenesisHash":
+                String(repeating: "d", count: 64),
+            "SoraTairaCurrentDeploymentEpoch": currentDeploymentEpoch,
+            "SoraTairaRetiredDeploymentEpoch": retiredDeploymentEpoch,
+            "SoraTairaCanonicalToriiBaseUrl":
+                "https://taira.sora.org",
+            "SoraTairaPublicMcpEndpoint":
+                "https://taira.sora.org/v1/mcp",
+            "SoraTairaExplorerBaseUrl":
+                "https://taira.sora.org",
+            "SoraTairaPendingRowPolicy":
+                "schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation",
+        ]
+    }
+
+    private static func admittedTairaBinding(
+        currentChainId: String = tairaUUIDs.second
+    ) throws -> TairaDeploymentBinding {
+        return try XCTUnwrap(
+            TairaDeploymentBinding.admitted(
+                infoDictionary: tairaAdmissionInfo(
+                    currentChainId: currentChainId
+                )
+            )
+        )
+    }
+
+    private static func admittedTairaConfiguration(
+        currentChainId: String = tairaUUIDs.second
+    ) throws -> NexusNetworkConfiguration {
+        NexusNetworkConfiguration.taira(
+            deployment: try admittedTairaBinding(
+                currentChainId: currentChainId
+            )
+        )
+    }
+
+    func testProductionWalletStorageIdentityRemainsBackwardCompatible() {
+        XCTAssertEqual(
+            UserStorageVersion.current.rawValue,
+            UserStorageVersion.version2.rawValue
+        )
+        XCTAssertEqual(
+            UserStorageParams.modelVersion.rawValue,
+            UserStorageVersion.current.rawValue
+        )
+        XCTAssertEqual(UserStorageParams.databaseName, "UserDataModel.sqlite")
+        XCTAssertEqual(
+            UserStorageParams.storageURL.lastPathComponent,
+            "UserDataModel.sqlite"
+        )
+        XCTAssertEqual(
+            UserStorageParams.storageDirectoryURL.lastPathComponent,
+            "CoreData"
+        )
+        switch UserStorageParams.incompatibleModelStrategy {
+        case .ignore:
+            break
+        case .removeStore:
+            XCTFail("The production wallet store must never be removed on incompatibility")
+        @unknown default:
+            XCTFail("The production wallet store uses an unreviewed incompatibility strategy")
+        }
+
+        let retainedAddress = "retained-production-wallet"
+        XCTAssertEqual(KeystoreTag.pincode.rawValue, "pincode")
+        XCTAssertEqual(KeystoreTag.legacyEntropy.rawValue, "seedEntropy")
+        XCTAssertEqual(KeystoreTag.legacyUsername.rawValue, "userName")
+        XCTAssertEqual(
+            KeystoreTag.secretKeyTagForAddress(retainedAddress),
+            "retained-production-wallet-secretKey"
+        )
+        XCTAssertEqual(
+            KeystoreTag.entropyTagForAddress(retainedAddress),
+            "retained-production-wallet-entropy"
+        )
+        XCTAssertEqual(
+            KeystoreTag.deriviationTagForAddress(retainedAddress),
+            "retained-production-wallet-deriv"
+        )
+        XCTAssertEqual(
+            KeystoreTag.seedTagForAddress(retainedAddress),
+            "retained-production-wallet-seed"
+        )
+    }
+
+    func testProductionKeychainAccessibilityRemainsWhenUnlockedThisDeviceOnly()
+        throws
+    {
+        XCTAssertEqual(
+            Keychain.accessibility,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String
+        )
+    }
+
+    func testKeychainIdentifierInventoryRetainsWalletTagsAmongFrameworkKeys() throws {
+        let tag = kSecAttrApplicationTag as String
+        let records: [[String: Any]] = [
+            [tag: Data("seedEntropy".utf8)],
+            [tag: "pincode"],
+            [tag: Data("pincode".utf8)],
+            [tag: Data("retained-account-secretKey".utf8)],
+            [tag: "framework-readable-key"],
+            [:], [tag: Data([0xff, 0xfe])], [tag: Data()], [tag: ""],
+            [kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom],
+        ]
+        XCTAssertEqual(try Keychain.keyIdentifiers(fromKeychainAttributes: records),
+                       ["framework-readable-key", "pincode", "retained-account-secretKey", "seedEntropy"])
+        XCTAssertEqual(try Keychain.keyIdentifiers(fromKeychainAttributes: [tag: Data("pincode".utf8)]),
+                       ["pincode"])
+        XCTAssertThrowsError(try Keychain.keyIdentifiers(fromKeychainAttributes: nil))
+        XCTAssertThrowsError(try Keychain.keyIdentifiers(fromKeychainAttributes: "unreadable result"))
+        XCTAssertThrowsError(try Keychain.keyIdentifiers(fromKeychainAttributes: [records[0], "invalid record"] as [Any]))
+
+        // Diagnostic collection must neither expand the existing queries nor
+        // turn an unattempted fallback into a missing-key assertion.
+        let observation = WalletSecretDiagnostics(origin: .liveInventory, schema: 2,
+            accountNumber: 1, accountCount: 1, cryptoType: 0, networkType: 69,
+            selected: true, watchOnly: false)
+        let unobserved = DiagnosticKeychainFixture(InMemoryKeychain())
+        let observed = DiagnosticKeychainFixture(InMemoryKeychain())
+        let gate = makeIsolatedRecoveryGate()
+        XCTAssertNil(try unobserved.fetchLegacyEntropyBeforeNetworkActivation(for: "synthetic-account", recoveryGate: gate))
+        XCTAssertNil(try observed.fetchLegacyEntropyBeforeNetworkActivation(for: "synthetic-account",
+            recoveryGate: gate, diagnostic: observation))
+        XCTAssertEqual(observed.checked, unobserved.checked)
+        XCTAssertEqual(observed.fetched, unobserved.fetched)
+        XCTAssertEqual(observation.snapshot.fallback, .globalMissing)
+        XCTAssertNil(observation.snapshot.outcomes[.legacyIrohaKey])
+        try observed.addKey(Data("//retained".utf8), with: KeystoreTag.deriviationTagForAddress("synthetic-account"))
+        let declined = WalletSecretDiagnostics(origin: .liveInventory, schema: 1,
+            accountNumber: 1, accountCount: 1, cryptoType: 0, networkType: 69,
+            selected: true, watchOnly: false)
+        XCTAssertNil(try observed.fetchLegacyEntropyBeforeNetworkActivation(for: "synthetic-account",
+            recoveryGate: gate, diagnostic: declined))
+        XCTAssertEqual(declined.snapshot.fallback, .derivationConflict)
+        XCTAssertNil(declined.snapshot.outcomes[.globalEntropy])
+
+        // The richest fixed-code context still fits the bounded persisted
+        // format. A saved manifest's flags are distinct from actual key reads.
+        let settings = InMemorySettingsManager()
+        settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+            for: KeystoreError.unexpectedFail))
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        let saved = WalletSecretDiagnostics(origin: .savedManifest, schema: 2,
+            accountNumber: 4096, accountCount: 4096, cryptoType: 255, networkType: 16383,
+            selected: false, watchOnly: false)
+        saved.snapshot.savedSecret = false
+        saved.snapshot.savedEntropy = false
+        saved.snapshot.savedSeed = false
+        saved.snapshot.snapshotPresent = true
+        saved.snapshot.failedOperation = .scopedDerivation
+        saved.snapshot.fallback = .snapshotIdentity
+        for operation in WalletSecretDiagnostics.Operation.allCases {
+            saved.snapshot.outcomes[operation] = .notChecked
+        }
+        let missing = UserStorageMigrationError.missingWalletSecret("synthetic-private-identifier")
+        do {
+            try WalletStartupDiagnostic.check(.databaseMigration) {
+                WalletStartupDiagnostic.retainSecretChecks(saved.snapshot, error: missing)
+                throw missing
+            }
+        } catch { WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings) }
+        let current = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+        XCTAssertEqual(current.secretChecks, saved.snapshot)
+        XCTAssertEqual(current.phase, .databaseMigration)
+        XCTAssertEqual(current.cause, .missingSecret)
+        XCTAssertTrue(current.userMessage.contains("manifest"))
+        XCTAssertFalse(current.summary.contains("synthetic-private-identifier"))
+        let serialized = try XCTUnwrap(settings.string(for: SettingsKey.walletStartupDiagnostic.rawValue))
+        XCTAssertLessThanOrEqual(serialized.utf8.count, 1_024)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(serialized.utf8)) as? [String: Any])
+        legacy.removeValue(forKey: "secretChecks")
+        legacy.removeValue(forKey: "recordedAt")
+        settings.set(value: String(decoding: try JSONSerialization.data(withJSONObject: legacy), as: UTF8.self),
+            for: SettingsKey.walletStartupDiagnostic.rawValue)
+        XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .missingSecret)
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        XCTAssertTrue(WalletStartupDiagnostic.current(settings)?.summary.contains("were not recorded") == true)
+
+        // A later check has its own context even if its cause matches a prior
+        // failure. A translated error also cannot reuse credential outcomes.
+        do { try WalletStartupDiagnostic.check(.networkSnapshot) { throw missing } }
+        catch { WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings) }
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.phase, .networkSnapshot)
+        do {
+            try WalletStartupDiagnostic.check(.databaseMigration) {
+                WalletStartupDiagnostic.retainSecretChecks(saved.snapshot, error: missing)
+                throw UserStorageMigrationError.backupVerificationFailed("synthetic-private-path")
+            }
+        } catch { WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings) }
+        XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .backupVerification)
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        try WalletStartupDiagnostic.check(.databaseMigration) {
+            WalletStartupDiagnostic.retainSecretChecks(saved.snapshot, error: missing)
+        }
+        WalletStartupDiagnostic.record(missing, phase: .selectedAccount, settings: settings)
+        XCTAssertNil(WalletStartupDiagnostic.current(settings)?.secretChecks)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+
+    }
+
+    func testLegacyWalletStartupWithFrameworkKeychainObjectsPreservesSigning() throws {
+        let keychain = MixedKeychainAttributesFixture()
+        let entropy = Data(repeating: 0, count: 16)
+        let name = "Retained wallet"
+        try keychain.wallet.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try keychain.wallet.addKey(Data(name.utf8), with: KeystoreTag.legacyUsername.rawValue)
+        try keychain.wallet.addKey(Data("123456".utf8), with: KeystoreTag.pincode.rawValue)
+        let identifiers = try keychain.allKeyIdentifiers()
+        let settings = InMemorySettingsManager()
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        var deferredForLegacyUpgrade = false
+        XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+            deferredForLegacyUpgrade = try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: false, keystore: keychain, hasWatchOnlyWallet: false, snapshot: nil)
+        }, .ready)
+        XCTAssertTrue(deferredForLegacyUpgrade)
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+
+        let preparation = AccountOperationFactory(keystore: keychain, recoveryGate: gate)
+            .prepareAccountOperation(request: AccountCreationRequest(username: name,
+                type: .sora, derivationPath: "", cryptoType: .sr25519),
+                mnemonic: try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy))
+        OperationQueue().addOperations([preparation], waitUntilFinished: true)
+        let account = try preparation.extractResultData(throwing: BaseOperationError.parentOperationCancelled).account
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try WalletNetworkStore(baseURL: directory, recoveryGate: gate)
+        let migrator = WalletNetworkModelMigrator(keystore: keychain, store: store,
+            settings: settings, lifecycleCoordinator: coordinator, recoveryGate: gate)
+        // The actual migrator proves the retained SORA identity with a native
+        // signing challenge before admitting the added network identities.
+        try migrator.migrate(accounts: [account], selectedAddress: account.address)
+        let snapshot = try XCTUnwrap(store.load())
+        XCTAssertEqual(snapshot.selectedWalletId, account.address)
+        XCTAssertEqual(snapshot.wallets.first?.displayName, name)
+        XCTAssertEqual(snapshot.accounts.first(where: { $0.networkId == .sora2 })?.publicKey,
+                       account.publicKeyData)
+        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), NexusNetworkConfiguration.admittedWalletNetworkIds)
+        try migrator.migrate(accounts: [account], selectedAddress: account.address)
+        XCTAssertEqual(try keychain.allKeyIdentifiers(), identifiers)
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.legacyEntropy.rawValue), entropy)
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.legacyUsername.rawValue), Data(name.utf8))
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("123456".utf8))
+        XCTAssertEqual(keychain.walletMutationCount, 0)
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testDurableFileWriterPreservesProtectionAndPermissions() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let target = directory.appendingPathComponent("journal.json")
+        try Data("legacy".utf8).write(to: target)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o640)],
+            ofItemAtPath: target.path
+        )
+        try FileProtectionMetadata.setProtectionClass(
+            .completeUntilFirstUserAuthentication,
+            at: target,
+            fileManager: .default
+        )
+        let protectionBefore = try FileProtectionMetadata.protectionClass(
+            at: target,
+            fileManager: .default
+        )
+        #if !targetEnvironment(simulator)
+            let attributesBefore = try FileManager.default.attributesOfItem(
+                atPath: target.path
+            )
+            XCTAssertEqual(
+                try XCTUnwrap(
+                    FileProtectionMetadata.normalized(
+                        attributesBefore[.protectionKey]
+                    )
+                ),
+                protectionBefore
+            )
+        #endif
+        XCTAssertEqual(
+            protectionBefore,
+            FileProtectionType.completeUntilFirstUserAuthentication
+        )
+
+        let replacement = Data("durable replacement".utf8)
+        try DurableFileWriter.write(
+            replacement,
+            to: target,
+            fileManager: .default,
+            protection: .complete
+        )
+
+        XCTAssertEqual(try Data(contentsOf: target), replacement)
+        let attributesAfter = try FileManager.default.attributesOfItem(
+            atPath: target.path
+        )
+        let permissions = try XCTUnwrap(
+            attributesAfter[.posixPermissions] as? NSNumber
+        )
+        let protectionAfter = try FileProtectionMetadata.protectionClass(
+            at: target,
+            fileManager: .default
+        )
+        #if !targetEnvironment(simulator)
+            XCTAssertEqual(
+                try XCTUnwrap(
+                    FileProtectionMetadata.normalized(
+                        attributesAfter[.protectionKey]
+                    )
+                ),
+                protectionAfter
+            )
+        #endif
+        XCTAssertEqual(permissions.intValue & 0o7777, 0o640)
+        XCTAssertEqual(protectionAfter, protectionBefore)
+        XCTAssertFalse(
+            try FileManager.default.contentsOfDirectory(
+                atPath: directory.path
+            ).contains(where: { $0.hasPrefix(".durable-") })
+        )
+
+        let rollbackDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rollbackDirectory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(at: rollbackDirectory)
+        }
+        let rollbackTarget = rollbackDirectory.appendingPathComponent(
+            "existing.json"
+        )
+        let rollbackLegacyData = Data("rollback legacy".utf8)
+        try rollbackLegacyData.write(to: rollbackTarget)
+        try FileProtectionMetadata.setProtectionClass(
+            .completeUntilFirstUserAuthentication,
+            at: rollbackTarget,
+            fileManager: .default
+        )
+        var didWeakenExistingPublicationOnDisk = false
+        XCTAssertThrowsError(
+            try DurableFileWriter.write(
+                Data("failed replacement".utf8),
+                to: rollbackTarget,
+                fileManager: .default,
+                protection: .complete,
+                afterAtomicPublication: { publishedURL in
+                    try FileProtectionMetadata.setProtectionClass(
+                        .none,
+                        at: publishedURL,
+                        fileManager: .default
+                    )
+                    guard
+                        try FileProtectionMetadata.protectionClass(
+                            at: publishedURL,
+                            fileManager: .default
+                        ) == FileProtectionType.none
+                    else {
+                        throw FileProtectionMetadata.Failure.unavailable
+                    }
+                    didWeakenExistingPublicationOnDisk = true
+                }
+            )
+        )
+        XCTAssertTrue(didWeakenExistingPublicationOnDisk)
+        XCTAssertEqual(
+            try Data(contentsOf: rollbackTarget),
+            rollbackLegacyData
+        )
+        XCTAssertEqual(
+            try FileProtectionMetadata.protectionClass(
+                at: rollbackTarget,
+                fileManager: .default
+            ),
+            FileProtectionType.completeUntilFirstUserAuthentication
+        )
+        let protectedRollbackResidue = try FileManager.default
+            .contentsOfDirectory(
+                at: rollbackDirectory,
+                includingPropertiesForKeys: nil,
+                options: []
+            ).filter {
+                $0.lastPathComponent.hasPrefix(".durable-")
+            }
+        XCTAssertEqual(protectedRollbackResidue.count, 1)
+        for residue in protectedRollbackResidue {
+            XCTAssertEqual(
+                try FileProtectionMetadata.protectionClass(
+                    at: residue,
+                    fileManager: .default
+                ),
+                FileProtectionType.completeUntilFirstUserAuthentication
+            )
+        }
+
+        let absentDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: absentDirectory,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: absentDirectory) }
+        let absentTarget = absentDirectory.appendingPathComponent("new.json")
+        var didWeakenAbsentPublicationOnDisk = false
+        XCTAssertThrowsError(
+            try DurableFileWriter.write(
+                Data("failed new publication".utf8),
+                to: absentTarget,
+                fileManager: .default,
+                protection: .complete,
+                afterAtomicPublication: { publishedURL in
+                    try FileProtectionMetadata.setProtectionClass(
+                        .none,
+                        at: publishedURL,
+                        fileManager: .default
+                    )
+                    guard
+                        try FileProtectionMetadata.protectionClass(
+                            at: publishedURL,
+                            fileManager: .default
+                        ) == FileProtectionType.none
+                    else {
+                        throw FileProtectionMetadata.Failure.unavailable
+                    }
+                    didWeakenAbsentPublicationOnDisk = true
+                }
+            )
+        )
+        XCTAssertTrue(didWeakenAbsentPublicationOnDisk)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: absentTarget.path)
+        )
+        let protectedAbsentResidue = try FileManager.default
+            .contentsOfDirectory(
+                at: absentDirectory,
+                includingPropertiesForKeys: nil,
+                options: []
+            ).filter {
+                $0.lastPathComponent.hasPrefix(".durable-failed-")
+            }
+        XCTAssertEqual(protectedAbsentResidue.count, 1)
+        for residue in protectedAbsentResidue {
+            XCTAssertEqual(
+                try FileProtectionMetadata.protectionClass(
+                    at: residue,
+                    fileManager: .default
+                ),
+                FileProtectionType.complete
+            )
+        }
+    }
+
+    func testDurableFileWriterRejectsSymlinkWithoutTouchingLegacyFile()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let legacy = directory.appendingPathComponent("legacy.json")
+        let retained = Data("retained legacy evidence".utf8)
+        try retained.write(to: legacy)
+        let target = directory.appendingPathComponent("active.json")
+        try FileManager.default.createSymbolicLink(
+            at: target,
+            withDestinationURL: legacy
+        )
+
+        XCTAssertThrowsError(
+            try DurableFileWriter.write(
+                Data("replacement".utf8),
+                to: target,
+                fileManager: .default,
+                protection: .complete
+            )
+        ) { error in
+            guard
+                case DurableFileWriter.Failure.invalidTarget = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: legacy), retained)
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(
+                atPath: target.path
+            ),
+            legacy.path
+        )
+        XCTAssertFalse(
+            try FileManager.default.contentsOfDirectory(
+                atPath: directory.path
+            ).contains(where: { $0.hasPrefix(".durable-") })
+        )
+    }
+
+    func testMigrationOutcomeCodesNeverContainWalletIdentifiers() {
+        let walletIdentifier = "cnPrivacySensitiveWalletIdentifier"
+        let missingSecret = UserStorageMigrationError.missingWalletSecret(
+            walletIdentifier
+        )
+        let backupFailure = UserStorageMigrationError.backupVerificationFailed(
+            walletIdentifier
+        )
+
+        XCTAssertEqual(
+            missingSecret.privacySafeOutcomeCode,
+            "missing_wallet_secret"
+        )
+        XCTAssertEqual(
+            backupFailure.privacySafeOutcomeCode,
+            "backup_verification_failed"
+        )
+        XCTAssertFalse(
+            missingSecret.privacySafeOutcomeCode.contains(walletIdentifier)
+        )
+        XCTAssertFalse(
+            backupFailure.privacySafeOutcomeCode.contains(walletIdentifier)
+        )
+        XCTAssertFalse(
+            UserStorageMigrationError
+                .privacySafeRecoveryDescription(for: missingSecret)
+                .contains(walletIdentifier)
+        )
+        XCTAssertFalse(
+            UserStorageMigrationError
+                .privacySafeRecoveryDescription(for: backupFailure)
+                .contains(walletIdentifier)
+        )
+        XCTAssertEqual(
+            UserStorageMigrationError.privacySafeOutcomeCode(
+                for: NSError(
+                    domain: walletIdentifier,
+                    code: 1
+                )
+            ),
+            "unexpected_failure"
+        )
+        XCTAssertEqual(
+            UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: NSError(
+                    domain: walletIdentifier,
+                    code: 1,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: walletIdentifier
+                    ]
+                )
+            ),
+            "Wallet storage could not be verified safely " +
+                "(unexpected_failure). Existing wallet data and recovery " +
+                "copies were preserved."
+        )
+    }
+
+    func testWalletLifecycleCoordinatorRequiresOneActiveLease() throws {
+        let coordinator = makeLifecycleCoordinator()
+        let first = try XCTUnwrap(coordinator.tryAcquire())
+        defer { first.release() }
+
+        XCTAssertNil(coordinator.tryAcquire())
+        var suppliedLeaseBodyRan = false
+        try coordinator.withExclusiveAccess(using: first) {
+            suppliedLeaseBodyRan = true
+            XCTAssertNil(coordinator.tryAcquire())
+        }
+        XCTAssertTrue(suppliedLeaseBodyRan)
+        XCTAssertNil(coordinator.tryAcquire())
+
+        first.release()
+        XCTAssertThrowsError(
+            try coordinator.withExclusiveAccess(using: first) {}
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .lifecycleMutationBusy = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let replacement = try XCTUnwrap(coordinator.tryAcquire())
+        replacement.release()
+    }
+
+    func testWalletLifecycleReleaseWaitsForBorrowedCriticalSection() throws {
+        let coordinator = makeLifecycleCoordinator()
+        let lease = try XCTUnwrap(coordinator.tryAcquire())
+        let entered = expectation(description: "borrow entered")
+        let finished = expectation(description: "borrow finished")
+        let allowFinish = DispatchSemaphore(value: 0)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            defer { finished.fulfill() }
+            do {
+                try coordinator.withExclusiveAccess(using: lease) {
+                    entered.fulfill()
+                    allowFinish.wait()
+                }
+            } catch {
+                XCTFail("Borrowed lifecycle body failed: \(error)")
+            }
+        }
+
+        wait(for: [entered], timeout: 2)
+        lease.release()
+        XCTAssertNil(coordinator.tryAcquire())
+        allowFinish.signal()
+        wait(for: [finished], timeout: 2)
+
+        let replacement = try XCTUnwrap(coordinator.tryAcquire())
+        replacement.release()
+    }
+
+    func testCancelledLifecycleAcquireOperationDoesNotLeakLease() throws {
+        let coordinator = makeLifecycleCoordinator()
+        let first = try XCTUnwrap(coordinator.tryAcquire())
+        let acquisition = coordinator.makeAcquireOperation()
+        let completed = expectation(description: "cancelled acquisition")
+        acquisition.completionBlock = {
+            completed.fulfill()
+        }
+        coordinator.enqueueOwnedAcquireOperation(acquisition)
+        acquisition.cancel()
+        let follower = coordinator.makeAcquireOperation()
+        let followerCompleted = expectation(
+            description: "follower acquired after cancellation"
+        )
+        follower.completionBlock = {
+            followerCompleted.fulfill()
+        }
+        coordinator.enqueueOwnedAcquireOperation(follower)
+        first.release()
+        wait(
+            for: [completed, followerCompleted],
+            timeout: 2
+        )
+
+        XCTAssertThrowsError(
+            try acquisition.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        )
+        let followerLease = try follower
+            .extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        followerLease.release()
+        let replacement = try XCTUnwrap(coordinator.tryAcquire())
+        replacement.release()
+    }
+
+    func testLifecycleAcquisitionQueueDoesNotStarveSingleWorker() {
+        let coordinator = makeLifecycleCoordinator()
+        let worker = OperationQueue()
+        worker.maxConcurrentOperationCount = 1
+        let completed = expectation(
+            description: "all dependent lifecycle mutations"
+        )
+        completed.expectedFulfillmentCount = 16
+
+        for _ in 0 ..< completed.expectedFulfillmentCount {
+            let acquisition = coordinator.makeAcquireOperation()
+            let mutation: BaseOperation<Void> = ClosureOperation {
+                let lease = try acquisition
+                    .extractResultData(
+                        throwing: BaseOperationError.parentOperationCancelled
+                    )
+                defer { lease.release() }
+                completed.fulfill()
+            }
+            mutation.addDependency(acquisition)
+            coordinator.enqueueOwnedAcquireOperation(acquisition)
+            worker.addOperation(mutation)
+        }
+
+        wait(for: [completed], timeout: 5)
+    }
+
+    func testPreparedSeedImportValidationDoesNotWriteKeychain() throws {
+        let keychain = InMemoryKeychain()
+        try keychain.addKey(
+            Data([0x01]),
+            with: "preexisting-wallet-marker"
+        )
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        let request = AccountImportSeedRequest(
+            seed: String(repeating: "01", count: 32),
+            username: "Pure validation",
+            networkType: .sora,
+            derivationPath: "",
+            cryptoType: .sr25519
+        )
+        let operation = factory.prepareAccountOperation(request: request)
+        OperationQueue().addOperations(
+            [operation],
+            waitUntilFinished: true
+        )
+
+        let prepared = try operation.extractResultData(
+            throwing: BaseOperationError.parentOperationCancelled
+        )
+        XCTAssertEqual(
+            try keychain.allKeyIdentifiers(),
+            ["preexisting-wallet-marker"]
+        )
+        prepared.discard()
+        XCTAssertEqual(
+            try keychain.allKeyIdentifiers(),
+            ["preexisting-wallet-marker"]
+        )
+    }
+
+    func testPreparedAccountRejectsMismatchedPrivateAndPublicMaterial()
+        throws
+    {
+        let first = try SR25519KeypairFactory().createKeypairFromSeed(
+            Data(repeating: 0x11, count: 32),
+            chaincodeList: []
+        )
+        let second = try SR25519KeypairFactory().createKeypairFromSeed(
+            Data(repeating: 0x22, count: 32),
+            chaincodeList: []
+        )
+        let publicKey = first.publicKey().rawData()
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: Chain.sora.addressType()
+        )
+        let account = AccountItem(
+            address: address,
+            cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(),
+            username: "Mismatched",
+            publicKeyData: publicKey,
+            settings: AccountSettings(
+                visibleAssetIds: [],
+                orderedAssetIds: []
+            ),
+            order: 0,
+            isSelected: true
+        )
+
+        XCTAssertThrowsError(
+            try PreparedAccount(
+                account: account,
+                secretKey: second.privateKey().rawData(),
+                entropy: nil,
+                seed: nil,
+                derivationPath: nil,
+                recoveryGate: makeIsolatedRecoveryGate()
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.legacyIdentityMismatch =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    private let mnemonic12 =
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    private let mnemonic24 =
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"
+
+    func testSharedTwelveAndTwentyFourWordVectorsPreserveSora2Identity() throws {
+        let fixtureURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent(
+                "Fixtures/Modernization/wallet-derivation-v1.json"
+            )
+        let fixture = try JSONDecoder().decode(
+            SharedWalletDerivationFixture.self,
+            from: Data(contentsOf: fixtureURL)
+        )
+        XCTAssertEqual(fixture.format, "sora-mobile-wallet-derivation-v1")
+        XCTAssertEqual(fixture.sora2.curve, "sr25519")
+        XCTAssertEqual(fixture.sora2.ss58Prefix, 69)
+        XCTAssertEqual(fixture.sora2.derivationVersion, 1)
+        XCTAssertEqual(fixture.sora2.derivationPath, "")
+
+        let vectors = fixture.vectors.compactMap { vector in
+            vector.sora2.map { (vector, $0) }
+        }
+        XCTAssertEqual(
+            Set(vectors.map { $0.0.name }),
+            Set(["bip39-12-abandon", "fearless-default-24"])
+        )
+
+        for (vector, expected) in vectors {
+            let mnemonic = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromList: vector.mnemonic)
+            var directBip39Seed = try IRBIP39SeedCreator().deriveSeed(
+                from: mnemonic.toString(),
+                passphrase: ""
+            )
+            defer {
+                directBip39Seed.resetBytes(
+                    in: directBip39Seed.startIndex ..< directBip39Seed.endIndex
+                )
+            }
+            XCTAssertEqual(
+                Data(directBip39Seed.prefix(32)).hex,
+                expected.directBip39Seed32Hex
+            )
+            var legacyMiniSeed = try SeedFactory()
+                .deriveSeed(from: mnemonic.toString(), password: "")
+                .seed
+                .miniSeed
+            defer {
+                legacyMiniSeed.resetBytes(
+                    in: legacyMiniSeed.startIndex ..< legacyMiniSeed.endIndex
+                )
+            }
+            XCTAssertEqual(
+                legacyMiniSeed.hex,
+                expected.legacySora2MiniSeedHex
+            )
+            XCTAssertNotEqual(
+                legacyMiniSeed.hex,
+                expected.directBip39Seed32Hex,
+                "The direct BIP39 seed must never replace the legacy SORA2 mini-seed"
+            )
+            let keypair = try SR25519KeypairFactory().createKeypairFromSeed(
+                legacyMiniSeed,
+                chaincodeList: []
+            )
+            XCTAssertEqual(
+                keypair.publicKey().rawData().hex,
+                expected.publicKeyHex
+            )
+            XCTAssertEqual(
+                try SS58AddressFactory().address(
+                    fromAccountId: keypair.publicKey().rawData(),
+                    type: Chain.sora.addressType()
+                ),
+                expected.address
+            )
+        }
+
+        let localizationRoot = fixtureURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("SoraPassport/SoraLocalizable")
+        let localizedFiles = try FileManager.default
+            .contentsOfDirectory(
+                at: localizationRoot,
+                includingPropertiesForKeys: nil
+            )
+            .filter { $0.pathExtension == "lproj" }
+            .map { $0.appendingPathComponent("Localizable.strings") }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        XCTAssertGreaterThan(localizedFiles.count, 20)
+
+        func localizedValue(_ key: String, source: String) -> String? {
+            let prefix = "\"\(key)\" = \""
+            guard let start = source.range(of: prefix) else { return nil }
+            let suffix = source[start.upperBound...]
+            guard let end = suffix.range(of: "\";") else { return nil }
+            return String(suffix[..<end.lowerBound])
+        }
+
+        for file in localizedFiles {
+            let source = try String(contentsOf: file, encoding: .utf8)
+            guard
+                let commonValue = localizedValue(
+                    "common.passphrase.body",
+                    source: source
+                ),
+                let wordCountValue = localizedValue(
+                    "access.restore.words.error.message",
+                    source: source
+                ),
+                let phraseValue = localizedValue(
+                    "access.restore.phrase.error.message",
+                    source: source
+                ),
+                let exportValue = localizedValue(
+                    "export.protection.passphrase.description",
+                    source: source
+                )
+            else {
+                XCTFail("Missing required wallet copy in \(file.path)")
+                continue
+            }
+            XCTAssertTrue(commonValue.contains("24"), file.path)
+            XCTAssertFalse(commonValue.contains("15"), file.path)
+            XCTAssertTrue(wordCountValue.contains("12"), file.path)
+            XCTAssertTrue(wordCountValue.contains("24"), file.path)
+            XCTAssertFalse(wordCountValue.contains("15"), file.path)
+            XCTAssertTrue(phraseValue.contains("12"), file.path)
+            XCTAssertTrue(phraseValue.contains("24"), file.path)
+            XCTAssertFalse(phraseValue.contains("15"), file.path)
+            XCTAssertTrue(exportValue.contains("24"), file.path)
+            XCTAssertFalse(exportValue.contains("12"), file.path)
+        }
+    }
+
+    func testNexusDerivationRejectsInvalidMnemonicChecksum() {
+        let invalid = Array(
+            repeating: "abandon",
+            count: 12
+        ).joined(separator: " ")
+        XCTAssertThrowsError(
+            try NexusKeyDerivation.derive(
+                mnemonic: invalid,
+                configuration: .minamoto
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.invalidMnemonic =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testTwelveWordNexusDerivationGoldenVectors() throws {
+        let minamoto = try NexusKeyDerivation.derive(
+            mnemonic: mnemonic12,
+            configuration: .minamoto
+        )
+        XCTAssertEqual(
+            minamoto.privateKey.hex,
+            "37b9341a9c5b929033232530e8ecfa3aab48c288995b07c6c323e4b8d0ace9de"
+        )
+        XCTAssertEqual(
+            minamoto.publicKey.hex,
+            "8dea60946dd00558e61254c7aadeccabd1e39d5b9a12a45b678e22209f19426f"
+        )
+        XCTAssertEqual(
+            minamoto.address,
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        )
+
+        let taira = try NexusKeyDerivation.derive(
+            mnemonic: mnemonic12,
+            configuration: Self.admittedTairaConfiguration()
+        )
+        XCTAssertEqual(
+            taira.privateKey.hex,
+            "1c8892e7107b47862ec584fe774c3849d28c34c27b95c8a77465abbc6b1e56a7"
+        )
+        XCTAssertEqual(
+            taira.publicKey.hex,
+            "ebe2fe329305f8e4c19cc4b159bc6ddd413cf5831422bdb9b3b93ee5053bd4d3"
+        )
+        XCTAssertEqual(
+            taira.address,
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        )
+    }
+
+    func testTwentyFourWordNexusDerivationGoldenVectors() throws {
+        let minamoto = try NexusKeyDerivation.derive(
+            mnemonic: mnemonic24,
+            configuration: .minamoto
+        )
+        XCTAssertEqual(
+            minamoto.publicKey.hex,
+            "2651a79b3da908fbdb63e0756e9be9561c6c4638120c3af0d444670cd088a138"
+        )
+        XCTAssertEqual(
+            minamoto.address,
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        )
+
+        let taira = try NexusKeyDerivation.derive(
+            mnemonic: mnemonic24,
+            configuration: Self.admittedTairaConfiguration()
+        )
+        XCTAssertEqual(
+            taira.publicKey.hex,
+            "6f14b7c26f99962837dfc13244188d9c4699f987b319b41949a898e6988d98a4"
+        )
+        XCTAssertEqual(
+            taira.address,
+            "testuﾛ1PDｵｾNｸkﾁoｹﾐyTW2Xiﾙo1yﾔｵhｷ7CﾃgｷｵｶkｶﾋWｴﾎn73BW7C"
+        )
+    }
+
+    func testRetainedMnemonicLengthsRejectNexusDerivation() throws {
+        for (bytes, words) in [(20, 15), (24, 18), (28, 21)] {
+            let mnemonic = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: Data(repeating: 0, count: bytes))
+            XCTAssertEqual(mnemonic.allWords().count, words)
+            XCTAssertEqual(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: words),
+                           .legacyMnemonicEntropy)
+            XCTAssertThrowsError(try NexusKeyDerivation.derive(
+                mnemonic: mnemonic.toString(), profile: .taira
+            ))
+        }
+        XCTAssertEqual(WalletMnemonicWordPolicy.userImportWordCounts, [12, 24])
+    }
+
+    func testLegacyMnemonicSnapshotRemainsSoraOnlyWithoutReplacingKeys() throws {
+        for bytes in [20, 24, 28] {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let entropy = Data(repeating: UInt8(bytes), count: bytes)
+            let account = try retainedEntropyAccount(entropy: entropy)
+            let keys = InMemoryKeychain()
+            try keys.saveEntropy(entropy, address: account.address)
+            let originals = try retainedEntropyKeyBytes(keys)
+            let settings = InMemorySettingsManager()
+            let gate = makeIsolatedRecoveryGate(settings: settings)
+            let lifecycle = WalletLifecycleCoordinator(recoveryGate: gate)
+            let store = try WalletNetworkStore(baseURL: directory, recoveryGate: gate)
+            let original = WalletNetworkSnapshot(
+                schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: account.address,
+                wallets: [WalletIdentity(id: account.address, displayName: account.username,
+                    existingSoraAddress: account.address, secretSource: .legacyMnemonicEntropy)],
+                accounts: [NetworkAccount(walletId: account.address, networkId: .sora2,
+                    derivationVersion: 0, publicKey: account.publicKeyData, address: account.address)],
+                createdAt: Date(timeIntervalSince1970: 1))
+            let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks", isDirectory: true)
+            let pointerURL = networkDirectory.appendingPathComponent("active.json")
+            // Retain the exact SORA2-only format through later activations.
+            func writeRetainedSnapshot(_ snapshot: WalletNetworkSnapshot, fileName: String) throws {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(snapshot)
+                let snapshotURL = networkDirectory.appendingPathComponent(fileName)
+                try data.write(to: snapshotURL)
+                try FileProtectionMetadata.setProtectionClass(.completeUntilFirstUserAuthentication,
+                    at: snapshotURL, fileManager: .default)
+                let pointer: [String: Any] = ["schemaVersion": snapshot.schemaVersion,
+                    "fileName": fileName, "sha256": Data(SHA256.hash(data: data)).hex]
+                try JSONSerialization.data(withJSONObject: pointer, options: [.sortedKeys]).write(to: pointerURL)
+                try FileProtectionMetadata.setProtectionClass(.completeUntilFirstUserAuthentication,
+                    at: pointerURL, fileManager: .default)
+            }
+            let originalFile = "wallet-network-\(UUID().uuidString).json"
+            try writeRetainedSnapshot(original, fileName: originalFile)
+            let originalBytes = try Data(contentsOf: networkDirectory.appendingPathComponent(originalFile))
+            XCTAssertEqual(try store.load(), original)
+            let migrator = WalletNetworkModelMigrator(keystore: keys, store: store, settings: settings,
+                lifecycleCoordinator: lifecycle, recoveryGate: gate)
+            try migrator.migrate(accounts: [account], selectedAddress: account.address)
+            let activated = try XCTUnwrap(store.load())
+            XCTAssertEqual(activated.wallets, original.wallets)
+            XCTAssertEqual(activated.selectedWalletId, original.selectedWalletId)
+            XCTAssertEqual(activated.accounts, original.accounts)
+            XCTAssertEqual(Set(activated.accounts.map(\.networkId)), [.sora2])
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+            XCTAssertEqual(try Data(contentsOf: networkDirectory.appendingPathComponent(originalFile)), originalBytes)
+            let provider = try IrohaConnectWalletProvider(keystore: keys, store: store, selectedAccount: { account })
+            let launch = IrohaConnectLaunch(originalURL: URL(string: "iroha://connect")!,
+                sid: Data(repeating: 1, count: 32), sidText: "synthetic-session",
+                network: try IrohaConnectNetworkLiteral(IrohaConnectLaunch.tairaNetworkId),
+                appPublicKey: Data(repeating: 2, count: 32), nonce: Data(repeating: 3, count: 16),
+                node: TairaDeploymentBinding.canonicalToriiBaseURL, networkId: .taira,
+                token: "synthetic-token", relayToken: "synthetic-relay", receivedAt: Date())
+            XCTAssertThrowsError(try provider.context(for: launch))
+            try migrator.migrate(accounts: [account], selectedAddress: account.address)
+            XCTAssertEqual(try store.load(), activated)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+
+            // A fabricated child must not be accepted or rewritten at startup.
+            let different = try NexusKeyDerivation.derive(mnemonic: mnemonic12, profile: .taira)
+            let altered = WalletNetworkSnapshot(schemaVersion: activated.schemaVersion,
+                selectedWalletId: activated.selectedWalletId, wallets: activated.wallets,
+                accounts: activated.accounts + [NetworkAccount(walletId: account.address, networkId: .taira,
+                    derivationVersion: 1, publicKey: different.publicKey, address: different.address)],
+                createdAt: activated.createdAt)
+            let pointer = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: pointerURL)) as? [String: Any])
+            try writeRetainedSnapshot(altered, fileName: try XCTUnwrap(pointer["fileName"] as? String))
+            let beforeFailure = try legacyActivationNetworkFiles(at: directory)
+            XCTAssertThrowsError(try store.load())
+            XCTAssertThrowsError(try migrator.migrate(accounts: [account], selectedAddress: account.address))
+            XCTAssertEqual(try legacyActivationNetworkFiles(at: directory), beforeFailure)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+        }
+    }
+
+    func testI105RejectsCrossNetworkAddress() throws {
+        let address =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        XCTAssertNoThrow(
+            try NexusNetworkConfiguration.minamoto.validate(address: address)
+        )
+        XCTAssertThrowsError(
+            try Self.admittedTairaConfiguration().validate(address: address)
+        )
+    }
+
+    func testTairaDeploymentAdmissionAcceptsEitherKnownCurrentMapping()
+        throws
+    {
+        let binding = try Self.admittedTairaBinding()
+        let configuration = try Self.admittedTairaConfiguration()
+        XCTAssertEqual(
+            binding.currentChainId.uuidString.lowercased(),
+            Self.tairaUUIDs.second
+        )
+        XCTAssertEqual(
+            TairaDeploymentBinding.knownChainIds,
+            [binding.currentChainId]
+        )
+        XCTAssertEqual(
+            configuration.chainId,
+            TairaDeploymentBinding.canonicalChainId
+        )
+        XCTAssertEqual(
+            configuration.toriiURL.absoluteString,
+            "https://taira.sora.org"
+        )
+        XCTAssertEqual(
+            TairaDeploymentBinding.canonicalPublicMcpEndpoint.absoluteString,
+            "https://taira.sora.org/v1/mcp"
+        )
+        XCTAssertTrue(configuration.satisfiesCurrentTairaContract)
+        XCTAssertTrue(binding.authorizesTransport(
+            to: try XCTUnwrap(
+                URL(string: "https://taira.sora.org/v1/mcp")
+            )
+        ))
+        XCTAssertFalse(binding.authorizesTransport(
+            to: try XCTUnwrap(
+                URL(string: "https://public-01.taira.example.org/v1/mcp")
+            )
+        ))
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: Self.tairaAdmissionInfo(
+                currentChainId: Self.tairaUUIDs.first
+            )
+        ))
+        var alternateRoot = Self.tairaAdmissionInfo()
+        alternateRoot["SoraTairaCanonicalToriiBaseUrl"] =
+            "https://public-01.taira.example.org"
+        alternateRoot["SoraTairaPublicMcpEndpoint"] =
+            "https://public-01.taira.example.org/v1/mcp"
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: alternateRoot
+        ))
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: Self.tairaAdmissionInfo(
+                currentDeploymentEpoch: "100",
+                retiredDeploymentEpoch: "100"
+            )
+        ))
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: Self.tairaAdmissionInfo(
+                currentDeploymentEpoch: "99",
+                retiredDeploymentEpoch: "100"
+            )
+        ))
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: Self.tairaAdmissionInfo(
+                currentDeploymentEpoch: "9007199254740992"
+            )
+        ))
+    }
+
+    func testNexusAdmissionPolicyHasIndependentExactTopologySets() throws {
+        XCTAssertTrue(NexusNetworkAdmissionPolicy.current.isTairaAdmitted)
+        XCTAssertEqual(
+            NexusNetworkConfiguration.admittedWalletNetworkIds,
+            [.sora2, .minamoto, .taira]
+        )
+        let unadmitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: nil
+        )
+        XCTAssertEqual(
+            unadmitted.admittedDerivationProfiles.map(\.networkId),
+            [.minamoto]
+        )
+        XCTAssertEqual(
+            unadmitted.admittedWalletNetworkIds,
+            [.sora2, .minamoto]
+        )
+        XCTAssertFalse(unadmitted.isTairaAdmitted)
+
+        let binding = try Self.admittedTairaBinding()
+        let admitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: binding
+        )
+        XCTAssertEqual(
+            admitted.admittedDerivationProfiles.map(\.networkId),
+            [.minamoto, .taira]
+        )
+        XCTAssertEqual(
+            admitted.admittedWalletNetworkIds,
+            [.sora2, .minamoto, .taira]
+        )
+        XCTAssertTrue(admitted.isTairaAdmitted)
+        XCTAssertEqual(
+            NexusNetworkConfiguration.admittedWalletNetworkIds(
+                deployment: nil
+            ),
+            [.sora2, .minamoto]
+        )
+        XCTAssertEqual(
+            NexusNetworkConfiguration.admittedWalletNetworkIds(
+                deployment: binding
+            ),
+            [.sora2, .minamoto, .taira]
+        )
+        XCTAssertTrue(
+            NexusNetworkAdmissionPolicy
+                .persistedMnemonicNetworkIdsAreValid(
+                    [.sora2, .minamoto]
+                )
+        )
+        XCTAssertTrue(
+            NexusNetworkAdmissionPolicy
+                .persistedMnemonicNetworkIdsAreValid(
+                    [.sora2, .minamoto, .taira]
+                )
+        )
+        XCTAssertFalse(
+            NexusNetworkAdmissionPolicy
+                .persistedMnemonicNetworkIdsAreValid([.sora2, .taira])
+        )
+    }
+
+    func testTairaPendingRowRequiresExactDeploymentIdentityAcrossBothMappings()
+        async throws
+    {
+        let configuration = try Self.admittedTairaConfiguration()
+        let tairaAddress =
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        func row(
+            chainId: UUID,
+            assetDefinitionID: String
+        ) throws -> NexusPendingTransaction {
+            NexusPendingTransaction(
+                id: UUID(),
+                idempotencyKey: UUID(),
+                walletId: "first-release-taira-wallet",
+                networkId: .taira,
+                chainId: chainId,
+                sender: tairaAddress,
+                receiver: tairaAddress,
+                assetDefinitionID: assetDefinitionID,
+                amount: try PIQuantity("1"),
+                fee: try PIQuantity("0.01"),
+                createdAt: Date(timeIntervalSince1970: 1),
+                updatedAt: Date(timeIntervalSince1970: 1),
+                hash: nil,
+                state: .signing,
+                terminalBlockHeight: nil,
+                errorClass: nil,
+                historyReconciledAt: nil
+            )
+        }
+
+        var canonical = try row(
+            chainId: configuration.chainId,
+            assetDefinitionID: NexusAssetDefinitionIdentity
+                .tairaXorDefinitionID
+        )
+        XCTAssertNil(canonical.tairaDeployment)
+        XCTAssertTrue(canonical.hasCurrentDeploymentIdentity(
+            for: configuration
+        ))
+
+        // The legacy projection remains callable for migration fixtures, but
+        // it is not part of current runtime admission.
+        let binding = try Self.admittedTairaBinding()
+        canonical.tairaDeployment =
+            NexusPendingTairaDeploymentIdentity.admitted(
+                for: configuration,
+                deployment: binding
+            )
+        XCTAssertFalse(canonical.hasCurrentDeploymentIdentity(
+            for: configuration
+        ))
+        XCTAssertTrue(canonical.hasCurrentDeploymentIdentity(
+            for: configuration,
+            tairaBinding: binding
+        ))
+        canonical.tairaDeployment = nil
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        _ = try await store.put(canonical)
+
+        let oldChain = try row(
+            chainId: try XCTUnwrap(UUID(uuidString: Self.tairaUUIDs.first)),
+            assetDefinitionID: NexusAssetDefinitionIdentity
+                .tairaXorDefinitionID
+        )
+        do {
+            _ = try await store.put(oldChain)
+            XCTFail("The retired Taira chain was admitted")
+        } catch {
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let lookalikeAsset = try row(
+            chainId: configuration.chainId,
+            assetDefinitionID: "61CtjvNd9T3THAR65GsMVHr82Bjc"
+        )
+        XCTAssertTrue(
+            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
+                "61CtjvNd9T3THAR65GsMVHr82Bjc"
+            )
+        )
+        do {
+            _ = try await store.put(lookalikeAsset)
+            XCTFail("A lookalike Taira XOR definition was admitted")
+        } catch {
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testI105RejectsUnboundedInputBeforeBaseConversion() {
+        let oversized = "sora" + String(repeating: "1", count: 509)
+        XCTAssertThrowsError(
+            try IrohaAddressCodec.parse(
+                oversized,
+                expectedDiscriminant:
+                    NexusNetworkConfiguration.minamoto.i105Discriminant
+            )
+        )
+    }
+
+    func testNexusCommittedHistoryUsesIndexedAccountProjection() throws {
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let amount = "340282366920938463463374607431768211455"
+        let hash = String(repeating: "a", count: 64)
+        let result = try JSONDecoder().decode(
+            NexusJSONValue.self,
+            from: JSONSerialization.data(
+                withJSONObject: [
+                    "body": [
+                        "items": [[
+                            "id": "\(hash):\(sender):0",
+                            "source": "transaction",
+                            "type": "TRANSFER",
+                            "timestamp_ms": 1_775_260_800_000,
+                            "status": "SUCCESS",
+                            "result_ok": true,
+                            "direction": "outgoing",
+                            "account_id": sender,
+                            "counterparty_account_id": receiver,
+                            "asset_id": "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                            "asset_definition_id": Self.nexusXorAssetDefinitionID,
+                            "amount": amount,
+                            "tx_hash": hash,
+                        ]],
+                        "total": 1,
+                        "has_more": false,
+                        "count_mode": "exact",
+                        "indexed_height": 42,
+                        "indexed_block_hash": String(repeating: "e", count: 64),
+                        "query_source": "account_history_index",
+                    ],
+                ]
+            )
+        )
+
+        let page = try NexusTransferHistoryParser.page(
+            result: result,
+            configuration: .minamoto,
+            account: sender,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID
+        )
+
+        XCTAssertEqual(page.sourceItemCount, 1)
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items.first?.amount.rawValue, amount)
+        XCTAssertEqual(page.items.first?.transactionHash, hash)
+        XCTAssertEqual(page.items.first?.sender, sender)
+        XCTAssertEqual(page.items.first?.receiver, receiver)
+        XCTAssertEqual(page.total, 1)
+        XCTAssertFalse(page.hasMore)
+        XCTAssertEqual(page.indexedHeight, 42)
+        XCTAssertEqual(page.indexedBlockHash, String(repeating: "e", count: 64))
+        let exactAmount = try XCTUnwrap(NexusExactDecimal(amount))
+        XCTAssertTrue(
+            NexusCommittedHistoryReconciliation.matchesExactlyOne(
+                history: page.items,
+                transactionHash: hash,
+                sender: sender,
+                receiver: receiver,
+                amount: exactAmount
+            )
+        )
+        XCTAssertFalse(
+            NexusCommittedHistoryReconciliation.matchesExactlyOne(
+                history: page.items + page.items,
+                transactionHash: hash,
+                sender: sender,
+                receiver: receiver,
+                amount: exactAmount
+            )
+        )
+        let conflictingTransfer = NexusTransferHistoryItem(
+            transactionHash: hash,
+            timestampMilliseconds: 1,
+            amount: try PIQuantity("1"),
+            sender: sender,
+            receiver: receiver
+        )
+        XCTAssertFalse(
+            NexusCommittedHistoryReconciliation.matchesExactlyOne(
+                history: page.items + [conflictingTransfer],
+                transactionHash: hash,
+                sender: sender,
+                receiver: receiver,
+                amount: exactAmount
+            ),
+            "A conflicting XOR projection under the signed hash was ignored"
+        )
+        let unrelatedTransfer = NexusTransferHistoryItem(
+            transactionHash: String(repeating: "b", count: 64),
+            timestampMilliseconds: 1,
+            amount: try PIQuantity(amount),
+            sender: sender,
+            receiver: receiver
+        )
+        XCTAssertTrue(
+            NexusCommittedHistoryReconciliation.matchesExactlyOne(
+                history: page.items + [unrelatedTransfer],
+                transactionHash: hash,
+                sender: sender,
+                receiver: receiver,
+                amount: exactAmount
+            )
+        )
+        func fanoutResult(
+            total: Int,
+            hasMore: Bool,
+            includesCheckpoint: Bool
+        ) throws -> NexusJSONValue {
+            var body: [String: Any] = [
+                "items": [],
+                "total": total,
+                "has_more": hasMore,
+                "count_mode": "exact",
+                "query_source": "account_history_fanout",
+            ]
+            if includesCheckpoint {
+                body["indexed_height"] = 42
+                body["indexed_block_hash"] = String(repeating: "e", count: 64)
+            }
+            return try JSONDecoder().decode(
+                NexusJSONValue.self,
+                from: JSONSerialization.data(withJSONObject: ["body": body])
+            )
+        }
+
+        let complete = try NexusTransferHistoryParser.page(
+            result: fanoutResult(
+                total: 0,
+                hasMore: false,
+                includesCheckpoint: false
+            ),
+            configuration: .minamoto,
+            account: sender,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertEqual(complete.querySource, "account_history_fanout")
+        XCTAssertNil(complete.indexedHeight)
+        XCTAssertNil(complete.indexedBlockHash)
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: fanoutResult(
+                    total: 1,
+                    hasMore: true,
+                    includesCheckpoint: false
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: fanoutResult(
+                    total: 0,
+                    hasMore: false,
+                    includesCheckpoint: true
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        try verifyCurrentTairaInstructionProjection()
+    }
+
+    private func verifyCurrentTairaInstructionProjection() throws {
+        let sender =
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        let receiver =
+            "testuﾛ1PDｵｾNｸkﾁoｹﾐyTW2Xiﾙo1yﾔｵhｷ7CﾃgｷｵｶkｶﾋWｴﾎn73BW7C"
+        let definition = NexusAssetDefinitionIdentity.tairaXorDefinitionID
+        func instruction(
+            hash: String,
+            source: String,
+            destination: String,
+            amount: String,
+            index: Int
+        ) -> [String: Any] {
+            [
+                "authority": source,
+                "created_at": "2026-04-04T00:00:00Z",
+                "kind": "Transfer",
+                "box": [
+                    "encoded": "0x01",
+                    "json": [
+                        "kind": "Transfer",
+                        "payload": [
+                            "variant": "Asset",
+                            "value": [
+                                "source": "\(definition)#\(source)",
+                                "destination": destination,
+                                "object": amount,
+                            ],
+                        ],
+                        "wire_id": "iroha.transfer",
+                        "encoded": "01",
+                    ],
+                ],
+                "transaction_hash": hash,
+                "transaction_status": "Committed",
+                "block": 42,
+                "index": index,
+            ]
+        }
+        func result(
+            items: [[String: Any]],
+            perPage: Int = 100,
+            totalPages: Int? = nil,
+            totalItems: Int? = nil
+        ) throws -> NexusJSONValue {
+            let exactTotalItems = totalItems ?? items.count
+            let exactTotalPages = totalPages ?? (items.isEmpty ? 0 : 1)
+            return try JSONDecoder().decode(
+                NexusJSONValue.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "body": [
+                        "pagination": [
+                            "page": 1,
+                            "per_page": perPage,
+                            "total_pages": exactTotalPages,
+                            "total_items": exactTotalItems,
+                        ],
+                        "items": items,
+                    ],
+                ])
+            )
+        }
+        let outgoingHash = String(repeating: "a", count: 64)
+        let incomingHash = String(repeating: "b", count: 64)
+        let page = try NexusTairaTransferHistoryParser.page(
+            result: result(items: [
+                instruction(
+                    hash: outgoingHash,
+                    source: sender,
+                    destination: receiver,
+                    amount: "1.000000001",
+                    index: 0
+                ),
+                instruction(
+                    hash: incomingHash,
+                    source: receiver,
+                    destination: sender,
+                    amount: "2.5",
+                    index: 1
+                ),
+            ]),
+            configuration: try Self.admittedTairaConfiguration(),
+            account: sender,
+            assetDefinitionID: definition
+        )
+        try page.validate(expectedPage: 1, maximumPageSize: 100)
+        XCTAssertEqual(page.sourceItemCount, 2)
+        XCTAssertEqual(page.totalItems, 2)
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryPage(
+                items: [],
+                sourceItemCount: -1,
+                sourceItemIDs: [],
+                page: 1,
+                perPage: 100,
+                totalPages: 0,
+                totalItems: 0
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertEqual(
+            page.items,
+            [
+                NexusTransferHistoryItem(
+                    transactionHash: outgoingHash,
+                    timestampMilliseconds: 1_775_260_800_000,
+                    amount: try PIQuantity("1.000000001"),
+                    sender: sender,
+                    receiver: receiver
+                ),
+                NexusTransferHistoryItem(
+                    transactionHash: incomingHash,
+                    timestampMilliseconds: 1_775_260_800_000,
+                    amount: try PIQuantity("2.5"),
+                    sender: receiver,
+                    receiver: sender
+                ),
+            ]
+        )
+        let oneInstruction = instruction(
+            hash: outgoingHash,
+            source: sender,
+            destination: receiver,
+            amount: "1",
+            index: 0
+        )
+        var wrongKind = oneInstruction
+        wrongKind["kind"] = "Mint"
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [wrongKind]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+        var appliedStatus = oneInstruction
+        appliedStatus["transaction_status"] = "Applied"
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [appliedStatus]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [oneInstruction, oneInstruction]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [oneInstruction], perPage: 50),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(
+                    items: [oneInstruction],
+                    totalPages: 1,
+                    totalItems: 2
+                ),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(
+                    items: [oneInstruction],
+                    totalPages: 2,
+                    totalItems: 2
+                ),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [
+                    instruction(
+                        hash: outgoingHash,
+                        source: sender,
+                        destination: receiver,
+                        amount: "0.0000000001",
+                        index: 0
+                    ),
+                ]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+    }
+
+    func testNexusCommittedHistoryRejectsMalformedProjectionRows() throws {
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let tairaReceiver =
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        let hash = String(repeating: "b", count: 64)
+        func result(
+            amount: Any,
+            counterparty: String,
+            timestamp: Any = 1_775_260_800_000,
+            definition: String = Self.nexusXorAssetDefinitionID,
+            assetOwner: String? = nil,
+            extraItemField: Bool = false,
+            transferOperationField: Bool = false
+        ) throws -> NexusJSONValue {
+            var item: [String: Any] = [
+                "id": "\(hash):\(sender):0",
+                "source": "transaction",
+                "type": "TRANSFER",
+                "timestamp_ms": timestamp,
+                "status": "SUCCESS",
+                "result_ok": true,
+                "direction": "outgoing",
+                "account_id": sender,
+                "counterparty_account_id": counterparty,
+                "asset_id": "\(definition)#\(assetOwner ?? sender)",
+                "asset_definition_id": definition,
+                "amount": amount,
+                "tx_hash": hash,
+            ]
+            if extraItemField {
+                item["legacy_box"] = [:]
+            }
+            if transferOperationField {
+                item["operation_id"] = "must-not-appear-on-transfer"
+            }
+            return try JSONDecoder().decode(
+                NexusJSONValue.self,
+                from: JSONSerialization.data(
+                    withJSONObject: [
+                        "body": [
+                            "items": [item],
+                            "total": 1,
+                            "has_more": false,
+                            "count_mode": "exact",
+                            "indexed_height": 42,
+                            "indexed_block_hash": String(repeating: "e", count: 64),
+                            "query_source": "account_history_index",
+                        ],
+                    ]
+                )
+            )
+        }
+
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    timestamp: 0
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(amount: "1e18", counterparty: receiver),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(amount: " 1", counterparty: receiver),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: ["scale": "0", "value": "1"],
+                    counterparty: receiver
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(amount: "1", counterparty: tairaReceiver),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    definition: "other#universal"
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    assetOwner: receiver
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    transferOperationField: true
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    extraItemField: true
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+    }
+
+    func testNexusCommittedHistoryValidatesRawOnChainAndFailedRowsBeforeFiltering() throws {
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let hash = String(repeating: "d", count: 64)
+        let result = try JSONDecoder().decode(
+            NexusJSONValue.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "body": [
+                    "items": [
+                        [
+                            "id": "\(hash):\(sender):0",
+                            "source": "transaction",
+                            "type": "RAW_ON_CHAIN",
+                            "timestamp_ms": 1_775_260_800_000,
+                            "status": "SUCCESS",
+                            "result_ok": true,
+                            "direction": "incoming",
+                            "account_id": sender,
+                            "asset_id":
+                                "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                            "asset_definition_id":
+                                Self.nexusXorAssetDefinitionID,
+                            "amount": "1",
+                            "tx_hash": hash,
+                        ],
+                        [
+                            "id": "\(hash):\(sender):1",
+                            "source": "transaction",
+                            "type": "TRANSFER",
+                            "timestamp_ms": 1_775_260_800_000,
+                            "status": "FAILED",
+                            "result_ok": false,
+                            "direction": "outgoing",
+                            "account_id": sender,
+                            "counterparty_account_id":
+                                "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3",
+                            "asset_id":
+                                "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                            "asset_definition_id":
+                                Self.nexusXorAssetDefinitionID,
+                            "amount": "1",
+                            "tx_hash": hash,
+                        ],
+                    ],
+                    "total": 2,
+                    "has_more": false,
+                    "count_mode": "exact",
+                    "indexed_height": 42,
+                    "indexed_block_hash": String(repeating: "e", count: 64),
+                    "query_source": "account_history_index",
+                ],
+            ])
+        )
+        let page = try NexusTransferHistoryParser.page(
+            result: result,
+            configuration: .minamoto,
+            account: sender,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertEqual(page.sourceItemCount, 2)
+        XCTAssertEqual(page.sourceItemIDs.count, 2)
+        XCTAssertTrue(page.items.isEmpty)
+
+        let unknownType = try JSONDecoder().decode(
+            NexusJSONValue.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "body": [
+                    "items": [[
+                        "id": "\(hash):\(sender):0",
+                        "source": "transaction",
+                        "type": "TRANSFER_V2",
+                        "timestamp_ms": 1_775_260_800_000,
+                        "status": "SUCCESS",
+                        "result_ok": true,
+                        "direction": "incoming",
+                        "account_id": sender,
+                        "asset_id":
+                            "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                        "asset_definition_id":
+                            Self.nexusXorAssetDefinitionID,
+                        "amount": "1",
+                        "tx_hash": hash,
+                    ]],
+                    "total": 1,
+                    "has_more": false,
+                    "count_mode": "exact",
+                    "indexed_height": 42,
+                    "indexed_block_hash": String(repeating: "e", count: 64),
+                    "query_source": "account_history_index",
+                ],
+            ])
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: unknownType,
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+    }
+
+    func testNexusPipelineStatusRequiresGlobalAuthoritativeResolution() throws {
+        let hash = String(repeating: "ab", count: 32)
+        func decode(
+            kind: String = "committed",
+            blockHeight: Int? = 1,
+            scope: String,
+            resolvedFrom: String
+        ) throws -> NexusPipelineStatus {
+            var status: [String: Any] = ["kind": kind]
+            if let blockHeight {
+                status["block_height"] = blockHeight
+            }
+            return try JSONDecoder().decode(
+                NexusPipelineStatus.self,
+                from: JSONSerialization.data(
+                    withJSONObject: [
+                        "hash": hash,
+                        "status": status,
+                        "scope": scope,
+                        "resolved_from": resolvedFrom,
+                    ]
+                )
+            )
+        }
+
+        XCTAssertTrue(
+            try decode(
+                scope: "global",
+                resolvedFrom: "state"
+            ).hasAuthoritativeGlobalResolution
+        )
+        XCTAssertFalse(
+            try decode(
+                scope: "auto",
+                resolvedFrom: "state"
+            ).hasAuthoritativeGlobalResolution
+        )
+        XCTAssertTrue(
+            try decode(
+                scope: "global",
+                resolvedFrom: "queue"
+            ).hasAuthoritativeGlobalResolution
+        )
+        for blockHeight in [nil, 0] as [Int?] {
+            XCTAssertFalse(
+                try decode(
+                    blockHeight: blockHeight,
+                    scope: "global",
+                    resolvedFrom: "state"
+                ).hasAuthoritativeGlobalResolution
+            )
+        }
+        XCTAssertTrue(
+            try decode(
+                kind: "approved",
+                blockHeight: nil,
+                scope: "global",
+                resolvedFrom: "cache"
+            ).hasAuthoritativeGlobalResolution
+        )
+        XCTAssertFalse(
+            try decode(
+                scope: "global",
+                resolvedFrom: " "
+            ).hasAuthoritativeGlobalResolution
+        )
+        XCTAssertFalse(
+            try decode(
+                scope: "global",
+                resolvedFrom: String(repeating: "a", count: 65)
+            ).hasAuthoritativeGlobalResolution
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                NexusPipelineStatus.self,
+                from: Data(
+                    """
+                    {
+                      "hash": "\(hash)",
+                      "status": {"kind": "committed", "block_height": 1}
+                    }
+                    """.utf8
+                )
+            )
+        )
+    }
+
+    func testNexusAppliedStatusRequiresStateAndPositiveBlock() throws {
+        let hash = String(repeating: "ab", count: 32)
+        func decode(
+            blockHeight: Int?,
+            resolvedFrom: String
+        ) throws -> NexusPipelineStatus {
+            var status: [String: Any] = ["kind": "Applied"]
+            if let blockHeight {
+                status["block_height"] = blockHeight
+            }
+            return try JSONDecoder().decode(
+                NexusPipelineStatus.self,
+                from: JSONSerialization.data(
+                    withJSONObject: [
+                        "hash": hash,
+                        "status": status,
+                        "scope": "global",
+                        "resolved_from": resolvedFrom,
+                    ]
+                )
+            )
+        }
+
+        XCTAssertTrue(
+            try decode(
+                blockHeight: 1,
+                resolvedFrom: "state"
+            ).hasAuthoritativeGlobalResolution
+        )
+        for resolvedFrom in ["queue", "cache"] {
+            XCTAssertFalse(
+                try decode(
+                    blockHeight: 1,
+                    resolvedFrom: resolvedFrom
+                ).hasAuthoritativeGlobalResolution
+            )
+        }
+        for blockHeight in [nil, 0] as [Int?] {
+            XCTAssertFalse(
+                try decode(
+                    blockHeight: blockHeight,
+                    resolvedFrom: "state"
+                ).hasAuthoritativeGlobalResolution
+            )
+        }
+    }
+
+    func testNexusTerminalFailureRequiresStateResolution() throws {
+        let hash = String(repeating: "ab", count: 32)
+        func decode(
+            kind: String,
+            resolvedFrom: String
+        ) throws -> NexusPipelineStatus {
+            try JSONDecoder().decode(
+                NexusPipelineStatus.self,
+                from: JSONSerialization.data(
+                    withJSONObject: [
+                        "hash": hash,
+                        "status": ["kind": kind],
+                        "scope": "global",
+                        "resolved_from": resolvedFrom,
+                    ]
+                )
+            )
+        }
+
+        for kind in ["Rejected", "Expired"] {
+            XCTAssertTrue(
+                try decode(
+                    kind: kind,
+                    resolvedFrom: "state"
+                ).hasAuthoritativeGlobalResolution
+            )
+            for resolvedFrom in ["queue", "cache"] {
+                XCTAssertFalse(
+                    try decode(
+                        kind: kind,
+                        resolvedFrom: resolvedFrom
+                    ).hasAuthoritativeGlobalResolution
+                )
+            }
+        }
+    }
+
+    func testGenericWireJSONRejectsLossyNumericTokens() throws {
+        let unbounded = Data(
+            "{\"amount\":340282366920938463463374607431768211455}".utf8
+        )
+        let fractional = Data("{\"amount\":0.1}".utf8)
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(PIJSONValue.self, from: unbounded)
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(PIJSONValue.self, from: fractional)
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(NexusJSONValue.self, from: unbounded)
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(NexusJSONValue.self, from: fractional)
+        )
+
+        let exactString = Data(
+            "{\"amount\":\"340282366920938463463374607431768211455\"}".utf8
+        )
+        XCTAssertNoThrow(
+            try JSONDecoder().decode(PIJSONValue.self, from: exactString)
+        )
+        XCTAssertNoThrow(
+            try JSONDecoder().decode(NexusJSONValue.self, from: exactString)
+        )
+
+        let exactIntegerMetadata = Data(
+            "{\"marketId\":7,\"era\":9223372036854775807}".utf8
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                PIJSONValue.self,
+                from: exactIntegerMetadata
+            ),
+            .object([
+                "marketId": .number("7"),
+                "era": .number("9223372036854775807"),
+            ])
+        )
+
+        let canonical = Data(
+            #"{"signed":-9223372036854775808,"unsigned":18446744073709551615,"emoji":"\uD83D\uDE00"}"#.utf8
+        )
+        XCTAssertNoThrow(try NexusStrictJSONAdmission.validate(canonical))
+
+        let invalidDocuments = [
+            #"{"total":1,"total":2}"#,
+            #"{"total":1,"\u0074otal":2}"#,
+            #"{"total":1.0}"#,
+            #"{"total":1e0}"#,
+            #"{"total":-0}"#,
+            #"{"total":1.0000000000000000001}"#,
+            #"{"total":01}"#,
+            #"{'total':1}"#,
+            #"{"total":1,}"#,
+            #"{"value":"\uD800"}"#,
+        ]
+        for document in invalidDocuments {
+            XCTAssertThrowsError(
+                try NexusStrictJSONAdmission.validate(Data(document.utf8)),
+                "Unexpectedly admitted: \(document)"
+            )
+        }
+
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(
+                Data([0x7B, 0x22, 0x78, 0x22, 0x3A, 0xFF, 0x7D])
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(
+                Data([0xEF, 0xBB, 0xBF]) + Data("{}".utf8)
+            )
+        )
+        let tooDeep = String(repeating: "[", count: 65) + "0" +
+            String(repeating: "]", count: 65)
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(Data(tooDeep.utf8))
+        )
+        let tooManyTokens = "[" +
+            String(repeating: "0,", count: 500_000) + "0]"
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(Data(tooManyTokens.utf8))
+        )
+    }
+
+    func testPIHistorySchemaFixturePreservesExactIntegerMetadata() throws {
+        let transactionHash = "0x" + String(repeating: "ab", count: 32)
+        let blockHash = "0x" + String(repeating: "cd", count: 32)
+        let fixture = Data(
+            """
+            {
+              "id": "\(transactionHash)",
+              "type": "CALL",
+              "timestamp": 1720000000,
+              "blockHash": "\(blockHash)",
+              "blockHeight": 123,
+              "module": "polkamarkt",
+              "method": "claim",
+              "address": "cnAccount",
+              "execution": {"success": true, "era": 987},
+              "data": {"marketId": 42, "claimedMarkets": [1, 2, 3]},
+              "calls": {
+                "nodes": [
+                  {"module": "polkamarkt", "method": "claim", "data": {"requestedMarkets": [42]}}
+                ]
+              }
+            }
+            """.utf8
+        )
+
+        let element = try JSONDecoder().decode(
+            PIHistoryElement.self,
+            from: fixture
+        )
+        XCTAssertEqual(
+            element.data,
+            .object([
+                "marketId": .number("42"),
+                "claimedMarkets": .array([
+                    .number("1"), .number("2"), .number("3"),
+                ]),
+            ])
+        )
+        XCTAssertEqual(
+            element.calls?.nodes.first?.data,
+            .object([
+                "requestedMarkets": .array([.number("42")]),
+            ])
+        )
+    }
+
+    func testPIHistoryAmountMappingRejectsMalformedOrNegativeValues() {
+        XCTAssertNoThrow(
+            try HistoryTransactionMapper.validatedAmount(
+                "999999999999999999999999999999"
+            )
+        )
+        XCTAssertNoThrow(
+            try HistoryTransactionMapper.validatedAmount("0.000000000000000001")
+        )
+        XCTAssertNoThrow(
+            try HistoryTransactionMapper.validatedAmount(
+                "340282366920938463463374607431768211455"
+            )
+        )
+        for invalid in [
+            "",
+            "01",
+            "-1",
+            "1e3",
+            "NaN",
+            "1.",
+            "340282366920938463463374607431768211456",
+        ] {
+            XCTAssertThrowsError(
+                try HistoryTransactionMapper.validatedAmount(invalid),
+                "Accepted invalid history amount: \(invalid)"
+            )
+        }
+        XCTAssertNoThrow(try HistoryTransactionMapper.validatedFee("1"))
+        for invalidFee in ["", "01", "-1", "0.1", "1e3"] {
+            XCTAssertThrowsError(
+                try HistoryTransactionMapper.validatedFee(invalidFee),
+                "Accepted invalid history fee: \(invalidFee)"
+            )
+        }
+    }
+
+    func testNexusTransactionHashRequiresExactOptionalPrefixAnd32Bytes() {
+        let lower = String(repeating: "ab", count: 32)
+        let upper = lower.uppercased()
+        XCTAssertEqual(NexusTransactionHash.normalized(lower), lower)
+        XCTAssertEqual(NexusTransactionHash.normalized("0x\(upper)"), lower)
+        XCTAssertEqual(NexusTransactionHash.normalized("0X\(upper)"), lower)
+        XCTAssertNil(
+            NexusTransactionHash.normalized(
+                "0x\(String(repeating: "0", count: 20))0x\(String(repeating: "0", count: 42))"
+            )
+        )
+        XCTAssertNil(
+            NexusTransactionHash.normalized(String(repeating: "a", count: 62))
+        )
+        XCTAssertNil(
+            NexusTransactionHash.normalized(String(repeating: "g", count: 64))
+        )
+        XCTAssertNil(
+            NexusTransactionHash.normalized(String(repeating: "0", count: 64))
+        )
+        XCTAssertNil(NexusTransactionHash.normalized(" \(lower)"))
+    }
+
+    func testNexusSubmissionReceiptBindsEveryHashAndPosition() throws {
+        let hash = String(repeating: "ab", count: 32)
+        let receipt = NexusTransactionReceipt(
+            payload: .init(
+                txHash: "0x\(hash.uppercased())",
+                entrypointHash: hash,
+                signedTransactionHash: hash,
+                submittedAtMs: 1,
+                submittedAtHeight: 2
+            )
+        )
+        XCTAssertNoThrow(try receipt.validate(expectedHash: hash))
+
+        let mismatchedSignedHash = NexusTransactionReceipt(
+            payload: .init(
+                txHash: hash,
+                entrypointHash: hash,
+                signedTransactionHash: String(repeating: "cd", count: 32),
+                submittedAtMs: 1,
+                submittedAtHeight: 2
+            )
+        )
+        XCTAssertThrowsError(
+            try mismatchedSignedHash.validate(expectedHash: hash)
+        ) { error in
+            guard case NexusToriiError.transactionHashMismatch = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        let mismatchedEntrypointHash = NexusTransactionReceipt(
+            payload: .init(
+                txHash: hash,
+                entrypointHash: String(repeating: "cd", count: 32),
+                signedTransactionHash: hash,
+                submittedAtMs: 1,
+                submittedAtHeight: 2
+            )
+        )
+        XCTAssertThrowsError(
+            try mismatchedEntrypointHash.validate(expectedHash: hash)
+        ) { error in
+            guard case NexusToriiError.transactionHashMismatch = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        let invalidPosition = NexusTransactionReceipt(
+            payload: .init(
+                txHash: hash,
+                entrypointHash: hash,
+                signedTransactionHash: nil,
+                submittedAtMs: 0,
+                submittedAtHeight: 2
+            )
+        )
+        XCTAssertThrowsError(
+            try invalidPosition.validate(expectedHash: hash)
+        ) { error in
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        try verifyTairaSubmissionUsesExactSubmitAndWaitCall()
+        try verifyTairaSubmitAndWaitRequiresEveryHashAndFinalApplied()
+        verifyTairaOuterGatewayUnavailabilityIsTyped()
+    }
+
+    private func verifyTairaSubmissionUsesExactSubmitAndWaitCall() throws {
+        let hash = String(repeating: "ab", count: 32)
+        let body = Data([0x00, 0x01, 0xFE, 0xFF])
+        let request = try NexusTairaTransactionSubmissionContract.request(
+            id: "submission-contract-test",
+            signedNorito: body,
+            expectedHash: hash
+        )
+        XCTAssertEqual(request.method, "tools/call")
+        XCTAssertEqual(
+            request.params,
+            .object([
+                "name": .string(
+                    "iroha.transactions.submit_and_wait"
+                ),
+                "arguments": .object([
+                    "body_base64": .string(body.base64EncodedString()),
+                    "hash": .string(hash),
+                    "status_accept": .string("application/json"),
+                    "terminal_statuses": .array([.string("Applied")]),
+                    "timeout_ms": .number("120000")
+                ])
+            ])
+        )
+        let encoded = try JSONEncoder().encode(request)
+        let wire = try XCTUnwrap(String(data: encoded, encoding: .utf8))
+        XCTAssertFalse(wire.contains("Idempotency-Key"))
+        XCTAssertFalse(wire.contains("pipeline/transactions"))
+        XCTAssertThrowsError(
+            try NexusTairaTransactionSubmissionContract.callParameters(
+                signedNorito: Data(),
+                expectedHash: hash
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransactionSubmissionContract.callParameters(
+                signedNorito: body,
+                expectedHash: hash.uppercased()
+            )
+        )
+    }
+
+    private func verifyTairaSubmitAndWaitRequiresEveryHashAndFinalApplied()
+        throws
+    {
+        let hash = String(repeating: "ab", count: 32)
+        let otherHash = String(repeating: "cd", count: 32)
+        func result(
+            topHash: String = String(repeating: "ab", count: 32),
+            submitHash: String = String(repeating: "ab", count: 32),
+            submitHeaderHash: String = String(repeating: "ab", count: 32),
+            receiptHashKey: String = "tx_hash",
+            finalHash: String = String(repeating: "ab", count: 32),
+            finalScope: String = "global",
+            resolvedFrom: String = "state",
+            terminalKind: String = "Applied",
+            finalKind: String = "Applied",
+            isError: Bool = false
+        ) -> NexusJSONValue {
+            .object([
+                "content": .array([.object([
+                    "type": .string("text"),
+                    "text": .string("http 200")
+                ])]),
+                "isError": .bool(isError),
+                "structuredContent": .object([
+                    "status": .number("200"),
+                    "hash": .string(topHash),
+                    "terminal_kind": .string(terminalKind),
+                    "terminal_statuses": .array([.string("Applied")]),
+                    "attempts": .number("2"),
+                    "elapsed_ms": .number("17"),
+                    "submit": .object([
+                        "status": .number("202"),
+                        "headers": .object([
+                            "content-type": .string("application/json"),
+                            "x-iroha-transaction-hash": .string(
+                                submitHeaderHash
+                            ),
+                        ]),
+                        "content_type": .string("application/json"),
+                        "body": .object([
+                            "payload": .object([
+                                receiptHashKey: .string(submitHash)
+                            ])
+                        ])
+                    ]),
+                    "final": .object([
+                        "status": .number("200"),
+                        "headers": .object([
+                            "content-type": .string("application/json"),
+                        ]),
+                        "content_type": .string("application/json"),
+                        "body": .object([
+                            "hash": .string(finalHash),
+                            "scope": .string(finalScope),
+                            "resolved_from": .string(resolvedFrom),
+                            "status": .object([
+                                "kind": .string(finalKind),
+                                "block_height": .number("42")
+                            ])
+                        ])
+                    ])
+                ])
+            ])
+        }
+
+        XCTAssertEqual(
+            try NexusTairaTransactionSubmissionContract.appliedSubmission(
+                from: result(),
+                expectedHash: hash
+            ),
+            NexusTairaAppliedSubmission(hash: hash, blockHeight: 42)
+        )
+        for mismatched in [
+            result(topHash: otherHash),
+            result(submitHash: otherHash),
+            result(submitHeaderHash: otherHash),
+            result(finalHash: otherHash),
+        ] {
+            XCTAssertThrowsError(
+                try NexusTairaTransactionSubmissionContract
+                    .appliedSubmission(
+                        from: mismatched,
+                        expectedHash: hash
+                    )
+            ) { error in
+                guard case NexusToriiError.transactionHashMismatch = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        for failure in [
+            result(receiptHashKey: "entrypoint_hash"),
+            result(terminalKind: "Rejected"),
+            result(terminalKind: "Expired"),
+            result(isError: true),
+            result(finalKind: "Rejected"),
+            result(finalScope: "local"),
+            result(resolvedFrom: "cache"),
+        ] {
+            XCTAssertThrowsError(
+                try NexusTairaTransactionSubmissionContract
+                    .appliedSubmission(
+                        from: failure,
+                        expectedHash: hash
+                    )
+            )
+        }
+    }
+
+    private func verifyTairaOuterGatewayUnavailabilityIsTyped() {
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateOuterAvailabilityStatus(200)
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateOuterAvailabilityStatus(500)
+        )
+        for status in [502, 503] {
+            XCTAssertThrowsError(
+                try NexusToriiClient.validateOuterAvailabilityStatus(status)
+            ) { error in
+                guard case NexusToriiError.deploymentUnavailable = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateOuterAvailabilityStatus(
+                404,
+                for: TairaDeploymentBinding.canonicalPublicMcpEndpoint
+            )
+        ) { error in
+            guard case NexusToriiError.mcpNotEnabled = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateOuterAvailabilityStatus(
+                404,
+                for: TairaDeploymentBinding.canonicalToriiBaseURL
+            )
+        )
+    }
+
+    func testNexusPreparedTransferCanBeSubmittedOnlyOnce() throws {
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let amount = try PIQuantity("1")
+        let fee = try PIQuantity("0.01")
+        let request = NexusTransferRequest(
+            walletId: "wallet",
+            networkId: .minamoto,
+            sender: sender,
+            receiver: receiver,
+            amount: amount
+        )
+        let prepared = NexusPreparedTransfer(
+            request: request,
+            canonicalReceiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            availableBalance: try PIQuantity("2"),
+            quote: NexusTransferFeeQuote(
+                networkId: .minamoto,
+                authority: sender,
+                receiver: receiver,
+                assetDefinitionId: Self.nexusXorAssetDefinitionID,
+                amount: amount,
+                fee: fee,
+                quoteIdentity: "reviewed-quote",
+                validUntilBlock: 100
+            )
+        )
+
+        XCTAssertTrue(prepared.reserveSubmission())
+        XCTAssertFalse(prepared.reserveSubmission())
+    }
+
+    func testNexusRecoveryNeverInterruptsALiveSubmission() throws {
+        XCTAssertTrue(
+            NexusPendingRecoveryPolicy
+                .shouldFailAsInterruptedPreSubmission(
+                    state: .signing,
+                    hash: nil,
+                    ownedByLiveSubmission: false
+                )
+        )
+        XCTAssertFalse(
+            NexusPendingRecoveryPolicy
+                .shouldFailAsInterruptedPreSubmission(
+                    state: .signing,
+                    hash: nil,
+                    ownedByLiveSubmission: true
+                )
+        )
+        XCTAssertFalse(
+            NexusPendingRecoveryPolicy
+                .shouldFailAsInterruptedPreSubmission(
+                    state: .signing,
+                    hash: String(repeating: "a", count: 64),
+                    ownedByLiveSubmission: false
+                )
+        )
+        let recoveryClient: NexusToriiReading = NexusToriiReadClient()
+        let submissionClient: NexusToriiSubmitting =
+            NexusToriiSubmissionClient()
+        let unavailableFinality: NexusFinalityReading =
+            UnavailableNexusFinalityReader()
+        XCTAssertFalse(recoveryClient is NexusToriiSubmitting)
+        XCTAssertFalse(submissionClient is NexusToriiReading)
+        XCTAssertFalse(
+            unavailableFinality.isQualified(for: .minamoto)
+        )
+
+        let minamotoCheckpoint = NexusFinalityCheckpoint(
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            finalizedBlockHeight: 42,
+            finalizedBlockHash: String(repeating: "ab", count: 32)
+        )
+        XCTAssertEqual(
+            try minamotoCheckpoint.requireHeight(for: .minamoto),
+            42
+        )
+        XCTAssertThrowsError(
+            try minamotoCheckpoint.requireHeight(
+                for: Self.admittedTairaConfiguration()
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusFinalityCheckpoint(
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                finalizedBlockHeight: 0,
+                finalizedBlockHash: String(repeating: "ab", count: 32)
+            ).requireHeight(for: .minamoto)
+        )
+        XCTAssertThrowsError(
+            try NexusFinalityCheckpoint(
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                finalizedBlockHeight: 42,
+                finalizedBlockHash: "0x" +
+                    String(repeating: "ab", count: 32)
+            ).requireHeight(for: .minamoto)
+        )
+        XCTAssertThrowsError(
+            try NexusFinalityCheckpoint(
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                finalizedBlockHeight: 42,
+                finalizedBlockHash: String(repeating: "AB", count: 32)
+            ).requireHeight(for: .minamoto)
+        )
+        XCTAssertThrowsError(
+            try NexusFinalityCheckpoint(
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                finalizedBlockHeight: 42,
+                finalizedBlockHash: String(repeating: "0", count: 64)
+            ).requireHeight(for: .minamoto)
+        )
+        XCTAssertThrowsError(
+            try NexusFinalityCheckpoint(
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                finalizedBlockHeight: 42,
+                finalizedBlockHash: "hash:" +
+                    String(repeating: "AB", count: 32) + "#0000"
+            ).requireHeight(for: .minamoto)
+        )
+        XCTAssertThrowsError(
+            try NexusFinalityCheckpoint(
+                networkId: .taira,
+                chainId: UUID(
+                    uuidString:
+                        "809574f5-fee7-5e69-bfcf-52451e42d50f"
+                )!,
+                finalizedBlockHeight: 42,
+                finalizedBlockHash: String(repeating: "ab", count: 32)
+            ).requireHeight(for: Self.admittedTairaConfiguration())
+        )
+
+        let sourceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let nexusSource = try String(
+            contentsOf: sourceRoot.appendingPathComponent(
+                "SoraPassport/Common/Model/NexusWalletService.swift"
+            ),
+            encoding: .utf8
+        )
+        let recoveryStart = try XCTUnwrap(
+            nexusSource.range(
+                of: "    func resumePending() async throws"
+            )
+        )
+        let recoveryEnd = try XCTUnwrap(
+            nexusSource.range(
+                of: "@MainActor\nfinal class NexusTransactionRuntime",
+                range: recoveryStart.upperBound ..< nexusSource.endIndex
+            )
+        )
+        let recoverySource = nexusSource[
+            recoveryStart.lowerBound ..< recoveryEnd.lowerBound
+        ]
+        XCTAssertTrue(recoverySource.contains("readClient.status("))
+        XCTAssertTrue(
+            recoverySource.contains("finalizedCheckpoint(for: configuration)")
+        )
+        XCTAssertTrue(
+            recoverySource.contains(".requireHeight(for: configuration)")
+        )
+        XCTAssertFalse(recoverySource.contains("submissionClient"))
+        XCTAssertFalse(recoverySource.contains("NexusToriiSubmitting"))
+        XCTAssertFalse(recoverySource.contains(".submit("))
+        XCTAssertFalse(recoverySource.contains("signer."))
+        XCTAssertTrue(
+            nexusSource.contains(
+                "quote.validUntilBlock.map({ $0 > 0 }) ?? true"
+            )
+        )
+        XCTAssertTrue(nexusSource.contains("fee.unscaled > 0"))
+    }
+
+    func testNexusAmountScaleMatchesNoritoUnsignedByteContract() throws {
+        let maximum = try PIQuantity(
+            "0." + String(repeating: "1", count: 255)
+        )
+        let oversized = try PIQuantity(
+            "0." + String(repeating: "1", count: 256)
+        )
+        let zero = try PIQuantity("0")
+        let tairaMaximum = try PIQuantity("0.123456789")
+        let tairaOversized = try PIQuantity("0.1234567891")
+
+        XCTAssertTrue(NexusAmountPolicy.accepts(maximum))
+        XCTAssertFalse(NexusAmountPolicy.accepts(oversized))
+        XCTAssertEqual(NexusAmountPolicy.tairaMaximumScale, 9)
+        XCTAssertTrue(NexusAmountPolicy.accepts(
+            tairaMaximum,
+            networkId: .taira
+        ))
+        XCTAssertFalse(NexusAmountPolicy.accepts(
+            tairaOversized,
+            networkId: .taira
+        ))
+        XCTAssertTrue(NexusAmountPolicy.accepts(tairaOversized))
+        XCTAssertFalse(NexusAmountPolicy.accepts(zero))
+        XCTAssertTrue(
+            NexusAmountPolicy.accepts(zero, allowingZero: true)
+        )
+    }
+
+    func testNexusBalanceBindsExactAccountAndUniqueGlobalAsset()
+        throws
+    {
+        let account =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        func response(
+            accountID: String,
+            itemCount: Int = 1,
+            assetDefinitionID: String? = nil
+        ) throws -> NexusAccountAssetList {
+            let assetDefinitionID = assetDefinitionID ??
+                Self.nexusXorAssetDefinitionID
+            let item: [String: Any] = [
+                "account_id": accountID,
+                "asset": assetDefinitionID,
+                "asset_id": assetDefinitionID,
+                "asset_name": "xor",
+                "asset_alias": "xor#universal",
+                "quantity": "2.000000000000000001",
+                "scope": "global",
+            ]
+            let envelope: [String: Any] = [
+                "items": Array(repeating: item, count: itemCount),
+                "has_more": false,
+                "count_mode": "exact",
+                "total": itemCount,
+            ]
+            return try JSONDecoder().decode(
+                NexusAccountAssetList.self,
+                from: JSONSerialization.data(
+                    withJSONObject: envelope
+                )
+            )
+        }
+
+        XCTAssertEqual(
+            try NexusBalanceValidator.xorBalance(
+                in: response(accountID: account),
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            ).rawValue,
+            "2.000000000000000001"
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.xorBalance(
+                in: response(
+                    accountID:
+                        "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+                ),
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        let reboundMetadataEnvelope: [String: Any] = [
+            "items": [[
+                "account_id": account,
+                "asset": Self.nexusXorAssetDefinitionID,
+                "asset_id": Self.nexusXorAssetDefinitionID,
+                "asset_name": "renamed-after-submission",
+                "quantity": "2.000000000000000001",
+                "scope": "global",
+            ]],
+            "has_more": false,
+            "count_mode": "exact",
+            "total": 1,
+        ]
+        let reboundMetadata = try JSONDecoder().decode(
+            NexusAccountAssetList.self,
+            from: JSONSerialization.data(
+                withJSONObject: reboundMetadataEnvelope
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.xorBalance(
+                in: reboundMetadata,
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertEqual(
+            try NexusBalanceValidator.exactAssetBalance(
+                in: reboundMetadata,
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            ).rawValue,
+            "2.000000000000000001"
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.xorBalance(
+                in: response(accountID: account, itemCount: 2),
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.xorBalance(
+                in: response(
+                    accountID: account,
+                    assetDefinitionID: "61CtjvNd9T3THAR65GsMVHr82Bjc"
+                ),
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        let missingAccountEnvelope: [String: Any] = [
+            "items": [[
+                "asset": Self.nexusXorAssetDefinitionID,
+                "asset_id": Self.nexusXorAssetDefinitionID,
+                "asset_name": "xor",
+                "asset_alias": "xor#universal",
+                "quantity": "1",
+                "scope": "global",
+            ]],
+            "has_more": false,
+            "count_mode": "exact",
+            "total": 1,
+        ]
+        let missingAccount = try JSONDecoder().decode(
+            NexusAccountAssetList.self,
+            from: JSONSerialization.data(
+                withJSONObject: missingAccountEnvelope
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.xorBalance(
+                in: missingAccount,
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        let missingAuthoritativeAssetEnvelope: [String: Any] = [
+            "items": [[
+                "account_id": account,
+                "asset_id": Self.nexusXorAssetDefinitionID,
+                "asset_name": "xor",
+                "asset_alias": "xor#universal",
+                "quantity": "1",
+                "scope": "global",
+            ]],
+            "has_more": false,
+            "count_mode": "exact",
+            "total": 1,
+        ]
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                NexusAccountAssetList.self,
+                from: JSONSerialization.data(
+                    withJSONObject: missingAuthoritativeAssetEnvelope
+                )
+            )
+        )
+        var missingExactMetadataEnvelope = reboundMetadataEnvelope
+        missingExactMetadataEnvelope.removeValue(forKey: "count_mode")
+        missingExactMetadataEnvelope.removeValue(forKey: "total")
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                NexusAccountAssetList.self,
+                from: JSONSerialization.data(
+                    withJSONObject: missingExactMetadataEnvelope
+                )
+            )
+        )
+        var mixedCaseExactMetadataEnvelope = reboundMetadataEnvelope
+        mixedCaseExactMetadataEnvelope["count_mode"] = "Exact"
+        let mixedCaseExactMetadata = try JSONDecoder().decode(
+            NexusAccountAssetList.self,
+            from: JSONSerialization.data(
+                withJSONObject: mixedCaseExactMetadataEnvelope
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.exactAssetBalance(
+                in: mixedCaseExactMetadata,
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+
+        XCTAssertTrue(
+            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
+                Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertFalse(
+            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
+                "xor#universal"
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "xor",
+                    alias: "xor#universal",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#universal",
+                        status: "permanent",
+                        leaseExpiryMilliseconds: nil,
+                        graceUntilMilliseconds: nil,
+                        boundAtMilliseconds: 0
+                    )
+                )
+            )
+        )
+        let tairaConfiguration = try Self.admittedTairaConfiguration()
+        XCTAssertEqual(
+            NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: "61CtjvNd9T3THAR65GsMVHr82Bjc",
+                    name: "xor",
+                    alias: "xor#universal",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#universal",
+                        status: "permanent",
+                        leaseExpiryMilliseconds: nil,
+                        graceUntilMilliseconds: nil,
+                        boundAtMilliseconds: 0
+                    )
+                ),
+                configuration: tairaConfiguration
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "xor",
+                    alias: "xor#universal",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#universal",
+                        status: "permanent",
+                        leaseExpiryMilliseconds: nil,
+                        graceUntilMilliseconds: nil,
+                        boundAtMilliseconds: 0
+                    )
+                ),
+                configuration: tairaConfiguration
+            )
+        )
+        let sparseTairaDefinition = NexusAssetDefinition(
+            id: Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertNoThrow(
+            try NexusAssetDefinitionIdentity.validateXor(
+                sparseTairaDefinition,
+                configuration: tairaConfiguration
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                sparseTairaDefinition,
+                configuration: .minamoto
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "not-xor"
+                ),
+                configuration: tairaConfiguration
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "xor",
+                    alias: "xor#sora",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#sora",
+                        status: "permanent",
+                        leaseExpiryMilliseconds: nil,
+                        graceUntilMilliseconds: nil,
+                        boundAtMilliseconds: 0
+                    )
+                )
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "xor",
+                    alias: "xor#universal",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#universal",
+                        status: "leased_grace",
+                        leaseExpiryMilliseconds: 1,
+                        graceUntilMilliseconds: 2,
+                        boundAtMilliseconds: 0
+                    )
+                )
+            )
+        )
+    }
+
+    func testNexusPendingJournalUsesCrashDurableProtectedPublication()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let pending = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: Date(timeIntervalSince1970: 1),
+            updatedAt: Date(timeIntervalSince1970: 1),
+            hash: String(repeating: "ab", count: 32),
+            state: .submitting,
+            terminalBlockHeight: nil,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+
+        _ = try await store.put(pending)
+        try await store.requireCurrentChainMutationAdmission()
+
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+        let journal = journalDirectory.appendingPathComponent(
+            "nexus-v1.json"
+        )
+        let values = try journal.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        )
+        XCTAssertEqual(values.isRegularFile, true)
+        XCTAssertNotEqual(values.isSymbolicLink, true)
+        XCTAssertFalse(
+            try FileManager.default.contentsOfDirectory(
+                atPath: journalDirectory.path
+            ).contains(where: { $0.hasPrefix(".durable-") })
+        )
+        let reloaded = try await store.all()
+        XCTAssertEqual(reloaded, [pending])
+        XCTAssertEqual(
+            reloaded.first?.assetDefinitionID,
+            Self.nexusXorAssetDefinitionID
+        )
+        let rebound = NexusPendingTransaction(
+            id: pending.id,
+            idempotencyKey: pending.idempotencyKey,
+            walletId: pending.walletId,
+            networkId: pending.networkId,
+            chainId: pending.chainId,
+            sender: pending.sender,
+            receiver: pending.receiver,
+            assetDefinitionID: "61CtjvNd9T3THAR65GsMVHr82Bjc",
+            amount: pending.amount,
+            fee: pending.fee,
+            createdAt: pending.createdAt,
+            updatedAt: Date(timeIntervalSince1970: 2),
+            hash: pending.hash,
+            state: pending.state,
+            terminalBlockHeight: pending.terminalBlockHeight,
+            errorClass: pending.errorClass,
+            historyReconciledAt: pending.historyReconciledAt
+        )
+        do {
+            _ = try await store.put(rebound)
+            XCTFail("A pending send changed its canonical asset identity")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        // Journals from the preceding format do not contain a chain UUID or
+        // assetDefinitionID. They remain decodable and byte-retained, but
+        // recovery performs no network I/O under today's chain or alias.
+        var legacyRows = try XCTUnwrap(
+            try JSONSerialization.jsonObject(
+                with: Data(contentsOf: journal)
+            ) as? [[String: Any]]
+        )
+        legacyRows[0].removeValue(forKey: "assetDefinitionID")
+        legacyRows[0].removeValue(forKey: "chainId")
+        let legacyDecoder = JSONDecoder()
+        legacyDecoder.dateDecodingStrategy = .iso8601
+        let legacy = try legacyDecoder.decode(
+            [NexusPendingTransaction].self,
+            from: JSONSerialization.data(withJSONObject: legacyRows)
+        )
+        XCTAssertNil(legacy.first?.assetDefinitionID)
+        XCTAssertNil(legacy.first?.chainId)
+        XCTAssertEqual(legacy.first?.id, pending.id)
+
+        let legacyData = try JSONSerialization.data(
+            withJSONObject: legacyRows
+        )
+        try legacyData.write(to: journal, options: .atomic)
+        let legacyCoordinator = NexusTransactionCoordinator(
+            pendingStore: store
+        )
+        let unresolvedLegacy = try await legacyCoordinator.resumePending()
+        XCTAssertEqual(unresolvedLegacy, legacy)
+        XCTAssertNil(unresolvedLegacy.first?.assetDefinitionID)
+        XCTAssertNil(unresolvedLegacy.first?.chainId)
+        XCTAssertEqual(unresolvedLegacy.first?.state, .submitting)
+        do {
+            try await store.requireCurrentChainMutationAdmission()
+            XCTFail("Legacy-unbound evidence admitted a new Nexus mutation")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        legacyRows[0]["assetDefinitionID"] = NSNull()
+        let explicitNull = try legacyDecoder.decode(
+            [NexusPendingTransaction].self,
+            from: JSONSerialization.data(withJSONObject: legacyRows)
+        )
+        XCTAssertNil(explicitNull.first?.assetDefinitionID)
+
+        legacyRows[0]["assetDefinitionID"] =
+            Self.nexusXorAssetDefinitionID
+        legacyRows[0]["chainId"] =
+            "809574f5-fee7-5e69-bfcf-52451e42d50f"
+        try JSONSerialization.data(withJSONObject: legacyRows).write(
+            to: journal,
+            options: .atomic
+        )
+        let retiredChainEvidence = try await store.all()
+        XCTAssertEqual(
+            retiredChainEvidence.first?.chainId,
+            UUID(uuidString: "809574f5-fee7-5e69-bfcf-52451e42d50f")
+        )
+        let unresolvedRetiredChain = try await legacyCoordinator
+            .resumePending()
+        XCTAssertEqual(unresolvedRetiredChain, retiredChainEvidence)
+        do {
+            try await store.requireCurrentChainMutationAdmission()
+            XCTFail("Retired-chain evidence admitted a new Nexus mutation")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+        let currentChainInsertion = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: pending.walletId,
+            networkId: pending.networkId,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: pending.sender,
+            receiver: pending.receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: pending.amount,
+            fee: pending.fee,
+            createdAt: Date(timeIntervalSince1970: 3),
+            updatedAt: Date(timeIntervalSince1970: 3),
+            hash: nil,
+            state: .signing,
+            terminalBlockHeight: nil,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+        do {
+            _ = try await store.put(currentChainInsertion)
+            XCTFail("A new current-chain send bypassed retired-chain evidence")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+        do {
+            _ = try await store.put(try XCTUnwrap(retiredChainEvidence.first))
+            XCTFail("Retired-chain evidence was accepted for mutation")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        var currentChainRow = legacyRows[0]
+        currentChainRow["id"] =
+            "00000000-0000-0000-0000-000000000071"
+        currentChainRow["idempotencyKey"] =
+            "00000000-0000-0000-0000-000000000072"
+        currentChainRow["chainId"] =
+            NexusNetworkConfiguration.minamoto.chainId.uuidString
+        try JSONSerialization.data(
+            withJSONObject: [legacyRows[0], currentChainRow]
+        ).write(to: journal, options: .atomic)
+        let crossChainEvidence = try await store.all()
+        XCTAssertEqual(crossChainEvidence.count, 2)
+        do {
+            try await store.requireCurrentChainMutationAdmission()
+            XCTFail("Mixed current/retired evidence admitted a mutation")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        var unboundRow = legacyRows[0]
+        unboundRow.removeValue(forKey: "chainId")
+        try JSONSerialization.data(
+            withJSONObject: [unboundRow, currentChainRow]
+        ).write(to: journal, options: .atomic)
+        do {
+            _ = try await store.all()
+            XCTFail("Unbound and current-chain duplicate hashes were accepted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        legacyRows[0].removeValue(forKey: "chainId")
+        legacyRows[0]["assetDefinitionID"] = "xor#universal"
+        try JSONSerialization.data(withJSONObject: legacyRows).write(
+            to: journal,
+            options: .atomic
+        )
+        do {
+            _ = try await store.all()
+            XCTFail("A noncanonical pending asset identity was accepted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+    }
+
+    func testPendingTransactionStoresRejectInterruptedDurablePublicationEvidence()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let nexusStore = try NexusPendingTransactionStore(
+            baseURL: directory
+        )
+        let polkamarktStore = try PolkamarktPendingStore(
+            baseURL: directory
+        )
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "PendingTransactions",
+                isDirectory: true
+            )
+        let interruptedPublication = journalDirectory
+            .appendingPathComponent(
+                ".durable-00000000-0000-0000-0000-000000000000.tmp"
+            )
+        try Data("unresolved publication evidence".utf8).write(
+            to: interruptedPublication
+        )
+
+        do {
+            _ = try await nexusStore.all()
+            XCTFail(
+                "Nexus deletion preflight accepted an interrupted journal publication"
+            )
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+        do {
+            _ = try await polkamarktStore.all()
+            XCTFail(
+                "Polkamarkt deletion preflight accepted an interrupted journal publication"
+            )
+        } catch {
+            guard case PolkamarktRuntimeError.unavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testAllPendingTransactionJournalsShareTheProtectedNamespace()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let nexusStore = try NexusPendingTransactionStore(
+            baseURL: directory
+        )
+        let polkamarktStore = try PolkamarktPendingStore(
+            baseURL: directory
+        )
+        let sora2Store = try Sora2PendingSubmissionStore(
+            baseURL: directory
+        )
+        _ = try sora2Store.stage(
+            account: "sora-account",
+            hash: String(repeating: "ab", count: 32)
+        )
+
+        let nexusTransactions = try await nexusStore.all()
+        let polkamarktTransactions = try await polkamarktStore.all()
+        XCTAssertTrue(nexusTransactions.isEmpty)
+        XCTAssertTrue(polkamarktTransactions.isEmpty)
+        XCTAssertEqual(try sora2Store.all().count, 1)
+    }
+
+    func testWalletDeletionPreflightBlocksEveryUnresolvedMutation()
+        throws
+    {
+        let walletId = "legacy-sora-wallet"
+        let soraAddress = "cnVwcml2YXRl"
+        let createdAt = Date(timeIntervalSince1970: 1)
+        func nexus(
+            state: NexusPendingState,
+            walletId candidateWalletId: String? = nil,
+            historyReconciledAt: Date? = nil
+        ) throws -> NexusPendingTransaction {
+            NexusPendingTransaction(
+                id: UUID(),
+                idempotencyKey: UUID(),
+                walletId: candidateWalletId ?? walletId,
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                sender: "sender",
+                receiver: "receiver",
+                assetDefinitionID: Self.nexusXorAssetDefinitionID,
+                amount: try PIQuantity("1"),
+                fee: try PIQuantity("0.01"),
+                createdAt: createdAt,
+                updatedAt: createdAt,
+                hash: state == .signing
+                    ? nil
+                    : String(repeating: "ab", count: 32),
+                state: state,
+                terminalBlockHeight: state == .committed ? 1 : nil,
+                errorClass: nil,
+                historyReconciledAt: historyReconciledAt
+            )
+        }
+        func polkamarkt(
+            state: PolkamarktPendingState,
+            account candidateAccount: String? = nil
+        ) -> PolkamarktPendingMutation {
+            PolkamarktPendingMutation(
+                id: UUID(),
+                account: candidateAccount ?? soraAddress,
+                action: "buy_yes",
+                marketIds: [1],
+                createdAt: createdAt,
+                updatedAt: createdAt,
+                extrinsicHash: state == .preparing
+                    ? nil
+                    : String(repeating: "cd", count: 32),
+                state: state,
+                finalizedBlock: state == .finalized ? 1 : nil,
+                errorClass: nil
+            )
+        }
+
+        let unresolvedNexusStates: [NexusPendingState] = [
+            .signing,
+            .submitting,
+            .submissionUnknown,
+            .submitted,
+            .approved,
+            .committedPendingReconciliation
+        ]
+        for state in unresolvedNexusStates {
+            XCTAssertThrowsError(
+                try WalletPendingDeletionPolicy.validate(
+                    nexusTransactions: [try nexus(state: state)],
+                    polkamarktTransactions: [],
+                    walletId: walletId,
+                    soraAddress: soraAddress
+                ),
+                "Nexus state \(state.rawValue) did not block deletion"
+            ) { error in
+                XCTAssertEqual(
+                    error as? WalletPendingDeletionPreflightError,
+                    .unresolvedNexusTransaction
+                )
+            }
+        }
+
+        // A record written before historyReconciledAt was introduced decodes
+        // this field as nil. It remains unresolved even though committed is a
+        // terminal transport state.
+        XCTAssertThrowsError(
+            try WalletPendingDeletionPolicy.validate(
+                nexusTransactions: [try nexus(state: .committed)],
+                polkamarktTransactions: [],
+                walletId: walletId,
+                soraAddress: soraAddress
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? WalletPendingDeletionPreflightError,
+                .unresolvedNexusTransaction
+            )
+        }
+        let unresolvedPolkamarktStates: [PolkamarktPendingState] = [
+            .preparing,
+            .signedBeforeTransport,
+            .submitting,
+            .submissionUnknown,
+            .submitted
+        ]
+        for state in unresolvedPolkamarktStates {
+            XCTAssertThrowsError(
+                try WalletPendingDeletionPolicy.validate(
+                    nexusTransactions: [],
+                    polkamarktTransactions: [polkamarkt(state: state)],
+                    walletId: walletId,
+                    soraAddress: soraAddress
+                ),
+                "Polkamarkt state \(state.rawValue) did not block deletion"
+            ) { error in
+                XCTAssertEqual(
+                    error as? WalletPendingDeletionPreflightError,
+                    .unresolvedPolkamarktTransaction
+                )
+            }
+        }
+
+        let resolvedNexusStates: [NexusPendingState] = [
+            .failedBeforeSubmission,
+            .rejected,
+            .expired
+        ]
+        for state in resolvedNexusStates {
+            XCTAssertNoThrow(
+                try WalletPendingDeletionPolicy.validate(
+                    nexusTransactions: [try nexus(state: state)],
+                    polkamarktTransactions: [],
+                    walletId: walletId,
+                    soraAddress: soraAddress
+                )
+            )
+        }
+        XCTAssertNoThrow(
+            try WalletPendingDeletionPolicy.validate(
+                nexusTransactions: [
+                    try nexus(
+                        state: .committed,
+                        historyReconciledAt: createdAt
+                    )
+                ],
+                polkamarktTransactions: [],
+                walletId: walletId,
+                soraAddress: soraAddress
+            )
+        )
+
+        var unresolvedSora2 = Sora2PendingSubmission(
+            id: UUID(),
+            account: soraAddress,
+            extrinsicHash: String(repeating: "ef", count: 32),
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            state: .stagedBeforeTransport
+        )
+        for state in [
+            Sora2PendingSubmissionState.stagedBeforeTransport,
+            .submitting,
+            .submittedRetained,
+            .submissionUnknown,
+        ] {
+            unresolvedSora2.state = state
+            XCTAssertThrowsError(
+                try WalletPendingDeletionPolicy.validate(
+                    nexusTransactions: [],
+                    polkamarktTransactions: [],
+                    sora2Submissions: [unresolvedSora2],
+                    walletId: walletId,
+                    soraAddress: soraAddress,
+                    // Just after signing: the transaction may still be
+                    // entering the network.
+                    now: createdAt.addingTimeInterval(60)
+                ),
+                "SORA2 state \(state.rawValue) did not block deletion"
+            ) { error in
+                XCTAssertEqual(
+                    error as? WalletPendingDeletionPreflightError,
+                    .unresolvedSora2Submission
+                )
+            }
+        }
+        var acceptedSora2 = unresolvedSora2
+        acceptedSora2.state = .submitted
+        XCTAssertNoThrow(
+            try WalletPendingDeletionPolicy.validate(
+                nexusTransactions: [],
+                polkamarktTransactions: [],
+                sora2Submissions: [acceptedSora2],
+                walletId: walletId,
+                soraAddress: soraAddress
+            )
+        )
+
+        let resolvedPolkamarktStates: [PolkamarktPendingState] = [
+            .failedBeforeSubmission,
+            .finalized,
+            .rejected
+        ]
+        for state in resolvedPolkamarktStates {
+            XCTAssertNoThrow(
+                try WalletPendingDeletionPolicy.validate(
+                    nexusTransactions: [],
+                    polkamarktTransactions: [polkamarkt(state: state)],
+                    walletId: walletId,
+                    soraAddress: soraAddress
+                )
+            )
+        }
+
+        // Pending work belonging to another wallet/account cannot block this
+        // explicit deletion.
+        XCTAssertNoThrow(
+            try WalletPendingDeletionPolicy.validate(
+                nexusTransactions: [
+                    try nexus(
+                        state: .submitting,
+                        walletId: "another-wallet"
+                    )
+                ],
+                polkamarktTransactions: [
+                    polkamarkt(
+                        state: .submitted,
+                        account: "another-account"
+                    )
+                ],
+                walletId: walletId,
+                soraAddress: soraAddress
+            )
+        )
+    }
+
+    func testNexusPendingJournalRejectsSymbolicLink() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let decoy = directory.appendingPathComponent("decoy.json")
+        try Data("[]".utf8).write(to: decoy)
+        let journal = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+            .appendingPathComponent("nexus-v1.json")
+        try FileManager.default.createSymbolicLink(
+            at: journal,
+            withDestinationURL: decoy
+        )
+
+        do {
+            _ = try await store.all()
+            XCTFail("A symbolic-link Nexus journal was accepted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+        XCTAssertEqual(try Data(contentsOf: decoy), Data("[]".utf8))
+    }
+
+    func testNexusPendingJournalRejectsInvalidSubmittedHash() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        _ = try NexusPendingTransactionStore(baseURL: directory)
+        let pending = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: Date(),
+            updatedAt: Date(),
+            hash: "0x\(String(repeating: "0", count: 20))0x\(String(repeating: "0", count: 42))",
+            state: .submitted,
+            terminalBlockHeight: nil,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+        let fileURL = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+            .appendingPathComponent("nexus-v1.json")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode([pending]).write(to: fileURL, options: .atomic)
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+
+        do {
+            _ = try await store.all()
+            XCTFail("Invalid persisted transaction hash was accepted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+    }
+
+    func testNexusPendingJournalRejectsDuplicateTransactionHash() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let hash = String(repeating: "ab", count: 32)
+        func pending() throws -> NexusPendingTransaction {
+            NexusPendingTransaction(
+                id: UUID(),
+                idempotencyKey: UUID(),
+                walletId: "legacy-sora-wallet",
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                sender: sender,
+                receiver: receiver,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID,
+                amount: try PIQuantity("1"),
+                fee: try PIQuantity("0.01"),
+                createdAt: Date(),
+                updatedAt: Date(),
+                hash: hash,
+                state: .submitted,
+                terminalBlockHeight: nil,
+                errorClass: nil,
+                historyReconciledAt: nil
+            )
+        }
+
+        try await store.put(try pending())
+        do {
+            try await store.put(try pending())
+            XCTFail("Duplicate Nexus transaction hash was accepted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+    }
+
+    func testNexusPendingJournalRejectsStateAndTimestampContradictions()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let createdAt = Date(timeIntervalSince1970: 20)
+        let updatedAt = Date(timeIntervalSince1970: 30)
+
+        let impossibleSigningHeight = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            hash: nil,
+            state: .signing,
+            terminalBlockHeight: 1,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+        do {
+            _ = try await store.put(impossibleSigningHeight)
+            XCTFail("A pre-submission transaction retained a block height")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        let impossibleReconciliationTime = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            hash: String(repeating: "ab", count: 32),
+            state: .committed,
+            terminalBlockHeight: 1,
+            errorClass: nil,
+            historyReconciledAt: Date(timeIntervalSince1970: 10)
+        )
+        do {
+            _ = try await store.put(impossibleReconciliationTime)
+            XCTFail("A reconciliation timestamp predating the send was accepted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        var nonPositivePendingCommit = impossibleReconciliationTime
+        nonPositivePendingCommit.state = .committedPendingReconciliation
+        nonPositivePendingCommit.terminalBlockHeight = 0
+        nonPositivePendingCommit.historyReconciledAt = nil
+        do {
+            _ = try await store.put(nonPositivePendingCommit)
+            XCTFail("A new pending commit accepted a zero block height")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        var nonPositiveReconciledCommit = impossibleReconciliationTime
+        nonPositiveReconciledCommit.terminalBlockHeight = 0
+        nonPositiveReconciledCommit.historyReconciledAt = updatedAt
+        do {
+            _ = try await store.put(nonPositiveReconciledCommit)
+            XCTFail("A reconciled commit accepted a zero block height")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+
+        let missingAssetReconciliation = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: nil,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            hash: String(repeating: "cd", count: 32),
+            state: .committed,
+            terminalBlockHeight: 1,
+            errorClass: nil,
+            historyReconciledAt: updatedAt
+        )
+        do {
+            _ = try await store.put(missingAssetReconciliation)
+            XCTFail("A reconciled commit omitted its exact asset identity")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+    }
+
+    func testNexusStagedSendCanFailDefinitivelyBeforeTransport() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let createdAt = Date(timeIntervalSince1970: 10)
+        var transaction = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            hash: nil,
+            state: .signing,
+            terminalBlockHeight: nil,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+        do {
+            transaction = try await store.put(transaction)
+        } catch {
+            XCTFail("Signing journal write failed: \(error)")
+            throw error
+        }
+
+        transaction.hash = String(repeating: "ab", count: 32)
+        transaction.state = .submitting
+        transaction.updatedAt = Date(timeIntervalSince1970: 11)
+        do {
+            transaction = try await store.put(transaction)
+        } catch {
+            XCTFail("Submitting journal write failed: \(error)")
+            throw error
+        }
+
+        transaction.state = .failedBeforeSubmission
+        transaction.updatedAt = Date(timeIntervalSince1970: 12)
+        transaction.errorClass = "wallet_identity_changed"
+        let failed: NexusPendingTransaction
+        do {
+            failed = try await store.put(transaction)
+        } catch {
+            XCTFail("Pre-transport terminal journal write failed: \(error)")
+            throw error
+        }
+
+        XCTAssertEqual(failed.state, .failedBeforeSubmission)
+        XCTAssertEqual(failed.hash, String(repeating: "ab", count: 32))
+        let reloaded = try await store.all()
+        XCTAssertEqual(reloaded, [failed])
+    }
+
+    func testNexusPendingJournalPreservesTerminalReconciliation()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let store = try NexusPendingTransactionStore(
+            baseURL: directory
+        )
+        let id = UUID()
+        let idempotencyKey = UUID()
+        let createdAt = Date(timeIntervalSince1970: 10)
+        let reconciledAt = Date(timeIntervalSince1970: 20)
+        let committed = NexusPendingTransaction(
+            id: id,
+            idempotencyKey: idempotencyKey,
+            walletId: "wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: createdAt,
+            updatedAt: reconciledAt,
+            hash: String(repeating: "ab", count: 32),
+            state: .committed,
+            terminalBlockHeight: 42,
+            errorClass: nil,
+            historyReconciledAt: reconciledAt
+        )
+        XCTAssertFalse(committed.requiresCommittedHistoryReconciliation)
+        var legacyUnreconciled = committed
+        legacyUnreconciled.historyReconciledAt = nil
+        XCTAssertTrue(
+            legacyUnreconciled.requiresCommittedHistoryReconciliation
+        )
+        _ = try await store.put(committed)
+
+        var stale = committed
+        stale.updatedAt = Date(timeIntervalSince1970: 30)
+        stale.historyReconciledAt = nil
+        let retained = try await store.put(stale)
+
+        XCTAssertEqual(retained.historyReconciledAt, reconciledAt)
+        XCTAssertEqual(retained.terminalBlockHeight, 42)
+        let reloaded = try await store.all()
+        XCTAssertEqual(
+            reloaded.first?.historyReconciledAt,
+            reconciledAt
+        )
+
+        let legacyZeroHeight = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.1"),
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            hash: String(repeating: "cd", count: 32),
+            state: .committed,
+            terminalBlockHeight: 0,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+        _ = try await store.put(legacyZeroHeight)
+        var promoted = legacyZeroHeight
+        promoted.updatedAt = Date(timeIntervalSince1970: 30)
+        promoted.terminalBlockHeight = 43
+        promoted.historyReconciledAt = Date(timeIntervalSince1970: 30)
+        let promotedResult = try await store.put(promoted)
+        XCTAssertEqual(promotedResult.terminalBlockHeight, 43)
+        XCTAssertEqual(
+            promotedResult.historyReconciledAt,
+            Date(timeIntervalSince1970: 30)
+        )
+    }
+
+    func testNexusPendingJournalNeverEvictsUnreconciledCommit() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sender =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let now = Date()
+        let retained = try (0 ..< 500).map { index in
+            NexusPendingTransaction(
+                id: UUID(),
+                idempotencyKey: UUID(),
+                walletId: "legacy-sora-wallet",
+                networkId: .minamoto,
+                chainId: NexusNetworkConfiguration.minamoto.chainId,
+                sender: sender,
+                receiver: receiver,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID,
+                amount: try PIQuantity("1"),
+                fee: try PIQuantity("0.01"),
+                createdAt: now,
+                updatedAt: now,
+                hash: String(format: "%064x", index + 1),
+                state: .committed,
+                terminalBlockHeight: 1,
+                errorClass: nil,
+                historyReconciledAt: nil
+            )
+        }
+        _ = try NexusPendingTransactionStore(baseURL: directory)
+        let fileURL = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+            .appendingPathComponent("nexus-v1.json")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(retained).write(to: fileURL, options: .atomic)
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let incoming = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "legacy-sora-wallet",
+            networkId: .minamoto,
+            chainId: NexusNetworkConfiguration.minamoto.chainId,
+            sender: sender,
+            receiver: receiver,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.01"),
+            createdAt: now,
+            updatedAt: now,
+            hash: nil,
+            state: .signing,
+            terminalBlockHeight: nil,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+
+        do {
+            try await store.put(incoming)
+            XCTFail("An unreconciled committed send was evicted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+        let preserved = try await store.all()
+        XCTAssertEqual(preserved.count, retained.count)
+
+        let retiredChain = UUID(
+            uuidString: "809574f5-fee7-5e69-bfcf-52451e42d50f"
+        )!
+        let historicalTerminal = retained.map { transaction in
+            NexusPendingTransaction(
+                id: transaction.id,
+                idempotencyKey: transaction.idempotencyKey,
+                walletId: transaction.walletId,
+                networkId: transaction.networkId,
+                chainId: retiredChain,
+                sender: transaction.sender,
+                receiver: transaction.receiver,
+                assetDefinitionID: transaction.assetDefinitionID,
+                amount: transaction.amount,
+                fee: transaction.fee,
+                createdAt: transaction.createdAt,
+                updatedAt: transaction.updatedAt,
+                hash: transaction.hash,
+                state: .rejected,
+                terminalBlockHeight: nil,
+                errorClass: "retired_chain_evidence",
+                historyReconciledAt: nil
+            )
+        }
+        try encoder.encode(historicalTerminal).write(
+            to: fileURL,
+            options: .atomic
+        )
+        do {
+            try await store.put(incoming)
+            XCTFail("Retired-chain evidence was silently evicted")
+        } catch {
+            XCTAssertTrue(error is NexusToriiError)
+        }
+        let preservedHistoricalTerminal = try await store.all()
+        XCTAssertEqual(
+            preservedHistoricalTerminal.count,
+            historicalTerminal.count
+        )
+    }
+
+    func testWalletNetworkStoreIsCopyOnWriteAndExplicitDeletionOnly() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let account = NetworkAccount(
+            walletId: "legacy-sora-address",
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 7, count: 32),
+            address: "legacy-sora-address"
+        )
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: account.walletId,
+            wallets: [
+                WalletIdentity(
+                    id: account.walletId,
+                    displayName: "Existing",
+                    existingSoraAddress: account.address,
+                    secretSource: .rawSeed
+                )
+            ],
+            accounts: [account],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(snapshot)
+        XCTAssertEqual(try store.load(), snapshot)
+
+        try store.recordExplicitRemoval(
+            walletId: account.walletId,
+            expectedWalletIds: [account.walletId],
+            selectedWalletId: account.walletId
+        )
+        let afterRemoval = try XCTUnwrap(store.load())
+        XCTAssertTrue(afterRemoval.wallets.isEmpty)
+        XCTAssertTrue(afterRemoval.accounts.isEmpty)
+        XCTAssertNil(afterRemoval.selectedWalletId)
+    }
+
+    func testNexusTopologyAdmissionAppendsAndRetainsTairaRecovery()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        func namespaceBytes() throws -> [String: Data] {
+            let walletDirectory = directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent("WalletNetworks", isDirectory: true)
+            return try Dictionary(
+                uniqueKeysWithValues: FileManager.default
+                    .contentsOfDirectory(
+                        at: walletDirectory,
+                        includingPropertiesForKeys: nil
+                    )
+                    .map {
+                        ($0.lastPathComponent, try Data(contentsOf: $0))
+                    }
+            )
+        }
+
+        let entropy = Data(repeating: 0x2a, count: 16)
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        var seed = try SeedFactory()
+            .deriveSeed(from: mnemonic.toString(), password: "")
+            .seed
+            .miniSeed
+        defer {
+            seed.resetBytes(in: seed.startIndex ..< seed.endIndex)
+        }
+        let keypair = try SR25519KeypairFactory()
+            .createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = keypair.publicKey().rawData()
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: Chain.sora.addressType()
+        )
+        let account = AccountItem(
+            address: address,
+            cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(),
+            username: "Topology transition wallet",
+            publicKeyData: publicKey,
+            settings: AccountSettings(
+                visibleAssetIds: [],
+                orderedAssetIds: []
+            ),
+            order: 0,
+            isSelected: true
+        )
+        let keychain = InMemoryKeychain()
+        try keychain.addKey(
+            entropy,
+            with: KeystoreTag.entropyTagForAddress(address)
+        )
+        let settings = InMemorySettingsManager()
+        let recoveryGate = makeIsolatedRecoveryGate(settings: settings)
+        let lifecycle = WalletLifecycleCoordinator(
+            recoveryGate: recoveryGate
+        )
+        let unadmitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: nil
+        )
+        let unadmittedStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        )
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: unadmittedStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        let minamotoOnly = try XCTUnwrap(unadmittedStore.load())
+        XCTAssertEqual(
+            Set(minamotoOnly.accounts.map(\.networkId)),
+            [.sora2, .minamoto]
+        )
+        let minamotoNamespace = try namespaceBytes()
+
+        let binding = try Self.admittedTairaBinding()
+        let admitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: binding
+        )
+        var expectedTaira = try NexusKeyDerivation.derive(
+            mnemonic: mnemonic.toString(),
+            profile: .taira
+        )
+        defer {
+            expectedTaira.privateKey.resetBytes(
+                in: expectedTaira.privateKey.startIndex ..<
+                    expectedTaira.privateKey.endIndex
+            )
+            expectedTaira.chainCode.resetBytes(
+                in: expectedTaira.chainCode.startIndex ..<
+                    expectedTaira.chainCode.endIndex
+            )
+        }
+        let expectedTairaAccount = NetworkAccount(
+            walletId: address,
+            networkId: .taira,
+            derivationVersion: 1,
+            publicKey: expectedTaira.publicKey,
+            address: expectedTaira.address
+        )
+        let unauthorizedAppend = WalletNetworkSnapshot(
+            schemaVersion: minamotoOnly.schemaVersion,
+            selectedWalletId: minamotoOnly.selectedWalletId,
+            wallets: minamotoOnly.wallets,
+            accounts: minamotoOnly.accounts + [expectedTairaAccount],
+            createdAt: Date(timeIntervalSince1970: 2)
+        )
+        XCTAssertThrowsError(
+            try unadmittedStore.stageAndActivate(unauthorizedAppend)
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try namespaceBytes(), minamotoNamespace)
+
+        let admittedStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate,
+            admissionPolicy: admitted
+        )
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: admittedStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: admitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        let withTaira = try XCTUnwrap(admittedStore.load())
+        XCTAssertEqual(
+            Set(withTaira.accounts.map(\.networkId)),
+            [.sora2, .minamoto, .taira]
+        )
+        XCTAssertEqual(
+            withTaira.accounts.first(where: { $0.networkId == .taira }),
+            expectedTairaAccount
+        )
+        for (name, bytes) in minamotoNamespace where
+            name.hasPrefix("wallet-network-") {
+            XCTAssertEqual(try namespaceBytes()[name], bytes)
+        }
+
+        let admittedNamespace = try namespaceBytes()
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: admittedStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: admitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        XCTAssertEqual(try namespaceBytes(), admittedNamespace)
+
+        let recoveryOnlyStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        )
+        XCTAssertEqual(try recoveryOnlyStore.load(), withTaira)
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: recoveryOnlyStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        XCTAssertEqual(try recoveryOnlyStore.load(), withTaira)
+        XCTAssertEqual(try namespaceBytes(), admittedNamespace)
+        XCTAssertEqual(
+            Set(try keychain.allKeyIdentifiers()),
+            [KeystoreTag.entropyTagForAddress(address)]
+        )
+    }
+
+    func testWalletNetworkStoreGenericActivationCannotRemoveOrRewriteIdentity()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let wallet = WalletIdentity(
+            id: "retained-wallet",
+            displayName: "Retained",
+            existingSoraAddress: "retained-wallet",
+            secretSource: .rawSeed
+        )
+        let account = NetworkAccount(
+            walletId: wallet.id,
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 7, count: 32),
+            address: wallet.existingSoraAddress
+        )
+        let original = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: wallet.id,
+            wallets: [wallet],
+            accounts: [account],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(original)
+
+        let proposals = [
+            WalletNetworkSnapshot(
+                schemaVersion:
+                    WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: nil,
+                wallets: [],
+                accounts: [],
+                createdAt: Date(timeIntervalSince1970: 2)
+            ),
+            WalletNetworkSnapshot(
+                schemaVersion:
+                    WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: wallet.id,
+                wallets: [
+                    WalletIdentity(
+                        id: wallet.id,
+                        displayName: wallet.displayName,
+                        existingSoraAddress:
+                            wallet.existingSoraAddress,
+                        secretSource: .watchOnly
+                    )
+                ],
+                accounts: [account],
+                createdAt: Date(timeIntervalSince1970: 3)
+            ),
+            WalletNetworkSnapshot(
+                schemaVersion:
+                    WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: wallet.id,
+                wallets: [wallet],
+                accounts: [
+                    NetworkAccount(
+                        walletId: account.walletId,
+                        networkId: account.networkId,
+                        derivationVersion:
+                            account.derivationVersion,
+                        publicKey: Data(repeating: 8, count: 32),
+                        address: account.address
+                    )
+                ],
+                createdAt: Date(timeIntervalSince1970: 4)
+            ),
+        ]
+
+        for proposal in proposals {
+            XCTAssertThrowsError(
+                try store.stageAndActivate(proposal)
+            ) { error in
+                guard
+                    case WalletNetworkMigrationError
+                        .snapshotVerificationFailed = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+            XCTAssertEqual(try store.load(), original)
+        }
+
+        let addedWallet = WalletIdentity(
+            id: "new-wallet",
+            displayName: "New",
+            existingSoraAddress: "new-wallet",
+            secretSource: .watchOnly
+        )
+        let addedAccount = NetworkAccount(
+            walletId: addedWallet.id,
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 9, count: 32),
+            address: addedWallet.existingSoraAddress
+        )
+        let appended = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: addedWallet.id,
+            wallets: [wallet, addedWallet],
+            accounts: [account, addedAccount],
+            createdAt: Date(timeIntervalSince1970: 5)
+        )
+        try store.stageAndActivate(appended)
+        XCTAssertEqual(try store.load(), appended)
+    }
+
+    func testWalletNetworkStoreExplicitRemovalFailsClosedWithoutActiveTarget() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+
+        XCTAssertThrowsError(
+            try store.recordExplicitRemoval(
+                walletId: "missing-wallet",
+                expectedWalletIds: ["missing-wallet"],
+                selectedWalletId: "missing-wallet"
+            )
+        ) { error in
+            guard case WalletNetworkMigrationError.missingSnapshot = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        let account = NetworkAccount(
+            walletId: "retained-wallet",
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 7, count: 32),
+            address: "retained-wallet"
+        )
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: account.walletId,
+            wallets: [
+                WalletIdentity(
+                    id: account.walletId,
+                    displayName: "Retained",
+                    existingSoraAddress: account.address,
+                    secretSource: .watchOnly
+                )
+            ],
+            accounts: [account],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(snapshot)
+
+        XCTAssertThrowsError(
+            try store.recordExplicitRemoval(
+                walletId: "missing-wallet",
+                expectedWalletIds: [account.walletId],
+                selectedWalletId: account.walletId
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .explicitRemovalTargetMissing = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(
+            try store.recordExplicitRemoval(
+                walletId: account.walletId,
+                expectedWalletIds: [
+                    account.walletId,
+                    "database-only-wallet"
+                ],
+                selectedWalletId: account.walletId
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .explicitRemovalInventoryMismatch = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(
+            try store.recordExplicitRemoval(
+                walletId: account.walletId,
+                expectedWalletIds: [account.walletId],
+                selectedWalletId: nil
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .explicitRemovalSelectionMismatch = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try store.load(), snapshot)
+    }
+
+    func testWalletNetworkStoreExplicitRemovalSelectsRetainedWallet() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let firstAccount = NetworkAccount(
+            walletId: "first-wallet",
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 7, count: 32),
+            address: "first-wallet"
+        )
+        let secondAccount = NetworkAccount(
+            walletId: "second-wallet",
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 8, count: 32),
+            address: "second-wallet"
+        )
+        try store.stageAndActivate(
+            WalletNetworkSnapshot(
+                schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: firstAccount.walletId,
+                wallets: [
+                    WalletIdentity(
+                        id: firstAccount.walletId,
+                        displayName: "First",
+                        existingSoraAddress: firstAccount.address,
+                        secretSource: .watchOnly
+                    ),
+                    WalletIdentity(
+                        id: secondAccount.walletId,
+                        displayName: "Second",
+                        existingSoraAddress: secondAccount.address,
+                        secretSource: .watchOnly
+                    )
+                ],
+                accounts: [firstAccount, secondAccount],
+                createdAt: Date(timeIntervalSince1970: 1)
+            )
+        )
+
+        let afterRemoval = try store.recordExplicitRemoval(
+            walletId: firstAccount.walletId,
+            expectedWalletIds: [
+                firstAccount.walletId,
+                secondAccount.walletId
+            ],
+            selectedWalletId: firstAccount.walletId
+        )
+        XCTAssertEqual(afterRemoval.selectedWalletId, secondAccount.walletId)
+        XCTAssertEqual(afterRemoval.wallets.map(\.id), [secondAccount.walletId])
+        XCTAssertEqual(
+            afterRemoval.accounts.map(\.walletId),
+            [secondAccount.walletId]
+        )
+        XCTAssertEqual(try store.load(), afterRemoval)
+    }
+
+    func testWalletNetworkStoreRejectsStructurallyInvalidSnapshots() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let identity = WalletIdentity(
+            id: "legacy-sora-address",
+            displayName: "Existing",
+            existingSoraAddress: "legacy-sora-address",
+            secretSource: .watchOnly
+        )
+        let soraAccount = NetworkAccount(
+            walletId: identity.id,
+            networkId: .sora2,
+            derivationVersion: 0,
+            publicKey: Data(repeating: 7, count: 32),
+            address: identity.existingSoraAddress
+        )
+
+        XCTAssertThrowsError(
+            try store.stageAndActivate(
+                WalletNetworkSnapshot(
+                    schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                    selectedWalletId: "unknown-wallet",
+                    wallets: [identity],
+                    accounts: [soraAccount],
+                    createdAt: Date(timeIntervalSince1970: 1)
+                )
+            )
+        )
+        XCTAssertNil(try store.load())
+
+        XCTAssertThrowsError(
+            try store.stageAndActivate(
+                WalletNetworkSnapshot(
+                    schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                    selectedWalletId: nil,
+                    wallets: [identity],
+                    accounts: [soraAccount],
+                    createdAt: Date(timeIntervalSince1970: 2)
+                )
+            )
+        )
+        XCTAssertNil(try store.load())
+
+        let orphan = NetworkAccount(
+            walletId: "missing-wallet",
+            networkId: .minamoto,
+            derivationVersion: 1,
+            publicKey: Data(repeating: 8, count: 32),
+            address: "iroha:orphan"
+        )
+        XCTAssertThrowsError(
+            try store.stageAndActivate(
+                WalletNetworkSnapshot(
+                    schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                    selectedWalletId: identity.id,
+                    wallets: [identity],
+                    accounts: [soraAccount, orphan],
+                    createdAt: Date(timeIntervalSince1970: 3)
+                )
+            )
+        )
+        XCTAssertNil(try store.load())
+    }
+
+    func testWalletNetworkStoreRejectsOversizedActivePointerBeforeDecoding()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let activePointer = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("WalletNetworks", isDirectory: true)
+            .appendingPathComponent("active.json")
+        try Data(repeating: 0x41, count: 4 * 1_024 + 1).write(
+            to: activePointer,
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(try store.load())
+    }
+
+    func testWalletNetworkStoreRejectsSnapshotWithoutActivePointer() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let walletDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("WalletNetworks", isDirectory: true)
+        try Data("retained activation evidence".utf8).write(
+            to: walletDirectory.appendingPathComponent(
+                "wallet-network-\(UUID().uuidString).json"
+            ),
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(try store.load())
+    }
+
+    func testWalletNetworkStoreRejectsAndWillNotActivateOverNamespaceEvidence()
+        throws
+    {
+        enum Evidence {
+            case file(String)
+            case directory(String)
+            case danglingSymlink(String)
+        }
+        let evidenceCases: [Evidence] = [
+            .file(".hidden"),
+            .file("unexpected.txt"),
+            .directory("unexpected-directory"),
+            .danglingSymlink("active.json"),
+            .file("wallet-network-\(UUID().uuidString).json"),
+        ]
+        for evidence in evidenceCases {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(
+                    UUID().uuidString,
+                    isDirectory: true
+                )
+            defer {
+                try? FileManager.default.removeItem(at: directory)
+            }
+            let store = try makeWalletNetworkStore(baseURL: directory)
+            let walletDirectory = directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent(
+                    "WalletNetworks",
+                    isDirectory: true
+                )
+            switch evidence {
+            case let .file(name):
+                try Data("retained evidence".utf8).write(
+                    to: walletDirectory.appendingPathComponent(name),
+                    options: .atomic
+                )
+            case let .directory(name):
+                try FileManager.default.createDirectory(
+                    at: walletDirectory.appendingPathComponent(
+                        name,
+                        isDirectory: true
+                    ),
+                    withIntermediateDirectories: false
+                )
+            case let .danglingSymlink(name):
+                try FileManager.default.createSymbolicLink(
+                    at: walletDirectory.appendingPathComponent(name),
+                    withDestinationURL: walletDirectory
+                        .appendingPathComponent("missing-target")
+                )
+            }
+            let before = Set(
+                try FileManager.default.contentsOfDirectory(
+                    atPath: walletDirectory.path
+                )
+            )
+
+            XCTAssertThrowsError(try store.load()) { error in
+                guard
+                    case WalletNetworkMigrationError
+                        .snapshotVerificationFailed = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+            XCTAssertThrowsError(
+                try store.stageAndActivate(
+                    WalletNetworkSnapshot(
+                        schemaVersion:
+                            WalletNetworkSnapshot.currentSchemaVersion,
+                        selectedWalletId: nil,
+                        wallets: [],
+                        accounts: [],
+                        createdAt: Date(timeIntervalSince1970: 1)
+                    )
+                )
+            ) { error in
+                guard
+                    case WalletNetworkMigrationError
+                        .snapshotVerificationFailed = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+            XCTAssertEqual(
+                Set(
+                    try FileManager.default.contentsOfDirectory(
+                        atPath: walletDirectory.path
+                    )
+                ),
+                before,
+                "Preflight failure must leave recovery evidence untouched"
+            )
+        }
+    }
+
+    func testWalletNetworkStoreRejectsUnexpectedEntryBesideActiveSnapshot()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: nil,
+            wallets: [],
+            accounts: [],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(snapshot)
+        let walletDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("WalletNetworks", isDirectory: true)
+        let activePointer = walletDirectory.appendingPathComponent(
+            "active.json"
+        )
+        let pointerBefore = try Data(contentsOf: activePointer)
+        let unexpected = walletDirectory.appendingPathComponent(".hidden")
+        try Data("unfinished activation evidence".utf8).write(
+            to: unexpected,
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(try store.load()) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(try store.stageAndActivate(snapshot))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unexpected.path))
+        XCTAssertEqual(try Data(contentsOf: activePointer), pointerBefore)
+
+        try FileManager.default.removeItem(at: unexpected)
+        XCTAssertEqual(try store.load(), snapshot)
+    }
+
+    func testWalletNetworkStoreRejectsMalformedRetainedSnapshotBesideActive()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: nil,
+            wallets: [],
+            accounts: [],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(snapshot)
+        let walletDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("WalletNetworks", isDirectory: true)
+        let activePointer = walletDirectory.appendingPathComponent(
+            "active.json"
+        )
+        let pointerBefore = try Data(contentsOf: activePointer)
+        let malformed = walletDirectory.appendingPathComponent(
+            "wallet-network-\(UUID().uuidString).json"
+        )
+        try Data("{".utf8).write(to: malformed, options: .atomic)
+
+        XCTAssertThrowsError(try store.load()) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(try store.stageAndActivate(snapshot))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: malformed.path))
+        XCTAssertEqual(try Data(contentsOf: activePointer), pointerBefore)
+    }
+
+    func testWalletNetworkStoreRejectsUnprunedCanonicalSnapshotSet()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: nil,
+            wallets: [],
+            accounts: [],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(snapshot)
+        let walletDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("WalletNetworks", isDirectory: true)
+        let originalSnapshot = try XCTUnwrap(
+            try FileManager.default.contentsOfDirectory(
+                at: walletDirectory,
+                includingPropertiesForKeys: nil
+            ).first(where: {
+                $0.lastPathComponent.hasPrefix("wallet-network-")
+            })
+        )
+        let bytes = try Data(contentsOf: originalSnapshot)
+        for _ in 0 ..< 8 {
+            try bytes.write(
+                to: walletDirectory.appendingPathComponent(
+                    "wallet-network-\(UUID().uuidString).json"
+                ),
+                options: .atomic
+            )
+        }
+
+        XCTAssertThrowsError(try store.load()) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testWalletNetworkStoreBoundsSelectionAndNameSnapshots() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let first = makeLegacyAccount(address: "retention-first")
+        let secondSource = makeLegacyAccount(address: "retention-second")
+        let second = AccountItem(
+            address: secondSource.address,
+            cryptoType: secondSource.cryptoType,
+            networkType: secondSource.networkType,
+            username: secondSource.username,
+            publicKeyData: secondSource.publicKeyData,
+            settings: secondSource.settings,
+            order: 1,
+            isSelected: false
+        )
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        try store.stageAndActivate(
+            WalletNetworkSnapshot(
+                schemaVersion:
+                    WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: first.address,
+                wallets: [
+                    WalletIdentity(
+                        id: first.address,
+                        displayName: first.username,
+                        existingSoraAddress: first.address,
+                        secretSource: .watchOnly
+                    ),
+                    WalletIdentity(
+                        id: second.address,
+                        displayName: second.username,
+                        existingSoraAddress: second.address,
+                        secretSource: .watchOnly
+                    ),
+                ],
+                accounts: [
+                    NetworkAccount(
+                        walletId: first.address,
+                        networkId: .sora2,
+                        derivationVersion: 0,
+                        publicKey: first.publicKeyData,
+                        address: first.address
+                    ),
+                    NetworkAccount(
+                        walletId: second.address,
+                        networkId: .sora2,
+                        derivationVersion: 0,
+                        publicKey: second.publicKeyData,
+                        address: second.address
+                    ),
+                ],
+                createdAt: Date(timeIntervalSince1970: 1)
+            )
+        )
+
+        for index in 0 ..< 24 {
+            let selected = index.isMultiple(of: 2) ? first : second
+            try store.selectWallet(
+                walletId: selected.address,
+                expectedAccounts: [first, second]
+            )
+            try store.updateWalletDisplayName(
+                walletId: selected.address,
+                displayName: "Wallet \(index)",
+                expectedAccounts: [first, second]
+            )
+        }
+
+        let loaded = try XCTUnwrap(store.load())
+        XCTAssertEqual(loaded.selectedWalletId, second.address)
+        XCTAssertEqual(
+            loaded.wallets.first(where: {
+                $0.id == second.address
+            })?.displayName,
+            "Wallet 23"
+        )
+        let snapshotDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "WalletNetworks",
+                isDirectory: true
+            )
+        let snapshots = try FileManager.default
+            .contentsOfDirectory(
+                at: snapshotDirectory,
+                includingPropertiesForKeys: nil
+            )
+            .filter {
+                $0.lastPathComponent
+                    .hasPrefix("wallet-network-")
+            }
+        XCTAssertLessThanOrEqual(snapshots.count, 8)
+        XCTAssertGreaterThanOrEqual(snapshots.count, 2)
+    }
+
+    func testWalletAccountCommitJournalRequiresOrderedActivation()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        var journal = try store.begin(
+            walletId: "new-wallet",
+            existingWalletIds: ["retained-wallet"]
+        )
+        XCTAssertEqual(
+            try store.unresolved().map(\.stage),
+            [.prepared]
+        )
+        XCTAssertThrowsError(
+            try store.advance(journal, to: .coreDataCommitted)
+        )
+        journal = try store.advance(
+            journal,
+            to: .secretsPersisted
+        )
+        journal = try store.advance(
+            journal,
+            to: .coreDataCommitted
+        )
+        journal = try store.advance(
+            journal,
+            to: .networkModelActivated
+        )
+        _ = try store.advance(journal, to: .activated)
+        XCTAssertTrue(try store.unresolved().isEmpty)
+
+        for index in 0 ..< 10 {
+            var retained = try store.begin(
+                walletId: "wallet-\(index)",
+                existingWalletIds: []
+            )
+            retained = try store.advance(
+                retained,
+                to: .secretsPersisted
+            )
+            retained = try store.advance(
+                retained,
+                to: .coreDataCommitted
+            )
+            retained = try store.advance(
+                retained,
+                to: .networkModelActivated
+            )
+            _ = try store.advance(retained, to: .activated)
+        }
+
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "WalletAccountCommits",
+                isDirectory: true
+            )
+        let journals = try FileManager.default
+            .contentsOfDirectory(
+                at: journalDirectory,
+                includingPropertiesForKeys: nil
+            )
+            .filter { $0.pathExtension == "json" }
+        XCTAssertEqual(journals.count, 8)
+    }
+
+    func testWalletAccountCommitJournalRejectsUnboundedFileSet() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "WalletAccountCommits",
+                isDirectory: true
+            )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let now = Date()
+        for index in 0 ..< 17 {
+            let journal = WalletAccountCommitJournal(
+                id: UUID(),
+                walletId: "wallet-\(index)",
+                expectedExistingWalletIds: [],
+                stage: .activated,
+                createdAt: now,
+                updatedAt: now
+            )
+            try encoder.encode(journal).write(
+                to: journalDirectory.appendingPathComponent(
+                    "wallet-account-\(journal.id.uuidString).json"
+                ),
+                options: .atomic
+            )
+        }
+
+        XCTAssertThrowsError(try store.unresolved())
+    }
+
+    func testWalletAccountCommitJournalRejectsUnexpectedNamespaceEntries()
+        throws
+    {
+        enum Evidence {
+            case file(String)
+            case directory(String)
+            case symlink(String)
+        }
+        let evidenceCases: [Evidence] = [
+            .file(".hidden"),
+            .file("unexpected.txt"),
+            .directory("unexpected-directory"),
+            .symlink("unexpected-link"),
+        ]
+        for evidence in evidenceCases {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(
+                    UUID().uuidString,
+                    isDirectory: true
+                )
+            defer {
+                try? FileManager.default.removeItem(at: directory)
+            }
+            let store = try WalletAccountCommitJournalStore(
+                baseURL: directory,
+                recoveryGate: makeIsolatedRecoveryGate()
+            )
+            let journalDirectory = directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent(
+                    "WalletAccountCommits",
+                    isDirectory: true
+                )
+            switch evidence {
+            case let .file(name):
+                try Data("retained evidence".utf8).write(
+                    to: journalDirectory.appendingPathComponent(name),
+                    options: .atomic
+                )
+            case let .directory(name):
+                try FileManager.default.createDirectory(
+                    at: journalDirectory.appendingPathComponent(
+                        name,
+                        isDirectory: true
+                    ),
+                    withIntermediateDirectories: false
+                )
+            case let .symlink(name):
+                try FileManager.default.createSymbolicLink(
+                    at: journalDirectory.appendingPathComponent(name),
+                    withDestinationURL: journalDirectory
+                        .appendingPathComponent("missing-target")
+                )
+            }
+
+            XCTAssertThrowsError(try store.unresolved()) { error in
+                guard
+                    case WalletNetworkMigrationError
+                        .snapshotVerificationFailed = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+    }
+
+    func testWalletAccountCommitJournalWillNotAdvanceBesideUnexpectedEvidence()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        let journal = try store.begin(
+            walletId: "new-wallet",
+            existingWalletIds: ["retained-wallet"]
+        )
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "WalletAccountCommits",
+                isDirectory: true
+            )
+        let journalURL = journalDirectory.appendingPathComponent(
+            "wallet-account-\(journal.id.uuidString).json"
+        )
+        let journalBefore = try Data(contentsOf: journalURL)
+        let unexpected = journalDirectory.appendingPathComponent(".hidden")
+        try Data("interrupted commit evidence".utf8).write(
+            to: unexpected,
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(
+            try store.advance(journal, to: .secretsPersisted)
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: journalURL), journalBefore)
+
+        try FileManager.default.removeItem(at: unexpected)
+        XCTAssertEqual(try store.unresolved().map(\.stage), [.prepared])
+    }
+
+    func testWalletAccountCommitJournalRejectsStaleAdvanceHandle() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        let prepared = try store.begin(
+            walletId: "new-wallet",
+            existingWalletIds: ["retained-wallet"]
+        )
+        let secretsPersisted = try store.advance(
+            prepared,
+            to: .secretsPersisted
+        )
+
+        XCTAssertThrowsError(
+            try store.advance(prepared, to: .coreDataCommitted)
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let unresolved = try store.unresolved()
+        XCTAssertEqual(unresolved.map(\.id), [secretsPersisted.id])
+        XCTAssertEqual(
+            unresolved.map(\.stage),
+            [.secretsPersisted]
+        )
+    }
+
+    func testWalletAccountCommitJournalPrunesBeforeTerminalActivation()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let fileManager = WalletJournalRemovalFailingFileManager()
+        let settings = InMemorySettingsManager()
+        let recoveryGate = WalletRecoveryCapabilityGate(
+            settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let store = try WalletAccountCommitJournalStore(
+            fileManager: fileManager,
+            baseURL: directory,
+            recoveryGate: recoveryGate
+        )
+
+        for index in 0 ..< 8 {
+            var completed = try store.begin(
+                walletId: "retained-\(index)",
+                existingWalletIds: []
+            )
+            completed = try store.advance(
+                completed,
+                to: .secretsPersisted
+            )
+            completed = try store.advance(
+                completed,
+                to: .coreDataCommitted
+            )
+            completed = try store.advance(
+                completed,
+                to: .networkModelActivated
+            )
+            _ = try store.advance(completed, to: .activated)
+        }
+
+        var pending = try store.begin(
+            walletId: "pending-wallet",
+            existingWalletIds: []
+        )
+        pending = try store.advance(pending, to: .secretsPersisted)
+        pending = try store.advance(pending, to: .coreDataCommitted)
+        pending = try store.advance(
+            pending,
+            to: .networkModelActivated
+        )
+        fileManager.failWalletJournalRemoval = true
+        XCTAssertThrowsError(
+            try store.advance(pending, to: .activated)
+        )
+        fileManager.failWalletJournalRemoval = false
+
+        let unresolved = try store.unresolved()
+        XCTAssertEqual(unresolved.map(\.id), [pending.id])
+        XCTAssertEqual(
+            unresolved.map(\.stage),
+            [.networkModelActivated],
+            "A cleanup failure must leave the terminal transition unresolved"
+        )
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+        XCTAssertFalse(
+            settings.walletMigrationRecoveryReason?.isEmpty ?? true
+        )
+    }
+
+    func testWalletAccountCommitJournalRejectsOversizedFileBeforeDecoding()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "WalletAccountCommits",
+                isDirectory: true
+            )
+        try Data(repeating: 0x41, count: 64 * 1_024 + 1).write(
+            to: journalDirectory.appendingPathComponent(
+                "wallet-account-\(UUID().uuidString).json"
+            ),
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(try store.unresolved())
+    }
+
+    func testWalletAccountCommitJournalNormalizesMalformedCanonicalEntry()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "WalletAccountCommits",
+                isDirectory: true
+            )
+        try Data("{".utf8).write(
+            to: journalDirectory.appendingPathComponent(
+                "wallet-account-\(UUID().uuidString).json"
+            ),
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(try store.unresolved()) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testSelectedWalletDualReadUsesCoreDataThenLegacyFallback() throws {
+        let first = makeLegacyAccount(address: "first-selection")
+        let secondSource = makeLegacyAccount(address: "second-selection")
+        let second = AccountItem(
+            address: secondSource.address,
+            cryptoType: secondSource.cryptoType,
+            networkType: secondSource.networkType,
+            username: secondSource.username,
+            publicKeyData: secondSource.publicKeyData,
+            settings: secondSource.settings,
+            order: 1,
+            isSelected: false
+        )
+
+        XCTAssertEqual(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [first, second],
+                legacySelectedAddress: second.address
+            )?.address,
+            first.address
+        )
+
+        let firstWithoutSelection = AccountItem(
+            address: first.address,
+            cryptoType: first.cryptoType,
+            networkType: first.networkType,
+            username: first.username,
+            publicKeyData: first.publicKeyData,
+            settings: first.settings,
+            order: first.order,
+            isSelected: false
+        )
+        XCTAssertEqual(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [firstWithoutSelection, second],
+                legacySelectedAddress: second.address
+            )?.address,
+            second.address
+        )
+        // No selected row and no 2.x setting (or a stale one naming a removed
+        // account): the lowest order wins instead of locking the wallet.
+        XCTAssertEqual(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [firstWithoutSelection, second],
+                legacySelectedAddress: nil
+            )?.address,
+            firstWithoutSelection.address
+        )
+        XCTAssertEqual(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [second, firstWithoutSelection],
+                legacySelectedAddress: makeLegacyAccount(address: "removed-account").address
+            )?.address,
+            firstWithoutSelection.address
+        )
+        // A stale setting with no accounts is ignored.
+        XCTAssertNil(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [],
+                legacySelectedAddress: second.address
+            )
+        )
+        // Duplicate identifiers are still corruption.
+        XCTAssertThrowsError(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [first, first],
+                legacySelectedAddress: nil
+            )
+        )
+        try exerciseSelectedWalletCompletionLeaseBoundaries(
+            first: first,
+            second: second
+        )
+    }
+
+    private func exerciseSelectedWalletCompletionLeaseBoundaries(
+        first: AccountItem,
+        second: AccountItem
+    ) throws {
+        let storage = UserDataStorageTestFacade()
+        let worker = OperationQueue()
+        worker.maxConcurrentOperationCount = 1
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> =
+            storage.createRepository(mapper: AnyCoreDataMapper(AccountItemMapper()))
+        try save(models: [first, second],
+                 to: AnyDataProviderRepository(repository),
+                 operationQueue: worker, expectationHandler: self)
+        let legacySettings = InMemorySettingsManager()
+        legacySettings.set(value: first, for: SettingsKey.selectedAccount.rawValue)
+        let gate = makeIsolatedRecoveryGate(settings: legacySettings)
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let selection = SelectedWalletSettings(
+            storageFacade: storage, operationQueue: worker,
+            legacySettings: legacySettings,
+            walletNetworkSelectionSynchronizer: { _, _, lease in
+                XCTAssertNil(coordinator.tryAcquire())
+                try coordinator.withExclusiveAccess(using: lease) {}
+            },
+            walletNetworkMetadataSynchronizer: { _, _, _, lease in
+                XCTAssertNil(coordinator.tryAcquire())
+                try coordinator.withExclusiveAccess(using: lease) {}
+            },
+            lifecycleCoordinator: coordinator, recoveryGate: gate
+        )
+
+        func assertOwnedLeaseReleased() {
+            do {
+                let lease = try XCTUnwrap(
+                    coordinator.tryAcquireForMutableWalletAccess(),
+                    "Completion must permit immediate signing/lifecycle access"
+                )
+                lease.release()
+            } catch { XCTFail("Completion retained an owned lease: \(error)") }
+        }
+
+        func observe(
+            _ label: String,
+            action: (@escaping (Result<AccountItem, Error>) -> Void) -> Void,
+            inspect: @escaping (Result<AccountItem, Error>) throws -> Void
+        ) {
+            let done = expectation(description: label)
+            action { result in
+                defer { done.fulfill() }
+                do {
+                    try inspect(result)
+                } catch {
+                    XCTFail("\(label) callback inspection threw: \(error)")
+                }
+            }
+            wait(for: [done], timeout: 5)
+        }
+
+        // Probe from inside the callback, where the old deferred release was
+        // deterministically still holding the lease; no scheduling delay helps.
+        let reentered = expectation(description: "selection reentered from success")
+        selection.save(value: second, runningCompletionIn: nil) { result in
+            XCTAssertEqual(try? result.get().address, second.address)
+            XCTAssertEqual(selection.currentAccount?.address, second.address)
+            assertOwnedLeaseReleased()
+            selection.save(value: first, runningCompletionIn: nil) { nested in
+                XCTAssertEqual(try? nested.get().address, first.address)
+                XCTAssertEqual(selection.currentAccount?.address, first.address)
+                assertOwnedLeaseReleased()
+                reentered.fulfill()
+            }
+        }
+        wait(for: [reentered], timeout: 5)
+        let renamed = first.replacingUsername("Completed metadata update")
+        observe("metadata callback permits immediate lifecycle access", action: {
+            selection.performUpdateName(account: first, displayName: renamed.username,
+                                        completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertEqual(try? result.get(), renamed)
+            XCTAssertEqual(selection.currentAccount, renamed)
+            assertOwnedLeaseReleased()
+        })
+
+        let missing = makeLegacyAccount(address: "completion-missing-wallet")
+        XCTAssertFalse([first.address, second.address].contains(missing.address))
+        observe("failed selection releases owned lease", action: {
+            selection.performSave(value: missing, completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertThrowsError(try result.get())
+            XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired)
+            assertOwnedLeaseReleased()
+        })
+        observe("failed metadata releases owned lease", action: {
+            selection.performUpdateName(account: missing, displayName: "Not stored",
+                                        completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertThrowsError(try result.get())
+            assertOwnedLeaseReleased()
+        })
+
+        // Removal owns its supplied lease across this callback and the next
+        // step of the removal transaction, for both successful and failed saves.
+        let supplied = try XCTUnwrap(coordinator.tryAcquireForMutableWalletAccess())
+        defer { supplied.release() }
+        for account in [second, missing] {
+            observe("supplied lease remains caller-owned", action: {
+                selection.performSelectAfterRemoval(value: account,
+                    lifecycleLease: supplied, completionClosure: $0)
+            }, inspect: { result in
+                if account.address == second.address {
+                    XCTAssertEqual(try? result.get().address, second.address)
+                } else {
+                    XCTAssertThrowsError(try result.get())
+                }
+                XCTAssertNil(coordinator.tryAcquire())
+                XCTAssertNoThrow(try coordinator.withExclusiveAccess(using: supplied) {})
+            })
+        }
+        supplied.release()
+        assertOwnedLeaseReleased()
+
+        // A failure after Core Data committed must latch recovery before the
+        // caller is notified, while still releasing the owned lease itself.
+        let failingSelection = SelectedWalletSettings(
+            storageFacade: storage, operationQueue: worker,
+            legacySettings: legacySettings,
+            walletNetworkSelectionSynchronizer: { _, _, _ in
+                throw WalletNetworkMigrationError.snapshotVerificationFailed
+            },
+            lifecycleCoordinator: coordinator, recoveryGate: gate
+        )
+        observe("post-commit failure latches recovery and releases owned lease", action: {
+            failingSelection.performSave(value: first, completionClosure: $0)
+        }, inspect: { result in
+            XCTAssertThrowsError(try result.get())
+            XCTAssertTrue(legacySettings.walletMigrationRecoveryRequired)
+            XCTAssertThrowsError(try coordinator.tryAcquireForMutableWalletAccess())
+            let available = coordinator.tryAcquire()
+            XCTAssertNotNil(available)
+            available?.release()
+        })
+    }
+
+    func testLegacyWalletUpgradeRequiresExplicitUnambiguousLegacyOnlyState()
+        throws
+    {
+        XCTAssertEqual(
+            WalletMnemonicWordPolicy.userImportWordCounts,
+            [12, 24]
+        )
+        XCTAssertEqual(
+            WalletMnemonicWordPolicy.retainedSoraWordCounts,
+            [12, 15, 18, 21, 24]
+        )
+        XCTAssertEqual(
+            WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 15),
+            .legacyMnemonicEntropy
+        )
+        XCTAssertEqual(
+            WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 24),
+            .mnemonicEntropy
+        )
+        for count in [18, 21] {
+            XCTAssertEqual(
+                WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: count),
+                .legacyMnemonicEntropy
+            )
+        }
+        XCTAssertNil(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 13))
+        let legacyEntropy = Data(repeating: 0, count: 20)
+        let legacyMnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: Data(repeating: 0, count: 20))
+        XCTAssertEqual(legacyMnemonic.allWords().count, 15)
+        let phrase = legacyMnemonic.toString()
+        // Independent legacy-1.x vector: hashlib.scrypt(NFKD(phrase),
+        // salt="SORA|iroha keypair|", n=16384, r=8, p=1, dklen=32).
+        let pairedKeychain = InMemoryKeychain()
+        let irohaPrivateKey = try Data(hexStringSSF:
+            "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84")
+        try pairedKeychain.addKey(legacyEntropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try pairedKeychain.addKey(irohaPrivateKey, with: "privateKey")
+        XCTAssertTrue(try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+            storeExists: false, keystore: pairedKeychain,
+            hasWatchOnlyWallet: false, snapshot: nil
+        ))
+        XCTAssertEqual(try pairedKeychain.fetchKey(for: "privateKey"), irohaPrivateKey)
+        var wrongPrivateKey = irohaPrivateKey
+        wrongPrivateKey[0] ^= 1
+        for invalidPrivateKey in [wrongPrivateKey, Data()] {
+            try pairedKeychain.saveKey(invalidPrivateKey, with: "privateKey")
+            XCTAssertThrowsError(try LegacyWalletUpgradePolicy.isCandidate(
+                keystore: pairedKeychain, hasWatchOnlyWallet: false, snapshot: nil
+            ))
+            XCTAssertEqual(try pairedKeychain.fetchKey(for: "privateKey"), invalidPrivateKey)
+            XCTAssertEqual(try pairedKeychain.fetchKey(for: KeystoreTag.legacyEntropy.rawValue), legacyEntropy)
+        }
+        XCTAssertThrowsError(
+            try NexusKeyDerivation.derive(
+                mnemonic: phrase,
+                configuration: .minamoto
+            )
+        )
+
+        // Exercise the actual retained-15 preparation and persistence
+        // boundary. The normal importer may derive temporary material for
+        // identity verification, but upgrade activation must discard those
+        // copies and leave the original unsuffixed entropy byte-for-byte
+        // unchanged.
+        let keychain = InMemoryKeychain()
+        let retainedDisplayName = "Retained 15-word wallet"
+        try keychain.addKey(
+            legacyEntropy,
+            with: KeystoreTag.legacyEntropy.rawValue
+        )
+        try keychain.addKey(
+            Data(retainedDisplayName.utf8),
+            with: KeystoreTag.legacyUsername.rawValue
+        )
+        let retainedSettings = InMemorySettingsManager()
+        let retainedRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: retainedSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        XCTAssertEqual(
+            try LegacyWalletUpgradeDisplayNameResolver.resolve(
+                settings: retainedSettings,
+                keystore: keychain
+            ),
+            retainedDisplayName
+        )
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: retainedRecoveryGate
+        )
+        let preparation = factory.prepareAccountOperation(
+            request: AccountCreationRequest(
+                username: retainedDisplayName,
+                type: .sora,
+                derivationPath: "",
+                cryptoType: .sr25519
+            ),
+            mnemonic: legacyMnemonic
+        )
+        OperationQueue().addOperations(
+            [preparation],
+            waitUntilFinished: true
+        )
+        let prepared = try preparation.extractResultData(
+            throwing: BaseOperationError.parentOperationCancelled
+        )
+        let seedResult = try SeedFactory().deriveSeed(
+            from: phrase,
+            password: ""
+        )
+        var expectedSeed = seedResult.seed.miniSeed
+        defer {
+            expectedSeed.resetBytes(
+                in: expectedSeed.startIndex ..< expectedSeed.endIndex
+            )
+        }
+        let expectedKeypair = try SR25519KeypairFactory()
+            .createKeypairFromSeed(expectedSeed, chaincodeList: [])
+        let expectedAddress = try SS58AddressFactory().address(
+            fromAccountId: expectedKeypair.publicKey().rawData(),
+            type: SNAddressType(chain: .sora)
+        )
+        XCTAssertEqual(prepared.account.address, expectedAddress)
+        XCTAssertEqual(
+            prepared.account.publicKeyData,
+            expectedKeypair.publicKey().rawData()
+        )
+
+        let originalIdentifiers = Set(try keychain.allKeyIdentifiers())
+        try LegacyWalletUpgradeSecretRetention.consumeWithoutPersisting(
+            prepared,
+            keystore: keychain,
+            settings: retainedSettings,
+            expectedEntropyDigest: Data(
+                SHA256.hash(data: legacyEntropy)
+            ),
+            expectedDisplayName: retainedDisplayName,
+            recoveryGate: retainedRecoveryGate
+        )
+        XCTAssertEqual(
+            Set(try keychain.allKeyIdentifiers()),
+            originalIdentifiers
+        )
+        XCTAssertEqual(
+            try keychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            ),
+            legacyEntropy
+        )
+        let conflictingNameSettings = InMemorySettingsManager()
+        conflictingNameSettings.set(
+            value: "Conflicting retained name",
+            for: KeystoreTag.legacyUsername.rawValue
+        )
+        XCTAssertThrowsError(
+            try LegacyWalletUpgradeDisplayNameResolver.resolve(
+                settings: conflictingNameSettings,
+                keystore: keychain
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchKey(
+                for: KeystoreTag.legacyUsername.rawValue
+            ),
+            Data(retainedDisplayName.utf8)
+        )
+        XCTAssertFalse(
+            try keychain.checkKey(
+                for: KeystoreTag.secretKeyTagForAddress(expectedAddress)
+            )
+        )
+        XCTAssertFalse(
+            try keychain.checkKey(
+                for: KeystoreTag.entropyTagForAddress(expectedAddress)
+            )
+        )
+        XCTAssertFalse(
+            try keychain.checkKey(
+                for: KeystoreTag.seedTagForAddress(expectedAddress)
+            )
+        )
+
+        let retainedSnapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: expectedAddress,
+            wallets: [
+                WalletIdentity(
+                    id: expectedAddress,
+                    displayName: prepared.account.username,
+                    existingSoraAddress: expectedAddress,
+                    secretSource: .legacyMnemonicEntropy
+                ),
+            ],
+            accounts: [
+                NetworkAccount(
+                    walletId: expectedAddress,
+                    networkId: .sora2,
+                    derivationVersion: 0,
+                    publicKey: prepared.account.publicKeyData,
+                    address: expectedAddress
+                ),
+            ],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        let injectedBlockedSettings = InMemorySettingsManager()
+        injectedBlockedSettings.walletMigrationRecoveryRequired = true
+        let injectedBlockedGate = WalletRecoveryCapabilityGate(
+            settings: injectedBlockedSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        XCTAssertThrowsError(
+            try keychain.fetchEntropyForAddress(
+                expectedAddress,
+                activeSnapshot: retainedSnapshot,
+                recoveryGate: injectedBlockedGate
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .walletRecoveryRequired = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            try keychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            ),
+            legacyEntropy
+        )
+
+        // Exercise the complete storage-migrator path with a distinct sticky
+        // recovery capability. The installed store, unsuffixed entropy, and
+        // Keychain inventory must remain untouched when that injected gate is
+        // blocked, even though process-global settings are healthy.
+        let blockedMigrationDirectory = FileManager.default
+            .temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(
+                at: blockedMigrationDirectory
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: blockedMigrationDirectory,
+            withIntermediateDirectories: true
+        )
+        let blockedStoreURL = blockedMigrationDirectory
+            .appendingPathComponent("UserDataModel.sqlite")
+        let versionOneModel = try userStorageModel(
+            named: UserStorageVersion.version1.rawValue
+        )
+        try writeAccount(
+            prepared.account,
+            to: blockedStoreURL,
+            model: versionOneModel,
+            includesSelection: false
+        )
+        let blockedStoreBytes = try Data(contentsOf: blockedStoreURL)
+        let blockedMigrationKeychain = InMemoryKeychain()
+        try blockedMigrationKeychain.addKey(
+            legacyEntropy,
+            with: KeystoreTag.legacyEntropy.rawValue
+        )
+        let blockedMigrationSettings = CountingSettingsManager()
+        blockedMigrationSettings.set(
+            value: prepared.account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        blockedMigrationSettings.walletMigrationRecoveryRequired = true
+        let blockedMigrationGate = WalletRecoveryCapabilityGate(
+            settings: blockedMigrationSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let blockedMigrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: blockedStoreURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: blockedMigrationKeychain,
+            settings: blockedMigrationSettings,
+            fileManager: .default,
+            recoveryGate: blockedMigrationGate,
+            loadWalletNetworkSnapshot: { retainedSnapshot }
+        )
+        XCTAssertThrowsError(try blockedMigrator.performMigration()) {
+            error in
+            guard
+                case WalletNetworkMigrationError
+                    .walletRecoveryRequired = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            blockedMigrationSettings.recoveryMarkerReadCount,
+            1
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: blockedStoreURL),
+            blockedStoreBytes
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: blockedMigrationDirectory
+                    .appendingPathComponent("WalletMigrationSafety")
+                    .path
+            )
+        )
+        XCTAssertEqual(
+            Set(try blockedMigrationKeychain.allKeyIdentifiers()),
+            [KeystoreTag.legacyEntropy.rawValue]
+        )
+        XCTAssertEqual(
+            try blockedMigrationKeychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            ),
+            legacyEntropy
+        )
+        XCTAssertTrue(
+            try WalletExplicitRemovalIdentityPolicy.verify(
+                accounts: [prepared.account],
+                expectedAccount: prepared.account,
+                walletId: expectedAddress,
+                snapshot: retainedSnapshot,
+                keystore: keychain,
+                settings: retainedSettings,
+                recoveryGate: retainedRecoveryGate
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            ),
+            legacyEntropy
+        )
+
+        let corruptedKeychain = InMemoryKeychain()
+        try corruptedKeychain.addKey(
+            Data(repeating: 1, count: 20),
+            with: KeystoreTag.legacyEntropy.rawValue
+        )
+        // A read-only account (its retained material does not prove it) can
+        // still be removed on the user's confirmed request, but the global
+        // entropy that does not prove it is never removed with it.
+        XCTAssertFalse(
+            try WalletExplicitRemovalIdentityPolicy.verify(
+                accounts: [prepared.account],
+                expectedAccount: prepared.account,
+                walletId: expectedAddress,
+                snapshot: retainedSnapshot,
+                keystore: corruptedKeychain,
+                settings: retainedSettings,
+                recoveryGate: retainedRecoveryGate
+            )
+        )
+        XCTAssertTrue(
+            try corruptedKeychain.checkKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            )
+        )
+
+        let migrationDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: migrationDirectory)
+        }
+        let migrationKeychain = InMemoryKeychain()
+        try migrationKeychain.addKey(
+            legacyEntropy,
+            with: KeystoreTag.legacyEntropy.rawValue
+        )
+        let preMigrationIdentifiers = Set(
+            try migrationKeychain.allKeyIdentifiers()
+        )
+        let migrationSettings = InMemorySettingsManager()
+        let migrationRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: migrationSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let migrationLifecycleCoordinator = WalletLifecycleCoordinator(
+            recoveryGate: migrationRecoveryGate
+        )
+        let migrationStore = try WalletNetworkStore(
+            baseURL: migrationDirectory,
+            recoveryGate: migrationRecoveryGate
+        )
+        try WalletNetworkModelMigrator(
+            keystore: migrationKeychain,
+            store: migrationStore,
+            settings: migrationSettings,
+            lifecycleCoordinator: migrationLifecycleCoordinator,
+            recoveryGate: migrationRecoveryGate
+        ).migrate(
+            accounts: [prepared.account],
+            selectedAddress: expectedAddress
+        )
+        let migratedSnapshot = try XCTUnwrap(migrationStore.load())
+        XCTAssertEqual(
+            migratedSnapshot.wallets.first?.secretSource,
+            .legacyMnemonicEntropy
+        )
+        XCTAssertEqual(
+            migratedSnapshot.wallets.first?.displayName,
+            retainedDisplayName
+        )
+        XCTAssertEqual(migratedSnapshot.accounts.map(\.networkId), [.sora2])
+        XCTAssertEqual(
+            migratedSnapshot.accounts.first?.publicKey,
+            prepared.account.publicKeyData
+        )
+        XCTAssertEqual(
+            Set(try migrationKeychain.allKeyIdentifiers()),
+            preMigrationIdentifiers
+        )
+
+        // A retained keystore-import/secret-only wallet is a distinct
+        // production source. It must retain its exact SORA2 identity, create
+        // no Nexus child, and be revalidated before explicit deletion.
+        let secretOnlyKeychain = InMemoryKeychain()
+        var retainedSecret = expectedKeypair.privateKey().rawData()
+        defer {
+            retainedSecret.resetBytes(
+                in: retainedSecret.startIndex ..< retainedSecret.endIndex
+            )
+        }
+        try secretOnlyKeychain.addKey(
+            retainedSecret,
+            with: KeystoreTag.secretKeyTagForAddress(expectedAddress)
+        )
+        let secretOnlyIdentifiers = Set(
+            try secretOnlyKeychain.allKeyIdentifiers()
+        )
+        let secretOnlySettings = InMemorySettingsManager()
+        let secretOnlyRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: secretOnlySettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let secretOnlyLifecycleCoordinator = WalletLifecycleCoordinator(
+            recoveryGate: secretOnlyRecoveryGate
+        )
+        let secretOnlyStore = try WalletNetworkStore(
+            baseURL: migrationDirectory.appendingPathComponent(
+                "legacy-secret-only",
+                isDirectory: true
+            ),
+            recoveryGate: secretOnlyRecoveryGate
+        )
+        try WalletNetworkModelMigrator(
+            keystore: secretOnlyKeychain,
+            store: secretOnlyStore,
+            settings: secretOnlySettings,
+            lifecycleCoordinator: secretOnlyLifecycleCoordinator,
+            recoveryGate: secretOnlyRecoveryGate
+        ).migrate(
+            accounts: [prepared.account],
+            selectedAddress: expectedAddress
+        )
+        let secretOnlySnapshot = try XCTUnwrap(secretOnlyStore.load())
+        XCTAssertEqual(
+            secretOnlySnapshot.wallets.first?.secretSource,
+            .legacySecret
+        )
+        XCTAssertEqual(
+            secretOnlySnapshot.accounts.map(\.networkId),
+            [.sora2]
+        )
+        XCTAssertEqual(
+            secretOnlySnapshot.accounts.first?.publicKey,
+            prepared.account.publicKeyData
+        )
+        XCTAssertEqual(
+            Set(try secretOnlyKeychain.allKeyIdentifiers()),
+            secretOnlyIdentifiers
+        )
+        XCTAssertFalse(
+            try WalletExplicitRemovalIdentityPolicy.verify(
+                accounts: [prepared.account],
+                expectedAccount: prepared.account,
+                walletId: expectedAddress,
+                snapshot: secretOnlySnapshot,
+                keystore: secretOnlyKeychain,
+                settings: secretOnlySettings,
+                recoveryGate: secretOnlyRecoveryGate
+            )
+        )
+        XCTAssertEqual(
+            Set(try secretOnlyKeychain.allKeyIdentifiers()),
+            secretOnlyIdentifiers
+        )
+
+        var corruptedSecret = retainedSecret
+        corruptedSecret[corruptedSecret.startIndex] ^= 0xff
+        defer {
+            corruptedSecret.resetBytes(
+                in: corruptedSecret.startIndex ..< corruptedSecret.endIndex
+            )
+        }
+        let corruptedSecretKeychain = InMemoryKeychain()
+        try corruptedSecretKeychain.addKey(
+            corruptedSecret,
+            with: KeystoreTag.secretKeyTagForAddress(expectedAddress)
+        )
+        XCTAssertFalse(
+            try WalletExplicitRemovalIdentityPolicy.verify(
+                accounts: [prepared.account],
+                expectedAccount: prepared.account,
+                walletId: expectedAddress,
+                snapshot: secretOnlySnapshot,
+                keystore: corruptedSecretKeychain,
+                settings: secretOnlySettings,
+                recoveryGate: secretOnlyRecoveryGate
+            )
+        )
+        XCTAssertTrue(
+            try corruptedSecretKeychain.checkKey(
+                for: KeystoreTag.secretKeyTagForAddress(expectedAddress)
+            )
+        )
+
+        // Raw-seed-only and explicit watch-only accounts do not enter the
+        // pre-account-model RootInteractor import. Qualify their actual
+        // Core-Data-to-network-model path and the same deletion preflight
+        // without allowing either source to be rewritten or promoted to
+        // Nexus children.
+        let rawSeedSettings = InMemorySettingsManager()
+        let rawSeedRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: rawSeedSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let rawSeedLifecycleCoordinator = WalletLifecycleCoordinator(
+            recoveryGate: rawSeedRecoveryGate
+        )
+        let rawSeedKeychain = InMemoryKeychain()
+        try rawSeedKeychain.addKey(
+            expectedSeed,
+            with: KeystoreTag.seedTagForAddress(expectedAddress)
+        )
+        let rawSeedIdentifiers = Set(
+            try rawSeedKeychain.allKeyIdentifiers()
+        )
+        let rawSeedStore = try WalletNetworkStore(
+            baseURL: migrationDirectory.appendingPathComponent(
+                "legacy-raw-seed",
+                isDirectory: true
+            ),
+            recoveryGate: rawSeedRecoveryGate
+        )
+        try WalletNetworkModelMigrator(
+            keystore: rawSeedKeychain,
+            store: rawSeedStore,
+            settings: rawSeedSettings,
+            lifecycleCoordinator: rawSeedLifecycleCoordinator,
+            recoveryGate: rawSeedRecoveryGate
+        ).migrate(
+            accounts: [prepared.account],
+            selectedAddress: expectedAddress
+        )
+        let rawSeedSnapshot = try XCTUnwrap(rawSeedStore.load())
+        XCTAssertEqual(
+            rawSeedSnapshot.wallets.first?.secretSource,
+            .rawSeed
+        )
+        XCTAssertEqual(rawSeedSnapshot.accounts.map(\.networkId), [.sora2])
+        XCTAssertEqual(
+            rawSeedSnapshot.accounts.first?.publicKey,
+            prepared.account.publicKeyData
+        )
+        XCTAssertFalse(
+            try WalletExplicitRemovalIdentityPolicy.verify(
+                accounts: [prepared.account],
+                expectedAccount: prepared.account,
+                walletId: expectedAddress,
+                snapshot: rawSeedSnapshot,
+                keystore: rawSeedKeychain,
+                settings: rawSeedSettings,
+                recoveryGate: rawSeedRecoveryGate
+            )
+        )
+        XCTAssertEqual(
+            Set(try rawSeedKeychain.allKeyIdentifiers()),
+            rawSeedIdentifiers
+        )
+        XCTAssertEqual(
+            try rawSeedKeychain.fetchKey(
+                for: KeystoreTag.seedTagForAddress(expectedAddress)
+            ),
+            expectedSeed
+        )
+
+        let watchOnlySettings = InMemorySettingsManager()
+        let watchOnlyKey = "wallet.watchOnly.\(expectedAddress)"
+        watchOnlySettings.set(value: true, for: watchOnlyKey)
+        let watchOnlyRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: watchOnlySettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let watchOnlyLifecycleCoordinator = WalletLifecycleCoordinator(
+            recoveryGate: watchOnlyRecoveryGate
+        )
+        let watchOnlyKeychain = InMemoryKeychain()
+        let watchOnlyStore = try WalletNetworkStore(
+            baseURL: migrationDirectory.appendingPathComponent(
+                "legacy-watch-only",
+                isDirectory: true
+            ),
+            recoveryGate: watchOnlyRecoveryGate
+        )
+        try WalletNetworkModelMigrator(
+            keystore: watchOnlyKeychain,
+            store: watchOnlyStore,
+            settings: watchOnlySettings,
+            lifecycleCoordinator: watchOnlyLifecycleCoordinator,
+            recoveryGate: watchOnlyRecoveryGate
+        ).migrate(
+            accounts: [prepared.account],
+            selectedAddress: expectedAddress
+        )
+        let watchOnlySnapshot = try XCTUnwrap(watchOnlyStore.load())
+        XCTAssertEqual(
+            watchOnlySnapshot.wallets.first?.secretSource,
+            .watchOnly
+        )
+        XCTAssertEqual(
+            watchOnlySnapshot.accounts.map(\.networkId),
+            [.sora2]
+        )
+        XCTAssertFalse(
+            try WalletExplicitRemovalIdentityPolicy.verify(
+                accounts: [prepared.account],
+                expectedAccount: prepared.account,
+                walletId: expectedAddress,
+                snapshot: watchOnlySnapshot,
+                keystore: watchOnlyKeychain,
+                settings: watchOnlySettings,
+                recoveryGate: watchOnlyRecoveryGate
+            )
+        )
+        XCTAssertTrue(try watchOnlyKeychain.allKeyIdentifiers().isEmpty)
+        XCTAssertEqual(
+            watchOnlySettings.anyValue(for: watchOnlyKey) as? Bool,
+            true
+        )
+
+        func walletNetworkBytes(at baseURL: URL) throws -> [String: Data] {
+            let walletDirectory = baseURL
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent("WalletNetworks", isDirectory: true)
+            let entries = try FileManager.default.contentsOfDirectory(
+                at: walletDirectory,
+                includingPropertiesForKeys: nil
+            )
+            var result: [String: Data] = [:]
+            for entry in entries {
+                result[entry.lastPathComponent] = try Data(contentsOf: entry)
+            }
+            return result
+        }
+
+        // Activate a normal 12-word mnemonic wallet so the continuity matrix
+        // also proves that loss of its protected entropy cannot silently
+        // downgrade it to watch-only during a later startup reconciliation.
+        let mnemonicEntropy = Data(repeating: 0x2a, count: 16)
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: mnemonicEntropy)
+        XCTAssertEqual(mnemonic.allWords().count, 12)
+        var mnemonicSeed = try SeedFactory()
+            .deriveSeed(from: mnemonic.toString(), password: "")
+            .seed
+            .miniSeed
+        defer {
+            mnemonicSeed.resetBytes(
+                in: mnemonicSeed.startIndex ..< mnemonicSeed.endIndex
+            )
+        }
+        let mnemonicKeypair = try SR25519KeypairFactory()
+            .createKeypairFromSeed(mnemonicSeed, chaincodeList: [])
+        let mnemonicPublicKey = mnemonicKeypair.publicKey().rawData()
+        let mnemonicAddress = try SS58AddressFactory().address(
+            fromAccountId: mnemonicPublicKey,
+            type: Chain.sora.addressType()
+        )
+        let mnemonicAccount = AccountItem(
+            address: mnemonicAddress,
+            cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(),
+            username: "Retained 12-word wallet",
+            publicKeyData: mnemonicPublicKey,
+            settings: AccountSettings(
+                visibleAssetIds: [],
+                orderedAssetIds: []
+            ),
+            order: 0,
+            isSelected: true
+        )
+        let mnemonicKeychain = InMemoryKeychain()
+        try mnemonicKeychain.addKey(
+            mnemonicEntropy,
+            with: KeystoreTag.entropyTagForAddress(mnemonicAddress)
+        )
+        let mnemonicSettings = InMemorySettingsManager()
+        let mnemonicRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: mnemonicSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let mnemonicLifecycleCoordinator = WalletLifecycleCoordinator(
+            recoveryGate: mnemonicRecoveryGate
+        )
+        let mnemonicBaseURL = migrationDirectory.appendingPathComponent(
+            "mnemonic-entropy",
+            isDirectory: true
+        )
+        let mnemonicStore = try WalletNetworkStore(
+            baseURL: mnemonicBaseURL,
+            recoveryGate: mnemonicRecoveryGate
+        )
+        try WalletNetworkModelMigrator(
+            keystore: mnemonicKeychain,
+            store: mnemonicStore,
+            settings: mnemonicSettings,
+            lifecycleCoordinator: mnemonicLifecycleCoordinator,
+            recoveryGate: mnemonicRecoveryGate
+        ).migrate(
+            accounts: [mnemonicAccount],
+            selectedAddress: mnemonicAddress
+        )
+        let mnemonicSnapshot = try XCTUnwrap(mnemonicStore.load())
+        XCTAssertEqual(
+            mnemonicSnapshot.wallets.first?.secretSource,
+            .mnemonicEntropy
+        )
+        XCTAssertEqual(
+            Set(mnemonicSnapshot.accounts.map(\.networkId)),
+            NexusNetworkConfiguration.admittedWalletNetworkIds
+        )
+
+        // Once a wallet source is active, neither missing protected material
+        // nor a stale watch-only marker may downgrade it and hide the recovery
+        // condition. The exact active snapshot must remain untouched.
+        let retainedSourceContinuityCases: [(
+            source: WalletSecretSource,
+            baseURL: URL,
+            store: WalletNetworkStore,
+            snapshot: WalletNetworkSnapshot,
+            account: AccountItem
+        )] = [
+            (
+                .mnemonicEntropy,
+                mnemonicBaseURL,
+                mnemonicStore,
+                mnemonicSnapshot,
+                mnemonicAccount
+            ),
+            (
+                .legacyMnemonicEntropy,
+                migrationDirectory,
+                migrationStore,
+                migratedSnapshot,
+                prepared.account
+            ),
+            (
+                .legacySecret,
+                migrationDirectory.appendingPathComponent(
+                    "legacy-secret-only",
+                    isDirectory: true
+                ),
+                secretOnlyStore,
+                secretOnlySnapshot,
+                prepared.account
+            ),
+            (
+                .rawSeed,
+                migrationDirectory.appendingPathComponent(
+                    "legacy-raw-seed",
+                    isDirectory: true
+                ),
+                rawSeedStore,
+                rawSeedSnapshot,
+                prepared.account
+            ),
+        ]
+        for continuityCase in retainedSourceContinuityCases {
+            let continuitySettings = InMemorySettingsManager()
+            continuitySettings.set(
+                value: true,
+                for: "wallet.watchOnly.\(continuityCase.account.address)"
+            )
+            let continuityRecoveryGate = WalletRecoveryCapabilityGate(
+                settings: continuitySettings,
+                unresolvedMigrationJournal: { false },
+                unresolvedWalletCommitJournal: { false }
+            )
+            let continuityLifecycleCoordinator = WalletLifecycleCoordinator(
+                recoveryGate: continuityRecoveryGate
+            )
+            let bytesBefore = try walletNetworkBytes(
+                at: continuityCase.baseURL
+            )
+
+            XCTAssertThrowsError(
+                try WalletNetworkModelMigrator(
+                    keystore: InMemoryKeychain(),
+                    store: continuityCase.store,
+                    settings: continuitySettings,
+                    lifecycleCoordinator: continuityLifecycleCoordinator,
+                    recoveryGate: continuityRecoveryGate
+                ).migrate(
+                    accounts: [continuityCase.account],
+                    selectedAddress: continuityCase.account.address
+                ),
+                "Activated \(continuityCase.source.rawValue) became watch-only"
+            ) { error in
+                guard
+                    case let WalletNetworkMigrationError
+                        .legacyIdentityMismatch(address) = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+                XCTAssertEqual(address, continuityCase.account.address)
+            }
+            XCTAssertEqual(
+                try continuityCase.store.load(),
+                continuityCase.snapshot
+            )
+            XCTAssertEqual(
+                try walletNetworkBytes(at: continuityCase.baseURL),
+                bytesBefore
+            )
+            XCTAssertEqual(
+                continuitySettings.walletNetworkStoreVersion,
+                0
+            )
+        }
+
+        // The inverse transition is equally unsafe without an explicit,
+        // journaled user action: newly visible signing material cannot silently
+        // convert an already active watch-only wallet.
+        let watchOnlyToSigningSettings = InMemorySettingsManager()
+        let watchOnlyToSigningRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: watchOnlyToSigningSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let watchOnlyToSigningLifecycleCoordinator =
+            WalletLifecycleCoordinator(
+                recoveryGate: watchOnlyToSigningRecoveryGate
+            )
+        let watchOnlyBaseURL = migrationDirectory.appendingPathComponent(
+            "legacy-watch-only",
+            isDirectory: true
+        )
+        let watchOnlyBytesBefore = try walletNetworkBytes(
+            at: watchOnlyBaseURL
+        )
+        XCTAssertThrowsError(
+            try WalletNetworkModelMigrator(
+                keystore: rawSeedKeychain,
+                store: watchOnlyStore,
+                settings: watchOnlyToSigningSettings,
+                lifecycleCoordinator:
+                    watchOnlyToSigningLifecycleCoordinator,
+                recoveryGate: watchOnlyToSigningRecoveryGate
+            ).migrate(
+                accounts: [prepared.account],
+                selectedAddress: expectedAddress
+            )
+        ) { error in
+            guard
+                case let WalletNetworkMigrationError
+                    .legacyIdentityMismatch(address) = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertEqual(address, expectedAddress)
+        }
+        XCTAssertEqual(try watchOnlyStore.load(), watchOnlySnapshot)
+        XCTAssertEqual(
+            try walletNetworkBytes(at: watchOnlyBaseURL),
+            watchOnlyBytesBefore
+        )
+        XCTAssertEqual(
+            watchOnlyToSigningSettings.walletNetworkStoreVersion,
+            0
+        )
+
+        let emptySnapshot = WalletNetworkSnapshot(
+            schemaVersion:
+                WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: nil,
+            wallets: [],
+            accounts: [],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        let legacyIdentifiers: Set<String> = [
+            KeystoreTag.legacyEntropy.rawValue,
+            KeystoreTag.pincode.rawValue,
+        ]
+        XCTAssertTrue(
+            LegacyWalletUpgradePolicy.isCandidate(
+                keyIdentifiers: legacyIdentifiers,
+                hasWatchOnlyWallet: false,
+                snapshot: emptySnapshot
+            )
+        )
+        XCTAssertFalse(
+            LegacyWalletUpgradePolicy.isCandidate(
+                keyIdentifiers: legacyIdentifiers.union([
+                    "existing-address-secretKey",
+                ]),
+                hasWatchOnlyWallet: false,
+                snapshot: emptySnapshot
+            )
+        )
+        XCTAssertFalse(
+            LegacyWalletUpgradePolicy.isCandidate(
+                keyIdentifiers: legacyIdentifiers.union([
+                    "privateKey",
+                ]),
+                hasWatchOnlyWallet: false,
+                snapshot: emptySnapshot
+            )
+        )
+        XCTAssertFalse(
+            LegacyWalletUpgradePolicy.isCandidate(
+                keyIdentifiers: legacyIdentifiers,
+                hasWatchOnlyWallet: true,
+                snapshot: emptySnapshot
+            )
+        )
+        XCTAssertTrue(
+            LegacyWalletUpgradePolicy.isCandidate(
+                keyIdentifiers: legacyIdentifiers,
+                hasWatchOnlyWallet: false,
+                snapshot: nil
+            )
+        )
+        XCTAssertTrue(
+            LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: false,
+                keyIdentifiers: legacyIdentifiers,
+                hasWatchOnlyWallet: false,
+                snapshot: nil
+            )
+        )
+        XCTAssertFalse(
+            LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: true,
+                keyIdentifiers: legacyIdentifiers,
+                hasWatchOnlyWallet: false,
+                snapshot: nil
+            )
+        )
+        let inconsistentSnapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: "orphaned-selection",
+            wallets: [],
+            accounts: [],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        XCTAssertFalse(
+            LegacyWalletUpgradePolicy.isCandidate(
+                keyIdentifiers: legacyIdentifiers,
+                hasWatchOnlyWallet: false,
+                snapshot: inconsistentSnapshot
+            )
+        )
+
+        for fixture in [
+            (wordCount: 12, entropyBytes: 16),
+            (wordCount: 15, entropyBytes: 20),
+            (wordCount: 18, entropyBytes: 24),
+            (wordCount: 21, entropyBytes: 28),
+            (wordCount: 24, entropyBytes: 32),
+        ] {
+            try exerciseFullLegacyWalletUpgrade(
+                wordCount: fixture.wordCount,
+                entropyBytes: fixture.entropyBytes,
+                corruptCommitJournal: false
+            )
+        }
+        try exerciseFullLegacyWalletUpgrade(
+            wordCount: 15,
+            entropyBytes: 20,
+            corruptCommitJournal: true
+        )
+        try exerciseFullLegacyWalletUpgrade(
+            wordCount: 15, entropyBytes: 20, corruptCommitJournal: false,
+            retainsIrohaPrivateKey: true
+        )
+    }
+
+    func testRetainedVersionOneCoreDataMigratesCopyOnWriteWithoutLosingWallet() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let account = makeLegacyAccount(address: "retained-v1")
+        let version1 = try userStorageModel(named: UserStorageVersion.version1.rawValue)
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version1,
+            includesSelection: false
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+        try migrator.performMigration()
+
+        let version2 = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+
+        let safetyDirectory = directory
+            .appendingPathComponent("WalletMigrationSafety", isDirectory: true)
+        let attempts = try FileManager.default.contentsOfDirectory(
+            at: safetyDirectory,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(attempts.count, 1)
+        let attempt = try XCTUnwrap(attempts.first)
+        let backupDirectory = attempt
+            .appendingPathComponent("legacy-store", isDirectory: true)
+        let backupStore = backupDirectory.appendingPathComponent(
+            storeURL.lastPathComponent
+        )
+        try assertStoredAccount(
+            account,
+            at: backupStore,
+            model: version1,
+            expectedSelection: nil
+        )
+
+        let backupManifest = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    contentsOf: backupDirectory
+                        .appendingPathComponent("backup-manifest.json")
+                )
+            ) as? [[String: Any]]
+        )
+        let databaseRecord = try XCTUnwrap(
+            backupManifest.first {
+                $0["fileName"] as? String == storeURL.lastPathComponent
+            }
+        )
+        XCTAssertEqual((databaseRecord["sha256"] as? String)?.count, 64)
+        XCTAssertGreaterThan(databaseRecord["byteCount"] as? Int ?? 0, 0)
+        let journal = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(contentsOf: attempt.appendingPathComponent("journal.json"))
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(journal["state"] as? String, "activated")
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testRetainedMultiAccountMigrationPreservesOrderAndSelection() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let firstSource = makeLegacyAccount(address: "multi-first")
+        let secondSource = makeLegacyAccount(address: "multi-second")
+        let first = AccountItem(
+            address: firstSource.address,
+            cryptoType: firstSource.cryptoType,
+            networkType: firstSource.networkType,
+            username: firstSource.username,
+            publicKeyData: firstSource.publicKeyData,
+            settings: firstSource.settings,
+            order: 17,
+            isSelected: false
+        )
+        let second = AccountItem(
+            address: secondSource.address,
+            cryptoType: secondSource.cryptoType,
+            networkType: secondSource.networkType,
+            username: secondSource.username,
+            publicKeyData: secondSource.publicKeyData,
+            settings: secondSource.settings,
+            order: 3,
+            isSelected: false
+        )
+        let version1 = try userStorageModel(
+            named: UserStorageVersion.version1.rawValue
+        )
+        try writeAccounts(
+            [first, second],
+            to: storeURL,
+            model: version1,
+            includesSelection: false
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: second,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(first.address)"
+        )
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(second.address)"
+        )
+
+        try makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        ).performMigration()
+
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        let coordinator = NSPersistentStoreCoordinator(
+            managedObjectModel: version2
+        )
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: storeURL,
+            options: [NSReadOnlyPersistentStoreOption: true]
+        )
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(
+            concurrencyType: .privateQueueConcurrencyType
+        )
+        context.persistentStoreCoordinator = coordinator
+        try context.performAndWait {
+            let rows = try context.fetch(
+                NSFetchRequest<NSManagedObject>(
+                    entityName: "CDAccountItem"
+                )
+            )
+            XCTAssertEqual(rows.count, 2)
+            let byAddress = Dictionary(
+                uniqueKeysWithValues: rows.compactMap { row in
+                    (row.value(forKey: "identifier") as? String).map {
+                        ($0, row)
+                    }
+                }
+            )
+            XCTAssertEqual(
+                (byAddress[first.address]?.value(forKey: "order")
+                    as? NSNumber)?.intValue,
+                Int(first.order)
+            )
+            XCTAssertEqual(
+                (byAddress[second.address]?.value(forKey: "order")
+                    as? NSNumber)?.intValue,
+                Int(second.order)
+            )
+            XCTAssertEqual(
+                (byAddress[first.address]?.value(forKey: "isSelected")
+                    as? NSNumber)?.boolValue,
+                false
+            )
+            XCTAssertEqual(
+                (byAddress[second.address]?.value(forKey: "isSelected")
+                    as? NSNumber)?.boolValue,
+                true
+            )
+        }
+        let retainedSelection = try XCTUnwrap(
+            settings.value(
+                of: AccountItem.self,
+                for: SettingsKey.selectedAccount.rawValue
+            )
+        )
+        XCTAssertEqual(retainedSelection.address, second.address)
+        XCTAssertEqual(retainedSelection.publicKeyData, second.publicKeyData)
+        XCTAssertEqual(retainedSelection.order, second.order)
+
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempts = try FileManager.default.contentsOfDirectory(
+            at: safetyDirectory,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(attempts.count, 1)
+        let attempt = try XCTUnwrap(attempts.first)
+        let journal = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    contentsOf: attempt.appendingPathComponent("journal.json")
+                )
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(journal["state"] as? String, "activated")
+        let backupStore = attempt
+            .appendingPathComponent("legacy-store", isDirectory: true)
+            .appendingPathComponent(storeURL.lastPathComponent)
+        try assertStoredAccounts(
+            [first, second],
+            at: backupStore,
+            model: version1,
+            includesSelection: false
+        )
+    }
+
+    func testRetainedVersionTwoCoreDataGetsVerifiedSafetySnapshotWithoutWalletRewrite() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let account = makeLegacyAccount(address: "retained-v2")
+        let version2 = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let originalFileIdentifier = String(
+            describing: try storeURL.resourceValues(
+                forKeys: [.fileResourceIdentifierKey]
+            ).fileResourceIdentifier
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+        XCTAssertTrue(migrator.requiresMigration())
+        try migrator.performMigration()
+
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+        XCTAssertEqual(
+            String(
+                describing: try storeURL.resourceValues(
+                    forKeys: [.fileResourceIdentifierKey]
+                ).fileResourceIdentifier
+            ),
+            originalFileIdentifier
+        )
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempts = try FileManager.default.contentsOfDirectory(
+            at: safetyDirectory,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(attempts.count, 1)
+        let attempt = try XCTUnwrap(attempts.first)
+        let journal = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    contentsOf: attempt.appendingPathComponent(
+                        "journal.json"
+                    )
+                )
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(journal["state"] as? String, "activated")
+        XCTAssertEqual(
+            (journal["safetyArtifacts"] as? [[String: Any]])?.count,
+            3
+        )
+        let legacyStore = attempt
+            .appendingPathComponent("legacy-store", isDirectory: true)
+            .appendingPathComponent(storeURL.lastPathComponent)
+        try assertStoredAccount(
+            account,
+            at: legacyStore,
+            model: version2,
+            expectedSelection: true
+        )
+        XCTAssertFalse(migrator.requiresMigration())
+
+        let rootResidue = attempt.appendingPathComponent(
+            ".durable-migrator-root-residue.safety-anchor"
+        )
+        try Data("retained-old-inode".utf8).write(to: rootResidue)
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.interruptedMigration = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        try FileManager.default.removeItem(at: rootResidue)
+        XCTAssertFalse(migrator.requiresMigration())
+
+        let legacyDirectory = attempt.appendingPathComponent(
+            "legacy-store",
+            isDirectory: true
+        )
+        let legacyResidue = legacyDirectory.appendingPathComponent(
+            ".durable-migrator-legacy-residue.withdrawn"
+        )
+        try Data("retained-failed-new-inode".utf8).write(
+            to: legacyResidue
+        )
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.interruptedMigration = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        try FileManager.default.removeItem(at: legacyResidue)
+        XCTAssertFalse(migrator.requiresMigration())
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+    }
+
+    func testRetainedVersionTwoMultiAccountSafetySnapshotPreservesInventoryAndSelection() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let firstSource = makeLegacyAccount(address: "retained-v2-multi-first")
+        let secondSource = makeLegacyAccount(address: "retained-v2-multi-second")
+        let first = AccountItem(
+            address: firstSource.address,
+            cryptoType: firstSource.cryptoType,
+            networkType: firstSource.networkType,
+            username: "First retained wallet",
+            publicKeyData: firstSource.publicKeyData,
+            settings: firstSource.settings,
+            order: 11,
+            isSelected: false
+        )
+        let second = AccountItem(
+            address: secondSource.address,
+            cryptoType: secondSource.cryptoType,
+            networkType: secondSource.networkType,
+            username: "Selected retained wallet",
+            publicKeyData: secondSource.publicKeyData,
+            settings: secondSource.settings,
+            order: 4,
+            isSelected: true
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccounts(
+            [first, second],
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let originalFileIdentifier = String(
+            describing: try storeURL.resourceValues(
+                forKeys: [.fileResourceIdentifierKey]
+            ).fileResourceIdentifier
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: second,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.set(value: true, for: "wallet.watchOnly.\(first.address)")
+        settings.set(value: true, for: "wallet.watchOnly.\(second.address)")
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        try migrator.performMigration()
+
+        XCTAssertEqual(
+            String(
+                describing: try storeURL.resourceValues(
+                    forKeys: [.fileResourceIdentifierKey]
+                ).fileResourceIdentifier
+            ),
+            originalFileIdentifier
+        )
+        try assertStoredAccounts(
+            [first, second],
+            at: storeURL,
+            model: version2
+        )
+        let retainedSelection = try XCTUnwrap(
+            settings.value(
+                of: AccountItem.self,
+                for: SettingsKey.selectedAccount.rawValue
+            )
+        )
+        XCTAssertEqual(retainedSelection.address, second.address)
+        XCTAssertEqual(retainedSelection.publicKeyData, second.publicKeyData)
+        XCTAssertEqual(retainedSelection.order, second.order)
+        XCTAssertEqual(retainedSelection.isSelected, second.isSelected)
+
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempts = try FileManager.default.contentsOfDirectory(
+            at: safetyDirectory,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(attempts.count, 1)
+        let attempt = try XCTUnwrap(attempts.first)
+        let journal = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    contentsOf: attempt.appendingPathComponent("journal.json")
+                )
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(journal["state"] as? String, "activated")
+        XCTAssertEqual(
+            (journal["safetyArtifacts"] as? [[String: Any]])?.count,
+            3
+        )
+        let backupStore = attempt
+            .appendingPathComponent("legacy-store", isDirectory: true)
+            .appendingPathComponent(storeURL.lastPathComponent)
+        try assertStoredAccounts(
+            [first, second],
+            at: backupStore,
+            model: version2
+        )
+        XCTAssertFalse(migrator.requiresMigration())
+    }
+
+    func testCurrentSchemaSafetyArtifactTamperBeforeActivationFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "pre-activation-current-schema-tamper"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let originalFileIdentifier = String(
+            describing: try storeURL.resourceValues(
+                forKeys: [.fileResourceIdentifierKey]
+            ).fileResourceIdentifier
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default,
+            beforeSafetyActivationVerification: { attempt in
+                let settingsURL = attempt.appendingPathComponent(
+                    "settings-backup.plist"
+                )
+                var data = try Data(contentsOf: settingsURL)
+                data.append(0x00)
+                try data.write(to: settingsURL, options: .atomic)
+            }
+        )
+
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard
+                case UserStorageMigrationError.backupVerificationFailed =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            String(
+                describing: try storeURL.resourceValues(
+                    forKeys: [.fileResourceIdentifierKey]
+                ).fileResourceIdentifier
+            ),
+            originalFileIdentifier
+        )
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempt = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(
+                at: safetyDirectory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+        let journal = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    contentsOf: attempt.appendingPathComponent(
+                        "journal.json"
+                    )
+                )
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(
+            journal["state"] as? String,
+            "failed"
+        )
+    }
+
+    func testCurrentSchemaRejectsUnreadableCopiedStoreBeforeActivation()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "unreadable-copied-current-schema"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let originalFileIdentifier = String(
+            describing: try storeURL.resourceValues(
+                forKeys: [.fileResourceIdentifierKey]
+            ).fileResourceIdentifier
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default,
+            afterLegacyStoreCopyBeforeVerification: { backupDirectory in
+                try Data("not-a-sqlite-store".utf8).write(
+                    to: backupDirectory.appendingPathComponent(
+                        storeURL.lastPathComponent
+                    ),
+                    options: .atomic
+                )
+            }
+        )
+
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard
+                case UserStorageMigrationError.backupVerificationFailed =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            String(
+                describing: try storeURL.resourceValues(
+                    forKeys: [.fileResourceIdentifierKey]
+                ).fileResourceIdentifier
+            ),
+            originalFileIdentifier
+        )
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+        XCTAssertTrue(migrator.requiresMigration())
+    }
+
+    func testSuccessfulCurrentSchemaSafetySnapshotDoesNotClearConcurrentRecoveryMarker()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "concurrent-sticky-recovery"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let recoveryReason =
+            "A concurrent integrity check preserved another wallet artifact."
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default,
+            beforeSafetyActivationVerification: { _ in
+                settings.walletMigrationRecoveryRequired = true
+                settings.walletMigrationRecoveryReason = recoveryReason
+            }
+        )
+
+        XCTAssertNoThrow(try migrator.performMigration())
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(
+            settings.walletMigrationRecoveryReason,
+            recoveryReason
+        )
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+    }
+
+    func testMappedSchemaSafetyArtifactTamperBeforeActivationRestoresLegacyStore() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "pre-activation-mapped-schema-tamper"
+        )
+        let version1 = try userStorageModel(
+            named: UserStorageVersion.version1.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version1,
+            includesSelection: false
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default,
+            beforeSafetyActivationVerification: { attempt in
+                let manifestURL = attempt.appendingPathComponent(
+                    "account-manifest.json"
+                )
+                var data = try Data(contentsOf: manifestURL)
+                data.append(0x00)
+                try data.write(to: manifestURL, options: .atomic)
+            }
+        )
+
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard
+                case UserStorageMigrationError.backupVerificationFailed =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            settings.walletMigrationRecoveryRequired,
+            true
+        )
+        XCTAssertTrue(migrator.requiresMigration())
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version1,
+            expectedSelection: nil
+        )
+
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempt = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(
+                at: safetyDirectory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+        let journal = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    contentsOf: attempt.appendingPathComponent(
+                        "journal.json"
+                    )
+                )
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(journal["state"] as? String, "failed")
+    }
+
+    func testSymlinkedLegacyRollbackSourceIsNeverFollowed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let decoyURL = directory.appendingPathComponent(
+            "external-rollback-decoy.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "rollback-symlink-wallet"
+        )
+        let decoyAccount = makeLegacyAccount(
+            address: "rollback-symlink-decoy"
+        )
+        let version1 = try userStorageModel(
+            named: UserStorageVersion.version1.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version1,
+            includesSelection: false
+        )
+        try writeAccount(
+            decoyAccount,
+            to: decoyURL,
+            model: version1,
+            includesSelection: false
+        )
+        let decoyBefore = try Data(contentsOf: decoyURL)
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default,
+            beforeSafetyActivationVerification: { attempt in
+                let legacyStoreURL = attempt
+                    .appendingPathComponent(
+                        "legacy-store",
+                        isDirectory: true
+                    )
+                    .appendingPathComponent(storeURL.lastPathComponent)
+                try FileManager.default.removeItem(at: legacyStoreURL)
+                try FileManager.default.createSymbolicLink(
+                    at: legacyStoreURL,
+                    withDestinationURL: decoyURL
+                )
+            }
+        )
+
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard
+                case UserStorageMigrationError.backupVerificationFailed =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try Data(contentsOf: decoyURL), decoyBefore)
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try assertStoredAccount(
+            account,
+            at: storeURL,
+            model: version2,
+            expectedSelection: true
+        )
+    }
+
+    func testTamperedCurrentSchemaSafetySnapshotFailsClosedWithoutTouchingLiveWallet() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "tampered-current-schema-backup"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        try migrator.performMigration()
+        let liveStore = try Data(contentsOf: storeURL)
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempt = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(
+                at: safetyDirectory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+        let backupURL = attempt
+            .appendingPathComponent("legacy-store", isDirectory: true)
+            .appendingPathComponent(storeURL.lastPathComponent)
+        var tampered = try Data(contentsOf: backupURL)
+        tampered.append(0x00)
+        try tampered.write(to: backupURL, options: .atomic)
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard
+                case UserStorageMigrationError.interruptedMigration =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: storeURL), liveStore)
+    }
+
+    func testMissingCoreDataStoreWithSelectedWalletEvidenceFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let account = makeLegacyAccount(address: "orphaned-wallet-storage")
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    func testMissingCoreDataStoreWithRetainedActivatedSafetyBackupFailsClosed()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let account = makeLegacyAccount(
+            address: "retained-activated-safety-backup"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+        try migrator.performMigration()
+
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        let attempts = try FileManager.default.contentsOfDirectory(
+            at: safetyDirectory,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(attempts.count, 1)
+        let attempt = try XCTUnwrap(attempts.first)
+        let backupStoreURL = attempt
+            .appendingPathComponent("legacy-store", isDirectory: true)
+            .appendingPathComponent(storeURL.lastPathComponent)
+        let backupBefore = try Data(contentsOf: backupStoreURL)
+
+        settings.removeAll()
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            let liveComponent = URL(
+                fileURLWithPath: storeURL.path + suffix
+            )
+            if FileManager.default.fileExists(atPath: liveComponent.path) {
+                try FileManager.default.removeItem(at: liveComponent)
+            }
+        }
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        XCTAssertEqual(try Data(contentsOf: backupStoreURL), backupBefore)
+    }
+
+    func testMissingCoreDataStoreWithOrphanedSQLiteSidecarFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let sidecarURL = URL(fileURLWithPath: storeURL.path + "-wal")
+        let sidecarBefore = Data("retained SQLite wallet pages".utf8)
+        try sidecarBefore.write(to: sidecarURL, options: .atomic)
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: InMemorySettingsManager(),
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        XCTAssertEqual(try Data(contentsOf: sidecarURL), sidecarBefore)
+    }
+
+    func testDanglingCoreDataStoreSymlinkCannotBecomeNewWallet() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let missingTarget = directory.appendingPathComponent(
+            "missing-wallet-store"
+        )
+        try FileManager.default.createSymbolicLink(
+            at: storeURL,
+            withDestinationURL: missingTarget
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: InMemorySettingsManager(),
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.unknownStoreVersion = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(
+                atPath: storeURL.path
+            ),
+            missingTarget.path
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: missingTarget.path))
+    }
+
+    func testReachableCoreDataStoreSymlinkIsRejectedBeforeCoreDataAccess()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let targetURL = directory.appendingPathComponent(
+            "reachable-wallet-target.sqlite"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccounts(
+            [],
+            to: targetURL,
+            model: version2,
+            includesSelection: true
+        )
+        let targetBefore = try Data(contentsOf: targetURL)
+        try FileManager.default.createSymbolicLink(
+            at: storeURL,
+            withDestinationURL: targetURL
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: InMemorySettingsManager(),
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.unknownStoreVersion = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: targetURL), targetBefore)
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(
+                atPath: storeURL.path
+            ),
+            targetURL.path
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: directory
+                    .appendingPathComponent("WalletMigrationSafety")
+                    .path
+            )
+        )
+    }
+
+    func testSQLiteSidecarSymlinkIsRejectedBeforeCoreDataAccess() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent(
+            "UserDataModel.sqlite"
+        )
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccounts(
+            [],
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let storeBefore = try Data(contentsOf: storeURL)
+        let externalSidecarTarget = directory.appendingPathComponent(
+            "external-wallet-pages"
+        )
+        let externalBefore = Data("must remain untouched".utf8)
+        try externalBefore.write(to: externalSidecarTarget, options: .atomic)
+        let sidecarURL = URL(fileURLWithPath: storeURL.path + "-wal")
+        if FileManager.default.fileExists(atPath: sidecarURL.path) {
+            try FileManager.default.removeItem(at: sidecarURL)
+        }
+        try FileManager.default.createSymbolicLink(
+            at: sidecarURL,
+            withDestinationURL: externalSidecarTarget
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: InMemorySettingsManager(),
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.unknownStoreVersion = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: storeURL), storeBefore)
+        XCTAssertEqual(try Data(contentsOf: externalSidecarTarget), externalBefore)
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(
+                atPath: sidecarURL.path
+            ),
+            externalSidecarTarget.path
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: directory
+                    .appendingPathComponent("WalletMigrationSafety")
+                    .path
+            )
+        )
+    }
+
+    func testMissingCoreDataStoreWithUnreadableSelectedWalletEvidenceFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: Data([0xff, 0x00, 0x7f]),
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        XCTAssertNil(
+            settings.value(
+                of: AccountItem.self,
+                for: SettingsKey.selectedAccount.rawValue
+            )
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    func testMissingCoreDataStoreWithKeychainOnlyIsReinstallButSettingsFailClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let retainedIdentifiers = [
+            KeystoreTag.secretKeyTagForAddress(
+                "orphaned-keychain-wallet"
+            ),
+            // A surviving pre-account-model username with missing entropy is
+            // an inconsistent wallet upgrade, never a clean installation.
+            KeystoreTag.legacyUsername.rawValue,
+        ]
+        for (index, identifier) in retainedIdentifiers.enumerated() {
+            let storeURL = directory
+                .appendingPathComponent("case-\(index)", isDirectory: true)
+                .appendingPathComponent("UserDataModel.sqlite")
+            try FileManager.default.createDirectory(
+                at: storeURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let keystore = InMemoryKeychain()
+            try keystore.addKey(Data([0x01]), with: identifier)
+            XCTAssertTrue(try keystore.hasRetainedWalletMaterial())
+            let migrator = makeUserStorageMigrator(
+                targetVersion: .version2,
+                storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: keystore,
+                settings: InMemorySettingsManager(),
+                fileManager: .default
+            )
+
+            // Keychain-only evidence is a reinstall: onboarding offers to
+            // restore it. Nothing is created, written or deleted.
+            XCTAssertEqual(migrator.retainedWalletEvidenceKind(), .keychainOnly)
+            XCTAssertFalse(migrator.requiresMigration())
+            XCTAssertNoThrow(try migrator.performMigration())
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: storeURL.path)
+            )
+            XCTAssertEqual(try keystore.allKeyIdentifiers(), [identifier])
+            XCTAssertEqual(try keystore.fetchKey(for: identifier), Data([0x01]))
+        }
+
+        let settingsOnlyStoreURL = directory
+            .appendingPathComponent(
+                "legacy-username-setting",
+                isDirectory: true
+            )
+            .appendingPathComponent("UserDataModel.sqlite")
+        try FileManager.default.createDirectory(
+            at: settingsOnlyStoreURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let retainedSettings = InMemorySettingsManager()
+        retainedSettings.set(
+            value: "retained-wallet-name",
+            for: KeystoreTag.legacyUsername.rawValue
+        )
+        XCTAssertTrue(retainedSettings.hasRetainedWalletSettings())
+        let activatedSnapshotSettings = InMemorySettingsManager()
+        activatedSnapshotSettings.set(
+            value: WalletNetworkSnapshot.currentSchemaVersion,
+            for: SettingsKey.walletNetworkStoreVersion.rawValue
+        )
+        XCTAssertTrue(
+            activatedSnapshotSettings.hasRetainedWalletSettings()
+        )
+        let legacyIdentitySettings: [
+            (String, (InMemorySettingsManager) -> Void)
+        ] = [
+            ("decentralized-id", { settings in
+                settings.set(
+                    value: "did:sora:retained",
+                    for: SettingsKey.decentralizedId.rawValue
+                )
+            }),
+            ("public-key-id", { settings in
+                settings.set(
+                    value: "did:sora:retained#keys-1",
+                    for: SettingsKey.publicKeyId.rawValue
+                )
+            }),
+            ("migration-completed", { settings in
+                settings.set(
+                    value: true,
+                    for: SettingsKey.hasMigrated.rawValue
+                )
+            }),
+            ("migration-account-completed", { settings in
+                settings.set(
+                    value: Data([0x01]),
+                    for: SettingsKey.migratedAccountsV1.rawValue
+                )
+            }),
+        ]
+        for retainedIdentity in legacyIdentitySettings {
+            let identityStoreURL = directory
+                .appendingPathComponent(
+                    "legacy-identity-setting-\(retainedIdentity.0)",
+                    isDirectory: true
+                )
+                .appendingPathComponent("UserDataModel.sqlite")
+            try FileManager.default.createDirectory(
+                at: identityStoreURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let identitySettings = InMemorySettingsManager()
+            retainedIdentity.1(identitySettings)
+            XCTAssertTrue(identitySettings.hasRetainedWalletSettings())
+            let identityMigrator = makeUserStorageMigrator(
+                targetVersion: .version2,
+                storeURL: identityStoreURL,
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: InMemoryKeychain(),
+                settings: identitySettings,
+                fileManager: .default
+            )
+
+            XCTAssertTrue(identityMigrator.requiresMigration())
+            XCTAssertThrowsError(
+                try identityMigrator.performMigration()
+            ) { error in
+                guard
+                    case UserStorageMigrationError.missingWalletStore = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: identityStoreURL.path)
+            )
+        }
+        let settingsOnlyMigrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: settingsOnlyStoreURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: retainedSettings,
+            fileManager: .default
+        )
+
+        XCTAssertTrue(settingsOnlyMigrator.requiresMigration())
+        XCTAssertThrowsError(
+            try settingsOnlyMigrator.performMigration()
+        ) { error in
+            guard
+                case UserStorageMigrationError.missingWalletStore = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: settingsOnlyStoreURL.path
+            )
+        )
+    }
+
+    func testMissingCoreDataStoreWithOnlyRetainedPinIsAReinstall() throws {
+        // iOS keeps Keychain items when the app is deleted. A PIN alone is the
+        // reinstall signature: no recovery marker, no store, PIN unchanged.
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let keystore = InMemoryKeychain()
+        try keystore.addKey(
+            Data([0x01]),
+            with: KeystoreTag.pincode.rawValue
+        )
+        let settings = InMemorySettingsManager()
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertEqual(migrator.retainedWalletEvidenceKind(), .keychainOnly)
+        XCTAssertFalse(migrator.requiresMigration())
+        XCTAssertNoThrow(try migrator.performMigration())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        XCTAssertEqual(try keystore.fetchKey(for: KeystoreTag.pincode.rawValue), Data([0x01]))
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testEmptyCurrentStoreWithRetainedPinIsAReinstallAndStoreUnchanged() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let version2 = try userStorageModel(
+            named: UserStorageVersion.version2.rawValue
+        )
+        try writeAccounts(
+            [],
+            to: storeURL,
+            model: version2,
+            includesSelection: true
+        )
+        let originalStore = try Data(contentsOf: storeURL)
+        let keystore = InMemoryKeychain()
+        try keystore.addKey(
+            Data([0x01]),
+            with: KeystoreTag.pincode.rawValue
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: keystore,
+            settings: InMemorySettingsManager(),
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertNoThrow(try migrator.performMigration())
+        XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        XCTAssertEqual(try keystore.fetchKey(for: KeystoreTag.pincode.rawValue), Data([0x01]))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:
+            directory.appendingPathComponent("WalletMigrationSafety").path))
+
+        // The same empty store beside a retained wallet setting is still a
+        // lost inventory, never a new wallet.
+        let settings = InMemorySettingsManager()
+        settings.set(value: true, for: SettingsKey.hasMigrated.rawValue)
+        let durable = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: .default
+        )
+        XCTAssertThrowsError(try durable.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+    }
+
+    func testMissingCoreDataStoreWithOnlyWatchOnlyMarkerFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.orphaned-watch-only-wallet"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    func testMissingCoreDataStoreWithUnreadableWatchOnlyMarkerFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: Data([0xde, 0xad, 0xbe, 0xef]),
+            for: "wallet.watchOnly.unreadable-watch-only-wallet"
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    func testMissingCoreDataAfterExplicitFinalWalletRemovalRemainsClean() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let emptySnapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: nil,
+            wallets: [],
+            accounts: [],
+            createdAt: Date()
+        )
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: InMemorySettingsManager(),
+            fileManager: .default,
+            loadWalletNetworkSnapshot: { emptySnapshot }
+        )
+
+        XCTAssertFalse(migrator.requiresMigration())
+        XCTAssertNoThrow(try migrator.performMigration())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+    }
+
+    func testLowStorageFailsBeforeTouchingInstalledWalletStore() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let account = makeLegacyAccount(address: "low-storage-wallet")
+        let version1 = try userStorageModel(named: UserStorageVersion.version1.rawValue)
+        try writeAccount(
+            account,
+            to: storeURL,
+            model: version1,
+            includesSelection: false
+        )
+        let originalStore = try Data(contentsOf: storeURL)
+        let settings = InMemorySettingsManager()
+        settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
+        settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default,
+            availableCapacity: { _ in 0 }
+        )
+
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.insufficientStorage = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: directory
+                    .appendingPathComponent("WalletMigrationSafety")
+                    .path
+            )
+        )
+        for _ in 0 ..< 2 {
+            XCTAssertEqual(
+                WalletStorageStartup.run(settings: settings) {
+                    try migrator.performMigration()
+                },
+                .needsStorageSpace
+            )
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+            XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        }
+        let retry = makeUserStorageMigrator(
+            targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(), settings: settings,
+            fileManager: .default, availableCapacity: { _ in Int64.max }
+        )
+        for _ in 0 ..< 2 {
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try retry.performMigration()
+            }, .ready)
+            try assertStoredAccount(account, at: storeURL,
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue),
+                expectedSelection: true)
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+        }
+
+        // Neither a pre-existing integrity stop nor one raised concurrently
+        // during the preflight may be downgraded to a retryable disk warning.
+        let protectedSettings = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: protectedSettings) {
+            protectedSettings.walletMigrationRecoveryRequired = true
+            protectedSettings.walletMigrationRecoveryReason = "Retained integrity failure"
+            throw UserStorageMigrationError.insufficientStorage
+        }, .recoveryRequired)
+        XCTAssertEqual(protectedSettings.walletMigrationRecoveryReason, "Retained integrity failure")
+        var enteredProtectedMigration = false
+        XCTAssertEqual(WalletStorageStartup.run(settings: protectedSettings) {
+            enteredProtectedMigration = true
+        }, .recoveryRequired)
+        XCTAssertFalse(enteredProtectedMigration)
+
+        let corruptSettings = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: corruptSettings) {
+            throw UserStorageMigrationError.accountInventoryMismatch
+        }, .recoveryRequired)
+        XCTAssertTrue(corruptSettings.walletMigrationRecoveryRequired)
+    }
+
+    func testFailedCoreDataMigrationJournalRequiresExplicitRecovery() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let attempt = directory
+            .appendingPathComponent("WalletMigrationSafety", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: attempt,
+            withIntermediateDirectories: true
+        )
+        let journal: [String: Any] = [
+            "migrationID": UUID().uuidString,
+            "sourceVersion": UserStorageVersion.version1.rawValue,
+            "destinationVersion": UserStorageVersion.version2.rawValue,
+            "state": "failed",
+            "updatedAt": "2026-08-02T00:00:00Z",
+            "failureReason": "account inventory mismatch"
+        ]
+        try JSONSerialization.data(
+            withJSONObject: journal,
+            options: [.sortedKeys]
+        ).write(
+            to: attempt.appendingPathComponent("journal.json"),
+            options: .atomic
+        )
+        let settings = InMemorySettingsManager()
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: settings,
+            fileManager: .default
+        )
+
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.interruptedMigration = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testUnboundedMigrationSafetyNamespaceFailsClosed() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let safetyDirectory = directory.appendingPathComponent(
+            "WalletMigrationSafety",
+            isDirectory: true
+        )
+        for _ in 0 ..< 17 {
+            try FileManager.default.createDirectory(
+                at: safetyDirectory.appendingPathComponent(
+                    UUID().uuidString,
+                    isDirectory: true
+                ),
+                withIntermediateDirectories: true
+            )
+        }
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: directory.appendingPathComponent(
+                "UserDataModel.sqlite"
+            ),
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(),
+            settings: InMemorySettingsManager(),
+            fileManager: .default
+        )
+
+        XCTAssertTrue(migrator.requiresMigration())
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard
+                case UserStorageMigrationError.interruptedMigration =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testUnexpectedMigrationSafetyEntriesFailClosed() throws {
+        for entryName in [".hidden", "unexpected.txt"] {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(
+                    UUID().uuidString,
+                    isDirectory: true
+                )
+            defer {
+                try? FileManager.default.removeItem(at: directory)
+            }
+            let safetyDirectory = directory.appendingPathComponent(
+                "WalletMigrationSafety",
+                isDirectory: true
+            )
+            try FileManager.default.createDirectory(
+                at: safetyDirectory,
+                withIntermediateDirectories: true
+            )
+            try Data("unexpected".utf8).write(
+                to: safetyDirectory.appendingPathComponent(
+                    entryName
+                ),
+                options: .atomic
+            )
+            let migrator = makeUserStorageMigrator(
+                targetVersion: .version2,
+                storeURL: directory.appendingPathComponent(
+                    "UserDataModel.sqlite"
+                ),
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: InMemoryKeychain(),
+                settings: InMemorySettingsManager(),
+                fileManager: .default
+            )
+
+            XCTAssertTrue(
+                migrator.requiresMigration(),
+                "Unexpected entry \(entryName) must block migration"
+            )
+            XCTAssertThrowsError(
+                try migrator.performMigration()
+            ) { error in
+                guard
+                    case UserStorageMigrationError.interruptedMigration =
+                        error
+                else {
+                    return XCTFail(
+                        "Unexpected error for \(entryName): \(error)"
+                    )
+                }
+            }
+        }
+    }
+
+    func testMigrationWithMissingSecretActivatesAccountReadOnly() throws {
+        // Before 3.9.0 one keyless account blocked the whole wallet. It is now
+        // recorded read-only; nothing is written to the Keychain.
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let settings = InMemorySettingsManager()
+        let account = makeLegacyAccount(address: "missing-secret")
+        let keystore = InMemoryKeychain()
+        let migrator = makeWalletNetworkMigrator(
+            keystore: keystore,
+            store: store,
+            settings: settings
+        )
+
+        try migrator.migrate(
+            accounts: [account],
+            selectedAddress: account.address
+        )
+        let snapshot = try XCTUnwrap(store.load())
+        XCTAssertEqual(snapshot.wallets.map(\.secretSource), [.signingUnavailable])
+        XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+        XCTAssertEqual(snapshot.accounts.first?.publicKey, account.publicKeyData)
+        XCTAssertEqual(snapshot.selectedWalletId, account.address)
+        XCTAssertEqual(settings.walletNetworkStoreVersion, WalletNetworkSnapshot.currentSchemaVersion)
+        XCTAssertEqual(try keystore.allKeyIdentifiers(), [])
+        // Repeating the migration is stable.
+        try migrator.migrate(accounts: [account], selectedAddress: account.address)
+        XCTAssertEqual(try store.load()?.wallets, snapshot.wallets)
+    }
+
+    func testReleasedMnemonicFormatsSurviveDatabaseAndNetworkUpgrade() throws {
+        // The 3.8.9 importer accepted every BIP39 size up to 24 words and
+        // persisted entropy, the pre-junction mini-seed, and the child secret.
+        // Reproduce those released writes without using the new importer.
+        for version in UserStorageVersion.allCases {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let keychain = InMemoryKeychain()
+            var accounts: [AccountItem] = []
+            for byteCount in [16, 20, 24, 28, 32] {
+                for cryptoType in [CryptoType.sr25519, .ed25519, .ecdsa] {
+                    let entropy = Data(repeating: UInt8(byteCount), count: byteCount)
+                    let phrase = try IRMnemonicCreator(language: .english)
+                        .mnemonic(fromEntropy: entropy).toString()
+                    let path = "//legacy//7///retained-password"
+                    let junction = try SubstrateJunctionFactory().parse(path: path)
+                    let seed = try SeedFactory().deriveSeed(
+                        from: phrase, password: junction.password ?? ""
+                    ).seed.miniSeed
+                    let factory: KeypairFactoryProtocol
+                    switch cryptoType {
+                    case .sr25519: factory = SR25519KeypairFactory()
+                    case .ed25519: factory = Ed25519KeypairFactory()
+                    case .ecdsa: factory = EcdsaKeypairFactory()
+                    }
+                    let keypair = try factory.createKeypairFromSeed(seed, chaincodeList: junction.chaincodes)
+                    let secret: Data
+                    switch cryptoType {
+                    case .sr25519: secret = keypair.privateKey().rawData()
+                    case .ed25519:
+                        secret = try Ed25519KeypairFactory().deriveChildSeedFromParent(seed, chaincodeList: junction.chaincodes)
+                    case .ecdsa:
+                        secret = try EcdsaKeypairFactory().deriveChildSeedFromParent(seed, chaincodeList: junction.chaincodes)
+                    }
+                    let address = try SS58AddressFactory().address(
+                        fromAccountId: keypair.publicKey().rawData(), type: Chain.sora.addressType()
+                    )
+                    try keychain.saveSecretKey(secret, address: address)
+                    try keychain.saveEntropy(entropy, address: address)
+                    try keychain.saveSeed(seed, address: address)
+                    try keychain.saveDeriviation(path, address: address)
+                    accounts.append(AccountItem(
+                        address: address, cryptoType: cryptoType,
+                        networkType: Chain.sora.addressType(),
+                        username: "Released \(byteCount * 3 / 4)-word \(cryptoType)",
+                        publicKeyData: keypair.publicKey().rawData(),
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                        order: Int16(accounts.count), isSelected: accounts.isEmpty
+                    ))
+                }
+            }
+            // Released seed imports retained a seed and secret; JSON imports
+            // retained only a secret. Neither may acquire a synthetic mnemonic.
+            for source in [WalletSecretSource.rawSeed, .legacySecret] {
+                for cryptoType in [CryptoType.sr25519, .ed25519, .ecdsa] {
+                    let seed = Data(repeating: source == .rawSeed ? 101 : 102, count: 32)
+                    let factory: KeypairFactoryProtocol
+                    switch cryptoType {
+                    case .sr25519: factory = SR25519KeypairFactory()
+                    case .ed25519: factory = Ed25519KeypairFactory()
+                    case .ecdsa: factory = EcdsaKeypairFactory()
+                    }
+                    let keypair = try factory.createKeypairFromSeed(seed, chaincodeList: [])
+                    let publicKey = keypair.publicKey().rawData()
+                    let address = try SS58AddressFactory().address(
+                        fromAccountId: publicKey, type: Chain.sora.addressType()
+                    )
+                    var secret = cryptoType == .sr25519 ? keypair.privateKey().rawData() : seed
+                    if source == .legacySecret, cryptoType == .ed25519 {
+                        // Polkadot JSON may retain the seed followed by public key.
+                        secret.append(publicKey)
+                    }
+                    try keychain.saveSecretKey(secret, address: address)
+                    if source == .rawSeed { try keychain.saveSeed(seed, address: address) }
+                    accounts.append(AccountItem(
+                        address: address, cryptoType: cryptoType, networkType: Chain.sora.addressType(),
+                        username: "Released \(source) \(cryptoType)", publicKeyData: publicKey,
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                        order: Int16(accounts.count), isSelected: false
+                    ))
+                }
+            }
+            let originalKeys = try Dictionary(uniqueKeysWithValues: keychain.allKeyIdentifiers().map {
+                ($0, try keychain.fetchKey(for: $0))
+            })
+            let selected = try XCTUnwrap(accounts.first)
+            let settings = InMemorySettingsManager()
+            settings.set(value: selected, for: SettingsKey.selectedAccount.rawValue)
+            let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+            try writeAccounts(accounts, to: storeURL, model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+            let originalStoreBytes = try Data(contentsOf: storeURL)
+            var freeBytes: Int64 = 0
+            let databaseMigrator = makeUserStorageMigrator(
+                targetVersion: .version2, storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: keychain, settings: settings, fileManager: .default,
+                availableCapacity: { _ in freeBytes }
+            )
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try databaseMigrator.performMigration()
+            }, .needsStorageSpace)
+            XCTAssertEqual(try Data(contentsOf: storeURL), originalStoreBytes)
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+            for (tag, bytes) in originalKeys {
+                XCTAssertEqual(try keychain.fetchKey(for: tag), bytes)
+            }
+            freeBytes = Int64.max
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try databaseMigrator.performMigration()
+            }, .ready)
+            try assertStoredAccounts(accounts, at: storeURL,
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+            let store = try makeWalletNetworkStore(baseURL: directory)
+            let migrator = makeWalletNetworkMigrator(keystore: keychain, store: store, settings: settings)
+            try migrator.migrate(accounts: accounts, selectedAddress: selected.address)
+            let snapshot = try XCTUnwrap(store.load())
+            XCTAssertEqual(snapshot.wallets.count, accounts.count)
+            XCTAssertEqual(snapshot.selectedWalletId, selected.address)
+            for account in accounts {
+                let wallet = try XCTUnwrap(snapshot.wallets.first { $0.id == account.address })
+                let children = snapshot.accounts.filter { $0.walletId == account.address }
+                let retainedEntropy = try keychain.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+                let supportsNexus = retainedEntropy.map { [16, 32].contains($0.count) } ?? false
+                let expectedSource: WalletSecretSource
+                if retainedEntropy != nil {
+                    expectedSource = supportsNexus ? .mnemonicEntropy : .legacyMnemonicEntropy
+                } else {
+                    expectedSource = try keychain.checkSeedForAddress(account.address) ? .rawSeed : .legacySecret
+                }
+                XCTAssertEqual(wallet.secretSource, expectedSource)
+                XCTAssertEqual(children.count, supportsNexus ? 1 + NexusNetworkAdmissionPolicy.current.admittedDerivationProfiles.count : 1)
+                XCTAssertEqual(children.first { $0.networkId == .sora2 }?.publicKey, account.publicKeyData)
+            }
+            // Restart must neither allocate fresh network identities nor alter any secret.
+            try databaseMigrator.performMigration()
+            try migrator.migrate(accounts: accounts, selectedAddress: selected.address)
+            XCTAssertEqual(try store.load(), snapshot)
+            XCTAssertEqual(Set(try keychain.allKeyIdentifiers()), Set(originalKeys.keys))
+            for (tag, bytes) in originalKeys {
+                XCTAssertEqual(try keychain.fetchKey(for: tag), bytes)
+            }
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+        }
+    }
+
+    /// Snapshots are copied at real production persistence boundaries. Restart
+    /// uses fresh migrator/coordinator instances against those retained bytes;
+    /// no injected error is relabelled as an interrupted process.
+    private func withInterruptedDatabaseFixture(
+        version: UserStorageVersion = .version1,
+        _ body: (URL, [UserStorageMigrationCheckpoint: URL], [AccountItem], InMemoryKeychain) throws -> Void
+    ) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let installed = root.appendingPathComponent("installed")
+        try FileManager.default.createDirectory(at: installed, withIntermediateDirectories: true)
+        let keys = InMemoryKeychain()
+        let accounts = try [UInt8(81), UInt8(82)].enumerated().map { index, byte in
+            let seed = Data(repeating: byte, count: 32)
+            let pair = try Ed25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+            let publicKey = pair.publicKey().rawData()
+            let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: Chain.sora.addressType())
+            try keys.saveSecretKey(seed, address: address)
+            try keys.saveSeed(seed, address: address)
+            return AccountItem(address: address, cryptoType: .ed25519,
+                networkType: Chain.sora.addressType(), username: "Retained account \(index)",
+                publicKeyData: publicKey,
+                settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                order: index == 0 ? 17 : 3, isSelected: index == 1)
+        }
+        let settings = InMemorySettingsManager()
+        settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+        let storeURL = installed.appendingPathComponent("UserDataModel.sqlite")
+        try writeAccounts(accounts, to: storeURL,
+            model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+        var snapshots: [UserStorageMigrationCheckpoint: URL] = [:]
+        let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+            settings: settings, fileManager: .default,
+            recoveryGate: makeIsolatedRecoveryGate(settings: settings),
+            checkpoint: { phase in
+                let snapshot = root.appendingPathComponent(phase.rawValue)
+                try FileManager.default.copyItem(at: installed, to: snapshot)
+                snapshots[phase] = snapshot
+            }, availableCapacity: { _ in Int64.max }, loadWalletNetworkSnapshot: { nil })
+        try migrator.performMigration()
+        try body(root, snapshots, accounts, keys)
+    }
+
+    private func interruptedDatabaseStartup(
+        directory: URL, accounts: [AccountItem], keys: InMemoryKeychain,
+        settings: InMemorySettingsManager,
+        checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
+        unresolvedAccountCommit: @escaping () throws -> Bool = { false }
+    ) throws {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: {
+                WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
+            }, unresolvedWalletCommitJournal: unresolvedAccountCommit)
+        let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+            settings: settings, fileManager: .default, recoveryGate: gate,
+            checkpoint: checkpoint, availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { nil })
+        try migrator.migrateAtStartup(lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+            hasUnresolvedAccountCommit: unresolvedAccountCommit)
+        try gate.requireMutableWalletAccess()
+        try assertStoredAccounts(accounts, at: storeURL,
+            model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)?.address,
+                       accounts[1].address)
+        for account in accounts {
+            let seed = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
+            let payload = Data("restart-signing-qualification".utf8)
+            let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: seed)
+            try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                                             secretKey: seed, account: account)
+        }
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testInterruptedLegacyAccountActivationResumesWithoutChangingKeys() throws {
+        // The journal may lag a completed durable write. These are separate
+        // installed states, not exceptions injected into the original process.
+        let boundaries: [(WalletAccountCommitStage, String, Bool, Bool, Bool)] = [
+            (.prepared, "missing", false, false, false),
+            (.prepared, "empty", false, false, false),
+            (.secretsPersisted, "empty", false, false, false),
+            (.secretsPersisted, "account", false, false, false),
+            (.coreDataCommitted, "account", false, false, false),
+            (.coreDataCommitted, "account", true, false, true),
+            (.coreDataCommitted, "account", true, false, false),
+            (.networkModelActivated, "account", true, false, false),
+            (.networkModelActivated, "account", true, true, false),
+        ]
+        for (entropyBytes, irohaPair) in [(16, false), (20, false), (24, false),
+                                         (28, false), (32, false), (20, true)] {
+            for boundary in boundaries {
+                for markerKind in ["none", "legacy", "current", "account"] {
+                    try withLegacyActivationFixture(entropyBytes: entropyBytes,
+                        retainsIrohaPrivateKey: irohaPair, stage: boundary.0,
+                        database: boundary.1, networkActive: boundary.2,
+                        selectionPersisted: boundary.3, stagedOnly: boundary.4) { directory, account, keys, settings in
+                        let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                            ($0, try keys.fetchKey(for: $0))
+                        })
+                        let retainedSnapshots = boundary.4 ? try legacyActivationNetworkFiles(at: directory) : [:]
+                        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+                            for: UserStorageMigrationError.interruptedMigration)
+                        if markerKind == "legacy" {
+                            settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+                            settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+                        } else if markerKind == "current" {
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        } else if markerKind == "account" {
+                            settings.setWalletMigrationRecovery(reason: WalletMigrationRecoveryMarker.accountCommitInterruptionReason)
+                        }
+                        try resumeLegacyActivationFixture(at: directory, account: account,
+                            keys: keys, settings: settings)
+                        let firstSnapshot = try WalletNetworkStore(baseURL: directory).load()
+                        let restartedSettings = InMemorySettingsManager()
+                        for key in settings.allKeys() {
+                            restartedSettings.set(anyValue: try XCTUnwrap(settings.anyValue(for: key)), for: key)
+                        }
+                        try resumeLegacyActivationFixture(at: directory, account: account,
+                            keys: keys, settings: restartedSettings)
+                        XCTAssertEqual(try WalletNetworkStore(baseURL: directory).load(), firstSnapshot)
+                        XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                        for (tag, value) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), value) }
+                        for (url, bytes) in retainedSnapshots { XCTAssertEqual(try Data(contentsOf: url), bytes) }
+                        if boundary.4 {
+                            XCTAssertEqual(try legacyActivationNetworkFiles(at: directory).count, retainedSnapshots.count + 1)
+                        }
+                    }
+                }
+            }
+        }
+        // Stop again during recovery itself, including after terminal journal
+        // activation but before clearing its bound marker. Each restart reads
+        // copied durable files and a fresh persisted-settings representation.
+        try withLegacyActivationFixture(entropyBytes: 20, retainsIrohaPrivateKey: true,
+            stage: .secretsPersisted, database: "account") { directory, account, keys, settings in
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration))
+            var copies: [(URL, InMemorySettingsManager)] = []
+            defer { for (url, _) in copies { try? FileManager.default.removeItem(at: url) } }
+            let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                ($0, try keys.fetchKey(for: $0))
+            })
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            _ = try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+                recoveryGate: gate, checkpoint: { _ in
+                    let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                    try FileManager.default.copyItem(at: directory, to: copy)
+                    let copiedSettings = InMemorySettingsManager()
+                    for key in settings.allKeys() {
+                        copiedSettings.set(anyValue: try XCTUnwrap(settings.anyValue(for: key)), for: key)
+                    }
+                    copies.append((copy, copiedSettings))
+                })
+            XCTAssertEqual(copies.count, 7)
+            for (copy, copiedSettings) in copies {
+                try resumeLegacyActivationFixture(at: copy, account: account, keys: keys, settings: copiedSettings)
+                try resumeLegacyActivationFixture(at: copy, account: account, keys: keys, settings: copiedSettings)
+                XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+            }
+        }
+    }
+
+    func testLegacyAccountActivationRecoveryPreservesUnverifiableEvidence() throws {
+        for condition in ["foreignMarker", "missingKey", "changedEntropy", "changedName",
+                          "changedAccount", "unknownJournal", "extraAccount", "missingCommittedAccount",
+                          "changedStagedSnapshot", "multipleStagedSnapshots", "unknownNetworkEvidence"] {
+            let stagedOnly = condition.contains("Staged") || condition == "unknownNetworkEvidence"
+            try withLegacyActivationFixture(stage: .coreDataCommitted,
+                database: condition == "missingCommittedAccount" ? "empty" : "account",
+                networkActive: stagedOnly, stagedOnly: stagedOnly) {
+                    directory, account, keys, settings in
+                let reason = condition == "foreignMarker" ? "Missing retained wallet secret" :
+                    UserStorageMigrationError.privacySafeRecoveryDescription(
+                        for: UserStorageMigrationError.interruptedMigration)
+                settings.setWalletMigrationRecovery(reason: reason)
+                if condition == "missingKey" {
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                } else if condition == "changedEntropy" {
+                    try keys.saveKey(Data(repeating: 103, count: 16), with: KeystoreTag.legacyEntropy.rawValue)
+                } else if condition == "changedName" {
+                    try keys.saveKey(Data("Changed retained name".utf8), with: KeystoreTag.legacyUsername.rawValue)
+                } else if condition == "unknownJournal" {
+                    try Data("Retain this unknown journal evidence".utf8).write(to: directory
+                        .appendingPathComponent("SORA/WalletAccountCommits/unknown-evidence"))
+                } else if stagedOnly {
+                    let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks")
+                    let snapshotURL = try XCTUnwrap(legacyActivationNetworkFiles(at: directory).keys.first)
+                    if condition == "changedStagedSnapshot" {
+                        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: snapshotURL)) as? [String: Any])
+                        var wallets = try XCTUnwrap(json["wallets"] as? [[String: Any]])
+                        wallets[0]["displayName"] = "Changed staged wallet name"
+                        json["wallets"] = wallets
+                        try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]).write(to: snapshotURL)
+                    } else if condition == "multipleStagedSnapshots" {
+                        try FileManager.default.copyItem(at: snapshotURL,
+                            to: networkDirectory.appendingPathComponent("wallet-network-\(UUID().uuidString).json"))
+                    } else {
+                        try Data("Retain unknown network evidence".utf8).write(to: networkDirectory.appendingPathComponent("unknown-evidence"))
+                    }
+                } else if condition == "changedAccount" || condition == "extraAccount" {
+                    let url = directory.appendingPathComponent("UserDataModel.sqlite")
+                    let model = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+                    let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+                    let store = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType,
+                        configurationName: nil, at: url, options: nil)
+                    let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+                    context.persistentStoreCoordinator = coordinator
+                    try context.performAndWait {
+                        let row = try XCTUnwrap(context.fetch(NSFetchRequest<NSManagedObject>(entityName: "CDAccountItem")).first)
+                        if condition == "changedAccount" {
+                            row.setValue("Changed database name", forKey: "username")
+                        } else {
+                            let extra = NSEntityDescription.insertNewObject(forEntityName: "CDAccountItem", into: context)
+                            for name in row.entity.attributesByName.keys { extra.setValue(row.value(forKey: name), forKey: name) }
+                            extra.setValue("unexpected-account", forKey: "identifier")
+                            extra.setValue(false, forKey: "isSelected")
+                        }
+                        try context.save()
+                    }
+                    try coordinator.remove(store)
+                }
+                let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let storeBytes = try Data(contentsOf: directory.appendingPathComponent("UserDataModel.sqlite"))
+                let journalDirectory = directory.appendingPathComponent("SORA/WalletAccountCommits")
+                let journalBytes = try Dictionary(uniqueKeysWithValues: FileManager.default.contentsOfDirectory(
+                    at: journalDirectory, includingPropertiesForKeys: nil).map { ($0, try Data(contentsOf: $0)) })
+                let networkBytes = try legacyActivationNetworkFiles(at: directory)
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                if condition == "missingKey" || condition == "changedEntropy" {
+                    // The legacy entropy no longer proves the journal's account,
+                    // so this is resolved as an ordinary interrupted commit
+                    // (3.9.0): the account row is in Core Data, the commit is
+                    // completed, and the account is read-only. No key changes.
+                    XCTAssertTrue(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                        settings: settings, baseURL: directory,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+                    XCTAssertFalse(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                        settings: settings, baseURL: directory,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+                    // The database-interruption marker is left to its own resolver.
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("UserDataModel.sqlite")), storeBytes)
+                    XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).unresolved().isEmpty)
+                    let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).load())
+                    XCTAssertEqual(snapshot.wallets.map(\.secretSource), [.signingUnavailable])
+                    XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)?.address,
+                                   account.address)
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                    for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    return
+                }
+                for _ in 0..<2 {
+                    XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                        settings: settings, baseURL: directory,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("UserDataModel.sqlite")), storeBytes)
+                    for (url, bytes) in journalBytes { XCTAssertEqual(try Data(contentsOf: url), bytes) }
+                    XCTAssertEqual(try legacyActivationNetworkFiles(at: directory), networkBytes)
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                    for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                }
+            }
+        }
+        // A later integrity check repeating the same text is still a new
+        // recovery generation. The earlier journal must not clear it.
+        try withLegacyActivationFixture(stage: .coreDataCommitted, database: "account") {
+            directory, account, keys, settings in
+            let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration)
+            settings.setWalletMigrationRecovery(reason: reason)
+            let originalMarker = WalletMigrationRecoveryMarker.capture(settings)
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                settings: settings, baseURL: directory,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate,
+                checkpoint: { phase in
+                    if phase == .journalBound { settings.setWalletMigrationRecovery(reason: reason) }
+                }))
+            let laterMarker = WalletMigrationRecoveryMarker.capture(settings)
+            XCTAssertNotEqual(laterMarker, originalMarker)
+            XCTAssertTrue(laterMarker.required)
+            XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                settings: settings, baseURL: directory,
+                lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), laterMarker)
+            try assertStoredAccounts([account], at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        }
+    }
+
+    private func withLegacyActivationFixture(
+        entropyBytes: Int = 16, retainsIrohaPrivateKey: Bool = false,
+        stage: WalletAccountCommitStage, database: String,
+        networkActive: Bool = false, selectionPersisted: Bool = false, stagedOnly: Bool = false,
+        historicalLegacyTopology: Bool = false,
+        _ body: (URL, AccountItem, InMemoryKeychain, InMemorySettingsManager) throws -> Void
+    ) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let entropy = Data(repeating: retainsIrohaPrivateKey ? 0 : UInt8(entropyBytes), count: entropyBytes)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let seed = try SeedFactory().deriveSeed(from: phrase, password: "").seed.miniSeed
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = pair.publicKey().rawData()
+        let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: Chain.sora.addressType())
+        let displayName = "Retained legacy wallet"
+        let account = AccountItem(address: address, cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(), username: displayName, publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try keys.addKey(Data(displayName.utf8), with: KeystoreTag.legacyUsername.rawValue)
+        if retainsIrohaPrivateKey {
+            try keys.addKey(try Data(hexStringSSF:
+                "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"), with: "privateKey")
+        }
+        let settings = InMemorySettingsManager()
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let journals = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: gate)
+        var journal = try journals.begin(walletId: address, existingWalletIds: [])
+        if database != "missing" {
+            // The actual first-account writer persists a settings relationship
+            // with empty asset arrays; the older-schema fixture helper omits it.
+            let model = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+            let databaseCoordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+            let persistentStore = try databaseCoordinator.addPersistentStore(ofType: NSSQLiteStoreType,
+                configurationName: nil, at: directory.appendingPathComponent("UserDataModel.sqlite"), options: nil)
+            let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+            context.persistentStoreCoordinator = databaseCoordinator
+            try context.performAndWait {
+                if database == "account" {
+                    try AccountItemMapper().populate(entity: CDAccountItem(context: context), from: account, using: context)
+                }
+                try context.save()
+            }
+            try databaseCoordinator.remove(persistentStore)
+        }
+        if networkActive {
+            try WalletNetworkModelMigrator(keystore: keys,
+                store: WalletNetworkStore(baseURL: directory, recoveryGate: gate), settings: settings,
+                lifecycleCoordinator: coordinator, recoveryGate: gate).migrate(accounts: [account], selectedAddress: address)
+            if historicalLegacyTopology {
+                let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks")
+                let pointerURL = networkDirectory.appendingPathComponent("active.json")
+                var pointer = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: pointerURL)) as? [String: Any])
+                let snapshotURL = networkDirectory.appendingPathComponent(try XCTUnwrap(pointer["fileName"] as? String))
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let snapshot = try decoder.decode(WalletNetworkSnapshot.self, from: Data(contentsOf: snapshotURL))
+                XCTAssertEqual(snapshot.wallets.first?.secretSource, .legacyMnemonicEntropy)
+                let historical = WalletNetworkSnapshot(schemaVersion: snapshot.schemaVersion,
+                    selectedWalletId: snapshot.selectedWalletId, wallets: snapshot.wallets,
+                    accounts: snapshot.accounts.filter { $0.networkId == .sora2 }, createdAt: snapshot.createdAt)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(historical)
+                try data.write(to: snapshotURL)
+                pointer["sha256"] = Data(SHA256.hash(data: data)).hex
+                try JSONSerialization.data(withJSONObject: pointer, options: [.sortedKeys]).write(to: pointerURL)
+            }
+            if stagedOnly {
+                // Reproduce the persisted state at afterNetworkStaging: the
+                // exact immutable snapshot exists, but its pointer was not written.
+                try FileManager.default.removeItem(at: directory.appendingPathComponent("SORA/WalletNetworks/active.json"))
+                settings.removeValue(for: SettingsKey.walletNetworkStoreVersion.rawValue)
+            }
+        }
+        if selectionPersisted { settings.set(value: account, for: SettingsKey.selectedAccount.rawValue) }
+        if stage != .prepared {
+            for next in [WalletAccountCommitStage.secretsPersisted, .coreDataCommitted, .networkModelActivated, .activated] {
+                journal = try journals.advance(journal, to: next)
+                if next == stage { break }
+            }
+        }
+        try body(directory, account, keys, settings)
+    }
+
+    private func legacyActivationNetworkFiles(at directory: URL) throws -> [URL: Data] {
+        let networkDirectory = directory.appendingPathComponent("SORA/WalletNetworks")
+        guard FileManager.default.fileExists(atPath: networkDirectory.path) else { return [:] }
+        return try Dictionary(uniqueKeysWithValues: FileManager.default.contentsOfDirectory(
+            at: networkDirectory, includingPropertiesForKeys: nil).map { ($0, try Data(contentsOf: $0)) })
+    }
+
+    private func legacyActivationRecoveryGate(
+        at directory: URL, settings: InMemorySettingsManager
+    ) -> WalletRecoveryCapabilityGate {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        return WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) },
+            unresolvedWalletCommitJournal: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+    }
+
+    private func resumeLegacyActivationFixture(
+        at directory: URL, account: AccountItem, keys: InMemoryKeychain, settings: InMemorySettingsManager
+    ) throws {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+            _ = try LegacyWalletAccountCommitRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: coordinator, recoveryGate: gate)
+        }) {
+            let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                fileManager: .default, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+                loadWalletNetworkSnapshot: { try WalletNetworkStore(baseURL: directory).load() })
+            try migrator.migrateAtStartup(lifecycleCoordinator: coordinator,
+                hasUnresolvedAccountCommit: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+        }, .ready)
+        try gate.requireMutableWalletAccess()
+        try assertStoredAccounts([account], at: storeURL, model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
+        let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory).load())
+        XCTAssertEqual(snapshot.selectedWalletId, account.address)
+        XCTAssertEqual(snapshot.wallets.count, 1)
+        let entropy = try XCTUnwrap(keys.fetchEntropyForAddress(account.address, activeSnapshot: snapshot, recoveryGate: gate))
+        let wordCount = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy).allWords().count
+        let source = try XCTUnwrap(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: wordCount))
+        XCTAssertEqual(snapshot.wallets.first?.secretSource, source)
+        let expectedNetworks: Set<NetworkId> = source.supportsNexusDerivation
+            ? NexusNetworkConfiguration.admittedWalletNetworkIds : [.sora2]
+        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), expectedNetworks)
+        XCTAssertEqual(snapshot.accounts.first { $0.networkId == .sora2 }?.publicKey, account.publicKeyData)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let seed = try SeedFactory().deriveSeed(from: phrase, password: "").seed.miniSeed
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = try SNPublicKey(rawData: account.publicKeyData)
+        let payload = Data("recovered legacy activation signing check".utf8)
+        let signature = try SNSigner(keypair: SNKeypair(
+            privateKey: SNPrivateKey(rawData: pair.privateKey().rawData()), publicKey: publicKey)).sign(payload)
+        XCTAssertTrue(SNSignatureVerifier().verify(signature, forOriginalData: payload, using: publicKey))
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testInterruptedCoreDataMigrationResumesWithLegacyAndCurrentRecoveryMarkers() throws {
+        for version in UserStorageVersion.allCases {
+            try withInterruptedDatabaseFixture(version: version) { root, snapshots, accounts, keys in
+                let expected: Set<UserStorageMigrationCheckpoint> = version == .version1
+                    ? Set(UserStorageMigrationCheckpoint.allCases)
+                    : [.preparationCreated, .inventoryWritten, .backupCopied, .backupVerified, .activated]
+                XCTAssertEqual(Set(snapshots.keys), expected)
+                let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                for (phase, snapshot) in snapshots where phase != .activated {
+                    for markerKind in ["none", "legacy", "current"] {
+                        let resumed = root.appendingPathComponent("resume-\(phase.rawValue)-\(markerKind)")
+                        try FileManager.default.copyItem(at: snapshot, to: resumed)
+                        let settings = InMemorySettingsManager()
+                        settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+                            for: UserStorageMigrationError.interruptedMigration)
+                        if markerKind == "legacy" {
+                            // Actual previous-build representation, without generation fields.
+                            settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+                            settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+                        } else if markerKind == "current" {
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        }
+                        for _ in 0..<2 {
+                            try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                                keys: keys, settings: settings)
+                            XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                            for (tag, bytes) in originalKeys {
+                                XCTAssertEqual(try keys.fetchKey(for: tag), bytes)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testInterruptedRecoveryRechecksEvidenceAndMarkerBeforeClearing() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            for failure in ["foreignMarker", "repeatedMarker", "changedBackup", "accountCommit"] {
+                let resumed = root.appendingPathComponent(failure)
+                try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupVerified]), to: resumed)
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                let reason = failure == "foreignMarker" ? "Missing retained wallet secret" :
+                    UserStorageMigrationError.privacySafeRecoveryDescription(for: UserStorageMigrationError.interruptedMigration)
+                settings.setWalletMigrationRecovery(reason: reason)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let safety = resumed.appendingPathComponent("WalletMigrationSafety")
+                let attempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: safety,
+                    includingPropertiesForKeys: nil).first)
+                if failure == "changedBackup" {
+                    let backup = attempt.appendingPathComponent("legacy-store/UserDataModel.sqlite")
+                    var data = try Data(contentsOf: backup)
+                    data[data.count - 1] ^= 1
+                    try data.write(to: backup)
+                }
+                XCTAssertThrowsError(try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                    keys: keys, settings: settings, checkpoint: { phase in
+                        if phase == .liveStoreReplaced, failure == "repeatedMarker" {
+                            // A concurrent integrity check repeated the SAME reason. Its
+                            // newer generation must not be erased by the old verifier.
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        }
+                    }, unresolvedAccountCommit: { failure == "accountCommit" }))
+                XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+                if failure != "repeatedMarker" {
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                }
+                try assertStoredAccounts(accounts.map { $0.replacingSelection(false) },
+                    at: resumed.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version1.rawValue), includesSelection: false)
+                XCTAssertTrue(FileManager.default.fileExists(atPath: attempt.path))
+            }
+        }
+    }
+
+    func testInterruptedRecoveryResumesAfterActivationBeforeMarkerClear() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            let first = root.appendingPathComponent("first-recovery")
+            try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupVerified]), to: first)
+            let settings = InMemorySettingsManager()
+            settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: UserStorageMigrationError.interruptedMigration))
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let second = root.appendingPathComponent("restart-after-activation")
+            try interruptedDatabaseStartup(directory: first, accounts: accounts, keys: keys, settings: settings,
+                checkpoint: { phase in
+                    if phase == .activated {
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                        try FileManager.default.copyItem(at: first, to: second)
+                    }
+                })
+            let restartedSettings = InMemorySettingsManager()
+            restartedSettings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+            restartedSettings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+            restartedSettings.set(value: try XCTUnwrap(marker.reason), for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            restartedSettings.set(value: try XCTUnwrap(marker.generation), for: SettingsKey.walletMigrationRecoveryGeneration.rawValue)
+            restartedSettings.set(value: try XCTUnwrap(marker.reasonGeneration), for: SettingsKey.walletMigrationRecoveryReasonGeneration.rawValue)
+            try interruptedDatabaseStartup(directory: second, accounts: accounts, keys: keys, settings: restartedSettings)
+            try interruptedDatabaseStartup(directory: second, accounts: accounts, keys: keys, settings: restartedSettings)
+        }
+    }
+
+    func testRecoveryMarkerPublicationRemainsAtomicAcrossPersistedWrites() throws {
+        func freshCapture(_ snapshot: [String: Any]) -> WalletMigrationRecoveryMarker {
+            let restarted = InMemorySettingsManager()
+            snapshot.forEach { restarted.set(anyValue: $0.value, for: $0.key) }
+            return WalletMigrationRecoveryMarker.capture(restarted)
+        }
+        let settings = PersistedWriteObservingSettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(
+            for: UserStorageMigrationError.interruptedMigration)
+        // Authentic older representation remains readable before the new record is introduced.
+        settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+        settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+        XCTAssertTrue(WalletMigrationRecoveryMarker.capture(settings).isDatabaseInterruption)
+        var lastMarker = WalletMigrationRecoveryMarker.capture(settings)
+        for _ in 0..<2 {
+            settings.clearSnapshots()
+            settings.setWalletMigrationRecovery(reason: reason)
+            let published = WalletMigrationRecoveryMarker.capture(settings)
+            XCTAssertNotEqual(lastMarker, published)
+            XCTAssertThrowsError(try lastMarker.clearAfterVerifiedActivation(settings))
+            XCTAssertEqual(settings.snapshots.first?.key, SettingsKey.walletMigrationRecoveryRecord.rawValue)
+            XCTAssertGreaterThan(settings.snapshots.count, 1)
+            for snapshot in settings.snapshots {
+                // Each snapshot is an independent persisted state after exactly one underlying
+                // write, including termination before any or all compatibility mirrors complete.
+                let restarted = freshCapture(snapshot.state)
+                XCTAssertEqual(restarted, published)
+                XCTAssertTrue(restarted.required)
+                XCTAssertTrue(restarted.isDatabaseInterruption)
+                XCTAssertEqual(restarted.generation, restarted.reasonGeneration)
+            }
+            lastMarker = published
+        }
+        // The caller has verified activation before invoking this method. At every subsequent
+        // persisted write, fresh readers see the complete cleared record despite stale true mirrors.
+        try lastMarker.requireUnchanged(settings)
+        settings.clearSnapshots()
+        try lastMarker.clearAfterVerifiedActivation(settings)
+        let cleared = WalletMigrationRecoveryMarker.capture(settings)
+        XCTAssertFalse(cleared.required)
+        XCTAssertEqual(settings.snapshots.first?.key, SettingsKey.walletMigrationRecoveryRecord.rawValue)
+        XCTAssertEqual(settings.snapshots.first?.state[SettingsKey.walletMigrationRecoveryRequired.rawValue] as? Bool, true)
+        for snapshot in settings.snapshots { XCTAssertEqual(freshCapture(snapshot.state), cleared) }
+
+        settings.clearSnapshots()
+        settings.walletMigrationRecoveryRequired = true
+        XCTAssertTrue(settings.snapshots.allSatisfy { freshCapture($0.state).required })
+        XCTAssertTrue(settings.snapshots.allSatisfy {
+            let marker = freshCapture($0.state)
+            return marker.generation == marker.reasonGeneration && !marker.isDatabaseInterruption
+        })
+        settings.clearSnapshots()
+        settings.walletMigrationRecoveryReason = reason
+        XCTAssertTrue(settings.snapshots.allSatisfy { freshCapture($0.state).isDatabaseInterruption })
+
+        for malformed: Any in ["{}", "{\"required\":false}", "not-json", Data([1, 2]), 17] {
+            let invalid = InMemorySettingsManager()
+            invalid.set(value: false, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+            invalid.set(anyValue: malformed, for: SettingsKey.walletMigrationRecoveryRecord.rawValue)
+            let marker = WalletMigrationRecoveryMarker.capture(invalid)
+            XCTAssertTrue(marker.required)
+            XCTAssertFalse(marker.isDatabaseInterruption)
+            XCTAssertThrowsError(try marker.clearAfterVerifiedActivation(invalid))
+        }
+    }
+
+    func testIncompletePreflightCopiesResumeOnlyWhenRedundant() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                ($0, try keys.fetchKey(for: $0))
+            })
+            for condition in ["partial", "changed", "unknown"] {
+                let resumed = root.appendingPathComponent("incomplete-\(condition)")
+                try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupCopied]), to: resumed)
+                let attempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+                    at: resumed.appendingPathComponent("WalletMigrationSafety"),
+                    includingPropertiesForKeys: nil).first)
+                let journal = try XCTUnwrap(JSONSerialization.jsonObject(with:
+                    Data(contentsOf: attempt.appendingPathComponent("journal.json"))) as? [String: Any])
+                XCTAssertNil(journal["safetyArtifacts"])
+                let backup = attempt.appendingPathComponent("legacy-store/UserDataModel.sqlite")
+                let originalBackup = try Data(contentsOf: backup)
+                let installed = resumed.appendingPathComponent("UserDataModel.sqlite")
+                let originalInstalled = try Data(contentsOf: installed)
+                if condition == "partial" {
+                    try originalBackup.prefix(originalBackup.count / 2).write(to: backup)
+                    try FileManager.default.removeItem(at:
+                        attempt.appendingPathComponent("legacy-store/backup-manifest.json"))
+                } else if condition == "changed" {
+                    var changed = originalBackup
+                    changed[changed.count - 1] ^= 1
+                    try changed.write(to: backup)
+                } else {
+                    try Data("Retain unknown evidence".utf8).write(to:
+                        attempt.appendingPathComponent("unknown-evidence"))
+                }
+                let retainedBackup = try Data(contentsOf: backup)
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                settings.setWalletMigrationRecovery(reason:
+                    UserStorageMigrationError.privacySafeRecoveryDescription(
+                        for: UserStorageMigrationError.interruptedMigration))
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                if condition == "partial" {
+                    try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                        keys: keys, settings: settings)
+                    try interruptedDatabaseStartup(directory: resumed, accounts: accounts,
+                        keys: keys, settings: settings)
+                    XCTAssertEqual(try Data(contentsOf: backup), originalBackup)
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                } else {
+                    for _ in 0..<2 {
+                        XCTAssertThrowsError(try interruptedDatabaseStartup(directory: resumed,
+                            accounts: accounts, keys: keys, settings: settings))
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                        XCTAssertEqual(try Data(contentsOf: installed), originalInstalled)
+                        XCTAssertEqual(try Data(contentsOf: backup), retainedBackup)
+                        if condition == "unknown" {
+                            XCTAssertEqual(try Data(contentsOf: attempt.appendingPathComponent("unknown-evidence")),
+                                           Data("Retain unknown evidence".utf8))
+                        }
+                    }
+                }
+                XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                XCTAssertTrue(FileManager.default.fileExists(atPath: attempt.path))
+            }
+        }
+    }
+
+    func testGenericStartupRecoveryResumesTransientPreflightWriteFailure() throws {
+        try withInterruptedDatabaseFixture(version: .version2) { root, _, accounts, keys in
+            let directory = root.appendingPathComponent("transient-protection-write")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+            try writeAccounts(accounts, to: storeURL,
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue), includesSelection: true)
+            let settings = SettingsManager.shared
+            let preferenceKeys = [SettingsKey.selectedAccount, .walletMigrationRecoveryRequired,
+                .walletMigrationRecoveryReason, .walletMigrationRecoveryGeneration,
+                .walletMigrationRecoveryReasonGeneration, .walletMigrationRecoveryRecord,
+                .walletStartupDiagnostic, .walletNetworkStoreVersion].map(\.rawValue)
+            let savedPreferences = Dictionary(uniqueKeysWithValues: preferenceKeys.map { ($0, settings.anyValue(for: $0)) })
+            defer {
+                for key in preferenceKeys {
+                    if let value = savedPreferences[key] ?? nil { settings.set(anyValue: value, for: key) }
+                    else { settings.removeValue(for: key) }
+                }
+            }
+            for key in preferenceKeys { settings.removeValue(for: key) }
+            settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+            let gate = WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) },
+                unresolvedWalletCommitJournal: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+            let fileManager = WalletMigrationProtectionFailingFileManager()
+            let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                fileManager: fileManager, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+                loadWalletNetworkSnapshot: { nil })
+            // A real FileManager failure escapes the initial journal write after
+            // the manifest/settings backup. Production startup then persists a
+            // newer diagnostic that must not invalidate that settings backup.
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                try migrator.migrateAtStartup(hasUnresolvedAccountCommit: { false })
+            }, .recoveryRequired)
+            XCTAssertEqual(fileManager.failuresInjected, 1)
+            XCTAssertNotNil(settings.anyValue(for: SettingsKey.walletStartupDiagnostic.rawValue))
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            XCTAssertTrue(marker.isStartupVerificationFailure)
+            XCTAssertTrue(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL))
+            let attempts = try FileManager.default.contentsOfDirectory(
+                at: directory.appendingPathComponent("WalletMigrationSafety"), includingPropertiesForKeys: nil)
+            XCTAssertEqual(attempts.count, 1)
+            XCTAssertFalse(FileManager.default.fileExists(atPath:
+                try XCTUnwrap(attempts.first).appendingPathComponent("journal.json").path))
+            let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                ($0, try keys.fetchKey(for: $0))
+            })
+            XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, checkpoint: {
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                    let competing = WalletLifecycleCoordinator.shared.tryAcquire()
+                    XCTAssertNil(competing)
+                    competing?.release()
+                }))
+            XCTAssertFalse(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings, baseURL: directory))
+            try assertStoredAccounts(accounts, at: storeURL,
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+            XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), accounts[1])
+            for account in accounts {
+                let seed = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
+                let challenge = Data("failed preflight retry signing".utf8)
+                let signature = try Sora2Ed25519SeedSigner.sign(challenge, seed: seed)
+                try Sora2SignatureVerifier.verify(signature: signature, originalData: challenge, secretKey: seed, account: account)
+            }
+            XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+            for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(
+                at: directory.appendingPathComponent("WalletMigrationSafety"), includingPropertiesForKeys: nil), attempts)
+        }
+    }
+
+    func testGenericStartupRecoveryResumesCanonicalDatabaseJournals() throws {
+        for version in UserStorageVersion.allCases {
+            try withInterruptedDatabaseFixture(version: version) { root, snapshots, accounts, keys in
+                let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                for (phase, snapshot) in snapshots where phase != .activated {
+                    for legacyMarker in [false, true] {
+                        let directory = root.appendingPathComponent("generic-journal-\(phase.rawValue)-\(legacyMarker)")
+                        try FileManager.default.copyItem(at: snapshot, to: directory)
+                        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+                        let settings = InMemorySettingsManager()
+                        settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure)
+                        if legacyMarker {
+                            settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+                            settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+                        } else {
+                            settings.setWalletMigrationRecovery(reason: reason)
+                        }
+                        let marker = WalletMigrationRecoveryMarker.capture(settings)
+                        let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                        XCTAssertTrue(WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL))
+                        XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                        var reachedProof = false
+                        XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                            baseURL: directory, checkpoint: {
+                                reachedProof = true
+                                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                                XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                                let competing = WalletLifecycleCoordinator.shared.tryAcquire()
+                                XCTAssertNil(competing)
+                                competing?.release()
+                            }))
+                        XCTAssertTrue(reachedProof)
+                        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                        for _ in 0..<2 {
+                            try interruptedDatabaseStartup(directory: directory, accounts: accounts, keys: keys, settings: settings)
+                            XCTAssertFalse(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                                baseURL: directory))
+                        }
+                        let active = try XCTUnwrap(WalletNetworkStore(baseURL: directory, recoveryGate: gate).load())
+                        XCTAssertEqual(active.selectedWalletId, accounts[1].address)
+                        XCTAssertEqual(Set(active.wallets.map(\.id)), Set(accounts.map(\.address)))
+                        XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                        for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    }
+                }
+            }
+        }
+    }
+
+    func testGenericStartupRecoveryResumesCanonicalLegacyAccountJournals() throws {
+        let boundaries: [(WalletAccountCommitStage, String, Bool, Bool, Bool)] = [
+            (.prepared, "missing", false, false, false),
+            (.secretsPersisted, "empty", false, false, false),
+            (.secretsPersisted, "account", false, false, false),
+            (.coreDataCommitted, "account", true, false, true),
+            (.coreDataCommitted, "account", true, false, false),
+            (.networkModelActivated, "account", true, true, false)
+        ]
+        for entropyBytes in [16, 20] {
+            for boundary in boundaries {
+                try withLegacyActivationFixture(entropyBytes: entropyBytes, stage: boundary.0,
+                    database: boundary.1, networkActive: boundary.2,
+                    selectionPersisted: boundary.3, stagedOnly: boundary.4) { directory, account, keys, settings in
+                    let originals = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                        ($0, try keys.fetchKey(for: $0))
+                    })
+                    let retainedSnapshots = try legacyActivationNetworkFiles(at: directory)
+                    settings.setWalletMigrationRecovery(reason:
+                        UserStorageMigrationError.privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure))
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, checkpoint: {
+                            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                            XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                            let competing = WalletLifecycleCoordinator.shared.tryAcquire()
+                            XCTAssertNil(competing)
+                            competing?.release()
+                        }))
+                    for _ in 0..<2 {
+                        try resumeLegacyActivationFixture(at: directory, account: account, keys: keys, settings: settings)
+                    }
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                    for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    for (path, bytes) in retainedSnapshots { XCTAssertEqual(try Data(contentsOf: path), bytes) }
+                }
+            }
+        }
+    }
+
+    func testHistoricalLegacyJournalPreservesSoraOnlyStagedEvidence() throws {
+        for bytes in [20, 24, 28] {
+            for stagedOnly in [true, false] {
+                try withLegacyActivationFixture(entropyBytes: bytes,
+                    stage: stagedOnly ? .coreDataCommitted : .networkModelActivated,
+                    database: "account", networkActive: true, selectionPersisted: !stagedOnly,
+                    stagedOnly: stagedOnly, historicalLegacyTopology: true) { directory, account, keys, settings in
+                    let originals = try retainedEntropyKeyBytes(keys)
+                    let retained = try legacyActivationNetworkFiles(at: directory)
+                        .filter { $0.key.lastPathComponent != "active.json" }
+                    settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                        .privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure))
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                    XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                            XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                            let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                                recoveryGate: self.makeIsolatedRecoveryGate()).load())
+                            XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), [.sora2])
+                        }))
+                    for _ in 0..<2 {
+                        try resumeLegacyActivationFixture(at: directory, account: account, keys: keys, settings: settings)
+                    }
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    for (url, data) in retained { XCTAssertEqual(try Data(contentsOf: url), data) }
+                }
+            }
+        }
+        for condition in ["changedSora", "newerMarker"] {
+            try withLegacyActivationFixture(entropyBytes: 20, stage: .coreDataCommitted,
+                database: "account", networkActive: true, stagedOnly: true,
+                historicalLegacyTopology: true) { directory, account, keys, settings in
+                if condition == "changedSora" {
+                    let file = try XCTUnwrap(legacyActivationNetworkFiles(at: directory).keys.first)
+                    var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+                    var accounts = try XCTUnwrap(object["accounts"] as? [[String: Any]])
+                    accounts[0]["publicKey"] = Data(repeating: 7, count: 32).base64EncodedString()
+                    object["accounts"] = accounts
+                    try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).write(to: file)
+                }
+                let retained = try legacyActivationNetworkFiles(at: directory)
+                let originals = try retainedEntropyKeyBytes(keys)
+                settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+                    .privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure))
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                var newer: WalletMigrationRecoveryMarker?
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                XCTAssertThrowsError(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                    storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                    baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+                    checkpoint: {
+                        XCTAssertEqual(condition, "newerMarker")
+                        settings.setWalletMigrationRecovery(reason: "newer recovery generation")
+                        newer = WalletMigrationRecoveryMarker.capture(settings)
+                    }))
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer ?? marker)
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                for (url, data) in retained { XCTAssertEqual(try Data(contentsOf: url), data) }
+                try assertStoredAccounts([account], at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+            }
+        }
+    }
+
+    func testGenericStartupJournalRecoveryPreservesConflictingEvidenceAndMarkerCAS() throws {
+        try withInterruptedDatabaseFixture { root, snapshots, accounts, keys in
+            for condition in ["alteredBackup", "unknownFile", "simultaneousJournals", "newerMarker"] {
+                let directory = root.appendingPathComponent("generic-journal-reject-\(condition)")
+                try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.backupVerified]), to: directory)
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                let attempts = try FileManager.default.contentsOfDirectory(
+                    at: directory.appendingPathComponent("WalletMigrationSafety"), includingPropertiesForKeys: nil)
+                let attempt = try XCTUnwrap(attempts.first)
+                if condition == "alteredBackup" {
+                    let backup = attempt.appendingPathComponent("legacy-store/UserDataModel.sqlite")
+                    var bytes = try Data(contentsOf: backup)
+                    bytes[bytes.count - 1] ^= 1
+                    try bytes.write(to: backup)
+                } else if condition == "unknownFile" {
+                    try Data("Keep unknown recovery evidence".utf8).write(to: attempt.appendingPathComponent("unknown-evidence"))
+                } else if condition == "simultaneousJournals" {
+                    _ = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: makeIsolatedRecoveryGate(settings: settings))
+                        .begin(walletId: accounts[0].address, existingWalletIds: [])
+                }
+                let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure)
+                settings.setWalletMigrationRecovery(reason: reason)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                var newerMarker: WalletMigrationRecoveryMarker?
+                XCTAssertThrowsError(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                    storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                    baseURL: directory, checkpoint: {
+                        XCTAssertEqual(condition, "newerMarker")
+                        settings.setWalletMigrationRecovery(reason: reason)
+                        newerMarker = WalletMigrationRecoveryMarker.capture(settings)
+                    }))
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newerMarker ?? marker)
+                XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                if condition == "newerMarker" {
+                    XCTAssertNotNil(newerMarker)
+                    XCTAssertNotEqual(newerMarker, marker)
+                    try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                } else {
+                    XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory), originalFiles)
+                }
+                XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+            }
+        }
+        try withLegacyActivationFixture(stage: .coreDataCommitted, database: "account") {
+            directory, account, keys, settings in
+            let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: DurableFileWriter.Failure.fileSystemFailure)
+            settings.setWalletMigrationRecovery(reason: reason)
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            let journalGate = WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false },
+                startupVerificationMarker: marker)
+            let outerLease = WalletLifecycleCoordinator.shared.acquire()
+            XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: journalGate),
+                recoveryGate: journalGate, startupVerificationMarker: marker, checkpoint: { phase in
+                    if phase == .journalBound { settings.setWalletMigrationRecovery(reason: reason) }
+                }))
+            outerLease.release()
+            let newer = WalletMigrationRecoveryMarker.capture(settings)
+            XCTAssertNotEqual(newer, marker)
+            let files = try startupRecoveryFixtureFiles(at: directory)
+            XCTAssertThrowsError(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings, baseURL: directory))
+            XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory), files)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer)
+            XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+        }
+    }
+
+    func testGenericStartupRecoveryReprovesFailedDatabaseAttemptAndRetainsFailure() throws {
+        for version in UserStorageVersion.allCases {
+            try withInterruptedDatabaseFixture(version: version) { root, _, accounts, keys in
+                let installed = root.appendingPathComponent("caught-failure")
+                try FileManager.default.createDirectory(at: installed, withIntermediateDirectories: true)
+                let storeURL = installed.appendingPathComponent("UserDataModel.sqlite")
+                try writeAccounts(accounts, to: storeURL, model: userStorageModel(named: version.rawValue),
+                    includesSelection: version == .version2)
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                let gate = legacyActivationRecoveryGate(at: installed, settings: settings)
+                var failureCount = 0
+                let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+                    modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                    fileManager: .default, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+                    loadWalletNetworkSnapshot: { nil }, beforeSafetyActivationVerification: { _ in
+                        failureCount += 1
+                        throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
+                    })
+                // Exercise recordMigrationFailure's actual catch path, including
+                // rollback after the v1 live store replacement. No journal is fabricated.
+                XCTAssertEqual(WalletStorageStartup.run(settings: settings) {
+                    try migrator.migrateAtStartup(hasUnresolvedAccountCommit: { false })
+                }, .recoveryRequired)
+                XCTAssertEqual(failureCount, 1)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                XCTAssertTrue(marker.isStartupVerificationFailure)
+                let originalAttempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+                    at: installed.appendingPathComponent("WalletMigrationSafety"), includingPropertiesForKeys: nil).first)
+                let originalFailureData = try Data(contentsOf: originalAttempt.appendingPathComponent("journal.json"))
+                let originalFailure = try XCTUnwrap(JSONSerialization.jsonObject(with: originalFailureData) as? [String: Any])
+                XCTAssertEqual(originalFailure["state"] as? String, "failed")
+                XCTAssertEqual(originalFailure["failureReason"] as? String, "unexpected_failure")
+                XCTAssertEqual((originalFailure["safetyArtifacts"] as? [Any])?.count, 3)
+                let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                    ($0, try keys.fetchKey(for: $0))
+                })
+                for condition in ["valid", "activationRestart", "alteredBackup", "changedKey", "typedFailure", "newerBoundMarker"] {
+                    let directory = root.appendingPathComponent("failed-retry-\(condition)")
+                    try FileManager.default.copyItem(at: installed, to: directory)
+                    let retrySettings = InMemorySettingsManager()
+                    for key in settings.allKeys() {
+                        retrySettings.set(anyValue: try XCTUnwrap(settings.anyValue(for: key)), for: key)
+                    }
+                    let retryKeys = InMemoryKeychain()
+                    for (tag, data) in originalKeys { try retryKeys.addKey(data, with: tag) }
+                    let attempt = directory.appendingPathComponent("WalletMigrationSafety")
+                        .appendingPathComponent(originalAttempt.lastPathComponent)
+                    let journalURL = attempt.appendingPathComponent("journal.json")
+                    if condition == "alteredBackup" {
+                        let backup = attempt.appendingPathComponent("legacy-store/UserDataModel.sqlite")
+                        var data = try Data(contentsOf: backup)
+                        data[data.count - 1] ^= 1
+                        try data.write(to: backup)
+                    } else if condition == "changedKey" {
+                        try retryKeys.saveSeed(Data(repeating: 99, count: 32), address: accounts[0].address)
+                    } else if condition == "typedFailure" || condition == "newerBoundMarker" {
+                        var journal = originalFailure
+                        if condition == "typedFailure" {
+                            journal["failureReason"] = "account_inventory_mismatch"
+                        } else {
+                            journal["recoveryMarker"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(marker))
+                            retrySettings.setWalletMigrationRecovery(reason: try XCTUnwrap(marker.reason))
+                        }
+                        try JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys]).write(to: journalURL)
+                    }
+                    let retryMarker = WalletMigrationRecoveryMarker.capture(retrySettings)
+                    let retryGate = legacyActivationRecoveryGate(at: directory, settings: retrySettings)
+                    let initialFiles = try startupRecoveryFixtureFiles(at: directory)
+                    let keyBytes = try Dictionary(uniqueKeysWithValues: retryKeys.allKeyIdentifiers().map {
+                        ($0, try retryKeys.fetchKey(for: $0))
+                    })
+                    let failureDataBeforeRetry = try Data(contentsOf: journalURL)
+                    // Every fixed failure code is retryable (§0.2), and one
+                    // account whose keys do not match no longer blocks the
+                    // others: it becomes read-only, its keys unchanged.
+                    if ["valid", "activationRestart", "typedFailure", "changedKey"].contains(condition) {
+                        if condition == "activationRestart" {
+                            let journalGate = WalletRecoveryCapabilityGate(settings: retrySettings,
+                                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false },
+                                startupVerificationMarker: retryMarker)
+                            let verifier = UserStorageMigrator(targetVersion: .version2,
+                                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                                modelDirectory: UserStorageParams.modelDirectory, keystore: retryKeys,
+                                settings: retrySettings, fileManager: .default, recoveryGate: journalGate,
+                                availableCapacity: { _ in Int64.max }, loadWalletNetworkSnapshot: { nil })
+                            let lease = WalletLifecycleCoordinator.shared.acquire()
+                            defer { lease.release() }
+                            try verifier.resumeForStartupVerification(marker: retryMarker)
+                            lease.release()
+                            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(retrySettings), retryMarker)
+                        }
+                        XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: retryKeys,
+                            settings: retrySettings, baseURL: directory, checkpoint: {
+                                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(retrySettings), retryMarker)
+                                XCTAssertThrowsError(try retryGate.requireMutableWalletAccess())
+                            }))
+                        let retained = attempt.appendingPathComponent("staging")
+                            .appendingPathComponent("recovery-failed-journal-\(Data(SHA256.hash(data: failureDataBeforeRetry)).hex).json")
+                        XCTAssertEqual(try Data(contentsOf: retained), failureDataBeforeRetry)
+                        let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                            recoveryGate: makeIsolatedRecoveryGate(settings: retrySettings)).load())
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == accounts[0].address }?.secretSource,
+                                       condition == "changedKey" ? .signingUnavailable : .rawSeed, condition)
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == accounts[1].address }?.secretSource,
+                                       .rawSeed, condition)
+                        for _ in 0..<2 {
+                            try interruptedDatabaseStartup(directory: directory, accounts: accounts,
+                                keys: retryKeys, settings: retrySettings)
+                            XCTAssertEqual(try Data(contentsOf: retained), failureDataBeforeRetry)
+                        }
+                    } else {
+                        XCTAssertThrowsError(try WalletStartupVerificationRecovery.recoverIfNeeded(
+                            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: retryKeys,
+                            settings: retrySettings, baseURL: directory))
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(retrySettings), retryMarker)
+                        XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory), initialFiles)
+                        XCTAssertThrowsError(try retryGate.requireMutableWalletAccess())
+                    }
+                    XCTAssertEqual(Set(try retryKeys.allKeyIdentifiers()), Set(keyBytes.keys))
+                    for (tag, bytes) in keyBytes { XCTAssertEqual(try retryKeys.fetchKey(for: tag), bytes) }
+                }
+            }
+        }
+    }
+
+    func testGenericStartupRecoveryRevalidatesAllAccountsBeforeClearingMarker() throws {
+        try withInterruptedDatabaseFixture(version: .version2) { root, snapshots, accounts, keys in
+            let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
+                ($0, try keys.fetchKey(for: $0))
+            })
+            for markerKind in ["legacy", "current"] {
+                for hasNetworkSnapshot in [false, true] {
+                    let directory = root.appendingPathComponent("generic-\(markerKind)-\(hasNetworkSnapshot)")
+                    try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.activated]), to: directory)
+                    let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+                    let settings = InMemorySettingsManager()
+                    settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                    if hasNetworkSnapshot {
+                        let clearGate = makeIsolatedRecoveryGate(settings: settings)
+                        try WalletNetworkModelMigrator(keystore: keys,
+                            store: WalletNetworkStore(baseURL: directory, recoveryGate: clearGate), settings: settings,
+                            lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: clearGate), recoveryGate: clearGate)
+                            .migrate(accounts: accounts, selectedAddress: accounts[1].address)
+                    }
+                    let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                    let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.invalidIdentifierFormat)
+                    if markerKind == "legacy" {
+                        settings.set(value: true, for: SettingsKey.walletMigrationRecoveryRequired.rawValue)
+                        settings.set(value: reason, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+                    } else {
+                        settings.setWalletMigrationRecovery(reason: reason)
+                    }
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    var reachedFinalProof = false
+                    XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                    XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), checkpoint: {
+                            reachedFinalProof = true
+                            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                            XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                            for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                        }))
+                    XCTAssertTrue(reachedFinalProof)
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    try gate.requireMutableWalletAccess()
+                    try assertStoredAccounts(accounts, at: storeURL,
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                    XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), accounts[1])
+                    let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory, recoveryGate: gate).load())
+                    XCTAssertEqual(snapshot.selectedWalletId, accounts[1].address)
+                    XCTAssertEqual(Set(snapshot.wallets.map(\.id)), Set(accounts.map(\.address)))
+                    for account in accounts {
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == account.address }?.displayName, account.username)
+                        XCTAssertEqual(snapshot.accounts.first { $0.walletId == account.address && $0.networkId == .sora2 }?.publicKey,
+                                       account.publicKeyData)
+                        let seed = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
+                        let payload = Data("recovered generic startup native signing".utf8)
+                        let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: seed)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: payload, secretKey: seed, account: account)
+                    }
+                    for (path, bytes) in originalFiles { XCTAssertEqual(try Data(contentsOf: path), bytes) }
+                    let activatedFiles = try startupRecoveryFixtureFiles(at: directory)
+                    for _ in 0..<2 {
+                        XCTAssertFalse(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                            baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate)))
+                        XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory), activatedFiles)
+                        XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                        for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    }
+                }
+            }
+        }
+    }
+
+    func testGenericStartupRecoveryPreservesUnverifiedEvidenceAndNewerMarkers() throws {
+        for condition in ["mismatchedKey", "missingStore", "snapshotMismatch", "accountJournal", "databaseJournal", "newerMarker", "unrelatedMarker"] {
+            try withInterruptedDatabaseFixture(version: .version2) { root, snapshots, accounts, keys in
+                let directory = root.appendingPathComponent("reject-generic-\(condition)")
+                try FileManager.default.copyItem(at: XCTUnwrap(snapshots[.activated]), to: directory)
+                let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+                let settings = InMemorySettingsManager()
+                settings.set(value: accounts[1], for: SettingsKey.selectedAccount.rawValue)
+                let clearGate = makeIsolatedRecoveryGate(settings: settings)
+                let clearCoordinator = WalletLifecycleCoordinator(recoveryGate: clearGate)
+                let store = try WalletNetworkStore(baseURL: directory, recoveryGate: clearGate)
+                let expected = try WalletNetworkModelMigrator(keystore: keys, store: store, settings: settings,
+                    lifecycleCoordinator: clearCoordinator, recoveryGate: clearGate)
+                    .verifiedSnapshot(accounts: accounts, selectedAddress: accounts[1].address)
+                if condition == "snapshotMismatch" {
+                    let altered = WalletNetworkSnapshot(schemaVersion: expected.schemaVersion,
+                        selectedWalletId: expected.selectedWalletId,
+                        wallets: expected.wallets, accounts: expected.accounts.map { account in
+                            NetworkAccount(walletId: account.walletId, networkId: account.networkId,
+                                derivationVersion: account.derivationVersion,
+                                publicKey: account.walletId == accounts[0].address ? Data(repeating: 13, count: 32) : account.publicKey,
+                                address: account.address)
+                        }, createdAt: expected.createdAt)
+                    try store.stageAndActivate(altered)
+                } else {
+                    try store.stageAndActivate(expected)
+                }
+                if condition == "mismatchedKey" {
+                    try keys.saveSeed(Data(repeating: 13, count: 32), address: accounts[0].address)
+                } else if condition == "missingStore" {
+                    try FileManager.default.moveItem(at: storeURL, to: directory.appendingPathComponent("preserved-unavailable-live.sqlite"))
+                } else if condition == "accountJournal" {
+                    _ = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: clearGate)
+                        .begin(walletId: "pending-wallet", existingWalletIds: accounts.map(\.address))
+                } else if condition == "databaseJournal" {
+                    let attempt = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+                        at: directory.appendingPathComponent("WalletMigrationSafety"), includingPropertiesForKeys: nil).first)
+                    let journalURL = attempt.appendingPathComponent("journal.json")
+                    var journal = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: journalURL)) as? [String: Any])
+                    journal["state"] = "failed"
+                    journal["failureReason"] = "unrecognized_failure"
+                    try JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys]).write(to: journalURL)
+                }
+                let genericReason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.invalidIdentifierFormat)
+                settings.setWalletMigrationRecovery(reason: condition == "unrelatedMarker" ? "Unrelated integrity check" : genericReason)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map { ($0, try keys.fetchKey(for: $0)) })
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                var laterMarker: WalletMigrationRecoveryMarker?
+                let recovery = {
+                    try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), checkpoint: {
+                            XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+                            if condition == "newerMarker" {
+                                settings.setWalletMigrationRecovery(reason: genericReason)
+                                laterMarker = WalletMigrationRecoveryMarker.capture(settings)
+                            }
+                        })
+                }
+                if condition == "accountJournal" {
+                    // Since 3.9.0 an interrupted ordinary import whose account
+                    // never reached Core Data is set aside (abandoned); no key
+                    // material is written or deleted, and startup completes.
+                    XCTAssertTrue(try recovery())
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: clearGate)
+                        .unresolved().isEmpty)
+                    let journals = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: clearGate)
+                        .journalsForLegacyRecovery()
+                    XCTAssertEqual(journals.map(\.stage), [.abandoned])
+                    for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                    try assertStoredAccounts(accounts, at: storeURL,
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                    return
+                }
+                if condition == "mismatchedKey" {
+                    // Since 3.9.0 an account whose stored keys do not match is
+                    // read-only; it no longer blocks the other accounts. Its
+                    // keys and the recorded snapshot stay exactly as they were.
+                    XCTAssertTrue(try recovery())
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    for (path, bytes) in originalFiles { XCTAssertEqual(try Data(contentsOf: path), bytes) }
+                    for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    XCTAssertEqual(try store.load()?.wallets, expected.wallets)
+                    XCTAssertEqual(try store.load()?.accounts, expected.accounts)
+                    XCTAssertThrowsError(try LegacySoraIdentityValidator.validate(address: accounts[0].address,
+                        publicKey: accounts[0].publicKeyData, cryptoType: accounts[0].cryptoType,
+                        networkType: accounts[0].networkType, derivationPath: nil, entropy: nil,
+                        rawSeed: keys.fetchSeedForAddress(accounts[0].address),
+                        secret: keys.fetchSecretKeyForAddress(accounts[0].address), recoveryGate: clearGate))
+                    return
+                }
+                if condition == "unrelatedMarker" {
+                    XCTAssertFalse(try recovery())
+                } else {
+                    XCTAssertThrowsError(try recovery())
+                }
+                if condition == "newerMarker" {
+                    XCTAssertNotNil(laterMarker)
+                    XCTAssertNotEqual(laterMarker, marker)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), laterMarker)
+                } else {
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                }
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                for (path, bytes) in originalFiles { XCTAssertEqual(try Data(contentsOf: path), bytes) }
+                XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                if condition != "missingStore" {
+                    try assertStoredAccounts(accounts, at: storeURL,
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                }
+            }
+        }
+    }
+
+    func testGenericStartupRecoveryProvesRetainedPreAccountWalletWithoutCreatingStore() throws {
+        for entropyBytes in [16, 20, 24, 28, 32] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let keys = MixedKeychainAttributesFixture()
+            let entropy = Data(repeating: UInt8(entropyBytes), count: entropyBytes)
+            try keys.wallet.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+            try keys.wallet.addKey(Data("Retained pre-account name".utf8), with: KeystoreTag.legacyUsername.rawValue)
+            let settings = InMemorySettingsManager()
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.invalidIdentifierFormat))
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+            XCTAssertTrue(try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate)))
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+            XCTAssertTrue(try LegacyWalletUpgradePolicy.isCandidate(keystore: keys, hasWatchOnlyWallet: false,
+                snapshot: WalletNetworkStore(baseURL: directory, recoveryGate: gate).load()))
+            XCTAssertEqual(try keys.fetchKey(for: KeystoreTag.legacyEntropy.rawValue), entropy)
+            XCTAssertEqual(keys.walletMutationCount, 0)
+        }
+    }
+
+    // These fixtures model an already-retained Core Data row backed by the
+    // released unsuffixed entropy record. Unlike pre-account upgrade tests,
+    // database verification must succeed before any network snapshot exists.
+    func testRetainedGlobalEntropyCompletesDatabaseBeforeNetworkStartup() throws {
+        for length in [16, 20, 24, 28, 32] {
+            let entropy = Data(repeating: 0, count: length)
+            let account = try retainedEntropyAccount(entropy: entropy)
+            for version in [UserStorageVersion.version1, .version2] {
+                for recovering in [false, true] {
+                    try withRetainedEntropyDatabase(accounts: [account], version: version,
+                        entropy: entropy, recovering: recovering) { directory, keys, settings in
+                        if length == 20 {
+                            // Independent legacy-1.x scrypt vector retained with its entropy.
+                            try keys.addKey(try Data(hexStringSSF:
+                                "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
+                                with: "privateKey")
+                        }
+                        let originals = try retainedEntropyKeyBytes(keys)
+                        XCTAssertNil(try WalletNetworkStore(baseURL: directory,
+                            recoveryGate: makeIsolatedRecoveryGate()).load())
+                        XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty)
+                        for _ in 0..<2 {
+                            let snapshot = try runRetainedEntropyStartup(directory: directory,
+                                keys: keys, settings: settings, accounts: [account])
+                            try assertRetainedEntropySigner(account: account, entropy: entropy,
+                                snapshot: snapshot, keys: keys, settings: settings)
+                            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testRetainedGlobalEntropyCoexistsWithScopedAndWatchOnlyAccounts() throws {
+        let entropy = Data(repeating: 0, count: 20)
+        let global = try retainedEntropyAccount(entropy: entropy).replacingSelection(false)
+        let scopedSeed = Data(repeating: 47, count: 32)
+        let scopedPair = try Ed25519KeypairFactory().createKeypairFromSeed(scopedSeed, chaincodeList: [])
+        let scopedPublic = scopedPair.publicKey().rawData()
+        let scoped = AccountItem(address: try SS58AddressFactory().address(fromAccountId: scopedPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Retained scoped selection", publicKeyData: scopedPublic,
+            settings: global.settings, order: 3, isSelected: true)
+        let watch = makeLegacyAccount(address: "retained watch-only coexistence").replacingSelection(false)
+        let accounts = [global, scoped, watch]
+        for version in [UserStorageVersion.version1, .version2] {
+            for recovering in [false, true] {
+                try withRetainedEntropyDatabase(accounts: accounts, version: version,
+                    entropy: entropy, recovering: recovering) { directory, keys, settings in
+                    try keys.addKey(scopedSeed, with: KeystoreTag.seedTagForAddress(scoped.address))
+                    settings.set(value: true, for: "wallet.watchOnly.\(watch.address)")
+                    let originals = try retainedEntropyKeyBytes(keys)
+                    for _ in 0..<2 {
+                        let snapshot = try runRetainedEntropyStartup(directory: directory,
+                            keys: keys, settings: settings, accounts: accounts)
+                        try assertRetainedEntropySigner(account: global, entropy: entropy,
+                            snapshot: snapshot, keys: keys, settings: settings)
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == watch.address }?.secretSource, .watchOnly)
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == scoped.address }?.secretSource, .rawSeed)
+                        XCTAssertEqual(Set(snapshot.accounts.map(\.networkId)), [.sora2])
+                        for retained in [scoped, watch] {
+                            XCTAssertEqual(snapshot.accounts.filter { $0.walletId == retained.address }.map(\.networkId), [.sora2])
+                        }
+                        let payload = Data("retained mixed scoped signer".utf8)
+                        let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: scopedSeed)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                            secretKey: scopedSeed, account: scoped)
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    }
+                }
+            }
+        }
+    }
+
+    func testRetainedGlobalEntropyConflictsDegradeOneAccountOrFailClosed() throws {
+        let entropy = Data(repeating: 0, count: 20)
+        let original = try retainedEntropyAccount(entropy: entropy)
+        let other = try retainedEntropyAccount(entropy: Data(repeating: 2, count: 20))
+            .replacingSelection(false)
+        for condition in ["globalMismatch", "privateKeyMismatch", "missingAccount", "scopedEntropy",
+                          "scopedSecret", "scopedSeed", "derivation", "publicKey", "cryptoType",
+                          "networkAlias", "snapshot", "watchOnlyConflict", "newerMarker"] {
+            var account = original
+            if ["publicKey", "cryptoType", "networkAlias"].contains(condition) {
+                account = AccountItem(address: original.address,
+                    cryptoType: condition == "cryptoType" ? .ed25519 : original.cryptoType,
+                    networkType: condition == "networkAlias" ? SNAddressType(42) : original.networkType,
+                    username: original.username,
+                    publicKeyData: condition == "publicKey" ? other.publicKeyData : original.publicKeyData,
+                    settings: original.settings, order: original.order, isSelected: true)
+            }
+            let accounts = condition == "missingAccount" ? [account, other] : [account]
+            try withRetainedEntropyDatabase(accounts: accounts, version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                switch condition {
+                case "globalMismatch":
+                    try keys.saveKey(Data(repeating: 2, count: 20), with: KeystoreTag.legacyEntropy.rawValue)
+                case "privateKeyMismatch":
+                    try keys.addKey(Data(repeating: 7, count: 32), with: "privateKey")
+                case "scopedEntropy":
+                    try keys.addKey(Data(repeating: 2, count: 20), with: KeystoreTag.entropyTagForAddress(account.address))
+                case "scopedSecret", "watchOnlyConflict":
+                    let seed = try retainedEntropySeed(Data(repeating: 2, count: 20))
+                    let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+                    try keys.addKey(pair.privateKey().rawData(), with: KeystoreTag.secretKeyTagForAddress(account.address))
+                    if condition == "watchOnlyConflict" {
+                        settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+                    }
+                case "scopedSeed":
+                    try keys.addKey(Data(repeating: 7, count: 32), with: KeystoreTag.seedTagForAddress(account.address))
+                case "derivation":
+                    try keys.addKey(Data("//other".utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
+                case "snapshot":
+                    let snapshotSettings = InMemorySettingsManager()
+                    snapshotSettings.set(value: true, for: "wallet.watchOnly.\(other.address)")
+                    let gate = makeIsolatedRecoveryGate(settings: snapshotSettings)
+                    try WalletNetworkModelMigrator(keystore: keys,
+                        store: WalletNetworkStore(baseURL: directory, recoveryGate: gate), settings: snapshotSettings,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate)
+                        .migrate(accounts: [other], selectedAddress: other.address)
+                default: break
+                }
+                let originalKeys = try retainedEntropyKeyBytes(keys)
+                let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                if !["snapshot", "watchOnlyConflict", "newerMarker"].contains(condition) {
+                    // Since 3.9.0 an account whose retained material does not
+                    // prove it (or that has none) opens read-only instead of
+                    // blocking the wallet. Nothing in the Keychain changes.
+                    let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                        _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                            baseURL: directory, lifecycleCoordinator: coordinator)
+                    }, migration: {})
+                    XCTAssertEqual(outcome, .ready, condition)
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired, condition)
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys, condition)
+                    let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).load(), condition)
+                    let readOnly = condition == "missingAccount" ? other.address : account.address
+                    XCTAssertEqual(snapshot.wallets.first { $0.id == readOnly }?.secretSource,
+                                   .signingUnavailable, condition)
+                    XCTAssertEqual(snapshot.accounts.filter { $0.walletId == readOnly }.map(\.networkId),
+                                   [.sora2], condition)
+                    if condition == "missingAccount" {
+                        try assertRetainedEntropySigner(account: account, entropy: entropy,
+                            snapshot: snapshot, keys: keys, settings: settings)
+                    }
+                    try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                    return
+                }
+                var newerMarker: WalletMigrationRecoveryMarker?
+                var verifiedCheckpointFiles: [URL: Data]?
+                let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                    _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                        baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                            XCTAssertEqual(condition, "newerMarker")
+                            verifiedCheckpointFiles = try self.startupRecoveryFixtureFiles(at: directory)
+                            settings.setWalletMigrationRecovery(reason: "newer preserved recovery")
+                            newerMarker = WalletMigrationRecoveryMarker.capture(settings)
+                        })
+                }, migration: { XCTFail("Unverified recovery reached ordinary migration: \(condition)") })
+                XCTAssertEqual(outcome, .recoveryRequired, condition)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newerMarker ?? marker, condition)
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess(), condition)
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys, condition)
+                // SQLite readers update the transient shared-memory index.
+                // Compare durable main/WAL/snapshot bytes before opening another
+                // reader. Successful verification may checkpoint WAL before CAS,
+                // so that case compares the final verified boundary instead.
+                let shmURL = directory.appendingPathComponent("UserDataModel.sqlite-shm")
+                let expectedFiles: [URL: Data]
+                if condition == "newerMarker" {
+                    expectedFiles = try XCTUnwrap(verifiedCheckpointFiles)
+                    let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+                    let backup = try XCTUnwrap(WalletRecoveryMigrationJournalProbe
+                        .newestVerifiedLegacyStoreBackup(storeURL: storeURL))
+                    let backupFile = try XCTUnwrap(backup.databaseFiles.first { $0.fileName == storeURL.lastPathComponent })
+                    // Inspect a copy, preserving the verified backup itself even
+                    // if Core Data changes its copied transient SQLite state.
+                    let inspection = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                    defer { try? FileManager.default.removeItem(at: inspection) }
+                    try FileManager.default.copyItem(at: backupFile.url.deletingLastPathComponent(), to: inspection)
+                    try assertStoredAccounts(accounts, at: inspection.appendingPathComponent(storeURL.lastPathComponent),
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                } else {
+                    XCTAssertNil(verifiedCheckpointFiles)
+                    expectedFiles = originalFiles
+                }
+                // A keyless account no longer stops startup before the verified
+                // database backup is taken, so the "snapshot" conflict is found
+                // after it: compare everything except that new backup and the
+                // live store's WAL checkpoint (rows are compared below).
+                let isNewBackup: (URL) -> Bool = { url in
+                    condition == "snapshot" && (url.path.contains("/WalletMigrationSafety/") ||
+                        url.lastPathComponent.hasPrefix("UserDataModel.sqlite"))
+                }
+                XCTAssertEqual(try startupRecoveryFixtureFiles(at: directory)
+                    .filter { $0.key != shmURL && !isNewBackup($0.key) },
+                    expectedFiles.filter { $0.key != shmURL && !isNewBackup($0.key) }, condition)
+                try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
+                if condition != "snapshot" && condition != "newerMarker" {
+                    XCTAssertNil(try WalletNetworkStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).load(), condition)
+                }
+            }
+        }
+    }
+
+    func testRetainedScopedCredentialsRemainAuthoritativeOverGlobalEntropy() throws {
+        let entropy = Data(repeating: 0, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let seed = try retainedEntropySeed(entropy)
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        for recovering in [false, true] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: Data(repeating: 9, count: 20), recovering: recovering) { directory, keys, settings in
+                try keys.addKey(entropy, with: KeystoreTag.entropyTagForAddress(account.address))
+                try keys.addKey(seed, with: KeystoreTag.seedTagForAddress(account.address))
+                try keys.addKey(pair.privateKey().rawData(), with: KeystoreTag.secretKeyTagForAddress(account.address))
+                let originals = try retainedEntropyKeyBytes(keys)
+                for _ in 0..<2 {
+                    let snapshot = try runRetainedEntropyStartup(directory: directory,
+                        keys: keys, settings: settings, accounts: [account])
+                    try assertRetainedEntropySigner(account: account, entropy: entropy,
+                        snapshot: snapshot, keys: keys, settings: settings)
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                }
+            }
+        }
+    }
+
+    func testMissingKeyPhraseRecoveryPreservesRetainedAccountsAndNetworkPolicy() throws {
+        for version in UserStorageVersion.allCases {
+            for bytes in [16, 20, 24, 28, 32] {
+                let entropy = Data(repeating: UInt8(bytes), count: bytes)
+                let account = try retainedEntropyAccount(entropy: entropy)
+                try withRetainedEntropyDatabase(accounts: [account], version: version,
+                    entropy: entropy, recovering: true) { directory, keys, settings in
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                    try keys.addKey(Data("retained unrelated item".utf8), with: "synthetic-unrelated-key")
+                    let originals = try retainedEntropyKeyBytes(keys)
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                    let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    if version == .version2 && bytes == 16 {
+                        let failingKeys = DiagnosticKeychainFixture(keys)
+                        failingKeys.failedIdentifier = KeystoreTag.secretKeyTagForAddress(account.address)
+                        XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                            _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                                storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                                modelDirectory: UserStorageParams.modelDirectory, keystore: failingKeys,
+                                settings: settings, baseURL: directory, lifecycleCoordinator: coordinator)
+                        }, migration: { XCTFail("A Security error reached ordinary startup") }), .recoveryRequired)
+                        let failure = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+                        XCTAssertEqual(failure.phase, .databaseMigration)
+                        XCTAssertEqual(failure.cause, .keychainSystem)
+                        XCTAssertEqual(failure.systemCode, Int(errSecInteractionNotAllowed))
+                        XCTAssertEqual(failure.secretChecks?.failedOperation, .scopedSecret)
+                        XCTAssertEqual(failure.secretChecks?.outcomes[.scopedSecret], .failed)
+                        XCTAssertNil(failure.secretChecks?.outcomes[.scopedEntropy])
+                        XCTAssertNil(failure.secretChecks?.outcomes[.globalEntropy])
+                        XCTAssertTrue(failingKeys.fetched.isEmpty)
+                        XCTAssertFalse(failingKeys.checked.contains(KeystoreTag.legacyEntropy.rawValue))
+                        XCTAssertTrue(failure.userMessage.contains("Unlock this iPhone"))
+                        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    }
+                    // Since 3.9.0 an account without keys no longer blocks
+                    // startup (new iPhone, removed items). It opens read-only;
+                    // the Keychain is not changed, and the user restores its
+                    // keys in the app without a recovery marker.
+                    let readOnly = try runRetainedEntropyStartup(directory: directory,
+                        keys: keys, settings: settings, accounts: [account])
+                    XCTAssertEqual(readOnly.wallets.first { $0.id == account.address }?.secretSource,
+                                   .signingUnavailable)
+                    XCTAssertEqual(readOnly.accounts.filter { $0.walletId == account.address }.map(\.networkId),
+                                   [.sora2])
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    XCTAssertNotEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    XCTAssertNil(try LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+                    let readOnlyGate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    let readOnlyCoordinator = WalletLifecycleCoordinator(recoveryGate: readOnlyGate)
+                    let networkStore = try WalletNetworkStore(baseURL: directory, recoveryGate: readOnlyGate)
+                    XCTAssertThrowsError(try database.restoreKeysForReadOnlyAccount(address: account.address,
+                        mnemonic: mnemonic12, derivationPath: "", networkStore: networkStore,
+                        lifecycleCoordinator: readOnlyCoordinator))
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
+                    let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+                    try database.restoreKeysForReadOnlyAccount(address: account.address,
+                        mnemonic: "  \n" + phrase.replacingOccurrences(of: " ", with: "  ") + "\n",
+                        derivationPath: "", networkStore: networkStore, lifecycleCoordinator: readOnlyCoordinator)
+                    // The phrase, then the derived seed and secret (add-only),
+                    // so App Store 3.8.6 can sign for the account too.
+                    var expected = originals
+                    let restoredSeed = try retainedEntropySeed(entropy)
+                    expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    expected[KeystoreTag.seedTagForAddress(account.address)] = restoredSeed
+                    expected[KeystoreTag.secretKeyTagForAddress(account.address)] = try SR25519KeypairFactory()
+                        .createKeypairFromSeed(restoredSeed, chaincodeList: []).privateKey().rawData()
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    // The restored source replaces the read-only placeholder.
+                    let restored = try XCTUnwrap(networkStore.load())
+                    XCTAssertNotEqual(restored.wallets.first { $0.id == account.address }?.secretSource,
+                                      .signingUnavailable)
+                    // Keys are present now: a second restore is refused, unchanged.
+                    XCTAssertThrowsError(try database.restoreKeysForReadOnlyAccount(address: account.address,
+                        mnemonic: phrase, derivationPath: "", networkStore: networkStore,
+                        lifecycleCoordinator: readOnlyCoordinator))
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    for _ in 0..<2 {
+                        let snapshot = try runRetainedEntropyStartup(directory: directory,
+                            keys: keys, settings: settings, accounts: [account])
+                        try assertRetainedEntropySigner(account: account, entropy: entropy,
+                            snapshot: snapshot, keys: keys, settings: settings)
+                        try assertRecoveredNetworkSigning(account: account, directory: directory,
+                            keys: keys, settings: settings)
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    }
+                }
+            }
+        }
+    }
+
+    func testMissingKeyPhraseRecoveryRejectsConflictsAndNewerMarkersWithoutChangingEvidence() throws {
+        let entropy = Data(repeating: 20, count: 20)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        for condition in ["entropy", "secret", "seed", "path", "watchOnly", "malformedWatchOnly",
+                          "wrongMarker", "accountJournal", "databaseJournal", "newerJournal", "newerMarker"] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                switch condition {
+                case "entropy": try keys.saveEntropy(entropy, address: account.address)
+                case "secret": try keys.saveSecretKey(Data(repeating: 1, count: 64), address: account.address)
+                case "seed": try keys.saveSeed(Data(repeating: 1, count: 32), address: account.address)
+                case "path": try keys.addKey(Data("//other".utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
+                case "watchOnly": settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+                case "malformedWatchOnly": settings.set(value: "unexpected", for: "wallet.watchOnly.\(account.address)")
+                case "wrongMarker": settings.setWalletMigrationRecovery(reason: "retained integrity conflict")
+                case "accountJournal":
+                    _ = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: makeIsolatedRecoveryGate())
+                        .begin(walletId: account.address, existingWalletIds: [])
+                case "databaseJournal":
+                    let attempt = directory.appendingPathComponent("WalletMigrationSafety/\(UUID().uuidString)")
+                    try FileManager.default.createDirectory(at: attempt, withIntermediateDirectories: true)
+                    let journal: [String: Any] = ["migrationID": UUID().uuidString,
+                        "sourceVersion": UserStorageVersion.version1.rawValue,
+                        "destinationVersion": UserStorageVersion.version2.rawValue, "state": "failed",
+                        "updatedAt": "2026-09-13T00:00:00Z", "failureReason": "account_inventory_mismatch"]
+                    try JSONSerialization.data(withJSONObject: journal, options: [.sortedKeys])
+                        .write(to: attempt.appendingPathComponent("journal.json"))
+                default: break
+                }
+                let originals = try retainedEntropyKeyBytes(keys)
+                let originalFiles = try startupRecoveryFixtureFiles(at: directory)
+                    .filter { !$0.key.lastPathComponent.hasSuffix("-shm") }
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                var newer: WalletMigrationRecoveryMarker?
+                let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                    mnemonic: phrase, derivationPath: "", baseURL: directory,
+                    lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), checkpoint: {
+                        if condition == "newerJournal" {
+                            _ = try WalletAccountCommitJournalStore(baseURL: directory,
+                                recoveryGate: self.makeIsolatedRecoveryGate())
+                                .begin(walletId: account.address, existingWalletIds: [])
+                        } else {
+                            XCTAssertEqual(condition, "newerMarker")
+                            settings.setWalletMigrationRecovery(reason: "newer recovery generation")
+                            newer = WalletMigrationRecoveryMarker.capture(settings)
+                        }
+                    }), condition)
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals, condition)
+                let retainedMarker = WalletMigrationRecoveryMarker.capture(settings)
+                if ["accountJournal", "databaseJournal", "newerJournal"].contains(condition) {
+                    // Rejecting unresolved journals relatches the existing reason
+                    // with a new generation, invalidating any outstanding verifier.
+                    XCTAssertTrue(retainedMarker.required, condition)
+                    XCTAssertEqual(retainedMarker.reason, marker.reason, condition)
+                    XCTAssertNotNil(retainedMarker.generation, condition)
+                    XCTAssertNotEqual(retainedMarker.generation, marker.generation, condition)
+                    XCTAssertEqual(retainedMarker.reasonGeneration, retainedMarker.generation, condition)
+                } else {
+                    XCTAssertEqual(retainedMarker, newer ?? marker, condition)
+                }
+                XCTAssertThrowsError(try gate.requireMutableWalletAccess(), condition)
+                let currentFiles = try startupRecoveryFixtureFiles(at: directory)
+                    .filter { !$0.key.lastPathComponent.hasSuffix("-shm") }
+                if condition == "newerJournal" {
+                    for (url, data) in originalFiles { XCTAssertEqual(currentFiles[url], data) }
+                    XCTAssertFalse(try WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty)
+                } else {
+                    XCTAssertEqual(currentFiles, originalFiles, condition)
+                }
+                try assertStoredAccounts([account], at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                    model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
+            }
+        }
+    }
+
+    func testMissingKeyPhraseRecoveryResumesAfterVerifiedDerivationPathWrite() throws {
+        let entropy = Data(repeating: 28, count: 28)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let path = "//retained//7///legacy-password"
+        let junction = try SubstrateJunctionFactory().parse(path: path)
+        let seed = try SeedFactory().deriveSeed(from: phrase, password: junction.password ?? "").seed.miniSeed
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: junction.chaincodes)
+        let account = AccountItem(address: try SS58AddressFactory().address(fromAccountId: pair.publicKey().rawData(),
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Retained derived account", publicKeyData: pair.publicKey().rawData(),
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        try withRetainedEntropyDatabase(accounts: [account], version: .version1,
+            entropy: entropy, recovering: true) { directory, keys, settings in
+            try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+            let originals = try retainedEntropyKeyBytes(keys)
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+            let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+            let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+            XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                mnemonic: phrase, derivationPath: path, baseURL: directory,
+                lifecycleCoordinator: coordinator, checkpoint: { throw NSError(domain: "Synthetic interruption", code: 1) }))
+            var expected = originals
+            expected[KeystoreTag.deriviationTagForAddress(account.address)] = Data(path.utf8)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
+                mnemonic: phrase, derivationPath: "//other", baseURL: directory,
+                lifecycleCoordinator: coordinator))
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            try database.restoreMissingEntropy(address: account.address, mnemonic: phrase,
+                derivationPath: path, baseURL: directory, lifecycleCoordinator: coordinator)
+            // The phrase, then the seed and secret derived with the retained
+            // path (hard junctions only, so the secret is deterministic).
+            expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+            expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+            expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            for _ in 0..<2 {
+                _ = try runRetainedEntropyStartup(directory: directory, keys: keys, settings: settings, accounts: [account])
+                let payload = Data("restored retained derivation signing proof".utf8)
+                let recoveredSecret = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+                let signature = try SNSigner(keypair: SNKeypair(privateKey: SNPrivateKey(rawData: recoveredSecret),
+                    publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(payload)
+                try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                    secretKey: recoveredSecret, account: account)
+                XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature,
+                    originalData: payload + Data([1]), secretKey: recoveredSecret, account: account))
+                try assertRecoveredNetworkSigning(account: account, directory: directory, keys: keys, settings: settings)
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+            }
+        }
+    }
+
+    func testCloudBackupCreateAndReadbackRemainBounded() async throws {
+        let entropy = Data(repeating: 27, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let payload = try cloudRecoveryFixture(account: account, entropy: entropy,
+            format: "phrase", password: "synthetic-backup-password")
+        func upload() -> GTLRDriveQuery_FilesCreate {
+            let file = GTLRDrive_File(); file.name = "\(account.address).json"
+            file.parents = ["synthetic-folder"]
+            let parameters = GTLRUploadParameters(data: payload, mimeType: "application/json")
+            parameters.shouldUploadWithSingleRequest = true
+            return GTLRDriveQuery_FilesCreate.query(withObject: file, uploadParameters: parameters)
+        }
+        let drive = PreservedBackupDriveFixture(name: "\(account.address).json", original: nil)
+        drive.folderExists = false
+        let writer = WalletBackupPreservingGoogleService(base: drive)
+        let folderList = GTLRDriveQuery_FilesList.query()
+        folderList.spaces = "appDataFolder"; folderList.q = "name = 'backupFolder'"
+        let folders = try await writer.executeQuery(folderList)
+        XCTAssertEqual((folders.file as? GTLRDrive_FileList)?.files?.count, 0)
+        let folder = GTLRDrive_File(); folder.name = "backupFolder"
+        folder.mimeType = "application/vnd.google-apps.folder"; folder.parents = ["appDataFolder"]
+        _ = try await writer.executeQuery(GTLRDriveQuery_FilesCreate.query(withObject: folder, uploadParameters: nil))
+        _ = try await writer.executeQuery(upload())
+        XCTAssertEqual(drive.revisions[drive.head], payload)
+        XCTAssertTrue(drive.pinned.contains(drive.head))
+        XCTAssertEqual(drive.queries.filter { ($0 as? GTLRDriveQuery_FilesCreate)?.uploadParameters != nil }.count, 1)
+        XCTAssertFalse(drive.queries.contains { $0 is GTLRDriveQuery_FilesDelete || $0 is GTLRDriveQuery_FilesUpdate })
+        let list = try XCTUnwrap(drive.queries.compactMap { $0 as? GTLRDriveQuery_FilesList }.last)
+        XCTAssertEqual(list.q, "name = '\(account.address).json' and trashed = false")
+        XCTAssertEqual(list.pageSize, 100)
+        for fault in ["create", "new-media"] {
+            let failed = PreservedBackupDriveFixture(name: "\(account.address).json", original: nil)
+            failed.failure = fault
+            do { _ = try await WalletBackupPreservingGoogleService(base: failed).executeQuery(upload()); XCTFail("Unverified create accepted") }
+            catch {}
+            XCTAssertFalse(failed.queries.contains { $0 is GTLRDriveQuery_FilesDelete })
+            if fault == "new-media" {
+                XCTAssertEqual(failed.revisions[failed.head], payload)
+                XCTAssertTrue(failed.pinned.contains(failed.head), "An uncertain upload must remain recoverable")
+            }
+        }
+        let ambiguous = PreservedBackupDriveFixture(name: "\(account.address).json", original: payload)
+        ambiguous.duplicates = true
+        do { _ = try await WalletBackupPreservingGoogleService(base: ambiguous).executeQuery(upload()); XCTFail("Ambiguous backups admitted") }
+        catch WalletCloudBackupWriteError.ambiguous {}
+        catch { XCTFail("Ambiguous backup error lost") }
+        XCTAssertEqual(ambiguous.revisions["original"], payload)
+        XCTAssertTrue(ambiguous.queries.allSatisfy { $0 is GTLRDriveQuery_FilesList })
+    }
+
+    func testCloudBackupReplacementPreservesPriorRevisionAcrossFailures() async throws {
+        let entropy = Data(repeating: 28, count: 16)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let original = try cloudRecoveryFixture(account: account, entropy: entropy,
+            format: "phrase", password: "synthetic-original-password")
+        let replacement = try cloudRecoveryFixture(account: account, entropy: entropy,
+            format: "combined", password: "synthetic-new-password")
+        func upload() -> GTLRDriveQuery_FilesCreate {
+            let file = GTLRDrive_File(); file.name = "\(account.address).json"; file.parents = ["synthetic-folder"]
+            return GTLRDriveQuery_FilesCreate.query(withObject: file,
+                uploadParameters: GTLRUploadParameters(data: replacement, mimeType: "application/json"))
+        }
+        for fault in ["pin", "pin-verification", "preserved-media", "concurrent-version", "update", "lost-update-response", "new-media"] {
+            let drive = PreservedBackupDriveFixture(name: "\(account.address).json", original: original)
+            drive.failure = fault
+            do { _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload()); XCTFail("Injected backup fault was accepted") }
+            catch {}
+            XCTAssertEqual(drive.revisions["original"], original)
+            XCTAssertFalse(drive.queries.contains { $0 is GTLRDriveQuery_FilesDelete || $0 is GTLRDriveQuery_RevisionsDelete })
+            if fault != "pin" { XCTAssertTrue(drive.pinned.contains("original")) }
+            if ["pin", "pin-verification", "preserved-media", "concurrent-version"].contains(fault) {
+                XCTAssertFalse(drive.queries.contains { $0 is GTLRDriveQuery_FilesUpdate })
+                XCTAssertEqual(drive.head, "original")
+            }
+            // A new adapter represents a restarted save. A lost upload response may
+            // already have installed the new head; preserve it and verify the retry.
+            drive.failure = nil
+            _ = try await WalletBackupPreservingGoogleService(base: drive).executeQuery(upload())
+            XCTAssertEqual(drive.revisions["original"], original)
+            XCTAssertTrue(drive.pinned.contains("original"))
+            XCTAssertEqual(drive.revisions[drive.head], replacement)
+            XCTAssertTrue(drive.pinned.contains(drive.head))
+        }
+    }
+
+    @MainActor
+    func testCloudBackupPresenterRetriesSameCreatedAccountAndMarksOnlyVerifiedSuccess() async throws {
+        let entropy = Data(repeating: 29, count: 16)
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.entropyTagForAddress(account.address))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let gate = legacyActivationRecoveryGate(at: directory, settings: InMemorySettingsManager())
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let creator = BackupAccountCreatorFixture(account: account)
+        let cloud = BackupSavingCloudFixture(), view = BackupSavingViewFixture(), wireframe = BackupSavingWireframeFixture()
+        let oldFlags = ApplicationConfig.shared.backupedAccountAddresses
+        defer { ApplicationConfig.shared.backupedAccountAddresses = oldFlags; cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
+        ApplicationConfig.shared.backupedAccountAddresses = oldFlags.filter { $0 != account.address }
+        let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: "", passphrase: mnemonic.toString(),
+            cryptoType: "sr25519", substrateDerivationPath: ""), cloudStorageService: cloud,
+            createAccountRequest: AccountCreationRequest(username: "Synthetic backup", type: .sora,
+                derivationPath: "", cryptoType: .sr25519), createAccountService: creator, mnemonic: mnemonic,
+            entryPoint: .onboarding, keystore: keys, lifecycleCoordinator: coordinator, recoveryGate: gate)
+        presenter.view = view; presenter.wireframe = wireframe
+        let first = expectation(description: "first save pending"), failed = expectation(description: "failed save stops loading")
+        cloud.onSave = { first.fulfill() }; view.onHide = { failed.fulfill() }
+        presenter.backupAccount(with: "synthetic-password")
+        presenter.backupAccount(with: "synthetic-password")
+        await fulfillment(of: [first], timeout: 10)
+        XCTAssertEqual(creator.calls, 1); XCTAssertEqual(cloud.saves.count, 1); XCTAssertEqual(view.shows, 1)
+        XCTAssertFalse(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+        cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed))
+        await fulfillment(of: [failed], timeout: 10)
+        XCTAssertEqual(view.hides, 1); XCTAssertEqual(wireframe.successes, 0); XCTAssertEqual(wireframe.failures.count, 1)
+        XCTAssertFalse(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+        let retry = expectation(description: "same account retry"), saved = expectation(description: "verified save stops loading")
+        cloud.onSave = { retry.fulfill() }; view.onHide = { saved.fulfill() }
+        presenter.backupAccount(with: "synthetic-password")
+        await fulfillment(of: [retry], timeout: 10)
+        XCTAssertEqual(creator.calls, 1, "Retry must not create another wallet")
+        XCTAssertEqual(cloud.saves.map(\.address), [account.address, account.address])
+        cloud.complete(.success(()))
+        await fulfillment(of: [saved], timeout: 10)
+        XCTAssertEqual(view.hides, 2); XCTAssertEqual(wireframe.successes, 1)
+        XCTAssertTrue(ApplicationConfig.shared.backupedAccountAddresses.contains(account.address))
+        XCTAssertEqual(try keys.fetchKey(for: KeystoreTag.entropyTagForAddress(account.address)), entropy)
+    }
+
+    @MainActor
+    func testCloudBackupPresenterRejectsIdentityConflictsAndPreservesStoredDerivation() async throws {
+        let entropy = Data(repeating: 30, count: 16), otherEntropy = Data(repeating: 31, count: 16)
+        let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
+        let otherPhrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: otherEntropy).toString()
+        let path = "//backup-fixture"
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(entropy),
+            chaincodeList: SubstrateJunctionFactory().parse(path: path).chaincodes)
+        let account = AccountItem(address: try SS58AddressFactory().address(fromAccountId: pair.publicKey().rawData(),
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Synthetic derived backup", publicKeyData: pair.publicKey().rawData(),
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+        let otherAccount = try retainedEntropyAccount(entropy: otherEntropy)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.entropyTagForAddress(account.address))
+        try keys.addKey(Data(path.utf8), with: KeystoreTag.deriviationTagForAddress(account.address))
+        let originalKeys = try retainedEntropyKeyBytes(keys)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let gate = legacyActivationRecoveryGate(at: directory, settings: InMemorySettingsManager())
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let oldFlags = ApplicationConfig.shared.backupedAccountAddresses
+        defer { ApplicationConfig.shared.backupedAccountAddresses = oldFlags }
+        for scenario in ["switched-account", "wrong-phrase", "wrong-path", "valid"] {
+            let cloud = BackupSavingCloudFixture(), view = BackupSavingViewFixture(), wireframe = BackupSavingWireframeFixture()
+            defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
+            let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: account.address,
+                passphrase: scenario == "wrong-phrase" ? otherPhrase : phrase, cryptoType: "sr25519",
+                substrateDerivationPath: scenario == "wrong-path" ? "//other" : ""), cloudStorageService: cloud,
+                entryPoint: .profile, keystore: keys,
+                currentAccount: { scenario == "switched-account" ? otherAccount : account },
+                lifecycleCoordinator: coordinator, recoveryGate: gate)
+            presenter.view = view; presenter.wireframe = wireframe
+            let ended = expectation(description: "profile backup loading ends")
+            view.onHide = { ended.fulfill() }
+            if scenario == "valid" {
+                let started = expectation(description: "verified profile backup payload")
+                cloud.onSave = { started.fulfill() }
+                presenter.backupAccount(with: "synthetic-password")
+                await fulfillment(of: [started], timeout: 10)
+                let prepared = try XCTUnwrap(cloud.saves.first)
+                XCTAssertEqual(prepared.address, account.address)
+                XCTAssertEqual(prepared.substrateDerivationPath, path)
+                XCTAssertTrue(prepared.backupAccountType?.contains(.passphrase) == true,
+                    "Profile has no presenter mnemonic but its saved phrase must be importable")
+                let restoredEntropy = try IRMnemonicCreator(language: .english).mnemonic(fromList: XCTUnwrap(prepared.passphrase)).entropy()
+                let lease = coordinator.acquire(); defer { lease.release() }
+                try LegacySoraIdentityValidator.validate(address: account.address, publicKey: account.publicKeyData,
+                    cryptoType: account.cryptoType, networkType: account.networkType,
+                    derivationPath: prepared.substrateDerivationPath, entropy: restoredEntropy,
+                    rawSeed: nil, secret: nil, recoveryGate: gate)
+                cloud.complete(.success(()))
+            } else {
+                presenter.backupAccount(with: "synthetic-password")
+            }
+            await fulfillment(of: [ended], timeout: 10)
+            XCTAssertEqual(cloud.saves.count, scenario == "valid" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, scenario == "valid" ? 1 : 0)
+            XCTAssertEqual(wireframe.failures.count, scenario == "valid" ? 0 : 1)
+            XCTAssertEqual(view.hides, 1)
+            XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys)
+        }
+        // Released Ed25519 JSON imports retain seed + public key, not only a
+        // 32-byte seed. Back up those exact bytes and reject either conflicting half.
+        let edSeed = Data(repeating: 42, count: 32)
+        let edPair = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: [])
+        let edPublic = edPair.publicKey().rawData()
+        let edAccount = AccountItem(address: try SS58AddressFactory().address(fromAccountId: edPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Synthetic retained Ed25519", publicKeyData: edPublic,
+            settings: account.settings, order: 0, isSelected: true)
+        for condition in ["valid", "suffix", "seed"] {
+            var retainedSecret = edSeed + edPublic
+            if condition == "suffix" { retainedSecret[63] ^= 1 }
+            if condition == "seed" { retainedSecret[0] ^= 1 }
+            let retainedKeys = InMemoryKeychain()
+            try retainedKeys.addKey(retainedSecret, with: KeystoreTag.secretKeyTagForAddress(edAccount.address))
+            let original = try retainedEntropyKeyBytes(retainedKeys)
+            let cloud = BackupSavingCloudFixture(), view = BackupSavingViewFixture(), wireframe = BackupSavingWireframeFixture()
+            defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
+            let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: edAccount.address,
+                cryptoType: "ed25519", substrateDerivationPath: ""), cloudStorageService: cloud,
+                entryPoint: .profile, keystore: retainedKeys, currentAccount: { edAccount },
+                lifecycleCoordinator: coordinator, recoveryGate: gate)
+            presenter.view = view; presenter.wireframe = wireframe
+            let ended = expectation(description: "retained Ed25519 backup completes")
+            view.onHide = { ended.fulfill() }
+            if condition == "valid" {
+                let started = expectation(description: "retained Ed25519 backup prepared")
+                cloud.onSave = { started.fulfill() }
+                presenter.backupAccount(with: "synthetic-password")
+                await fulfillment(of: [started], timeout: 10)
+                let backup = try XCTUnwrap(cloud.saves.first)
+                let json = try XCTUnwrap(backup.json?.substrateJson).data(using: .utf8)!
+                let definition = try JSONDecoder().decode(KeystoreDefinition.self, from: json)
+                let exported = try KeystoreExtractor().extractFromDefinition(definition, password: "synthetic-password")
+                XCTAssertEqual(exported.secretKeyData, retainedSecret)
+                XCTAssertEqual(exported.publicKeyData, edPublic)
+                XCTAssertNil(backup.passphrase)
+                XCTAssertEqual(backup.backupAccountType, [.json])
+                cloud.complete(.success(()))
+            } else {
+                presenter.backupAccount(with: "synthetic-password")
+            }
+            await fulfillment(of: [ended], timeout: 10)
+            XCTAssertEqual(cloud.saves.count, condition == "valid" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, condition == "valid" ? 1 : 0)
+            XCTAssertEqual(try retainedEntropyKeyBytes(retainedKeys), original)
+        }
+    }
+
+    func testCloudRecoveryReadsOnlyExactBoundedExistingBackup() async throws {
+        let account = try retainedEntropyAccount(entropy: Data(repeating: 20, count: 20))
+        let payload = Data("synthetic encrypted backup bytes".utf8)
+        func file(name: String? = nil) -> GTLRDrive_File {
+            let item = GTLRDrive_File()
+            item.identifier = "synthetic-backup"
+            item.name = name ?? "\(account.address).json"
+            item.size = NSNumber(value: payload.count)
+            item.mimeType = "application/json"
+            return item
+        }
+        func list(_ files: [GTLRDrive_File], token: String? = nil) -> GTLRDrive_FileList {
+            let result = GTLRDrive_FileList()
+            result.files = files
+            result.nextPageToken = token
+            return result
+        }
+        let media = GTLRDataObject()
+        media.data = payload
+        let drive = RecoveryDriveFixture([list([], token: "next"), list([file()]), media])
+        let reader = WalletCloudBackupRecoveryService(drive: drive, authorize: { true })
+        let fetched = try await reader.readBackup(for: account.address)
+        XCTAssertEqual(fetched, payload)
+        XCTAssertEqual(drive.queries.count, 3)
+        for query in drive.queries.prefix(2) {
+            let read = try XCTUnwrap(query as? GTLRDriveQuery_FilesList)
+            XCTAssertEqual(read.spaces, "appDataFolder")
+            XCTAssertEqual(read.q, "name = '\(account.address).json' and trashed = false")
+            XCTAssertEqual(read.pageSize, 100)
+            XCTAssertTrue(read.fields?.contains("nextPageToken") == true)
+        }
+        XCTAssertEqual((drive.queries[1] as? GTLRDriveQuery_FilesList)?.pageToken, "next")
+        XCTAssertTrue(drive.queries.last is GTLRDriveQuery_FilesGet)
+        for response in [list([]), list([file(), file()]), list([file(name: "prefix-\(account.address).json")]),
+                         list([], token: "loop")] {
+            let bad = RecoveryDriveFixture([response, response])
+            do {
+                _ = try await WalletCloudBackupRecoveryService(drive: bad, authorize: { true })
+                    .readBackup(for: account.address)
+                XCTFail("Unproven backup was admitted")
+            } catch {}
+            XCTAssertTrue(bad.queries.allSatisfy { $0 is GTLRDriveQuery_FilesList })
+        }
+        let unauthorized = RecoveryDriveFixture([])
+        do {
+            _ = try await WalletCloudBackupRecoveryService(drive: unauthorized, authorize: { false })
+                .readBackup(for: account.address)
+            XCTFail("Unauthorized backup read")
+        } catch WalletCloudBackupRecoveryError.notAuthorized {}
+        catch { XCTFail("Authorization was not reported distinctly") }
+        XCTAssertTrue(unauthorized.queries.isEmpty)
+
+        // The first selected account can have no backup. Retrying must authorize
+        // again; canceling that chooser must not reuse the previous Drive session.
+        let retryDrive = RecoveryDriveFixture([list([]), list([file()]), media])
+        var authorizationAttempts = 0
+        let retryReader = WalletCloudBackupRecoveryService(drive: retryDrive, authorize: {
+            authorizationAttempts += 1
+            if authorizationAttempts == 2 {
+                throw NSError(domain: kGIDSignInErrorDomain, code: -5,
+                    userInfo: [NSLocalizedDescriptionKey: "synthetic private authorization content"])
+            }
+            return true
+        })
+        do {
+            _ = try await retryReader.readBackup(for: account.address)
+            XCTFail("An empty Google account was admitted")
+        } catch WalletCloudBackupRecoveryError.notFound {}
+        catch { XCTFail("An empty account was not reported as missing backup") }
+        XCTAssertEqual(authorizationAttempts, 1)
+        XCTAssertEqual(retryDrive.queries.count, 1)
+        do {
+            _ = try await retryReader.readBackup(for: account.address)
+            XCTFail("A canceled account chooser was admitted")
+        } catch WalletCloudBackupRecoveryError.authorizationCanceled {}
+        catch { XCTFail("Google sign-in cancellation was not distinguished") }
+        XCTAssertEqual(authorizationAttempts, 2)
+        XCTAssertEqual(retryDrive.queries.count, 1, "Cancel must issue no Drive query")
+        let retryPayload = try await retryReader.readBackup(for: account.address)
+        XCTAssertEqual(retryPayload, payload)
+        XCTAssertEqual(authorizationAttempts, 3)
+        XCTAssertEqual(retryDrive.queries.count, 3)
+        XCTAssertTrue(retryDrive.queries.last is GTLRDriveQuery_FilesGet)
+
+        let failedAuthorization = RecoveryDriveFixture([])
+        do {
+            _ = try await WalletCloudBackupRecoveryService(drive: failedAuthorization, authorize: {
+                throw NSError(domain: "synthetic-auth-error", code: -5)
+            }).readBackup(for: account.address)
+            XCTFail("Failed authorization was admitted")
+        } catch WalletCloudBackupRecoveryError.notAuthorized {}
+        catch { XCTFail("Non-Google errors must not be labeled Google cancellation") }
+        XCTAssertTrue(failedAuthorization.queries.isEmpty)
+    }
+
+    func testCloudRecoveryRetainedBackupFormatsPreserveAccountAndSigning() throws {
+        let entropy = Data(repeating: 20, count: 20)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let seed = try retainedEntropySeed(entropy)
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+        let password = "synthetic-backup-password"
+        for format in ["phrase", "seed", "json", "combined"] {
+            let payload = try cloudRecoveryFixture(account: account, entropy: entropy,
+                format: format, password: password)
+            for version in UserStorageVersion.allCases {
+                try withRetainedEntropyDatabase(accounts: [account], version: version,
+                    entropy: entropy, recovering: true) { directory, keys, settings in
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                    let original = try retainedEntropyKeyBytes(keys)
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                        self.legacyActivationRecoveryGate(at: directory, settings: settings))
+                    let database = self.missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    try WalletCloudBackupRecoveryService.restore(data: payload, password: password,
+                        account: account, migrator: database, baseURL: directory, lifecycleCoordinator: coordinator)
+                    // Every supplied source is added, then the derived seed
+                    // and secret (add-only), so App Store 3.8.6, which signs
+                    // only with `-secretKey`, can sign for the account too.
+                    var expected = original
+                    switch format {
+                    case "seed":
+                        expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    case "json":
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    default:
+                        expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                        expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    }
+                    XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), expected)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
+                        password: password, account: account, migrator: database,
+                        baseURL: directory, lifecycleCoordinator: coordinator))
+                    for _ in 0..<2 {
+                        let snapshot = try self.runRetainedEntropyStartup(directory: directory, keys: keys,
+                            settings: settings, accounts: [account])
+                        if format == "seed" || format == "json" {
+                            XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+                            XCTAssertEqual(snapshot.wallets.first?.secretSource, format == "seed" ? .rawSeed : .legacySecret)
+                        }
+                        let recovered = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+                        let message = Data("cloud recovery production signer".utf8)
+                        let signature = try SNSigner(keypair: SNKeypair(privateKey: SNPrivateKey(rawData: recovered),
+                            publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(message)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: message,
+                            secretKey: recovered, account: account)
+                        if format == "phrase" || format == "combined" {
+                            try self.assertRecoveredNetworkSigning(account: account, directory: directory,
+                                keys: keys, settings: settings)
+                        }
+                        XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), expected)
+                    }
+                }
+            }
+        }
+        let edSeed = Data(repeating: 43, count: 32)
+        let edPublic = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: []).publicKey().rawData()
+        let edAccount = AccountItem(address: try SS58AddressFactory().address(fromAccountId: edPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Retained Ed25519 JSON", publicKeyData: edPublic,
+            settings: account.settings, order: 0, isSelected: true)
+        for secret in [edSeed, edSeed + edPublic] {
+            let payload = try cloudRecoveryEd25519Fixture(account: edAccount, secret: secret, password: password)
+            for version in UserStorageVersion.allCases {
+                try withRetainedEntropyDatabase(accounts: [edAccount], version: version,
+                    entropy: entropy, recovering: true) { directory, keys, settings in
+                    try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                    let original = try retainedEntropyKeyBytes(keys)
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                        legacyActivationRecoveryGate(at: directory, settings: settings))
+                    let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                    try WalletCloudBackupRecoveryService.restore(data: payload, password: password,
+                        account: edAccount, migrator: database, baseURL: directory, lifecycleCoordinator: coordinator)
+                    var expected = original
+                    expected[KeystoreTag.secretKeyTagForAddress(edAccount.address)] = secret
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    for _ in 0..<2 {
+                        let snapshot = try runRetainedEntropyStartup(directory: directory, keys: keys,
+                            settings: settings, accounts: [edAccount])
+                        XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+                        let restored = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: edAccount, keystore: keys))
+                        XCTAssertEqual(restored, secret)
+                        let message = Data("retained Ed25519 JSON recovery proof".utf8)
+                        let signature = try Sora2Ed25519SeedSigner.sign(message, seed: restored)
+                        try Sora2SignatureVerifier.verify(signature: signature, originalData: message,
+                            secretKey: restored, account: edAccount)
+                        XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature,
+                            originalData: message + Data([1]), secretKey: restored, account: edAccount))
+                        XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
+                    }
+                }
+            }
+        }
+    }
+
+    func testCloudRecoveryRejectsWrongPasswordConflictsAndMalformedSecretWithoutWrites() throws {
+        let entropy = Data(repeating: 20, count: 20)
+        let account = try retainedEntropyAccount(entropy: entropy)
+        let password = "synthetic-backup-password"
+        let valid = try cloudRecoveryFixture(account: account, entropy: entropy, format: "combined", password: password)
+        for condition in ["password", "address", "crypto", "seed", "malformedCipher", "malformedScalar", "newerMarker"] {
+            try withRetainedEntropyDatabase(accounts: [account], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                let original = try self.retainedEntropyKeyBytes(keys)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                    self.legacyActivationRecoveryGate(at: directory, settings: settings))
+                let database = self.missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: valid) as? [String: Any])
+                switch condition {
+                case "address": fields["address"] = "synthetic-other-address"
+                case "crypto": fields["cryptoType"] = "ed25519"
+                case "seed":
+                    let wrong = try EncryptionService().createEncryptedData(with: password,
+                        message: Data(repeating: 9, count: 32).hex)
+                    fields["encryptedSeed"] = ["substrateSeed": try XCTUnwrap(wrong).hex]
+                case "malformedCipher": fields["encryptedMnemonicPhrase"] = String(repeating: "00", count: 44)
+                case "malformedScalar":
+                    let pkcs = SSFUtils.KeystoreConstants.pkcs8Header + Data(repeating: 255, count: 64) +
+                        SSFUtils.KeystoreConstants.pkcs8Divider + account.publicKeyData
+                    let definition = KeystoreDefinition(address: account.address, encoded: pkcs.base64EncodedString(),
+                        encoding: KeystoreEncoding(content: ["pkcs8", "sr25519"], type: [], version: "3"), meta: nil)
+                    fields["json"] = ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]
+                default: break
+                }
+                let payload = try JSONSerialization.data(withJSONObject: fields)
+                var newer: WalletMigrationRecoveryMarker?
+                XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
+                    password: condition == "password" ? "wrong" : password, account: account, migrator: database,
+                    baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                        if condition == "newerMarker" {
+                            settings.walletMigrationRecoveryReason = "newer recovery evidence"
+                            newer = WalletMigrationRecoveryMarker.capture(settings)
+                        }
+                    }))
+                XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), original)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer ?? marker)
+                let text = WalletCloudBackupRecoveryError.userMessage(for:
+                    NSError(domain: account.address, code: 1, userInfo: [NSLocalizedDescriptionKey: password]))
+                XCTAssertFalse(text.contains(account.address))
+                XCTAssertFalse(text.contains(password))
+            }
+        }
+        let edSeed = Data(repeating: 44, count: 32)
+        let edPublic = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: []).publicKey().rawData()
+        let edAccount = AccountItem(address: try SS58AddressFactory().address(fromAccountId: edPublic,
+            type: Chain.sora.addressType()), cryptoType: .ed25519, networkType: Chain.sora.addressType(),
+            username: "Retained Ed25519 conflict", publicKeyData: edPublic,
+            settings: account.settings, order: 0, isSelected: true)
+        for condition in ["suffix", "seed"] {
+            var invalid = edSeed + edPublic
+            invalid[condition == "suffix" ? 63 : 0] ^= 1
+            let payload = try cloudRecoveryEd25519Fixture(account: edAccount, secret: invalid, password: password)
+            try withRetainedEntropyDatabase(accounts: [edAccount], version: .version2,
+                entropy: entropy, recovering: true) { directory, keys, settings in
+                try keys.deleteKey(for: KeystoreTag.legacyEntropy.rawValue)
+                let original = try retainedEntropyKeyBytes(keys)
+                let marker = WalletMigrationRecoveryMarker.capture(settings)
+                let coordinator = WalletLifecycleCoordinator(recoveryGate:
+                    legacyActivationRecoveryGate(at: directory, settings: settings))
+                let database = missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
+                XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
+                    password: password, account: edAccount, migrator: database,
+                    baseURL: directory, lifecycleCoordinator: coordinator))
+                XCTAssertEqual(try retainedEntropyKeyBytes(keys), original)
+                XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            }
+        }
+        XCTAssertThrowsError(try WalletCloudBackupRecoveryService.validateSecretEncoding(
+            Data(repeating: 255, count: 64), cryptoType: .sr25519, publicKey: account.publicKeyData))
+    }
+
+    private func cloudRecoveryFixture(account: AccountItem, entropy: Data, format: String,
+                                      password: String) throws -> Data {
+        let encryption = EncryptionService()
+        func encrypted(_ value: String) throws -> String {
+            try XCTUnwrap(encryption.createEncryptedData(with: password, message: value)).hex
+        }
+        var fields: [String: Any] = ["name": "Synthetic cloud wallet", "address": account.address,
+            "cryptoType": "SR25519", "keyVerifier": try encrypted(account.address),
+            "backupAccountType": ["seed", "json"]]
+        // Profile backups can contain the phrase despite not labeling passphrase.
+        if format == "phrase" || format == "combined" {
+            fields["encryptedMnemonicPhrase"] = try encrypted(
+                IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString())
+        }
+        let seed = try retainedEntropySeed(entropy)
+        if format == "seed" || format == "combined" {
+            fields["encryptedSeed"] = ["substrateSeed": try encrypted(seed.hex)]
+        }
+        if format == "json" || format == "combined" {
+            let pair = try SR25519KeypairFactory().createKeypairFromSeed(seed, chaincodeList: [])
+            let definition = try KeystoreBuilder().build(from: KeystoreData(address: account.address,
+                secretKeyData: pair.privateKey().rawData(), publicKeyData: account.publicKeyData,
+                cryptoType: .sr25519), password: password, isEthereum: false)
+            fields["json"] = ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]
+        }
+        return try JSONSerialization.data(withJSONObject: fields)
+    }
+
+    private func cloudRecoveryEd25519Fixture(account: AccountItem, secret: Data, password: String) throws -> Data {
+        let definition = try KeystoreBuilder().build(from: KeystoreData(address: account.address,
+            secretKeyData: secret, publicKeyData: account.publicKeyData, cryptoType: .ed25519),
+            password: password, isEthereum: false)
+        let verifier = try XCTUnwrap(EncryptionService().createEncryptedData(with: password, message: account.address))
+        let fields: [String: Any] = ["name": "Synthetic Ed25519 backup", "address": account.address,
+            "cryptoType": "ED25519", "keyVerifier": verifier.hex, "backupAccountType": ["json"],
+            "json": ["substrateJson": String(decoding: try JSONEncoder().encode(definition), as: UTF8.self)]]
+        return try JSONSerialization.data(withJSONObject: fields)
+    }
+
+    private func missingKeyRecoveryMigrator(directory: URL, keys: InMemoryKeychain,
+        settings: InMemorySettingsManager) -> UserStorageMigrator {
+        UserStorageMigrator(targetVersion: .version2, storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+            fileManager: .default, recoveryGate: legacyActivationRecoveryGate(at: directory, settings: settings),
+            availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { try WalletNetworkStore(baseURL: directory,
+                recoveryGate: self.makeIsolatedRecoveryGate(settings: settings)).load() })
+    }
+
+    private func assertRecoveredNetworkSigning(account: AccountItem, directory: URL,
+        keys: InMemoryKeychain, settings: InMemorySettingsManager) throws {
+        let soraPayload = Data("restored credential production SORA signing proof".utf8)
+        let soraSecret = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+        let soraSignature = try SNSigner(keypair: SNKeypair(privateKey: SNPrivateKey(rawData: soraSecret),
+            publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(soraPayload)
+        try Sora2SignatureVerifier.verify(signature: soraSignature, originalData: soraPayload,
+            secretKey: soraSecret, account: account)
+        let store = try WalletNetworkStore(baseURL: directory, recoveryGate: makeIsolatedRecoveryGate(settings: settings))
+        let snapshot = try XCTUnwrap(store.load())
+        let source = try XCTUnwrap(snapshot.wallets.first { $0.id == account.address }?.secretSource)
+        let provider = try IrohaConnectWalletProvider(keystore: keys, store: store, selectedAccount: { account })
+        let launch = IrohaConnectLaunch(originalURL: URL(string: "iroha://connect")!,
+            sid: Data(repeating: 1, count: 32), sidText: "synthetic-session",
+            network: try IrohaConnectNetworkLiteral(IrohaConnectLaunch.tairaNetworkId),
+            appPublicKey: Data(repeating: 2, count: 32), nonce: Data(repeating: 3, count: 16),
+            node: TairaDeploymentBinding.canonicalToriiBaseURL, networkId: .taira,
+            token: "synthetic-token", relayToken: "synthetic-relay", receivedAt: Date())
+        if source == .legacyMnemonicEntropy {
+            XCTAssertEqual(snapshot.accounts.filter { $0.walletId == account.address }.map(\.networkId), [.sora2])
+            XCTAssertThrowsError(try provider.context(for: launch))
+            return
+        }
+        XCTAssertEqual(source, .mnemonicEntropy)
+        let context = try provider.context(for: launch)
+        let payload = Data("restored mnemonic Taira signing proof".utf8)
+        let signature = try provider.sign(payload, context: context)
+        let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: context.publicKey)
+        XCTAssertTrue(publicKey.isValidSignature(signature, for: payload))
+        XCTAssertFalse(publicKey.isValidSignature(signature, for: payload + Data([1])))
+    }
+
+    private func retainedEntropySeed(_ entropy: Data) throws -> Data {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        return try SeedFactory().deriveSeed(from: mnemonic.toString(), password: "").seed.miniSeed
+    }
+
+    private func retainedEntropyAccount(entropy: Data) throws -> AccountItem {
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(entropy), chaincodeList: [])
+        let publicKey = pair.publicKey().rawData()
+        return AccountItem(address: try SS58AddressFactory().address(fromAccountId: publicKey,
+            type: Chain.sora.addressType()), cryptoType: .sr25519, networkType: Chain.sora.addressType(),
+            username: "Retained global mnemonic", publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 17, isSelected: true)
+    }
+
+    private func retainedEntropyKeyBytes(_ keys: InMemoryKeychain) throws -> [String: Data] {
+        try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map { ($0, try keys.fetchKey(for: $0)) })
+    }
+
+    private func withRetainedEntropyDatabase(
+        accounts: [AccountItem], version: UserStorageVersion, entropy: Data, recovering: Bool,
+        body: (URL, InMemoryKeychain, InMemorySettingsManager) throws -> Void
+    ) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try writeAccounts(accounts, to: directory.appendingPathComponent("UserDataModel.sqlite"),
+            model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+        let keys = InMemoryKeychain()
+        try keys.addKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try keys.addKey(Data("Retained account name".utf8), with: KeystoreTag.legacyUsername.rawValue)
+        let settings = InMemorySettingsManager()
+        settings.set(value: try XCTUnwrap(accounts.first { $0.isSelected }), for: SettingsKey.selectedAccount.rawValue)
+        if recovering {
+            settings.setWalletMigrationRecovery(reason: UserStorageMigrationError.privacySafeRecoveryDescription(
+                for: DurableFileWriter.Failure.fileSystemFailure))
+            XCTAssertTrue(WalletMigrationRecoveryMarker.capture(settings).isStartupVerificationFailure)
+        }
+        try body(directory, keys, settings)
+    }
+
+    private func runRetainedEntropyStartup(
+        directory: URL, keys: InMemoryKeychain, settings: InMemorySettingsManager, accounts: [AccountItem]
+    ) throws -> WalletNetworkSnapshot {
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+        let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+        let store = try WalletNetworkStore(baseURL: directory, recoveryGate: gate)
+        let database = UserStorageMigrator(targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+            fileManager: .default, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+            loadWalletNetworkSnapshot: { try store.load() })
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+            _ = try WalletStartupVerificationRecovery.recoverIfNeeded(storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertThrowsError(try gate.requireMutableWalletAccess())
+                    let competingLease = coordinator.tryAcquire()
+                    XCTAssertNil(competingLease)
+                    competingLease?.release()
+                })
+        }, migration: {
+            try database.migrateAtStartup(lifecycleCoordinator: coordinator,
+                hasUnresolvedAccountCommit: { try !WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty })
+        })
+        XCTAssertEqual(outcome, .ready)
+        guard outcome == .ready else { throw UserStorageMigrationError.accountInventoryMismatch }
+        try gate.requireMutableWalletAccess()
+        let currentAccounts = try database.verifiedCurrentAccounts()
+        XCTAssertEqual(Set(currentAccounts.map(\.address)), Set(accounts.map(\.address)))
+        let selected = try XCTUnwrap(accounts.first { $0.isSelected })
+        let migrator = WalletNetworkModelMigrator(keystore: keys, store: store, settings: settings,
+            lifecycleCoordinator: coordinator, recoveryGate: gate)
+        try migrator.migrate(accounts: currentAccounts, selectedAddress: selected.address)
+        let snapshot = try migrator.verifiedSnapshot(accounts: currentAccounts, selectedAddress: selected.address)
+        try assertStoredAccounts(accounts, at: storeURL,
+            model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+        XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), selected)
+        XCTAssertEqual(snapshot.selectedWalletId, selected.address)
+        XCTAssertEqual(Set(snapshot.wallets.map(\.id)), Set(accounts.map(\.address)))
+        for account in accounts {
+            let child = try XCTUnwrap(snapshot.accounts.first { $0.walletId == account.address && $0.networkId == .sora2 })
+            XCTAssertEqual(child.address, account.address)
+            XCTAssertEqual(child.publicKey, account.publicKeyData)
+        }
+        XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory).unresolved().isEmpty)
+        return snapshot
+    }
+
+    private func assertRetainedEntropySigner(
+        account: AccountItem, entropy: Data, snapshot: WalletNetworkSnapshot,
+        keys: InMemoryKeychain, settings: InMemorySettingsManager
+    ) throws {
+        let resolved = try XCTUnwrap(keys.fetchEntropyForAddress(account.address, activeSnapshot: snapshot,
+            recoveryGate: makeIsolatedRecoveryGate(settings: settings)))
+        XCTAssertEqual(resolved, entropy)
+        let pair = try SR25519KeypairFactory().createKeypairFromSeed(retainedEntropySeed(resolved), chaincodeList: [])
+        let payload = Data("retained global native signing after database startup".utf8)
+        let signature = try SNSigner(keypair: SNKeypair(
+            privateKey: SNPrivateKey(rawData: pair.privateKey().rawData()),
+            publicKey: SNPublicKey(rawData: account.publicKeyData))).sign(payload)
+        try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+            secretKey: pair.privateKey().rawData(), account: account)
+        XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature,
+            originalData: payload + Data([1]), secretKey: pair.privateKey().rawData(), account: account))
+        let words = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords().count
+        let source = try XCTUnwrap(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: words))
+        XCTAssertEqual(snapshot.wallets.first { $0.id == account.address }?.secretSource, source)
+        let expected: Set<NetworkId> = source.supportsNexusDerivation
+            ? NexusNetworkConfiguration.admittedWalletNetworkIds : [.sora2]
+        XCTAssertEqual(Set(snapshot.accounts.filter { $0.walletId == account.address }.map(\.networkId)), expected)
+    }
+
+    private func startupRecoveryFixtureFiles(at directory: URL) throws -> [URL: Data] {
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey]))
+        var files: [URL: Data] = [:]
+        for case let url as URL in enumerator {
+            if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
+                files[url] = try Data(contentsOf: url)
+            }
+        }
+        return files
+    }
+
+    func testVersionOneMigrationPreservesSamePublicKeyOnDifferentNetworks() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let first = makeLegacyAccount(address: "shared-public-key")
+        let otherNetwork = SNAddressType(42)
+        let second = AccountItem(
+            address: try SS58AddressFactory().address(fromAccountId: first.publicKeyData, type: otherNetwork),
+            cryptoType: first.cryptoType, networkType: otherNetwork,
+            username: "Retained second network", publicKeyData: first.publicKeyData,
+            settings: first.settings, order: 5, isSelected: false
+        )
+        XCTAssertNotEqual(first.address, second.address)
+        let settings = InMemorySettingsManager()
+        settings.set(value: second, for: SettingsKey.selectedAccount.rawValue)
+        for account in [first, second] {
+            settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+        }
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        try writeAccounts([first, second], to: storeURL,
+            model: userStorageModel(named: UserStorageVersion.version1.rawValue), includesSelection: false)
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(), settings: settings, fileManager: .default
+        )
+        try migrator.performMigration()
+        let model = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+        try assertStoredAccounts([first.replacingSelection(false), second.replacingSelection(true)], at: storeURL, model: model)
+        try migrator.performMigration()
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testLegacyMnemonicMigrationRejectsMismatchedRetainedSeed() throws {
+        let entropy = Data((0..<16).map { UInt8($0) })
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        let derivedSeed = try SeedFactory()
+            .deriveSeed(from: mnemonic.toString(), password: "")
+            .seed
+            .miniSeed
+        let keypair = try SR25519KeypairFactory().createKeypairFromSeed(
+            derivedSeed,
+            chaincodeList: []
+        )
+        let publicKey = keypair.publicKey().rawData()
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: Chain.sora.addressType()
+        )
+        var mismatchedSeed = derivedSeed
+        mismatchedSeed[mismatchedSeed.startIndex] ^= 0x01
+
+        XCTAssertThrowsError(
+            try LegacySoraIdentityValidator.validate(
+                address: address,
+                publicKey: publicKey,
+                cryptoType: .sr25519,
+                networkType: Chain.sora.addressType(),
+                derivationPath: nil,
+                entropy: entropy,
+                rawSeed: mismatchedSeed,
+                secret: keypair.privateKey().rawData(),
+                recoveryGate: makeIsolatedRecoveryGate()
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.legacyIdentityMismatch =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testExplicitWatchOnlyMigrationNeverSynthesizesNexusChildren() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let settings = InMemorySettingsManager()
+        let account = makeLegacyAccount(address: "watch-only")
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeWalletNetworkMigrator(
+            keystore: InMemoryKeychain(),
+            store: store,
+            settings: settings
+        )
+
+        try migrator.migrate(
+            accounts: [account],
+            selectedAddress: account.address
+        )
+
+        let snapshot = try XCTUnwrap(store.load())
+        XCTAssertEqual(snapshot.selectedWalletId, account.address)
+        XCTAssertEqual(snapshot.wallets.count, 1)
+        XCTAssertEqual(snapshot.wallets.first?.secretSource, .watchOnly)
+        XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+        XCTAssertEqual(snapshot.accounts.first?.address, account.address)
+        XCTAssertEqual(
+            snapshot.accounts.first?.publicKey,
+            account.publicKeyData
+        )
+    }
+
+    func testExplicitWatchOnlyAddressMustMatchItsStoredPublicKey() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let valid = makeLegacyAccount(address: "watch-only-integrity")
+        let tampered = AccountItem(
+            address: "cnTamperedWatchOnlyAddress",
+            cryptoType: valid.cryptoType,
+            networkType: valid.networkType,
+            username: valid.username,
+            publicKeyData: valid.publicKeyData,
+            settings: valid.settings,
+            order: valid.order,
+            isSelected: valid.isSelected
+        )
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(tampered.address)"
+        )
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let migrator = makeWalletNetworkMigrator(
+            keystore: InMemoryKeychain(),
+            store: store,
+            settings: settings
+        )
+
+        XCTAssertThrowsError(
+            try migrator.migrate(
+                accounts: [tampered],
+                selectedAddress: tampered.address
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.legacyIdentityMismatch =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNil(try store.load())
+    }
+
+    func testExplicitWatchOnlyMigrationRejectsRetainedSigningMaterial() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let account = makeLegacyAccount(address: "watch-only-secret-conflict")
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let keystore = InMemoryKeychain()
+        try keystore.addKey(
+            Data(repeating: 0x11, count: 32),
+            with: KeystoreTag.secretKeyTagForAddress(account.address)
+        )
+        let store = try makeWalletNetworkStore(baseURL: directory)
+
+        XCTAssertThrowsError(
+            try makeWalletNetworkMigrator(
+                keystore: keystore,
+                store: store,
+                settings: settings
+            ).migrate(
+                accounts: [account],
+                selectedAddress: account.address
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.legacyIdentityMismatch =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNil(try store.load())
+    }
+
+    func testUnreadableWatchOnlyMarkerCannotBeReclassifiedDuringMigration() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let account = makeLegacyAccount(address: "watch-only-marker-unreadable")
+        let settings = InMemorySettingsManager()
+        settings.set(
+            value: Data([0xca, 0xfe]),
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let store = try makeWalletNetworkStore(baseURL: directory)
+
+        XCTAssertThrowsError(
+            try makeWalletNetworkMigrator(
+                keystore: InMemoryKeychain(),
+                store: store,
+                settings: settings
+            ).migrate(
+                accounts: [account],
+                selectedAddress: account.address
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.legacyIdentityMismatch =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNil(try store.load())
+    }
+
+    func testExistingAccountWithoutSelectionFailsIntoRecoveryPath() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let settings = InMemorySettingsManager()
+        let account = makeLegacyAccount(address: "selection-was-lost")
+        settings.set(
+            value: true,
+            for: "wallet.watchOnly.\(account.address)"
+        )
+        let migrator = makeWalletNetworkMigrator(
+            keystore: InMemoryKeychain(),
+            store: store,
+            settings: settings
+        )
+
+        XCTAssertThrowsError(
+            try migrator.migrate(
+                accounts: [account],
+                selectedAddress: nil
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.missingSelectedWallet =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNil(try store.load())
+        XCTAssertEqual(settings.walletNetworkStoreVersion, 0)
+    }
+
+    func testMigrationCannotDropPreviouslyInventoriedAccount() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let account = makeLegacyAccount(address: "must-survive")
+        let original = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: account.address,
+            wallets: [
+                WalletIdentity(
+                    id: account.address,
+                    displayName: account.username,
+                    existingSoraAddress: account.address,
+                    secretSource: .watchOnly
+                )
+            ],
+            accounts: [
+                NetworkAccount(
+                    walletId: account.address,
+                    networkId: .sora2,
+                    derivationVersion: 0,
+                    publicKey: account.publicKeyData,
+                    address: account.address
+                )
+            ],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(original)
+        let migrator = makeWalletNetworkMigrator(
+            keystore: InMemoryKeychain(),
+            store: store,
+            settings: InMemorySettingsManager()
+        )
+
+        XCTAssertThrowsError(
+            try migrator.migrate(accounts: [], selectedAddress: nil)
+        ) { error in
+            guard
+                case WalletNetworkMigrationError.legacyIdentityMismatch =
+                    error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try store.load(), original)
+    }
+
+    func testCorruptActivePointerFailsClosedInsteadOfCreatingEmptyWallet() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let account = makeLegacyAccount(address: "recoverable-wallet")
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: account.address,
+            wallets: [
+                WalletIdentity(
+                    id: account.address,
+                    displayName: account.username,
+                    existingSoraAddress: account.address,
+                    secretSource: .watchOnly
+                )
+            ],
+            accounts: [
+                NetworkAccount(
+                    walletId: account.address,
+                    networkId: .sora2,
+                    derivationVersion: 0,
+                    publicKey: account.publicKeyData,
+                    address: account.address
+                )
+            ],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        try store.stageAndActivate(snapshot)
+
+        let activePointer = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("WalletNetworks", isDirectory: true)
+            .appendingPathComponent("active.json")
+        try Data("interrupted-pointer".utf8).write(
+            to: activePointer,
+            options: .atomic
+        )
+
+        XCTAssertThrowsError(try store.load()) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let retainedSnapshots = try FileManager.default.contentsOfDirectory(
+            at: activePointer.deletingLastPathComponent(),
+            includingPropertiesForKeys: nil
+        ).filter {
+            $0.lastPathComponent.hasPrefix("wallet-network-")
+        }
+        XCTAssertEqual(retainedSnapshots.count, 1)
+    }
+
+    func testPreciseWireQuantitiesRejectFloatingPointSyntax() throws {
+        XCTAssertEqual(try PIQuantity("999999999999999999.000000000000000001").rawValue,
+                       "999999999999999999.000000000000000001")
+        for invalid in [
+            "1e18", "NaN", "+1", "01", ".1", "1.", " 1", "1 ", "1\n",
+        ] {
+            XCTAssertThrowsError(try PIQuantity(invalid))
+        }
+        XCTAssertThrowsError(try PIQuantity(String(repeating: "9", count: 4_097)))
+    }
+
+    func testPIChartConversionRequiresFiniteBoundedDerivedValues() throws {
+        XCTAssertEqual(
+            try PIQuantity("0.5").unitIntervalDoubleForRendering,
+            0.5
+        )
+        XCTAssertNil(try PIQuantity("-0").unitIntervalDoubleForRendering)
+        XCTAssertNil(try PIQuantity("2").unitIntervalDoubleForRendering)
+        XCTAssertNil(
+            try PIQuantity(
+                String(repeating: "9", count: PIQuantity.maximumWireBytes)
+            ).finiteDoubleForRendering
+        )
+    }
+
+    func testPIFiatAndApyAdaptersPreserveExactWireValues() throws {
+        let raw = "123456789012345678901234567890.123456789"
+        let quantity = try PIQuantity(raw)
+        let fiat = PIExactFiatData(id: "xor", priceUsd: quantity)
+        let apy = PIExactApyInfo(id: "pool", sbApy: quantity)
+
+        XCTAssertEqual(fiat.priceUsd?.rawValue, raw)
+        XCTAssertEqual(apy.sbApy?.rawValue, raw)
+    }
+
+    func testProductionMutationFlagsFailClosedWhenUnset() {
+        let settings = InMemorySettingsManager()
+
+        // 3.9.0: every optional surface is off until PI publishes it.
+        XCTAssertFalse(settings.nexusEnabled)
+        XCTAssertFalse(settings.nexusSendsEnabled)
+        XCTAssertFalse(settings.polkamarktEnabled)
+        XCTAssertFalse(settings.polkamarktMutationsEnabled)
+        XCTAssertFalse(settings.isTairaEnabled)
+    }
+
+    func testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline() {
+        func permits(
+            networkId: NetworkId,
+            tairaEnabled: Bool = true,
+            admitted: Bool = true,
+            signer: Bool = true,
+            finality: Bool = true
+        ) -> Bool {
+            NexusSendAvailabilityPolicy.permits(
+                networkId: networkId,
+                nexusEnabled: true,
+                sendsEnabled: true,
+                tairaEnabled: tairaEnabled,
+                networkAdmitted: admitted,
+                signerQualified: signer,
+                finalityQualified: finality
+            )
+        }
+        XCTAssertTrue(
+            permits(networkId: .minamoto, tairaEnabled: false)
+        )
+        XCTAssertFalse(
+            permits(networkId: .taira, tairaEnabled: false)
+        )
+        XCTAssertFalse(
+            permits(networkId: .taira, admitted: false)
+        )
+        XCTAssertFalse(
+            permits(networkId: .taira, signer: false)
+        )
+        XCTAssertFalse(
+            permits(networkId: .taira, finality: false)
+        )
+        XCTAssertTrue(
+            permits(networkId: .taira)
+        )
+    }
+
+    func testProductionMutationSessionRequiresFreshLiveConfigInCurrentProcess() {
+        let session = ProductionRemoteCapabilitySession.shared
+        session.invalidate()
+        defer { session.invalidate() }
+
+        XCTAssertFalse(
+            session.permitsMutation(
+                localQualification: true,
+                capability: .nexusSends
+            )
+        )
+
+        let refreshToken = session.beginLiveRefresh()
+        var permittedDuringPublication = true
+        session.publishFreshConfig(
+            refreshToken,
+            nexusSends: true,
+            polkamarktMutations: true
+        ) {
+            permittedDuringPublication = session.permitsMutation(
+                localQualification: true,
+                capability: .nexusSends
+            )
+        }
+        XCTAssertFalse(permittedDuringPublication)
+        XCTAssertTrue(
+            session.permitsMutation(
+                localQualification: true,
+                capability: .nexusSends
+            )
+        )
+        XCTAssertFalse(
+            session.permitsMutation(
+                localQualification: false,
+                capability: .nexusSends
+            )
+        )
+        XCTAssertTrue(
+            session.permitsMutation(
+                localQualification: true,
+                capability: .polkamarktMutations
+            )
+        )
+
+        let staleToken = session.beginLiveRefresh()
+        let currentToken = session.beginLiveRefresh()
+        XCTAssertFalse(
+            session.publishFreshConfig(
+                staleToken,
+                nexusSends: true,
+                polkamarktMutations: true,
+                publication: {}
+            )
+        )
+        XCTAssertTrue(
+            session.publishFreshConfig(
+                currentToken,
+                nexusSends: false,
+                polkamarktMutations: true,
+                publication: {}
+            )
+        )
+        XCTAssertFalse(
+            session.permitsMutation(
+                localQualification: true,
+                capability: .nexusSends
+            )
+        )
+
+        session.invalidate()
+        XCTAssertFalse(
+            session.permitsMutation(
+                localQualification: true,
+                capability: .nexusSends
+            )
+        )
+    }
+
+    func testPIMobileFlagsCannotEnableUnqualifiedMutationsOrOverrideTairaChoice() {
+        let settings = InMemorySettingsManager()
+        let config = PIMobileConfig(
+            blockExplorerUrl: URL(
+                string: "https://sorametrics.org/tx/%7Btransaction%7D"
+            )!,
+            substrateTypesUrl: URL(string: "https://example.org/types.json"),
+            nodes: [
+                PIMobileChainNode(
+                    name: "SORA",
+                    address: URL(string: "wss://mof2.sora.org")!
+                )
+            ],
+            nexusAvailable: true,
+            nexusSendsAvailable: true,
+            polkamarktVisible: true,
+            polkamarktMutationsAvailable: true,
+            tairaDefaultVisible: false
+        )
+
+        settings.applyPIMobileConfig(
+            config,
+            refreshToken:
+                ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
+        )
+
+        // Tester builds follow PI. An App Store build ships none of these
+        // surfaces, so there the flags stay off whatever PI sends.
+        XCTAssertEqual(
+            settings.nexusEnabled,
+            ProductSurfacePolicy.showsNexusPortfolio
+        )
+        XCTAssertFalse(settings.nexusSendsEnabled)
+        XCTAssertEqual(
+            settings.polkamarktEnabled,
+            ProductSurfacePolicy.showsPolkamarkt
+        )
+        XCTAssertFalse(settings.polkamarktMutationsEnabled)
+        XCTAssertFalse(config.typedAccountBalancesAvailable)
+        XCTAssertFalse(settings.isTairaEnabled)
+
+        settings.isTairaEnabled = true
+        XCTAssertEqual(
+            settings.string(
+                for: SettingsKey.tairaExplicitPreference.rawValue
+            ),
+            "enabled"
+        )
+        XCTAssertEqual(
+            settings.bool(for: SettingsKey.tairaPreferenceWasSet.rawValue),
+            true
+        )
+        settings.applyPIMobileConfig(
+            config,
+            refreshToken:
+                ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
+        )
+        XCTAssertEqual(
+            settings.isTairaEnabled,
+            ProductSurfacePolicy.showsTairaSettings
+        )
+
+        settings.isTairaEnabled = false
+        settings.set(
+            value: true,
+            for: SettingsKey.tairaRemoteDefault.rawValue
+        )
+        XCTAssertEqual(
+            settings.string(
+                for: SettingsKey.tairaExplicitPreference.rawValue
+            ),
+            "disabled"
+        )
+        XCTAssertFalse(settings.isTairaEnabled)
+
+        let retainedLegacyChoice = InMemorySettingsManager()
+        retainedLegacyChoice.set(
+            value: false,
+            for: SettingsKey.tairaEnabled.rawValue
+        )
+        retainedLegacyChoice.set(
+            value: true,
+            for: SettingsKey.tairaPreferenceWasSet.rawValue
+        )
+        retainedLegacyChoice.set(
+            value: true,
+            for: SettingsKey.tairaRemoteDefault.rawValue
+        )
+        XCTAssertFalse(retainedLegacyChoice.isTairaEnabled)
+
+        retainedLegacyChoice.set(
+            value: "malformed",
+            for: SettingsKey.tairaExplicitPreference.rawValue
+        )
+        XCTAssertFalse(retainedLegacyChoice.isTairaEnabled)
+
+        let wrongTypedAtomicChoice = InMemorySettingsManager()
+        wrongTypedAtomicChoice.set(
+            anyValue: 1,
+            for: SettingsKey.tairaExplicitPreference.rawValue
+        )
+        XCTAssertFalse(wrongTypedAtomicChoice.isTairaEnabled)
+
+        let incompleteLegacyChoice = InMemorySettingsManager()
+        incompleteLegacyChoice.set(
+            value: true,
+            for: SettingsKey.tairaPreferenceWasSet.rawValue
+        )
+        XCTAssertFalse(incompleteLegacyChoice.isTairaEnabled)
+        incompleteLegacyChoice.set(
+            anyValue: "false",
+            for: SettingsKey.tairaEnabled.rawValue
+        )
+        XCTAssertFalse(incompleteLegacyChoice.isTairaEnabled)
+
+        let partialLegacyValue = InMemorySettingsManager()
+        partialLegacyValue.set(
+            value: false,
+            for: SettingsKey.tairaEnabled.rawValue
+        )
+        partialLegacyValue.set(
+            value: true,
+            for: SettingsKey.tairaRemoteDefault.rawValue
+        )
+        XCTAssertFalse(partialLegacyValue.isTairaEnabled)
+
+        let falseLegacyMarker = InMemorySettingsManager()
+        falseLegacyMarker.set(
+            value: false,
+            for: SettingsKey.tairaPreferenceWasSet.rawValue
+        )
+        falseLegacyMarker.set(
+            value: true,
+            for: SettingsKey.tairaRemoteDefault.rawValue
+        )
+        XCTAssertFalse(falseLegacyMarker.isTairaEnabled)
+
+        let wrongTypedLegacyMarker = InMemorySettingsManager()
+        wrongTypedLegacyMarker.set(
+            anyValue: "true",
+            for: SettingsKey.tairaPreferenceWasSet.rawValue
+        )
+        wrongTypedLegacyMarker.set(
+            value: true,
+            for: SettingsKey.tairaRemoteDefault.rawValue
+        )
+        XCTAssertFalse(wrongTypedLegacyMarker.isTairaEnabled)
+
+        let wrongTypedRemoteDefault = InMemorySettingsManager()
+        wrongTypedRemoteDefault.set(
+            anyValue: "true",
+            for: SettingsKey.tairaRemoteDefault.rawValue
+        )
+        XCTAssertFalse(wrongTypedRemoteDefault.isTairaEnabled)
+    }
+
+    func testPIMobileConfigRejectsConflictingMutationFlagsBeforeCacheEligibility() {
+        let config = PIMobileConfig(
+            blockExplorerUrl: URL(
+                string: "https://sorametrics.org/tx/%7Btransaction%7D"
+            )!,
+            substrateTypesUrl: URL(string: "https://example.org/types.json"),
+            nodes: [
+                PIMobileChainNode(
+                    name: "SORA",
+                    address: URL(string: "wss://mof2.sora.org")!
+                )
+            ],
+            nexusAvailable: false,
+            nexusSendsAvailable: true,
+            polkamarktVisible: true,
+            polkamarktMutationsAvailable: false,
+            tairaDefaultVisible: true
+        )
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMobileConfig(config)
+        )
+    }
+
+    func testGraphQLQuantityRequiresExactDecimalStringWireFormat() throws {
+        let quantity = try JSONDecoder().decode(
+            PIQuantity.self,
+            from: Data(#""123456789.123456789123456789""#.utf8)
+        )
+        XCTAssertEqual(quantity.rawValue, "123456789.123456789123456789")
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                PIQuantity.self,
+                from: Data("123456789.123456789123456789".utf8)
+            )
+        )
+    }
+
+    func testGraphQLErrorNeverRetainsOrSurfacesRawServerMessage() {
+        let sensitive = "query rejected for 5ExampleWalletAddress"
+        let decoded = PIGraphQLError(
+            message: sensitive,
+            path: [.string("account")]
+        )
+        XCTAssertEqual(decoded.message, sensitive)
+
+        let surfaced = PIIndexerError.graphQLErrors
+        XCTAssertFalse(surfaced.localizedDescription.contains(sensitive))
+        XCTAssertFalse(String(describing: surfaced).contains(sensitive))
+    }
+
+    func testPIProtocolErrorsNeverRetainRawQuantityOrCursorText() {
+        // These compile as values only while the cases are payload-free. Raw
+        // quantities and opaque account-bound cursors must not survive in
+        // Error reflection used by generic diagnostics.
+        let errors: [PIIndexerError] = [
+            .invalidQuantity,
+            .repeatedCursor,
+        ]
+
+        XCTAssertEqual(errors.count, 2)
+        XCTAssertEqual(
+            errors[0].errorDescription,
+            "PI returned an invalid precise quantity."
+        )
+        XCTAssertEqual(
+            errors[1].errorDescription,
+            "PI repeated a pagination cursor."
+        )
+    }
+
+    func testPIHealthAcceptsNumericAndCanonicalQuotedIntegerWireForms() throws {
+        let decoder = JSONDecoder()
+        let numericData = piHealthPayload(quotedIntegers: false)
+        let quotedData = piHealthPayload(quotedIntegers: true)
+
+        try PIStrictJSONAdmission.validate(
+            piHealthAdmissionEnvelope(numericData)
+        )
+        try PIStrictJSONAdmission.validate(
+            piHealthAdmissionEnvelope(quotedData)
+        )
+        let numeric = try decoder.decode(PIHealth.self, from: numericData)
+        let quoted = try decoder.decode(PIHealth.self, from: quotedData)
+
+        XCTAssertEqual(quoted, numeric)
+        XCTAssertEqual(numeric.latestIndexedBlock, 123)
+        XCTAssertEqual(numeric.latestIndexedAt, 2_000_000)
+        XCTAssertEqual(numeric.workerLatestFinalizedBlock, 125)
+        XCTAssertEqual(numeric.workerLatestIndexedBlock, 123)
+        XCTAssertEqual(numeric.workerLag, 2)
+        XCTAssertEqual(
+            numeric.workerLastSuccessfulIndexTimestamp,
+            2_000_000
+        )
+        XCTAssertEqual(numeric.workerLastErrorTimestamp, 1_999_999)
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateHealth(
+                numeric,
+                nowEpochSeconds: 2_000_000
+            )
+        )
+
+        // PIResponseCache encodes the bounded projection as JSON integers.
+        // Those bytes must continue to pass the same strict admission and
+        // decode path after an app restart.
+        let cached = try JSONEncoder().encode(quoted)
+        try PIStrictJSONAdmission.validate(
+            piHealthAdmissionEnvelope(cached, cacheField: true)
+        )
+        XCTAssertEqual(
+            try decoder.decode(PIHealth.self, from: cached),
+            quoted
+        )
+    }
+
+    func testPIHealthIntegerWireRejectsNoncanonicalOverflowAndTypedValues()
+        throws
+    {
+        let decoder = JSONDecoder()
+        let invalidTokens = [
+            "2e0",
+            "2.0",
+            "-1",
+            "true",
+            #""02""#,
+            "[]",
+            "{}",
+        ]
+
+        for token in invalidTokens {
+            let data = piHealthPayload(
+                quotedIntegers: false,
+                workerLagToken: token
+            )
+            XCTAssertThrowsError(
+                try {
+                    try PIStrictJSONAdmission.validate(
+                        piHealthAdmissionEnvelope(data)
+                    )
+                    _ = try decoder.decode(PIHealth.self, from: data)
+                }()
+            ) { error in
+                guard case PIIndexerError.invalidQuantity = error else {
+                    return XCTFail("Unexpected error class: \(error)")
+                }
+                XCTAssertFalse(String(describing: error).contains(token))
+            }
+        }
+
+        let unbounded = String(repeating: "9", count: 1_024)
+        let unboundedData = piHealthPayload(
+            quotedIntegers: false,
+            workerLagToken: unbounded
+        )
+        // The strict parser admits the arbitrary-precision canonical lexeme;
+        // the health domain then rejects its bounded Int projection without
+        // retaining the raw value in the error.
+        XCTAssertNoThrow(
+            try PIStrictJSONAdmission.validate(
+                piHealthAdmissionEnvelope(unboundedData)
+            )
+        )
+        XCTAssertThrowsError(
+            try decoder.decode(PIHealth.self, from: unboundedData)
+        ) { error in
+            guard case PIIndexerError.invalidQuantity = error else {
+                return XCTFail("Unexpected error class: \(error)")
+            }
+            XCTAssertFalse(String(describing: error).contains(unbounded))
+        }
+
+        let oversized = String(
+            repeating: "9",
+            count: PIStrictJSONAdmission.maximumHealthIntegerBytes + 1
+        )
+        let oversizedData = piHealthPayload(
+            quotedIntegers: false,
+            workerLagToken: oversized
+        )
+        XCTAssertThrowsError(
+            try PIStrictJSONAdmission.validate(
+                piHealthAdmissionEnvelope(oversizedData)
+            )
+        ) { error in
+            guard case PIIndexerError.invalidQuantity = error else {
+                return XCTFail("Unexpected error class: \(error)")
+            }
+            XCTAssertFalse(String(describing: error).contains(oversized))
+        }
+
+        let nullableData = piHealthPayload(
+            quotedIntegers: false,
+            workerLastErrorTimestampToken: "null"
+        )
+        try PIStrictJSONAdmission.validate(
+            piHealthAdmissionEnvelope(nullableData)
+        )
+        let nullable = try decoder.decode(
+            PIHealth.self,
+            from: nullableData
+        )
+        XCTAssertNil(nullable.workerLastErrorTimestamp)
+    }
+
+    func testPIHealthAcceptsDeployedWorkerFinalizedCheckpointContract() {
+        let now = 2_000_000
+        let deployedHealth = PIHealth(
+            ok: true,
+            repositoryReady: true,
+            service: "polkaswap-indexer",
+            serviceId: "pi.soramitsu.io",
+            schemaVersion: 1,
+            ecosystem: "sora2",
+            chainId: "sora:mainnet",
+            network: "mainnet",
+            publicBaseUrl: PIIndexerClient.endpoint,
+            readOnly: true,
+            genesisHash: nil,
+            latestIndexedBlock: nil,
+            latestIndexedBlockHash: nil,
+            latestIndexedAt: nil,
+            workerAvailable: true,
+            workerReady: true,
+            workerReadinessReason: nil,
+            workerLifecycle: "running",
+            workerStartupComplete: true,
+            workerLatestFinalizedBlock: 100,
+            workerLatestIndexedBlock: 100,
+            workerLag: 0,
+            workerLastSuccessfulIndexTimestamp: now,
+            workerLastError: nil,
+            workerLastErrorTimestamp: nil
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateHealth(
+                deployedHealth,
+                nowEpochSeconds: now
+            )
+        )
+    }
+
+    private func piHealthPayload(
+        quotedIntegers: Bool,
+        workerLagToken: String? = nil,
+        workerLastErrorTimestampToken: String? = nil
+    ) -> Data {
+        func integer(_ value: Int) -> String {
+            quotedIntegers ? #""\#(value)""# : String(value)
+        }
+
+        return Data(
+            """
+            {
+              "ok": true,
+              "repositoryReady": true,
+              "service": "polkaswap-indexer",
+              "serviceId": "pi.soramitsu.io",
+              "schemaVersion": 1,
+              "ecosystem": "sora2",
+              "chainId": "sora:mainnet",
+              "network": "mainnet",
+              "publicBaseUrl": "https://pi.soramitsu.io/graphql",
+              "readOnly": true,
+              "genesisHash": null,
+              "latestIndexedBlock": \(integer(123)),
+              "latestIndexedBlockHash": null,
+              "latestIndexedAt": \(integer(2_000_000)),
+              "workerAvailable": true,
+              "workerReady": true,
+              "workerReadinessReason": null,
+              "workerLifecycle": "running",
+              "workerStartupComplete": true,
+              "workerLatestFinalizedBlock": \(integer(125)),
+              "workerLatestIndexedBlock": \(integer(123)),
+              "workerLag": \(workerLagToken ?? integer(2)),
+              "workerLastSuccessfulIndexTimestamp": \(integer(2_000_000)),
+              "workerLastError": "transient",
+              "workerLastErrorTimestamp": \(
+                  workerLastErrorTimestampToken ?? integer(1_999_999)
+              )
+            }
+            """.utf8
+        )
+    }
+
+    private func piHealthAdmissionEnvelope(
+        _ payload: Data,
+        cacheField: Bool = false
+    ) -> Data {
+        var envelope = Data(
+            (cacheField ? #"{"health":"# : #"{"_health":"#).utf8
+        )
+        envelope.append(payload)
+        envelope.append(Data("}".utf8))
+        return envelope
+    }
+
+    func testPIHealthAcceptsOnlyFreshCoherentFinalizedIdentity() throws {
+        let now = 2_000_000
+        let health = PIHealth(
+            ok: true,
+            repositoryReady: true,
+            service: "polkaswap-indexer",
+            serviceId: "pi.soramitsu.io",
+            schemaVersion: 1,
+            ecosystem: "sora2",
+            chainId: "sora:mainnet",
+            network: "mainnet",
+            publicBaseUrl: PIIndexerClient.endpoint,
+            readOnly: true,
+            genesisHash: PIIndexerClient.soraMainnetGenesis,
+            latestIndexedBlock: 123,
+            latestIndexedBlockHash:
+                "0x1111111111111111111111111111111111111111111111111111111111111111",
+            latestIndexedAt: now,
+            workerAvailable: true,
+            workerReady: true,
+            workerReadinessReason: nil,
+            workerLifecycle: "running",
+            workerStartupComplete: true,
+            workerLatestFinalizedBlock: 125,
+            workerLatestIndexedBlock: 123,
+            workerLag: 2,
+            workerLastSuccessfulIndexTimestamp: now,
+            workerLastError: nil,
+            workerLastErrorTimestamp: nil
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateHealth(
+                health,
+                nowEpochSeconds: now
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHealth(
+                health,
+                nowEpochSeconds: now + 301
+            )
+        ) { error in
+            guard case PIIndexerError.staleCheckpoint = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    /// PI indexes a block about every six seconds, so the health records
+    /// read before and after a response often differ. The response is then
+    /// attributed to the later checkpoint. Only a move backwards, or another
+    /// indexer, is rejected.
+    func testPIResponseFollowsAForwardCheckpointAndRejectsABackwardOne() throws {
+        let now = 2_000_000
+        func health(
+            indexed: Int,
+            finalized: Int,
+            serviceId: String = "pi.soramitsu.io",
+            hash: String =
+                "0x1111111111111111111111111111111111111111111111111111111111111111"
+        ) -> PIHealth {
+            PIHealth(
+                ok: true,
+                repositoryReady: true,
+                service: "polkaswap-indexer",
+                serviceId: serviceId,
+                schemaVersion: 1,
+                ecosystem: "sora2",
+                chainId: "sora:mainnet",
+                network: "mainnet",
+                publicBaseUrl: PIIndexerClient.endpoint,
+                readOnly: true,
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                latestIndexedBlock: indexed,
+                latestIndexedBlockHash: hash,
+                latestIndexedAt: now,
+                workerAvailable: true,
+                workerReady: true,
+                workerReadinessReason: nil,
+                workerLifecycle: "running",
+                workerStartupComplete: true,
+                workerLatestFinalizedBlock: finalized,
+                workerLatestIndexedBlock: indexed,
+                workerLag: finalized - indexed,
+                workerLastSuccessfulIndexTimestamp: now,
+                workerLastError: nil,
+                workerLastErrorTimestamp: nil
+            )
+        }
+        let before = health(indexed: 123, finalized: 125)
+
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: before
+            ),
+            before
+        )
+        // One block later: the response belongs to the later checkpoint.
+        let oneBlockLater = health(
+            indexed: 124,
+            finalized: 125,
+            hash: "0x2222222222222222222222222222222222222222222222222222222222222222"
+        )
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: oneBlockLater
+            ),
+            oneBlockLater
+        )
+        // Only the finalized head moved (it does so about three seconds
+        // before the indexed block): still the same indexed checkpoint.
+        let finalizedHeadMoved = health(indexed: 123, finalized: 126)
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: finalizedHeadMoved
+            ),
+            finalizedHeadMoved
+        )
+
+        let rejected: [PIHealth] = [
+            // Backwards.
+            health(indexed: 122, finalized: 125),
+            // Another service answered.
+            health(indexed: 124, finalized: 125, serviceId: "other.example"),
+            // The same height with another block.
+            health(
+                indexed: 123,
+                finalized: 125,
+                hash: "0x3333333333333333333333333333333333333333333333333333333333333333"
+            ),
+        ]
+        for after in rejected {
+            XCTAssertThrowsError(
+                try PIIndexerClient.settledResponseCheckpoint(
+                    preflight: before,
+                    postflight: after
+                )
+            ) { error in
+                guard case PIIndexerError.staleCheckpoint = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+    }
+
+    func testPIResponseRowsCannotExceedAttributedCheckpoint() {
+        let qualification = makePIQualification(indexedBlock: 100)
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateResponseHeights(
+                [nil, 0, 100],
+                qualification: qualification
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateResponseHeights(
+                [101],
+                qualification: qualification
+            )
+        ) { error in
+            guard case PIIndexerError.staleCheckpoint = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIReturnedPolkamarktRowsAreBoundToRequestedIdentity() throws {
+        let decoder = JSONDecoder()
+        let wrongSnapshot = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot","marketId":8,"timestamp":100,"type":"DEFAULT","blockHeight":100}"#.utf8
+            )
+        )
+        let wrongPosition = try decoder.decode(
+            PIAccountPosition.self,
+            from: Data(
+                #"{"id":"position","account":"cnOther","marketId":7,"market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}"#.utf8
+            )
+        )
+        let blockHash =
+            "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        let extrinsicHash =
+            "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        let wrongNestedTrade = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                """
+                {"id":"trade","account":"cnAccount","marketId":7,"blockNumber":100,"blockHash":"\(blockHash)","extrinsicHash":"\(extrinsicHash)","market":{"id":"market","marketId":8,"status":"Open","updatedAtBlock":100}}
+                """.utf8
+            )
+        )
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [wrongSnapshot],
+                marketId: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountPositions(
+                [wrongPosition],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountTrades(
+                [wrongNestedTrade],
+                account: "cnAccount"
+            )
+        )
+    }
+
+    func testPIPolkamarktRowsRejectNegativeAccountAndSnapshotQuantities() throws {
+        let decoder = JSONDecoder()
+        let snapshot = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot","marketId":7,"timestamp":100,"type":"DEFAULT","blockHeight":100,"liquidityUSD":"-1"}"#.utf8
+            )
+        )
+        let position = try decoder.decode(
+            PIAccountPosition.self,
+            from: Data(
+                #"{"id":"position","account":"cnAccount","marketId":7,"shares":"-1","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}"#.utf8
+            )
+        )
+        let blockHash =
+            "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        let extrinsicHash =
+            "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        let trade = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                """
+                {"id":"trade","account":"cnAccount","marketId":7,"feeUsd":"-1","blockNumber":100,"blockHash":"\(blockHash)","extrinsicHash":"\(extrinsicHash)","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}
+                """.utf8
+            )
+        )
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [snapshot],
+                marketId: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountPositions(
+                [position],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountTrades(
+                [trade],
+                account: "cnAccount"
+            )
+        )
+    }
+
+    func testPIMarketSnapshotsRequireCoordinatesAndCanonicalOrdering() throws {
+        let decoder = JSONDecoder()
+        let first = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot-a","marketId":7,"timestamp":100,"blockHeight":100,"type":"DEFAULT","status":"Open","probability":"50.66","priceYes":"0.5066","priceNo":"0.4934"}"#.utf8
+            )
+        )
+        let second = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot-b","marketId":7,"timestamp":101,"blockHeight":101,"type":"DEFAULT","status":"Open"}"#.utf8
+            )
+        )
+        let missingTimestamp = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot-missing","marketId":7,"blockHeight":100,"type":"DEFAULT"}"#.utf8
+            )
+        )
+        let unsupportedBlockSeries = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot-block","marketId":7,"timestamp":102,"blockHeight":102,"type":"BLOCK"}"#.utf8
+            )
+        )
+        let invalidPercentage = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot-invalid","marketId":7,"timestamp":102,"blockHeight":102,"type":"DEFAULT","probability":"100.01"}"#.utf8
+            )
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateMarketSnapshots(
+                [first, second],
+                marketId: 7
+            )
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(first.probability?.percentageFractionForRendering),
+            0.5066,
+            accuracy: 0.000_000_1
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [second, first],
+                marketId: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [missingTimestamp],
+                marketId: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [unsupportedBlockSeries],
+                marketId: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [invalidPercentage],
+                marketId: 7
+            )
+        )
+    }
+
+    func testPIMarketCatalogBindsTypedStatusAndQuantitySemantics() throws {
+        let decoder = JSONDecoder()
+        let valid = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"market","marketId":7,"status":"Open","probability":"50.66","priceYes":"0.5066","priceNo":"0.4934","marginalYesPriceBps":5066,"updatedAtBlock":100}"#.utf8
+            )
+        )
+        let negativeLiquidity = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"market","marketId":7,"status":"Open","liquidityUSD":"-1","updatedAtBlock":100}"#.utf8
+            )
+        )
+        let invalidUnitPrice = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"market","marketId":7,"status":"Open","probability":"50","priceYes":"1.01","updatedAtBlock":100}"#.utf8
+            )
+        )
+        let duplicateRuntimeMarket = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"different-row-id","marketId":7,"status":"Open","updatedAtBlock":101}"#.utf8
+            )
+        )
+        let distinctRuntimeMarket = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"distinct-market","marketId":8,"status":"Open","updatedAtBlock":101}"#.utf8
+            )
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateMarkets(
+                [valid],
+                expectedStatus: .open
+            )
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(valid.probability?.percentageFractionForRendering),
+            0.5066,
+            accuracy: 0.000_000_1
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarkets(
+                [valid],
+                expectedStatus: .locked
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarkets(
+                [negativeLiquidity],
+                expectedStatus: .open
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarkets(
+                [invalidUnitPrice],
+                expectedStatus: .open
+            )
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateUniqueRuntimeMarketIds(
+                [valid, distinctRuntimeMarket]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateUniqueRuntimeMarketIds(
+                [valid, duplicateRuntimeMarket]
+            )
+        )
+    }
+
+    func testPIMarketIdentifiersCoverExactRuntimeUInt32Domain() throws {
+        let decoder = JSONDecoder()
+        let maximum = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"market-max","marketId":4294967295,"conditionId":4294967295,"closeBlock":4294967295,"status":"Open","updatedAtBlock":100}"#.utf8
+            )
+        )
+        let overflow = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"market-overflow","marketId":4294967296,"status":"Open","updatedAtBlock":100}"#.utf8
+            )
+        )
+        let maximumSnapshot = try decoder.decode(
+            PIMarketSnapshot.self,
+            from: Data(
+                #"{"id":"snapshot-max","marketId":4294967295,"timestamp":100,"blockHeight":100,"type":"DEFAULT"}"#.utf8
+            )
+        )
+        let closeBlockOverflow = try decoder.decode(
+            PIMarket.self,
+            from: Data(
+                #"{"id":"market-close-overflow","marketId":1,"closeBlock":4294967296,"status":"Open","updatedAtBlock":100}"#.utf8
+            )
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateMarkets(
+                [maximum],
+                expectedStatus: .open
+            )
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateMarketSnapshots(
+                [maximumSnapshot],
+                marketId: 4_294_967_295
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarkets(
+                [overflow],
+                expectedStatus: .open
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarkets(
+                [closeBlockOverflow],
+                expectedStatus: .open
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateMarketSnapshots(
+                [maximumSnapshot],
+                marketId: 4_294_967_296
+            )
+        )
+    }
+
+    func testPIPolkamarktAccountRowsRequireCheckpointCoordinatesBeforeUse()
+        throws
+    {
+        let decoder = JSONDecoder()
+        let blockHash =
+            "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        let extrinsicHash =
+            "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        let position = try decoder.decode(
+            PIAccountPosition.self,
+            from: Data(
+                #"{"id":"position","account":"cnAccount","marketId":7,"shares":"1","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}"#.utf8
+            )
+        )
+        let trade = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                """
+                {"id":"trade","account":"cnAccount","marketId":7,"marketIds":[7,8],"shares":"1","blockNumber":100,"blockHash":"\(blockHash)","extrinsicHash":"\(extrinsicHash)","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}
+                """.utf8
+            )
+        )
+        let mismatchedBatch = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                """
+                {"id":"trade-batch-mismatch","account":"cnAccount","marketId":7,"marketIds":[8,7],"shares":"1","blockNumber":100,"blockHash":"\(blockHash)","extrinsicHash":"\(extrinsicHash)","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}
+                """.utf8
+            )
+        )
+        let ordinaryTrade = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                """
+                {"id":"trade-ordinary","account":"cnAccount","marketId":7,"marketIds":[],"shares":"1","blockNumber":100,"blockHash":"\(blockHash)","extrinsicHash":"\(extrinsicHash)","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}
+                """.utf8
+            )
+        )
+        let legacyCachedTrade = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                """
+                {"id":"trade-legacy-cache","account":"cnAccount","marketId":7,"shares":"1","blockNumber":100,"blockHash":"\(blockHash)","extrinsicHash":"\(extrinsicHash)","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}
+                """.utf8
+            )
+        )
+        let missingBlockHash = try decoder.decode(
+            PIAccountTrade.self,
+            from: Data(
+                #"{"id":"trade-missing","account":"cnAccount","marketId":7,"shares":"1","blockNumber":100,"extrinsicHash":"0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","market":{"id":"market","marketId":7,"status":"Open","updatedAtBlock":100}}"#.utf8
+            )
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAccountPositions(
+                [position],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAccountTrades(
+                [trade],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertEqual(trade.marketIds, [7, 8])
+        XCTAssertTrue(trade.includesMarket(7))
+        XCTAssertTrue(trade.includesMarket(8))
+        XCTAssertFalse(trade.includesMarket(9))
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAccountTrades(
+                [ordinaryTrade],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertTrue(ordinaryTrade.includesMarket(7))
+        XCTAssertNil(legacyCachedTrade.marketIds)
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAccountTrades(
+                [legacyCachedTrade],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertTrue(legacyCachedTrade.includesMarket(7))
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountTrades(
+                [mismatchedBatch],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountTrades(
+                [missingBlockHash],
+                account: "cnAccount"
+            )
+        )
+    }
+
+    func testPIReturnedHistoryRowsAreBoundToRequestedAccountAndHash() throws {
+        let decoder = JSONDecoder()
+        let transactionHash =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        let anotherHash =
+            "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        let blockHash =
+            "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        let wrongAccount = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {"id":"\(transactionHash)","timestamp":1,"address":"cnOther","blockHeight":100,"blockHash":"\(blockHash)","networkFee":"0","execution":{"success":true}}
+                """.utf8
+            )
+        )
+        let wrongHash = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {"id":"\(anotherHash)","timestamp":1,"address":"cnAccount","blockHeight":100,"blockHash":"\(blockHash)","networkFee":"0","execution":{"success":true}}
+                """.utf8
+            )
+        )
+        let syntheticBridgeEvent = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {"id":"\(transactionHash)-mint","timestamp":1,"address":"cnAccount","blockHeight":100,"blockHash":"\(blockHash)","networkFee":"0","execution":{"success":true}}
+                """.utf8
+            )
+        )
+        let canonicalDuplicate = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {"id":"\(anotherHash.uppercased())","timestamp":1,"address":"cnAccount","blockHeight":100,"blockHash":"\(blockHash)","networkFee":"0","execution":{"success":true}}
+                """.utf8
+            )
+        )
+        let controlledSyntheticIdentifier = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {"id":"bridge\\u0000mint","timestamp":1,"address":"cnAccount","blockHeight":100,"blockHash":"\(blockHash)","networkFee":"0","execution":{"success":true}}
+                """.utf8
+            )
+        )
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [wrongAccount],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [wrongHash],
+                account: "cnAccount",
+                expectedTransactionHashes: [transactionHash]
+            )
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAccountHistory(
+                [syntheticBridgeEvent],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [syntheticBridgeEvent],
+                account: "cnAccount",
+                expectedTransactionHashes: [transactionHash]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [wrongHash, canonicalDuplicate],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [controlledSyntheticIdentifier],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertEqual(
+            PIHistoryCheckpointValidator.canonicalHistoryIdentifier(
+                transactionHash.uppercased()
+            ),
+            transactionHash
+        )
+        XCTAssertEqual(
+            PIHistoryCheckpointValidator.canonicalHistoryIdentifier(
+                syntheticBridgeEvent.id
+            ),
+            syntheticBridgeEvent.id
+        )
+        XCTAssertNil(
+            PIHistoryCheckpointValidator.canonicalHistoryIdentifier(
+                String(repeating: "0", count: 64)
+            )
+        )
+    }
+
+    func testPIHistoryRequiresCanonicalChainCoordinatesBeforeUse() throws {
+        let decoder = JSONDecoder()
+        let transactionHash =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        let blockHash =
+            "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        let valid = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {
+                  "id":"\(transactionHash)",
+                  "timestamp":1,
+                  "address":"cnAccount",
+                  "blockHeight":100,
+                  "blockHash":"\(blockHash)",
+                  "networkFee":"1",
+                  "execution":{"success":true}
+                }
+                """.utf8
+            )
+        )
+        let missingBlockHash = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {
+                  "id":"\(transactionHash)",
+                  "timestamp":1,
+                  "address":"cnAccount",
+                  "blockHeight":100,
+                  "networkFee":"0",
+                  "execution":{"success":true}
+                }
+                """.utf8
+            )
+        )
+
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAccountHistory(
+                [valid],
+                account: "cnAccount",
+                expectedTransactionHashes: [transactionHash]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [missingBlockHash],
+                account: "cnAccount"
+            )
+        )
+
+        let missingExecution = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {
+                  "id":"\(transactionHash)",
+                  "timestamp":1,
+                  "address":"cnAccount",
+                  "blockHeight":100,
+                  "blockHash":"\(blockHash)",
+                  "networkFee":"0"
+                }
+                """.utf8
+            )
+        )
+        let negativeFee = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {
+                  "id":"\(transactionHash)",
+                  "timestamp":1,
+                  "address":"cnAccount",
+                  "blockHeight":100,
+                  "blockHash":"\(blockHash)",
+                  "networkFee":"-1",
+                  "execution":{"success":true}
+                }
+                """.utf8
+            )
+        )
+        let decimalFee = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {
+                  "id":"\(transactionHash)",
+                  "timestamp":1,
+                  "address":"cnAccount",
+                  "blockHeight":100,
+                  "blockHash":"\(blockHash)",
+                  "networkFee":"0.1",
+                  "execution":{"success":true}
+                }
+                """.utf8
+            )
+        )
+        let missingTimestamp = try decoder.decode(
+            PIHistoryElement.self,
+            from: Data(
+                """
+                {
+                  "id":"\(transactionHash)",
+                  "address":"cnAccount",
+                  "blockHeight":100,
+                  "blockHash":"\(blockHash)",
+                  "networkFee":"0",
+                  "execution":{"success":true}
+                }
+                """.utf8
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [missingExecution],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [negativeFee],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [decimalFee],
+                account: "cnAccount"
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateAccountHistory(
+                [missingTimestamp],
+                account: "cnAccount"
+            )
+        )
+    }
+
+    func testPIPolkamarktSignalsRejectNegativeCountsAndDuplicateLabels() throws {
+        let signals = try JSONDecoder().decode(
+            PIPolkamarktSignals.self,
+            from: Data(
+                """
+                {
+                  "totalVolumeUsd":"1",
+                  "activeMarkets":-1,
+                  "activeAccounts":1,
+                  "liquidityUsd":"1",
+                  "liquiditySeries":[
+                    {"label":"same","value":"1"},
+                    {"label":"same","value":"2"}
+                  ],
+                  "answerBreakdown":[]
+                }
+                """.utf8
+            )
+        )
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatePolkamarktSignals(signals)
+        )
+
+        let negativeVolume = try JSONDecoder().decode(
+            PIPolkamarktSignals.self,
+            from: Data(
+                """
+                {
+                  "totalVolumeUsd":"-1",
+                  "activeMarkets":1,
+                  "activeAccounts":1,
+                  "liquidityUsd":"1",
+                  "liquiditySeries":[],
+                  "answerBreakdown":[]
+                }
+                """.utf8
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatePolkamarktSignals(negativeVolume)
+        )
+
+        let validAccuracy = try JSONDecoder().decode(
+            PIPolkamarktSignals.self,
+            from: Data(
+                #"{"totalVolumeUsd":"1","activeMarkets":1,"activeAccounts":1,"liquidityUsd":"1","liquiditySeries":[],"answerBreakdown":[],"accuracySummary":{"accuracyPercent":99.5}}"#.utf8
+            )
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validatePolkamarktSignals(validAccuracy)
+        )
+        XCTAssertEqual(validAccuracy.accuracySummary?.accuracyPercent, 99.5)
+
+        let invalidAccuracy = try JSONDecoder().decode(
+            PIPolkamarktSignals.self,
+            from: Data(
+                #"{"totalVolumeUsd":"1","activeMarkets":1,"activeAccounts":1,"liquidityUsd":"1","liquiditySeries":[],"answerBreakdown":[],"accuracySummary":{"accuracyPercent":100.1}}"#.utf8
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatePolkamarktSignals(invalidAccuracy)
+        )
+    }
+
+    func testPIAssetPoolAndRewardRowsRejectInvalidSemantics() throws {
+        let decoder = JSONDecoder()
+        let asset = try decoder.decode(
+            PIAsset.self,
+            from: Data(#"{"id":"xor","priceUSD":"-1"}"#.utf8)
+        )
+        let pool = try decoder.decode(
+            PIPoolXYK.self,
+            from: Data(
+                #"{"id":"pool","strategicBonusApy":"-0.1"}"#.utf8
+            )
+        )
+        let reward = try decoder.decode(
+            PIReferrerReward.self,
+            from: Data(
+                #"{"id":"reward","referrer":"cnOther","blockHeight":"100","amount":"1"}"#.utf8
+            )
+        )
+        let presentationAsset = try decoder.decode(
+            PIAsset.self,
+            from: Data(
+                #"{"id":"xor","priceUSD":"999999999999999999999.1","priceChangeDay":-4.5}"#.utf8
+            )
+        )
+
+        XCTAssertThrowsError(try PIIndexerClient.validateAssets([asset]))
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateAssets([presentationAsset])
+        )
+        XCTAssertEqual(presentationAsset.priceChangeDay, -4.5)
+        XCTAssertEqual(
+            presentationAsset.priceUSD?.rawValue,
+            "999999999999999999999.1"
+        )
+        // The live PI sends `volumeDayUSD` and `volumeWeekUSD` as JSON
+        // numbers. The wallet does not read them, so a row that carries them
+        // decodes; it used to fail the whole asset catalog.
+        let liveShapedAsset = try decoder.decode(
+            PIAsset.self,
+            from: Data(
+                #"{"id":"xor","priceUSD":"5.4","volumeDayUSD":1.5,"volumeWeekUSD":0}"#.utf8
+            )
+        )
+        XCTAssertEqual(liveShapedAsset.priceUSD?.rawValue, "5.4")
+        XCTAssertNoThrow(try PIIndexerClient.validateAssets([liveShapedAsset]))
+        XCTAssertThrowsError(try PIIndexerClient.validatePools([pool]))
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateReferrerRewards(
+                [reward],
+                account: "cnAccount",
+                qualification: makePIQualification(indexedBlock: 100)
+            )
+        )
+        XCTAssertEqual(
+            try PIMarketCapLiquidityValidator.validatedWireValue(
+                try PIQuantity("123")
+            ),
+            "123"
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapLiquidityValidator.validatedWireValue(nil)
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapLiquidityValidator.validatedWireValue(
+                try PIQuantity("1.5")
+            )
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapLiquidityValidator.validatedWireValue(
+                try PIQuantity("-1")
+            )
+        )
+        XCTAssertNoThrow(
+            try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
+                requestedAssetIDs: ["xor", "val"],
+                returnedAssetIDs: ["val", "xor"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
+                requestedAssetIDs: ["xor", "val"],
+                returnedAssetIDs: ["xor"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
+                requestedAssetIDs: ["xor"],
+                returnedAssetIDs: ["xor", "xor"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
+                requestedAssetIDs: [],
+                returnedAssetIDs: []
+            )
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
+                requestedAssetIDs: ["xor", "xor"],
+                returnedAssetIDs: ["xor"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.validatedRequestedAssetIDs([
+                String(
+                    repeating: "x",
+                    count: PIMarketCapCatalogValidator.maximumAssetIDBytes + 1
+                ),
+            ])
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.validatedRequestedAssetIDs([
+                "xor\nval",
+            ])
+        )
+        XCTAssertThrowsError(
+            try PIMarketCapCatalogValidator.validatedRequestedAssetIDs(
+                (0 ... PIMarketCapCatalogValidator.maximumRequestedAssetCount)
+                    .map { "asset-\($0)" }
+            )
+        )
+    }
+
+    func testPIPendingLookupRequiresBoundedUniqueCanonicalHashes() throws {
+        let hash =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        XCTAssertEqual(
+            try PIIndexerClient.validatedPendingTransactionHashes([hash]),
+            [hash]
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatedPendingTransactionHashes([hash, hash])
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatedPendingTransactionHashes(
+                Array(repeating: hash, count: 101)
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatedPendingTransactionHashes(["invalid"])
+        )
+    }
+
+    private func makePIQualification(
+        indexedBlock: Int
+    ) -> PIReadQualification {
+        let now = Int(Date().timeIntervalSince1970)
+        return PIReadQualification(
+            health: PIHealth(
+                ok: true,
+                repositoryReady: true,
+                service: "polkaswap-indexer",
+                serviceId: "pi.soramitsu.io",
+                schemaVersion: 1,
+                ecosystem: "sora2",
+                chainId: "sora:mainnet",
+                network: "mainnet",
+                publicBaseUrl: PIIndexerClient.endpoint,
+                readOnly: true,
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                latestIndexedBlock: indexedBlock,
+                latestIndexedBlockHash:
+                    "0x1111111111111111111111111111111111111111111111111111111111111111",
+                latestIndexedAt: now,
+                workerAvailable: true,
+                workerReady: true,
+                workerReadinessReason: nil,
+                workerLifecycle: "running",
+                workerStartupComplete: true,
+                workerLatestFinalizedBlock: indexedBlock,
+                workerLatestIndexedBlock: indexedBlock,
+                workerLag: 0,
+                workerLastSuccessfulIndexTimestamp: now,
+                workerLastError: nil,
+                workerLastErrorTimestamp: nil
+            ),
+            source: .live
+        )
+    }
+
+    func testPIHistoryBindsAccountCheckpointAndCanonicalBlockHash()
+        async throws
+    {
+        let address = "cnVudGltZS1hY2NvdW50"
+        let blockHash =
+            "0x1111111111111111111111111111111111111111111111111111111111111111"
+        let item = PIHistoryElement(
+            id:
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            type: "TRANSFER",
+            timestamp: 1,
+            blockHash: blockHash,
+            blockHeight: 42,
+            module: "assets",
+            method: "transfer",
+            address: address,
+            networkFee: try PIQuantity("1"),
+            execution: .object(["success": .bool(true)]),
+            data: nil,
+            dataFrom: nil,
+            dataTo: nil,
+            dataAssets: nil,
+            callNames: nil,
+            calls: nil
+        )
+
+        try await PIHistoryCheckpointValidator.validate(
+            [item],
+            expectedAddress: address,
+            finalizedCheckpoint: 42,
+            canonicalBlockHash: { height in
+                XCTAssertEqual(height, 42)
+                return blockHash
+            }
+        )
+        let dataFromItem = PIHistoryElement(
+            id: String(repeating: "BB", count: 32),
+            type: "TRANSFER",
+            timestamp: 2,
+            blockHash: blockHash,
+            blockHeight: 42,
+            module: "assets",
+            method: "transfer",
+            address: nil,
+            networkFee: try PIQuantity("1"),
+            execution: .object(["success": .bool(true)]),
+            data: nil,
+            dataFrom: address,
+            dataTo: nil,
+            dataAssets: nil,
+            callNames: nil,
+            calls: nil
+        )
+        try await PIHistoryCheckpointValidator.validate(
+            [item, dataFromItem],
+            expectedAddress: address,
+            finalizedCheckpoint: 42,
+            canonicalBlockHash: { _ in blockHash }
+        )
+        let missingExecution = PIHistoryElement(
+            id: item.id,
+            type: item.type,
+            timestamp: item.timestamp,
+            blockHash: item.blockHash,
+            blockHeight: item.blockHeight,
+            module: item.module,
+            method: item.method,
+            address: item.address,
+            networkFee: item.networkFee,
+            execution: nil,
+            data: item.data,
+            dataFrom: item.dataFrom,
+            dataTo: item.dataTo,
+            dataAssets: item.dataAssets,
+            callNames: item.callNames,
+            calls: item.calls
+        )
+        let missingExecutionResolverCalled = LockedInvocationFlag()
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [missingExecution],
+                expectedAddress: address,
+                finalizedCheckpoint: 42,
+                canonicalBlockHash: { _ in
+                    missingExecutionResolverCalled.markCalled()
+                    return blockHash
+                }
+            )
+            XCTFail("History without a boolean execution result was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+        XCTAssertFalse(missingExecutionResolverCalled.value)
+        let missingTimestamp = PIHistoryElement(
+            id: item.id,
+            type: item.type,
+            timestamp: nil,
+            blockHash: item.blockHash,
+            blockHeight: item.blockHeight,
+            module: item.module,
+            method: item.method,
+            address: item.address,
+            networkFee: item.networkFee,
+            execution: item.execution,
+            data: item.data,
+            dataFrom: item.dataFrom,
+            dataTo: item.dataTo,
+            dataAssets: item.dataAssets,
+            callNames: item.callNames,
+            calls: item.calls
+        )
+        let missingTimestampResolverCalled = LockedInvocationFlag()
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [missingTimestamp],
+                expectedAddress: address,
+                finalizedCheckpoint: 42,
+                canonicalBlockHash: { _ in
+                    missingTimestampResolverCalled.markCalled()
+                    return blockHash
+                }
+            )
+            XCTFail("History without a timestamp was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+        XCTAssertFalse(missingTimestampResolverCalled.value)
+        try await PIHistoryCheckpointValidator.validate(
+            [],
+            expectedAddress: address,
+            finalizedCheckpoint: 42,
+            indexedCheckpointHash: blockHash,
+            canonicalBlockHash: { height in
+                XCTAssertEqual(height, 42)
+                return blockHash
+            }
+        )
+
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [item],
+                expectedAddress: "different-account",
+                finalizedCheckpoint: 42,
+                canonicalBlockHash: { _ in blockHash }
+            )
+            XCTFail("Cross-account PI history was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [item],
+                expectedAddress: address,
+                finalizedCheckpoint: 41,
+                canonicalBlockHash: { _ in blockHash }
+            )
+            XCTFail("History above the finalized checkpoint was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [item],
+                expectedAddress: address,
+                finalizedCheckpoint: 42,
+                canonicalBlockHash: { _ in
+                    "0x2222222222222222222222222222222222222222222222222222222222222222"
+                }
+            )
+            XCTFail("Non-canonical PI block hash was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [],
+                expectedAddress: address,
+                finalizedCheckpoint: 42,
+                indexedCheckpointHash: blockHash,
+                canonicalBlockHash: { _ in
+                    "0x2222222222222222222222222222222222222222222222222222222222222222"
+                }
+            )
+            XCTFail("Non-canonical PI indexed checkpoint hash was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+        let syntheticIdentityItem = PIHistoryElement(
+            id: "\(item.id)-mint",
+            type: item.type,
+            timestamp: item.timestamp,
+            blockHash: item.blockHash,
+            blockHeight: item.blockHeight,
+            module: item.module,
+            method: item.method,
+            address: item.address,
+            networkFee: item.networkFee,
+            execution: item.execution,
+            data: item.data,
+            dataFrom: item.dataFrom,
+            dataTo: item.dataTo,
+            dataAssets: item.dataAssets,
+            callNames: item.callNames,
+            calls: item.calls
+        )
+        try await PIHistoryCheckpointValidator.validate(
+            [syntheticIdentityItem],
+            expectedAddress: address,
+            finalizedCheckpoint: 42,
+            canonicalBlockHash: { _ in blockHash }
+        )
+
+        let malformedIdentityItem = PIHistoryElement(
+            id: " transaction-1",
+            type: item.type,
+            timestamp: item.timestamp,
+            blockHash: item.blockHash,
+            blockHeight: item.blockHeight,
+            module: item.module,
+            method: item.method,
+            address: item.address,
+            networkFee: item.networkFee,
+            execution: item.execution,
+            data: item.data,
+            dataFrom: item.dataFrom,
+            dataTo: item.dataTo,
+            dataAssets: item.dataAssets,
+            callNames: item.callNames,
+            calls: item.calls
+        )
+        do {
+            try await PIHistoryCheckpointValidator.validate(
+                [malformedIdentityItem],
+                expectedAddress: address,
+                finalizedCheckpoint: 42,
+                canonicalBlockHash: { _ in blockHash }
+            )
+            XCTFail("Malformed PI transaction identity was accepted")
+        } catch {
+            XCTAssertTrue(error is PIIndexerError)
+        }
+    }
+
+    func testPIHistoryRejectsIncoherentPageMetadataAndDuplicateIDs()
+        throws
+    {
+        let address = "cnVudGltZS1hY2NvdW50"
+        let item = PIHistoryElement(
+            id:
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            type: "TRANSFER",
+            timestamp: 1,
+            blockHash:
+                "0x1111111111111111111111111111111111111111111111111111111111111111",
+            blockHeight: 42,
+            module: "assets",
+            method: "transfer",
+            address: address,
+            networkFee: try PIQuantity("1"),
+            execution: .object(["success": .bool(true)]),
+            data: nil,
+            dataFrom: nil,
+            dataTo: nil,
+            dataAssets: nil,
+            callNames: nil,
+            calls: nil
+        )
+        let terminalPage = PIPageInfo(
+            hasNextPage: false,
+            hasPreviousPage: false,
+            startCursor: nil,
+            endCursor: nil
+        )
+        let valid = PIConnection(
+            nodes: [item],
+            edges: nil,
+            pageInfo: terminalPage,
+            totalCount: 1
+        )
+        XCTAssertEqual(
+            try PIHistoryPageValidator.validate(
+                valid,
+                hasPriorPage: false,
+                pageSize: 100
+            ),
+            [item]
+        )
+
+        let duplicate = PIConnection(
+            nodes: [item, item],
+            edges: nil,
+            pageInfo: terminalPage,
+            totalCount: 2
+        )
+        XCTAssertThrowsError(
+            try PIHistoryPageValidator.validate(
+                duplicate,
+                hasPriorPage: false,
+                pageSize: 100
+            )
+        )
+
+        let emptyRepeatedPage = PIConnection<PIHistoryElement>(
+            nodes: [],
+            edges: nil,
+            pageInfo: PIPageInfo(
+                hasNextPage: true,
+                hasPreviousPage: false,
+                startCursor: nil,
+                endCursor: "cursor-1"
+            ),
+            totalCount: 2
+        )
+        XCTAssertThrowsError(
+            try PIHistoryPageValidator.validate(
+                emptyRepeatedPage,
+                hasPriorPage: false,
+                pageSize: 100
+            )
+        )
+
+        let missingRepresentation = PIConnection<PIHistoryElement>(
+            nodes: nil,
+            edges: nil,
+            pageInfo: terminalPage,
+            totalCount: 0
+        )
+        XCTAssertThrowsError(
+            try PIHistoryPageValidator.validate(
+                missingRepresentation,
+                hasPriorPage: false,
+                pageSize: 100
+            )
+        )
+
+        let truncatedTerminalPage = PIConnection(
+            nodes: [item],
+            edges: nil,
+            pageInfo: terminalPage,
+            totalCount: 2
+        )
+        XCTAssertThrowsError(
+            try PIHistoryPageValidator.validate(
+                truncatedTerminalPage,
+                hasPriorPage: false,
+                pageSize: 100
+            )
+        )
+    }
+
+    func testPolkamarktIntegerAmountAndSlippageVectors() throws {
+        let oneAndAHalf = try PolkamarktAmountCodec.parse("1.5")
+        XCTAssertEqual(
+            oneAndAHalf,
+            try XCTUnwrap(BigUInt("1500000000000000000"))
+        )
+        XCTAssertEqual(PolkamarktAmountCodec.format(oneAndAHalf), "1.5")
+        XCTAssertEqual(
+            try PolkamarktQuoteValidator.minimumOutput(
+                quoteOutput: 1_000_000,
+                slippageBasisPoints: 50
+            ),
+            995_000
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.defaultSlippageBasisPoints,
+            50
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.maximumBatchClaims,
+            24
+        )
+        XCTAssertThrowsError(
+            try PolkamarktQuoteValidator.minimumOutput(
+                quoteOutput: 1_000_000,
+                slippageBasisPoints: 0
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktQuoteValidator.minimumOutput(
+                quoteOutput: 1_000_000,
+                slippageBasisPoints: 1_001
+            )
+        )
+        XCTAssertThrowsError(try PolkamarktAmountCodec.parse("0"))
+        XCTAssertThrowsError(try PolkamarktAmountCodec.parse("1e3"))
+        XCTAssertThrowsError(
+            try PolkamarktAmountCodec.parse(
+                String(repeating: "1", count: 4_097)
+            )
+        )
+
+        XCTAssertNoThrow(
+            try PolkamarktQuoteValidator.validateOutcome(
+                "Yes",
+                expected: .yes
+            )
+        )
+        XCTAssertNoThrow(
+            try PolkamarktQuoteValidator.validateOutcome(
+                "No",
+                expected: .no
+            )
+        )
+        let nonCanonicalOutcomes: [(String, PolkamarktOutcome)] = [
+            ("yes", .yes),
+            ("YES", .yes),
+            ("no", .no),
+            ("NO", .no),
+            (" Yes", .yes),
+            ("No ", .no)
+        ]
+        for (wrongCaseOrShape, expected) in nonCanonicalOutcomes {
+            XCTAssertThrowsError(
+                try PolkamarktQuoteValidator.validateOutcome(
+                    wrongCaseOrShape,
+                    expected: expected
+                ),
+                "Wrong-case runtime outcome projection was accepted: \(wrongCaseOrShape)"
+            )
+        }
+    }
+
+    func testPolkaswapSlippageUsesExactBasisPointVectors() throws {
+        let tenth = try XCTUnwrap(PolkaswapSlippage(contextValue: "0.1"))
+        let half = try XCTUnwrap(PolkaswapSlippage(contextValue: "0.50"))
+        let one = try XCTUnwrap(PolkaswapSlippage(contextValue: "1.0"))
+
+        XCTAssertEqual(tenth.basisPoints, 10)
+        XCTAssertEqual(half.basisPoints, 50)
+        XCTAssertEqual(one.basisPoints, 100)
+        XCTAssertEqual(half.contextValue, "0.5")
+        XCTAssertEqual(one.contextValue, "1")
+        XCTAssertEqual(
+            half.minimumAmount(for: 1),
+            try XCTUnwrap(Decimal(string: "0.995"))
+        )
+        XCTAssertEqual(
+            half.maximumAmount(for: 1),
+            try XCTUnwrap(Decimal(string: "1.005"))
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(
+                half.minimumAmount(for: 1)
+                    .toSubstrateAmountRoundingDown(precision: 2)
+            ),
+            BigUInt(99)
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(
+                half.maximumAmount(for: 1)
+                    .toSubstrateAmountRoundingUp(precision: 2)
+            ),
+            BigUInt(101)
+        )
+
+        ["0", "-0.5", "10.01", "0.001", "1e0", " 0.5", "٠.٥"].forEach {
+            XCTAssertNil(PolkaswapSlippage(contextValue: $0), $0)
+        }
+    }
+
+    func testPolkaswapDesiredOutputSignsExactMaximumInput() throws {
+        let quotedInput = "1.000000000000000001"
+        let maxInput = "1.005000000000000001005"
+        let info = TransferInfo(
+            source: "",
+            destination: "output",
+            amount: AmountDecimal(string: quotedInput)!,
+            asset: "input",
+            details: "",
+            fees: [],
+            context: [
+                TransactionContextKeys.transactionType: TransactionType.swap.rawValue,
+                TransactionContextKeys.estimatedAmount: "2",
+                TransactionContextKeys.marketType: LiquiditySourceType.smart.rawValue,
+                TransactionContextKeys.slippage: "0.5",
+                TransactionContextKeys.desire: SwapVariant.desiredOutput.rawValue,
+                TransactionContextKeys.minMaxValue: maxInput,
+                TransactionContextKeys.dex: "0"
+            ]
+        )
+
+        let amount = try XCTUnwrap(info.amountCall?[.desiredOutput])
+        XCTAssertEqual(
+            amount.desired,
+            try XCTUnwrap(BigUInt("2000000000000000000"))
+        )
+        XCTAssertEqual(
+            amount.slip,
+            try XCTUnwrap(BigUInt("1005000000000000002"))
+        )
+
+        var malformedContext = try XCTUnwrap(info.context)
+        malformedContext[TransactionContextKeys.slippage] = "5e-1"
+        let malformed = TransferInfo(
+            source: info.source,
+            destination: info.destination,
+            amount: info.amount,
+            asset: info.asset,
+            details: info.details,
+            fees: info.fees,
+            context: malformedContext
+        )
+        XCTAssertNil(malformed.amountCall)
+
+        var weakenedContext = try XCTUnwrap(info.context)
+        weakenedContext[TransactionContextKeys.minMaxValue] = quotedInput
+        let weakened = TransferInfo(
+            source: info.source,
+            destination: info.destination,
+            amount: info.amount,
+            asset: info.asset,
+            details: info.details,
+            fees: info.fees,
+            context: weakenedContext
+        )
+        XCTAssertNil(weakened.amountCall)
+    }
+
+    func testPolkaswapDesiredInputSignsExactMinimumOutput() throws {
+        let info = TransferInfo(
+            source: "",
+            destination: "output",
+            amount: AmountDecimal(string: "1")!,
+            asset: "input",
+            details: "",
+            fees: [],
+            context: [
+                TransactionContextKeys.transactionType: TransactionType.swap.rawValue,
+                TransactionContextKeys.estimatedAmount: "2",
+                TransactionContextKeys.marketType: LiquiditySourceType.smart.rawValue,
+                TransactionContextKeys.slippage: "0.50",
+                TransactionContextKeys.desire: SwapVariant.desiredInput.rawValue,
+                TransactionContextKeys.minMaxValue: "1.99",
+                TransactionContextKeys.dex: "0"
+            ]
+        )
+
+        let amount = try XCTUnwrap(info.amountCall?[.desiredInput])
+        XCTAssertEqual(
+            amount.desired,
+            try XCTUnwrap(BigUInt("1000000000000000000"))
+        )
+        XCTAssertEqual(
+            amount.slip,
+            try XCTUnwrap(BigUInt("1990000000000000000"))
+        )
+    }
+
+    func testDemeterFarmSliderQuantizesBeforeTransactionMath() throws {
+        let quarter = try XCTUnwrap(FarmShareSelection(percent: 25))
+        let rounded = try XCTUnwrap(
+            FarmShareSelection(percent: Decimal(string: "33.335")!)
+        )
+
+        XCTAssertEqual(quarter.basisPoints, 2_500)
+        XCTAssertEqual(quarter.percent, 25)
+        XCTAssertEqual(
+            quarter.fraction,
+            try XCTUnwrap(Decimal(string: "0.25"))
+        )
+        XCTAssertEqual(
+            Decimal(10) * quarter.fraction,
+            try XCTUnwrap(Decimal(string: "2.5"))
+        )
+        XCTAssertEqual(rounded.basisPoints, 3_334)
+        XCTAssertNil(FarmShareSelection(percent: -1))
+        XCTAssertNil(FarmShareSelection(percent: 101))
+    }
+
+    func testLiquidityBatchHistoryPreservesSignedCallOrdering() throws {
+        let assetA = String(repeating: "01", count: 32)
+        let assetB = String(repeating: "02", count: 32)
+        let batchFixture = try makeLiquidityBatchWireFixture(
+            assetA: assetA,
+            assetB: assetB
+        )
+        let info = TransferInfo(
+            source: assetA,
+            destination: assetB,
+            amount: AmountDecimal(value: 1),
+            asset: assetA,
+            details: "",
+            fees: [],
+            context: [
+                TransactionContextKeys.transactionType:
+                    TransactionType.liquidityAddNewPool.rawValue
+            ]
+        )
+        let historyItem = try TransactionHistoryItem
+            .createFromPreparedLiquidity(
+                info,
+                transactionHash: Data([0x01]),
+                senderAddress: "sender",
+                rawFee: "7",
+                exactCall: batchFixture.call
+            )
+
+        XCTAssertEqual(historyItem.fee, "7")
+        XCTAssertEqual(historyItem.txHash, "0x01")
+        XCTAssertThrowsError(
+            try TransactionHistoryItem.createFromTransferInfo(
+                info,
+                transactionHash: Data([0x01]),
+                senderAddress: "sender",
+                networkType: 69,
+                addressFactory: SS58AddressFactory()
+            )
+        )
+
+        XCTAssertTrue(historyItem.callPath.isUtilityBatch)
+        let decodedBatch = try JSONDecoder.scaleCompatible().decode(
+            RuntimeCall<BatchArgs>.self,
+            from: historyItem.call
+        )
+        XCTAssertEqual(decodedBatch.args.calls.count, 3)
+        XCTAssertEqual(
+            try decodedBatch.args.calls[0]
+                .map(to: RuntimeCall<PairRegisterCall>.self).callName,
+            batchFixture.registerCallName
+        )
+        XCTAssertEqual(
+            try decodedBatch.args.calls[1]
+                .map(to: RuntimeCall<InitializePoolCall>.self).callName,
+            batchFixture.initializeCallName
+        )
+        let decodedDeposit = try XCTUnwrap(
+            AssetTransactionData.depositLiquidityCall(from: historyItem)
+        )
+        XCTAssertEqual(decodedDeposit.desiredA, 101)
+        XCTAssertEqual(decodedDeposit.desiredB, 202)
+        XCTAssertEqual(decodedDeposit.minA, 100)
+        XCTAssertEqual(decodedDeposit.minB, 200)
+    }
+
+    func testLiquidityPairStateResolvesCanonicalMutationMatrix() {
+        XCTAssertEqual(
+            PoolNetworkState(isPresented: false, isEnabled: false)
+                .liquidityAction,
+            .registerInitializeAndDeposit
+        )
+        XCTAssertEqual(
+            PoolNetworkState(isPresented: false, isEnabled: true)
+                .liquidityAction,
+            .initializeAndDeposit
+        )
+        XCTAssertEqual(
+            PoolNetworkState(isPresented: true, isEnabled: true)
+                .liquidityAction,
+            .deposit
+        )
+        XCTAssertEqual(
+            PoolNetworkState(isPresented: true, isEnabled: false)
+                .liquidityAction,
+            .reject
+        )
+    }
+
+    func testLiquidityExactFeeMustRemainWithinReviewedBound() {
+        let maximumAmount = try? Sora2TransferFeeQualification
+            .maximumTransferAmount(assetBalance: 10, exactFee: 1)
+        XCTAssertEqual(maximumAmount, 9)
+        XCTAssertEqual(maximumAmount.map { $0 + 1 }, 10)
+        XCTAssertNoThrow(
+            try Sora2TransferFeeQualification
+                .requireMaximumTransferAmount(
+                    amount: 9,
+                    assetBalance: 10,
+                    exactFee: 1
+                )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification
+                .requireMaximumTransferAmount(
+                    amount: 9,
+                    assetBalance: 10,
+                    exactFee: 0.5
+                )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.maximumTransferAmount(
+                assetBalance: 1,
+                exactFee: 1
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.maximumTransferAmount(
+                assetBalance: 10,
+                exactFee: 0
+            )
+        )
+        XCTAssertTrue(
+            LiquidityFeeQualification.accepts(freshFee: 1, reviewedFee: 1)
+        )
+        XCTAssertTrue(
+            LiquidityFeeQualification.accepts(freshFee: 0.9, reviewedFee: 1)
+        )
+        XCTAssertFalse(
+            LiquidityFeeQualification.accepts(freshFee: 1.1, reviewedFee: 1)
+        )
+        XCTAssertFalse(
+            LiquidityFeeQualification.accepts(freshFee: 0, reviewedFee: 1)
+        )
+        XCTAssertFalse(
+            LiquidityFeeQualification.accepts(freshFee: 1, reviewedFee: 0)
+        )
+
+        // Ordinary SORA2 sends intentionally use a stricter contract than
+        // liquidity: the fee returned for the exact signed bytes must equal the
+        // fee explicitly reviewed by the user in both directions.
+        XCTAssertEqual(
+            try Sora2TransferFeeQualification.requireExact(
+                reviewedFee: 1,
+                signedBytesFee: 1
+            ),
+            1
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.requireExact(
+                reviewedFee: 1,
+                signedBytesFee: 0.9
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.requireExact(
+                reviewedFee: 1,
+                signedBytesFee: 1.1
+            )
+        )
+        XCTAssertEqual(
+            try Sora2SignedFeeRevalidation.requireExact(
+                expectedRawFee: "1000000000000000000",
+                actualRawFee: "1000000000000000000"
+            ).description,
+            "1000000000000000000"
+        )
+        XCTAssertThrowsError(
+            try Sora2SignedFeeRevalidation.requireExact(
+                expectedRawFee: "1000000000000000000",
+                actualRawFee: "999999999999999999"
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2SignedFeeRevalidation.requireExact(
+                expectedRawFee: "1000000000000000000",
+                actualRawFee: "not-an-integer"
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2LegacyTransferAdmission.requirePreparedPath(
+                for: .outgoing
+            )
+        )
+        XCTAssertNoThrow(
+            try Sora2LegacyTransferAdmission.requirePreparedPath(for: .swap)
+        )
+
+        let xorBalances = [
+            BalanceData(
+                identifier: WalletAssetId.xor.rawValue,
+                balance: AmountDecimal(value: 3)
+            )
+        ]
+        XCTAssertNoThrow(
+            try Sora2TransferFeeQualification.requireSufficientBalances(
+                amount: 2,
+                assetId: WalletAssetId.xor.rawValue,
+                exactFee: 1,
+                balances: xorBalances
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.requireSufficientBalances(
+                amount: 2.1,
+                assetId: WalletAssetId.xor.rawValue,
+                exactFee: 1,
+                balances: xorBalances
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.requireSufficientBalances(
+                amount: 1,
+                assetId: "non-xor-asset",
+                exactFee: 1,
+                balances: xorBalances
+            )
+        )
+    }
+
+    func testPolkamarktExactSignedFeeMustRemainWithinConfirmedBound()
+        throws
+    {
+        XCTAssertEqual(
+            try PolkamarktExactFeeValidator.validate(
+                rawFee: "9",
+                maximumNetworkFee: 10
+            ),
+            9
+        )
+        XCTAssertThrowsError(
+            try PolkamarktExactFeeValidator.validate(
+                rawFee: "11",
+                maximumNetworkFee: 10
+            )
+        ) { error in
+            guard case PolkamarktRuntimeError.staleQuote = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(
+            try PolkamarktExactFeeValidator.validate(
+                rawFee: "0",
+                maximumNetworkFee: 10
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktExactFeeValidator.validate(
+                rawFee: "not-an-integer",
+                maximumNetworkFee: nil
+            )
+        )
+    }
+
+    func testPolkamarktSigningHeadMustMatchTheRevalidatedQuoteHead()
+        throws
+    {
+        let expected = String(repeating: "ab", count: 32)
+        XCTAssertNoThrow(
+            try PolkamarktSigningHeadValidator.validate(
+                expected: "0x\(expected.uppercased())",
+                actual: expected
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktSigningHeadValidator.validate(
+                expected: expected,
+                actual: String(repeating: "cd", count: 32)
+            )
+        ) { error in
+            guard case PolkamarktRuntimeError.staleQuote = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testRuntimeFeeDetailsRejectsMalformedHexComponents() throws {
+        let valid = try JSONDecoder().decode(
+            InclusionFeeInfo.self,
+            from: Data(
+                #"{"inclusionFee":{"baseFee":"0x0","lenFee":"0x2","adjustedWeightFee":"0x3"}}"#.utf8
+            )
+        )
+        XCTAssertEqual(valid.fee, "5")
+
+        let malformedPayloads = [
+            #"{"inclusionFee":{"baseFee":"1","lenFee":"0x2","adjustedWeightFee":"0x3"}}"#,
+            #"{"inclusionFee":{"baseFee":"0x1","lenFee":"0x","adjustedWeightFee":"0x3"}}"#,
+            #"{"inclusionFee":{"baseFee":"0x1","lenFee":"0x2","adjustedWeightFee":"0xzz"}}"#,
+            #"{"inclusionFee":{"baseFee":"-0x1","lenFee":"0x2","adjustedWeightFee":"0x3"}}"#,
+            #"{"inclusionFee":{"baseFee":"0x1","lenFee":"0x2"}}"#,
+            #"{"inclusionFee":{"baseFee":1,"lenFee":"0x2","adjustedWeightFee":"0x3"}}"#
+        ]
+        for payload in malformedPayloads {
+            XCTAssertThrowsError(
+                try JSONDecoder().decode(
+                    InclusionFeeInfo.self,
+                    from: Data(payload.utf8)
+                ),
+                payload
+            )
+        }
+    }
+
+    func testLocalHistoryUsesFacadeBoundSenderAddress() throws {
+        let senderAddress = "bound-signer-address"
+        let destination = String(repeating: "03", count: 32)
+        let assetId = String(repeating: "04", count: 32)
+        let info = TransferInfo(
+            source: senderAddress,
+            destination: destination,
+            amount: AmountDecimal(value: 1),
+            asset: assetId,
+            details: "",
+            fees: [],
+            context: [
+                TransactionContextKeys.transactionType:
+                    TransactionType.outgoing.rawValue
+            ]
+        )
+
+        let history = try TransactionHistoryItem.createFromTransferInfo(
+            info,
+            transactionHash: Data([0x01]),
+            senderAddress: senderAddress,
+            networkType: 69,
+            addressFactory: SS58AddressFactory()
+        )
+
+        XCTAssertEqual(history.sender, senderAddress)
+    }
+
+    func testPolkamarktClaimsBindEveryAccountAndMarketBeforeSigning()
+        throws
+    {
+        func claim(
+            marketId: UInt32,
+            account: String,
+            payout: BigUInt
+        ) -> PolkamarktClaimable {
+            PolkamarktClaimable(
+                marketId: marketId,
+                account: account,
+                status: "Resolved",
+                resolutionOutcome: "Yes",
+                yesShares: 0,
+                noShares: 0,
+                netCollateralPaid: 0,
+                traderPayout: payout,
+                claimablePayout: payout,
+                creatorFees: 0,
+                isCreator: false
+            )
+        }
+
+        let account = "cnV0aW1lLWFjY291bnQ="
+        let first = claim(marketId: 7, account: account, payout: 10)
+        let second = claim(marketId: 8, account: account, payout: 20)
+
+        XCTAssertEqual(
+            try PolkamarktClaimValidator.validated(
+                first,
+                account: account,
+                marketId: 7
+            ),
+            first
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.validated(
+                first,
+                account: "different-account",
+                marketId: 7
+            )
+        )
+        XCTAssertNoThrow(
+            try PolkamarktClaimValidator.requireTraderPayouts(
+                [first, second],
+                account: account,
+                marketIds: [7, 8]
+            )
+        )
+        XCTAssertEqual(
+            try PolkamarktClaimValidator.reviewedClaims(
+                [second, first],
+                account: account,
+                requestedMarketIds: [7, 8]
+            ),
+            [first, second]
+        )
+        XCTAssertEqual(
+            try PolkamarktClaimValidator.reviewedClaims(
+                [first],
+                account: account,
+                requestedMarketIds: [7, 8]
+            ),
+            [first],
+            "A runtime review may omit a requested market with no position"
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.reviewedClaims(
+                [first, first],
+                account: account,
+                requestedMarketIds: [7, 8]
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.reviewedClaims(
+                [first],
+                account: "different-account",
+                requestedMarketIds: [7, 8]
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.reviewedClaims(
+                [claim(marketId: 9, account: account, payout: 10)],
+                account: account,
+                requestedMarketIds: [7, 8]
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireTraderPayouts(
+                [first],
+                account: account,
+                marketIds: [7, 8]
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireTraderPayouts(
+                [first, first],
+                account: account,
+                marketIds: [7, 7]
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireTraderPayouts(
+                [claim(marketId: 9, account: account, payout: 0)],
+                account: account,
+                marketIds: [9]
+            )
+        )
+        var openClaim = claim(
+            marketId: 10,
+            account: account,
+            payout: 10
+        )
+        openClaim = PolkamarktClaimable(
+            marketId: openClaim.marketId,
+            account: openClaim.account,
+            status: "Open",
+            resolutionOutcome: openClaim.resolutionOutcome,
+            yesShares: openClaim.yesShares,
+            noShares: openClaim.noShares,
+            netCollateralPaid: openClaim.netCollateralPaid,
+            traderPayout: openClaim.traderPayout,
+            claimablePayout: openClaim.claimablePayout,
+            creatorFees: openClaim.creatorFees,
+            isCreator: openClaim.isCreator
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireTraderPayouts(
+                [openClaim],
+                account: account,
+                marketIds: [10]
+            )
+        )
+
+        let creatorClaim = PolkamarktClaimable(
+            marketId: 11,
+            account: account,
+            status: "Resolved",
+            resolutionOutcome: "Yes",
+            yesShares: 0,
+            noShares: 0,
+            netCollateralPaid: 0,
+            traderPayout: 0,
+            claimablePayout: 0,
+            creatorFees: 25,
+            isCreator: true
+        )
+        XCTAssertNoThrow(
+            try PolkamarktClaimValidator.requireCreatorFees(
+                creatorClaim,
+                account: account,
+                marketId: 11
+            )
+        )
+        let openCreatorClaim = PolkamarktClaimable(
+            marketId: creatorClaim.marketId,
+            account: creatorClaim.account,
+            status: "Open",
+            resolutionOutcome: creatorClaim.resolutionOutcome,
+            yesShares: creatorClaim.yesShares,
+            noShares: creatorClaim.noShares,
+            netCollateralPaid: creatorClaim.netCollateralPaid,
+            traderPayout: creatorClaim.traderPayout,
+            claimablePayout: creatorClaim.claimablePayout,
+            creatorFees: creatorClaim.creatorFees,
+            isCreator: creatorClaim.isCreator
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireCreatorFees(
+                openCreatorClaim,
+                account: account,
+                marketId: 11
+            )
+        )
+
+        let reviewedHash = "0x" + String(repeating: "ab", count: 32)
+        let traderAuthorization = try PolkamarktClaimValidator
+            .reviewedTraderAuthorization(
+                claims: [second, first],
+                account: account,
+                source: .reviewedPositions,
+                finalizedBlockHash: reviewedHash
+            )
+        XCTAssertEqual(traderAuthorization.marketIds, [7, 8])
+        XCTAssertEqual(traderAuthorization.claims, [first, second])
+        XCTAssertEqual(traderAuthorization.source, .reviewedPositions)
+        XCTAssertNoThrow(
+            try PolkamarktClaimValidator.requireFreshAuthorization(
+                traderAuthorization,
+                freshClaims: [second, first]
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireFreshAuthorization(
+                traderAuthorization,
+                freshClaims: [
+                    first,
+                    claim(marketId: 8, account: account, payout: 21)
+                ]
+            )
+        ) { error in
+            guard case PolkamarktRuntimeError.staleClaim = error else {
+                return XCTFail("Unexpected stale-claim error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.requireFreshAuthorization(
+                traderAuthorization,
+                freshClaims: [first]
+            )
+        ) { error in
+            guard case PolkamarktRuntimeError.staleClaim = error else {
+                return XCTFail("Unexpected vanished-claim error: \(error)")
+            }
+        }
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.reviewedTraderAuthorization(
+                claims: [first],
+                account: account,
+                source: .selectedDetail,
+                finalizedBlockHash: reviewedHash.uppercased()
+            )
+        )
+        XCTAssertThrowsError(
+            try PolkamarktClaimValidator.reviewedTraderAuthorization(
+                claims: [first],
+                account: account,
+                source: .reviewedPositions,
+                finalizedBlockHash: reviewedHash
+            )
+        )
+        let creatorAuthorization = try PolkamarktClaimValidator
+            .reviewedCreatorAuthorization(
+                claim: creatorClaim,
+                account: account,
+                finalizedBlockHash: reviewedHash
+            )
+        XCTAssertEqual(creatorAuthorization.source, .selectedDetail)
+        XCTAssertNoThrow(
+            try PolkamarktClaimValidator.requireFreshAuthorization(
+                creatorAuthorization,
+                freshClaims: [creatorClaim]
+            )
+        )
+    }
+
+    func testPolkamarktTransactionHashRequiresExactOptionalPrefixAnd32Bytes() {
+        let lower = String(repeating: "ab", count: 32)
+        let upper = lower.uppercased()
+
+        XCTAssertEqual(PolkamarktTransactionHash.normalized(lower), lower)
+        XCTAssertEqual(
+            PolkamarktTransactionHash.normalized("0x\(upper)"),
+            lower
+        )
+        XCTAssertEqual(
+            PolkamarktTransactionHash.normalized("0X\(upper)"),
+            lower
+        )
+        XCTAssertNil(
+            PolkamarktTransactionHash.normalized(
+                "0x\(String(repeating: "a", count: 63))"
+            )
+        )
+        XCTAssertNil(
+            PolkamarktTransactionHash.normalized(
+                "0x\(String(repeating: "a", count: 32))0x" +
+                    String(repeating: "a", count: 32)
+            )
+        )
+        XCTAssertNil(
+            PolkamarktTransactionHash.normalized(
+                String(repeating: "g", count: 64)
+            )
+        )
+        XCTAssertNil(
+            PolkamarktTransactionHash.normalized(
+                String(repeating: "0", count: 64)
+            )
+        )
+        XCTAssertNil(PolkamarktTransactionHash.normalized(" \(lower)"))
+    }
+
+    func testPolkamarktExternalLinksRequireCredentialFreeHTTPS() {
+        XCTAssertEqual(
+            PolkamarktExternalLinkPolicy.validated(
+                URL(string: "https://example.com/market/evidence")
+            ),
+            URL(string: "https://example.com/market/evidence")
+        )
+        XCTAssertNil(
+            PolkamarktExternalLinkPolicy.validated(
+                URL(string: "http://example.com/market/evidence")
+            )
+        )
+        XCTAssertNil(
+            PolkamarktExternalLinkPolicy.validated(
+                URL(string: "sora://wallet/send")
+            )
+        )
+        XCTAssertNil(
+            PolkamarktExternalLinkPolicy.validated(
+                URL(string: "https://user:secret@example.com/evidence")
+            )
+        )
+    }
+
+    func testRetainedNetworkDetailsRejectAChangedSelectedWallet() throws {
+        XCTAssertEqual(MainTabBarAccountRebindPolicy.expectedTabCount, 5)
+        XCTAssertFalse(
+            MainTabBarAccountRebindPolicy
+                .requiresRecoveryAfterRebuildFailure(
+                    boundWalletId: "wallet-a",
+                    selectedWalletId: "wallet-a"
+                )
+        )
+        XCTAssertTrue(
+            MainTabBarAccountRebindPolicy
+                .requiresRecoveryAfterRebuildFailure(
+                    boundWalletId: "wallet-a",
+                    selectedWalletId: "wallet-b"
+                )
+        )
+        XCTAssertTrue(
+            MainTabBarAccountRebindPolicy
+                .requiresRecoveryAfterRebuildFailure(
+                    boundWalletId: "wallet-a",
+                    selectedWalletId: nil
+                )
+        )
+        XCTAssertTrue(
+            MainTabBarAccountRebindPolicy
+                .requiresRecoveryAfterRebuildFailure(
+                    boundWalletId: nil,
+                    selectedWalletId: nil
+                )
+        )
+        XCTAssertTrue(
+            MainTabBarAccountRebindPolicy
+                .requiresRecoveryAfterRebuildFailure(
+                    boundWalletId: "wallet-a",
+                    selectedWalletId: ""
+                )
+        )
+        XCTAssertTrue(
+            MainTabBarAccountRebindPolicy.canPresentAccountBoundRoute(
+                boundWalletId: "wallet-a",
+                selectedWalletId: "wallet-a",
+                routeWalletId: "wallet-a",
+                recoveryActive: false
+            )
+        )
+        XCTAssertFalse(
+            MainTabBarAccountRebindPolicy.canPresentAccountBoundRoute(
+                boundWalletId: "wallet-b",
+                selectedWalletId: "wallet-b",
+                routeWalletId: "wallet-a",
+                recoveryActive: false
+            )
+        )
+        XCTAssertFalse(
+            MainTabBarAccountRebindPolicy.canPresentAccountBoundRoute(
+                boundWalletId: "wallet-a",
+                selectedWalletId: "wallet-a",
+                routeWalletId: "wallet-a",
+                recoveryActive: true
+            )
+        )
+
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.detailMatchesSelectedWallet(
+                walletId: "wallet-a",
+                selectedWalletId: "wallet-a"
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.detailMatchesSelectedWallet(
+                walletId: "wallet-a",
+                selectedWalletId: "wallet-b"
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.detailMatchesSelectedWallet(
+                walletId: "wallet-a",
+                selectedWalletId: nil
+            )
+        )
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.rowsMatchSelectedWallet(
+                walletIds: ["wallet-a", "wallet-a"],
+                selectedWalletId: "wallet-a"
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.rowsMatchSelectedWallet(
+                walletIds: ["wallet-a"],
+                selectedWalletId: "wallet-b"
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.rowsMatchSelectedWallet(
+                walletIds: ["wallet-a"],
+                selectedWalletId: nil
+            )
+        )
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .minamoto,
+                nexusEnabled: true,
+                tairaEnabled: false,
+                tairaAdmitted: false
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .minamoto,
+                nexusEnabled: false,
+                tairaEnabled: true,
+                tairaAdmitted: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .taira,
+                nexusEnabled: true,
+                tairaEnabled: false,
+                tairaAdmitted: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .taira,
+                nexusEnabled: true,
+                tairaEnabled: true,
+                tairaAdmitted: false
+            )
+        )
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .taira,
+                nexusEnabled: true,
+                tairaEnabled: true,
+                tairaAdmitted: true
+            )
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.portfolioSubtitle(
+                tairaAdmitted: false
+            ),
+            "SORA2 · Minamoto"
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.portfolioSubtitle(
+                tairaAdmitted: true
+            ),
+            "SORA2 · Minamoto · Taira Testnet"
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.exposesTairaSettings(
+                tairaAdmitted: false
+            )
+        )
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.exposesTairaSettings(
+                tairaAdmitted: true
+            )
+        )
+        let journalRecoveryAccess =
+            NexusPortfolioPresentationPolicy.networkDetailAccess(
+                networkId: .minamoto,
+                nexusEnabled: true,
+                tairaEnabled: false,
+                tairaAdmitted: false,
+                mutationCoordinatorAvailable: false
+            )
+        XCTAssertTrue(journalRecoveryAccess.readsAvailable)
+        XCTAssertFalse(journalRecoveryAccess.mutationSurfaceAvailable)
+        let qualifiedMutationAccess =
+            NexusPortfolioPresentationPolicy.networkDetailAccess(
+                networkId: .minamoto,
+                nexusEnabled: true,
+                tairaEnabled: false,
+                tairaAdmitted: false,
+                mutationCoordinatorAvailable: true
+            )
+        XCTAssertTrue(qualifiedMutationAccess.readsAvailable)
+        XCTAssertTrue(qualifiedMutationAccess.mutationSurfaceAvailable)
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: true,
+                pendingJournalLoaded: true,
+                containsAssetRecovery: false,
+                currentXorIdentityVerified: true,
+                featureEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: false,
+                pendingJournalLoaded: true,
+                containsAssetRecovery: false,
+                currentXorIdentityVerified: true,
+                featureEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: true,
+                pendingJournalLoaded: false,
+                containsAssetRecovery: false,
+                currentXorIdentityVerified: true,
+                featureEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: true,
+                pendingJournalLoaded: true,
+                containsAssetRecovery: true,
+                currentXorIdentityVerified: true,
+                featureEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: true,
+                pendingJournalLoaded: true,
+                containsAssetRecovery: false,
+                currentXorIdentityVerified: false,
+                featureEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.mutationIsReady(
+                mutationCoordinatorAvailable: true,
+                pendingJournalLoaded: true,
+                containsAssetRecovery: false,
+                currentXorIdentityVerified: true,
+                featureEnabled: false
+            )
+        )
+        func pending(
+            id: String,
+            assetDefinitionID: String?,
+            chainId: UUID? = NexusNetworkConfiguration.minamoto.chainId
+        ) throws -> NexusPendingTransaction {
+            NexusPendingTransaction(
+                id: try XCTUnwrap(UUID(uuidString: id)),
+                idempotencyKey: try XCTUnwrap(
+                    UUID(uuidString: "00000000-0000-0000-0000-000000000010")
+                ),
+                walletId: "wallet-a",
+                networkId: .minamoto,
+                chainId: chainId,
+                sender: "sender",
+                receiver: "receiver",
+                assetDefinitionID: assetDefinitionID,
+                amount: try PIQuantity("1"),
+                fee: try PIQuantity("0.1"),
+                createdAt: Date(timeIntervalSince1970: 1),
+                updatedAt: Date(timeIntervalSince1970: 2),
+                hash: nil,
+                state: .signing,
+                terminalBlockHeight: nil,
+                errorClass: nil,
+                historyReconciledAt: nil
+            )
+        }
+        let currentPending = try pending(
+            id: "00000000-0000-0000-0000-000000000001",
+            assetDefinitionID: Self.nexusXorAssetDefinitionID
+        )
+        let reboundPending = try pending(
+            id: "00000000-0000-0000-0000-000000000002",
+            assetDefinitionID: "61CtjvNd9T3THAR65GsMVHr82Bjc"
+        )
+        let legacyPending = try pending(
+            id: "00000000-0000-0000-0000-000000000003",
+            assetDefinitionID: nil
+        )
+        let unboundChainPending = try pending(
+            id: "00000000-0000-0000-0000-000000000004",
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            chainId: nil
+        )
+        let retiredChainPending = try pending(
+            id: "00000000-0000-0000-0000-000000000005",
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            chainId: UUID(uuidString: "809574f5-fee7-5e69-bfcf-52451e42d50f")
+        )
+        let pendingRows = NexusPortfolioPresentationPolicy.pendingRows(
+            [
+                currentPending,
+                reboundPending,
+                legacyPending,
+                unboundChainPending,
+                retiredChainPending
+            ],
+            currentXorAssetDefinitionID: Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertEqual(pendingRows.map(\.kind), [
+            .currentXor,
+            .assetRecovery,
+            .assetRecovery,
+            .assetRecovery,
+            .assetRecovery
+        ])
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.pendingRows(
+                [currentPending],
+                currentXorAssetDefinitionID: nil
+            ).allSatisfy { $0.kind == .assetRecovery }
+        )
+
+        XCTAssertTrue(
+            PolkamarktPresentationPolicy.canPresentAccountDetail(
+                featureEnabled: true,
+                capturedAccount: "wallet-a",
+                selectedAccount: "wallet-a"
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPresentationPolicy.canPresentAccountDetail(
+                featureEnabled: true,
+                capturedAccount: "wallet-a",
+                selectedAccount: "wallet-b"
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPresentationPolicy.canPresentAccountDetail(
+                featureEnabled: false,
+                capturedAccount: "wallet-a",
+                selectedAccount: "wallet-a"
+            )
+        )
+        XCTAssertTrue(
+            PolkamarktPresentationPolicy.canCommitCatalogAccountState(
+                featureEnabled: true,
+                capturedAccount: "wallet-a",
+                selectedAccount: "wallet-a"
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPresentationPolicy.canCommitCatalogAccountState(
+                featureEnabled: true,
+                capturedAccount: "wallet-a",
+                selectedAccount: "wallet-b"
+            )
+        )
+        XCTAssertTrue(
+            PolkamarktPresentationPolicy.matchesOwnerFilter(
+                creator: "5ExactCaseSensitiveOwner",
+                selectedAccount: "5ExactCaseSensitiveOwner",
+                mineOnly: true
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPresentationPolicy.matchesOwnerFilter(
+                creator: "5exactCaseSensitiveOwner",
+                selectedAccount: "5ExactCaseSensitiveOwner",
+                mineOnly: true
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPresentationPolicy.matchesOwnerFilter(
+                creator: nil,
+                selectedAccount: nil,
+                mineOnly: true
+            )
+        )
+        XCTAssertTrue(
+            PolkamarktPresentationPolicy.matchesOwnerFilter(
+                creator: nil,
+                selectedAccount: nil,
+                mineOnly: false
+            )
+        )
+    }
+
+    func testEventCenterCompletionRunsAfterQueuedObserverThroughProtocol() {
+        let syncQueue = DispatchQueue(
+            label: "wallet-modernization.event-center"
+        )
+        let center: EventCenterProtocol = EventCenter(syncQueue: syncQueue)
+        var deliveryOrder: [String] = []
+        let observer = AccountSelectionDeliveryObserver {
+            deliveryOrder.append("observer")
+        }
+        center.add(observer: observer, dispatchIn: .main)
+        // EventCenter serializes observer registration on this exact queue.
+        syncQueue.sync {}
+
+        let completion = expectation(description: "delivery completion")
+        center.notify(
+            with: SelectedAccountChanged(),
+            completionOnMain: {
+                deliveryOrder.append("completion")
+                completion.fulfill()
+            }
+        )
+
+        wait(for: [completion], timeout: 2)
+        XCTAssertEqual(deliveryOrder, ["observer", "completion"])
+    }
+
+    @MainActor
+    func testAccountDeletionTargetsContainingModalFromRootAndPushedRoutes() {
+        let container = UIViewController()
+        let root = UIViewController()
+        let navigationController = UINavigationController(
+            rootViewController: root
+        )
+        container.add(navigationController)
+        let pushed = UIViewController()
+        navigationController.pushViewController(pushed, animated: false)
+
+        XCTAssertTrue(
+            AccountOptionsDeletionPresentationPolicy
+                .dismissalContainer(for: root) === container
+        )
+        XCTAssertTrue(
+            AccountOptionsDeletionPresentationPolicy
+                .dismissalContainer(for: pushed) === container
+        )
+
+        let standalone = UIViewController()
+        XCTAssertTrue(
+            AccountOptionsDeletionPresentationPolicy
+                .dismissalContainer(for: standalone) === standalone
+        )
+    }
+
+    func testPolkamarktPendingJournalUsesCrashDurableProtectedPublication()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try PolkamarktPendingStore(baseURL: directory)
+        let pending = PolkamarktPendingMutation(
+            id: UUID(),
+            account: "sora-account",
+            action: "buy_yes",
+            marketIds: [1],
+            createdAt: Date(timeIntervalSince1970: 1),
+            updatedAt: Date(timeIntervalSince1970: 1),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+
+        _ = try await store.put(pending)
+        do {
+            try await store.requireMutationAdmission(account: pending.account)
+            XCTFail("An unresolved durable mutation allowed a second submission")
+        } catch {
+            guard case PolkamarktRuntimeError.pendingRecovery = error else {
+                return XCTFail("Unexpected admission error: \(error)")
+            }
+        }
+
+        let admissionGate = PolkamarktMutationAdmissionGate()
+        let admissionToken = try await admissionGate.acquire(
+            account: pending.account
+        )
+        do {
+            _ = try await admissionGate.acquire(account: pending.account)
+            XCTFail("Concurrent mutation admission was not rejected")
+        } catch {
+            guard case PolkamarktRuntimeError.mutationInFlight = error else {
+                return XCTFail("Unexpected in-flight error: \(error)")
+            }
+        }
+        do {
+            _ = try await admissionGate.acquire(account: "other-account")
+            XCTFail("A second account bypassed the app-wide journal gate")
+        } catch {
+            guard case PolkamarktRuntimeError.mutationInFlight = error else {
+                return XCTFail("Unexpected cross-account error: \(error)")
+            }
+        }
+        await admissionGate.release(
+            account: pending.account,
+            token: admissionToken
+        )
+        let reacquiredToken = try await admissionGate.acquire(
+            account: pending.account
+        )
+        await admissionGate.release(
+            account: pending.account,
+            token: reacquiredToken
+        )
+
+        let journalDirectory = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+        let journal = journalDirectory.appendingPathComponent(
+            "polkamarkt-v1.json"
+        )
+        let values = try journal.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        )
+        XCTAssertEqual(values.isRegularFile, true)
+        XCTAssertNotEqual(values.isSymbolicLink, true)
+        XCTAssertFalse(
+            try FileManager.default.contentsOfDirectory(
+                atPath: journalDirectory.path
+            ).contains(where: { $0.hasPrefix(".durable-") })
+        )
+        let reloaded = try await store.all()
+        XCTAssertEqual(reloaded, [pending])
+
+        let sora2Store = try Sora2PendingSubmissionStore(
+            baseURL: directory
+        )
+        let canonicalHash = String(repeating: "56", count: 32)
+        let sora2Witness = try sora2Store.stage(
+            account: pending.account,
+            hash: canonicalHash
+        )
+        try sora2Store.update(
+            sora2Witness,
+            state: .submissionUnknown
+        )
+        var canonicallyFinalized = PolkamarktPendingMutation(
+            id: UUID(),
+            account: pending.account,
+            action: "sell_no",
+            marketIds: [2],
+            createdAt: Date(timeIntervalSince1970: 10),
+            updatedAt: Date(timeIntervalSince1970: 10),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+        canonicallyFinalized = try await store.put(canonicallyFinalized)
+        canonicallyFinalized.extrinsicHash = canonicalHash
+        canonicallyFinalized.state = .signedBeforeTransport
+        canonicallyFinalized.updatedAt = Date(timeIntervalSince1970: 11)
+        canonicallyFinalized = try await store.put(canonicallyFinalized)
+        canonicallyFinalized.state = .submissionUnknown
+        canonicallyFinalized.updatedAt = Date(timeIntervalSince1970: 12)
+        canonicallyFinalized = try await store.put(canonicallyFinalized)
+        canonicallyFinalized.state = .finalized
+        canonicallyFinalized.finalizedBlock = 42
+        canonicallyFinalized.updatedAt = Date(timeIntervalSince1970: 13)
+        canonicallyFinalized = try await store.put(canonicallyFinalized)
+        let terminalSnapshot = try await store.all()
+        XCTAssertEqual(
+            terminalSnapshot.first(where: {
+                $0.id == canonicallyFinalized.id
+            })?.state,
+            .finalized
+        )
+        try await store.acknowledgeDurableCanonicalTerminalWitnesses(
+            account: pending.account
+        )
+        XCTAssertEqual(
+            try sora2Store.all().first(where: {
+                $0.extrinsicHash == canonicalHash
+            })?.state,
+            .submitted
+        )
+
+        // Reproduce the crash window where feature-terminal publication won,
+        // but the retained SORA2 witness was not relaxed before journal
+        // capacity was reached. Capacity pruning must keep that sole proof.
+        let capacityDirectory = directory.appendingPathComponent(
+            "capacity-crash-window",
+            isDirectory: true
+        )
+        let capacityStore = try PolkamarktPendingStore(
+            baseURL: capacityDirectory,
+            journalMutationLimit: 2
+        )
+        let capacitySora2Store = try Sora2PendingSubmissionStore(
+            baseURL: capacityDirectory
+        )
+        let protectedHash = String(repeating: "67", count: 32)
+        let protectedWitness = try capacitySora2Store.stage(
+            account: pending.account,
+            hash: protectedHash,
+            retainingTransportWitness: true
+        )
+        var protectedCrashWindowMutation = PolkamarktPendingMutation(
+            id: UUID(),
+            account: pending.account,
+            action: "buy_no",
+            marketIds: [3],
+            createdAt: Date(timeIntervalSince1970: 20),
+            updatedAt: Date(timeIntervalSince1970: 20),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+        protectedCrashWindowMutation = try await capacityStore.put(
+            protectedCrashWindowMutation
+        )
+        protectedCrashWindowMutation.extrinsicHash = protectedHash
+        protectedCrashWindowMutation.state = .signedBeforeTransport
+        protectedCrashWindowMutation.updatedAt = Date(timeIntervalSince1970: 21)
+        protectedCrashWindowMutation = try await capacityStore.put(
+            protectedCrashWindowMutation
+        )
+        protectedCrashWindowMutation.state = .failedBeforeSubmission
+        protectedCrashWindowMutation.errorClass =
+            "interrupted_before_transport_admission"
+        protectedCrashWindowMutation.updatedAt = Date(timeIntervalSince1970: 22)
+        protectedCrashWindowMutation = try await capacityStore.put(
+            protectedCrashWindowMutation
+        )
+        var safelyPrunableTerminal = PolkamarktPendingMutation(
+            id: UUID(),
+            account: pending.account,
+            action: "claim_trader",
+            marketIds: [4],
+            createdAt: Date(timeIntervalSince1970: 30),
+            updatedAt: Date(timeIntervalSince1970: 30),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+        safelyPrunableTerminal = try await capacityStore.put(
+            safelyPrunableTerminal
+        )
+        safelyPrunableTerminal.state = .failedBeforeSubmission
+        safelyPrunableTerminal.errorClass = "cancelled_before_signing"
+        safelyPrunableTerminal.updatedAt = Date(timeIntervalSince1970: 31)
+        safelyPrunableTerminal = try await capacityStore.put(
+            safelyPrunableTerminal
+        )
+        let replacement = PolkamarktPendingMutation(
+            id: UUID(),
+            account: pending.account,
+            action: "sell_yes",
+            marketIds: [5],
+            createdAt: Date(timeIntervalSince1970: 40),
+            updatedAt: Date(timeIntervalSince1970: 40),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+        _ = try await capacityStore.put(replacement)
+        let capacitySnapshot = try await capacityStore.all()
+        XCTAssertTrue(
+            capacitySnapshot.contains(where: {
+                $0.id == protectedCrashWindowMutation.id
+            }),
+            "A protected companion witness was pruned at journal capacity"
+        )
+        XCTAssertFalse(
+            capacitySnapshot.contains(where: {
+                $0.id == safelyPrunableTerminal.id
+            })
+        )
+        XCTAssertEqual(
+            try capacitySora2Store.all().first(where: {
+                $0.id == protectedWitness.id
+            })?.state,
+            .stagedBeforeTransport
+        )
+        do {
+            _ = try await capacityStore.put(
+                PolkamarktPendingMutation(
+                    id: UUID(),
+                    account: pending.account,
+                    action: "sell_no",
+                    marketIds: [6],
+                    createdAt: Date(timeIntervalSince1970: 50),
+                    updatedAt: Date(timeIntervalSince1970: 50),
+                    extrinsicHash: nil,
+                    state: .preparing,
+                    finalizedBlock: nil,
+                    errorClass: nil
+                )
+            )
+            XCTFail("Capacity admission discarded protected recovery proof")
+        } catch {
+            guard case PolkamarktRuntimeError.unavailable = error else {
+                return XCTFail("Unexpected capacity error: \(error)")
+            }
+        }
+
+        let encoded = try XCTUnwrap(
+            String(data: Data(contentsOf: journal), encoding: .utf8)
+        )
+        XCTAssertTrue(encoded.contains("\"state\":\"preparing\""))
+        try Data(
+            encoded.replacingOccurrences(
+                of: "\"state\":\"preparing\"",
+                with: "\"state\":\"futureTransportPhase\""
+            ).utf8
+        ).write(to: journal, options: .atomic)
+        do {
+            _ = try await store.all()
+            XCTFail("A future Polkamarkt journal phase decoded permissively")
+        } catch {
+            XCTAssertNotNil(error)
+        }
+    }
+
+    func testPolkamarktPendingJournalRejectsSymbolicLink() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try PolkamarktPendingStore(baseURL: directory)
+        let decoy = directory.appendingPathComponent("decoy.json")
+        try Data("[]".utf8).write(to: decoy)
+        let journal = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+            .appendingPathComponent("polkamarkt-v1.json")
+        try FileManager.default.createSymbolicLink(
+            at: journal,
+            withDestinationURL: decoy
+        )
+
+        do {
+            _ = try await store.all()
+            XCTFail("A symlinked Polkamarkt pending journal was accepted")
+        } catch {
+            guard case PolkamarktRuntimeError.unavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPolkamarktReconciliationMergesIntoLatestJournalWithoutRegression()
+        throws
+    {
+        let account = "sora-account"
+        let hash = String(repeating: "ab", count: 32)
+        let createdAt = Date(timeIntervalSince1970: 1)
+        let resolvedAt = Date(timeIntervalSince1970: 3)
+        let captured = PolkamarktPendingMutation(
+            id: UUID(),
+            account: account,
+            action: "buy_yes",
+            marketIds: [1],
+            createdAt: createdAt,
+            updatedAt: Date(timeIntervalSince1970: 2),
+            extrinsicHash: hash,
+            state: .submitted,
+            finalizedBlock: nil,
+            errorClass: "retained-until-resolution"
+        )
+        let concurrentlyAppended = PolkamarktPendingMutation(
+            id: UUID(),
+            account: account,
+            action: "sell_no",
+            marketIds: [2],
+            createdAt: resolvedAt,
+            updatedAt: resolvedAt,
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+
+        let merged = try PolkamarktPendingReconciliationPolicy.applying(
+            [
+                hash: PolkamarktPendingResolution(
+                    finalizedBlock: 42,
+                    succeeded: true
+                )
+            ],
+            to: [captured, concurrentlyAppended],
+            account: account,
+            resolvedAt: resolvedAt
+        )
+
+        XCTAssertEqual(merged.count, 2)
+        XCTAssertEqual(merged[0].state, .finalized)
+        XCTAssertEqual(merged[0].finalizedBlock, 42)
+        XCTAssertEqual(merged[0].updatedAt, resolvedAt)
+        XCTAssertNil(merged[0].errorClass)
+        XCTAssertEqual(merged[1], concurrentlyAppended)
+
+        var alreadyRejected = captured
+        alreadyRejected.state = .rejected
+        alreadyRejected.finalizedBlock = 41
+        alreadyRejected.updatedAt = resolvedAt
+        alreadyRejected.errorClass = nil
+        XCTAssertEqual(
+            try PolkamarktPendingReconciliationPolicy.applying(
+                [
+                    hash: PolkamarktPendingResolution(
+                        finalizedBlock: 42,
+                        succeeded: true
+                    )
+                ],
+                to: [alreadyRejected],
+                account: account,
+                resolvedAt: Date(timeIntervalSince1970: 4)
+            ),
+            [alreadyRejected]
+        )
+        XCTAssertTrue(
+            PolkamarktPendingObservationPolicy.requiresObservation(
+                [captured],
+                account: account
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPendingObservationPolicy.requiresObservation(
+                [alreadyRejected],
+                account: account
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktPendingObservationPolicy.requiresObservation(
+                [captured],
+                account: "different-account"
+            )
+        )
+        XCTAssertEqual(
+            PolkamarktPendingObservationPolicy.delayNanoseconds(
+                afterAttempt: -1
+            ),
+            2_000_000_000
+        )
+        XCTAssertEqual(
+            PolkamarktPendingObservationPolicy.delayNanoseconds(
+                afterAttempt: 0
+            ),
+            2_000_000_000
+        )
+        XCTAssertEqual(
+            PolkamarktPendingObservationPolicy.delayNanoseconds(
+                afterAttempt: 6
+            ),
+            30_000_000_000
+        )
+        XCTAssertEqual(
+            PolkamarktPendingObservationPolicy.delayNanoseconds(
+                afterAttempt: .max
+            ),
+            30_000_000_000
+        )
+
+        var signedBeforeTransport = captured
+        signedBeforeTransport.state = .signedBeforeTransport
+        signedBeforeTransport.updatedAt = createdAt
+        signedBeforeTransport.errorClass = nil
+        func witness(
+            _ state: Sora2PendingSubmissionState,
+            account witnessAccount: String
+        ) -> Sora2PendingSubmission {
+            Sora2PendingSubmission(
+                id: UUID(),
+                account: witnessAccount,
+                extrinsicHash: hash,
+                createdAt: createdAt,
+                updatedAt: createdAt,
+                state: state
+            )
+        }
+        XCTAssertEqual(
+            try PolkamarktPreTransportRecoveryPolicy.decision(
+                for: signedBeforeTransport,
+                sora2Witness: nil
+            ),
+            .failedBeforeSubmission(
+                errorClass: "interrupted_before_transport_staging"
+            )
+        )
+        XCTAssertEqual(
+            try PolkamarktPreTransportRecoveryPolicy.decision(
+                for: signedBeforeTransport,
+                sora2Witness: witness(
+                    .stagedBeforeTransport,
+                    account: account
+                )
+            ),
+            .failedBeforeSubmission(
+                errorClass: "interrupted_before_transport_admission"
+            )
+        )
+        for state in [
+            Sora2PendingSubmissionState.submitting,
+            .submissionUnknown,
+        ] {
+            XCTAssertEqual(
+                try PolkamarktPreTransportRecoveryPolicy.decision(
+                    for: signedBeforeTransport,
+                    sora2Witness: witness(state, account: account)
+                ),
+                .submissionUnknown(
+                    errorClass: "interrupted_after_transport_admission"
+                )
+            )
+        }
+        for state in [
+            Sora2PendingSubmissionState.submittedRetained,
+            .submitted,
+        ] {
+            XCTAssertEqual(
+                try PolkamarktPreTransportRecoveryPolicy.decision(
+                    for: signedBeforeTransport,
+                    sora2Witness: witness(state, account: account)
+                ),
+                .submitted
+            )
+        }
+        XCTAssertThrowsError(
+            try PolkamarktPreTransportRecoveryPolicy.decision(
+                for: signedBeforeTransport,
+                sora2Witness: witness(
+                    .stagedBeforeTransport,
+                    account: "different-account"
+                )
+            )
+        )
+        var legacySubmitting = signedBeforeTransport
+        legacySubmitting.state = .submitting
+        XCTAssertThrowsError(
+            try PolkamarktPreTransportRecoveryPolicy.decision(
+                for: legacySubmitting,
+                sora2Witness: nil
+            )
+        )
+    }
+
+    func testPolkamarktPendingJournalRejectsDuplicateExtrinsicHash() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try PolkamarktPendingStore(baseURL: directory)
+        let hash = String(repeating: "ab", count: 32)
+        func mutation() -> PolkamarktPendingMutation {
+            PolkamarktPendingMutation(
+                id: UUID(),
+                account: "sora-account",
+                action: "buy",
+                marketIds: [1],
+                createdAt: Date(),
+                updatedAt: Date(),
+                extrinsicHash: nil,
+                state: .preparing,
+                finalizedBlock: nil,
+                errorClass: nil
+            )
+        }
+
+        var first: PolkamarktPendingMutation
+        do {
+            first = try await store.put(mutation())
+        } catch {
+            XCTFail("First preparing journal write failed: \(error)")
+            throw error
+        }
+        first.extrinsicHash = hash
+        first.state = .signedBeforeTransport
+        first.updatedAt = Date()
+        do {
+            _ = try await store.put(first)
+        } catch {
+            XCTFail("First submitting journal write failed: \(error)")
+            throw error
+        }
+
+        var duplicate: PolkamarktPendingMutation
+        do {
+            duplicate = try await store.put(mutation())
+        } catch {
+            XCTFail("Duplicate preparing journal write failed: \(error)")
+            throw error
+        }
+        duplicate.extrinsicHash = hash
+        duplicate.state = .signedBeforeTransport
+        duplicate.updatedAt = Date()
+        do {
+            try await store.put(duplicate)
+            XCTFail("Duplicate Polkamarkt extrinsic hash was accepted")
+        } catch {
+            guard
+                case PolkamarktRuntimeError.invalidTransactionHash = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPolkamarktPendingJournalRejectsStateRegression() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try PolkamarktPendingStore(baseURL: directory)
+        var pending = PolkamarktPendingMutation(
+            id: UUID(),
+            account: "sora-account",
+            action: "sell",
+            marketIds: [7],
+            createdAt: Date(),
+            updatedAt: Date(),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+        do {
+            pending = try await store.put(pending)
+        } catch {
+            XCTFail("Regression preparing journal write failed: \(error)")
+            throw error
+        }
+        pending.extrinsicHash = String(repeating: "cd", count: 32)
+        pending.state = .signedBeforeTransport
+        pending.updatedAt = Date()
+        do {
+            pending = try await store.put(pending)
+        } catch {
+            XCTFail("Regression submitting journal write failed: \(error)")
+            throw error
+        }
+        pending.state = .submitted
+        pending.updatedAt = Date()
+        do {
+            pending = try await store.put(pending)
+        } catch {
+            XCTFail("Submitted journal write failed: \(error)")
+            throw error
+        }
+
+        pending.state = .signedBeforeTransport
+        pending.updatedAt = Date()
+        do {
+            _ = try await store.put(pending)
+            XCTFail("A submitted mutation regressed to submitting")
+        } catch {
+            guard case PolkamarktRuntimeError.unavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPolkamarktPendingJournalKeepsTerminalStateAgainstLateCallback()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try PolkamarktPendingStore(baseURL: directory)
+        var pending = PolkamarktPendingMutation(
+            id: UUID(),
+            account: "sora-account",
+            action: "buy_yes",
+            marketIds: [9],
+            createdAt: Date(timeIntervalSince1970: 1),
+            updatedAt: Date(timeIntervalSince1970: 1),
+            extrinsicHash: nil,
+            state: .preparing,
+            finalizedBlock: nil,
+            errorClass: nil
+        )
+        do {
+            pending = try await store.put(pending)
+        } catch {
+            XCTFail("Terminal-race preparing journal write failed: \(error)")
+            throw error
+        }
+        pending.extrinsicHash = String(repeating: "ef", count: 32)
+        pending.state = .signedBeforeTransport
+        pending.updatedAt = Date(timeIntervalSince1970: 2)
+        do {
+            pending = try await store.put(pending)
+        } catch {
+            XCTFail("Terminal-race signed journal write failed: \(error)")
+            throw error
+        }
+        let staleCallback = pending
+
+        pending.state = .submitted
+        pending.updatedAt = Date(timeIntervalSince1970: 3)
+        do {
+            pending = try await store.put(pending)
+        } catch {
+            XCTFail("Terminal-race submitted journal write failed: \(error)")
+            throw error
+        }
+        pending.state = .finalized
+        pending.finalizedBlock = 42
+        pending.updatedAt = Date(timeIntervalSince1970: 4)
+        let finalized: PolkamarktPendingMutation
+        do {
+            finalized = try await store.put(pending)
+        } catch {
+            XCTFail("Authoritative finalized journal write failed: \(error)")
+            throw error
+        }
+
+        var lateSubmitted = staleCallback
+        lateSubmitted.state = .submitted
+        lateSubmitted.updatedAt = Date(timeIntervalSince1970: 5)
+        let retained: PolkamarktPendingMutation
+        do {
+            retained = try await store.put(lateSubmitted)
+        } catch {
+            XCTFail("Late callback journal merge failed: \(error)")
+            throw error
+        }
+
+        XCTAssertEqual(retained, finalized)
+        let reloaded = try await store.all()
+        XCTAssertEqual(reloaded, [finalized])
+    }
+
+    func testPreparedExtrinsicSubmissionIsOneShot() throws {
+        let bytes = Data([0x01, 0x02, 0x03])
+        let prepared = PreparedExtrinsicSubmission(
+            data: bytes,
+            hash: try bytes.blake2b32().toHex(includePrefix: true)
+        )
+
+        let payload = try prepared.consumeForTransport()
+        XCTAssertEqual(
+            try payload.consumeHexForTransport(),
+            bytes.toHex(includePrefix: true)
+        )
+        XCTAssertThrowsError(try prepared.consumeForTransport()) {
+            error in
+            guard
+                case ExtrinsicServiceError
+                    .preparedSubmissionAlreadyConsumed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testCancellableCallRelayClosesPublicationRaceExactlyOnce() {
+        let cancelledBeforePublication = CancellableCallRelay()
+        let lateCall = WalletTestCancellableCall()
+        cancelledBeforePublication.cancel()
+        cancelledBeforePublication.set(lateCall)
+        cancelledBeforePublication.cancel()
+        XCTAssertEqual(lateCall.cancelCount, 1)
+
+        let publishedBeforeCancellation = CancellableCallRelay()
+        let earlyCall = WalletTestCancellableCall()
+        publishedBeforeCancellation.set(earlyCall)
+        publishedBeforeCancellation.cancel()
+        publishedBeforeCancellation.cancel()
+        XCTAssertEqual(earlyCall.cancelCount, 1)
+    }
+
+    func testSora2ProducedSignatureIsVerifiedAgainstStoredPublicKey() throws {
+        let seed = Data((0 ..< 32).map { UInt8($0) })
+        let keypair = try Ed25519KeypairFactory()
+            .createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = keypair.publicKey().rawData()
+        let account = AccountItem(
+            address: try SS58AddressFactory().address(
+                fromAccountId: publicKey,
+                type: Chain.sora.addressType()
+            ),
+            cryptoType: .ed25519,
+            networkType: Chain.sora.addressType(),
+            username: "Signing vector",
+            publicKeyData: publicKey,
+            settings: AccountSettings(
+                visibleAssetIds: [],
+                orderedAssetIds: []
+            ),
+            order: 0,
+            isSelected: true
+        )
+        let payload = Data("signed-payload".utf8)
+        let signature = try Sora2Ed25519SeedSigner.sign(
+            payload,
+            seed: seed
+        )
+
+        XCTAssertNoThrow(
+            try Sora2SignatureVerifier.verify(
+                signature: signature,
+                originalData: payload,
+                secretKey: seed,
+                account: account
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2SignatureVerifier.verify(
+                signature: signature,
+                originalData: Data("tampered".utf8),
+                secretKey: seed,
+                account: account
+            )
+        )
+    }
+
+    func testEd25519SignerMatchesPinnedSora2Rfc8032Vector() throws {
+        // Pinned source: sora2-network 411dcdb70c5c00b21482a44d02334840d5f338c6,
+        // vendor/sp-core/src/ed25519.rs (RFC 8032 empty-message vector).
+        let seed = try Data(
+            hexStringSSF:
+                "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
+        )
+        let expectedPublicKey = try Data(
+            hexStringSSF:
+                "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+        )
+        let expectedSignature = try Data(
+            hexStringSSF:
+                "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"
+        )
+
+        let factory = Ed25519KeypairFactory()
+        let storedSecret = try factory.deriveChildSeedFromParent(
+            seed,
+            chaincodeList: []
+        )
+        let keypair = try factory.createKeypairFromSeed(
+            storedSecret,
+            chaincodeList: []
+        )
+        let firstSignedValue = try DummySigner(
+            cryptoType: .ed25519,
+            seed: storedSecret
+        ).sign(Data())
+        let secondSignedValue = try DummySigner(
+            cryptoType: .ed25519,
+            seed: storedSecret
+        ).sign(Data())
+        let firstSignature = firstSignedValue.rawData()
+        let secondSignature = secondSignedValue.rawData()
+
+        // The persisted SORA2 secret and wallet identity stay byte-for-byte
+        // stable while production signing is deterministic RFC 8032.
+        XCTAssertEqual(storedSecret, seed)
+        XCTAssertEqual(keypair.publicKey().rawData(), expectedPublicKey)
+        XCTAssertEqual(firstSignature, expectedSignature)
+        XCTAssertEqual(secondSignature, firstSignature)
+        XCTAssertTrue(
+            EDSignatureVerifier().verify(
+                firstSignedValue,
+                forOriginalData: Data(),
+                usingPublicKey: keypair.publicKey()
+            )
+        )
+    }
+
+    func testEd25519SeedSignerRejectsShortSeedBeforeExpansion() {
+        XCTAssertThrowsError(
+            try Sora2Ed25519SeedSigner.sign(
+                Data(),
+                seed: Data(repeating: 0x5a, count: 31)
+            )
+        )
+    }
+
+    func testSora2ConfirmedTransportSuccessSurvivesJournalFailure() throws {
+        struct JournalFailure: Swift.Error {}
+        let confirmed: Result<String, Swift.Error> = .success("confirmed-hash")
+
+        let retained = Sora2TransportCompletionPolicy
+            .preservingConfirmedSuccess(confirmed) {
+                throw JournalFailure()
+            }
+
+        XCTAssertEqual(try retained.get(), "confirmed-hash")
+    }
+
+    func testSora2SubmissionUnknownCarriesAndProjectsExactStagedHash()
+        throws
+    {
+        struct TransportTimeout: Swift.Error {}
+        let localHash = String(repeating: "ab", count: 32)
+        let ambiguity = PreparedExtrinsicTransportError.submissionUnknown(
+            localHash: localHash,
+            error: TransportTimeout()
+        )
+
+        XCTAssertEqual(
+            ambiguity.submissionUnknownLocalHash,
+            localHash
+        )
+        let stringResult: Result<String, Swift.Error> = .failure(ambiguity)
+        XCTAssertEqual(
+            try Sora2LegacySubmissionProjection.transactionHash(
+                from: stringResult
+            ),
+            localHash
+        )
+
+        let dataResult: Result<Data, Swift.Error> = .failure(ambiguity)
+        let projectedData = try Sora2LegacySubmissionProjection
+            .transactionHash(from: dataResult)
+        XCTAssertEqual(
+            projectedData,
+            try Data(hexStringSSF: localHash)
+        )
+        let confirmation = Sora2ConfirmSendingResultProjection.make(
+            from: dataResult
+        )
+        XCTAssertEqual(confirmation.status, .pending)
+        XCTAssertEqual(
+            confirmation.transactionHash,
+            "0x" + localHash
+        )
+    }
+
+    func testSora2PostTransportCancellationAndHashMismatchUseStagedHash()
+        throws
+    {
+        let localHash = String(repeating: "bc", count: 32)
+        let failures: [Swift.Error] = [
+            BaseOperationError.parentOperationCancelled,
+            ExtrinsicServiceError.invalidLocalHash,
+        ]
+
+        for failure in failures {
+            let result: Result<String, Swift.Error> = .failure(
+                PreparedExtrinsicTransportError.submissionUnknown(
+                    localHash: "0x" + localHash.uppercased(),
+                    error: failure
+                )
+            )
+            XCTAssertEqual(
+                try Sora2LegacySubmissionProjection.transactionHash(
+                    from: result
+                ),
+                localHash
+            )
+        }
+    }
+
+    func testSora2PendingProjectionRejectsEveryNonAmbiguousFailure() {
+        struct UnrelatedFailure: Swift.Error {}
+        let preTransport = PreparedExtrinsicTransportError
+            .failedBeforeTransport(UnrelatedFailure())
+        let preTransportResult: Result<Data, Swift.Error> =
+            .failure(preTransport)
+        XCTAssertThrowsError(
+            try Sora2LegacySubmissionProjection.transactionHash(
+                from: preTransportResult
+            )
+        )
+        let preTransportConfirmation =
+            Sora2ConfirmSendingResultProjection.make(
+                from: preTransportResult
+            )
+        XCTAssertEqual(preTransportConfirmation.status, .failed)
+        XCTAssertTrue(
+            preTransportConfirmation.transactionHash.isEmpty
+        )
+
+        let unrelatedResult: Result<Data, Swift.Error> =
+            .failure(UnrelatedFailure())
+        XCTAssertThrowsError(
+            try Sora2LegacySubmissionProjection.transactionHash(
+                from: unrelatedResult
+            )
+        )
+        let unrelatedConfirmation =
+            Sora2ConfirmSendingResultProjection.make(
+                from: unrelatedResult
+            )
+        XCTAssertEqual(unrelatedConfirmation.status, .failed)
+        XCTAssertTrue(unrelatedConfirmation.transactionHash.isEmpty)
+    }
+
+    func testSora2PendingProjectionRejectsMalformedAmbiguityHash() {
+        struct TransportTimeout: Swift.Error {}
+        let malformed = PreparedExtrinsicTransportError.submissionUnknown(
+            localHash: "not-a-transaction-hash",
+            error: TransportTimeout()
+        )
+        XCTAssertNil(malformed.submissionUnknownLocalHash)
+
+        let result: Result<Data, Swift.Error> = .failure(malformed)
+        XCTAssertThrowsError(
+            try Sora2LegacySubmissionProjection.transactionHash(
+                from: result
+            )
+        )
+        let confirmation = Sora2ConfirmSendingResultProjection.make(
+            from: result
+        )
+        XCTAssertEqual(confirmation.status, .failed)
+        XCTAssertTrue(confirmation.transactionHash.isEmpty)
+    }
+
+    func testSora2PendingProjectionKeepsConfirmedHashPendingForReconciliation()
+        throws
+    {
+        let localHash = String(repeating: "cd", count: 32)
+        let result: Result<Data, Swift.Error> = .success(
+            try Data(hexStringSSF: localHash)
+        )
+        let confirmation = Sora2ConfirmSendingResultProjection.make(
+            from: result
+        )
+
+        XCTAssertEqual(confirmation.status, .pending)
+        XCTAssertEqual(
+            confirmation.transactionHash,
+            "0x" + localHash
+        )
+    }
+
+    func testSora2PendingSubmissionStoreNeverRegressesTerminalState() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        let pending = try store.stage(
+            account: "sora-account",
+            hash: "0x" + String(repeating: "ef", count: 32)
+        )
+        try store.update(pending, state: .submitted)
+
+        XCTAssertThrowsError(
+            try store.update(
+                pending,
+                state: .submissionUnknown
+            )
+        )
+        XCTAssertEqual(try store.all().first?.state, .submitted)
+        XCTAssertTrue(try XCTUnwrap(store.all().first).isPrunable)
+
+        let retainedHash = "0x" + String(repeating: "ab", count: 32)
+        let retained = try store.stage(
+            account: "sora-account",
+            hash: retainedHash,
+            retainingTransportWitness: true
+        )
+        XCTAssertEqual(retained.state, .stagedBeforeTransport)
+        XCTAssertFalse(retained.isPrunable)
+        XCTAssertThrowsError(
+            try store.update(retained, state: .submittedRetained)
+        )
+        try store.update(retained, state: .submitting)
+        try store.update(retained, state: .submittedRetained)
+        XCTAssertEqual(
+            try store.all().first(where: {
+                $0.extrinsicHash == String(repeating: "ab", count: 32)
+            })?.state,
+            .submittedRetained
+        )
+        try store.acknowledgeRetainedSubmission(
+            account: retained.account,
+            hash: retained.extrinsicHash
+        )
+        XCTAssertEqual(
+            try store.all().first(where: {
+                $0.extrinsicHash == String(repeating: "ab", count: 32)
+            })?.state,
+            .submitted
+        )
+
+        let ambiguous = try store.stage(
+            account: "sora-account",
+            hash: "0x" + String(repeating: "12", count: 32)
+        )
+        try store.update(ambiguous, state: .submissionUnknown)
+        XCTAssertThrowsError(
+            try store.acknowledgeRetainedSubmission(
+                account: ambiguous.account,
+                hash: ambiguous.extrinsicHash
+            )
+        )
+        try store.acknowledgeAuthoritativelyFinalizedSubmissions(
+            account: ambiguous.account,
+            hashes: [ambiguous.extrinsicHash]
+        )
+        XCTAssertEqual(
+            try store.all().first(where: {
+                $0.extrinsicHash == ambiguous.extrinsicHash
+            })?.state,
+            .submitted
+        )
+
+        let unadmitted = try store.stage(
+            account: "sora-account",
+            hash: "0x" + String(repeating: "34", count: 32),
+            retainingTransportWitness: true
+        )
+        XCTAssertThrowsError(
+            try store.acknowledgeAuthoritativelyFinalizedSubmissions(
+                account: unadmitted.account,
+                hashes: [unadmitted.extrinsicHash]
+            )
+        )
+        try store.removeBeforeSubmission(unadmitted)
+
+        let canonicalGenesis = try XCTUnwrap(
+            Sora2PendingSubmissionStore.normalizedHash(
+                PIIndexerClient.soraMainnetGenesis
+            )
+        )
+        let accountId = String(repeating: "56", count: 32)
+        let eraBirthHash = String(repeating: "78", count: 32)
+        func recoveryContext(
+            hash: String,
+            schemaVersion: Int =
+                Sora2SubmissionRecoveryContext.currentSchemaVersion
+        ) -> Sora2SubmissionRecoveryContext {
+            Sora2SubmissionRecoveryContext(
+                schemaVersion: schemaVersion,
+                walletId: "sora-account",
+                accountId: accountId,
+                publicKey: accountId,
+                transactionHash: hash,
+                genesisHash: canonicalGenesis,
+                specVersion: PolkamarktRuntimeContract.specVersion,
+                transactionVersion:
+                    PolkamarktRuntimeContract.transactionVersion,
+                metadataSHA256:
+                    PolkamarktRuntimeContract.metadataFileSHA256,
+                eraBirthBlock: 128,
+                eraDeathBlockExclusive: 192,
+                eraPeriod: 64,
+                eraPhase: 0,
+                eraBirthBlockHash: eraBirthHash
+            )
+        }
+
+        let finalizedHash = String(repeating: "9a", count: 32)
+        let finalizedContext = recoveryContext(hash: finalizedHash)
+        let genericAmbiguous = try store.stage(
+            account: "sora-account",
+            hash: finalizedHash,
+            recoveryContext: finalizedContext
+        )
+        try store.update(genericAmbiguous, state: .submissionUnknown)
+        XCTAssertThrowsError(
+            try store.resolveAuthoritatively(
+                genericAmbiguous,
+                proof: .mortalEraAbsence(
+                    scannedBirthBlock: 128,
+                    scannedDeathBlockExclusive: 192,
+                    finalizedHeight: 191
+                )
+            )
+        )
+        XCTAssertEqual(
+            try store.all().first(where: {
+                $0.id == genericAmbiguous.id
+            })?.state,
+            .submissionUnknown
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(
+                store.all().first(where: {
+                    $0.id == genericAmbiguous.id
+                })
+            ).isPrunable
+        )
+        try store.resolveAuthoritatively(
+            genericAmbiguous,
+            proof: .finalizedInclusion(
+                blockNumber: 130,
+                blockHash: String(repeating: "bc", count: 32),
+                succeeded: false,
+                finalizedHeight: 192
+            )
+        )
+        let finalizedResolution = try XCTUnwrap(
+            try store.all().first(where: {
+                $0.id == genericAmbiguous.id
+            })
+        )
+        XCTAssertTrue(finalizedResolution.isPrunable)
+        XCTAssertEqual(
+            finalizedResolution.terminalResolution?.kind,
+            .finalizedFailure
+        )
+
+        let confirmedHash = String(repeating: "ce", count: 32)
+        let confirmed = try store.stage(
+            account: "sora-account",
+            hash: confirmedHash,
+            recoveryContext: recoveryContext(hash: confirmedHash)
+        )
+        try store.update(confirmed, state: .submitted)
+        let unresolvedConfirmed = try XCTUnwrap(
+            store.all().first(where: { $0.id == confirmed.id })
+        )
+        XCTAssertFalse(unresolvedConfirmed.isPrunable)
+        try store.resolveAuthoritatively(
+            unresolvedConfirmed,
+            proof: .finalizedInclusion(
+                blockNumber: 131,
+                blockHash: String(repeating: "cf", count: 32),
+                succeeded: true,
+                finalizedHeight: 192
+            )
+        )
+        let resolvedConfirmed = try XCTUnwrap(
+            store.all().first(where: { $0.id == confirmed.id })
+        )
+        XCTAssertTrue(resolvedConfirmed.isPrunable)
+        XCTAssertEqual(
+            resolvedConfirmed.terminalResolution?.kind,
+            .finalizedSuccess
+        )
+
+        let expiredHash = String(repeating: "de", count: 32)
+        let expired = try store.stage(
+            account: "sora-account",
+            hash: expiredHash,
+            recoveryContext: recoveryContext(hash: expiredHash)
+        )
+        try store.update(expired, state: .submissionUnknown)
+        try store.resolveAuthoritatively(
+            expired,
+            proof: .mortalEraAbsence(
+                scannedBirthBlock: 128,
+                scannedDeathBlockExclusive: 192,
+                finalizedHeight: 192
+            )
+        )
+        XCTAssertEqual(
+            try store.all().first(where: { $0.id == expired.id })?
+                .terminalResolution?.kind,
+            .expiredNotIncluded
+        )
+
+        let corruptVersionHash = String(repeating: "f0", count: 32)
+        XCTAssertThrowsError(
+            try store.stage(
+                account: "sora-account",
+                hash: corruptVersionHash,
+                recoveryContext: recoveryContext(
+                    hash: corruptVersionHash,
+                    schemaVersion: 2
+                )
+            )
+        )
+    }
+
+    func testSora2PendingSubmissionStoreRetainsExactAmbiguousHash() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        let localHash = String(repeating: "ef", count: 32)
+        let pending = try store.stage(
+            account: "sora-account",
+            hash: "0x" + localHash.uppercased()
+        )
+
+        try store.update(pending, state: .submissionUnknown)
+
+        let retained = try XCTUnwrap(store.all().first)
+        XCTAssertEqual(retained.extrinsicHash, localHash)
+        XCTAssertEqual(retained.state, .submissionUnknown)
+        XCTAssertEqual(retained.purpose, .generic)
+
+        let migration = try store.stage(
+            account: "sora-account",
+            hash: String(repeating: "cd", count: 32),
+            purpose: .legacyMigration
+        )
+        XCTAssertEqual(
+            try store.all().first(where: { $0.id == migration.id })?
+                .purpose,
+            .legacyMigration
+        )
+
+        var legacyObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(retained)
+            ) as? [String: Any]
+        )
+        legacyObject.removeValue(forKey: "purpose")
+        let legacyEntry = try JSONDecoder().decode(
+            Sora2PendingSubmission.self,
+            from: JSONSerialization.data(withJSONObject: legacyObject)
+        )
+        XCTAssertNil(legacyEntry.purpose)
+
+        var recoveryResult: String?
+        let recovery = MigrationFinalityRecoveryHandle(
+            accountAddress: "sora-account",
+            transactionHash: localHash,
+            completion: { result in
+                if case let .success(value) = result {
+                    recoveryResult = value
+                }
+            }
+        )
+        XCTAssertTrue(
+            recovery.matches(
+                accountAddress: "sora-account",
+                transactionHash: localHash
+            )
+        )
+        XCTAssertFalse(
+            recovery.matches(
+                accountAddress: "another-account",
+                transactionHash: localHash
+            )
+        )
+        XCTAssertFalse(recovery.attach { _ in
+            XCTFail("A second claim observer must not replace the first")
+        })
+        let attachedCompletion = try XCTUnwrap(recovery.finish())
+        attachedCompletion(.success("finalized"))
+        XCTAssertEqual(recoveryResult, "finalized")
+        XCTAssertNil(recovery.finish())
+        XCTAssertFalse(recovery.attach { _ in
+            XCTFail("A completed recovery must stay terminal")
+        })
+
+        let eligibility = MigrationEligibilityCheckGate()
+        let firstEligibility = try XCTUnwrap(
+            eligibility.begin(accountAddress: "sora-account")
+        )
+        XCTAssertFalse(
+            eligibility.validateSigningAuthorization(
+                token: firstEligibility,
+                accountAddress: "sora-account"
+            )
+        )
+        XCTAssertTrue(
+            eligibility.authorizeForSigning(
+                token: firstEligibility,
+                accountAddress: "sora-account"
+            )
+        )
+        XCTAssertFalse(
+            eligibility.authorizeForSigning(
+                token: firstEligibility,
+                accountAddress: "sora-account"
+            ),
+            "One eligibility response may authorize signing only once"
+        )
+        XCTAssertTrue(
+            eligibility.validateSigningAuthorization(
+                token: firstEligibility,
+                accountAddress: "sora-account"
+            )
+        )
+        XCTAssertNil(
+            eligibility.begin(accountAddress: "sora-account")
+        )
+        let replacementEligibility = try XCTUnwrap(
+            eligibility.begin(accountAddress: "another-account")
+        )
+        XCTAssertFalse(
+            eligibility.consume(
+                token: firstEligibility,
+                accountAddress: "sora-account"
+            )
+        )
+        XCTAssertFalse(
+            eligibility.validateSigningAuthorization(
+                token: firstEligibility,
+                accountAddress: "sora-account"
+            )
+        )
+        XCTAssertTrue(
+            eligibility.consumeAwaitingEligibility(
+                token: replacementEligibility,
+                accountAddress: "another-account"
+            )
+        )
+        let invalidatedEligibility = try XCTUnwrap(
+            eligibility.begin(accountAddress: "sora-account")
+        )
+        eligibility.invalidate()
+        XCTAssertFalse(
+            eligibility.consume(
+                token: invalidatedEligibility,
+                accountAddress: "sora-account"
+            )
+        )
+
+        let migrationSettings = InMemorySettingsManager()
+        migrationSettings.hasMigrated = true
+        XCTAssertFalse(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "sora-account",
+                settings: migrationSettings
+            ),
+            "The legacy global flag is not account-level authority"
+        )
+        try MigrationAccountCompletionStore.record(
+            accountAddress: "sora-account",
+            settings: migrationSettings
+        )
+        XCTAssertTrue(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "sora-account",
+                settings: migrationSettings
+            )
+        )
+        XCTAssertFalse(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "another-account",
+                settings: migrationSettings
+            )
+        )
+        try MigrationAccountCompletionStore.record(
+            accountAddress: "another-account",
+            settings: migrationSettings
+        )
+        XCTAssertTrue(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "another-account",
+                settings: migrationSettings
+            )
+        )
+        try MigrationAccountCompletionStore.remove(
+            accountAddress: "sora-account",
+            settings: migrationSettings
+        )
+        XCTAssertFalse(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "sora-account",
+                settings: migrationSettings
+            )
+        )
+        XCTAssertTrue(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "another-account",
+                settings: migrationSettings
+            )
+        )
+        try MigrationAccountCompletionStore.remove(
+            accountAddress: "another-account",
+            settings: migrationSettings
+        )
+        XCTAssertNil(
+            migrationSettings.anyValue(
+                for: SettingsKey.migratedAccountsV1.rawValue
+            )
+        )
+        XCTAssertThrowsError(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: " sora-account",
+                settings: migrationSettings
+            )
+        )
+        migrationSettings.set(
+            value: Data("{\"schemaVersion\":2}".utf8),
+            for: SettingsKey.migratedAccountsV1.rawValue
+        )
+        XCTAssertThrowsError(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "sora-account",
+                settings: migrationSettings
+            )
+        )
+        migrationSettings.set(
+            value: Data(repeating: 0x20, count: 300 * 1_024 + 1),
+            for: SettingsKey.migratedAccountsV1.rawValue
+        )
+        XCTAssertThrowsError(
+            try MigrationAccountCompletionStore.contains(
+                accountAddress: "sora-account",
+                settings: migrationSettings
+            )
+        )
+    }
+
+    func testSora2PendingSubmissionStorePreservesDuplicateHashForReconciliation()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        let hash = "0x" + String(repeating: "ab", count: 32)
+        let original = try store.stage(
+            account: "sora-account",
+            hash: hash
+        )
+
+        XCTAssertThrowsError(
+            try store.stage(account: "sora-account", hash: hash)
+        ) { error in
+            guard
+                case ExtrinsicServiceError
+                    .duplicatePreparedSubmission = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let retainedValues = try store.all()
+        let retained = try XCTUnwrap(retainedValues.first)
+        XCTAssertEqual(retainedValues.count, 1)
+        XCTAssertEqual(retained.id, original.id)
+        XCTAssertEqual(retained.account, original.account)
+        XCTAssertEqual(retained.extrinsicHash, original.extrinsicHash)
+        XCTAssertEqual(retained.state, .submitting)
+    }
+
+    func testSora2PendingJournalRejectsSymbolicLink() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try Sora2PendingSubmissionStore(baseURL: directory)
+        let decoy = directory.appendingPathComponent("decoy.json")
+        try Data("[]".utf8).write(to: decoy)
+        let journal = directory
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+            .appendingPathComponent("sora2-signed-v1.json")
+        try FileManager.default.createSymbolicLink(
+            at: journal,
+            withDestinationURL: decoy
+        )
+
+        XCTAssertThrowsError(try store.all())
+        XCTAssertEqual(try Data(contentsOf: decoy), Data("[]".utf8))
+
+        let corruptBase = directory.appendingPathComponent(
+            "corrupt-context",
+            isDirectory: true
+        )
+        let corruptContextStore = try Sora2PendingSubmissionStore(
+            baseURL: corruptBase
+        )
+        let hash = String(repeating: "45", count: 32)
+        let corruptContext = Sora2SubmissionRecoveryContext(
+            schemaVersion: 2,
+            walletId: "sora-account",
+            accountId: String(repeating: "67", count: 32),
+            publicKey: String(repeating: "67", count: 32),
+            transactionHash: hash,
+            genesisHash: try XCTUnwrap(
+                Sora2PendingSubmissionStore.normalizedHash(
+                    PIIndexerClient.soraMainnetGenesis
+                )
+            ),
+            specVersion: PolkamarktRuntimeContract.specVersion,
+            transactionVersion:
+                PolkamarktRuntimeContract.transactionVersion,
+            metadataSHA256: PolkamarktRuntimeContract.metadataFileSHA256,
+            eraBirthBlock: 128,
+            eraDeathBlockExclusive: 192,
+            eraPeriod: 64,
+            eraPhase: 0,
+            eraBirthBlockHash: String(repeating: "89", count: 32)
+        )
+        let corruptEntry = Sora2PendingSubmission(
+            id: UUID(),
+            account: "sora-account",
+            extrinsicHash: hash,
+            createdAt: Date(timeIntervalSince1970: 1),
+            updatedAt: Date(timeIntervalSince1970: 2),
+            state: .submissionUnknown,
+            recoveryContext: corruptContext
+        )
+        let corruptEncoder = JSONEncoder()
+        corruptEncoder.dateEncodingStrategy = .iso8601
+        let corruptJournal = corruptBase
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent(
+                "PendingTransactions",
+                isDirectory: true
+            )
+            .appendingPathComponent("sora2-signed-v1.json")
+        try corruptEncoder.encode([corruptEntry]).write(
+            to: corruptJournal,
+            options: .atomic
+        )
+        XCTAssertThrowsError(try corruptContextStore.all())
+    }
+
+    func testPendingHistoryRequiresExactRemoteHashBeforeRemoval() throws {
+        let pendingHash = "0x" + String(repeating: "11", count: 32)
+        let pending = TransactionHistoryItem(
+            sender: "sender",
+            receiver: "receiver",
+            status: .pending,
+            txHash: pendingHash,
+            timestamp: 1,
+            fee: "1",
+            blockNumber: nil,
+            txIndex: nil,
+            callPath: .transfer,
+            call: Data()
+        )
+
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.identifiersToRemove(
+                remoteHashes: [
+                    try Data(
+                        hexStringSSF:
+                            "0x" + String(repeating: "22", count: 32)
+                    )
+                ],
+                oldestRemoteTimestamp: 10,
+                localItems: [pending]
+            ).isEmpty
+        )
+        XCTAssertEqual(
+            TransactionHistoryMergeManager.identifiersToRemove(
+                remoteHashes: [try Data(hexStringSSF: pendingHash)],
+                oldestRemoteTimestamp: 10,
+                localItems: [pending]
+            ),
+            [pendingHash]
+        )
+
+        let journalHash = String(repeating: "33", count: 32)
+        let journal = Sora2PendingSubmission(
+            id: UUID(),
+            account: "sender",
+            extrinsicHash: journalHash,
+            createdAt: Date(timeIntervalSince1970: 2),
+            updatedAt: Date(timeIntervalSince1970: 3),
+            state: .submissionUnknown
+        )
+        let journalTime = Date(timeIntervalSince1970: 100)
+        let journalOverlay = TransactionHistoryMergeManager
+            .pendingJournalOverlay(
+                address: "sender",
+                submissions: [journal, journal],
+                visibleLocalItems: [],
+                remoteHashes: [],
+                now: journalTime
+            )
+        XCTAssertEqual(journalOverlay.count, 1)
+        XCTAssertEqual(journalOverlay.first?.txHash, "0x\(journalHash)")
+        XCTAssertEqual(journalOverlay.first?.status, .pending)
+        XCTAssertEqual(journalOverlay.first?.callPath.moduleName, "SORA2")
+        XCTAssertEqual(
+            journalOverlay.first?.callPath.callName,
+            "pending_submission"
+        )
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.pendingJournalOverlay(
+                address: "sender",
+                submissions: [journal],
+                visibleLocalItems: [pending],
+                remoteHashes: [try Data(hexStringSSF: journalHash)]
+            ).isEmpty
+        )
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.pendingJournalOverlay(
+                address: "another-account",
+                submissions: [journal],
+                visibleLocalItems: [],
+                remoteHashes: [],
+                now: journalTime
+            ).isEmpty
+        )
+        // An entry nobody could resolve for more than a week no longer
+        // claims to be pending.
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.pendingJournalOverlay(
+                address: "sender",
+                submissions: [journal],
+                visibleLocalItems: [],
+                remoteHashes: [],
+                now: Date(timeIntervalSince1970: 2 + 8 * 24 * 3_600)
+            ).isEmpty
+        )
+    }
+
+    func testNexusToriiHealthNegotiatesPlainTextWhileAPIRoutesRemainJSON()
+        throws
+    {
+        let base = try XCTUnwrap(
+            URL(string: "https://taira.sora.org")
+        )
+        XCTAssertEqual(
+            NexusToriiClient.responseAcceptHeader(
+                for: base.appendingPathComponent("health")
+            ),
+            "text/plain"
+        )
+        XCTAssertEqual(
+            NexusToriiClient.responseAcceptHeader(
+                for: base.appendingPathComponent("v1/accounts")
+            ),
+            "application/json"
+        )
+        let healthURL = base.appendingPathComponent("health")
+        let accountURL = base.appendingPathComponent("v1/accounts")
+        let mcpURL = base.appendingPathComponent("v1/mcp")
+        let submissionURL = base.appendingPathComponent(
+            "v1/pipeline/transactions"
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.requestContentType(
+                method: "GET",
+                for: healthURL
+            )
+        )
+        XCTAssertEqual(
+            try NexusToriiClient.requestContentType(
+                method: "POST",
+                for: mcpURL
+            ),
+            "application/json"
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.requestContentType(
+                method: "POST",
+                for: submissionURL
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.requestContentType(
+                method: "GET",
+                for: submissionURL
+            )
+        )
+        let minamotoBase = try XCTUnwrap(
+            URL(string: "https://minamoto.sora.org")
+        )
+        XCTAssertNil(
+            try NexusToriiClient.requestContentType(
+                method: "GET",
+                for: minamotoBase.appendingPathComponent("health")
+            )
+        )
+        XCTAssertEqual(
+            try NexusToriiClient.requestContentType(
+                method: "POST",
+                for: minamotoBase.appendingPathComponent(
+                    "v1/pipeline/transactions"
+                )
+            ),
+            "application/x-norito"
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.requestContentType(
+                method: "POST",
+                for: healthURL
+            )
+        )
+        XCTAssertTrue(
+            NexusToriiClient.isExpectedResponseContentType(
+                "text/plain; charset=UTF-8",
+                for: healthURL
+            )
+        )
+        XCTAssertFalse(
+            NexusToriiClient.isExpectedResponseContentType(
+                "application/json",
+                for: healthURL
+            )
+        )
+        XCTAssertTrue(
+            NexusToriiClient.isExpectedResponseContentType(
+                "application/json",
+                for: accountURL
+            )
+        )
+        let invalidContentTypes: [String?] = [
+            nil,
+            "text/plain",
+            "application/json, text/plain",
+            "application/json; profile=unexpected",
+            " application/json"
+        ]
+        for invalid in invalidContentTypes {
+            XCTAssertFalse(
+                NexusToriiClient.isExpectedResponseContentType(
+                    invalid,
+                    for: accountURL
+                )
+            )
+        }
+        XCTAssertThrowsError(
+            try NexusToriiClient.xorAssetDefinitionURL(
+                configuration: try Self.admittedTairaConfiguration()
+            )
+        )
+        let xorDefinitionURL = try NexusToriiClient.xorAssetDefinitionURL(
+            configuration: .minamoto
+        )
+        XCTAssertEqual(
+            xorDefinitionURL.absoluteString,
+            "https://minamoto.sora.org/v1/assets/definitions/xor%23universal"
+        )
+        XCTAssertNil(URLComponents(
+            url: xorDefinitionURL,
+            resolvingAgainstBaseURL: false
+        )?.fragment)
+        let minamotoAccount =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let accountTransactionsURL = try NexusToriiClient.accountTransactionsURL(
+            account: minamotoAccount,
+            configuration: .minamoto,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            limit: 25,
+            offset: 50
+        )
+        let accountTransactionsComponents = try XCTUnwrap(
+            URLComponents(
+                url: accountTransactionsURL,
+                resolvingAgainstBaseURL: false
+            )
+        )
+        XCTAssertTrue(
+            accountTransactionsComponents.path.hasSuffix("/transactions")
+        )
+        XCTAssertEqual(
+            Dictionary(
+                uniqueKeysWithValues:
+                    (accountTransactionsComponents.queryItems ?? []).map {
+                        ($0.name, $0.value)
+                    }
+            ),
+            [
+                "limit": "25",
+                "offset": "50",
+                "asset_id": Self.nexusXorAssetDefinitionID,
+                "count_mode": "exact",
+            ]
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.accountTransactionsURL(
+                account: minamotoAccount,
+                configuration: .minamoto,
+                assetDefinitionID: NexusAssetDefinitionIdentity.xorAlias
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.accountTransactionsURL(
+                account: minamotoAccount,
+                configuration: try Self.admittedTairaConfiguration(),
+                assetDefinitionID:
+                    NexusAssetDefinitionIdentity.tairaXorDefinitionID
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateHealthPayload(Data("Healthy".utf8))
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateHealthPayload(Data("Healthy\n".utf8))
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateHealthPayload(Data("healthy".utf8))
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateResponseLength(-1, maximumBytes: 2)
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateResponseLength(2, maximumBytes: 2)
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateResponseLength(3, maximumBytes: 2)
+        )
+        var boundedResponse = Data()
+        try NexusToriiClient.appendResponseByte(
+            0x01,
+            to: &boundedResponse,
+            maximumBytes: 2
+        )
+        try NexusToriiClient.appendResponseByte(
+            0x02,
+            to: &boundedResponse,
+            maximumBytes: 2
+        )
+        XCTAssertEqual(boundedResponse, Data([0x01, 0x02]))
+        XCTAssertThrowsError(
+            try NexusToriiClient.appendResponseByte(
+                0x03,
+                to: &boundedResponse,
+                maximumBytes: 2
+            )
+        )
+    }
+
+    func testNexusMCPAccountHistoryContractNegotiatesExactToolSchema() throws {
+        let toolset = String(repeating: "a", count: 64)
+        func initializeResult(
+            protocolVersion: String = "2025-06-18"
+        ) -> NexusJSONValue {
+            .object([
+                "protocolVersion": .string(protocolVersion),
+                "serverInfo": .object([
+                    "name": .string("iroha-torii-mcp"),
+                    "version": .string("1.0.0")
+                ]),
+                "capabilities": .object([
+                    "tools": .object([
+                        "count": .number("152"),
+                        "listChanged": .bool(false),
+                        "toolsetVersion": .string(toolset)
+                    ])
+                ])
+            ])
+        }
+        let initialize = initializeResult()
+        XCTAssertEqual(
+            try NexusMCPAccountHistoryContract.toolsetSnapshot(
+                initialize: initialize
+            ),
+            .init(version: toolset, count: 152)
+        )
+        XCTAssertThrowsError(
+            try NexusMCPAccountHistoryContract.toolsetSnapshot(
+                initialize: initializeResult(
+                    protocolVersion: "2025-06-18 "
+                )
+            )
+        )
+
+        func scalar(_ type: String) -> NexusJSONValue {
+            .object(["type": .string(type)])
+        }
+        let closedObject: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false)
+        ])
+        let path: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(["account_id": scalar("string")]),
+            "required": .array([.string("account_id")])
+        ])
+        var inputProperties: [String: NexusJSONValue] = [
+            "accept": scalar("string"),
+            "account_id": .object([
+                "description": .string("Convenience shortcut for path.account_id"),
+                "type": .string("string")
+            ]),
+            "asset_id": scalar("string"),
+            "headers": closedObject,
+            "limit": scalar("integer"),
+            "offset": scalar("integer"),
+            "path": path,
+            "query": closedObject
+        ]
+        let input: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(inputProperties)
+        ])
+        let output: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(true),
+            "description": .string("structured route output"),
+            "properties": .object([
+                "body": .object([:]),
+                "content_type": .object([
+                    "oneOf": .array([
+                        scalar("string"),
+                        scalar("null")
+                    ])
+                ]),
+                "headers": .object([
+                    "type": .string("object"),
+                    "additionalProperties": scalar("string")
+                ]),
+                "status": .object([
+                    "type": .string("integer"),
+                    "minimum": .number("100"),
+                    "maximum": .number("599")
+                ])
+            ])
+        ])
+        func listing(inputSchema: NexusJSONValue) -> NexusJSONValue {
+            .object([
+                "listChanged": .bool(false),
+                "nextCursor": .null,
+                "tools": .array([.object([
+                    "name": .string("iroha.accounts.history"),
+                    "description": .string("Indexed account activity"),
+                    "inputSchema": inputSchema,
+                    "outputSchema": output
+                ])])
+            ])
+        }
+        XCTAssertEqual(
+            try NexusMCPAccountHistoryContract.validateToolList(
+                listing(inputSchema: input)
+            ),
+            1
+        )
+        inputProperties.removeValue(forKey: "asset_id")
+        XCTAssertThrowsError(
+            try NexusMCPAccountHistoryContract.validateToolList(
+                listing(inputSchema: .object([
+                    "type": .string("object"),
+                    "additionalProperties": .bool(false),
+                    "properties": .object(inputProperties)
+                ]))
+            )
+        ) { error in
+            guard case NexusToriiError.mcpContractMismatch = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        var widenedHeaders = inputProperties
+        widenedHeaders["asset_id"] = scalar("string")
+        widenedHeaders["headers"] = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(["legacy": scalar("string")])
+        ])
+        XCTAssertThrowsError(
+            try NexusMCPAccountHistoryContract.validateToolList(
+                listing(inputSchema: .object([
+                    "type": .string("object"),
+                    "additionalProperties": .bool(false),
+                    "properties": .object(widenedHeaders)
+                ]))
+            )
+        )
+        try verifyCurrentTairaMCPDiscoveryContract()
+    }
+
+    private func verifyCurrentTairaMCPDiscoveryContract() throws {
+        let toolset = String(repeating: "c", count: 64)
+        let initialize: NexusJSONValue = .object([
+            "protocolVersion": .string("2025-06-18"),
+            "capabilities": .object([
+                "tools": .object([
+                    "toolsetVersion": .string(toolset),
+                    "futureCapability": .bool(true),
+                ]),
+            ]),
+            "serverInfo": .object([
+                "name": .string("iroha-torii-mcp"),
+                "version": .string("next"),
+            ]),
+            "futureTopLevel": .bool(true),
+        ])
+        XCTAssertEqual(
+            try NexusTairaMCPToolContract.toolsetVersion(
+                initialize: initialize
+            ),
+            toolset
+        )
+
+        func scalar(_ type: String) -> NexusJSONValue {
+            .object(["type": .string(type)])
+        }
+        func submissionSchema(
+            includesTimeout: Bool = true
+        ) -> NexusJSONValue {
+            var properties: [String: NexusJSONValue] = [
+                "body_base64": scalar("string"),
+                "hash": scalar("string"),
+                "status_accept": scalar("string"),
+                "terminal_statuses": .object([
+                    "type": .string("array"),
+                    "items": scalar("string"),
+                ]),
+                "future_optional_field": scalar("string"),
+            ]
+            if includesTimeout {
+                properties["timeout_ms"] = scalar("integer")
+            }
+            return .object([
+                "type": .string("object"),
+                "additionalProperties": .bool(false),
+                "required": .array([.string("body_base64")]),
+                "properties": .object(properties),
+            ])
+        }
+        func listing(schema: NexusJSONValue) -> NexusJSONValue {
+            .object([
+                "tools": .array([
+                    .object([
+                        "name": .string("iroha.future.read"),
+                        "description": .string("Unrelated additive tool"),
+                        "inputSchema": .object([
+                            "type": .string("object"),
+                            "properties": .object([:]),
+                        ]),
+                        "outputSchema": .object([
+                            "type": .string("object"),
+                        ]),
+                    ]),
+                    .object([
+                        "name": .string(
+                            "iroha.transactions.submit_and_wait"
+                        ),
+                        "description": .string("Current submission"),
+                        "inputSchema": schema,
+                        "outputSchema": .object([
+                            "type": .string("object"),
+                            "futureOutput": .bool(true),
+                        ]),
+                        "futureDescriptor": .bool(true),
+                    ]),
+                ]),
+                "nextCursor": .string("64"),
+                "listChanged": .bool(false),
+                "toolsetVersion": .string(toolset),
+                "futurePageField": .bool(true),
+            ])
+        }
+        let page = try NexusTairaMCPToolContract.validateToolPage(
+            listing(schema: submissionSchema()),
+            tools: [.submitAndWait],
+            expectedToolsetVersion: toolset
+        )
+        XCTAssertEqual(page.matched, [.submitAndWait])
+        XCTAssertEqual(page.nextCursor, "64")
+        XCTAssertTrue(page.advertisedNames.contains("iroha.future.read"))
+        XCTAssertThrowsError(
+            try NexusTairaMCPToolContract.validateToolPage(
+                listing(schema: submissionSchema(includesTimeout: false)),
+                tools: [.submitAndWait],
+                expectedToolsetVersion: toolset
+            )
+        )
+        let discovery = try NexusTairaMCPToolContract.discoveryRequest(
+            id: "tools-page-2",
+            toolsetVersion: toolset,
+            cursor: "64"
+        )
+        XCTAssertEqual(
+            discovery.params,
+            .object([
+                "toolset_version": .string(toolset),
+                "cursor": .string("64"),
+            ])
+        )
+
+        func routeSchema(
+            _ properties: [String: NexusJSONValue],
+            additionalProperties: Bool
+        ) -> NexusJSONValue {
+            .object([
+                "type": .string("object"),
+                "additionalProperties": .bool(additionalProperties),
+                "properties": .object(properties),
+            ])
+        }
+        func routeListing(
+            tool: NexusTairaMCPToolContract.Tool,
+            schema: NexusJSONValue
+        ) -> NexusJSONValue {
+            .object([
+                "tools": .array([.object([
+                    "name": .string(tool.rawValue),
+                    "inputSchema": schema,
+                    "outputSchema": .object([
+                        "type": .string("object"),
+                    ]),
+                ])]),
+                "nextCursor": .null,
+                "listChanged": .bool(false),
+                "toolsetVersion": .string(toolset),
+            ])
+        }
+        let currentRouteSchemas: [(
+            NexusTairaMCPToolContract.Tool,
+            [String: NexusJSONValue],
+            Bool
+        )] = [
+            (.health, [:], false),
+            (
+                .accountAssets,
+                [
+                    "account_id": scalar("string"),
+                    "asset_id": scalar("string"),
+                    "limit": scalar("integer"),
+                    "offset": scalar("integer"),
+                    "accept": scalar("string"),
+                ],
+                true
+            ),
+            (
+                .assetDefinition,
+                [
+                    "definition_id": scalar("string"),
+                    "accept": scalar("string"),
+                ],
+                false
+            ),
+            (
+                .transactionStatus,
+                [
+                    "hash": scalar("string"),
+                    "accept": scalar("string"),
+                ],
+                true
+            ),
+            (
+                .instructions,
+                [
+                    "account": scalar("string"),
+                    "asset_definition_id": scalar("string"),
+                    "kind": scalar("string"),
+                    "page": scalar("integer"),
+                    "per_page": scalar("integer"),
+                    "transaction_hash": scalar("string"),
+                    "transaction_status": scalar("string"),
+                    "accept": scalar("string"),
+                ],
+                false
+            ),
+        ]
+        for (tool, properties, admitsAdditionalProperties) in
+            currentRouteSchemas
+        {
+            let schema = routeSchema(
+                properties,
+                additionalProperties: admitsAdditionalProperties
+            )
+            let validated = try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(tool: tool, schema: schema),
+                tools: [tool],
+                expectedToolsetVersion: toolset
+            )
+            XCTAssertEqual(validated.matched, [tool])
+        }
+        let legacyInstructionProperties: [String: NexusJSONValue] = [
+            "account": scalar("string"),
+            "asset_id": scalar("string"),
+            "kind": scalar("string"),
+            "page": scalar("integer"),
+            "per_page": scalar("integer"),
+            "transaction_hash": scalar("string"),
+            "transaction_status": scalar("string"),
+            "accept": scalar("string"),
+        ]
+        XCTAssertThrowsError(
+            try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(
+                    tool: .instructions,
+                    schema: routeSchema(
+                        legacyInstructionProperties,
+                        additionalProperties: true
+                    )
+                ),
+                tools: [.instructions],
+                expectedToolsetVersion: toolset
+            )
+        )
+        for tool in [
+            NexusTairaMCPToolContract.Tool.accountAssets,
+            .transactionStatus,
+        ] {
+            let properties = try XCTUnwrap(
+                currentRouteSchemas.first(where: { $0.0 == tool })?.1
+            )
+            XCTAssertThrowsError(
+                try NexusTairaMCPToolContract.validateToolPage(
+                    routeListing(
+                        tool: tool,
+                        schema: routeSchema(
+                            properties,
+                            additionalProperties: false
+                        )
+                    ),
+                    tools: [tool],
+                    expectedToolsetVersion: toolset
+                )
+            )
+        }
+        let correctedAccountAssets = routeSchema(
+            [
+                "account_id": scalar("string"),
+                "asset": scalar("string"),
+                "limit": scalar("integer"),
+                "offset": scalar("integer"),
+                "scope": scalar("string"),
+                "accept": scalar("string"),
+            ],
+            additionalProperties: false
+        )
+        XCTAssertNoThrow(
+            try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(
+                    tool: .accountAssets,
+                    schema: correctedAccountAssets
+                ),
+                tools: [.accountAssets],
+                expectedToolsetVersion: toolset
+            )
+        )
+        let correctedTransactionStatus = routeSchema(
+            [
+                "hash": scalar("string"),
+                "scope": scalar("string"),
+                "accept": scalar("string"),
+            ],
+            additionalProperties: false
+        )
+        XCTAssertNoThrow(
+            try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(
+                    tool: .transactionStatus,
+                    schema: correctedTransactionStatus
+                ),
+                tools: [.transactionStatus],
+                expectedToolsetVersion: toolset
+            )
+        )
+
+        let account =
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        XCTAssertEqual(
+            NexusTairaMCPToolContract.healthRequest(id: "health").params,
+            .object([
+                "name": .string("iroha.health"),
+                "arguments": .object([:]),
+            ])
+        )
+        XCTAssertEqual(
+            NexusTairaMCPToolContract.assetDefinitionRequest(
+                id: "definition"
+            ).params,
+            .object([
+                "name": .string("iroha.assets.definitions.get"),
+                "arguments": .object([
+                    "definition_id": .string(
+                        NexusAssetDefinitionIdentity.tairaXorDefinitionID
+                    ),
+                    "accept": .string("application/json"),
+                ]),
+            ])
+        )
+        let assets = NexusTairaMCPToolContract.accountAssetsRequest(
+            id: "assets-1",
+            account: account,
+            assetDefinitionID:
+                NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            limit: 100,
+            offset: 0
+        )
+        guard
+            case let .object(assetParams) = assets.params,
+            case let .object(assetArguments)? = assetParams["arguments"]
+        else {
+            return XCTFail("Missing current account-assets arguments")
+        }
+        XCTAssertEqual(
+            assetArguments["asset"],
+            .string(NexusAssetDefinitionIdentity.tairaXorDefinitionID)
+        )
+        XCTAssertNil(assetArguments["asset_id"])
+        XCTAssertEqual(assetArguments["scope"], .string("global"))
+
+        let status = try NexusTairaMCPToolContract.transactionStatusRequest(
+            id: "status",
+            hash: String(repeating: "d", count: 64)
+        )
+        guard
+            case let .object(statusParams) = status.params,
+            case let .object(statusArguments)? = statusParams["arguments"]
+        else {
+            return XCTFail("Missing current transaction-status arguments")
+        }
+        XCTAssertEqual(
+            Set(statusArguments.keys),
+            ["hash", "scope", "accept"]
+        )
+        XCTAssertEqual(statusArguments["scope"], .string("global"))
+
+        let instructions = try NexusTairaMCPToolContract.instructionsRequest(
+            id: "history-1",
+            account: account,
+            assetDefinitionID:
+                NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            page: 1,
+            perPage: 100
+        )
+        guard
+            case let .object(instructionParams) = instructions.params,
+            case let .object(instructionArguments)? =
+                instructionParams["arguments"]
+        else {
+            return XCTFail("Missing current instruction arguments")
+        }
+        XCTAssertEqual(
+            Set(instructionArguments.keys),
+            [
+                "account", "asset_definition_id", "kind",
+                "transaction_status",
+                "page", "per_page", "accept",
+            ]
+        )
+        XCTAssertEqual(
+            instructionArguments["asset_definition_id"],
+            .string(NexusAssetDefinitionIdentity.tairaXorDefinitionID)
+        )
+        XCTAssertNil(instructionArguments["asset_id"])
+        XCTAssertEqual(instructionArguments["kind"], .string("Transfer"))
+        XCTAssertEqual(
+            instructionArguments["transaction_status"],
+            .string("committed")
+        )
+    }
+
+    func testNexusToriiRejectsPartialFanoutSuccess() throws {
+        let endpoint = try XCTUnwrap(
+            URL(
+                string:
+                    "https://taira.sora.org/v1/accounts/example/assets"
+            )
+        )
+        let completeHeaders = [
+            "x-iroha-routed-by": "proxy",
+            "x-iroha-fanout-routes-attempted": "4",
+            "x-iroha-fanout-routes-succeeded": "4",
+            "x-iroha-fanout-routes-failed": "0",
+            "x-iroha-fanout-routes-unavailable": "0",
+            "x-iroha-fanout-routes-denied": "0",
+            "x-iroha-fanout-routes-not-found": "0"
+        ]
+        let direct = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: [:]
+            )
+        )
+        XCTAssertNoThrow(try NexusToriiClient.validateFanoutHeaders(direct))
+        let routedSubmission = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 202,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["x-iroha-routed-by": "proxy"]
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateFanoutHeaders(routedSubmission)
+        )
+        let localRoute = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["x-iroha-routed-by": "local"]
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateFanoutHeaders(localRoute)
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaderValues(
+                {
+                    [
+                        "x-iroha-routed-by": "proxy",
+                        "x-iroha-route-lane-id": "4294967295",
+                        "x-iroha-route-dataspace-id": "18446744073709551615"
+                    ][$0]
+                }
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaderValues(
+                { ["x-iroha-route-lane-id": "1"][$0] }
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaderValues(
+                {
+                    [
+                        "x-iroha-route-lane-id": "1",
+                        "x-iroha-route-dataspace-id": "2"
+                    ][$0]
+                }
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaderValues(
+                {
+                    [
+                        "x-iroha-routed-by": "local",
+                        "x-iroha-route-lane-id": "1",
+                        "x-iroha-route-dataspace-id": "2"
+                    ][$0]
+                }
+            )
+        )
+        for invalidRoute in [
+            [
+                "x-iroha-routed-by": "proxy",
+                "x-iroha-route-lane-id": "01",
+                "x-iroha-route-dataspace-id": "2"
+            ],
+            [
+                "x-iroha-routed-by": "proxy",
+                "x-iroha-route-lane-id": "4294967296",
+                "x-iroha-route-dataspace-id": "2"
+            ],
+            [
+                "x-iroha-routed-by": "proxy",
+                "x-iroha-route-lane-id": "1",
+                "x-iroha-route-dataspace-id": "18446744073709551616"
+            ]
+        ] {
+            XCTAssertThrowsError(
+                try NexusToriiClient.validateFanoutHeaderValues(
+                    { invalidRoute[$0] }
+                )
+            )
+        }
+        let invalidRouteProvenance = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 202,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["x-iroha-routed-by": "Proxy"]
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(
+                invalidRouteProvenance
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(
+                direct,
+                requiresFanout: true
+            )
+        ) { error in
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let complete = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: completeHeaders
+            )
+        )
+        XCTAssertNoThrow(try NexusToriiClient.validateFanoutHeaders(complete))
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateFanoutHeaderValues(
+                {
+                    ([
+                        "x-iroha-routed-by": "local",
+                        "x-iroha-route-lane-id": "0",
+                        "x-iroha-route-dataspace-id": "0",
+                        "x-iroha-fanout-routes-attempted": "1",
+                        "x-iroha-fanout-routes-succeeded": "1",
+                        "x-iroha-fanout-routes-failed": "0",
+                        "x-iroha-fanout-routes-unavailable": "0",
+                        "x-iroha-fanout-routes-denied": "0",
+                        "x-iroha-fanout-routes-not-found": "0"
+                    ])[$0]
+                },
+                requiresFanout: true
+            )
+        )
+
+        var partialHeaders = completeHeaders
+        partialHeaders["x-iroha-fanout-first-failure"] = "route_unavailable"
+        partialHeaders["x-iroha-fanout-routes-succeeded"] = "2"
+        partialHeaders["x-iroha-fanout-routes-failed"] = "2"
+        partialHeaders["x-iroha-fanout-routes-unavailable"] = "2"
+        let partial = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: partialHeaders
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(partial)
+        ) { error in
+            guard case NexusToriiError.deploymentUnavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        var contradictoryHeaders = completeHeaders
+        contradictoryHeaders["x-iroha-fanout-first-failure"] =
+            "route_unavailable"
+        contradictoryHeaders["x-iroha-fanout-routes-unavailable"] = "1"
+        let contradictory = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 503,
+                httpVersion: "HTTP/1.1",
+                headerFields: contradictoryHeaders
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(contradictory)
+        ) { error in
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertTrue(
+            try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: nil,
+                body: .object([
+                    "code": .string("route_unavailable"),
+                    "message": .string("authoritative route unavailable")
+                ])
+            )
+        )
+        XCTAssertFalse(
+            try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: nil,
+                body: .object([
+                    "code": .string("server_error"),
+                    "message": .string("not route_unavailable")
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: "route_unavailable",
+                body: .object([
+                    "code": .string("permission_denied"),
+                    "message": .string("access denied")
+                ])
+            )
+        )
+
+        let incomplete = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["x-iroha-fanout-routes-attempted": "4"]
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(incomplete)
+        ) { error in
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        var malformedHeaders = completeHeaders
+        malformedHeaders["x-iroha-fanout-routes-attempted"] = "04"
+        let malformed = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: malformedHeaders
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(malformed)
+        ) { error in
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        var oversizedHeaders = completeHeaders
+        oversizedHeaders["x-iroha-fanout-routes-attempted"] = "1025"
+        oversizedHeaders["x-iroha-fanout-routes-succeeded"] = "1025"
+        let oversized = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: oversizedHeaders
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(oversized)
+        ) { error in
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        func embeddedMCPResult(
+            headers: [String: NexusJSONValue] = [:],
+            status: NexusJSONValue = .number("200"),
+            isError: NexusJSONValue = .bool(false),
+            contentType: NexusJSONValue = .string("application/json"),
+            body: NexusJSONValue = .object(["items": .array([])]),
+            includesShadowBody: Bool = false,
+            includesStructuredShadowItems: Bool = false
+        ) -> NexusJSONValue {
+            var structured: [String: NexusJSONValue] = [
+                "status": status,
+                "headers": .object(headers),
+                "content_type": contentType,
+                "body": body
+            ]
+            if includesStructuredShadowItems {
+                structured["items"] = .array([])
+            }
+            var direct: [String: NexusJSONValue] = [
+                "isError": isError,
+                "structuredContent": .object(structured)
+            ]
+            if includesShadowBody {
+                direct["body"] = .object(["items": .array([])])
+            }
+            return .object(direct)
+        }
+        XCTAssertNoThrow(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult()
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult(),
+                requiresFanout: true
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult(
+                    status: .number("503"),
+                    isError: .bool(true),
+                    body: .object([
+                        "code": .string("route_unavailable"),
+                        "message": .string("authoritative route unavailable")
+                    ])
+                ),
+                requiresFanout: true
+            )
+        ) { error in
+            guard case NexusToriiError.deploymentUnavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNoThrow(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult(
+                    contentType: .string("application/json; charset=UTF-8")
+                )
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusMCPEnvelopeContract.validate(
+                jsonrpc: "2.0",
+                responseID: "history-1",
+                expectedID: "history-1",
+                hasError: false
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusMCPEnvelopeContract.validate(
+                jsonrpc: "2.0",
+                responseID: "history-2",
+                expectedID: "history-1",
+                hasError: false
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusMCPEnvelopeContract.validate(
+                jsonrpc: "2.0",
+                responseID: "history-1",
+                expectedID: "history-1",
+                hasError: true
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult(
+                    headers: completeHeaders.mapValues { .string($0) }
+                ),
+                requiresFanout: true
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult(
+                    headers: [
+                        "x-iroha-routed-by": .string("proxy")
+                    ]
+                ),
+                requiresFanout: true
+            )
+        )
+        for invalidMCPResult in [
+            embeddedMCPResult(
+                headers: [
+                    "x-iroha-fanout-routes-attempted": .string("4")
+                ]
+            ),
+            embeddedMCPResult(
+                headers: ["x-iroha-routed-by": .string("Proxy")]
+            ),
+            embeddedMCPResult(
+                headers: [
+                    "x-iroha-routed-by": .string("proxy"),
+                    "X-Iroha-Routed-By": .string("proxy")
+                ]
+            ),
+            embeddedMCPResult(
+                headers: ["x-iroha-routed-by": .number("1")]
+            ),
+            embeddedMCPResult(status: .number("500")),
+            embeddedMCPResult(status: .string("200")),
+            embeddedMCPResult(isError: .bool(true)),
+            embeddedMCPResult(contentType: .string("text/plain")),
+            embeddedMCPResult(
+                contentType: .string("application/json; profile=unexpected")
+            ),
+            embeddedMCPResult(contentType: .string("application/json;")),
+            embeddedMCPResult(
+                contentType: .string("application/json, text/plain")
+            ),
+            embeddedMCPResult(body: .null),
+            embeddedMCPResult(body: .string("not-an-object")),
+            embeddedMCPResult(includesShadowBody: true),
+            embeddedMCPResult(includesStructuredShadowItems: true),
+            embeddedMCPResult(
+                body: .null,
+                includesStructuredShadowItems: true
+            )
+        ] {
+            XCTAssertThrowsError(
+                try NexusMCPResultContract.validateEmbeddedRoute(
+                    invalidMCPResult
+                )
+            )
+        }
+
+        let account =
+            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let otherAuthority =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
+        let targetHash = String(repeating: "aa", count: 32)
+        let otherHash = String(repeating: "bb", count: 32)
+        let thirdHash = String(repeating: "cc", count: 32)
+        let fourthHash = String(repeating: "dd", count: 32)
+        func item(
+            _ hash: String,
+            authority: String? = account,
+            succeeded: Bool = true
+        ) -> NexusAccountTransactionList.Item {
+            NexusAccountTransactionList.Item(
+                authority: authority,
+                timestampMilliseconds: 1,
+                entrypointHash: hash,
+                succeeded: succeeded
+            )
+        }
+        func page(
+            total: UInt64,
+            _ items: [NexusAccountTransactionList.Item]
+        ) -> NexusAccountTransactionList {
+            NexusAccountTransactionList(
+                items: items,
+                total: total,
+                hasMore: UInt64(items.count) < total,
+                countMode: "exact"
+            )
+        }
+        func proof(
+            pageSize: Int = 100,
+            maximumPages: Int = 20
+        ) throws -> NexusAccountTransactionProof {
+            try NexusAccountTransactionProof(
+                account: account,
+                configuration: .minamoto,
+                transactionHash: targetHash,
+                pageSize: pageSize,
+                maximumPages: maximumPages
+            )
+        }
+
+        var found = try proof()
+        XCTAssertEqual(
+            try found.accept(page(total: 1, [item(targetHash)])),
+            .found
+        )
+        var absent = try proof()
+        XCTAssertEqual(
+            try absent.accept(page(total: 1, [item(otherHash)])),
+            .absent
+        )
+        var foundBeforeTerminalPage = try proof(pageSize: 1)
+        XCTAssertEqual(
+            try foundBeforeTerminalPage.accept(
+                page(total: 2, [item(targetHash)])
+            ),
+            .continueScanning
+        )
+        XCTAssertEqual(
+            try foundBeforeTerminalPage.accept(
+                NexusAccountTransactionList(
+                    items: [item(otherHash)],
+                    total: 2,
+                    hasMore: false,
+                    countMode: "exact"
+                )
+            ),
+            .found
+        )
+        var duplicateTargetAfterMatch = try proof(pageSize: 1)
+        XCTAssertEqual(
+            try duplicateTargetAfterMatch.accept(
+                page(total: 2, [item(targetHash)])
+            ),
+            .continueScanning
+        )
+        XCTAssertThrowsError(
+            try duplicateTargetAfterMatch.accept(
+                NexusAccountTransactionList(
+                    items: [item(targetHash)],
+                    total: 2,
+                    hasMore: false,
+                    countMode: "exact"
+                )
+            )
+        )
+        for invalid in [
+            item(targetHash, succeeded: false),
+            item(targetHash, authority: otherAuthority),
+            item(targetHash, authority: nil),
+        ] {
+            var invalidProof = try proof()
+            XCTAssertThrowsError(
+                try invalidProof.accept(page(total: 1, [invalid]))
+            )
+        }
+
+        var drift = try proof()
+        XCTAssertEqual(
+            try drift.accept(page(total: 2, [item(otherHash)])),
+            .continueScanning
+        )
+        XCTAssertThrowsError(
+            try drift.accept(page(total: 3, [item(thirdHash)]))
+        )
+        for invalidMetadata in [
+            NexusAccountTransactionList(
+                items: [item(targetHash)],
+                total: 1,
+                hasMore: false,
+                countMode: "bounded"
+            ),
+            NexusAccountTransactionList(
+                items: [item(targetHash)],
+                total: 1,
+                hasMore: true,
+                countMode: "exact"
+            )
+        ] {
+            var metadataProof = try proof()
+            XCTAssertThrowsError(try metadataProof.accept(invalidMetadata))
+        }
+
+        var repeated = try proof()
+        let repeatedPage = page(total: 3, [item(otherHash)])
+        XCTAssertEqual(try repeated.accept(repeatedPage), .continueScanning)
+        XCTAssertThrowsError(try repeated.accept(repeatedPage))
+
+        var duplicate = try proof(pageSize: 2)
+        XCTAssertEqual(
+            try duplicate.accept(
+                page(total: 4, [item(otherHash), item(thirdHash)])
+            ),
+            .continueScanning
+        )
+        XCTAssertThrowsError(
+            try duplicate.accept(
+                NexusAccountTransactionList(
+                    items: [item(otherHash), item(fourthHash)],
+                    total: 4,
+                    hasMore: false,
+                    countMode: "exact"
+                )
+            )
+        )
+
+        var emptyContinuation = try proof()
+        XCTAssertThrowsError(
+            try emptyContinuation.accept(page(total: 1, []))
+        )
+        var exhausted = try proof(maximumPages: 1)
+        XCTAssertThrowsError(
+            try exhausted.accept(page(total: 2, [item(otherHash)]))
+        )
+
+    }
+
+    func testPIPaginationRejectsRepeatedNonEmptyPage() async throws {
+        let client = PIIndexerClient()
+        var requestedCursors: [String?] = []
+
+        do {
+            _ = try await client.collectPages(
+                pageSize: 1,
+                maximumPages: 3
+            ) { cursor in
+                requestedCursors.append(cursor)
+                return PIConnection<String>(
+                    nodes: ["same-node"],
+                    edges: nil,
+                    pageInfo: PIPageInfo(
+                        hasNextPage: cursor == nil,
+                        hasPreviousPage: cursor != nil,
+                        startCursor: cursor,
+                        endCursor: cursor == nil ? "next" : nil
+                    ),
+                    totalCount: 2
+                )
+            }
+            XCTFail("Repeated pages must fail closed")
+        } catch {
+            guard case PIIndexerError.repeatedPage = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        XCTAssertEqual(requestedCursors.count, 2)
+        XCTAssertNil(requestedCursors[0])
+        XCTAssertEqual(requestedCursors[1], "next")
+
+        do {
+            _ = try await client.collectPages(
+                pageSize: 1,
+                maximumPages: 2
+            ) { _ in
+                PIConnection<String>(
+                    nodes: ["node"],
+                    edges: nil,
+                    pageInfo: PIPageInfo(
+                        hasNextPage: true,
+                        hasPreviousPage: false,
+                        startCursor: nil,
+                        endCursor: String(
+                            repeating: "x",
+                            count: PIIndexerClient.maximumCursorBytes + 1
+                        )
+                    ),
+                    totalCount: 2
+                )
+            }
+            XCTFail("An unbounded PI cursor was accepted")
+        } catch {
+            guard case PIIndexerError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateCursor(
+                String(
+                    repeating: "x",
+                    count: PIIndexerClient.maximumCursorBytes + 1
+                )
+            )
+        ) { error in
+            guard case PIIndexerError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHistoryPage(
+                PIIndexerClient.maximumHistoryPages + 1
+            )
+        ) { error in
+            guard case PIIndexerError.paginationLimit = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHistoryPage(
+                0
+            )
+        ) { error in
+            guard case PIIndexerError.paginationLimit = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIHTTPResponseRejectsRedirectedOrNonJSONEndpoints() throws {
+        let endpoint = try XCTUnwrap(
+            URL(string: "https://pi.soramitsu.io/graphql")
+        )
+        let valid = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: [
+                    "Content-Type": "application/json; charset=utf-8"
+                ]
+            )
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateHTTPResponse(
+                valid,
+                endpoint: endpoint
+            )
+        )
+
+        let redirected = try XCTUnwrap(
+            HTTPURLResponse(
+                url: URL(string: "https://redirect.example/graphql")!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHTTPResponse(
+                redirected,
+                endpoint: endpoint
+            )
+        )
+
+        let equivalentAlias = try XCTUnwrap(
+            HTTPURLResponse(
+                url: URL(
+                    string: "https://pi.soramitsu.io:443/graphql"
+                )!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHTTPResponse(
+                equivalentAlias,
+                endpoint: endpoint
+            )
+        )
+
+        let nonJSON = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "text/html"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHTTPResponse(
+                nonJSON,
+                endpoint: endpoint
+            )
+        )
+
+        let compressed = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: [
+                    "Content-Type": "application/json",
+                    "Content-Encoding": "gzip",
+                ]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHTTPResponse(
+                compressed,
+                endpoint: endpoint
+            )
+        )
+
+        let partial = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 206,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateHTTPResponse(
+                partial,
+                endpoint: endpoint
+            )
+        ) { error in
+            guard case PIIndexerError.httpStatus(206) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIExecutionEndpointIsPinnedToConsolidatedProductionOrigin() throws {
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateProductionEndpoint(
+                PIIndexerClient.endpoint
+            )
+        )
+        for unreviewed in [
+            "https://pi.soramitsu.io/graphql/",
+            "https://PI.soramitsu.io/graphql",
+            "https://pi.soramitsu.io:443/graphql",
+            "https://pi.soramitsu.io/%67raphql",
+            "https://pi.example/graphql",
+            "http://pi.soramitsu.io/graphql",
+        ] {
+            XCTAssertThrowsError(
+                try PIIndexerClient.validateProductionEndpoint(
+                    XCTUnwrap(URL(string: unreviewed))
+                )
+            )
+        }
+    }
+
+    func testPIRequestBodyIsBoundedBeforeTransport() {
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateRequestBody(
+                Data(repeating: 0, count: 256 * 1024)
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateRequestBody(
+                Data(repeating: 0, count: 256 * 1024 + 1)
+            )
+        ) { error in
+            guard case PIIndexerError.requestTooLarge = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateExpectedResponseLength(-1)
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateExpectedResponseLength(
+                Int64(PIIndexerClient.maximumResponseBytes)
+            )
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateExpectedResponseLength(
+                Int64(PIIndexerClient.maximumResponseBytes + 1)
+            )
+        ) { error in
+            guard case PIIndexerError.responseTooLarge = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIStrictJSONAdmissionRejectsDuplicateDecodedObjectNames() throws {
+        try PIStrictJSONAdmission.validate(
+            Data(
+                #"{"data":{"emoji":"\uD83D\uDE00","value":-0.01e+2},"errors":null}"#.utf8
+            )
+        )
+        let invalidDocuments = [
+            #"{"data":1,"data":2}"#,
+            #"{"data":{"id":"1","id":"2"}}"#,
+            #"{"a":1,"\u0061":2}"#,
+            #"{"\u00E9":1,"e\u0301":2}"#,
+        ]
+        for document in invalidDocuments {
+            XCTAssertThrowsError(
+                try PIStrictJSONAdmission.validate(Data(document.utf8))
+            ) { error in
+                guard case PIIndexerError.invalidResponse = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        let cachePayload = Data(
+            #"{"data":{"id":"1"},"errors":null}"#.utf8
+        )
+        XCTAssertNoThrow(
+            try PIResponseCacheAdmission.validatePayload(cachePayload)
+        )
+        XCTAssertThrowsError(
+            try PIResponseCacheAdmission.validatePayload(
+                Data(#"{"data":1,"data":2}"#.utf8)
+            )
+        )
+        XCTAssertThrowsError(
+            try PIResponseCacheAdmission.validateEnvelope(
+                Data(#"{"payload":"e30=","payload":"e30="}"#.utf8)
+            )
+        )
+    }
+
+    func testPIStrictJSONAdmissionRejectsMalformedAndTrailingDocuments() {
+        let invalidDocuments = [
+            #"{'data':1}"#,
+            #"{"data":NaN}"#,
+            #"{"data":1,}"#,
+            #"{"data":1} {"data":2}"#,
+            #"/*comment*/{"data":1}"#,
+            #"{"data":"\uD800"}"#,
+            #"{"data":"\uDC00"}"#,
+            #"{"data":"\uD800\u0041"}"#,
+            #"{"data":01}"#,
+            #"{"data":1.}"#,
+            #"{"data":1e}"#,
+        ]
+        for document in invalidDocuments {
+            XCTAssertThrowsError(
+                try PIStrictJSONAdmission.validate(Data(document.utf8))
+            ) { error in
+                guard case PIIndexerError.invalidResponse = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        let invalidUTF8 = Data([
+            0x7B, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3A,
+            0x22, 0xFF, 0x22, 0x7D,
+        ])
+        XCTAssertThrowsError(
+            try PIStrictJSONAdmission.validate(invalidUTF8)
+        ) { error in
+            guard case PIIndexerError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIStrictJSONAdmissionBoundsBytesDepthAndTokenWork() {
+        let cases: [(Data, Int, Int, Int)] = [
+            (Data("1234".utf8), 3, 8, 8),
+            (Data("[[[0]]]".utf8), 64, 3, 100),
+            (Data("[0,1,2]".utf8), 64, 3, 3),
+        ]
+        for (data, bytes, depth, tokens) in cases {
+            XCTAssertThrowsError(
+                try PIStrictJSONAdmission.validate(
+                    data,
+                    maximumBytes: bytes,
+                    maximumDepth: depth,
+                    maximumTokens: tokens
+                )
+            ) { error in
+                guard case PIIndexerError.invalidResponse = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+    }
+
+    func testPIConnectionPageIsValidatedBeforeCacheEligibility() throws {
+        let valid = PIConnection<String>(
+            nodes: ["one"],
+            edges: nil,
+            pageInfo: PIPageInfo(
+                hasNextPage: false,
+                hasPreviousPage: false,
+                startCursor: nil,
+                endCursor: nil
+            ),
+            totalCount: 1
+        )
+        XCTAssertNoThrow(
+            try PIIndexerClient.validateConnectionPage(
+                valid,
+                requestedSize: 1,
+                hasPriorPage: false,
+                itemIdentity: { $0 }
+            )
+        )
+
+        let oversized = PIConnection<String>(
+            nodes: ["one", "two"],
+            edges: nil,
+            pageInfo: PIPageInfo(
+                hasNextPage: false,
+                hasPreviousPage: false,
+                startCursor: nil,
+                endCursor: nil
+            ),
+            totalCount: 2
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateConnectionPage(
+                oversized,
+                requestedSize: 1,
+                hasPriorPage: false,
+                itemIdentity: { $0 }
+            )
+        )
+
+        let oversizedCursor = PIConnection<String>(
+            nodes: ["one"],
+            edges: nil,
+            pageInfo: PIPageInfo(
+                hasNextPage: true,
+                hasPreviousPage: false,
+                startCursor: nil,
+                endCursor: String(
+                    repeating: "x",
+                    count: PIIndexerClient.maximumCursorBytes + 1
+                )
+            ),
+            totalCount: 2
+        )
+        XCTAssertThrowsError(
+            try PIIndexerClient.validateConnectionPage(
+                oversizedCursor,
+                requestedSize: 1,
+                hasPriorPage: false,
+                itemIdentity: { $0 }
+            )
+        )
+    }
+
+    func testPIPaginationRejectsOverlappingItemIdentities() async throws {
+        let client = PIIndexerClient()
+        let qualification = makePIQualification(indexedBlock: 100)
+        var page = 0
+
+        do {
+            _ = try await client.collectQualifiedPages(
+                pageSize: 2,
+                maximumPages: 2,
+                itemIdentity: { $0 }
+            ) { cursor in
+                defer { page += 1 }
+                return PIQualifiedRead(
+                    value: PIConnection<String>(
+                        nodes: page == 0
+                            ? ["overlap", "first"]
+                            : ["overlap", "second"],
+                        edges: nil,
+                        pageInfo: PIPageInfo(
+                            hasNextPage: page == 0,
+                            hasPreviousPage: cursor != nil,
+                            startCursor: cursor,
+                            endCursor: page == 0 ? "next" : nil
+                        ),
+                        totalCount: 4
+                    ),
+                    qualification: qualification
+                )
+            }
+            XCTFail("PI accepted an item repeated across cursor pages")
+        } catch {
+            guard case PIIndexerError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIPaginationRejectsMixedCacheSourceOrCheckpoint() async throws {
+        let client = PIIndexerClient()
+        let now = 2_000_000
+        func health(_ height: Int) -> PIHealth {
+            PIHealth(
+                ok: true,
+                repositoryReady: true,
+                service: "polkaswap-indexer",
+                serviceId: "pi.soramitsu.io",
+                schemaVersion: 1,
+                ecosystem: "sora2",
+                chainId: "sora:mainnet",
+                network: "mainnet",
+                publicBaseUrl: PIIndexerClient.endpoint,
+                readOnly: true,
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                latestIndexedBlock: height,
+                latestIndexedBlockHash:
+                    "0x1111111111111111111111111111111111111111111111111111111111111111",
+                latestIndexedAt: now,
+                workerAvailable: true,
+                workerReady: true,
+                workerReadinessReason: nil,
+                workerLifecycle: "running",
+                workerStartupComplete: true,
+                workerLatestFinalizedBlock: height,
+                workerLatestIndexedBlock: height,
+                workerLag: 0,
+                workerLastSuccessfulIndexTimestamp: now,
+                workerLastError: nil,
+                workerLastErrorTimestamp: nil
+            )
+        }
+
+        let first = PIReadQualification(
+            health: health(100),
+            source: .live
+        )
+        func collect(
+            second: PIReadQualification
+        ) async throws -> PIQualifiedRead<[String]> {
+            var page = 0
+            return try await client.collectQualifiedPagesRead(
+                pageSize: 1,
+                maximumPages: 2
+            ) { cursor in
+                defer { page += 1 }
+                return PIQualifiedRead(
+                    value: PIConnection<String>(
+                        nodes: [page == 0 ? "first" : "second"],
+                        edges: nil,
+                        pageInfo: PIPageInfo(
+                            hasNextPage: page == 0,
+                            hasPreviousPage: cursor != nil,
+                            startCursor: cursor,
+                            endCursor: page == 0 ? "next" : nil
+                        ),
+                        totalCount: 2
+                    ),
+                    qualification: page == 0 ? first : second
+                )
+            }
+        }
+        let incompatible = [
+            // A cached page after a live one.
+            PIReadQualification(health: health(100), source: .cache),
+            // The indexer went backwards between pages.
+            PIReadQualification(health: health(99), source: .live),
+        ]
+        for second in incompatible {
+            do {
+                _ = try await collect(second: second)
+                XCTFail("PI composed pages from incompatible qualifications")
+            } catch {
+                guard case PIIndexerError.staleCheckpoint = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+
+        // The indexer moved forward between pages: normal progress. The
+        // result is attributed to the later checkpoint.
+        let later = PIReadQualification(health: health(101), source: .live)
+        let followed = try await collect(second: later)
+        XCTAssertEqual(followed.value, ["first", "second"])
+        XCTAssertEqual(followed.qualification, later)
+
+        // Two cached pages must carry one checkpoint.
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatePageCheckpoint(
+                previous: PIReadQualification(
+                    health: health(100),
+                    source: .cache
+                ),
+                current: PIReadQualification(
+                    health: health(101),
+                    source: .cache
+                )
+            )
+        )
+
+        let qualified = try await client.collectQualifiedPagesRead(
+            pageSize: 1,
+            maximumPages: 1
+        ) { cursor in
+            XCTAssertNil(cursor)
+            return PIQualifiedRead(
+                value: PIConnection<String>(
+                    nodes: ["only"],
+                    edges: nil,
+                    pageInfo: PIPageInfo(
+                        hasNextPage: false,
+                        hasPreviousPage: false,
+                        startCursor: nil,
+                        endCursor: nil
+                    ),
+                    totalCount: 1
+                ),
+                qualification: first
+            )
+        }
+        XCTAssertEqual(qualified.value, ["only"])
+        XCTAssertEqual(qualified.qualification, first)
+    }
+
+    func testPIPaginationRejectsServerOverDelivery() async throws {
+        let client = PIIndexerClient()
+        do {
+            _ = try await client.collectPages(
+                pageSize: 1,
+                maximumPages: 1
+            ) { _ in
+                PIConnection<String>(
+                    nodes: ["one", "two"],
+                    edges: nil,
+                    pageInfo: PIPageInfo(
+                        hasNextPage: false,
+                        hasPreviousPage: false,
+                        startCursor: nil,
+                        endCursor: nil
+                    ),
+                    totalCount: 2
+                )
+            }
+            XCTFail("An oversized PI page was accepted")
+        } catch {
+            guard case PIIndexerError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPIPaginationRequiresExactlyOneConnectionRepresentation()
+        async throws
+    {
+        let client = PIIndexerClient()
+        do {
+            _ = try await client.collectPages(
+                pageSize: 1,
+                maximumPages: 1
+            ) { _ in
+                PIConnection<String>(
+                    nodes: nil,
+                    edges: nil,
+                    pageInfo: PIPageInfo(
+                        hasNextPage: false,
+                        hasPreviousPage: false,
+                        startCursor: nil,
+                        endCursor: nil
+                    ),
+                    totalCount: 0
+                )
+            }
+            XCTFail("A PI page without nodes or edges was accepted")
+        } catch {
+            guard case PIIndexerError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testPICacheFallbackAllowsOnlyFailuresWherePIGaveNoAnswer() {
+        XCTAssertTrue(
+            PIIndexerClient.allowsOfflineTransportFallback(
+                URLError(.notConnectedToInternet)
+            )
+        )
+        XCTAssertTrue(
+            PIIndexerClient.allowsOfflineTransportFallback(
+                URLError(.timedOut)
+            )
+        )
+        XCTAssertFalse(
+            PIIndexerClient.allowsOfflineTransportFallback(
+                URLError(.cancelled)
+            )
+        )
+        // Review round 4 of in1-indexer: a TLS failure and a status from a
+        // proxy or firewall mean that PI gave no answer, like a timeout.
+        // The last good validated value is shown with its time; nothing
+        // is read from the other side. (They used to hide it.)
+        XCTAssertTrue(
+            PIIndexerClient.allowsOfflineTransportFallback(
+                URLError(.serverCertificateUntrusted)
+            )
+        )
+        XCTAssertTrue(PIIndexerError.httpStatus(408).allowsOfflineFallback)
+        XCTAssertTrue(PIIndexerError.httpStatus(429).allowsOfflineFallback)
+        XCTAssertTrue(PIIndexerError.httpStatus(503).allowsOfflineFallback)
+        XCTAssertTrue(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        // PI's own refusal of the request is never hidden by older data.
+        XCTAssertFalse(PIIndexerError.httpStatus(400).allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidResponse.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.responseTooLarge.allowsOfflineFallback)
+        // PI answered but had no consistent fresh checkpoint: the last good
+        // value is better than nothing. Wrong data never qualifies.
+        XCTAssertTrue(PIIndexerError.staleCheckpoint.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidQuantity.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidChainIdentity.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.graphQLErrors.allowsOfflineFallback)
+    }
+
+    func testValidatedPIHistoryCacheSurvivesRestartAndExpires()
+        async throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let address = "cnTestAccount"
+        let blockHash = "0x" + String(repeating: "ab", count: 32)
+        let transactionHash = "0x" +
+            String(repeating: "cd", count: 32)
+        let element = try JSONDecoder().decode(
+            PIHistoryElement.self,
+            from: JSONSerialization.data(
+                withJSONObject: [
+                    "id": transactionHash,
+                    "timestamp": 1,
+                    "address": address,
+                    "blockHash": blockHash,
+                    "blockHeight": 7,
+                    "networkFee": "0",
+                    "execution": ["success": true],
+                ]
+            )
+        )
+        let first = PIValidatedHistoryCache(baseURL: directory)
+        await first.save(
+            address: address,
+            count: 10,
+            page: 1,
+            finalizedCheckpoint: 7,
+            indexedCheckpointHash: blockHash,
+            endCursor: nil,
+            endReached: true,
+            elements: [element]
+        )
+
+        let reopened = PIValidatedHistoryCache(baseURL: directory)
+        let restored = await reopened.load(
+            address: address,
+            count: 10,
+            page: 1
+        )
+        XCTAssertEqual(restored?.elements, [element])
+        let crossAccount = await reopened.load(
+            address: "cnOtherAccount",
+            count: 10,
+            page: 1
+        )
+        XCTAssertNil(crossAccount)
+
+        await reopened.save(
+            address: address,
+            count: 10,
+            page: 1,
+            finalizedCheckpoint: 7,
+            indexedCheckpointHash: blockHash,
+            endCursor: nil,
+            endReached: true,
+            elements: [element],
+            savedAt: Date(timeIntervalSinceNow: -(25 * 60 * 60))
+        )
+        let expired = await reopened.load(
+            address: address,
+            count: 10,
+            page: 1
+        )
+        XCTAssertNil(expired)
+    }
+
+    func testValidatedPIHistoryCacheRejectsSymbolicLinkEntry()
+        async throws
+    {
+        let fileManager = FileManager.default
+        let directory = fileManager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? fileManager.removeItem(at: directory)
+        }
+        let address = "cnTestAccount"
+        let blockHash = "0x" + String(repeating: "ab", count: 32)
+        let transactionHash = "0x" + String(repeating: "cd", count: 32)
+        let element = try JSONDecoder().decode(
+            PIHistoryElement.self,
+            from: JSONSerialization.data(
+                withJSONObject: [
+                    "id": transactionHash,
+                    "timestamp": 1,
+                    "address": address,
+                    "blockHash": blockHash,
+                    "blockHeight": 7,
+                    "networkFee": "0",
+                    "execution": ["success": true],
+                ]
+            )
+        )
+        let cache = PIValidatedHistoryCache(
+            baseURL: directory,
+            fileManager: fileManager
+        )
+        await cache.save(
+            address: address,
+            count: 10,
+            page: 1,
+            finalizedCheckpoint: 7,
+            indexedCheckpointHash: blockHash,
+            endCursor: nil,
+            endReached: true,
+            elements: [element]
+        )
+
+        let cacheDirectory = directory.appendingPathComponent(
+            "PIValidatedHistoryV1",
+            isDirectory: true
+        )
+        let cacheFiles = try fileManager.contentsOfDirectory(
+            at: cacheDirectory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
+        XCTAssertEqual(cacheFiles.count, 1)
+        let cacheFile = try XCTUnwrap(cacheFiles.first)
+        let outsideFile = directory.appendingPathComponent("outside.json")
+        try fileManager.copyItem(at: cacheFile, to: outsideFile)
+        try fileManager.removeItem(at: cacheFile)
+        try fileManager.createSymbolicLink(
+            at: cacheFile,
+            withDestinationURL: outsideFile
+        )
+
+        let restored = await cache.load(
+            address: address,
+            count: 10,
+            page: 1
+        )
+        XCTAssertNil(restored)
+        XCTAssertTrue(fileManager.fileExists(atPath: outsideFile.path))
+    }
+
+    func testLegacyHistoryPaginationRoundTripsNumericAndStringContexts() {
+        let numeric = TransactionHistoryContext(
+            cursor: 7,
+            isComplete: true
+        )
+        let numericRoundTrip = TransactionHistoryContext(
+            context: numeric.toContext()
+        )
+        XCTAssertEqual(numericRoundTrip.cursor, 7)
+        XCTAssertTrue(numericRoundTrip.isComplete)
+
+        let stringRoundTrip = TransactionHistoryContext(
+            context: [
+                TransactionHistoryContext.cursor: "9",
+                TransactionHistoryContext.isComplete: "false"
+            ]
+        )
+        XCTAssertEqual(stringRoundTrip.cursor, 9)
+        XCTAssertFalse(stringRoundTrip.isComplete)
+    }
+
+    func testScaleCallEncodingUsesNonContiguousMetadataV14Discriminants() throws {
+        let calls: [RuntimeFunctionMetadata] = [
+            IndexedRuntimeFunction(name: "buy", index: 2),
+            IndexedRuntimeFunction(name: "sell", index: 3),
+            IndexedRuntimeFunction(name: "claim_market", index: 22),
+            IndexedRuntimeFunction(name: "claim_creator_fees", index: 23),
+            IndexedRuntimeFunction(name: "claim_markets", index: 32)
+        ]
+
+        // These values are the second byte GenericCallNode writes after the
+        // live metadata pallet index. Array offsets 2, 3 and 4 would construct
+        // different calls and must never be used for metadata v14.
+        XCTAssertEqual(
+            RuntimeMetadata.resolveCallIndex(in: calls, callName: "claim_market"),
+            22
+        )
+        XCTAssertEqual(
+            RuntimeMetadata.resolveCallIndex(in: calls, callName: "claim_markets"),
+            32
+        )
+        XCTAssertNotEqual(
+            RuntimeMetadata.resolveCallIndex(in: calls, callName: "claim_markets"),
+            UInt8(calls.count - 1)
+        )
+    }
+
+    func testScaleCallEncodingKeepsLegacyPositionalFallback() {
+        let calls: [RuntimeFunctionMetadata] = [
+            IndexedRuntimeFunction(name: "first", index: nil),
+            IndexedRuntimeFunction(name: "second", index: nil)
+        ]
+
+        XCTAssertEqual(
+            RuntimeMetadata.resolveCallIndex(in: calls, callName: "second"),
+            1
+        )
+    }
+
+    func testPolkamarktOutcomeUsesScaleUnitVariantShape() throws {
+        let call = RuntimeCall.polkamarktBuy(
+            PolkamarktBuyCall(
+                marketId: 7,
+                outcome: .yes,
+                collateralIn: 1_000,
+                minSharesOut: 900
+            )
+        )
+        let data = try JSONEncoder.scaleCompatible().encode(call)
+        let outer = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [Any]
+        )
+        let namedCall = try XCTUnwrap(outer[1] as? [Any])
+        let arguments = try XCTUnwrap(namedCall[1] as? [String: Any])
+        let encodedOutcome = try XCTUnwrap(arguments["outcome"] as? [Any])
+
+        XCTAssertEqual(Set(arguments.keys), [
+            "market_id",
+            "outcome",
+            "collateral_in",
+            "min_shares_out"
+        ])
+        XCTAssertEqual(
+            (arguments["market_id"] as? NSNumber)?.uint32Value,
+            7
+        )
+        XCTAssertEqual(arguments["collateral_in"] as? String, "1000")
+        XCTAssertEqual(arguments["min_shares_out"] as? String, "900")
+        XCTAssertEqual(encodedOutcome[0] as? String, "Yes")
+        XCTAssertTrue(encodedOutcome[1] is NSNull)
+
+        let sell = RuntimeCall.polkamarktSell(
+            PolkamarktSellCall(
+                marketId: 8,
+                outcome: .no,
+                sharesIn: 700,
+                minCollateralOut: 600
+            )
+        )
+        let sellData = try JSONEncoder.scaleCompatible().encode(sell)
+        let sellOuter = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: sellData) as? [Any]
+        )
+        let sellCall = try XCTUnwrap(sellOuter[1] as? [Any])
+        let sellArguments = try XCTUnwrap(sellCall[1] as? [String: Any])
+        XCTAssertEqual(Set(sellArguments.keys), [
+            "market_id",
+            "outcome",
+            "shares_in",
+            "min_collateral_out"
+        ])
+
+        let batch = RuntimeCall.polkamarktBatchClaim(
+            PolkamarktBatchClaimCall(marketIds: [1, 2])
+        )
+        let batchData = try JSONEncoder.scaleCompatible().encode(batch)
+        let batchOuter = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: batchData) as? [Any]
+        )
+        let batchCall = try XCTUnwrap(batchOuter[1] as? [Any])
+        let batchArguments = try XCTUnwrap(batchCall[1] as? [String: Any])
+        XCTAssertEqual(Set(batchArguments.keys), ["market_ids"])
+    }
+
+    func testPolkamarktScaleUnitVariantsRejectTrailingOrNonNullPayloads() {
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                PolkamarktOutcome.self,
+                from: Data(#"["Yes","unexpected"]"#.utf8)
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                PolkamarktOutcome.self,
+                from: Data(#"["Yes",null,"unexpected"]"#.utf8)
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                PolkamarktMarketStatus.self,
+                from: Data(#"["Open","unexpected"]"#.utf8)
+            )
+        )
+    }
+
+    func testPinnedPolkamarktRuntimeContract() throws {
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.sora2NetworkRevision,
+            "411dcdb70c5c00b21482a44d02334840d5f338c6"
+        )
+        XCTAssertEqual(PolkamarktRuntimeContract.specVersion, 130)
+        XCTAssertEqual(PolkamarktRuntimeContract.transactionVersion, 130)
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.metadataFileSHA256,
+            "2b49c3cbf682d8b88985a04a60a958de3ef5de77d282c3622bdae53f7e4fbabf"
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.webContractCommitTree,
+            "e391982c0921dea5278e919a7558b7a6a2afc0d4"
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.webContractSourceTree,
+            "57f0fe7623f2b93b34faecfc66d6c5da96d54e1b"
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.webContractSourceFileCount,
+            22
+        )
+        XCTAssertEqual(PolkamarktRuntimeContract.maximumBatchClaims, 24)
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.maximumMarketId,
+            4_294_967_295
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.maximumCloseBlock,
+            4_294_967_295
+        )
+        XCTAssertEqual(
+            Set(PolkamarktRuntimeContract.Call.required),
+            Set([
+                "buy",
+                "sell",
+                "claim_market",
+                "claim_markets",
+                "claim_creator_fees"
+            ])
+        )
+
+        let fixtureURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent(
+                "Fixtures/Modernization/polkamarkt-runtime-v130.json"
+            )
+        let fixture = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(contentsOf: fixtureURL)
+            ) as? [String: Any]
+        )
+        let claimConfirmation = try XCTUnwrap(
+            fixture["mobileClaimConfirmation"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.ClaimConfirmation
+                .requiresExplicitConfirmation,
+            true
+        )
+        XCTAssertEqual(
+            claimConfirmation["requiresExplicitConfirmation"] as? Bool,
+            PolkamarktRuntimeContract.ClaimConfirmation
+                .requiresExplicitConfirmation
+        )
+        XCTAssertEqual(
+            claimConfirmation["requiredReviewedFields"] as? [String],
+            PolkamarktRuntimeContract.ClaimConfirmation
+                .requiredReviewedFields
+        )
+        XCTAssertEqual(
+            claimConfirmation["freshChecksBeforeSigning"] as? [String],
+            PolkamarktRuntimeContract.ClaimConfirmation
+                .freshChecksBeforeSigning
+        )
+        let claimConfirmationCopy = try XCTUnwrap(
+            claimConfirmation["copy"] as? [String: String]
+        )
+        XCTAssertEqual(
+            claimConfirmationCopy["title"],
+            PolkamarktRuntimeContract.ClaimConfirmation.title
+        )
+        XCTAssertEqual(
+            claimConfirmationCopy["batchTitle"],
+            PolkamarktRuntimeContract.ClaimConfirmation.batchTitle
+        )
+        XCTAssertEqual(
+            claimConfirmationCopy["body"],
+            PolkamarktRuntimeContract.ClaimConfirmation.body
+        )
+        XCTAssertEqual(
+            claimConfirmationCopy["feeNotice"],
+            PolkamarktRuntimeContract.ClaimConfirmation.feeNotice
+        )
+        let canonicalVectors = try XCTUnwrap(
+            fixture["canonicalVectors"] as? [String: Any]
+        )
+        let minimumOutputVectors = try XCTUnwrap(
+            canonicalVectors["minimumOutput"] as? [[String: Any]]
+        )
+        XCTAssertFalse(minimumOutputVectors.isEmpty)
+        for vector in minimumOutputVectors {
+            let quoteOutput = try XCTUnwrap(
+                BigUInt(try XCTUnwrap(vector["quotedOutput"] as? String))
+            )
+            let expectedMinimum = try XCTUnwrap(
+                BigUInt(try XCTUnwrap(vector["expectedMinimum"] as? String))
+            )
+            let slippage = try XCTUnwrap(
+                (vector["slippageBps"] as? NSNumber)?.uint16Value
+            )
+            XCTAssertEqual(
+                try PolkamarktQuoteValidator.minimumOutput(
+                    quoteOutput: quoteOutput,
+                    slippageBasisPoints: slippage
+                ),
+                expectedMinimum
+            )
+        }
+
+        let qualification = try XCTUnwrap(
+            canonicalVectors["fullExtrinsicQualification"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            qualification["receiptSchema"] as? String,
+            "sora-mobile-polkamarkt-full-extrinsic-receipt-v1"
+        )
+        XCTAssertEqual(
+            qualification["requiredMetadataSha256"] as? String,
+            PolkamarktRuntimeContract.metadataFileSHA256
+        )
+        XCTAssertEqual(
+            qualification["requiredGenesisHash"] as? String,
+            PIIndexerClient.soraMainnetGenesis
+        )
+        XCTAssertEqual(
+            (qualification["requiredSpecVersion"] as? NSNumber)?.uint32Value,
+            PolkamarktRuntimeContract.specVersion
+        )
+        XCTAssertEqual(
+            (qualification["requiredTransactionVersion"] as? NSNumber)?
+                .uint32Value,
+            PolkamarktRuntimeContract.transactionVersion
+        )
+        XCTAssertEqual(
+            qualification["metadataIndicesMustBeResolvedDynamically"] as? Bool,
+            true
+        )
+        XCTAssertEqual(
+            qualification["requiredVectorOrder"] as? [String],
+            PolkamarktRuntimeContract.Call.required
+        )
+        let generation = try XCTUnwrap(
+            qualification["generationContract"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            generation["candidateReceiptSchema"] as? String,
+            "sora-mobile-polkamarkt-platform-extrinsic-receipt-v1"
+        )
+        XCTAssertEqual(
+            generation["independentReviewSchema"] as? String,
+            "sora-mobile-polkamarkt-extrinsic-review-v1"
+        )
+        XCTAssertEqual(
+            generation["merger"] as? String,
+            "scripts/qualify-polkamarkt-extrinsic-receipts.mjs"
+        )
+        let reference = try XCTUnwrap(
+            generation["referenceImplementation"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            reference["revision"] as? String,
+            PolkamarktRuntimeContract.webContractRevision
+        )
+        XCTAssertEqual(reference["package"] as? String, "polkadotApi")
+        XCTAssertEqual(reference["packageVersion"] as? String, "11.2.1")
+        let metadata = try XCTUnwrap(
+            generation["runtimeMetadata"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            metadata["sha256"] as? String,
+            PolkamarktRuntimeContract.metadataFileSHA256
+        )
+        XCTAssertEqual(
+            metadata["palletAndCallIndices"] as? String,
+            "resolve-from-this-metadata-never-hardcode"
+        )
+        let signing = try XCTUnwrap(
+            generation["signingContext"] as? [String: Any]
+        )
+        XCTAssertEqual(signing["cryptoType"] as? String, "sr25519")
+        XCTAssertEqual(
+            (signing["signaturePayloadHashingThresholdBytes"] as? NSNumber)?
+                .intValue,
+            ExtrinsicBuilder.payloadHashingTreshold
+        )
+        XCTAssertEqual(
+            signing["privateSigningMaterialPermittedInFixture"] as? Bool,
+            false
+        )
+        XCTAssertEqual(
+            generation["cryptographicProofSchema"] as? String,
+            "sora-mobile-polkamarkt-native-cryptographic-proof-v1"
+        )
+        XCTAssertEqual(
+            generation["requiredCryptographicProofClaims"] as? [String],
+            [
+                "candidate-identity-bound",
+                "sr25519-signatures-verified-over-reconstructed-signing-prehashes",
+                "signed-extrinsics-decoded-through-pinned-live-metadata",
+                "decoded-projections-match-canonical-runtime-call-vectors",
+                "signed-extrinsic-hashes-recomputed",
+                "non-production-qualification-account-used",
+                "private-signing-material-absent-from-receipts"
+            ]
+        )
+        XCTAssertEqual(
+            generation["requiredSharedVectorFields"] as? [String],
+            [
+                "id",
+                "call",
+                "arguments",
+                "metadataPalletIndex",
+                "metadataCallIndex",
+                "scaleArgumentsHex",
+                "fullCallHex",
+                "rawSigningPayloadHex",
+                "signingPrehashHex",
+                "signingPrehashRule",
+                "decodedProjection",
+                "decodedProjectionSha256"
+            ]
+        )
+        XCTAssertEqual(
+            generation["requiredPlatformVectorFields"] as? [String],
+            [
+                "id",
+                "signerPublicKeyHex",
+                "signatureHex",
+                "signedExtrinsicHex",
+                "extrinsicHashHex",
+                "signingPrehashHex",
+                "decodedProjection",
+                "decodedProjectionSha256"
+            ]
+        )
+        XCTAssertEqual(
+            generation["parityRules"] as? [String],
+            [
+                "reference-android-ios-full-call-bytes-equal",
+                "reference-android-ios-signing-prehash-equal",
+                "reference-android-ios-decoded-projection-sha256-equal",
+                "each-platform-reviewed-cryptographic-proof-signature-verifies",
+                "each-proof-binds-source-metadata-context-vectors-and-signed-extrinsics",
+                "each-proof-attests-sr25519-verification-and-live-metadata-round-trip",
+                "sr25519-signature-bytes-may-differ-but-must-verify"
+            ]
+        )
+        let hasReviewedExtrinsicReceipt = try XCTUnwrap(
+            qualification["reviewedWebAndRuntimeReceiptQualified"] as? Bool
+        )
+        if hasReviewedExtrinsicReceipt {
+            XCTAssertTrue(qualification["blocker"] is NSNull)
+            let receipt = try XCTUnwrap(
+                qualification["reviewedReceipt"] as? [String: Any]
+            )
+            XCTAssertEqual(
+                receipt["format"] as? String,
+                qualification["receiptSchema"] as? String
+            )
+            XCTAssertEqual(
+                receipt["metadataSha256"] as? String,
+                qualification["requiredMetadataSha256"] as? String
+            )
+            XCTAssertEqual(
+                receipt["genesisHash"] as? String,
+                qualification["requiredGenesisHash"] as? String
+            )
+            XCTAssertEqual(
+                (receipt["sharedVectors"] as? [[String: Any]])?.count,
+                PolkamarktRuntimeContract.Call.required.count
+            )
+            let platforms = try XCTUnwrap(
+                receipt["platforms"] as? [String: Any]
+            )
+            for platform in ["reference", "android", "ios"] {
+                let platformReceipt = try XCTUnwrap(
+                    platforms[platform] as? [String: Any]
+                )
+                XCTAssertEqual(
+                    (platformReceipt["vectors"] as? [[String: Any]])?.count,
+                    PolkamarktRuntimeContract.Call.required.count
+                )
+                XCTAssertTrue(
+                    try XCTUnwrap(
+                        platformReceipt["candidateReceiptSha256"] as? String
+                    ).range(
+                        of: "^[0-9a-f]{64}$",
+                        options: .regularExpression
+                    ) != nil
+                )
+                let cryptographicProof = platformReceipt[
+                    "cryptographicProof"
+                ] as? [String: Any]
+                XCTAssertEqual(
+                    cryptographicProof?["format"] as? String,
+                    "sora-mobile-polkamarkt-native-cryptographic-proof-v1"
+                )
+            }
+            let review = try XCTUnwrap(receipt["review"] as? [String: Any])
+            let reviewKeySha256 = try XCTUnwrap(
+                review["publicKeySha256"] as? String
+            )
+            XCTAssertTrue(
+                reviewKeySha256.range(
+                    of: "^[0-9a-f]{64}$",
+                    options: .regularExpression
+                ) != nil
+            )
+            XCTAssertNotEqual(
+                reviewKeySha256,
+                String(repeating: "0", count: 64)
+            )
+            XCTAssertEqual(receipt["parityQualified"] as? Bool, true)
+        } else {
+            XCTAssertTrue(qualification["reviewedReceipt"] is NSNull)
+            XCTAssertEqual(
+                qualification["blocker"] as? String,
+                "Generate independent reference, Android, and iOS receipts from the pinned web revision and exact runtime metadata; independently sign the composite receipt; then prove full call bytes, signing prehashes, signatures, signed extrinsics, and decoded projections before enabling mutations."
+            )
+        }
+
+        let translationKeys = try XCTUnwrap(
+            fixture["translationKeys"] as? [String: String]
+        )
+        let expectedTranslationKeys: Set<String> = [
+            "pageTitle.Polkamarkt",
+            "polkamarkt.outcomes.yes",
+            "polkamarkt.outcomes.no",
+            "polkamarkt.actions.buy",
+            "polkamarkt.actions.sell",
+            "polkamarkt.actions.claimTraderPayout",
+            "polkamarkt.actions.claimCreatorFees",
+            "polkamarkt.ticket.sharesOut",
+            "polkamarkt.ticket.collateralOut",
+            "polkamarkt.ticket.slippage",
+            "polkamarkt.ticket.takerFee",
+            "networkFeeText"
+        ]
+        XCTAssertEqual(Set(translationKeys.values), expectedTranslationKeys)
+
+        let sourceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let localizableRoot = sourceRoot.appendingPathComponent(
+            "SoraPassport/SoraLocalizable",
+            isDirectory: true
+        )
+        let localeDirectories = try FileManager.default
+            .contentsOfDirectory(
+                at: localizableRoot,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            .filter { $0.pathExtension == "lproj" }
+        // 31 catalogs in the source tree: akk and egy-Egyp were removed in
+        // 3.9.0.
+        XCTAssertEqual(localeDirectories.count, 31)
+        for localeDirectory in localeDirectories {
+            let strings = try String(
+                contentsOf: localeDirectory.appendingPathComponent(
+                    "Localizable.strings"
+                ),
+                encoding: .utf8
+            )
+            for key in expectedTranslationKeys {
+                let marker = "\"\(key)\" = \""
+                let parts = strings.components(separatedBy: marker)
+                XCTAssertEqual(
+                    parts.count,
+                    2,
+                    "\(key) must occur exactly once in \(localeDirectory.lastPathComponent)"
+                )
+                guard
+                    parts.count == 2,
+                    let end = parts[1].range(of: "\";")
+                else {
+                    continue
+                }
+                let localizedValue = String(parts[1][..<end.lowerBound])
+                XCTAssertFalse(localizedValue.isEmpty)
+                XCTAssertNotEqual(localizedValue, key)
+            }
+        }
+    }
+
+    func testSora2SigningIdentityRejectsVersionOrMetadataSubstitution()
+        throws
+    {
+        let reviewedHash = PolkamarktRuntimeContract.metadataFileSHA256
+        let reviewedGenesis = PIIndexerClient.soraMainnetGenesis
+        XCTAssertEqual(
+            try? Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(
+                for: URL(string: "wss://mof2.sora.org")
+            ).absoluteString,
+            "https://mof2.sora.org/"
+        )
+        XCTAssertThrowsError(
+            try Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(
+                for: URL(string: "ws://mof2.sora.org")
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(
+                for: URL(string: "wss://user@mof2.sora.org")
+            )
+        )
+        XCTAssertTrue(
+            Sora2BoundedHTTPJSONRPCEngine.acceptsJSONContentType(
+                "application/json; charset=utf-8"
+            )
+        )
+        XCTAssertFalse(
+            Sora2BoundedHTTPJSONRPCEngine.acceptsJSONContentType(
+                "application/json; charset=utf-8; profile=unsafe"
+            )
+        )
+        XCTAssertTrue(
+            Sora2BoundedHTTPJSONRPCEngine.isAllowedMethod(
+                SoraPassport.RPCMethod.submitExtrinsic
+            )
+        )
+        XCTAssertTrue(
+            Sora2BoundedHTTPJSONRPCEngine.isAllowedMethod(
+                RPCMethod.needsMigration
+            )
+        )
+        XCTAssertFalse(
+            Sora2BoundedHTTPJSONRPCEngine.isAllowedMethod(
+                RPCMethod.submitExtrinsicAndWatch
+            )
+        )
+        XCTAssertTrue(
+            Sora2BoundedHTTPJSONRPCEngine.isCanonicalSignedExtrinsic(
+                "0x2801"
+            )
+        )
+        XCTAssertFalse(
+            Sora2BoundedHTTPJSONRPCEngine.isCanonicalSignedExtrinsic(
+                "0x28AF"
+            )
+        )
+        XCTAssertNoThrow(
+            try Sora2BoundedHTTPJSONRPCEngine
+                .validateExpectedResponseLength(-1)
+        )
+        XCTAssertThrowsError(
+            try Sora2BoundedHTTPJSONRPCEngine
+                .validateExpectedResponseLength(
+                    Int64(
+                        Sora2BoundedHTTPJSONRPCEngine
+                            .maximumResponseBytes + 1
+                    )
+                )
+        )
+        XCTAssertNoThrow(
+            try Sora2BoundedHTTPJSONRPCEngine.validateEnvelope(
+                Data(
+                    #"{"jsonrpc":"2.0","id":7,"result":"0x01"}"#.utf8
+                ),
+                identifier: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2BoundedHTTPJSONRPCEngine.validateEnvelope(
+                Data(
+                    #"{"jsonrpc":"2.0","id":8,"result":"0x01"}"#.utf8
+                ),
+                identifier: 7
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2BoundedHTTPJSONRPCEngine.validateEnvelope(
+                Data(
+                    #"{"jsonrpc":"2.0","id":7,"result":"0x01","error":{"code":-1,"message":"bad"}}"#.utf8
+                ),
+                identifier: 7
+            )
+        )
+        XCTAssertTrue(
+            PolkamarktRuntimeContract.matchesReviewedGenesisHash(
+                reviewedGenesis
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktRuntimeContract.matchesReviewedGenesisHash(
+                "0x" + String(repeating: "0", count: 64)
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktRuntimeContract.matchesReviewedGenesisHash(
+                String(reviewedGenesis.dropFirst(2))
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktRuntimeContract.matchesReviewedGenesisHash(
+                reviewedGenesis.uppercased()
+            )
+        )
+        let sampleMetadata = Data([0x00, 0x01, 0xff])
+        XCTAssertEqual(
+            PolkamarktRuntimeContract.wireMetadataSHA256("0x0001ff"),
+            PolkamarktRuntimeContract.rawMetadataSHA256(sampleMetadata)
+        )
+        XCTAssertNil(
+            PolkamarktRuntimeContract.wireMetadataSHA256("0x0001FF")
+        )
+        XCTAssertTrue(
+            ReviewedSoraRuntimeSnapshotAdmission.isReviewedSoraChain(
+                reviewedGenesis
+            )
+        )
+        XCTAssertFalse(
+            ReviewedSoraRuntimeSnapshotAdmission.isReviewedSoraChain(
+                "not-a-chain-hash"
+            )
+        )
+        let sourceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let commonTypes = try Data(
+            contentsOf: sourceRoot.appendingPathComponent(
+                "SoraPassport/Resources/runtime-default.json"
+            )
+        )
+        let chainTypes = try Data(
+            contentsOf: sourceRoot.appendingPathComponent(
+                "SoraPassport/Resources/runtime-sora.json"
+            )
+        )
+        XCTAssertEqual(
+            commonTypes.count,
+            ReviewedSoraRuntimeSnapshotAdmission.reviewedCommonTypesBytes
+        )
+        XCTAssertEqual(
+            chainTypes.count,
+            ReviewedSoraRuntimeSnapshotAdmission.reviewedChainTypesBytes
+        )
+        XCTAssertEqual(
+            ReviewedSoraRuntimeSnapshotAdmission
+                .typeRegistrySHA256(commonTypes),
+            ReviewedSoraRuntimeSnapshotAdmission
+                .reviewedCommonTypesSHA256
+        )
+        XCTAssertEqual(
+            ReviewedSoraRuntimeSnapshotAdmission
+                .typeRegistrySHA256(chainTypes),
+            ReviewedSoraRuntimeSnapshotAdmission
+                .reviewedChainTypesSHA256
+        )
+        XCTAssertNoThrow(
+            try ReviewedSoraRuntimeSnapshotAdmission.validateCommonTypes(
+                chainId: reviewedGenesis,
+                data: commonTypes
+            )
+        )
+        XCTAssertNoThrow(
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: reviewedGenesis,
+                data: chainTypes
+            )
+        )
+        XCTAssertNoThrow(
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: reviewedGenesis,
+                    typesUsage: .onlyOwn
+                )
+        )
+        XCTAssertThrowsError(
+            try ReviewedSoraRuntimeSnapshotAdmission
+                .validateTypeRegistryUsage(
+                    chainId: reviewedGenesis,
+                    typesUsage: .both
+                )
+        )
+        var tamperedChainTypes = chainTypes
+        tamperedChainTypes[0] ^= 0x01
+        XCTAssertThrowsError(
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: reviewedGenesis,
+                data: tamperedChainTypes
+            )
+        )
+        XCTAssertThrowsError(
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: reviewedGenesis,
+                item: RuntimeMetadataItem(
+                    chain: reviewedGenesis,
+                    version: PolkamarktRuntimeContract.specVersion,
+                    txVersion:
+                        PolkamarktRuntimeContract.transactionVersion,
+                    metadata: sampleMetadata,
+                    resolver: nil
+                )
+            )
+        )
+        XCTAssertThrowsError(
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: reviewedGenesis,
+                item: RuntimeMetadataItem(
+                    chain: String(repeating: "12", count: 32),
+                    version: PolkamarktRuntimeContract.specVersion,
+                    txVersion:
+                        PolkamarktRuntimeContract.transactionVersion,
+                    metadata: sampleMetadata,
+                    resolver: nil
+                )
+            )
+        )
+        XCTAssertTrue(
+            PolkamarktRuntimeContract.matchesReviewedSigningIdentity(
+                specVersion: 130,
+                transactionVersion: 130,
+                metadataSHA256: reviewedHash
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktRuntimeContract.matchesReviewedSigningIdentity(
+                specVersion: 131,
+                transactionVersion: 130,
+                metadataSHA256: reviewedHash
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktRuntimeContract.matchesReviewedSigningIdentity(
+                specVersion: 130,
+                transactionVersion: 129,
+                metadataSHA256: reviewedHash
+            )
+        )
+        XCTAssertFalse(
+            PolkamarktRuntimeContract.matchesReviewedSigningIdentity(
+                specVersion: 130,
+                transactionVersion: 130,
+                metadataSHA256: String(repeating: "0", count: 64)
+            )
+        )
+    }
+
+    /// Runs the production legacy-upgrade orchestration through the real
+    /// asynchronous AccountImportInteractor, in-memory Core Data repository,
+    /// account-commit journal, and copy-on-write wallet-network store. All
+    /// process-global persistence and recovery dependencies are replaced by
+    /// isolated instances rooted in this test's temporary directory.
+    private func exerciseFullLegacyWalletUpgrade(
+        wordCount: Int,
+        entropyBytes: Int,
+        corruptCommitJournal: Bool,
+        retainsIrohaPrivateKey: Bool = false
+    ) throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let entropy = retainsIrohaPrivateKey ? Data(repeating: 0, count: 20) : Data(
+            (0 ..< entropyBytes).map {
+                UInt8(($0 + wordCount) & 0xff)
+            }
+        )
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        XCTAssertEqual(mnemonic.allWords().count, wordCount)
+        var expectedSeed = try SeedFactory()
+            .deriveSeed(from: mnemonic.toString(), password: "")
+            .seed
+            .miniSeed
+        defer {
+            expectedSeed.resetBytes(
+                in: expectedSeed.startIndex ..< expectedSeed.endIndex
+            )
+        }
+        let expectedKeypair = try SR25519KeypairFactory()
+            .createKeypairFromSeed(expectedSeed, chaincodeList: [])
+        let expectedPublicKey = expectedKeypair.publicKey().rawData()
+        let expectedAddress = try SS58AddressFactory().address(
+            fromAccountId: expectedPublicKey,
+            type: Chain.sora.addressType()
+        )
+        var expectedSecret = expectedKeypair.privateKey().rawData()
+        let expectedSecretDigest = Data(SHA256.hash(data: expectedSecret))
+        expectedSecret.resetBytes(
+            in: expectedSecret.startIndex ..< expectedSecret.endIndex
+        )
+
+        let displayName = "Retained \(wordCount)-word wallet"
+        let keychain = InMemoryKeychain()
+        try keychain.addKey(
+            entropy,
+            with: KeystoreTag.legacyEntropy.rawValue
+        )
+        if retainsIrohaPrivateKey {
+            try keychain.addKey(try Data(hexStringSSF:
+                "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
+                with: "privateKey")
+        }
+        try keychain.addKey(
+            Data(displayName.utf8),
+            with: KeystoreTag.legacyUsername.rawValue
+        )
+        let originalIdentifiers = Set(try keychain.allKeyIdentifiers())
+        var originalValues: [String: Data] = [:]
+        for identifier in originalIdentifiers {
+            originalValues[identifier] = try keychain.fetchKey(
+                for: identifier
+            )
+        }
+
+        let legacySettings = InMemorySettingsManager()
+        let journalProbe = LegacyUpgradeJournalProbe()
+        let recoveryGate = WalletRecoveryCapabilityGate(
+            settings: legacySettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: {
+                try journalProbe.hasUnresolvedCommit()
+            }
+        )
+        let lifecycleCoordinator = WalletLifecycleCoordinator(
+            recoveryGate: recoveryGate
+        )
+        let journalStore = try WalletAccountCommitJournalStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate
+        )
+        journalProbe.install(journalStore)
+        let walletStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate
+        )
+
+        let storageFacade = UserDataStorageTestFacade()
+        let selectedWalletQueue = OperationQueue()
+        selectedWalletQueue.name =
+            "wallet-modernization-retained-\(wordCount)-selection"
+        let accountRepository:
+            CoreDataRepository<AccountItem, CDAccountItem> =
+            storageFacade.createRepository(
+                mapper: AnyCoreDataMapper(AccountItemMapper())
+            )
+        let selectedWalletSettings = SelectedWalletSettings(
+            storageFacade: storageFacade,
+            operationQueue: selectedWalletQueue,
+            legacySettings: legacySettings,
+            walletNetworkSynchronizer: {
+                accounts,
+                selectedAddress,
+                lifecycleLease in
+                if corruptCommitJournal {
+                    let journalDirectory = directory
+                        .appendingPathComponent(
+                            "SORA",
+                            isDirectory: true
+                        )
+                        .appendingPathComponent(
+                            "WalletAccountCommits",
+                            isDirectory: true
+                        )
+                    try Data("interrupted legacy upgrade".utf8).write(
+                        to: journalDirectory.appendingPathComponent(
+                            ".interrupted-upgrade"
+                        ),
+                        options: .atomic
+                    )
+                    throw WalletNetworkMigrationError
+                        .snapshotVerificationFailed
+                }
+                try WalletNetworkModelMigrator(
+                    keystore: keychain,
+                    store: walletStore,
+                    settings: legacySettings,
+                    lifecycleCoordinator: lifecycleCoordinator,
+                    recoveryGate: recoveryGate
+                ).migrate(
+                    accounts: accounts,
+                    selectedAddress: selectedAddress,
+                    lifecycleLease: lifecycleLease
+                )
+            },
+            walletAccountCommitJournalStoreFactory: {
+                journalStore
+            },
+            lifecycleCoordinator: lifecycleCoordinator,
+            recoveryGate: recoveryGate
+        )
+        let eventCenter = EventCenter(
+            syncQueue: DispatchQueue(
+                label: "wallet-modernization-retained-\(wordCount)-events"
+            )
+        )
+        let importQueue = OperationQueue()
+        importQueue.name =
+            "wallet-modernization-retained-\(wordCount)-import"
+        let operationManager = OperationManager(
+            operationQueue: importQueue
+        )
+        let importFactoryCalled = LockedInvocationFlag()
+
+        let root = RootInteractor(
+            settings: legacySettings,
+            keystore: keychain,
+            migrators: [],
+            securityLayerInteractor:
+                LegacyUpgradeSecurityLayerInteractorStub(),
+            networkAvailabilityLayerInteractor: nil,
+            legacyUpgradeSelectedAccount: {
+                selectedWalletSettings.currentAccount
+            },
+            legacyUpgradeSnapshotLoader: {
+                try walletStore.load()
+            },
+            legacyUpgradeUnresolvedCommitLoader: {
+                try journalStore.unresolved()
+            },
+            legacyUpgradeInteractorFactory: {
+                retainedKeystore,
+                retainedSettings,
+                expectedEntropyDigest,
+                expectedDisplayName in
+                importFactoryCalled.markCalled()
+                return AccountImportInteractor(
+                    accountOperationFactory: AccountOperationFactory(
+                        keystore: retainedKeystore,
+                        recoveryGate: recoveryGate
+                    ),
+                    accountRepository: AnyDataProviderRepository(
+                        accountRepository
+                    ),
+                    operationManager: operationManager,
+                    settings: selectedWalletSettings,
+                    keystoreImportService: KeystoreImportService(
+                        logger: Logger.shared
+                    ),
+                    eventCenter: eventCenter,
+                    allowedMnemonicWordCounts:
+                        WalletMnemonicWordPolicy.retainedSoraWordCounts,
+                    preparedAccountPersistence: { prepared in
+                        try LegacyWalletUpgradeSecretRetention
+                            .consumeWithoutPersisting(
+                                prepared,
+                                keystore: retainedKeystore,
+                                settings: retainedSettings,
+                                expectedEntropyDigest:
+                                    expectedEntropyDigest,
+                                expectedDisplayName:
+                                    expectedDisplayName,
+                                recoveryGate: recoveryGate
+                            )
+                    },
+                    lifecycleCoordinator: lifecycleCoordinator
+                )
+            }
+        )
+        let presenter = LegacyUpgradeRootPresenterSpy()
+        let terminalDecision = expectation(
+            description:
+                "retained \(wordCount)-word async upgrade terminal decision"
+        )
+        presenter.onDecision = { decision in
+            if decision == .pincodeSetup || decision == .broken {
+                terminalDecision.fulfill()
+            }
+        }
+        root.presenter = presenter
+
+        root.decideModuleSynchroniously()
+        XCTAssertEqual(presenter.decisions, [.legacyWalletUpgrade])
+        root.performLegacyWalletUpgrade()
+        wait(for: [terminalDecision], timeout: 5)
+        XCTAssertTrue(importFactoryCalled.value)
+
+        let storedAccounts = try fetchAll(
+            from: AnyDataProviderRepository(accountRepository),
+            operationQueue: selectedWalletQueue,
+            expectationHandler: self
+        )
+        if corruptCommitJournal {
+            XCTAssertEqual(
+                presenter.decisions,
+                [.legacyWalletUpgrade, .broken]
+            )
+            XCTAssertTrue(legacySettings.walletMigrationRecoveryRequired)
+            XCTAssertNil(selectedWalletSettings.currentAccount)
+            XCTAssertEqual(storedAccounts.count, 1)
+            XCTAssertEqual(storedAccounts.first?.address, expectedAddress)
+            XCTAssertEqual(
+                storedAccounts.first?.publicKeyData,
+                expectedPublicKey
+            )
+            XCTAssertNil(try walletStore.load())
+            XCTAssertThrowsError(try journalStore.unresolved())
+            let journalDirectory = directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent(
+                    "WalletAccountCommits",
+                    isDirectory: true
+                )
+            let canonicalJournal = try XCTUnwrap(
+                FileManager.default.contentsOfDirectory(
+                    at: journalDirectory,
+                    includingPropertiesForKeys: nil,
+                    options: []
+                ).first(where: {
+                    $0.lastPathComponent.hasPrefix("wallet-account-")
+                })
+            )
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            XCTAssertEqual(
+                try decoder.decode(
+                    WalletAccountCommitJournal.self,
+                    from: Data(contentsOf: canonicalJournal)
+                ).stage,
+                .coreDataCommitted
+            )
+        } else {
+            XCTAssertEqual(
+                presenter.decisions,
+                [.legacyWalletUpgrade, .pincodeSetup]
+            )
+            XCTAssertFalse(legacySettings.walletMigrationRecoveryRequired)
+            XCTAssertEqual(storedAccounts.count, 1)
+            let storedAccount = try XCTUnwrap(storedAccounts.first)
+            XCTAssertEqual(storedAccount.address, expectedAddress)
+            XCTAssertEqual(storedAccount.publicKeyData, expectedPublicKey)
+            XCTAssertEqual(storedAccount.username, displayName)
+            XCTAssertTrue(storedAccount.isSelected)
+            XCTAssertEqual(
+                selectedWalletSettings.currentAccount,
+                storedAccount
+            )
+
+            let snapshot = try XCTUnwrap(walletStore.load())
+            XCTAssertEqual(
+                try keychain.fetchEntropyForAddress(
+                    expectedAddress, activeSnapshot: snapshot, recoveryGate: recoveryGate
+                ),
+                entropy
+            )
+            let expectedSource = try XCTUnwrap(
+                WalletMnemonicWordPolicy.retainedSecretSource(
+                    forWordCount: wordCount
+                )
+            )
+            let expectedNetworks: Set<NetworkId> =
+                expectedSource == .legacyMnemonicEntropy
+                    ? [.sora2]
+                    : NexusNetworkConfiguration.admittedWalletNetworkIds
+            XCTAssertEqual(snapshot.selectedWalletId, expectedAddress)
+            XCTAssertEqual(snapshot.wallets.count, 1)
+            XCTAssertEqual(snapshot.wallets.first?.id, expectedAddress)
+            XCTAssertEqual(
+                snapshot.wallets.first?.existingSoraAddress,
+                expectedAddress
+            )
+            XCTAssertEqual(
+                snapshot.wallets.first?.secretSource,
+                expectedSource
+            )
+            XCTAssertEqual(
+                Set(snapshot.accounts.map(\.networkId)),
+                expectedNetworks
+            )
+            let storedSora2 = try XCTUnwrap(
+                snapshot.accounts.first(where: {
+                    $0.networkId == .sora2
+                })
+            )
+            XCTAssertEqual(storedSora2.address, expectedAddress)
+            XCTAssertEqual(storedSora2.publicKey, expectedPublicKey)
+            XCTAssertTrue(try journalStore.unresolved().isEmpty)
+
+            let journalDirectory = directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent(
+                    "WalletAccountCommits",
+                    isDirectory: true
+                )
+            let journalURLs = try FileManager.default.contentsOfDirectory(
+                at: journalDirectory,
+                includingPropertiesForKeys: nil,
+                options: []
+            )
+            XCTAssertEqual(journalURLs.count, 1)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let terminalJournal = try decoder.decode(
+                WalletAccountCommitJournal.self,
+                from: Data(contentsOf: try XCTUnwrap(journalURLs.first))
+            )
+            XCTAssertEqual(terminalJournal.walletId, expectedAddress)
+            XCTAssertEqual(terminalJournal.stage, .activated)
+
+            XCTAssertTrue(
+                try WalletExplicitRemovalIdentityPolicy.verify(
+                    accounts: storedAccounts,
+                    expectedAccount: storedAccount,
+                    walletId: expectedAddress,
+                    snapshot: snapshot,
+                    keystore: keychain,
+                    settings: legacySettings,
+                    recoveryGate: recoveryGate
+                )
+            )
+
+            var postUpgradeEntropy = try keychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            )
+            defer {
+                postUpgradeEntropy.resetBytes(
+                    in: postUpgradeEntropy.startIndex ..<
+                        postUpgradeEntropy.endIndex
+                )
+            }
+            let postUpgradeMnemonic = try IRMnemonicCreator(
+                language: .english
+            ).mnemonic(fromEntropy: postUpgradeEntropy)
+            var postUpgradeSeed = try SeedFactory()
+                .deriveSeed(
+                    from: postUpgradeMnemonic.toString(),
+                    password: ""
+                )
+                .seed
+                .miniSeed
+            defer {
+                postUpgradeSeed.resetBytes(
+                    in: postUpgradeSeed.startIndex ..<
+                        postUpgradeSeed.endIndex
+                )
+            }
+            let postUpgradeKeypair = try SR25519KeypairFactory()
+                .createKeypairFromSeed(
+                    postUpgradeSeed,
+                    chaincodeList: []
+                )
+            var postUpgradeSecret = postUpgradeKeypair.privateKey()
+                .rawData()
+            XCTAssertEqual(
+                Data(SHA256.hash(data: postUpgradeSecret)),
+                expectedSecretDigest
+            )
+            postUpgradeSecret.resetBytes(
+                in: postUpgradeSecret.startIndex ..<
+                    postUpgradeSecret.endIndex
+            )
+        }
+
+        // Downgrade safety (3.9.0): the upgraded account gets scoped copies,
+        // add-only, so App Store 3.8.6 (which deletes `seedEntropy` and
+        // requires `-secretKey`) cannot lose it. Every original item, the
+        // global entropy included, is byte-identical. The copies are added
+        // right after the upgrade when the lifecycle lease is free, otherwise
+        // by the next startup; run that startup step here (idempotent).
+        let upgradedSnapshot = try WalletNetworkStore(baseURL: directory, recoveryGate: recoveryGate).load()
+        if let backfillSnapshot = upgradedSnapshot,
+           let backfillAccount = backfillSnapshot.accounts.first(where: {
+               $0.walletId == expectedAddress && $0.networkId == .sora2
+           }) {
+            let upgraded = AccountItem(address: backfillAccount.address, cryptoType: .sr25519,
+                networkType: Chain.sora.addressType(), username: "", publicKeyData: backfillAccount.publicKey,
+                settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+            try LegacyGlobalEntropyScopedBackfill.run(accounts: [upgraded], snapshot: backfillSnapshot,
+                keystore: keychain, recoveryGate: recoveryGate)
+        }
+        let scopedCopies: Set<String> = upgradedSnapshot == nil ? [] : [
+            KeystoreTag.secretKeyTagForAddress(expectedAddress),
+            KeystoreTag.entropyTagForAddress(expectedAddress),
+            KeystoreTag.seedTagForAddress(expectedAddress),
+        ]
+        XCTAssertEqual(
+            Set(try keychain.allKeyIdentifiers()),
+            originalIdentifiers.union(scopedCopies)
+        )
+        for (identifier, expectedValue) in originalValues {
+            XCTAssertEqual(
+                try keychain.fetchKey(for: identifier),
+                expectedValue
+            )
+        }
+        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.deriviationTagForAddress(expectedAddress)))
+        guard upgradedSnapshot != nil else { return }
+        let globalEntropy = try XCTUnwrap(originalValues[KeystoreTag.legacyEntropy.rawValue])
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.entropyTagForAddress(expectedAddress)), globalEntropy)
+        let backfillSeed = try SeedFactory().deriveSeed(
+            from: IRMnemonicCreator(language: .english).mnemonic(fromEntropy: globalEntropy).toString(),
+            password: "").seed.miniSeed
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.seedTagForAddress(expectedAddress)), backfillSeed)
+        let backfillSecret = try keychain.fetchKey(for: KeystoreTag.secretKeyTagForAddress(expectedAddress))
+        XCTAssertEqual(Data(SHA256.hash(data: backfillSecret)), expectedSecretDigest)
+    }
+
+    private func makeLegacyAccount(address label: String) -> AccountItem {
+        let marker = label.utf8.reduce(0) {
+            ($0 + Int($1)) & 0xff
+        }
+        let publicKey = Data(
+            (0..<32).map { UInt8((marker + $0) & 0xff) }
+        )
+        let address = try! SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: Chain.sora.addressType()
+        )
+        return AccountItem(
+            address: address,
+            cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(),
+            username: "Existing wallet",
+            publicKeyData: publicKey,
+            settings: AccountSettings(
+                visibleAssetIds: [],
+                orderedAssetIds: []
+            ),
+            order: 0,
+            isSelected: true
+        )
+    }
+
+    private func userStorageModel(named name: String) throws -> NSManagedObjectModel {
+        let modelURL =
+            Bundle.main.url(
+                forResource: name,
+                withExtension: "omo",
+                subdirectory: UserStorageParams.modelDirectory
+            ) ??
+            Bundle.main.url(
+                forResource: name,
+                withExtension: "mom",
+                subdirectory: UserStorageParams.modelDirectory
+            )
+        let unwrappedURL = try XCTUnwrap(modelURL)
+        return try XCTUnwrap(NSManagedObjectModel(contentsOf: unwrappedURL))
+    }
+
+    private func writeAccount(
+        _ account: AccountItem,
+        to storeURL: URL,
+        model: NSManagedObjectModel,
+        includesSelection: Bool
+    ) throws {
+        try writeAccounts(
+            [account],
+            to: storeURL,
+            model: model,
+            includesSelection: includesSelection
+        )
+    }
+
+    private func writeAccounts(
+        _ accounts: [AccountItem],
+        to storeURL: URL,
+        model: NSManagedObjectModel,
+        includesSelection: Bool
+    ) throws {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: storeURL,
+            options: nil
+        )
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        try context.performAndWait {
+            for account in accounts {
+                let stored = NSEntityDescription.insertNewObject(
+                    forEntityName: "CDAccountItem",
+                    into: context
+                )
+                stored.setValue(account.address, forKey: "identifier")
+                stored.setValue(account.username, forKey: "username")
+                stored.setValue(account.publicKeyData, forKey: "publicKey")
+                stored.setValue(
+                    account.cryptoType.rawValue,
+                    forKey: "cryptoType"
+                )
+                stored.setValue(
+                    account.networkType,
+                    forKey: "networkType"
+                )
+                stored.setValue(account.order, forKey: "order")
+                if includesSelection {
+                    stored.setValue(
+                        account.isSelected,
+                        forKey: "isSelected"
+                    )
+                }
+            }
+            try context.save()
+        }
+        try coordinator.remove(store)
+    }
+
+    private func assertStoredAccount(
+        _ account: AccountItem,
+        at storeURL: URL,
+        model: NSManagedObjectModel,
+        expectedSelection: Bool?
+    ) throws {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: storeURL,
+            options: [NSReadOnlyPersistentStoreOption: true]
+        )
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        try context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "CDAccountItem")
+            let rows = try context.fetch(request)
+            let row = try XCTUnwrap(rows.first)
+            XCTAssertEqual(rows.count, 1)
+            XCTAssertEqual(row.value(forKey: "identifier") as? String, account.address)
+            XCTAssertEqual(row.value(forKey: "username") as? String, account.username)
+            XCTAssertEqual(row.value(forKey: "publicKey") as? Data, account.publicKeyData)
+            if let expectedSelection {
+                XCTAssertEqual(
+                    (row.value(forKey: "isSelected") as? NSNumber)?.boolValue,
+                    expectedSelection
+                )
+            }
+        }
+    }
+
+    private func assertStoredAccounts(
+        _ accounts: [AccountItem],
+        at storeURL: URL,
+        model: NSManagedObjectModel,
+        includesSelection: Bool = true
+    ) throws {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: storeURL,
+            options: [NSReadOnlyPersistentStoreOption: true]
+        )
+        defer { try? coordinator.remove(store) }
+        let context = NSManagedObjectContext(
+            concurrencyType: .privateQueueConcurrencyType
+        )
+        context.persistentStoreCoordinator = coordinator
+        try context.performAndWait {
+            let rows = try context.fetch(
+                NSFetchRequest<NSManagedObject>(entityName: "CDAccountItem")
+            )
+            XCTAssertEqual(rows.count, accounts.count)
+            let rowsByAddress = Dictionary(
+                uniqueKeysWithValues: rows.compactMap { row in
+                    (row.value(forKey: "identifier") as? String).map {
+                        ($0, row)
+                    }
+                }
+            )
+            XCTAssertEqual(rowsByAddress.count, accounts.count)
+            for account in accounts {
+                let row = try XCTUnwrap(rowsByAddress[account.address])
+                XCTAssertEqual(
+                    row.value(forKey: "username") as? String,
+                    account.username
+                )
+                XCTAssertEqual(
+                    row.value(forKey: "publicKey") as? Data,
+                    account.publicKeyData
+                )
+                XCTAssertEqual(
+                    (row.value(forKey: "cryptoType") as? NSNumber)?.intValue,
+                    Int(account.cryptoType.rawValue)
+                )
+                XCTAssertEqual(
+                    (row.value(forKey: "networkType") as? NSNumber)?.intValue,
+                    Int(account.networkType)
+                )
+                XCTAssertEqual(
+                    (row.value(forKey: "order") as? NSNumber)?.intValue,
+                    Int(account.order)
+                )
+                if includesSelection {
+                    XCTAssertEqual(
+                        (row.value(forKey: "isSelected") as? NSNumber)?.boolValue,
+                        account.isSelected
+                    )
+                }
+            }
+        }
+    }
+}
+
+private final class AccountSelectionDeliveryObserver: EventVisitorProtocol {
+    private let onSelection: () -> Void
+
+    init(onSelection: @escaping () -> Void) {
+        self.onSelection = onSelection
+    }
+
+    func processSelectedAccountChanged(event: SelectedAccountChanged) {
+        onSelection()
+    }
+}
+
+private final class LegacyUpgradeSecurityLayerInteractorStub:
+    SecurityLayerInteractorInputProtocol
+{
+    func setup() {}
+}
+
+private final class LegacyUpgradeJournalProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private weak var store: WalletAccountCommitJournalStore?
+
+    func install(_ store: WalletAccountCommitJournalStore) {
+        lock.lock()
+        self.store = store
+        lock.unlock()
+    }
+
+    func hasUnresolvedCommit() throws -> Bool {
+        lock.lock()
+        let retainedStore = store
+        lock.unlock()
+        guard let retainedStore else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        return try !retainedStore.unresolved().isEmpty
+    }
+}
+
+private final class LegacyUpgradeRootPresenterSpy:
+    RootInteractorOutputProtocol
+{
+    enum Decision: Equatable {
+        case onboarding
+        case legacyWalletUpgrade
+        case localAuthentication
+        case broken
+        case pincodeSetup
+        case welcomeBack
+    }
+
+    private let lock = NSLock()
+    private var storedDecisions: [Decision] = []
+    var onDecision: ((Decision) -> Void)?
+
+    var decisions: [Decision] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedDecisions
+    }
+
+    func didDecideOnboarding() {
+        record(.onboarding)
+    }
+
+    func didDecideLegacyWalletUpgrade() {
+        record(.legacyWalletUpgrade)
+    }
+
+    func didDecideLocalAuthentication() {
+        record(.localAuthentication)
+    }
+
+    func didDecideBroken() {
+        record(.broken)
+    }
+
+    func didDecidePincodeSetup() {
+        record(.pincodeSetup)
+    }
+
+    func didDecideWelcomeBack() {
+        record(.welcomeBack)
+    }
+
+    private func record(_ decision: Decision) {
+        lock.lock()
+        storedDecisions.append(decision)
+        let callback = onDecision
+        lock.unlock()
+        callback?(decision)
+    }
+}
+
+private final class WalletMigrationProtectionFailingFileManager: FileManager {
+    private(set) var failuresInjected = 0
+    private var protectionWrites = 0
+
+    override func setAttributes(_ attributes: [FileAttributeKey: Any], ofItemAtPath path: String) throws {
+        if path.contains("/WalletMigrationSafety/"), attributes[.protectionKey] != nil {
+            protectionWrites += 1
+            if protectionWrites == 3 {
+                failuresInjected += 1
+                throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
+            }
+        }
+        try super.setAttributes(attributes, ofItemAtPath: path)
+    }
+}
+
+private final class WalletJournalRemovalFailingFileManager: FileManager {
+    var failWalletJournalRemoval = false
+
+    override func removeItem(at URL: URL) throws {
+        if
+            failWalletJournalRemoval,
+            URL.lastPathComponent.hasPrefix("wallet-account-")
+        {
+            throw NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSFileWriteNoPermissionError
+            )
+        }
+        try super.removeItem(at: URL)
+    }
+}
+
+private final class WalletTestCancellableCall: CancellableCall {
+    private(set) var cancelCount = 0
+
+    func cancel() {
+        cancelCount += 1
+    }
+}
+
+private struct IndexedRuntimeFunction: RuntimeFunctionMetadata {
+    let name: String
+    let index: UInt8?
+    let arguments: [RuntimeFunctionArgumentMetadata] = []
+    let documentation: [String] = []
+}
+
+private extension Data {
+    var hex: String {
+        map { String(format: "%02x", $0) }.joined()
+    }
+}

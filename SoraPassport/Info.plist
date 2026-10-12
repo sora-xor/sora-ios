@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>AppConfigName</key>
 	<string>$(SORA_APPLICATION_CONFIG)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -19,7 +21,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -27,29 +29,64 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>$(SORA_GOOGLE_URL_SCHEME_DEV)</string>
+				<string>$(SORA_GOOGLE_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>GIDClientID</key>
-	<string>$(SORA_GOOGLE_TOKEN_DEV)</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>soracard.wallet.test</string>
-		<string>soracard.wallet</string>
-	</array>
+	<string>$(SORA_GOOGLE_TOKEN)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera is used to capture QR code</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app require the access to Microphone to pass KYC</string>
+	<string>SORA Wallet uses the camera to scan QR codes.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>SORA Wallet uses Face ID to unlock your wallet and confirm sensitive actions.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SORA Wallet saves a QR code image to your photos when you choose Save Image.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Load photos from library</string>
+	<string>SORA Wallet reads a QR code from a photo you choose.</string>
+	<key>SoraMigrationEvidenceAuthorizationKeyId</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID)</string>
+	<key>SoraMigrationEvidenceAuthorizationPublicKeyX963Base64</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64)</string>
+	<key>SoraMigrationEvidenceQualificationContractSha256</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256)</string>
+	<key>SoraMigrationEvidenceSourceRevision</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_SOURCE_REVISION)</string>
+	<key>SoraMinamotoNetworkId</key>
+	<string>$(SORA_MINAMOTO_NETWORK_ID)</string>
+	<key>SoraTairaCanonicalToriiBaseUrl</key>
+	<string>$(SORA_TAIRA_CANONICAL_TORII_BASE_URL)</string>
+	<key>SoraTairaCurrentChainId</key>
+	<string>$(SORA_TAIRA_CURRENT_CHAIN_ID)</string>
+	<key>SoraTairaCurrentDeploymentEpoch</key>
+	<string>$(SORA_TAIRA_CURRENT_DEPLOYMENT_EPOCH)</string>
+	<key>SoraTairaCurrentGenesisHash</key>
+	<string>$(SORA_TAIRA_CURRENT_GENESIS_HASH)</string>
+	<key>SoraTairaDeploymentAdmissionContractId</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID)</string>
+	<key>SoraTairaDeploymentAdmissionSha256</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256)</string>
+	<key>SoraTairaDeploymentManifestSha256</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256)</string>
+	<key>SoraTairaDeploymentManifestSequenceNumber</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SEQUENCE_NUMBER)</string>
+	<key>SoraTairaExplorerBaseUrl</key>
+	<string>$(SORA_TAIRA_EXPLORER_BASE_URL)</string>
+	<key>SoraTairaPendingRowPolicy</key>
+	<string>$(SORA_TAIRA_PENDING_ROW_POLICY)</string>
+	<key>SoraTairaPublicMcpEndpoint</key>
+	<string>$(SORA_TAIRA_PUBLIC_MCP_ENDPOINT)</string>
+	<key>SoraTairaRetiredChainId</key>
+	<string>$(SORA_TAIRA_RETIRED_CHAIN_ID)</string>
+	<key>SoraTairaRetiredDeploymentEpoch</key>
+	<string>$(SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH)</string>
+	<key>SoraTairaRetiredGenesisHash</key>
+	<string>$(SORA_TAIRA_RETIRED_GENESIS_HASH)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>sora-Bold.otf</string>
@@ -58,6 +95,23 @@
 		<string>sora-SemiBold.otf</string>
 		<string>Sora-Light.otf</string>
 	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -65,7 +119,7 @@
 		<string>armv7</string>
 	</array>
 	<key>UIStatusBarStyle</key>
-	<string>UIStatusBarStyleLightContent</string>
+	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

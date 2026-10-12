@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import CoreData
 import Foundation
 import RobinHood
 import SSFUtils
@@ -35,6 +36,65 @@ import SoraKeystore
 
 protocol ChainSyncServiceProtocol {
     func syncUp()
+}
+
+protocol ChainStoreRepairing {
+    /// Makes damaged chain rows readable again so the chain sync can overwrite them.
+    func repairDamagedChainRows()
+}
+
+/// Core Data does not return a stored row whose required text is missing: it logs "missing
+/// mandatory text data" and skips the row. A chain row whose name was lost to store damage
+/// is therefore invisible to every fetch, yet still holds the chain id, so the chain sync
+/// can neither read it nor insert the chain again (the id is unique). The chain would never
+/// load. This gives such rows an empty name, below Core Data's validation, so the next fetch
+/// returns them and the sync writes the real name. A row without a chain id is left alone:
+/// it is never returned and does not block the chain.
+final class ChainStoreRepair: ChainStoreRepairing {
+    private let databaseService: CoreDataServiceProtocol
+    private let logger: LoggerProtocol?
+
+    init(databaseService: CoreDataServiceProtocol, logger: LoggerProtocol? = Logger.shared) {
+        self.databaseService = databaseService
+        self.logger = logger
+    }
+
+    func repairDamagedChainRows() {
+        let done = DispatchSemaphore(value: 0)
+        databaseService.performAsync { [logger] context, _ in
+            defer { done.signal() }
+            // Batch updates exist only for SQLite stores (not for the in-memory store a
+            // session uses when the chain store could not be opened).
+            guard let context,
+                  let stores = context.persistentStoreCoordinator?.persistentStores,
+                  !stores.isEmpty,
+                  stores.allSatisfy({ $0.type == NSSQLiteStoreType }) else {
+                return
+            }
+            let request = NSBatchUpdateRequest(entityName: String(describing: CDChain.self))
+            request.predicate = NSPredicate(
+                format: "%K != nil AND %K == nil",
+                #keyPath(CDChain.chainId),
+                #keyPath(CDChain.name)
+            )
+            request.propertiesToUpdate = [#keyPath(CDChain.name): ""]
+            request.resultType = .updatedObjectIDsResultType
+            do {
+                let result = try context.execute(request) as? NSBatchUpdateResult
+                guard let ids = result?.result as? [NSManagedObjectID], !ids.isEmpty else {
+                    return
+                }
+                NSManagedObjectContext.mergeChanges(
+                    fromRemoteContextSave: [NSUpdatedObjectsKey: ids],
+                    into: [context]
+                )
+                logger?.warning("Chain store: \(ids.count) chain row(s) without a name were made readable")
+            } catch {
+                logger?.warning("Chain store: damaged chain rows could not be repaired now")
+            }
+        }
+        done.wait()
+    }
 }
 
 final class ChainSyncService {
@@ -50,6 +110,8 @@ final class ChainSyncService {
     let eventCenter: EventCenterProtocol
     let retryStrategy: ReconnectionStrategyProtocol
     let operationQueue: OperationQueue
+    let whitelistStore: AssetWhitelistStoring
+    let storeRepair: ChainStoreRepairing?
     let logger: LoggerProtocol?
 
     private(set) var retryAttempt: Int = 0
@@ -66,6 +128,8 @@ final class ChainSyncService {
         eventCenter: EventCenterProtocol,
         operationQueue: OperationQueue,
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
+        whitelistStore: AssetWhitelistStoring = AssetWhitelistStore.shared,
+        storeRepair: ChainStoreRepairing? = nil,
         logger: LoggerProtocol? = nil
     ) {
         self.typesUrl = typesUrl
@@ -75,6 +139,8 @@ final class ChainSyncService {
         self.eventCenter = eventCenter
         self.operationQueue = operationQueue
         self.retryStrategy = retryStrategy
+        self.whitelistStore = whitelistStore
+        self.storeRepair = storeRepair
         self.logger = logger
     }
 
@@ -95,73 +161,37 @@ final class ChainSyncService {
         executeSync()
     }
 
-    private func executeSync() {
-        guard let typesUrl = typesUrl, let assetsUrl = assetsUrl else {
-            assertionFailure()
-            return
+    private func executeSync(whitelist remoteWhitelist: AssetWhitelist? = nil, refreshWhitelist: Bool = true) {
+        let repairOperation = ClosureOperation<Void> { [storeRepair] in
+            storeRepair?.repairDamagedChainRows()
         }
-
-        let remoteFetchAssetsOperation = dataFetchFactory.fetchData(from: assetsUrl)
         let localFetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        localFetchOperation.addDependency(repairOperation)
         let processingOperation: BaseOperation<SyncChanges> = ClosureOperation {
-            let assets = AssetManager.networkAssets
-            let assetsRemoteData = try remoteFetchAssetsOperation.extractNoCancellableResultData()
-            let whiteList: [Whitelist] = try JSONDecoder().decode([Whitelist].self, from: assetsRemoteData)
-
-            var filteredAssets: [AssetInfo] = []
-
-            for var asset in assets {
-                if let listed = whiteList.first(where: { (list) -> Bool in
-                    list.assetId == asset.assetId
-                }) {
-                    asset.icon = listed.icon
-                    asset.name = listed.name
-                    asset.symbol = listed.symbol
-                    filteredAssets.append(asset)
-                }
-            }
-            Logger.shared.info("HANDLE ASSETS \(assets.count), whitelist: \(whiteList.count), result: \(filteredAssets.count)")
-
-            let typesSettings  = ChainModel.TypesSettings(url: typesUrl, overridesCommon: true)
-            let defaultChain = ChainModel(chainId: Chain.sora.genesisHash(),
-                                          name: Chain.sora.rawValue,
-                                          nodes: ConfigService.shared.config.defaultNodes,
-                                          addressPrefix: ApplicationConfig.shared.addressType,
-                                          types: typesSettings,
-                                          icon: nil,
-                                          selectedNode: nil,
-                                          iosMinAppVersion: nil)
-            let chainAssets = filteredAssets.map {
-                ChainAssetModel(assetId: $0.assetId,
-                                staking: nil,
-                                purchaseProviders: nil,
-                                type: .normal,
-                                asset: $0,
-                                chain: defaultChain) }
-            defaultChain.assets = Set(chainAssets)
+            let localChains = try localFetchOperation.extractNoCancellableResultData()
+            let chainId = Chain.sora.genesisHash()
+            // The remote whitelist can be slow or down. Its outage must not
+            // prevent the local chain and its working nodes from being saved,
+            // and must not let unvetted assets in: until it arrives, the last
+            // good list (or the bundled one) decides which assets are listed.
+            let whitelist = remoteWhitelist ?? self.whitelistStore.current()
+            let defaultChain = Self.preparedChain(
+                chainId: chainId,
+                addressPrefix: ApplicationConfig.shared.addressType,
+                name: Chain.sora.rawValue,
+                nodes: ConfigService.shared.config.defaultNodes,
+                typesURL: self.typesUrl,
+                local: localChains.first { $0.chainId == chainId },
+                assets: AssetManager.networkAssets,
+                whitelist: whitelist
+            )
 
             let remoteChains: [ChainModel] = [defaultChain]
-
-            remoteChains.forEach { chain in
-                chain.assets.forEach { chainAsset in
-                    chainAsset.chain = chain
-                    if let asset = filteredAssets.first(where: { asset in
-                        chainAsset.assetId == asset.assetId
-                    }) {
-                        chainAsset.asset = asset
-                    }
-                }
-            }
-
-            remoteChains.forEach {
-                $0.assets = $0.assets.filter { $0.asset != nil && $0.chain != nil }
-            }
 
             let remoteMapping = remoteChains.reduce(into: [ChainModel.Id: ChainModel]()) { mapping, item in
                 mapping[item.chainId] = item
             }
 
-            let localChains = try localFetchOperation.extractNoCancellableResultData()
             let localMapping = localChains.reduce(into: [ChainModel.Id: ChainModel]()) { mapping, item in
                 mapping[item.chainId] = item
             }
@@ -181,7 +211,6 @@ final class ChainSyncService {
             return SyncChanges(newOrUpdatedItems: newOrUpdated, removedItems: removed)
         }
 
-        processingOperation.addDependency(remoteFetchAssetsOperation)
         processingOperation.addDependency(localFetchOperation)
 
         let localSaveOperation = repository.saveOperation({
@@ -204,13 +233,125 @@ final class ChainSyncService {
 
         mapOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
-                self?.complete(result: mapOperation.result)
+                guard let self = self else { return }
+                if refreshWhitelist, case let .success(changes) = mapOperation.result, let assetsURL = self.assetsUrl {
+                    // Publish usable bundled nodes before starting optional remote
+                    // metadata work. A stalled endpoint cannot delay cold boot.
+                    self.eventCenter.notify(with: ChainSyncDidComplete(
+                        newOrUpdatedChains: changes.newOrUpdatedItems,
+                        removedChains: changes.removedItems
+                    ))
+                    self.refreshWhitelist(from: assetsURL, bootstrapResult: mapOperation.result)
+                } else {
+                    self.complete(result: mapOperation.result)
+                }
             }
         }
 
         operationQueue.addOperations([
-            remoteFetchAssetsOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
+            repairOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
         ], waitUntilFinished: false)
+    }
+
+    private func refreshWhitelist(from url: URL, bootstrapResult: Result<SyncChanges, Error>?) {
+        let operation = dataFetchFactory.fetchData(from: url)
+        operation.completionBlock = { [weak self] in
+            guard let self = self else { return }
+            if let data = try? operation.extractNoCancellableResultData(),
+               let whitelist = self.whitelistStore.acceptRemote(data) {
+                // Fetch the current local chain again, preserving a node choice
+                // made while the optional HTTP request was in flight.
+                self.executeSync(whitelist: whitelist, refreshWhitelist: false)
+            } else {
+                self.complete(result: bootstrapResult)
+            }
+        }
+        operationQueue.addOperation(operation)
+    }
+
+    static func preparedChain(
+        chainId: String,
+        addressPrefix: UInt16,
+        name: String,
+        nodes: Set<ChainNodeModel>,
+        typesURL: URL?,
+        local: ChainModel?,
+        assets: [AssetInfo],
+        whitelist: AssetWhitelist
+    ) -> ChainModel {
+        let matchingLocal = local?.chainId == chainId && local?.addressPrefix == addressPrefix ? local : nil
+        // One node per URL: the store has a uniqueness constraint on the node
+        // URL, and the same URL can arrive under two names (bundled
+        // "SORA Ministry of Finance 2" and PI's "Sora" for mof2). Saving both
+        // failed every chain sync with a constraint conflict. Bundled names win.
+        var nodesByURL: [URL: ChainNodeModel] = [:]
+        if SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix) {
+            for node in SoraNodeConnectionPolicy.bundledMainnetNodes {
+                nodesByURL[node.url] = node
+            }
+        }
+        let orderedNodes = nodes.sorted {
+            ($0.url.absoluteString, $0.name) < ($1.url.absoluteString, $1.name)
+        }
+        for node in orderedNodes where nodesByURL[node.url] == nil {
+            nodesByURL[node.url] = node
+        }
+        // The uniqueness constraint covers custom nodes too. A user who added
+        // a node in an older release that 3.9.0 now bundles (for example
+        // ws.mof.sora.org when PI listed only mof2) keeps it as their custom
+        // node; it is not saved a second time as a default node. Connection
+        // candidates still include every bundled mainnet node.
+        let customNodes = matchingLocal?.customNodes
+        let customURLs = Set((customNodes ?? []).map(\.url))
+        for url in customURLs {
+            nodesByURL[url] = nil
+        }
+        var availableNodes = Set(nodesByURL.values)
+        if availableNodes.isEmpty {
+            availableNodes = (matchingLocal?.nodes ?? []).filter {
+                !customURLs.contains($0.url)
+            }
+        }
+        // The selected node is saved into the same row as the default or
+        // custom node with its URL. Use that entry's name, so saving does not
+        // rename the row (for example back to PI's "Sora" for mof2) and the
+        // next sync does not see a changed chain again.
+        let selectedNode = matchingLocal?.selectedNode.map { selected in
+            availableNodes.first { $0.url == selected.url }
+                ?? customNodes?.first { $0.url == selected.url }
+                ?? selected
+        }
+        let chain = ChainModel(
+            chainId: chainId,
+            parentId: matchingLocal?.parentId,
+            name: name,
+            nodes: availableNodes,
+            addressPrefix: addressPrefix,
+            types: typesURL.map { ChainModel.TypesSettings(url: $0, overridesCommon: true) } ?? matchingLocal?.types,
+            icon: matchingLocal?.icon,
+            options: matchingLocal?.options,
+            externalApi: matchingLocal?.externalApi,
+            selectedNode: selectedNode,
+            customNodes: customNodes,
+            iosMinAppVersion: matchingLocal?.iosMinAppVersion
+        )
+        // Fail closed: on-chain names and symbols can be chosen by anyone, so an asset
+        // is listed only when the whitelist admits it, including assets kept from the
+        // local store (they may have been saved unfiltered by an earlier build).
+        let retainedAssets = assets.isEmpty ? (matchingLocal?.assets.compactMap { $0.asset } ?? []) : assets
+        let chainAssets = retainedAssets.compactMap { originalAsset -> ChainAssetModel? in
+            guard whitelist.admits(assetId: originalAsset.assetId) else { return nil }
+            var asset = originalAsset
+            if let listed = whitelist.entry(for: asset.assetId) {
+                asset.icon = listed.icon
+                asset.name = listed.name
+                asset.symbol = listed.symbol
+            }
+            return ChainAssetModel(assetId: asset.assetId, staking: nil, purchaseProviders: nil,
+                                   type: .normal, asset: asset, chain: chain)
+        }
+        chain.assets = Set(chainAssets)
+        return chain
     }
 
     private func complete(result: Result<SyncChanges, Error>?) {
@@ -240,7 +381,7 @@ final class ChainSyncService {
 
             eventCenter.notify(with: event)
         case let .failure(error):
-            logger?.error("Sync failed with error: \(error)")
+            logger?.error("Chain synchronization failed")
 
             let event = ChainSyncDidFail(error: error)
             eventCenter.notify(with: event)

@@ -49,8 +49,12 @@ final class UsernameSetupPresenter {
         get { settingsManager.currentAccount?.username }
         set {
             let newUserName = newValue ?? ""
-            if mode == .editing, let updated = settingsManager.currentAccount?.replacingUsername(newUserName) {
-                settingsManager.save(value: updated)
+            if mode == .editing,
+               let account = settingsManager.currentAccount {
+                settingsManager.performUpdateName(
+                    account: account,
+                    displayName: newUserName
+                ) { _ in }
             }
         }
     }

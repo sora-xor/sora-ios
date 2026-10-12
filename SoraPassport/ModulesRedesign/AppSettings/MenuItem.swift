@@ -71,7 +71,8 @@ class MenuItem: SoramitsuView {
 
     let switcher: UISwitch = {
         let switcher = UISwitch(frame: .zero)
-        switcher.onTintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+        // SORA Neon toggle: the on-track is cyan (spec §7.8).
+        switcher.onTintColor = NeonTokens.current.cyan
         return switcher
     }()
 
@@ -83,6 +84,7 @@ class MenuItem: SoramitsuView {
         setupSubviews()
         setupConstrains()
         setupGestureRecognizer()
+        SoramitsuUI.updates.addObserver(self)
     }
 
     private func setupSubviews() {
@@ -122,5 +124,14 @@ class MenuItem: SoramitsuView {
 
     @objc func didSwitch() {
         onSwitch?(switcher.isOn)
+    }
+}
+
+extension MenuItem: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette) else { return }
+        switcher.onTintColor = NeonTokens.current.cyan
+        arrow.image = R.image.iconSmallArrow()?.imageFlippedForRightToLeftLayoutDirection()
+            .tinted(with: SoramitsuUI.shared.theme.palette.color(.accentTertiary))
     }
 }

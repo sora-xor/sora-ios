@@ -38,19 +38,28 @@ protocol ConfigServiceProtocol: AnyObject {
 }
 
 struct RemoteConfig {
-    var subqueryURL: URL
+    var polkaswapIndexerURL: URL
+    var subqueryURL: URL { polkaswapIndexerURL }
     var defaultNodes: Set<ChainNodeModel>
     var typesURL: URL?
-    var isSoraCardEnabled: Bool
     
-    init(subqueryUrlString: String = ApplicationConfig.shared.subqueryUrl.absoluteString,
-         typesUrlString: String = ApplicationConfig.shared.subqueryUrl.absoluteString,
-         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes,
-         isSoraCardEnabled: Bool = false) {
-        self.subqueryURL = URL(string: subqueryUrlString) ?? ApplicationConfig.shared.subqueryUrl
-        self.typesURL = URL(string: typesUrlString)
+    init(polkaswapIndexerUrlString: String = ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
+         typesUrlString: String? = ApplicationConfig.shared.commonTypesURL?.absoluteString,
+         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes) {
+        self.polkaswapIndexerURL = Self.validHTTPURL(from: polkaswapIndexerUrlString) ?? ApplicationConfig.shared.polkaswapIndexerURL
+        self.typesURL = typesUrlString.flatMap(Self.validHTTPURL)
         self.defaultNodes = defaultNodes
-        self.isSoraCardEnabled = isSoraCardEnabled
+    }
+
+    private static func validHTTPURL(from string: String) -> URL? {
+        guard let url = URL(string: string),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host?.isEmpty == false else {
+            return nil
+        }
+
+        return url
     }
 }
 
@@ -70,14 +79,18 @@ extension ConfigService: ConfigServiceProtocol {
                 completion()
                 return
             }
-            let nodes: Set<ChainNodeModel> = Set(response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address) else { return nil }
+            // The bundled nodes and type registry always stay. PI may add
+            // nodes at other URLs; a URL that is already bundled keeps its
+            // bundled entry.
+            let bundled = ApplicationConfig.shared.defaultChainNodes
+            let bundledURLs = Set(bundled.map(\.url))
+            let remote: [ChainNodeModel] = response.nodes.compactMap({ node in
+                guard let url = URL(string: node.address), !bundledURLs.contains(url) else { return nil }
                 return ChainNodeModel(url: url, name: node.name, apikey: nil)
-            }))
-            self.config = RemoteConfig(subqueryUrlString: response.blockExplorerUrl,
-                                       typesUrlString: response.substrateTypesUrl,
-                                       defaultNodes: nodes,
-                                       isSoraCardEnabled: response.soracard)
+            })
+            self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
+                                       typesUrlString: ApplicationConfig.shared.commonTypesURL?.absoluteString,
+                                       defaultNodes: bundled.union(remote))
             completion()
         }
         
