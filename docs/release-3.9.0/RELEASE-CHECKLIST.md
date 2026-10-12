@@ -425,24 +425,20 @@ existing wallet:
 
 ### Design and product decisions (confirm before release)
 
-- [ ] The theme default is unchanged: with no stored choice the app follows
-      the device appearance, for upgrades and new installs alike. The spec
-      wants Dark for new installs only; that needs a reliable "fresh
-      install" signal and was left to the product owner.
-- [ ] Body text uses the system font: the spec's Inter is not in the
-      repository and no font was added. Bundling Inter (OFL, ~900 KB) is a
-      design decision; if approved, add the three `.ttf` files and their
-      licence to `UIAppFonts` and the font family resolves automatically.
+- [x] Empty installs default to Dark. Retained preferences, wallet files,
+      unreadable storage or Keychain entries preserve existing behavior.
+      Existing installs receive no new appearance marker before migration.
+- [x] Inter 4.1 Regular, SemiBold and Bold are bundled with their OFL licence;
+      runtime registration and the packaged resources are verified.
 - [ ] Headlines and buttons now render in Sora, which is about 8–10 % wider
       than the system font. Run a truncation pass on every screen in
       English, Japanese and the longest locales (de, ru), at default and
       large text sizes.
-- [ ] Legacy cards stay opaque (surface colour plus a hairline); translucent
-      glass is opt-in per screen (`sora.material = .glass` or `GlassView`).
-      Per-screen hero treatments of the spec (§8, §9: balance hero,
-      neumorphic PIN keys, phrase grid, Safe Mode step lists, settings
-      theme selector and "Reduce effects" switch) are not part of this
-      task.
+- [x] The release adds the balance hero, neumorphic PIN keypad, private
+      phrase grid, settings theme selector and Reduce Effects control.
+      Ordinary list cards retain their performance-conscious surfaces;
+      glass remains opt-in per screen. These source changes still require
+      the signed physical-device checks below.
 - [ ] The 1.x upgrade screen copy changed (title, two assurances, details
       behind "What happens during the upgrade?"). Per spec §9.1-2 an
       engineering owner signs off that both assurances hold for that flow:

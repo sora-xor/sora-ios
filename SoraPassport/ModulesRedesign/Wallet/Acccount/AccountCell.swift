@@ -49,6 +49,10 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
     }
     private let actions = UIStackView()
     private let restoreTitle = UILabel()
+    private lazy var restoreTitleMinimumHeight = restoreTitle.heightAnchor.constraint(greaterThanOrEqualToConstant: 0)
+    private lazy var restoreTitleBottom = restoreTitle.bottomAnchor.constraint(equalTo: restoreKeysButton.bottomAnchor, constant: -15)
+    private lazy var reasonMinimumHeight = capabilityReason.heightAnchor.constraint(greaterThanOrEqualToConstant: 0)
+    private lazy var badgeMinimumHeight = capabilityBadge.heightAnchor.constraint(greaterThanOrEqualToConstant: 0)
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -58,12 +62,16 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         stack.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(stack)
         WalletSafeMode.body(capabilityReason, alignment: .natural)
-        capabilityReason.setContentCompressionResistancePriority(.required, for: .vertical)
-        capabilityBadge.setContentCompressionResistancePriority(.required, for: .vertical)
+        // Required measured heights protect visible text. Intrinsic resistance
+        // must still allow UIStackView to collapse hidden capability rows.
+        capabilityReason.setContentCompressionResistancePriority(UILayoutPriority(999), for: .vertical)
+        capabilityBadge.setContentCompressionResistancePriority(UILayoutPriority(999), for: .vertical)
         capabilityBadge.font = .preferredFont(forTextStyle: .caption1)
         capabilityBadge.adjustsFontForContentSizeCategory = true
         capabilityBadge.textColor = WalletUX.foreground
         capabilityBadge.numberOfLines = 0
+        capabilityReason.lineBreakMode = .byWordWrapping
+        capabilityBadge.lineBreakMode = .byWordWrapping
         capabilityBadge.accessibilityIdentifier = "wallet-selected-account-capability-badge"
         capabilityReason.accessibilityIdentifier = "wallet-selected-account-read-only-reason"
         restoreKeysButton.accessibilityIdentifier = "wallet-selected-account-restore-keys"
@@ -74,6 +82,7 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         restoreKeysButton.accessibilityLabel = restoreTitle.text
         restoreKeysButton.configuration?.title = nil
         restoreTitle.numberOfLines = 0
+        restoreTitle.lineBreakMode = .byWordWrapping
         restoreTitle.textAlignment = .center
         restoreTitle.textColor = WalletUX.foreground
         restoreTitle.isAccessibilityElement = false
@@ -85,7 +94,8 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
             restoreTitle.leadingAnchor.constraint(equalTo: restoreKeysButton.leadingAnchor, constant: 20),
             restoreTitle.trailingAnchor.constraint(equalTo: restoreKeysButton.trailingAnchor, constant: -20),
             restoreTitle.topAnchor.constraint(equalTo: restoreKeysButton.topAnchor, constant: 15),
-            restoreTitle.bottomAnchor.constraint(equalTo: restoreKeysButton.bottomAnchor, constant: -15)
+            restoreTitleBottom,
+            restoreTitleMinimumHeight
         ])
         updateRestoreTitle()
         accountButton.contentHorizontalAlignment = .leading
@@ -109,6 +119,7 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         restoreTitle.font = UIFontMetrics(forTextStyle: .body).scaledFont(
             for: FontType.buttonM.font, maximumPointSize: 26, compatibleWith: traitCollection)
         restoreTitle.textColor = WalletUX.foreground
+        updateRestoreWidth(contentView.bounds.width)
     }
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
@@ -117,7 +128,50 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
     override func layoutSubviews() {
         let axis: NSLayoutConstraint.Axis = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
         if actions.axis != axis { actions.axis = axis }
+        updateRestoreWidth(contentView.bounds.width)
         super.layoutSubviews()
+    }
+
+    override func systemLayoutSizeFitting(_ targetSize: CGSize,
+                                         withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+                                         verticalFittingPriority: UILayoutPriority) -> CGSize {
+        // The label is inside a configuration button, so self-sizing needs its
+        // actual wrapping width before the table computes the row's height.
+        updateRestoreWidth(targetSize.width)
+        return super.systemLayoutSizeFitting(targetSize,
+            withHorizontalFittingPriority: horizontalFittingPriority,
+            verticalFittingPriority: verticalFittingPriority)
+    }
+
+    private func updateRestoreWidth(_ width: CGFloat) {
+        restoreTitleBottom.isActive = !restoreKeysButton.isHidden
+        updateWrappedLabel(capabilityReason, minimumHeight: reasonMinimumHeight, width: width - 48)
+        updateWrappedLabel(capabilityBadge, minimumHeight: badgeMinimumHeight, width: width - 48)
+        let available = width - 48 - 40
+        updateWrappedLabel(restoreTitle, minimumHeight: restoreTitleMinimumHeight,
+                           width: available, hidden: restoreKeysButton.isHidden)
+    }
+
+    private func updateWrappedLabel(_ label: UILabel, minimumHeight: NSLayoutConstraint,
+                                    width: CGFloat, hidden: Bool = false) {
+        minimumHeight.isActive = !hidden && !label.isHidden
+        guard width > 0 else { return }
+        if label.preferredMaxLayoutWidth != width {
+            label.preferredMaxLayoutWidth = width
+            label.invalidateIntrinsicContentSize()
+        }
+        // UIKit can cache the label's one-line height while a self-sizing cell
+        // changes width or Dynamic Type. Measure the wrapped text explicitly,
+        // including fallback fonts used by localized titles.
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        let requiredHeight = ceil(((label.text ?? "") as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: label.font as Any, .paragraphStyle: paragraph], context: nil).height)
+        if minimumHeight.constant != requiredHeight {
+            minimumHeight.constant = requiredHeight
+        }
     }
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
         guard let item = item as? AccountTableViewItem else { return }
@@ -130,6 +184,7 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         capabilityBadge.isHidden = item.capability.badge == nil
         capabilityReason.isHidden = item.capability == .signing
         restoreKeysButton.isHidden = !item.capability.canRestore
+        updateRestoreWidth(contentView.bounds.width)
         sendButton.accessibilityHint = item.capability.reason
         networkButton.isHidden = !(
             ProductSurfacePolicy.showsNexusPortfolio &&

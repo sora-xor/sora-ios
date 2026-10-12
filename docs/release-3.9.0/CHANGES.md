@@ -7,12 +7,15 @@ support, accessible digit counts, and a long-press clear action. Existing PIN,
 biometric and cooldown presenters remain in control. Settings exposes System,
 Dark and Light appearance plus Reduce Effects. Only an otherwise empty install
 gets the new dark default; retained preferences, files or Keychain entries keep
-the existing appearance choice.
+the existing appearance choice. Existing installs receive no new preference marker
+before migration, preserving interrupted-upgrade settings comparisons.
 
 Inter Regular, SemiBold and Bold 4.1 are bundled with their SIL Open Font License.
 The wallet balance owns a full-width line. Receive uses a white, unfiltered QR
 plate and the full address. Settings, backup and raw-seed screens support the
-largest Dynamic Type sizes without clipping their controls.
+largest Dynamic Type sizes without clipping their controls. The account recovery
+header measures localized text at its actual wrapping width and collapses hidden
+actions when changing accounts.
 
 Ordinary backup, raw-seed export and recovery phrases require an explicit reveal.
 They hide after sixty seconds, when leaving the screen, on capture changes and
@@ -22,9 +25,10 @@ screens receive an opaque capture/inactive cover; credential repair keeps its
 existing input-clearing policy. The app-switcher cover is now opaque and is laid
 out synchronously before a snapshot.
 
-Focused controller/privacy checks passed (41 tests), as did eight archive-script
-checks. English, Japanese and Arabic captures cover light/dark, four/six-digit
-PIN, settings and hidden/revealed backups at normal and AX5 text sizes. Full
+Focused controller/privacy checks passed (65 tests), as did eight archive-script
+checks. The final set of 168 English, Japanese and Arabic captures covers
+light/dark, four/six-digit PIN, settings, the recovery account header and
+hidden/revealed backups at normal and AX5 text sizes. Full
 Debug/Release qualification and the final signed archive are recorded separately
 in the release evidence; store submission and physical-device gates remain open
 until verified.

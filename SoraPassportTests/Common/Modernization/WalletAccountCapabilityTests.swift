@@ -114,7 +114,7 @@ final class WalletAccountCapabilityTests: XCTestCase {
                 window.makeKeyAndVisible()
                 window.layoutIfNeeded()
                 controller.tableView.layoutIfNeeded()
-                let cell = try XCTUnwrap(controller.tableView.cellForRow(at: IndexPath(row: 0, section: 0)))
+                let cell = try XCTUnwrap(controller.tableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? AccountCell)
                 let button = try XCTUnwrap(descendants(cell).first {
                     $0.accessibilityIdentifier == "wallet-selected-account-restore-keys"
                 } as? UIButton)
@@ -126,7 +126,29 @@ final class WalletAccountCapabilityTests: XCTestCase {
                 let titleHeight = label.sizeThatFits(CGSize(width: button.bounds.width - insets.leading - insets.trailing,
                                                             height: .greatestFiniteMagnitude)).height
                 XCTAssertGreaterThan(titleHeight, 0)
-                XCTAssertGreaterThanOrEqual(button.bounds.height + 1, titleHeight + insets.top + insets.bottom)
+                XCTAssertGreaterThanOrEqual(button.bounds.height + 1, titleHeight + insets.top + insets.bottom,
+                    "button=\(button.bounds) label=\(label.bounds) preferredWidth=\(label.preferredMaxLayoutWidth) insets=\(insets) title=\(label.text ?? "") font=\(label.font.fontName) size=\(label.font.pointSize) heights=\(label.constraints.filter { $0.firstAttribute == .height }.map { $0.constant })")
+                for identifier in ["wallet-selected-account-capability-badge", "wallet-selected-account-read-only-reason"] {
+                    let text = try XCTUnwrap(descendants(cell).first { $0.accessibilityIdentifier == identifier } as? UILabel)
+                    let height = text.sizeThatFits(CGSize(width: text.bounds.width, height: .greatestFiniteMagnitude)).height
+                    XCTAssertGreaterThanOrEqual(text.bounds.height + 1, height, "\(identifier) must not truncate at AX5")
+                }
+                for state in [WalletAccountCapability.State.watchOnly, .signing, .missingKeys] {
+                    item.capability = state
+                    cell.set(item: item, context: nil)
+                    UIView.performWithoutAnimation {
+                        controller.tableView.beginUpdates()
+                        controller.tableView.endUpdates()
+                        controller.tableView.layoutIfNeeded()
+                    }
+                    XCTAssertEqual(button.isHidden, !state.canRestore)
+                    if state.canRestore {
+                        let height = label.sizeThatFits(CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)).height
+                        XCTAssertGreaterThanOrEqual(button.bounds.height + 1, height + insets.top + insets.bottom)
+                    } else {
+                        XCTAssertEqual(button.bounds.height, 0, accuracy: 0.1, "Hidden restore actions collapse after account changes")
+                    }
+                }
             }
         }
         try result.get()
