@@ -34,6 +34,17 @@ in the release evidence; store submission and physical-device gates remain open
 until verified.
 
 
+The privacy manifest now describes existing backup and transaction metadata:
+readable wallet addresses and labels in the user's Google Drive backup area,
+and public financial transactions. Those fields are linked to the account;
+backup secrets remain encrypted locally. Analytics device identifiers, usage
+and coarse location are marked linked because device/instance associations
+persist. SDK privacy manifests and diagnostic declarations are unchanged.
+This resource-only correction adds no collection behavior. App Store privacy
+answers must include all packaged SDK declarations, with production Analytics
+advertising/data-sharing settings checked before publishing the no-tracking
+answer.
+
 Each section covers one release task: what changed, why, and what users see.
 
 ## i1: UIScene life cycle, build-phase gates retired, lean CI

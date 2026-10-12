@@ -89,10 +89,13 @@ existing wallet:
 
 ### App Store Connect
 
-- [ ] Privacy nutrition label: SORA Card and its KYC are gone. If the label
-      still declares KYC data (identity documents, photos, name, address,
-      etc.), remove those data types. `SoraPassport/PrivacyInfo.xcprivacy`
-      declares no collected data, so there is no code change.
+- [ ] Reconcile the privacy nutrition label for the released version. SORA Card
+      and its KYC are gone, but Google Sign-In still declares linked profile
+      and identifier data. Remove a former KYC category only when no remaining
+      app or SDK behavior collects it; do not remove Name, Email Address or
+      Phone Number solely because KYC was removed. Wallet addresses are User ID,
+      not Physical Address. Keep the public label accurate for the version
+      currently available until the new version is released.
 - [ ] After the first TestFlight upload, confirm App Store Connect sends no
       ITMS-90683 "missing purpose string" email for the microphone. The
       microphone usage text was removed because nothing records audio.
@@ -168,13 +171,26 @@ existing wallet:
 
 ### App Store Connect
 
-- [ ] App Privacy answers: `PrivacyInfo.xcprivacy` now declares crash data
-      and other diagnostic data (Crashlytics, app functionality), and product
-      interaction and device ID (Firebase Analytics automatic collection,
-      analytics). None of it is linked to identity or used for tracking.
-      Generate the Privacy Report from the archive (Organizer > Generate
-      Privacy Report) and make the App Privacy answers match it. They should
-      match the 3.8.6 answers, minus any SORA Card/KYC data (see i2).
+- [ ] App Privacy answers: combine the app's actual behavior with every packaged
+      SDK declaration. The root manifest retains unlinked crash/diagnostic data;
+      product interaction, device ID and coarse location are linked Analytics
+      data because collection can retain device/instance associations. User ID,
+      Other User Content and Other Financial Info are linked App Functionality
+      data: Drive backup stores readable wallet address/nickname metadata in
+      the user's own Google account, and submitted financial transactions are
+      public on-chain. Backup secret fields are encrypted locally; this does
+      not claim a developer-operated server can read users' recovery phrases.
+      Google Sign-In and Firebase Messaging have additional SDK declarations,
+      including linked profile data and Other Data Types. Generate the archive
+      Privacy Report and reconcile it with actual behavior; Analytics has no
+      separate manifest, so the report alone is not an exhaustive inventory.
+- [ ] Before publishing the tracking/advertising answers, verify production
+      Analytics Google Signals, linked advertising accounts, conversion exports,
+      ad personalization and data-sharing settings. Linked data is not itself
+      advertising tracking. Current manifests declare no tracking, but the old
+      GoogleService-Info.plist IS_ADS_ENABLED/IS_ANALYTICS_ENABLED flags do not
+      prove those remote settings or disable collection. Confirm the current
+      privacy policy describes the resulting practices.
 - [ ] Watch the upload email for ITMS-91053 (missing required-reason
       declarations) and ITMS-91061 (SDK without a privacy manifest; the
       statically linked Kingfisher 6.3.1 and Starscream 4.0.12 have none).
