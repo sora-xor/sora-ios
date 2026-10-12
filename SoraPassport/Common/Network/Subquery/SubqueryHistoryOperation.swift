@@ -695,6 +695,25 @@ public final class SubqueryHistoryOperation<ResultType>:
         coverageLock.unlock()
     }
 
+    private var resultCachedAt: Date?
+
+    /// `nil` when the returned page was read from PI just now. Otherwise PI
+    /// could not be read and the page is the one an earlier read saved, at
+    /// this time. Rows shift between two moments, so the caller must not
+    /// continue a list of one kind with a page of the other. Read it after
+    /// the operation finished.
+    var cachedAt: Date? {
+        coverageLock.lock()
+        defer { coverageLock.unlock() }
+        return resultCachedAt
+    }
+
+    private func setCachedAt(_ date: Date?) {
+        coverageLock.lock()
+        resultCachedAt = date
+        coverageLock.unlock()
+    }
+
     public convenience init(
         address: String,
         count: Int,
@@ -784,6 +803,7 @@ public final class SubqueryHistoryOperation<ResultType>:
                 coverage: pageRead.coverage
             )
             setHistoryCoverage(pageRead.coverage)
+            setCachedAt(nil)
             return try makeResult(
                 values,
                 endCursor: response.pageInfo.endCursor,
@@ -802,6 +822,7 @@ public final class SubqueryHistoryOperation<ResultType>:
             }
             try Task.checkCancellation()
             setHistoryCoverage(cached.coverage ?? .allRoles)
+            setCachedAt(cached.savedAt)
             return try makeResult(
                 cached.elements,
                 endCursor: cached.endCursor,
@@ -841,12 +862,11 @@ public final class SubqueryHistoryOperation<ResultType>:
                 urlError
             )
         }
-        if let indexerError = error as? PIIndexerError,
-           case let .httpStatus(code) = indexerError {
-            return
-                code == 408 ||
-                code == 429 ||
-                (500 ... 599).contains(code)
+        if let indexerError = error as? PIIndexerError {
+            // PI unreachable or overloaded, or without one consistent fresh
+            // checkpoint even after the bounded retry: show the last page
+            // that passed block-hash validation instead of an empty list.
+            return indexerError.allowsOfflineFallback
         }
         let nsError = error as NSError
         guard nsError.domain == NSURLErrorDomain else {

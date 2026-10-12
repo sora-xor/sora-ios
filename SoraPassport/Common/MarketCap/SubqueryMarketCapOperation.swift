@@ -47,7 +47,9 @@ enum PIMarketCapLiquidityValidator {
 }
 
 enum PIMarketCapCatalogValidator {
-    static let maximumRequestedAssetCount = 2_000
+    /// As many assets as the catalog walk can return
+    /// (`PIIndexerClient.maximumCatalogPages` pages of 100).
+    static let maximumRequestedAssetCount = 10_000
     static let maximumAssetIDBytes = 256
 
     static func validatedRequestedAssetIDs(
@@ -92,21 +94,37 @@ enum PIMarketCapCatalogValidator {
 
 public final class SubqueryMarketCapInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
     private let assetIds: [String]
-    private let client: PIIndexerClient
+    private let baseUrl: URL
+    private let catalog: () async throws -> [PIAsset]
 
-    public init(baseUrl: URL, assetIds: [String]) {
+    public convenience init(baseUrl: URL, assetIds: [String]) {
+        // The same catalog read that serves fiat prices: opening the wallet
+        // walks PI once, not once per service.
+        self.init(baseUrl: baseUrl, assetIds: assetIds) {
+            try await PICatalogs.assets.values()
+        }
+    }
+
+    init(
+        baseUrl: URL,
+        assetIds: [String],
+        catalog: @escaping () async throws -> [PIAsset]
+    ) {
         self.assetIds = assetIds
-        client = PIIndexerClient(endpoint: baseUrl)
+        self.baseUrl = baseUrl
+        self.catalog = catalog
         super.init()
     }
 
     override public func execute() async throws -> ResultType {
-        // Admission must precede `allAssets()`: an empty, duplicate, or
+        // Admission must precede the catalog read: an empty, duplicate, or
         // unbounded production request must never turn into a full-catalog
         // network fetch.
         let requested = try PIMarketCapCatalogValidator
             .validatedRequestedAssetIDs(assetIds)
-        let assets = try await client.allAssets()
+        // The shared catalog reads the reviewed production PI only.
+        try PIIndexerClient.validateProductionEndpoint(baseUrl)
+        let assets = try await catalog()
             .filter { requested.contains($0.id) }
         try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
             requestedAssetIDs: assetIds,

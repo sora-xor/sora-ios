@@ -92,24 +92,23 @@ actor APYService {
         let task: Task<Decimal?, Never>
     }
 
-    private struct CatalogRefresh {
-        let id: UUID
-        let task: Task<[PIExactApyInfo], Swift.Error>
-    }
-
     static let shared = APYService()
 
-    private static let cacheLifetime: TimeInterval = 60
-    private static let failureRetryDelay: TimeInterval = 10
-
     private var polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
-    private let client = PIIndexerClient()
+    private let pools: () async throws -> [PIPoolXYK]
     private let operationManager: OperationManager = OperationManager()
-    private var nextRefreshDate: Date = .distantPast
-    private var apy: [PIExactApyInfo] = []
-    private var hasValidatedSnapshot = false
-    private var catalogRefresh: CatalogRefresh?
     private var requestFlights: [RequestKey: RequestFlight] = [:]
+
+    /// The pool catalog is shared: it is read once for every pool on screen,
+    /// reused for a minute, and after a failed read it is not requested
+    /// again until its backoff has passed.
+    init(
+        pools: @escaping () async throws -> [PIPoolXYK] = {
+            try await PICatalogs.pools.values()
+        }
+    ) {
+        self.pools = pools
+    }
 }
 
 extension APYService: APYServiceProtocol {
@@ -175,6 +174,17 @@ extension APYService: APYServiceProtocol {
             return nil
         }
 
+        // The deployed PI identifies a pool by its asset pair, so the pair
+        // answers directly and no chain lookup is needed.
+        if let pool = Self.pool(
+            in: catalog,
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId
+        ) {
+            return Self.presentableApy(pool.strategicBonusApy)
+        }
+
+        // Older indexers identified a pool by its reserves account.
         guard
             let poolPropertiesOperation = try? factory.poolProperties(
                 baseAsset: baseAssetId,
@@ -226,57 +236,42 @@ extension APYService: APYServiceProtocol {
             }
         )
 
-        return catalog
-            .first(where: { $0.id == reservesAccountId })?
-            .sbApy?
-            .decimalValue
+        return Self.presentableApy(
+            catalog
+                .first(where: { $0.id == reservesAccountId })?
+                .strategicBonusApy
+        )
     }
 
-    /// Returns the last fully validated PI catalog when a refresh fails. An
-    /// empty successful response is cached as a valid snapshot, while an
-    /// initial failure remains distinguishable from that valid empty state.
-    private func loadCatalog() async -> [PIExactApyInfo]? {
-        if Date() < nextRefreshDate {
-            return hasValidatedSnapshot ? apy : nil
-        }
+    /// The pool catalog, or `nil` when PI could not be read and there is no
+    /// last good catalog. A validated empty catalog is a value, not `nil`.
+    private func loadCatalog() async -> [PIPoolXYK]? {
+        try? await pools()
+    }
 
-        let refresh: CatalogRefresh
-        if let catalogRefresh {
-            refresh = catalogRefresh
-        } else {
-            refresh = CatalogRefresh(
-                id: UUID(),
-                task: Task {
-                    try await self.fetchCatalog()
-                }
-            )
-            catalogRefresh = refresh
-        }
-
-        do {
-            let response = try await refresh.task.value
-            if catalogRefresh?.id == refresh.id {
-                apy = response
-                hasValidatedSnapshot = true
-                nextRefreshDate = Date().addingTimeInterval(Self.cacheLifetime)
-                catalogRefresh = nil
-            }
-            return response
-        } catch {
-            if catalogRefresh?.id == refresh.id {
-                catalogRefresh = nil
-                nextRefreshDate = Date().addingTimeInterval(Self.failureRetryDelay)
-            }
-            return hasValidatedSnapshot ? apy : nil
+    /// The catalog row for an asset pair: by its pair fields, or by the
+    /// `<base>-<target>` identifier PI builds from them.
+    static func pool(
+        in catalog: [PIPoolXYK],
+        baseAssetId: String,
+        targetAssetId: String
+    ) -> PIPoolXYK? {
+        let pairIdentifier = "\(baseAssetId)-\(targetAssetId)"
+        return catalog.first {
+            ($0.baseAssetId == baseAssetId &&
+                $0.targetAssetId == targetAssetId) ||
+                $0.id == pairIdentifier
         }
     }
 
-    private func fetchCatalog() async throws -> [PIExactApyInfo] {
-        try await client.allPoolXYKs().map { pool in
-            PIExactApyInfo(
-                id: pool.id,
-                sbApy: pool.strategicBonusApy
-            )
+    /// The APY to show, or `nil` for "nothing to show". PI currently
+    /// publishes `strategicBonusApy` as 0 for every pool; a rate of zero is
+    /// not shown as "0% APY", because the wallet cannot tell a pool without
+    /// a bonus from a rate PI did not compute.
+    static func presentableApy(_ quantity: PIQuantity?) -> Decimal? {
+        guard let value = quantity?.decimalValue, value > 0 else {
+            return nil
         }
+        return value
     }
 }

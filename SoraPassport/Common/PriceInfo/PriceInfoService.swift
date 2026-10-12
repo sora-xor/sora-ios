@@ -36,6 +36,9 @@ import sorawallet
 struct PriceInfo {
     let fiatData: [PIExactFiatData]
     let marketCapInfo: Set<MarketCapInfo>
+    /// `nil` when the prices are current. Otherwise the time they date
+    /// from, which the wallet shows next to its total.
+    var pricesAsOf: Date? = nil
 }
 
 protocol PriceInfoServiceProtocol: AnyObject {
@@ -44,38 +47,40 @@ protocol PriceInfoServiceProtocol: AnyObject {
 
 actor PriceInfoService {
     static let shared = PriceInfoService()
-    private var priceInfo: PriceInfo?
-    private let fiatService = FiatService.shared
-    private let marketCapService = MarketCapService.shared
+    private let fiatService: FiatService
+    private let marketCapService: MarketCapService
+
+    init(
+        fiatService: FiatService = .shared,
+        marketCapService: MarketCapService = .shared
+    ) {
+        self.fiatService = fiatService
+        self.marketCapService = marketCapService
+    }
     
     private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
-        async let fiatData = self.fiatService.getFiat()
+        async let fiat = self.fiatService.getFiatSnapshot()
         async let assetInfo = self.marketCapService.getMarketCap(for: assetIds)
         
-        return await PriceInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+        let prices = await fiat
+        return await PriceInfo(
+            fiatData: prices.data,
+            marketCapInfo: assetInfo,
+            pricesAsOf: prices.asOf
+        )
     }
 }
 
 extension PriceInfoService: PriceInfoServiceProtocol {
 
+    /// Prices and market data for the given assets. The shared PI asset
+    /// catalog behind both services does the caching (ten minutes), the
+    /// single flight and the backoff after a failure, so this neither keeps
+    /// a first answer for the rest of the session nor walks PI again on
+    /// every call while PI is failing. Neither service caches on top of
+    /// the catalog, so the prices and the 24-hour changes of one answer
+    /// are from the same catalog.
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo {
-        if let priceInfo {
-            let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
-            let result = searchableInfo.subtracting(priceInfo.marketCapInfo)
-            
-            if !result.isEmpty || priceInfo.fiatData.isEmpty {
-                
-                let priceInfo = await downloadInfo(for: assetIds)
-                self.priceInfo = priceInfo
-                return priceInfo
-                
-            } else {
-                return priceInfo
-            }
-        }
-        
-        let priceInfo = await downloadInfo(for: assetIds)
-        self.priceInfo = priceInfo
-        return priceInfo
+        await downloadInfo(for: assetIds)
     }
 }

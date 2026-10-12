@@ -1177,3 +1177,26 @@
 "SORA also cannot read its records of transactions that were still being confirmed. You can set these records aside below. Nothing is deleted." = "SORA also cannot read its records of transactions that were still being confirmed. You can set these records aside below. Nothing is deleted.";
 "SORA could not read its records of transactions that were still being confirmed when it last checked. Your accounts, keys and funds are not affected." = "SORA could not read its records of transactions that were still being confirmed when it last checked. Your accounts, keys and funds are not affected.";
 "Try again. If this screen appears again, contact SORA support with the app version shown below. Never share your recovery phrase." = "Try again. If this screen appears again, contact SORA support with the app version shown below. Never share your recovery phrase.";
+// in1-indexer: prices and market data from the live indexer (3.9.0)
+"Price unavailable" = "Price unavailable";
+"Prices as of %@" = "Prices as of %@";
+"Activity as of %@. Newer transactions will appear when the list can be updated." = "Activity as of %@. Newer transactions will appear when the list can be updated.";
+
+// in2-tx-reconcile: sent transactions, chain upgrades, balances, custom nodes (3.9.0)
+"The SORA network was upgraded and this version of the app can't send transactions on it yet. Nothing was signed and your funds are safe. Please update the app." = "The SORA network was upgraded and this version of the app can't send transactions on it yet. Nothing was signed and your funds are safe. Please update the app.";
+"The connection to the SORA network changed while the transaction was being prepared, so nothing was signed. Please try again." = "The connection to the SORA network changed while the transaction was being prepared, so nothing was signed. Please try again.";
+"The selected node does not answer over HTTPS at its address, so the app can't prepare or send transactions through it. Balances still load. Choose another node in the node settings and try again." = "The selected node does not answer over HTTPS at its address, so the app can't prepare or send transactions through it. Balances still load. Choose another node in the node settings and try again.";
+"The app could not send this request to the SORA network. Please try again." = "The app could not send this request to the SORA network. Please try again.";
+"The SORA node did not give a usable answer. Please try again in a moment, or choose another node." = "The SORA node did not give a usable answer. Please try again in a moment, or choose another node.";
+"A transaction from this account was sent a moment ago and is still being confirmed. This usually takes less than a minute and never more than an hour. Please try again shortly. Nothing was removed." = "A transaction from this account was sent a moment ago and is still being confirmed. This usually takes less than a minute and never more than an hour. Please try again shortly. Nothing was removed.";
+"The app could not read its list of recently sent transactions, so it can't tell whether one from this account is still being confirmed. Please try again in an hour. Nothing was removed." = "The app could not read its list of recently sent transactions, so it can't tell whether one from this account is still being confirmed. Please try again in an hour. Nothing was removed.";
+"Balance unavailable" = "Balance unavailable";
+"This total does not include balances that could not be read" = "This total does not include balances that could not be read";
+"This node answers on its WebSocket address but not over HTTPS at the same address. The app needs both: balances use the WebSocket, and fee estimates and sends use HTTPS. With this node balances would load and every send would fail, so it was not saved. Use a node that serves wss:// and https:// at the same address." = "This node answers on its WebSocket address but not over HTTPS at the same address. The app needs both: balances use the WebSocket, and fee estimates and sends use HTTPS. With this node balances would load and every send would fail, so it was not saved. Use a node that serves wss:// and https:// at the same address.";
+"This node does not answer over HTTPS, so it can't send transactions" = "This node does not answer over HTTPS, so it can't send transactions";
+"The SORA network did not accept this request. Please try again." = "The SORA network did not accept this request. Please try again.";
+"Sent transaction" = "Sent transaction";
+"Waiting for the network to confirm it" = "Waiting for the network to confirm it";
+"Confirmed by the network" = "Confirmed by the network";
+"It failed on the network" = "It failed on the network";
+"The network did not include it. Nothing was sent." = "The network did not include it. Nothing was sent.";

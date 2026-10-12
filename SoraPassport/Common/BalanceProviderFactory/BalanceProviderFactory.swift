@@ -57,7 +57,13 @@ class BalanceProviderFactory {
     public func createBalanceDataProvider(for assets: [AssetInfo], onlyVisible: Bool) throws -> SingleValueProvider<[BalanceData]> {
         let source: AnySingleValueProviderSource<[BalanceData]> = AnySingleValueProviderSource {
             let assets = assets.map { $0.assetId }
-            let operation = (self.networkOperationFactory as? WalletNetworkFacade)?.fetchBalanceOperation(assets, onlyVisible: onlyVisible)
+            // The provider keeps an asset whose balance could not be read,
+            // marked as such; `AssetProvider` shows it as unavailable.
+            let operation = (self.networkOperationFactory as? WalletNetworkFacade)?.fetchBalanceOperation(
+                assets,
+                onlyVisible: onlyVisible,
+                markingUnavailable: true
+            )
             return operation!
         }
 

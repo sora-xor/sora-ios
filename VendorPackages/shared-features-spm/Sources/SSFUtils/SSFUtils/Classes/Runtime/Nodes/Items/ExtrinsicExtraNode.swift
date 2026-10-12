@@ -54,6 +54,10 @@ public class ExtrinsicExtraNode: Node {
 
                 try encoder.appendCompact(json: tip, type: KnownType.balance.name)
                 try encoder.appendOption(json: .null, type: PrimitiveType.u32.name)
+            case .metadataHash:
+                // `CheckMetadataHash` in disabled mode: the mode byte 0. The
+                // matching additional signed data is an absent hash.
+                try encoder.append(encodable: UInt8(0))
             default:
                 continue
             }
@@ -78,6 +82,9 @@ public class ExtrinsicExtraNode: Node {
                 case .txPayment:
                     let tip = try decoder.readCompact(type: KnownType.balance.rawValue)
                     result[ExtrinsicSignedExtra.CodingKeys.tip.rawValue] = tip
+                case .metadataHash:
+                    // One mode byte; it is not part of the decoded extra.
+                    _ = try decoder.readU8()
                 default:
                     return
                 }

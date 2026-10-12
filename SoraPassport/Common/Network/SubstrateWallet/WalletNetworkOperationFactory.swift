@@ -91,10 +91,10 @@ final class WalletNetworkOperationFactory {
                                                  parameters: [accountId, assetId])
     }
 
-    func createUsableBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<JSONScaleDecodable<OrmlAccountData>> {
+    func createUsableBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<OrmlAccountStorage> {
         do {
             let address: AccountAddress = accountId
-            return JSONRPCListOperation<JSONScaleDecodable<OrmlAccountData>>(
+            return JSONRPCListOperation<OrmlAccountStorage>(
                 engine: engine,
                 method: RPCMethod.getStorage,
                 parameters: [

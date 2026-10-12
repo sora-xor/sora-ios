@@ -52,6 +52,8 @@ protocol ActivityViewModelProtocol: SoramitsuTableViewPaginationHandlerProtocol 
     var setupErrorContent: (() -> Void)? { get set }
     var hideErrorContent: (() -> Void)? { get set }
     func viewDidLoad()
+    /// The screen is about to be shown, for the first time or again.
+    func viewWillAppear()
     func updateContent()
     func didSelect(with item: ActivitySectionItem)
     func headerText(for section: Int) -> String?

@@ -110,10 +110,7 @@ final class PoolDetailsItemFactory {
 
             let percentageText = "\(NumberFormatter.percent.stringFromDecimal(percentage) ?? "")%"
             
-            var aprText = ""
-            if let apr = farms.first(where: { $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.apr {
-                aprText = "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")% APR"
-            }
+            let aprText = farms.first(where: { $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.aprText(suffix: "% APR") ?? ""
             
             return FarmViewModel(identifier: id,
                                  title: title,
@@ -144,9 +141,9 @@ final class PoolDetailsItemFactory {
             let id = "\(baseAssetId)-\(poolAssetId)-\(rewardAssetId)"
             let title = "\(baseAssetSymbol)-\(poolAssetSymbol)"
             
-            let subtitle = "$" + farm.tvl.formatNumber()
+            let subtitle = farm.tvlText()
             
-            let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")% APR"
+            let aprText = farm.aprText(suffix: "% APR")
 
             return FarmViewModel(identifier: id,
                                  title: title,
@@ -192,7 +189,7 @@ final class PoolDetailsItemFactory {
         }
         
         let farmDetailsItem = FarmDetailsItem(title: title,
-                                              subtitle: "$" + (farm.tvl).formatNumber() + " TVL",
+                                              subtitle: farm.tvlText(suffix: " TVL"),
                                               firstAssetImage: RemoteSerializer.shared.image(with: farm.baseAsset?.icon ?? ""),
                                               secondAssetImage: RemoteSerializer.shared.image(with: farm.poolAsset?.icon ?? ""),
                                               rewardAssetImage: RemoteSerializer.shared.image(with: farm.rewardAsset?.icon ?? ""),
