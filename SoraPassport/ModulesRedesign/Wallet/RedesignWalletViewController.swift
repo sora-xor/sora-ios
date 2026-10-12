@@ -80,6 +80,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
         viewModel.setupItems = { [weak self] items in
             UIView.performWithoutAnimation {
                 self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+                self?.tableView.layoutIfNeeded()
             }
             
         }
@@ -87,6 +88,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
         viewModel.fetchAssets { [weak self] items in
             UIView.performWithoutAnimation {
                 self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+                self?.tableView.layoutIfNeeded()
             }
         }
     }
@@ -95,7 +97,22 @@ final class RedesignWalletViewController: SoramitsuViewController {
     // reload retains outgoing cell snapshots and overlays several sets of rows.
     static func refresh(items: [SoramitsuTableViewItemProtocol], in tableView: SoramitsuTableView) {
         UIView.performWithoutAnimation {
-            tableView.reloadItems(items: items, with: .none)
+            for item in items {
+                for section in tableView.sora.sections {
+                    guard let row = section.rows.firstIndex(where: { $0.isEqual(item) }) else { continue }
+                    // Preserve the data source for future dequeues as well as
+                    // updating the visible cell. Most wallet items mutate in place.
+                    if section.rows[row] !== item { section.rows[row] = item }
+                    (tableView.cellForItem(item: item) as? SoramitsuTableViewCellProtocol)?
+                        .set(item: item, context: section.context)
+                    break
+                }
+            }
+            // Rebinding avoids UITableView's outgoing reload snapshots. Settle
+            // capability-driven height changes before leaving this scope.
+            tableView.beginUpdates()
+            tableView.endUpdates()
+            tableView.layoutIfNeeded()
         }
     }
 
