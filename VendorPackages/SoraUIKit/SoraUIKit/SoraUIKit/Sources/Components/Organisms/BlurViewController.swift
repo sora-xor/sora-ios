@@ -54,6 +54,7 @@ open class BlurViewController: UIViewController {
         view.sendSubviewToBack(blurredView)
 
         panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(panGestureAction(_:)))
+        panGestureRecognizer?.delegate = self
         panGestureRecognizer?.isEnabled = isClosable
         view.addGestureRecognizer(panGestureRecognizer!)
     }
@@ -90,6 +91,25 @@ open class BlurViewController: UIViewController {
                 })
             }
         }
+    }
+}
+
+extension BlurViewController: UIGestureRecognizerDelegate {
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let velocity = pan.velocity(in: view)
+        return velocity.y > abs(velocity.x)
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // Table and form scrolling belongs to the scroll view. A blanket
+        // dismissal pan otherwise wins and strands long modal content.
+        var touchedView = touch.view
+        while let candidate = touchedView, candidate !== view {
+            if candidate is UIScrollView { return false }
+            touchedView = candidate.superview
+        }
+        return true
     }
 }
 

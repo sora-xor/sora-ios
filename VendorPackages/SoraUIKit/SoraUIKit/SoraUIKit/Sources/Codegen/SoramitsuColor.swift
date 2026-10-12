@@ -10,6 +10,8 @@ public enum SoramitsuColor {
 	case bgSurface
 	case bgSurfaceVariant
 	case bgSurfaceInverted
+	case skeletonBase
+	case skeletonHighlight
 
 	case fgPrimary
 	case fgSecondary

@@ -1,5 +1,24 @@
 # SORA Wallet iOS 3.9.0: changes
 
+## TestFlight visual corrections
+
+Loading placeholders follow the selected theme, and loading changes no longer
+crossfade a snapshot over the whole view. Wallet refreshes update without row
+animations so rapid balance updates do not leave overlapping copies of the card.
+The total reserves its text height before prices arrive, and asset rows remeasure
+after amounts change. Long amounts wrap with their token names; tapping either
+column opens the asset details, which now has a visible Close button.
+
+Polkaswap uses a readable wordmark and percentage keyboard accessory in dark
+mode. An untouched zero amount no longer displays an insufficient-balance error;
+the existing quote, fee and balance requirements still control Review. Long modal
+content scrolls without triggering dismissal. Editing a recipient clears stale
+validation feedback, clearing the field restores recent contacts, and an empty
+recipient retains the selection prompt.
+
+Focused regressions and real app recordings cover these corrections. The release
+evidence records the final suite, signed build and store status separately.
+
 ## Release completion: Neon screens and private backups
 
 The production PIN keypad now uses the Neon controls with four- and six-digit

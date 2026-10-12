@@ -244,8 +244,10 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
     }
     
     func updateRecipientView(with address: String) {
-        recipientView.contactView.accountTitle.sora.text = address
-        recipientView.contactView.accountImageView.image = try? generator.generateFromAddress(address)
+        recipientView.contactView.accountTitle.sora.text = address.isEmpty
+            ? R.string.localizable.selectRecipient(preferredLanguages: .currentLocale) : address
+        recipientView.contactView.accountImageView.image = address.isEmpty
+            ? UIImage(systemName: "person.crop.circle") : try? generator.generateFromAddress(address)
             .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)

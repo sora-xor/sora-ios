@@ -42,26 +42,31 @@ final class ContactsViewController: SoramitsuViewController {
         let field = InputField()
         field.sora.state = .default
         field.textField.autocorrectionType = .no
+        field.textField.autocapitalizationType = .none
+        field.textField.spellCheckingType = .no
         field.textField.returnKeyType = .done
         field.sora.buttonImage = R.image.wallet.qrScan()
         field.sora.buttonImageTintColor = .fgSecondary
         field.translatesAutoresizingMaskIntoConstraints = false
         field.sora.titleLabelText = R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale)
-        field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+        field.sora.textFieldPlaceholder = R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale)
+        field.textField.sora.addHandler(for: .editingChanged) { [weak self, weak field] in
+            guard let field else { return }
             let text = field.textField.text ?? ""
+            field.sora.resetValidation()
             self?.viewModel.search(text)
             
             field.sora.buttonImage = text.isEmpty ? R.image.wallet.qrScan() : R.image.wallet.cross()
         }
-        field.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        field.button.sora.addHandler(for: .touchUpInside) { [weak self, weak field] in
+            guard let field else { return }
             let text = field.textField.text ?? ""
             
             if text.isEmpty {
                 self?.viewModel.openQR()
             } else {
-                field.textField.sora.text = ""
-                field.sora.buttonImage = R.image.wallet.qrScan()
-                field.titleLabel.sora.isHidden = true
+                field.sora.text = ""
+                field.textField.sendActions(for: .editingChanged)
             }
         }
         return field

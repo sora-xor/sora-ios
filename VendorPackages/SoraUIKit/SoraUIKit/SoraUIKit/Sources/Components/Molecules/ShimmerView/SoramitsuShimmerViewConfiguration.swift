@@ -13,13 +13,13 @@ public final class SoramitsuShimmerViewConfiguration<Type: SoramitsuShimmerView>
         case reverse
     }
     
-    public var mainShimmerColor: SoramitsuColor = .custom(uiColor: .lightGray) {
+    public var mainShimmerColor: SoramitsuColor = .skeletonBase {
         didSet {
             owner?.updateColors()
         }
     }
     
-    public var secondShimmerColor: SoramitsuColor = .custom(uiColor: .white) {
+    public var secondShimmerColor: SoramitsuColor = .skeletonHighlight {
         didSet {
             owner?.updateColors()
         }

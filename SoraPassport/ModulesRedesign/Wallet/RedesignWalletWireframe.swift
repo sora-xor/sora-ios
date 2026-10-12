@@ -277,7 +277,9 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(assetDetailsController)
+        let navigationController = SoraNavigationController(rootViewController: assetDetailsController)
+        navigationController.navigationBar.backgroundColor = .clear
+        containerView.add(navigationController)
         
         viewController?.present(containerView, animated: true)
     }

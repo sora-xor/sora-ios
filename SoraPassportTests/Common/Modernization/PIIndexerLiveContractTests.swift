@@ -2550,6 +2550,147 @@ final class PIPriceDisplayTests: XCTestCase {
         _ = item
     }
 
+    /// The real self-sizing table must expose a total that arrives after its
+    /// first layout, without a test-only reload or manually forcing row heights.
+    @MainActor
+    func testWalletTotalAppearsAfterInitialEmptyTableLayout() async throws {
+        let service = walletService(PriceTestPriceInfo())
+        let item = AssetsItem(title: "Assets",
+            assetProvider: PriceTestAssetProvider(balances: balances()), service: service)
+        let table = SoramitsuTableView()
+        table.sora.estimatedRowHeight = UITableView.automaticDimension
+        table.sora.sections = [SoramitsuTableViewSection(rows: [item])]
+        let controller = UIViewController()
+        controller.view.addSubview(table)
+        NSLayoutConstraint.activate([
+            table.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor),
+            table.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor),
+            table.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor),
+            table.bottomAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+        let previous = UIApplication.shared.keyWindow
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else { window = UIWindow(frame: UIScreen.main.bounds) }
+        window.frame = UIScreen.main.bounds
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil; previous?.makeKeyAndVisible() }
+        controller.view.layoutIfNeeded()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(service.moneyText, "")
+        let cell = try XCTUnwrap(table.cellForRow(at: IndexPath(row: 0, section: 0)) as? AssetsCell)
+        func labels(_ view: UIView) -> [UILabel] {
+            (view as? UILabel).map { [$0] } ?? view.subviews.flatMap(labels)
+        }
+        var singleLineHeight: CGFloat = 0
+        for amount in ["$12,345", "$123,456,789,012,345,678,901,234.56", "$12,345"] {
+            service.moneyText = amount
+            try await Task.sleep(nanoseconds: 300_000_000)
+            controller.view.layoutIfNeeded()
+            let total = try XCTUnwrap(labels(cell).first { $0.text == amount })
+            XCTAssertFalse(total.isHidden)
+            let attributed = try XCTUnwrap(total.attributedText)
+            let needed = attributed.boundingRect(with: CGSize(width: total.bounds.width, height: 10_000),
+                options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).height
+            XCTAssertGreaterThan(total.bounds.height, 20)
+            XCTAssertGreaterThanOrEqual(total.bounds.height + 1, needed)
+            let inCell = total.convert(total.bounds, to: cell.contentView)
+            XCTAssertGreaterThanOrEqual(inCell.minY, 0)
+            XCTAssertLessThanOrEqual(inCell.maxY, cell.contentView.bounds.height + 1)
+            XCTAssertTrue(window.bounds.contains(total.convert(total.bounds, to: window)))
+            if amount == "$12,345" {
+                if singleLineHeight == 0 { singleLineHeight = cell.bounds.height }
+                else { XCTAssertEqual(cell.bounds.height, singleLineHeight, accuracy: 1) }
+            } else { XCTAssertGreaterThan(cell.bounds.height, singleLineHeight + 20) }
+        }
+        func assetRows(_ view: UIView) -> [MainScreenAssetView] {
+            (view as? MainScreenAssetView).map { [$0] } ?? view.subviews.flatMap(assetRows)
+        }
+        var tallHeight: CGFloat = 0
+        for large in [true, false] {
+            service.assetViewModels = (0..<5).map { index in
+                var model = AssetViewModel(identifier: String(index), title: "Synthetic token \(index)", subtitle: "TKN",
+                    fiatText: large ? "$123,456,789,012,345,678,901,234.567890123456789012" : "$0", icon: UIImage(systemName: "circle"))
+                model.priceLoadFinished = true
+                return model
+            }
+            try await Task.sleep(nanoseconds: 300_000_000)
+            controller.view.layoutIfNeeded()
+            if large { tallHeight = cell.bounds.height }
+            else {
+                XCTAssertLessThan(cell.bounds.height, tallHeight - 20, "A shorter balance must release the old row height")
+                let rows = assetRows(cell).sorted { $0.convert($0.bounds, to: cell).minY < $1.convert($1.bounds, to: cell).minY }
+                XCTAssertEqual(rows.count, 5)
+                for row in rows { XCTAssertLessThan(row.bounds.height, 120, "No token row may absorb stale blank space") }
+                for pair in zip(rows, rows.dropFirst()) {
+                    let upper = pair.0.convert(pair.0.bounds, to: cell)
+                    let lower = pair.1.convert(pair.1.bounds, to: cell)
+                    XCTAssertLessThanOrEqual(lower.minY - upper.maxY, 16)
+                }
+            }
+        }
+        if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
+            let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("AssetLayoutDiagnostics", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+            try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("asynchronous-wallet-total.png"))
+        }
+    }
+
+    /// Observe the first frames of successive real card replacements, rather
+    /// than waiting until UITableView's outgoing snapshots have disappeared.
+    @MainActor
+    func testWalletRefreshDoesNotStackOutgoingAssetCards() async throws {
+        let service = walletService(PriceTestPriceInfo())
+        service.moneyText = "$0"
+        let item = AssetsItem(title: "Assets",
+            assetProvider: PriceTestAssetProvider(balances: balances()), service: service)
+        let table = SoramitsuTableView()
+        table.sora.estimatedRowHeight = UITableView.automaticDimension
+        table.sora.sections = [SoramitsuTableViewSection(rows: [item])]
+        let controller = UIViewController()
+        controller.view.addSubview(table)
+        NSLayoutConstraint.activate([
+            table.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor),
+            table.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor),
+            table.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor),
+            table.bottomAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+        let previous = UIApplication.shared.keyWindow
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else { window = UIWindow(frame: UIScreen.main.bounds) }
+        window.frame = UIScreen.main.bounds
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil; previous?.makeKeyAndVisible() }
+        controller.view.layoutIfNeeded()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        func cards(in view: UIView) -> [AssetsCell] {
+            (view as? AssetsCell).map { [$0] } ?? view.subviews.flatMap { cards(in: $0) }
+        }
+        for update in 0..<6 {
+            service.moneyText = "$\(update)"
+            RedesignWalletViewController.refresh(items: [item], in: table)
+            controller.view.layoutIfNeeded()
+            for frame in 0..<3 {
+                if frame > 0 { try await Task.sleep(nanoseconds: 16_000_000) }
+                let rendered = cards(in: table).filter { !$0.isHidden && $0.alpha > 0 && !$0.bounds.isEmpty }
+                XCTAssertEqual(rendered.count, 1, "Update \(update), frame \(frame): outgoing cards must not overlap")
+                let current = try XCTUnwrap(table.cellForItem(item: item))
+                XCTAssertTrue(rendered.first === current)
+                XCTAssertTrue(current.layer.animationKeys()?.isEmpty ?? true,
+                    "Balance refresh must not fade or move the entire transparent card")
+            }
+        }
+    }
+
     func testFiatServiceCarriesTheTimeOfOldPrices() async throws {
         let asOf = Date(timeIntervalSince1970: 1_791_700_000)
         let old = FiatService(catalog: {
