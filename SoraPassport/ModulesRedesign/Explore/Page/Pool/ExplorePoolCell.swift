@@ -70,20 +70,19 @@ final class ExplorePoolCell: SoramitsuTableViewCell {
             poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
         }
         
-        if let title = viewModel.title {
-            poolView.titleLabel.sora.text = title
-            poolView.titleLabel.sora.loadingPlaceholder.type = .none
-        }
+        // Cells are reused: a value that is still loading (`nil`) clears
+        // what the previous pool left behind and shows the placeholder.
+        poolView.titleLabel.sora.text = viewModel.title ?? ""
+        poolView.titleLabel.sora.loadingPlaceholder.type = viewModel.title == nil ? .shimmer : .none
 
-        if let subtitle = viewModel.tvl {
-            poolView.subtitleLabel.sora.text = subtitle
-            poolView.subtitleLabel.sora.loadingPlaceholder.type = .none
-        }
+        poolView.subtitleLabel.sora.text = viewModel.tvl ?? ""
+        poolView.subtitleLabel.sora.loadingPlaceholder.type = viewModel.tvl == nil ? .shimmer : .none
 
-        if let price = viewModel.apy {
-            poolView.amountUpLabel.sora.text = price
-            poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
-        }
+        poolView.amountUpLabel.sora.text = viewModel.apy ?? ""
+        poolView.amountUpLabel.sora.loadingPlaceholder.type = viewModel.apy == nil ? .shimmer : .none
+        // An empty rate means the APY read finished with nothing to show:
+        // no empty pill. The label keeps its place in the layout.
+        poolView.amountUpLabel.alpha = viewModel.apy?.isEmpty == true ? 0 : 1
     }
 }
 

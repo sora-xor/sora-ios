@@ -3,6 +3,7 @@
 
 import CryptoKit
 import Foundation
+import UIKit
 
 final class PIRedirectRejectingDelegate: NSObject, URLSessionTaskDelegate {
     static let shared = PIRedirectRejectingDelegate()
@@ -65,12 +66,44 @@ enum PIStrictJSONAdmission {
         try parser.parseDocument()
     }
 
+    /// One step of the path to a JSON value: an object member or an array
+    /// element.
+    enum PathStep: Hashable {
+        case key(String)
+        case index(Int)
+    }
+
+    static let maximumCollectedNumberLexemes = 100_000
+
+    /// The exact text of every JSON number that is an object member's value
+    /// or an array element, by path. `JSONDecoder` only exposes numbers after
+    /// converting them to `Double` or `Decimal`; a quantity PI sends as a
+    /// JSON number is decoded from this text instead, so no digit is lost.
+    static func numberLexemesByPath(
+        in data: Data
+    ) throws -> [[PathStep]: String] {
+        guard data.count <= maximumBytes else {
+            throw PIIndexerError.invalidResponse
+        }
+        var parser = Parser(
+            bytes: Array(data),
+            maximumDepth: maximumDepth,
+            maximumTokens: maximumTokens
+        )
+        parser.numberLexemes = [:]
+        try parser.parseDocument()
+        return parser.numberLexemes ?? [:]
+    }
+
     private struct Parser {
         let bytes: [UInt8]
         let maximumDepth: Int
         let maximumTokens: Int
         var index = 0
         var tokenCount = 0
+        /// Non-nil only while collecting number lexemes.
+        var numberLexemes: [[PathStep]: String]?
+        var path: [PathStep] = []
 
         mutating func parseDocument() throws {
             skipWhitespace()
@@ -135,6 +168,18 @@ enum PIStrictJSONAdmission {
                         bytes[start ..< index]
                     )
                 }
+                if
+                    !path.isEmpty,
+                    let collectedCount = numberLexemes?.count,
+                    collectedCount <
+                        PIStrictJSONAdmission.maximumCollectedNumberLexemes
+                {
+                    // Number tokens are ASCII by construction.
+                    numberLexemes?[path] = String(
+                        decoding: bytes[start ..< index],
+                        as: UTF8.self
+                    )
+                }
             default:
                 try invalid()
             }
@@ -158,11 +203,14 @@ enum PIStrictJSONAdmission {
                 skipWhitespace()
                 try consume(0x3A) // :
                 skipWhitespace()
+                let tracksPath = numberLexemes != nil
+                if tracksPath { path.append(.key(name)) }
                 try parseValue(
                     depth: depth + 1,
                     memberName: name,
                     enforceCanonicalHealthIntegers: membersAreHealthIntegers
                 )
+                if tracksPath { path.removeLast() }
                 skipWhitespace()
                 if consumeIfPresent(0x7D) { return }
                 try consume(0x2C) // ,
@@ -174,12 +222,17 @@ enum PIStrictJSONAdmission {
             try consume(0x5B)
             skipWhitespace()
             if consumeIfPresent(0x5D) { return }
+            let tracksPath = numberLexemes != nil
+            var element = 0
             while true {
+                if tracksPath { path.append(.index(element)) }
                 try parseValue(
                     depth: depth + 1,
                     memberName: nil,
                     enforceCanonicalHealthIntegers: false
                 )
+                if tracksPath { path.removeLast() }
+                element += 1
                 skipWhitespace()
                 if consumeIfPresent(0x5D) { return }
                 try consume(0x2C)
@@ -425,16 +478,118 @@ struct PIQuantity: Codable, Equatable, Hashable, CustomStringConvertible, Sendab
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        // JSONDecoder exposes numeric literals only after conversion through
-        // Foundation Decimal, which cannot preserve every arbitrary-precision
-        // wire value. PI's production quantity contract therefore requires
-        // decimal strings and fails closed on numeric JSON tokens.
-        try self.init(try container.decode(String.self))
+        let string: String
+        do {
+            string = try container.decode(String.self)
+        } catch let stringError as DecodingError {
+            // The deployed PI sends some quantities as decimal strings and
+            // others (computed USD volumes) as JSON numbers. JSONDecoder
+            // exposes a number only after converting it to Double or Decimal,
+            // which cannot keep every digit, so a number is read from the
+            // exact text of the response instead. Without that text (a plain
+            // JSONDecoder) a numeric token still fails closed.
+            guard
+                case .typeMismatch = stringError,
+                let lexemes = decoder.userInfo[PINumberLexemes.userInfoKey]
+                    as? PINumberLexemes,
+                let lexeme = lexemes.lexeme(at: decoder.codingPath)
+            else {
+                throw stringError
+            }
+            try self.init(Self.plainDecimal(fromJSONNumber: lexeme))
+            return
+        }
+        try self.init(string)
+    }
+
+    /// Rewrites a JSON number (`-?int[.frac][e[+-]exp]`) as the plain decimal
+    /// this type stores, digit for digit: `1.5e3` is `1500`, `1e-7` is
+    /// `0.0000001`. Only the position of the decimal point changes.
+    static func plainDecimal(fromJSONNumber lexeme: String) throws -> String {
+        guard lexeme.utf8.count <= maximumWireBytes else {
+            throw PIIndexerError.invalidQuantity
+        }
+        let pattern =
+            #"^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$"#
+        guard
+            let expression = try? NSRegularExpression(pattern: pattern),
+            let match = expression.firstMatch(
+                in: lexeme,
+                range: NSRange(lexeme.startIndex..., in: lexeme)
+            )
+        else {
+            throw PIIndexerError.invalidQuantity
+        }
+        func group(_ index: Int) -> String {
+            Range(match.range(at: index), in: lexeme).map {
+                String(lexeme[$0])
+            } ?? ""
+        }
+        let sign = group(1)
+        let integer = group(2)
+        let fraction = group(3)
+        let exponentText = group(4)
+        guard !exponentText.isEmpty else {
+            return lexeme
+        }
+        // The JSON grammar puts no limit on the digits of an exponent, and
+        // `Int("-9223372036854775808")` is `Int.min`, which has no absolute
+        // value. So the size is bounded on the digits, before any
+        // arithmetic: at most four significant ones.
+        let exponentDigits = exponentText
+            .drop { $0 == "+" || $0 == "-" }
+            .drop { $0 == "0" }
+        guard
+            exponentDigits.count <= 4,
+            let exponentSize = exponentDigits.isEmpty
+                ? 0
+                : Int(exponentDigits),
+            exponentSize <= maximumWireBytes
+        else {
+            throw PIIndexerError.invalidQuantity
+        }
+        let exponent = exponentText.hasPrefix("-")
+            ? -exponentSize
+            : exponentSize
+        let digits = integer + fraction
+        let point = integer.count + exponent
+        var whole: String
+        var decimals: String
+        if point <= 0 {
+            whole = "0"
+            decimals = String(repeating: "0", count: -point) + digits
+        } else if point >= digits.count {
+            whole = digits + String(
+                repeating: "0",
+                count: point - digits.count
+            )
+            decimals = ""
+        } else {
+            whole = String(digits.prefix(point))
+            decimals = String(digits.dropFirst(point))
+        }
+        // `0.5e1` shifts to `05`; a plain decimal has no leading zeros.
+        let significant = whole.drop { $0 == "0" }
+        whole = significant.isEmpty ? "0" : String(significant)
+        // Zeros the shift left at the end of the fraction carry no value.
+        while decimals.last == "0" {
+            decimals.removeLast()
+        }
+        let plain = sign + whole + (decimals.isEmpty ? "" : "." + decimals)
+        guard plain.utf8.count <= maximumWireBytes else {
+            throw PIIndexerError.invalidQuantity
+        }
+        return plain
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(rawValue)
+    }
+
+    /// The value is zero, however it is written (`0`, `0.00`, `-0.0`).
+    var isZero: Bool {
+        rawValue.utf8.allSatisfy { $0 == 0x30 || $0 == 0x2E || $0 == 0x2D }
     }
 
     /// Floating point conversion is deliberately available only to chart and
@@ -484,6 +639,50 @@ struct PIQuantity: Codable, Equatable, Hashable, CustomStringConvertible, Sendab
     }
 }
 
+/// The exact number lexemes of one PI response, read on first use. A
+/// response whose quantities are all strings (the usual case) never pays for
+/// the extra pass.
+final class PINumberLexemes {
+    static let userInfoKey = CodingUserInfoKey(
+        rawValue: "jp.co.soramitsu.sora.pi.number-lexemes"
+    )!
+
+    private let data: Data
+    private let lock = NSLock()
+    private var lexemes: [[PIStrictJSONAdmission.PathStep]: String]?
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    func lexeme(at codingPath: [CodingKey]) -> String? {
+        let path = codingPath.map { key -> PIStrictJSONAdmission.PathStep in
+            key.intValue.map { .index($0) } ?? .key(key.stringValue)
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        if lexemes == nil {
+            lexemes = (try? PIStrictJSONAdmission.numberLexemesByPath(
+                in: data
+            )) ?? [:]
+        }
+        if let lexeme = lexemes?[path] {
+            return lexeme
+        }
+        // The key of a decoded dictionary reports an integer value when
+        // its text is a number (`{"0": 1.5}`), which looks like an array
+        // index. Look the path up again with such keys as member names.
+        let memberPath = codingPath.map {
+            key -> PIStrictJSONAdmission.PathStep in
+            if let index = key.intValue, key.stringValue != String(index) {
+                return .index(index)
+            }
+            return .key(key.stringValue)
+        }
+        return memberPath == path ? nil : lexemes?[memberPath]
+    }
+}
+
 enum PIJSONValue: Codable, Equatable {
     case null
     case bool(Bool)
@@ -514,11 +713,23 @@ enum PIJSONValue: Codable, Equatable {
             [String: PIJSONValue].self
         ) {
             self = .object(value)
+        } else if
+            let lexemes = decoder.userInfo[PINumberLexemes.userInfoKey]
+                as? PINumberLexemes,
+            let lexeme = lexemes.lexeme(at: decoder.codingPath),
+            let plain = try? PIQuantity.plainDecimal(fromJSONNumber: lexeme)
+        {
+            // A fractional number, or an integer beyond 64 bits. PI sends
+            // computed values (USD amounts) as strings in some fields and as
+            // JSON numbers in others, and may change one into the other.
+            // JSONDecoder would round such a number through Double, so it
+            // is taken from the exact text of the response instead, as
+            // `PIQuantity` does.
+            self = .number(plain)
         } else {
-            // JSONDecoder cannot expose a fractional or unbounded numeric
-            // token's original lexeme. Those values must be strings so no
-            // quantity or metadata value can be rounded through Double or
-            // Foundation Decimal.
+            // Without the text of the response (a plain JSONDecoder) a
+            // fractional or unbounded number cannot be read exactly, and is
+            // refused rather than rounded.
             throw DecodingError.dataCorruptedError(
                 in: container,
                 debugDescription:
@@ -542,6 +753,14 @@ enum PIJSONValue: Codable, Equatable {
             } else if let unsigned = UInt64(value),
                       String(unsigned) == value {
                 try container.encode(unsigned)
+            } else if (try? PIQuantity(value)) != nil {
+                // JSONEncoder has no exact form for a fractional or
+                // unbounded number either. It is written as its decimal
+                // text, which every reader of these values treats like the
+                // number: they are shown or compared as text, never
+                // calculated with. The validated history cache therefore
+                // reads it back as the same text.
+                try container.encode(value)
             } else {
                 throw PIIndexerError.invalidQuantity
             }
@@ -553,9 +772,57 @@ enum PIJSONValue: Codable, Equatable {
     }
 }
 
-struct PIGraphQLError: Decodable, Equatable {
+struct PIGraphQLError: Equatable {
     let message: String
     let path: [PIJSONValue]?
+    /// `extensions.code`, when PI sent one. It tells a query PI refused
+    /// (`BAD_USER_INPUT`) from a failure on PI's side
+    /// (`INTERNAL_SERVER_ERROR`); both arrive with HTTP 200.
+    var code: String? = nil
+
+    /// PI could not answer for a reason of its own: a database error, a
+    /// timeout, too much load. The same query may succeed a moment later.
+    var isServiceFailure: Bool {
+        guard let code = code?.uppercased() else {
+            return false
+        }
+        return [
+            "INTERNAL_SERVER_ERROR",
+            "SERVICE_UNAVAILABLE",
+            "UNAVAILABLE",
+            "TOO_MANY_REQUESTS",
+            "RATE_LIMITED",
+        ].contains(code) ||
+            code.contains("TIMEOUT") ||
+            code.contains("TIMED_OUT")
+    }
+}
+
+extension PIGraphQLError: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case message
+        case path
+        case extensions
+    }
+
+    private enum ExtensionKeys: String, CodingKey {
+        case code
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        message = try container.decode(String.self, forKey: .message)
+        path = try container.decodeIfPresent(
+            [PIJSONValue].self,
+            forKey: .path
+        )
+        // Only a string code is used; anything else in `extensions` is
+        // ignored and never makes the response undecodable.
+        code = (try? container.nestedContainer(
+            keyedBy: ExtensionKeys.self,
+            forKey: .extensions
+        )).flatMap { try? $0.decode(String.self, forKey: .code) }
+    }
 }
 
 enum PIIndexerError: LocalizedError {
@@ -564,6 +831,14 @@ enum PIIndexerError: LocalizedError {
     case responseTooLarge
     case httpStatus(Int)
     case graphQLErrors
+    /// PI answered that it failed on its own side (GraphQL errors whose
+    /// codes are all service failures). Unlike `graphQLErrors`, the query
+    /// was not refused.
+    case serviceFailure
+    /// The answer is not a JSON document, so it did not come from PI's
+    /// GraphQL service: the sign-in page of a Wi-Fi network, or a page of a
+    /// proxy or firewall in between.
+    case foreignResponse
     case missingData
     // Keep malformed server/user wire text out of Error reflection and generic
     // logging. Callers only need the privacy-safe protocol class.
@@ -595,6 +870,10 @@ enum PIIndexerError: LocalizedError {
             // them available only for in-memory protocol diagnosis and never
             // surface or log the raw server text.
             return "PI rejected the requested operation."
+        case .serviceFailure:
+            return "PI reported a failure on its side."
+        case .foreignResponse:
+            return "The answer did not come from PI."
         case .missingData:
             return "PI returned no data."
         case .invalidQuantity:
@@ -620,11 +899,52 @@ enum PIIndexerError: LocalizedError {
         }
     }
 
+    /// Failures after which the last good validated value may be shown
+    /// instead of nothing. They have one thing in common: PI gave no answer
+    /// to the query. It is unreachable or overloaded, it failed on its own
+    /// side, something between the phone and PI answered in its place, or
+    /// PI could not give one consistent, fresh checkpoint even after the
+    /// bounded retry.
+    ///
+    /// An answer from PI that the client cannot use (it does not decode,
+    /// fails validation, or refuses the query) is never hidden by older
+    /// data.
     var allowsOfflineFallback: Bool {
-        guard case let .httpStatus(code) = self else {
+        switch self {
+        case .staleCheckpoint, .serviceFailure, .foreignResponse:
+            return true
+        case let .httpStatus(code):
+            switch code {
+            case 200 ... 299:
+                // 200 never reaches here; any other success status is an
+                // answer the client does not know how to use.
+                return false
+            case 400, 422:
+                // PI's GraphQL endpoint refusing the request as it is
+                // formed (see `indicatesUnsupportedSchema`).
+                return false
+            default:
+                // A redirect (never followed), 401, 403, 404 and the like
+                // from a proxy, firewall or sign-in page, 408, 429 and
+                // every 5xx: no working PI answered.
+                return true
+            }
+        default:
             return false
         }
-        return code == 408 || code == 429 || (500 ... 599).contains(code)
+    }
+
+    /// One request failed in a way that often does not repeat: PI or a
+    /// gateway in front of it failed for a moment.
+    var isWorthAnotherTry: Bool {
+        switch self {
+        case .serviceFailure:
+            return true
+        case let .httpStatus(code):
+            return [500, 502, 503, 504].contains(code)
+        default:
+            return false
+        }
     }
 }
 
@@ -908,6 +1228,24 @@ struct PIReadQualification: Equatable {
 struct PIQualifiedRead<Value> {
     let value: Value
     let qualification: PIReadQualification?
+    /// For a value taken from the last good snapshot: when that snapshot
+    /// was saved. `nil` for a live read.
+    var savedAt: Date? = nil
+    /// PI's health record changed between this read's own preflight and
+    /// postflight. A multi-page read then treats a changed count or a
+    /// repeated row as "the indexer moved, read again", not as a broken
+    /// response.
+    var checkpointAdvanced = false
+
+    /// The same read with another view of its value.
+    func map<Other>(_ transform: (Value) -> Other) -> PIQualifiedRead<Other> {
+        PIQualifiedRead<Other>(
+            value: transform(value),
+            qualification: qualification,
+            savedAt: savedAt,
+            checkpointAdvanced: checkpointAdvanced
+        )
+    }
 }
 
 struct PIMobileChainNode: Decodable, Equatable {
@@ -952,19 +1290,67 @@ struct PIMobileConfig: Decodable, Equatable {
     var typedAccountBalancesAvailable: Bool { false }
 }
 
-struct PIAsset: Decodable, Equatable {
+/// The asset fields the wallet shows: the USD price, the pooled liquidity
+/// behind the market cap, and the 24-hour price change. PI also publishes
+/// supply, order-book liquidity, the weekly change and USD volumes; nothing
+/// in the app reads them, so they are not requested.
+struct PIAsset: Codable, Equatable {
     let id: String
     let priceUSD: PIQuantity?
-    let supply: PIQuantity?
     let liquidity: PIQuantity?
-    let liquidityBooks: PIQuantity?
     let priceChangeDay: Double?
-    let priceChangeWeek: Double?
-    let volumeDayUSD: PIQuantity?
-    let volumeWeekUSD: PIQuantity?
+
+    init(
+        id: String,
+        priceUSD: PIQuantity?,
+        liquidity: PIQuantity?,
+        priceChangeDay: Double?
+    ) {
+        self.id = id
+        self.priceUSD = priceUSD
+        self.liquidity = liquidity
+        self.priceChangeDay = priceChangeDay
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case priceUSD
+        case liquidity
+        case priceChangeDay
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        priceUSD = try container.decodeIfPresent(
+            PIQuantity.self,
+            forKey: .priceUSD
+        )
+        liquidity = try container.decodeIfPresent(
+            PIQuantity.self,
+            forKey: .liquidity
+        )
+        // A presentation-only percentage. PI sends a JSON number today; a
+        // decimal string, the form its other decimals use, reads the same.
+        do {
+            priceChangeDay = try container.decodeIfPresent(
+                Double.self,
+                forKey: .priceChangeDay
+            )
+        } catch DecodingError.typeMismatch {
+            let quantity = try container.decode(
+                PIQuantity.self,
+                forKey: .priceChangeDay
+            )
+            guard let value = quantity.finiteDoubleForRendering else {
+                throw PIIndexerError.invalidQuantity
+            }
+            priceChangeDay = value
+        }
+    }
 }
 
-struct PIPoolXYK: Decodable, Equatable, Identifiable {
+struct PIPoolXYK: Codable, Equatable, Identifiable {
     let id: String
     let baseAssetId: String?
     let targetAssetId: String?
@@ -977,7 +1363,7 @@ struct PIPoolXYK: Decodable, Equatable, Identifiable {
     let liquidityUSD: PIQuantity?
 }
 
-struct PIReferrerReward: Decodable, Equatable, Identifiable {
+struct PIReferrerReward: Codable, Equatable, Identifiable {
     let id: String
     let referral: String?
     let referrer: String?
@@ -1196,6 +1582,11 @@ private actor PIResponseCache {
         let savedAt: Date
         let payload: Data
         let health: PIHealth?
+        /// Seconds the PI server's clock was ahead of this device's clock
+        /// when the entry was saved (negative when behind). `health` carries
+        /// server timestamps and `savedAt` is device time, so replay compares
+        /// them through this offset. Absent in entries from older builds.
+        let clockSkewSeconds: Int?
     }
 
     private let fileManager: FileManager
@@ -1203,19 +1594,34 @@ private actor PIResponseCache {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, directory: URL? = nil) {
         self.fileManager = fileManager
-        let base = (try? fileManager.url(
-            for: .cachesDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )) ?? fileManager.temporaryDirectory
-        directory = base.appendingPathComponent("PIIndexer", isDirectory: true)
-        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        if let directory {
+            self.directory = directory
+        } else {
+            let base = (try? fileManager.url(
+                for: .cachesDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )) ?? fileManager.temporaryDirectory
+            self.directory = base.appendingPathComponent(
+                "PIIndexer",
+                isDirectory: true
+            )
+        }
+        try? fileManager.createDirectory(
+            at: self.directory,
+            withIntermediateDirectories: true
+        )
     }
 
-    func save(_ data: Data, health: PIHealth?, key: String) {
+    func save(
+        _ data: Data,
+        health: PIHealth?,
+        key: String,
+        clockSkewSeconds: Int? = nil
+    ) {
         let destination = url(for: key)
         guard
             isUsableDirectory(),
@@ -1223,7 +1629,12 @@ private actor PIResponseCache {
             data.count <= PIResponseCacheAdmission.maximumPayloadBytes,
             (try? PIResponseCacheAdmission.validatePayload(data)) != nil,
             let encoded = try? encoder.encode(
-                Entry(savedAt: Date(), payload: data, health: health)
+                Entry(
+                    savedAt: Date(),
+                    payload: data,
+                    health: health,
+                    clockSkewSeconds: clockSkewSeconds
+                )
             ),
             encoded.count <= Self.maximumEntryBytes,
             (try? PIResponseCacheAdmission.validateEnvelope(encoded)) != nil
@@ -1446,11 +1857,79 @@ final class PIIndexerClient {
     static let soraMainnetGenesis =
         "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5"
 
+    /// The client behind the shared price and pool catalogs.
+    static let shared = PIIndexerClient(session: catalogSession)
+
+    /// One session for every production client, so a multi-page read reuses
+    /// its connection instead of opening a new one per client.
+    private static let productionSession = makeProductionSession(
+        waitsForConnectivity: true
+    )
+
+    /// The session of the shared catalogs. With no connection a catalog
+    /// read fails at once instead of waiting 30 s for one: the catalog
+    /// store has the last good catalog to show and its own retry schedule,
+    /// and screens must not sit behind a request that cannot start.
+    static let catalogSession = makeProductionSession(
+        waitsForConnectivity: false
+    )
+
+    private static func makeProductionSession(
+        waitsForConnectivity: Bool
+    ) -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 20
+        configuration.timeoutIntervalForResource = 30
+        configuration.waitsForConnectivity = waitsForConnectivity
+        configuration.httpMaximumConnectionsPerHost = 4
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(
+            configuration: configuration,
+            delegate: PIRedirectRejectingDelegate.shared,
+            delegateQueue: nil
+        )
+    }
+
+    #if DEBUG
+    private static let debugTreatsProductionAsUnreachable =
+        ProcessInfo.processInfo.environment[
+            "SORA_DEBUG_PI_UNREACHABLE"
+        ] == "1"
+    #endif
+
+    /// A read that hit `staleCheckpoint` is tried again this many times
+    /// before the last good value is used.
+    static let maximumStaleCheckpointRetries = 2
+    static let staleCheckpointRetryDelay: TimeInterval = 0.4
+    /// Catalog snapshots (assets, pools, referral rewards) older than this
+    /// are not shown.
+    static let lastGoodCatalogMaximumAge = TimeInterval(24 * 60 * 60)
+
+    /// The device clock offset the most recent live response showed.
+    private final class ClockSkew {
+        private let lock = NSLock()
+        private var value: Int?
+
+        var seconds: Int? {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+
+        func record(_ seconds: Int) {
+            lock.lock()
+            value = seconds
+            lock.unlock()
+        }
+    }
+
     private let endpoint: URL
     private let session: URLSession
     private let historyShapeMemory: PIHistoryShapeMemory
-    private let cache = PIResponseCache()
-    private let decoder: JSONDecoder
+    private let cache: PIResponseCache
+    private let lastClockSkew = ClockSkew()
+    private let retryPause: (TimeInterval) async throws -> Void
     private static let maximumRequestBytes = 256 * 1024
     static let maximumResponseBytes = 4 * 1024 * 1024
     static let maximumCursorBytes = 4_096
@@ -1460,27 +1939,17 @@ final class PIIndexerClient {
     init(
         endpoint: URL = PIIndexerClient.endpoint,
         session: URLSession? = nil,
-        historyShapeMemory: PIHistoryShapeMemory = .shared
+        historyShapeMemory: PIHistoryShapeMemory = .shared,
+        cacheDirectory: URL? = nil,
+        retryPause: @escaping (TimeInterval) async throws -> Void = { seconds in
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
     ) {
         self.endpoint = endpoint
         self.historyShapeMemory = historyShapeMemory
-        if let session {
-            self.session = session
-        } else {
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.timeoutIntervalForRequest = 20
-            configuration.timeoutIntervalForResource = 30
-            configuration.waitsForConnectivity = true
-            configuration.httpMaximumConnectionsPerHost = 4
-            configuration.urlCache = nil
-            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-            self.session = URLSession(
-                configuration: configuration,
-                delegate: PIRedirectRejectingDelegate.shared,
-                delegateQueue: nil
-            )
-        }
-        decoder = JSONDecoder()
+        self.session = session ?? Self.productionSession
+        self.retryPause = retryPause
+        cache = PIResponseCache(directory: cacheDirectory)
     }
 
     static func validateProductionEndpoint(_ candidate: URL) throws {
@@ -1547,20 +2016,85 @@ final class PIIndexerClient {
             cachePolicy: requireLive
                 ? .none
                 : .offline(maximumAge: TimeInterval(24 * 60 * 60)),
-            validateResponse: { payload, _ in
-                try Self.validateHealth(payload._health)
+            validateAtResponseTime: { payload, nowEpochSeconds in
+                // Freshness is judged against the time PI's own `Date`
+                // header reports, so a device clock that is somewhat wrong
+                // does not make a healthy indexer look stale.
+                try Self.validateHealth(
+                    payload._health,
+                    nowEpochSeconds: nowEpochSeconds
+                )
             }
         )
         return result._health
+    }
+
+    /// The time to judge one response's freshness against, and how far the
+    /// device clock is from it.
+    struct ResponseClock: Equatable {
+        let nowEpochSeconds: Int
+        /// Server minus device, in seconds; 0 when the server time is not
+        /// used.
+        let deviceSkewSeconds: Int
+    }
+
+    private static let httpDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss 'GMT'"
+        formatter.isLenient = false
+        return formatter
+    }()
+
+    /// Parses an HTTP `Date` header in the IMF-fixdate form every current
+    /// server sends (`Sun, 11 Oct 2026 00:34:40 GMT`).
+    static func httpDate(_ value: String?) -> Date? {
+        guard let value, value.utf8.count == 29 else {
+            return nil
+        }
+        return httpDateFormatter.date(from: value)
+    }
+
+    /// Uses the server's `Date` whenever the header is present and well
+    /// formed, however far the device clock is from it; otherwise the
+    /// device clock.
+    ///
+    /// PI's timestamps are compared with the time PI itself reports in the
+    /// same response, over the same TLS connection. Whoever could forge that
+    /// header could forge the timestamps next to it, so a limit on the
+    /// distance to the device clock would add no safety. It would only keep
+    /// prices and Activity from a phone whose date was set by hand.
+    static func responseClock(
+        dateHeader: String?,
+        deviceNow: Date = Date()
+    ) -> ResponseClock {
+        let device = Int(
+            deviceNow.timeIntervalSince1970.rounded(.towardZero)
+        )
+        guard
+            let server = httpDate(dateHeader)?.timeIntervalSince1970
+        else {
+            return ResponseClock(
+                nowEpochSeconds: device,
+                deviceSkewSeconds: 0
+            )
+        }
+        let now = Int(server.rounded(.towardZero))
+        return ResponseClock(
+            nowEpochSeconds: now,
+            deviceSkewSeconds: now - device
+        )
     }
 
     static func validateHealth(
         _ health: PIHealth,
         nowEpochSeconds: Int = Int(Date().timeIntervalSince1970)
     ) throws {
+        // Who answered: these never change for the reviewed production
+        // service, so a mismatch is another service and is never papered
+        // over with older data.
         guard
-            health.ok,
-            health.repositoryReady,
             health.service == "polkaswap-indexer",
             health.serviceId == "pi.soramitsu.io",
             health.schemaVersion == 1,
@@ -1569,14 +2103,24 @@ final class PIIndexerClient {
             health.chainId == "sora:mainnet",
             health.network == "mainnet",
             health.publicBaseUrl == endpoint,
-            health.publicBaseUrl?.absoluteString == endpoint.absoluteString,
+            health.publicBaseUrl?.absoluteString == endpoint.absoluteString
+        else {
+            throw PIIndexerError.invalidServiceIdentity
+        }
+        // Whether it is ready: the right service that is starting up,
+        // restarting or reporting a problem has no usable checkpoint for
+        // now. That is temporary, so it takes the bounded retry and the
+        // last good value like any other missing checkpoint.
+        guard
+            health.ok,
+            health.repositoryReady,
             health.workerAvailable,
             health.workerReady == true,
             health.workerReadinessReason == nil,
             health.workerLifecycle == "running",
             health.workerStartupComplete == true
         else {
-            throw PIIndexerError.invalidServiceIdentity
+            throw PIIndexerError.staleCheckpoint
         }
         // PI schema v1 exposes a coherent worker finalized/indexed checkpoint,
         // but not the older top-level genesis/hash aliases. The reviewed
@@ -1635,31 +2179,139 @@ final class PIIndexerClient {
         }
     }
 
-    static func validateStableResponseCheckpoint(
+    /// The checkpoint one response is attributed to, from the health records
+    /// read before and after it.
+    ///
+    /// PI indexes a new block about every six seconds, and its finalized
+    /// head moves in between, so the two records often differ. That is
+    /// normal progress: the same indexer may only have moved forward, and
+    /// the response is then attributed to the later checkpoint, which bounds
+    /// every row it can contain. A checkpoint that went backwards, or another
+    /// service, chain or block at the same height, means a different or
+    /// rolled-back indexer answered, and is rejected. This is the rule the
+    /// Android client applies (`requireSettledResponseCheckpoint`).
+    ///
+    /// Forward progress is bounded: a postflight more than
+    /// `maximumCheckpointAdvancePerRequest` blocks after the preflight means
+    /// the response was received long before the postflight was read (the
+    /// app was suspended in between, for example). It is then not known to
+    /// be current at the later checkpoint, and the read starts again.
+    static func settledResponseCheckpoint(
         preflight: PIHealth,
         postflight: PIHealth
-    ) throws {
-        let indexedHashMatches: Bool
-        switch (
-            preflight.latestIndexedBlockHash,
-            postflight.latestIndexedBlockHash
-        ) {
-        case (nil, nil):
-            indexedHashMatches = true
-        case let (.some(before), .some(after)):
-            indexedHashMatches =
-                before.caseInsensitiveCompare(after) == .orderedSame
-        default:
-            indexedHashMatches = false
+    ) throws -> PIHealth {
+        if preflight == postflight {
+            return preflight
         }
         guard
-            preflight.workerLatestIndexedBlock ==
-                postflight.workerLatestIndexedBlock,
-            preflight.latestIndexedBlock == postflight.latestIndexedBlock,
-            indexedHashMatches,
-            preflight.workerLastSuccessfulIndexTimestamp ==
-                postflight.workerLastSuccessfulIndexTimestamp,
-            preflight.latestIndexedAt == postflight.latestIndexedAt
+            isSameIndexerAtOrAfter(preflight, postflight),
+            isWithinAdvance(
+                maximumCheckpointAdvancePerRequest,
+                from: preflight,
+                to: postflight
+            )
+        else {
+            throw PIIndexerError.staleCheckpoint
+        }
+        return postflight
+    }
+
+    /// One request and its two health reads take a few hundred milliseconds
+    /// and at most the 20 s request timeout each; PI indexes a block every
+    /// six seconds. Twenty blocks (two minutes) is far more than a healthy
+    /// read needs and far less than a suspended app loses.
+    static let maximumCheckpointAdvancePerRequest = 20
+    /// The same for a whole multi-page read (five minutes of blocks).
+    static let maximumCheckpointAdvancePerWalk = 50
+
+    static func isWithinAdvance(
+        _ maximum: Int,
+        from before: PIHealth,
+        to after: PIHealth
+    ) -> Bool {
+        guard
+            let beforeHeight = before.finalizedCheckpoint,
+            let afterHeight = after.finalizedCheckpoint
+        else {
+            return false
+        }
+        let (advance, overflow) =
+            afterHeight.subtractingReportingOverflow(beforeHeight)
+        return !overflow && advance <= maximum
+    }
+
+    /// Pages of one live read must all lie within
+    /// `maximumCheckpointAdvancePerWalk` blocks of its first page, so a read
+    /// that was interrupted for a long time is never completed with old
+    /// pages and labelled with a new checkpoint.
+    static func validateWalkAdvance(
+        first: PIReadQualification,
+        current: PIReadQualification
+    ) throws {
+        guard
+            current.source != .live || isWithinAdvance(
+                maximumCheckpointAdvancePerWalk,
+                from: first.health,
+                to: current.health
+            )
+        else {
+            throw PIIndexerError.staleCheckpoint
+        }
+    }
+
+    static func isSameIndexerAtOrAfter(
+        _ before: PIHealth,
+        _ after: PIHealth
+    ) -> Bool {
+        guard
+            let beforeHeight = before.finalizedCheckpoint,
+            let afterHeight = after.finalizedCheckpoint,
+            before.service == after.service,
+            before.serviceId == after.serviceId,
+            before.publicBaseUrl == after.publicBaseUrl,
+            before.schemaVersion == after.schemaVersion,
+            before.ecosystem == after.ecosystem,
+            before.network == after.network,
+            before.chainId.caseInsensitiveCompare(after.chainId) ==
+                .orderedSame,
+            hashesMatch(before.genesisHash, after.genesisHash),
+            afterHeight >= beforeHeight
+        else {
+            return false
+        }
+        // One finalized height has one block.
+        return afterHeight > beforeHeight || hashesMatch(
+            before.latestIndexedBlockHash,
+            after.latestIndexedBlockHash
+        )
+    }
+
+    private static func hashesMatch(_ first: String?, _ second: String?) -> Bool {
+        switch (first, second) {
+        case (nil, nil):
+            return true
+        case let (.some(first), .some(second)):
+            return first.caseInsensitiveCompare(second) == .orderedSame
+        default:
+            return false
+        }
+    }
+
+    /// Pages of one live read may come from successive checkpoints of the
+    /// same indexer while it keeps indexing. Pages replayed from the offline
+    /// cache must all carry one checkpoint, and live and cached pages are
+    /// never combined, so a result is never stitched together from different
+    /// sessions.
+    static func validatePageCheckpoint(
+        previous: PIReadQualification,
+        current: PIReadQualification
+    ) throws {
+        guard
+            previous.source == current.source,
+            previous.health == current.health || (
+                current.source == .live &&
+                    isSameIndexerAtOrAfter(previous.health, current.health)
+            )
         else {
             throw PIIndexerError.staleCheckpoint
         }
@@ -2052,14 +2704,9 @@ final class PIIndexerClient {
     static func validateAssets(_ values: [PIAsset]) throws {
         guard values.allSatisfy({ asset in
             (asset.priceChangeDay?.isFinite ?? true) &&
-                (asset.priceChangeWeek?.isFinite ?? true) &&
             [
                 asset.priceUSD,
-                asset.supply,
                 asset.liquidity,
-                asset.liquidityBooks,
-                asset.volumeDayUSD,
-                asset.volumeWeekUSD,
             ].allSatisfy({ isNonNegative($0) })
         }) else {
             throw PIIndexerError.invalidQuantity
@@ -2100,6 +2747,17 @@ final class PIIndexerClient {
             })
         else {
             throw PIIndexerError.invalidChainIdentity
+        }
+        // PI publishes a reward in the token's smallest unit, a whole
+        // number ("183330193640403131" is 0.18 XOR). The Friends screen
+        // converts it from that unit, so any other form is refused here
+        // as a handled error instead of reaching the conversion.
+        guard values.allSatisfy({
+            PIHistoryCheckpointValidator.isNonNegativeIntegerQuantity(
+                $0.amount
+            )
+        }) else {
+            throw PIIndexerError.invalidQuantity
         }
         let heights = try values.map {
             try exactNonNegativeInt($0.blockHeight)
@@ -2255,10 +2913,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.mobileConfig.withEveryFeatureOff,
-            qualification: result.qualification
-        )
+        return result.map(\.mobileConfig.withEveryFeatureOff)
     }
 
     private func qualifiedFlaggedMobileConfig(
@@ -2285,10 +2940,7 @@ final class PIIndexerClient {
                 try Self.validateMobileConfig(payload.mobileConfig)
             }
         )
-        return PIQualifiedRead(
-            value: result.value.mobileConfig,
-            qualification: result.qualification
-        )
+        return result.map(\.mobileConfig)
     }
 
     /// Explicit fail-closed gate for callers that require a PI account-balance query. Never
@@ -2308,27 +2960,31 @@ final class PIIndexerClient {
 
     private func assetsRead(
         first: Int,
-        after: String?
+        after: String?,
+        walkStep: WalkStep? = nil
     ) async throws -> PIQualifiedRead<PIConnection<PIAsset>> {
         try validate(pageSize: first)
         try Self.validateCursor(after)
         struct Payload: Decodable { let assets: PIConnection<PIAsset> }
+        // Only the fields the wallet shows. PI serves `volumeDayUSD` and
+        // `volumeWeekUSD` as JSON numbers while its other quantities are
+        // strings; nothing reads them, so they are not requested.
         let result: PIQualifiedRead<Payload> = try await executeQualified(
             operationName: "MobileAssets",
             query: """
             query MobileAssets($first: Int!, $after: Cursor) {
               assets(first: $first, after: $after, orderBy: [ID_ASC]) {
-                nodes {
-                  id priceUSD supply liquidity liquidityBooks priceChangeDay
-                  priceChangeWeek volumeDayUSD volumeWeekUSD
-                }
+                nodes { id priceUSD liquidity priceChangeDay }
                 pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
                 totalCount
               }
             }
             """,
             variables: compact(["first": first, "after": after]),
-            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
+            cachePolicy: walkStep == nil
+                ? .offline(maximumAge: TimeInterval(24 * 60 * 60))
+                : .none,
+            walkStep: walkStep,
             validateResponse: { payload, _ in
                 try Self.validateConnectionPage(
                     payload.assets,
@@ -2339,22 +2995,53 @@ final class PIIndexerClient {
                 try Self.validateAssets(payload.assets.values)
             }
         )
-        return PIQualifiedRead(
-            value: result.value.assets,
-            qualification: result.qualification
-        )
+        return result.map(\.assets)
     }
+
+    /// The asset and pool catalogs are read whole, and every price in the
+    /// app depends on that read. Registering an asset on SORA needs no
+    /// permission, so the catalog grows; its walk gets the most pages the
+    /// pager allows (10,000 rows at 100 per page; 957 assets and 432 pools
+    /// on 12 October 2026).
+    static let maximumCatalogPages = 100
 
     func allAssets(
         pageSize: Int = 100,
-        maximumPages: Int = 20
+        maximumPages: Int = maximumCatalogPages
     ) async throws -> [PIAsset] {
-        try await collectQualifiedPages(
+        try await qualifiedAllAssets(
             pageSize: pageSize,
-            maximumPages: maximumPages,
-            itemIdentity: { $0.id }
-        ) { after in
-            try await self.assetsRead(first: pageSize, after: after)
+            maximumPages: maximumPages
+        ).value
+    }
+
+    /// Every asset PI knows. A `.live` qualification is the checkpoint of
+    /// the last page; `.cache` means the live read failed and this is the
+    /// last good catalog.
+    func qualifiedAllAssets(
+        pageSize: Int = 100,
+        maximumPages: Int = maximumCatalogPages
+    ) async throws -> PIQualifiedRead<[PIAsset]> {
+        try await lastGoodCatalog(
+            name: Self.assetsCatalogName,
+            itemIdentity: { $0.id },
+            validate: { values, _ in try Self.validateAssets(values) }
+        ) {
+            try await self.retryingStaleCheckpoint {
+                try await self.collectCheckpointedPages(
+                    pageSize: pageSize,
+                    maximumPages: maximumPages,
+                    itemIdentity: { $0.id }
+                ) { after, previousCheckpoint in
+                    try await self.assetsRead(
+                        first: pageSize,
+                        after: after,
+                        walkStep: WalkStep(
+                            previousCheckpoint: previousCheckpoint
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -2367,7 +3054,8 @@ final class PIIndexerClient {
 
     private func poolXYKsRead(
         first: Int,
-        after: String?
+        after: String?,
+        walkStep: WalkStep? = nil
     ) async throws -> PIQualifiedRead<PIConnection<PIPoolXYK>> {
         try validate(pageSize: first)
         try Self.validateCursor(after)
@@ -2387,7 +3075,10 @@ final class PIIndexerClient {
             }
             """,
             variables: compact(["first": first, "after": after]),
-            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
+            cachePolicy: walkStep == nil
+                ? .offline(maximumAge: TimeInterval(24 * 60 * 60))
+                : .none,
+            walkStep: walkStep,
             validateResponse: { payload, _ in
                 try Self.validateConnectionPage(
                     payload.poolXYKs,
@@ -2398,22 +3089,44 @@ final class PIIndexerClient {
                 try Self.validatePools(payload.poolXYKs.values)
             }
         )
-        return PIQualifiedRead(
-            value: result.value.poolXYKs,
-            qualification: result.qualification
-        )
+        return result.map(\.poolXYKs)
     }
 
     func allPoolXYKs(
         pageSize: Int = 100,
-        maximumPages: Int = 20
+        maximumPages: Int = maximumCatalogPages
     ) async throws -> [PIPoolXYK] {
-        try await collectQualifiedPages(
+        try await qualifiedAllPoolXYKs(
             pageSize: pageSize,
-            maximumPages: maximumPages,
-            itemIdentity: { $0.id }
-        ) { after in
-            try await self.poolXYKsRead(first: pageSize, after: after)
+            maximumPages: maximumPages
+        ).value
+    }
+
+    /// Every XYK pool PI knows; qualified like `qualifiedAllAssets`.
+    func qualifiedAllPoolXYKs(
+        pageSize: Int = 100,
+        maximumPages: Int = maximumCatalogPages
+    ) async throws -> PIQualifiedRead<[PIPoolXYK]> {
+        try await lastGoodCatalog(
+            name: Self.poolsCatalogName,
+            itemIdentity: { $0.id },
+            validate: { values, _ in try Self.validatePools(values) }
+        ) {
+            try await self.retryingStaleCheckpoint {
+                try await self.collectCheckpointedPages(
+                    pageSize: pageSize,
+                    maximumPages: maximumPages,
+                    itemIdentity: { $0.id }
+                ) { after, previousCheckpoint in
+                    try await self.poolXYKsRead(
+                        first: pageSize,
+                        after: after,
+                        walkStep: WalkStep(
+                            previousCheckpoint: previousCheckpoint
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -2441,7 +3154,8 @@ final class PIIndexerClient {
         address: String,
         first: Int,
         after: String?,
-        order: ReferrerRewardOrder = .newestFirst
+        order: ReferrerRewardOrder = .newestFirst,
+        walkStep: WalkStep? = nil
     ) async throws -> PIQualifiedRead<PIConnection<PIReferrerReward>> {
         let address = try validatedIdentifier(address)
         try validate(pageSize: first)
@@ -2474,7 +3188,10 @@ final class PIIndexerClient {
                 "after": after,
                 "filter": ["referrer": ["equalTo": address]]
             ]),
-            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
+            cachePolicy: walkStep == nil
+                ? .offline(maximumAge: TimeInterval(24 * 60 * 60))
+                : .none,
+            walkStep: walkStep,
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.referrerRewards,
@@ -2489,10 +3206,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.referrerRewards,
-            qualification: result.qualification
-        )
+        return result.map(\.referrerRewards)
     }
 
     func allReferrerRewards(
@@ -2500,31 +3214,50 @@ final class PIIndexerClient {
         pageSize: Int = 100,
         maximumPages: Int = 20
     ) async throws -> [PIReferrerReward] {
+        let address = try validatedIdentifier(address)
         func collect(
             _ order: ReferrerRewardOrder
-        ) async throws -> [PIReferrerReward] {
-            try await collectQualifiedPages(
-                pageSize: pageSize,
-                maximumPages: maximumPages,
-                itemIdentity: { $0.id }
-            ) { after in
-                try await self.referrerRewardsRead(
-                    address: address,
-                    first: pageSize,
-                    after: after,
-                    order: order
-                )
+        ) async throws -> PIQualifiedRead<[PIReferrerReward]> {
+            try await retryingStaleCheckpoint {
+                try await self.collectCheckpointedPages(
+                    pageSize: pageSize,
+                    maximumPages: maximumPages,
+                    itemIdentity: { $0.id }
+                ) { after, previousCheckpoint in
+                    try await self.referrerRewardsRead(
+                        address: address,
+                        first: pageSize,
+                        after: after,
+                        order: order,
+                        walkStep: WalkStep(
+                            previousCheckpoint: previousCheckpoint
+                        )
+                    )
+                }
             }
         }
-        do {
-            return try await collect(.newestFirst)
-        } catch let error as PIIndexerError where
-            Self.indicatesUnsupportedSchema(error)
-        {
-            // Cursors are tied to their ordering, so restart from the first
-            // page instead of continuing the rejected walk.
-            return try await collect(.identifier)
-        }
+        return try await lastGoodCatalog(
+            name: "MobileReferrerRewardsCatalog",
+            scope: address,
+            itemIdentity: { $0.id },
+            validate: { values, qualification in
+                try Self.validateReferrerRewards(
+                    values,
+                    account: address,
+                    qualification: qualification
+                )
+            }
+        ) {
+            do {
+                return try await collect(.newestFirst)
+            } catch let error as PIIndexerError where
+                Self.indicatesUnsupportedSchema(error)
+            {
+                // Cursors are tied to their ordering, so restart from the
+                // first page instead of continuing the rejected walk.
+                return try await collect(.identifier)
+            }
+        }.value
     }
 
     func history(
@@ -2581,13 +3314,15 @@ final class PIIndexerClient {
         maximumPages: Int = maximumHistoryPages
     ) async throws -> PIHistoryPageRead {
         let result = try await withHistoryCoverageFallback { coverage in
-            try await self.walkHistoryPage(
-                address: address,
-                first: first,
-                page: page,
-                maximumPages: maximumPages,
-                coverage: coverage
-            )
+            try await self.retryingStaleCheckpoint {
+                try await self.walkHistoryPage(
+                    address: address,
+                    first: first,
+                    page: page,
+                    maximumPages: maximumPages,
+                    coverage: coverage
+                )
+            }
         }
         return PIHistoryPageRead(read: result.value, coverage: result.coverage)
     }
@@ -2621,44 +3356,93 @@ final class PIIndexerClient {
         var seenItemIdentities = Set<String>()
         var expectedTotalCount: Int?
         var expectedQualification: PIReadQualification?
+        var firstQualification: PIReadQualification?
         var consumedCount = 0
+        var checkpointMoved = false
+        // A transaction indexed between two pages changes the count and
+        // shifts the rows. After the checkpoint moved, that is a reason to
+        // walk again, not a broken response.
+        func inconsistent(_ error: PIIndexerError) -> PIIndexerError {
+            checkpointMoved ? .staleCheckpoint : error
+        }
 
+        // As in `collectPagesCore`: a page lost on the way is asked for
+        // again instead of ending the walk.
+        var transientRetries = TransientRetries()
         for currentPage in 1 ... page {
-            let read = try await historyRead(
-                address: address,
-                first: first,
-                after: cursor,
-                coverage: coverage
-            )
+            var loaded: PIQualifiedRead<PIConnection<PIHistoryElement>>?
+            while loaded == nil {
+                do {
+                    loaded = try await historyRead(
+                        address: address,
+                        first: first,
+                        after: cursor,
+                        coverage: coverage,
+                        walkStep: WalkStep(
+                            previousCheckpoint: expectedQualification?.health
+                        )
+                    )
+                } catch let error where transientRetries.shouldRetry(
+                    after: error,
+                    afterProgress: currentPage > 1
+                ) {
+                    try await retryPause(transientRetries.pause)
+                }
+            }
+            guard let read = loaded else {
+                throw PIIndexerError.invalidResponse
+            }
             guard let qualification = read.qualification else {
                 throw PIIndexerError.missingChainIdentityCapability
             }
-            if let expectedQualification {
-                guard qualification == expectedQualification else {
-                    throw PIIndexerError.staleCheckpoint
-                }
-            } else {
-                expectedQualification = qualification
+            if read.checkpointAdvanced {
+                // PI moved while this very page was being read, so the
+                // page can already differ from the ones before it.
+                checkpointMoved = true
             }
+            if let previous = expectedQualification {
+                // The walk may follow the indexer forward; it never mixes
+                // sources, indexers or a checkpoint that went backwards.
+                try Self.validatePageCheckpoint(
+                    previous: previous,
+                    current: qualification
+                )
+                if previous.health != qualification.health {
+                    checkpointMoved = true
+                }
+            }
+            if let firstQualification {
+                try Self.validateWalkAdvance(
+                    first: firstQualification,
+                    current: qualification
+                )
+            } else {
+                firstQualification = qualification
+            }
+            // The returned page is attributed to the latest checkpoint,
+            // which bounds every row read so far.
+            expectedQualification = qualification
 
             let connection = read.value
             guard
                 expectedTotalCount.map({ $0 == connection.totalCount }) ?? true
             else {
-                throw PIIndexerError.invalidResponse
+                throw inconsistent(.invalidResponse)
             }
             expectedTotalCount = connection.totalCount
 
             let identities = connection.values.compactMap {
                 PIHistoryCheckpointValidator.canonicalHistoryIdentifier($0.id)
             }
+            guard identities.count == connection.values.count else {
+                throw PIIndexerError.repeatedPage
+            }
             guard
-                identities.count == connection.values.count,
                 identities.allSatisfy({
                     seenItemIdentities.insert($0).inserted
                 })
             else {
-                throw PIIndexerError.repeatedPage
+                throw inconsistent(.repeatedPage)
             }
             let (nextConsumedCount, countOverflow) = consumedCount
                 .addingReportingOverflow(connection.values.count)
@@ -2669,7 +3453,7 @@ final class PIIndexerClient {
                     ? nextConsumedCount < connection.totalCount
                     : nextConsumedCount == connection.totalCount
             else {
-                throw PIIndexerError.invalidResponse
+                throw inconsistent(.invalidResponse)
             }
             consumedCount = nextConsumedCount
 
@@ -2698,7 +3482,7 @@ final class PIIndexerClient {
                 next != cursor,
                 seenCursors.insert(next).inserted
             else {
-                throw PIIndexerError.repeatedCursor
+                throw inconsistent(.repeatedCursor)
             }
             cursor = next
         }
@@ -2710,7 +3494,8 @@ final class PIIndexerClient {
         first: Int,
         after: String?,
         transactionHashes: [String]? = nil,
-        coverage: PIHistoryCoverage = .allRoles
+        coverage: PIHistoryCoverage = .allRoles,
+        walkStep: WalkStep? = nil
     ) async throws -> PIQualifiedRead<PIConnection<PIHistoryElement>> {
         let address = try validatedIdentifier(address)
         try validate(pageSize: first)
@@ -2778,6 +3563,7 @@ final class PIIndexerClient {
             // raw GraphQL page here would lose that proof and could bind it to
             // a different concurrent health checkpoint.
             cachePolicy: .none,
+            walkStep: walkStep,
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.historyElements,
@@ -2810,10 +3596,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.historyElements,
-            qualification: result.qualification
-        )
+        return result.map(\.historyElements)
     }
 
     /// Looks up only the bounded pending hash set for one exact account.
@@ -2895,20 +3678,25 @@ final class PIIndexerClient {
         maximumPages: Int = 20
     ) async throws -> PIQualifiedRead<[PIHistoryElement]> {
         try await withHistoryCoverageFallback { coverage in
-            try await self.collectQualifiedPagesRead(
-                pageSize: pageSize,
-                maximumPages: maximumPages,
-                itemIdentity: {
-                    PIHistoryCheckpointValidator
-                        .canonicalHistoryIdentifier($0.id) ?? ""
+            try await self.retryingStaleCheckpoint {
+                try await self.collectCheckpointedPages(
+                    pageSize: pageSize,
+                    maximumPages: maximumPages,
+                    itemIdentity: {
+                        PIHistoryCheckpointValidator
+                            .canonicalHistoryIdentifier($0.id) ?? ""
+                    }
+                ) { after, previousCheckpoint in
+                    try await self.historyRead(
+                        address: address,
+                        first: pageSize,
+                        after: after,
+                        coverage: coverage,
+                        walkStep: WalkStep(
+                            previousCheckpoint: previousCheckpoint
+                        )
+                    )
                 }
-            ) { after in
-                try await self.historyRead(
-                    address: address,
-                    first: pageSize,
-                    after: after,
-                    coverage: coverage
-                )
             }
         }.value
     }
@@ -2983,10 +3771,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.markets,
-            qualification: result.qualification
-        )
+        return result.map(\.markets)
     }
 
     func allMarkets(
@@ -3093,10 +3878,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.marketSnapshots,
-            qualification: result.qualification
-        )
+        return result.map(\.marketSnapshots)
     }
 
     func allMarketSnapshots(
@@ -3176,10 +3958,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.accountPositions,
-            qualification: result.qualification
-        )
+        return result.map(\.accountPositions)
     }
 
     func allAccountPositions(
@@ -3259,10 +4038,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.accountTrades,
-            qualification: result.qualification
-        )
+        return result.map(\.accountTrades)
     }
 
     func allAccountTrades(
@@ -3322,10 +4098,7 @@ final class PIIndexerClient {
                 )
             }
         )
-        return PIQualifiedRead(
-            value: result.value.polkamarktSignals,
-            qualification: result.qualification
-        )
+        return result.map(\.polkamarktSignals)
     }
 
     private enum CachePolicy {
@@ -3338,6 +4111,7 @@ final class PIIndexerClient {
         query: String,
         variables: [String: Any] = [:],
         cachePolicy: CachePolicy,
+        validateAtResponseTime: ((Payload, Int) throws -> Void)? = nil,
         validateResponse: (Payload, PIReadQualification?) throws -> Void = { _, _ in }
     ) async throws -> Payload {
         try await executeQualified(
@@ -3345,15 +4119,33 @@ final class PIIndexerClient {
             query: query,
             variables: variables,
             cachePolicy: cachePolicy,
+            validateAtResponseTime: validateAtResponseTime,
             validateResponse: validateResponse
         ).value
     }
 
+    /// One page of a multi-page read. The walk as a whole is what
+    /// `retryingStaleCheckpoint` runs again and what the catalog snapshot
+    /// backs up, so its pages neither retry nor use the page cache on their
+    /// own.
+    private struct WalkStep {
+        /// The live checkpoint the previous page was attributed to, read
+        /// immediately before this page. It serves as this page's preflight,
+        /// so a walk costs two requests per page instead of three.
+        let previousCheckpoint: PIHealth?
+    }
+
+    /// - Parameters:
+    ///   - walkStep: Set for a page of a multi-page read.
+    ///   - validateAtResponseTime: Checks that depend on the current time,
+    ///     given the time this response's own clock reports.
     private func executeQualified<Payload: Decodable>(
         operationName: String,
         query: String,
         variables: [String: Any] = [:],
         cachePolicy: CachePolicy,
+        walkStep: WalkStep? = nil,
+        validateAtResponseTime: ((Payload, Int) throws -> Void)? = nil,
         validateResponse: (Payload, PIReadQualification?) throws -> Void = { _, _ in }
     ) async throws -> PIQualifiedRead<Payload> {
         // Legacy operation adapters still pass their configured base URL into this client. The
@@ -3377,120 +4169,202 @@ final class PIIndexerClient {
             .joined()
         let cacheKey = "\(operationName)-\(cacheDigest)"
 
-        do {
-            let liveHealth: PIHealth?
-            if operationName != "MobileHealth" {
-                // A cached health record is not sufficient to authorize fresh
-                // indexed data because its finalized checkpoint may be stale.
-                // If the live preflight is unreachable, the outer operation
-                // may still use its own bounded offline cache.
-                liveHealth = try await health(requireLive: true)
-            } else {
-                liveHealth = nil
-            }
-            var request = URLRequest(url: endpoint)
-            request.httpMethod = "POST"
-            request.httpBody = body
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
-            request.setValue(
-                "no-store, no-cache, max-age=0",
-                forHTTPHeaderField: "Cache-Control"
-            )
-            request.setValue("no-cache", forHTTPHeaderField: "Pragma")
-
-            let (bytes, response) = try await session.bytes(for: request)
-            let http = try Self.validateHTTPResponse(
-                response,
-                endpoint: endpoint
-            )
-            try Self.validateExpectedResponseLength(
-                http.expectedContentLength
-            )
-            var data = Data()
-            if http.expectedContentLength > 0 {
-                data.reserveCapacity(Int(http.expectedContentLength))
-            }
-            for try await byte in bytes {
-                guard data.count < Self.maximumResponseBytes else {
-                    throw PIIndexerError.responseTooLarge
+        // Exactly one level retries: a health read is retried by the
+        // operation it qualifies, and a page by its walk.
+        let maximumRetries =
+            operationName == "MobileHealth" || walkStep != nil
+                ? 0
+                : Self.maximumStaleCheckpointRetries
+        var staleCheckpointRetries = 0
+        var transientRetries = TransientRetries()
+        while true {
+            do {
+                return try await liveQualifiedRead(
+                    operationName: operationName,
+                    body: body,
+                    cacheKey: cacheKey,
+                    cachePolicy: cachePolicy,
+                    knownPreflight: walkStep?.previousCheckpoint,
+                    validateAtResponseTime: validateAtResponseTime,
+                    validateResponse: validateResponse
+                )
+            } catch PIIndexerError.staleCheckpoint where
+                staleCheckpointRetries < maximumRetries
+            {
+                // PI answered, but not with one consistent, fresh
+                // checkpoint. That usually clears within a block or two, so
+                // wait briefly and read again before giving up.
+                staleCheckpointRetries += 1
+                try await retryPause(
+                    Self.staleCheckpointRetryDelay *
+                        Double(staleCheckpointRetries)
+                )
+            } catch let error where
+                maximumRetries > 0 && transientRetries.shouldRetry(
+                    after: error,
+                    afterProgress: false
+                )
+            {
+                // The request, or one of its two health reads, was lost on
+                // the way or failed on PI's side for a moment. The same
+                // level that retries a stale checkpoint tries once more.
+                try await retryPause(transientRetries.pause)
+            } catch let liveError as PIIndexerError {
+                guard
+                    liveError.allowsOfflineFallback,
+                    case let .offline(maximumAge) = cachePolicy,
+                    let entry = await cache.load(
+                        key: cacheKey,
+                        maximumAge: maximumAge
+                    )
+                else {
+                    throw liveError
                 }
-                data.append(byte)
-            }
-            let payload = try decode(Payload.self, data: data)
-            if let liveHealth {
-                // Attribute the response only when PI's indexed checkpoint did
-                // not change between the live health preflight and postflight.
-                // This is deliberately per request; a 30-second health cache
-                // cannot prove which checkpoint produced an individual page.
-                let postflightHealth = try await health(requireLive: true)
-                try Self.validateStableResponseCheckpoint(
-                    preflight: liveHealth,
-                    postflight: postflightHealth
-                )
-            }
-            let qualification = liveHealth.map {
-                PIReadQualification(health: $0, source: .live)
-            }
-            // A decoded response is not cache-eligible until all operation-
-            // specific identity and checkpoint bounds have passed.
-            try validateResponse(payload, qualification)
-            if case .offline = cachePolicy {
-                await cache.save(data, health: liveHealth, key: cacheKey)
-            }
-            return PIQualifiedRead(
-                value: payload,
-                qualification: qualification
-            )
-        } catch let liveError as PIIndexerError {
-            guard
-                liveError.allowsOfflineFallback,
-                case let .offline(maximumAge) = cachePolicy,
-                let entry = await cache.load(
-                    key: cacheKey,
-                    maximumAge: maximumAge
-                )
-            else {
-                throw liveError
-            }
-            do {
-                return try qualifiedCachedRead(
-                    entry,
-                    operationName: operationName,
-                    validateResponse: validateResponse
-                )
+                do {
+                    return try qualifiedCachedRead(
+                        entry,
+                        operationName: operationName,
+                        validateAtResponseTime: validateAtResponseTime,
+                        validateResponse: validateResponse
+                    )
+                } catch {
+                    await cache.remove(key: cacheKey)
+                    throw liveError
+                }
+            } catch let liveError as URLError {
+                guard
+                    Self.allowsOfflineTransportFallback(liveError),
+                    case let .offline(maximumAge) = cachePolicy,
+                    let entry = await cache.load(
+                        key: cacheKey,
+                        maximumAge: maximumAge
+                    )
+                else {
+                    throw liveError
+                }
+                do {
+                    return try qualifiedCachedRead(
+                        entry,
+                        operationName: operationName,
+                        validateAtResponseTime: validateAtResponseTime,
+                        validateResponse: validateResponse
+                    )
+                } catch {
+                    await cache.remove(key: cacheKey)
+                    throw liveError
+                }
             } catch {
-                await cache.remove(key: cacheKey)
-                throw liveError
+                // Schema/decoding/cancellation/programming failures are not
+                // offline conditions and must never be hidden by cached data.
+                throw error
             }
-        } catch let liveError as URLError {
-            guard
-                Self.allowsOfflineTransportFallback(liveError),
-                case let .offline(maximumAge) = cachePolicy,
-                let entry = await cache.load(
-                    key: cacheKey,
-                    maximumAge: maximumAge
-                )
-            else {
-                throw liveError
-            }
-            do {
-                return try qualifiedCachedRead(
-                    entry,
-                    operationName: operationName,
-                    validateResponse: validateResponse
-                )
-            } catch {
-                await cache.remove(key: cacheKey)
-                throw liveError
-            }
-        } catch {
-            // Schema/decoding/cancellation/programming failures are not
-            // offline conditions and must never be hidden by cached data.
-            throw error
         }
+    }
+
+    private func liveQualifiedRead<Payload: Decodable>(
+        operationName: String,
+        body: Data,
+        cacheKey: String,
+        cachePolicy: CachePolicy,
+        knownPreflight: PIHealth?,
+        validateAtResponseTime: ((Payload, Int) throws -> Void)?,
+        validateResponse: (Payload, PIReadQualification?) throws -> Void
+    ) async throws -> PIQualifiedRead<Payload> {
+        let preflightHealth: PIHealth?
+        if operationName != "MobileHealth" {
+            // A cached health record is not sufficient to authorize fresh
+            // indexed data because its finalized checkpoint may be stale.
+            // If the live preflight is unreachable, the outer operation
+            // may still use its own bounded offline cache.
+            if let knownPreflight {
+                preflightHealth = knownPreflight
+            } else {
+                preflightHealth = try await health(requireLive: true)
+            }
+        } else {
+            preflightHealth = nil
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        request.setValue(
+            "no-store, no-cache, max-age=0",
+            forHTTPHeaderField: "Cache-Control"
+        )
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+
+        #if DEBUG
+        // Debug builds only: lets the "PI cannot be reached" screens be
+        // looked at on a simulator (`SIMCTL_CHILD_SORA_DEBUG_PI_UNREACHABLE=1
+        // xcrun simctl launch ...`). Not compiled into Release builds.
+        if Self.debugTreatsProductionAsUnreachable,
+           session === Self.productionSession ||
+            session === Self.catalogSession {
+            throw URLError(.notConnectedToInternet)
+        }
+        #endif
+        let (bytes, response) = try await session.bytes(for: request)
+        let http = try Self.validateHTTPResponse(
+            response,
+            endpoint: endpoint
+        )
+        let clock = Self.responseClock(
+            dateHeader: http.value(forHTTPHeaderField: "Date")
+        )
+        lastClockSkew.record(clock.deviceSkewSeconds)
+        try Self.validateExpectedResponseLength(
+            http.expectedContentLength
+        )
+        var data = Data()
+        if http.expectedContentLength > 0 {
+            data.reserveCapacity(Int(http.expectedContentLength))
+        }
+        for try await byte in bytes {
+            guard data.count < Self.maximumResponseBytes else {
+                throw PIIndexerError.responseTooLarge
+            }
+            data.append(byte)
+        }
+        let payload = try decode(Payload.self, data: data)
+        try validateAtResponseTime?(payload, clock.nowEpochSeconds)
+        var qualification: PIReadQualification?
+        var checkpointAdvanced = false
+        if let preflightHealth {
+            // Attribute the response to the checkpoint PI reports after it.
+            // The indexer may have moved forward since the preflight; it may
+            // not have gone backwards or become another indexer. This is
+            // deliberately per request; a 30-second health cache cannot
+            // prove which checkpoint produced an individual page.
+            let postflightHealth = try await health(requireLive: true)
+            qualification = PIReadQualification(
+                health: try Self.settledResponseCheckpoint(
+                    preflight: preflightHealth,
+                    postflight: postflightHealth
+                ),
+                source: .live
+            )
+            checkpointAdvanced = preflightHealth != postflightHealth
+        }
+        // A decoded response is not cache-eligible until all operation-
+        // specific identity and checkpoint bounds have passed.
+        try validateResponse(payload, qualification)
+        if case .offline = cachePolicy {
+            await cache.save(
+                data,
+                health: qualification?.health,
+                key: cacheKey,
+                clockSkewSeconds: clock.deviceSkewSeconds
+            )
+        }
+        return PIQualifiedRead(
+            value: payload,
+            qualification: qualification,
+            checkpointAdvanced: checkpointAdvanced
+        )
     }
 
     static func validateHTTPResponse(
@@ -3508,7 +4382,9 @@ final class PIIndexerClient {
             throw PIIndexerError.httpStatus(http.statusCode)
         }
         guard http.mimeType?.lowercased() == "application/json" else {
-            throw PIIndexerError.invalidResponse
+            // PI's GraphQL service answers in JSON only. Anything else with
+            // status 200 is the page of a Wi-Fi sign-in, proxy or firewall.
+            throw PIIndexerError.foreignResponse
         }
         if let contentEncoding = http.value(
             forHTTPHeaderField: "Content-Encoding"
@@ -3528,34 +4404,19 @@ final class PIIndexerClient {
     private func qualifiedCachedRead<Payload: Decodable>(
         _ entry: PIResponseCache.Entry,
         operationName: String,
+        validateAtResponseTime: ((Payload, Int) throws -> Void)? = nil,
         validateResponse: (Payload, PIReadQualification?) throws -> Void
     ) throws -> PIQualifiedRead<Payload> {
         let payload = try decode(Payload.self, data: entry.payload)
         guard operationName != "MobileHealth" else {
+            try validateAtResponseTime?(
+                payload,
+                Int(Date().timeIntervalSince1970)
+            )
             try validateResponse(payload, nil)
             return PIQualifiedRead(value: payload, qualification: nil)
         }
-        guard let health = entry.health else {
-            // Payload-only entries from an older app cannot prove which PI
-            // checkpoint produced them and are deliberately not reusable.
-            throw PIIndexerError.missingChainIdentityCapability
-        }
-        let savedAt = entry.savedAt.timeIntervalSince1970
-        guard
-            savedAt.isFinite,
-            savedAt >= 0,
-            savedAt <= Double(Int.max)
-        else {
-            throw PIIndexerError.invalidResponse
-        }
-        try Self.validateHealth(
-            health,
-            nowEpochSeconds: Int(savedAt.rounded(.towardZero))
-        )
-        let qualification = PIReadQualification(
-            health: health,
-            source: .cache
-        )
+        let qualification = try Self.cachedQualification(of: entry)
         try validateResponse(payload, qualification)
         return PIQualifiedRead(
             value: payload,
@@ -3563,9 +4424,46 @@ final class PIIndexerClient {
         )
     }
 
+    /// The checkpoint a cached entry was qualified at, checked as it was
+    /// when the entry was saved.
+    private static func cachedQualification(
+        of entry: PIResponseCache.Entry
+    ) throws -> PIReadQualification {
+        guard let health = entry.health else {
+            // Payload-only entries from an older app cannot prove which PI
+            // checkpoint produced them and are deliberately not reusable.
+            throw PIIndexerError.missingChainIdentityCapability
+        }
+        // `health` holds server timestamps and `savedAt` is device time.
+        let savedAt = entry.savedAt.timeIntervalSince1970 +
+            Double(entry.clockSkewSeconds ?? 0)
+        guard
+            savedAt.isFinite,
+            savedAt >= 0,
+            savedAt <= Double(Int.max)
+        else {
+            throw PIIndexerError.invalidResponse
+        }
+        try validateHealth(
+            health,
+            nowEpochSeconds: Int(savedAt.rounded(.towardZero))
+        )
+        return PIReadQualification(health: health, source: .cache)
+    }
+
+    /// Transport failures: no answer from PI arrived at all. The last good
+    /// validated value may be shown in its place, marked with its time.
+    ///
+    /// That includes a TLS failure. On a network that intercepts TLS (a
+    /// Wi-Fi sign-in page, a filtering proxy) nothing is read from the
+    /// other side, and showing what PI itself said earlier gives that
+    /// network nothing it could not get by dropping the connection.
+    /// A cancelled request and a request that could not be formed are not
+    /// transport failures.
     static func allowsOfflineTransportFallback(_ error: URLError) -> Bool {
         switch error.code {
         case
+            // No route, no connection, or the connection broke.
             .timedOut,
             .cannotFindHost,
             .cannotConnectToHost,
@@ -3575,10 +4473,96 @@ final class PIIndexerClient {
             .resourceUnavailable,
             .internationalRoamingOff,
             .callIsActive,
-            .dataNotAllowed:
+            .dataNotAllowed,
+            .cannotLoadFromNetwork,
+            // TLS could not be established with PI.
+            .secureConnectionFailed,
+            .serverCertificateUntrusted,
+            .serverCertificateHasBadDate,
+            .serverCertificateNotYetValid,
+            .serverCertificateHasUnknownRoot,
+            .clientCertificateRejected,
+            .clientCertificateRequired,
+            // The network wants a sign-in before it lets anything through.
+            .userAuthenticationRequired,
+            // What arrived is not an HTTP response the system can read.
+            .badServerResponse,
+            .cannotParseResponse,
+            .cannotDecodeContentData,
+            .cannotDecodeRawData,
+            .zeroByteResource,
+            .httpTooManyRedirects,
+            .redirectToNonExistentLocation:
             return true
         default:
             return false
+        }
+    }
+
+    /// One request failed in a way that often does not repeat: the
+    /// connection dropped or stalled, PI or a gateway failed for a moment.
+    /// With no network at all there is nothing to try again; the catalog
+    /// store and the screens have their own schedule for that.
+    static func isWorthAnotherTry(_ error: Error) -> Bool {
+        if let error = error as? PIIndexerError {
+            return error.isWorthAnotherTry
+        }
+        guard let error = error as? URLError else {
+            return false
+        }
+        switch error.code {
+        case
+            .timedOut,
+            .networkConnectionLost,
+            .secureConnectionFailed,
+            .badServerResponse,
+            .cannotParseResponse:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// How many more tries one logical read (a single request with its
+    /// health reads, or a whole multi-page read) gets for failures that are
+    /// worth another try.
+    static let maximumTransientRetries = 2
+    static let transientRetryDelay: TimeInterval = 0.5
+
+    /// Counts the tries of one logical read and waits before the next one.
+    /// Returns `false` when the error is not worth another try or the read
+    /// has had its share.
+    private struct TransientRetries {
+        private var used = 0
+
+        /// - Parameter afterProgress: PI answered earlier in this same
+        ///   read. A timeout is tried again only then, and only once: it
+        ///   has already cost the whole request timeout (20 to 30 s), and
+        ///   with nothing read yet it usually means there is no connection,
+        ///   where waiting twice would only delay the saved copy.
+        mutating func shouldRetry(
+            after error: Error,
+            afterProgress: Bool
+        ) -> Bool {
+            guard
+                used < PIIndexerClient.maximumTransientRetries,
+                PIIndexerClient.isWorthAnotherTry(error)
+            else {
+                return false
+            }
+            if (error as? URLError)?.code == .timedOut {
+                guard afterProgress else {
+                    return false
+                }
+                used = PIIndexerClient.maximumTransientRetries
+            } else {
+                used += 1
+            }
+            return true
+        }
+
+        var pause: TimeInterval {
+            PIIndexerClient.transientRetryDelay * Double(max(1, used))
         }
     }
 
@@ -3586,12 +4570,34 @@ final class PIIndexerClient {
         _ type: Payload.Type,
         data: Data
     ) throws -> Payload {
+        try Self.decodeResponse(type, from: data)
+    }
+
+    /// Admits and decodes one GraphQL response document. Every live and
+    /// cached PI response goes through here.
+    static func decodeResponse<Payload: Decodable>(
+        _ type: Payload.Type,
+        from data: Data
+    ) throws -> Payload {
         try PIStrictJSONAdmission.validate(data)
-        let envelope = try decoder.decode(PIGraphQLResponse<Payload>.self, from: data)
+        let decoder = JSONDecoder()
+        // Lets `PIQuantity` read a quantity PI sent as a JSON number from
+        // its exact text.
+        decoder.userInfo[PINumberLexemes.userInfoKey] =
+            PINumberLexemes(data: data)
+        let envelope = try decoder.decode(
+            PIGraphQLResponse<Payload>.self,
+            from: data
+        )
         if let errors = envelope.errors, !errors.isEmpty {
             // Do not retain the raw GraphQL text in the thrown error: debug
             // descriptions are frequently logged by generic infrastructure.
-            throw PIIndexerError.graphQLErrors
+            // PI reports a failure of its own (a database error, a timeout)
+            // the same way as a query it refuses: HTTP 200 with `errors`.
+            // Only when every error says "service failure" is it one.
+            throw errors.allSatisfy(\.isServiceFailure)
+                ? PIIndexerError.serviceFailure
+                : PIIndexerError.graphQLErrors
         }
         guard let payload = envelope.data else {
             throw PIIndexerError.missingData
@@ -3625,7 +4631,7 @@ final class PIIndexerClient {
             pageSize: pageSize,
             maximumPages: maximumPages,
             requireQualification: false
-        ) { cursor in
+        ) { cursor, _ in
             PIQualifiedRead(
                 value: try await loader(cursor),
                 qualification: nil
@@ -3659,9 +4665,50 @@ final class PIIndexerClient {
             pageSize: pageSize,
             maximumPages: maximumPages,
             requireQualification: true,
+            itemIdentity: itemIdentity
+        ) { cursor, _ in
+            try await loader(cursor)
+        }
+    }
+
+    /// Like `collectQualifiedPagesRead`; the loader also receives the live
+    /// checkpoint the previous page was attributed to, which it may pass on
+    /// as that page's successor's preflight.
+    private func collectCheckpointedPages<Node: Decodable & Equatable>(
+        pageSize: Int,
+        maximumPages: Int,
+        itemIdentity: ((Node) -> String)? = nil,
+        loader: @escaping (String?, PIHealth?) async throws ->
+            PIQualifiedRead<PIConnection<Node>>
+    ) async throws -> PIQualifiedRead<[Node]> {
+        try await collectPagesCore(
+            pageSize: pageSize,
+            maximumPages: maximumPages,
+            requireQualification: true,
             itemIdentity: itemIdentity,
+            retriesLostPages: true,
             loader: loader
         )
+    }
+
+    /// Runs one logical read again from its start when PI could not serve it
+    /// from one consistent run of checkpoints, a bounded number of times.
+    private func retryingStaleCheckpoint<Value>(
+        _ read: () async throws -> Value
+    ) async throws -> Value {
+        var retries = 0
+        while true {
+            do {
+                return try await read()
+            } catch PIIndexerError.staleCheckpoint where
+                retries < Self.maximumStaleCheckpointRetries
+            {
+                retries += 1
+                try await retryPause(
+                    Self.staleCheckpointRetryDelay * Double(retries)
+                )
+            }
+        }
     }
 
     private func collectPagesCore<Node: Decodable & Equatable>(
@@ -3669,13 +4716,20 @@ final class PIIndexerClient {
         maximumPages: Int,
         requireQualification: Bool,
         itemIdentity: ((Node) -> String)? = nil,
-        loader: @escaping (String?) async throws ->
+        retriesLostPages: Bool = false,
+        loader: @escaping (String?, PIHealth?) async throws ->
             PIQualifiedRead<PIConnection<Node>>
     ) async throws -> PIQualifiedRead<[Node]> {
         guard (1 ... 100).contains(maximumPages) else {
             throw PIIndexerError.paginationLimit
         }
         try validate(pageSize: pageSize)
+        // A walk is up to 201 requests in a row. One of them lost on the
+        // way must not throw away every page already read: that page alone
+        // is asked for again, a bounded number of times per walk. The
+        // checkpoint rules apply to the page that then arrives like to any
+        // other. Only for pages that do not retry on their own.
+        var transientRetries = TransientRetries()
 
         var result: [Node] = []
         var cursor: String?
@@ -3684,21 +4738,68 @@ final class PIIndexerClient {
         var seenItemIdentities = Set<String>()
         var expectedTotalCount: Int?
         var expectedQualification: PIReadQualification?
+        var firstQualification: PIReadQualification?
+        var checkpointMoved = false
+        // While PI keeps indexing, a row can be added, removed or moved
+        // between two pages, which shows up as a changed count or a repeated
+        // row or page. With an unchanged checkpoint that is a broken
+        // response; after the checkpoint moved it only means the read has to
+        // start again.
+        func inconsistent(_ error: PIIndexerError) -> PIIndexerError {
+            checkpointMoved ? .staleCheckpoint : error
+        }
         for _ in 0 ..< maximumPages {
-            let read = try await loader(cursor)
+            let previousLiveHealth =
+                expectedQualification?.source == .live
+                    ? expectedQualification?.health
+                    : nil
+            var loaded: PIQualifiedRead<PIConnection<Node>>?
+            while loaded == nil {
+                do {
+                    loaded = try await loader(cursor, previousLiveHealth)
+                } catch let error where
+                    retriesLostPages &&
+                    transientRetries.shouldRetry(
+                        after: error,
+                        afterProgress: !result.isEmpty
+                    )
+                {
+                    try await retryPause(transientRetries.pause)
+                }
+            }
+            guard let read = loaded else {
+                throw PIIndexerError.invalidResponse
+            }
+            if read.checkpointAdvanced {
+                // PI moved while this very page was being read, so the
+                // page can already differ from the ones before it.
+                checkpointMoved = true
+            }
             if requireQualification {
                 guard let qualification = read.qualification else {
                     throw PIIndexerError.missingChainIdentityCapability
                 }
-                if let expectedQualification {
-                    guard qualification == expectedQualification else {
-                        // Never compose one logical result from cached/live
-                        // pages or from different finalized PI checkpoints.
-                        throw PIIndexerError.staleCheckpoint
-                    }
+                if let firstQualification {
+                    try Self.validateWalkAdvance(
+                        first: firstQualification,
+                        current: qualification
+                    )
                 } else {
-                    expectedQualification = qualification
+                    firstQualification = qualification
                 }
+                if let previous = expectedQualification {
+                    // Never compose one logical result from cached and live
+                    // pages, from another indexer, or from a checkpoint that
+                    // went backwards. Forward progress is accepted.
+                    try Self.validatePageCheckpoint(
+                        previous: previous,
+                        current: qualification
+                    )
+                    if previous.health != qualification.health {
+                        checkpointMoved = true
+                    }
+                }
+                expectedQualification = qualification
             }
             let page = read.value
             let values = page.values
@@ -3709,15 +4810,19 @@ final class PIIndexerClient {
                 page.pageInfo.hasPreviousPage == (cursor != nil),
                 !page.pageInfo.hasNextPage || !values.isEmpty,
                 Self.isBoundedCursor(page.pageInfo.startCursor),
-                Self.isBoundedCursor(page.pageInfo.endCursor),
-                expectedTotalCount.map({ $0 == page.totalCount }) ?? true
+                Self.isBoundedCursor(page.pageInfo.endCursor)
             else {
                 throw PIIndexerError.invalidResponse
+            }
+            guard
+                expectedTotalCount.map({ $0 == page.totalCount }) ?? true
+            else {
+                throw inconsistent(.invalidResponse)
             }
             expectedTotalCount = page.totalCount
             if !values.isEmpty {
                 guard !seenPages.contains(values) else {
-                    throw PIIndexerError.repeatedPage
+                    throw inconsistent(.repeatedPage)
                 }
                 seenPages.append(values)
             }
@@ -3728,21 +4833,25 @@ final class PIIndexerClient {
                         $0 == $0.trimmingCharacters(
                             in: .whitespacesAndNewlines
                         ) &&
-                        $0.utf8.count <= 4_096 &&
-                        seenItemIdentities.insert($0).inserted
+                        $0.utf8.count <= 4_096
                 }) else {
                     throw PIIndexerError.invalidResponse
+                }
+                guard identities.allSatisfy({
+                    seenItemIdentities.insert($0).inserted
+                }) else {
+                    throw inconsistent(.invalidResponse)
                 }
             }
             let (nextCount, countOverflow) = result.count
                 .addingReportingOverflow(values.count)
             guard !countOverflow, nextCount <= page.totalCount else {
-                throw PIIndexerError.invalidResponse
+                throw inconsistent(.invalidResponse)
             }
             result.append(contentsOf: values)
             guard page.pageInfo.hasNextPage else {
                 guard result.count == page.totalCount else {
-                    throw PIIndexerError.invalidResponse
+                    throw inconsistent(.invalidResponse)
                 }
                 return PIQualifiedRead(
                     value: result,
@@ -3753,12 +4862,173 @@ final class PIIndexerClient {
                 throw PIIndexerError.invalidResponse
             }
             guard seenCursors.insert(next).inserted else {
-                throw PIIndexerError.repeatedCursor
+                throw inconsistent(.repeatedCursor)
             }
             cursor = next
         }
         throw PIIndexerError.paginationLimit
     }
+
+    // MARK: - Last good catalogs
+
+    /// A whole catalog as it was last read live, stored as one PI-shaped
+    /// document so it is admitted, decoded and validated like a response.
+    private struct CatalogSnapshot<Node: Codable>: Codable {
+        struct Catalog: Codable {
+            let nodes: [Node]
+            let totalCount: Int
+        }
+
+        let catalog: Catalog
+    }
+
+    private struct CatalogSnapshotDocument<Node: Codable>: Encodable {
+        let data: CatalogSnapshot<Node>
+    }
+
+    static func allowsLastGoodValue(_ error: Error) -> Bool {
+        if let error = error as? PIIndexerError {
+            return error.allowsOfflineFallback
+        }
+        if let error = error as? URLError {
+            return allowsOfflineTransportFallback(error)
+        }
+        return false
+    }
+
+    /// Reads a complete catalog live and remembers it. When the live read
+    /// fails because PI is unreachable, overloaded or without a consistent
+    /// fresh checkpoint, the last good catalog (at most
+    /// `lastGoodCatalogMaximumAge` old) is returned with a `.cache`
+    /// qualification instead of an error.
+    private func lastGoodCatalog<Node: Codable & Equatable>(
+        name: String,
+        scope: String = "",
+        itemIdentity: @escaping (Node) -> String,
+        validate: @escaping ([Node], PIReadQualification) throws -> Void,
+        live: () async throws -> PIQualifiedRead<[Node]>
+    ) async throws -> PIQualifiedRead<[Node]> {
+        let key = catalogKey(name: name, scope: scope)
+        let liveError: Error
+        do {
+            let read = try await live()
+            if
+                let qualification = read.qualification,
+                qualification.source == .live,
+                let document = try? JSONEncoder().encode(
+                    CatalogSnapshotDocument(
+                        data: CatalogSnapshot(
+                            catalog: .init(
+                                nodes: read.value,
+                                totalCount: read.value.count
+                            )
+                        )
+                    )
+                )
+            {
+                await cache.save(
+                    document,
+                    health: qualification.health,
+                    key: key,
+                    clockSkewSeconds: lastClockSkew.seconds
+                )
+            }
+            return read
+        } catch {
+            guard Self.allowsLastGoodValue(error) else {
+                throw error
+            }
+            liveError = error
+        }
+
+        guard let saved = await savedCatalog(
+            name: name,
+            scope: scope,
+            itemIdentity: itemIdentity,
+            validate: validate
+        ) else {
+            throw liveError
+        }
+        return saved
+    }
+
+    private func catalogKey(name: String, scope: String) -> String {
+        var identity = Data(endpoint.absoluteString.utf8)
+        identity.append(0)
+        identity.append(Data(scope.utf8))
+        let digest = Data(SHA256.hash(data: identity))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "\(name)-\(digest)"
+    }
+
+    /// The last good catalog as an earlier live read saved it, without any
+    /// request: `.cache` qualified, with the time it was saved. `nil` when
+    /// there is none, when it is older than `lastGoodCatalogMaximumAge`, or
+    /// when it no longer passes the checks a response has to pass (it is
+    /// then removed).
+    private func savedCatalog<Node: Codable & Equatable>(
+        name: String,
+        scope: String = "",
+        itemIdentity: @escaping (Node) -> String,
+        validate: @escaping ([Node], PIReadQualification) throws -> Void
+    ) async -> PIQualifiedRead<[Node]>? {
+        let key = catalogKey(name: name, scope: scope)
+        guard let entry = await cache.load(
+            key: key,
+            maximumAge: Self.lastGoodCatalogMaximumAge
+        ) else {
+            return nil
+        }
+        do {
+            let snapshot = try decode(
+                CatalogSnapshot<Node>.self,
+                data: entry.payload
+            ).catalog
+            let qualification = try Self.cachedQualification(of: entry)
+            let identities = snapshot.nodes.map(itemIdentity)
+            guard
+                snapshot.totalCount == snapshot.nodes.count,
+                identities.allSatisfy({ !$0.isEmpty }),
+                Set(identities).count == identities.count
+            else {
+                throw PIIndexerError.invalidResponse
+            }
+            try validate(snapshot.nodes, qualification)
+            return PIQualifiedRead(
+                value: snapshot.nodes,
+                qualification: qualification,
+                savedAt: entry.savedAt
+            )
+        } catch {
+            await cache.remove(key: key)
+            return nil
+        }
+    }
+
+    /// The asset catalog the last successful `qualifiedAllAssets` saved, for
+    /// showing prices marked with their time while this run's first read is
+    /// on its way. No request is made.
+    func savedAllAssets() async -> PIQualifiedRead<[PIAsset]>? {
+        await savedCatalog(
+            name: Self.assetsCatalogName,
+            itemIdentity: { $0.id },
+            validate: { values, _ in try Self.validateAssets(values) }
+        )
+    }
+
+    /// The pool catalog the last successful `qualifiedAllPoolXYKs` saved.
+    /// No request is made.
+    func savedAllPoolXYKs() async -> PIQualifiedRead<[PIPoolXYK]>? {
+        await savedCatalog(
+            name: Self.poolsCatalogName,
+            itemIdentity: { $0.id },
+            validate: { values, _ in try Self.validatePools(values) }
+        )
+    }
+
+    private static let assetsCatalogName = "MobileAssetsCatalog"
+    private static let poolsCatalogName = "MobilePoolXYKsCatalog"
 
     private func compact(_ dictionary: [String: Any?]) -> [String: Any] {
         dictionary.compactMapValues { $0 }
@@ -3811,4 +5081,424 @@ final class PIIndexerClient {
       }
     }
     """
+}
+
+/// A catalog as a screen may show it.
+struct PICatalogSnapshot<Node> {
+    let values: [Node]
+    /// `nil` when the catalog is current. Otherwise the time it dates from:
+    /// PI could not be read since, and the screen should say so.
+    let asOf: Date?
+}
+
+/// One shared reader for a PI catalog that many screens ask for at once.
+///
+/// - A live catalog is reused for `freshFor` without any request.
+/// - After that a refresh starts, once for all callers. A caller is never
+///   kept waiting when there is anything to show: the catalog this run
+///   holds, or the one an earlier run saved (`saved`, looked at once), is
+///   returned at once and replaced when the refresh ends (`onChange` tells
+///   the screens). It carries its time (`asOf`) unless it is live, younger
+///   than `staleFor` and PI answered the last time it was asked. Only a
+///   caller with nothing at all to show waits for the refresh.
+/// - After a failed read the next one waits (`retryDelays`, growing with each
+///   failure in a row). Until then callers get the last good catalog, marked
+///   with its time, or the error when there is none, without any request.
+/// - The last good catalog is used for at most `lastGoodFor` after it was
+///   read from PI. It is shown while a read is on its way and after the
+///   failures the client itself accepts as "PI cannot be read right now"
+///   (`allowsLastGood`). Once PI has answered with a response that does not
+///   decode or fails validation, older data is no longer shown in its
+///   place, until a read succeeds or fails in the accepted way.
+///
+/// All ages are measured on a clock that keeps counting while the device
+/// sleeps, so a catalog loaded before the phone was locked is old when the
+/// phone is unlocked hours later.
+actor PICatalogStore<Node> {
+    typealias Loader = () async throws -> PIQualifiedRead<[Node]>
+    /// The catalog an earlier run saved, read without any request.
+    typealias SavedLoader = () async -> PIQualifiedRead<[Node]>?
+
+    static var defaultRetryDelays: [TimeInterval] { [15, 30, 60, 120, 300] }
+
+    /// Seconds on a clock that never goes backwards and, unlike
+    /// `ProcessInfo.systemUptime`, also counts the time the device sleeps.
+    static func continuousUptime() -> TimeInterval {
+        TimeInterval(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) /
+            1_000_000_000
+    }
+
+    private struct Held {
+        let values: [Node]
+        /// On `uptime`. For a snapshot from disk this is the time it was
+        /// read from PI, not the time it was loaded from disk.
+        let loadedAt: TimeInterval
+        /// The same moment on the wall clock, for display only.
+        let date: Date
+        let isLive: Bool
+    }
+
+    private struct Flight {
+        let id: UUID
+        let task: Task<PIQualifiedRead<[Node]>, Error>
+    }
+
+    private let freshFor: TimeInterval
+    private let staleFor: TimeInterval
+    private let lastGoodFor: TimeInterval
+    private let retryDelays: [TimeInterval]
+    private let uptime: () -> TimeInterval
+    private let wallClock: () -> Date
+    private let allowsLastGood: (Error) -> Bool
+    private let onChange: (() -> Void)?
+    private let saved: SavedLoader?
+    private let load: Loader
+
+    private var held: Held?
+    private var failuresInARow = 0
+    private var nextAttemptAt: TimeInterval = 0
+    /// The most recent read that finished did not give a live catalog.
+    private var lastReadFailed = false
+    private var lastError: Error?
+    private var flight: Flight?
+    private var savedRead: Task<Void, Never>?
+    private var savedWasRead = false
+
+    /// - Parameters:
+    ///   - staleFor: How old a live catalog may be and still be shown
+    ///     without its time while its refresh is running. Never less than
+    ///     `freshFor`.
+    ///   - uptime: A clock that never goes backwards and counts sleep.
+    ///     Wall-clock time is not used for ages, so changing the device
+    ///     clock neither forces nor blocks a refresh.
+    ///   - onChange: Called after every finished read, successful or not:
+    ///     what `snapshot()` returns may have changed.
+    ///   - saved: The catalog an earlier run saved, with the time it was
+    ///     saved. Asked once, when the first caller finds nothing held.
+    init(
+        freshFor: TimeInterval,
+        staleFor: TimeInterval? = nil,
+        lastGoodFor: TimeInterval = PIIndexerClient.lastGoodCatalogMaximumAge,
+        retryDelays: [TimeInterval] = PICatalogStore.defaultRetryDelays,
+        uptime: @escaping () -> TimeInterval = {
+            PICatalogStore.continuousUptime()
+        },
+        wallClock: @escaping () -> Date = { Date() },
+        allowsLastGood: @escaping (Error) -> Bool = {
+            PIIndexerClient.allowsLastGoodValue($0)
+        },
+        onChange: (() -> Void)? = nil,
+        saved: SavedLoader? = nil,
+        load: @escaping Loader
+    ) {
+        self.freshFor = freshFor
+        self.staleFor = max(freshFor, staleFor ?? freshFor)
+        self.lastGoodFor = lastGoodFor
+        self.retryDelays = retryDelays.isEmpty ? [60] : retryDelays
+        self.uptime = uptime
+        self.wallClock = wallClock
+        self.allowsLastGood = allowsLastGood
+        self.onChange = onChange
+        self.saved = saved
+        self.load = load
+    }
+
+    /// The catalog: fresh when it can be read, otherwise the last good one.
+    /// Throws only when there is nothing to show.
+    func values() async throws -> [Node] {
+        try await snapshot().values
+    }
+
+    func snapshot() async throws -> PICatalogSnapshot<Node> {
+        if let fresh = fresh(at: uptime()) {
+            return fresh
+        }
+        // Ask PI before looking at the disk, so that the request does not
+        // wait for the file.
+        if flight == nil, uptime() >= nextAttemptAt {
+            startFlight()
+        }
+        await readSavedOnce()
+
+        let now = uptime()
+        if let fresh = fresh(at: now) {
+            // The read ended while the saved catalog was looked at.
+            return fresh
+        }
+        if let shown = presentable(at: now) {
+            // Something can be shown: the caller does not wait. The read
+            // that is running, or the next one after the backoff, replaces
+            // it and announces itself.
+            return shown
+        }
+        guard let current = flight else {
+            // Nothing to show and the next read is not due yet: no request.
+            throw lastError ?? PIIndexerError.staleCheckpoint
+        }
+
+        do {
+            let read = try await current.task.value
+            if read.qualification?.source != .cache {
+                return PICatalogSnapshot(values: read.value, asOf: nil)
+            }
+            // PI could not be read and the client fell back to the
+            // snapshot on disk. What this run holds is at least as new.
+            if let shown = presentable(at: uptime()) {
+                return shown
+            }
+            return PICatalogSnapshot(
+                values: read.value,
+                asOf: read.savedAt ?? wallClock()
+            )
+        } catch {
+            if let shown = presentable(at: uptime()) {
+                return shown
+            }
+            throw error
+        }
+    }
+
+    /// The app is in front again: whatever made PI unreadable before (no
+    /// network in the background, a locked device) may be over, so the next
+    /// caller starts a read at once instead of sitting out a backoff that
+    /// was earned hours ago. What the last read said about PI still stands
+    /// until that read ends: the catalog held keeps its time, and callers
+    /// still do not wait for the read.
+    func clearBackoff() {
+        failuresInARow = 0
+        nextAttemptAt = 0
+    }
+
+    /// Returns when no read is running. For tests.
+    func settled() async {
+        while let flight {
+            _ = try? await flight.task.value
+        }
+    }
+
+    private func fresh(at now: TimeInterval) -> PICatalogSnapshot<Node>? {
+        guard let held, held.isLive, now - held.loadedAt < freshFor else {
+            return nil
+        }
+        return PICatalogSnapshot(values: held.values, asOf: nil)
+    }
+
+    /// Once per run: the catalog an earlier run saved becomes the one held
+    /// when this run has none yet. Callers that arrive while the file is
+    /// read wait for the same read.
+    private func readSavedOnce() async {
+        guard let saved, !savedWasRead else { return }
+        if savedRead == nil {
+            savedRead = Task { [weak self] in
+                let read = await saved()
+                await self?.adopt(saved: read)
+            }
+        }
+        await savedRead?.value
+    }
+
+    private func adopt(saved read: PIQualifiedRead<[Node]>?) {
+        savedWasRead = true
+        savedRead = nil
+        guard held == nil, let read else { return }
+        let date = read.savedAt ?? wallClock()
+        let age = max(0, wallClock().timeIntervalSince(date))
+        held = Held(
+            values: read.value,
+            loadedAt: uptime() - age,
+            date: date,
+            isLive: false
+        )
+    }
+
+    @discardableResult
+    private func startFlight() -> Flight {
+        let id = UUID()
+        let load = self.load
+        let task = Task { [weak self] () throws -> PIQualifiedRead<[Node]> in
+            // The result is recorded here, not by whoever is waiting, so a
+            // refresh nobody waits for still replaces the catalog.
+            do {
+                let read = try await load()
+                await self?.finish(id, read: read)
+                return read
+            } catch {
+                await self?.finish(id, error: error)
+                throw error
+            }
+        }
+        let started = Flight(id: id, task: task)
+        flight = started
+        return started
+    }
+
+    private func finish(_ id: UUID, read: PIQualifiedRead<[Node]>) {
+        guard flight?.id == id else { return }
+        flight = nil
+        let now = uptime()
+        if read.qualification?.source == .cache {
+            // PI could not be read live and the client fell back to its
+            // last good snapshot. Show it under its real age, and keep
+            // trying on the failure schedule.
+            if lastGood(at: now) == nil {
+                let date = read.savedAt ?? wallClock()
+                let age = max(0, wallClock().timeIntervalSince(date))
+                held = Held(
+                    values: read.value,
+                    loadedAt: now - age,
+                    date: date,
+                    isLive: false
+                )
+            }
+            lastError = nil
+            lastReadFailed = true
+            scheduleRetry(from: now)
+        } else {
+            held = Held(
+                values: read.value,
+                loadedAt: now,
+                date: wallClock(),
+                isLive: true
+            )
+            failuresInARow = 0
+            nextAttemptAt = 0
+            lastError = nil
+            lastReadFailed = false
+        }
+        onChange?()
+    }
+
+    private func finish(_ id: UUID, error: Error) {
+        guard flight?.id == id else { return }
+        flight = nil
+        lastError = error
+        lastReadFailed = true
+        scheduleRetry(from: uptime())
+        onChange?()
+    }
+
+    private func scheduleRetry(from now: TimeInterval) {
+        let delay = retryDelays[min(failuresInARow, retryDelays.count - 1)]
+        failuresInARow += 1
+        nextAttemptAt = now + delay
+    }
+
+    private func lastGood(at now: TimeInterval) -> Held? {
+        guard let held, now - held.loadedAt < lastGoodFor else {
+            return nil
+        }
+        return held
+    }
+
+    /// What may be shown without waiting for PI. Nothing when PI's latest
+    /// answer could not be used (older data must not stand in for it) or
+    /// when the catalog held is older than `lastGoodFor`. Otherwise the
+    /// catalog held, marked with its time unless it is live, younger than
+    /// `staleFor`, and PI answered the last time it was asked.
+    private func presentable(
+        at now: TimeInterval
+    ) -> PICatalogSnapshot<Node>? {
+        if let lastError, !allowsLastGood(lastError) {
+            return nil
+        }
+        guard let held = lastGood(at: now) else {
+            return nil
+        }
+        let isCurrent = held.isLive && !lastReadFailed &&
+            now - held.loadedAt < staleFor
+        return PICatalogSnapshot(
+            values: held.values,
+            asOf: isCurrent ? nil : held.date
+        )
+    }
+}
+
+/// The catalogs behind fiat prices, market data and pool APY.
+enum PICatalogs {
+    /// Posted (on no particular queue) when prices may have changed: a read
+    /// of the asset catalog has finished, or the app has come back to the
+    /// foreground. Screens that show prices ask for them again.
+    static let pricesDidChange = Notification.Name(
+        "jp.co.soramitsu.sora.PICatalogs.pricesDidChange"
+    )
+
+    /// Prices and market data change slowly on screen; ten minutes matches
+    /// what the fiat and market-cap services cached before. While a refresh
+    /// is running the catalog held is shown: as it is up to thirty minutes,
+    /// with its time after that.
+    static let assets: PICatalogStore<PIAsset> = {
+        _ = foregroundObserver
+        return PICatalogStore<PIAsset>(
+            freshFor: 600,
+            staleFor: 1_800,
+            onChange: {
+                NotificationCenter.default.post(
+                    name: pricesDidChange,
+                    object: nil
+                )
+            },
+            saved: {
+                await PIIndexerClient.shared.savedAllAssets()
+            },
+            load: {
+                try await PIIndexerClient.shared.qualifiedAllAssets()
+            }
+        )
+    }()
+
+    static let pools: PICatalogStore<PIPoolXYK> = {
+        _ = foregroundObserver
+        return PICatalogStore<PIPoolXYK>(
+            freshFor: 60,
+            staleFor: 600,
+            saved: {
+                await PIIndexerClient.shared.savedAllPoolXYKs()
+            },
+            load: {
+                try await PIIndexerClient.shared.qualifiedAllPoolXYKs()
+            }
+        )
+    }()
+
+    private static let foregroundObserver: NSObjectProtocol =
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: nil
+        ) { _ in
+            Task {
+                await assets.clearBackoff()
+                await pools.clearBackoff()
+                NotificationCenter.default.post(
+                    name: pricesDidChange,
+                    object: nil
+                )
+            }
+        }
+}
+
+/// Tells a screen that prices may have changed, for as long as the screen
+/// keeps this object.
+///
+/// The catalog store answers at once with the catalog it holds, which can be
+/// up to a day old, and reads PI behind the caller. A screen that asks for
+/// prices once would keep those for as long as it is open; with this it asks
+/// again when the read ends.
+final class PIPricesObservation {
+    private let token: NSObjectProtocol
+
+    /// - Parameter handler: Called on the main queue.
+    init(_ handler: @escaping () -> Void) {
+        token = NotificationCenter.default.addObserver(
+            forName: PICatalogs.pricesDidChange,
+            object: nil,
+            queue: .main
+        ) { _ in
+            handler()
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(token)
+    }
 }

@@ -30,6 +30,7 @@
 
 import CoreFoundation
 import Foundation
+import UIKit
 import SSFUtils
 import RobinHood
 import IrohaCrypto
@@ -77,6 +78,15 @@ enum ExtrinsicServiceError: Error {
     case signingAccountUnavailable
     /// The connected node is not SORA2 mainnet (block zero differs).
     case unexpectedNetwork
+    /// The live runtime lists a signed extension that carries data this
+    /// version of the app does not write (or expects data the app would
+    /// write where the runtime has none). A transaction built anyway would
+    /// be rejected by every node, so nothing is signed until the app is
+    /// updated.
+    case unsupportedSignedExtension(identifier: String)
+    /// The connection moved to another node while the runtime was being
+    /// checked. Nothing was signed; the next attempt checks the new node.
+    case connectionChanged
 }
 
 extension ExtrinsicServiceError: LocalizedError {
@@ -87,10 +97,25 @@ extension ExtrinsicServiceError: LocalizedError {
     /// A calm, user-facing message for runtime-related failures, or nil when
     /// the error is not runtime related.
     static func runtimeUserMessage(for error: Error) -> String? {
+        if let transport = error as? PreparedExtrinsicTransportError {
+            return runtimeUserMessage(for: transport.underlyingError)
+        }
+        if let nodeMessage = Sora2BoundedHTTPJSONRPCError
+            .signingRouteUserMessage(for: error) {
+            return nodeMessage
+        }
         guard let error = error as? ExtrinsicServiceError else {
             return nil
         }
         switch error {
+        case .unsupportedSignedExtension:
+            return WalletUX.text(
+                "The SORA network was upgraded and this version of the app can't send transactions on it yet. Nothing was signed and your funds are safe. Please update the app."
+            )
+        case .connectionChanged:
+            return WalletUX.text(
+                "The connection to the SORA network changed while the transaction was being prepared, so nothing was signed. Please try again."
+            )
         case .runtimeUpgradeInProgress:
             return WalletUX.text(
                 "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds."
@@ -122,45 +147,65 @@ struct Sora2LiveRuntime: Equatable {
     let metadataSHA256: String
 }
 
-/// The proven live metadata hash per SORA2 mainnet runtime version.
+/// The proven live metadata hash per SORA2 node and runtime version.
 ///
-/// An entry is stored only after metadata downloaded from the connected node
-/// proved, through its `System.Version`, that it belongs to exactly that
-/// runtime version: by the extrinsic service's own download, or by the
-/// runtime sync service, which downloads the same bytes from the same node
-/// when the runtime changes. Metadata is fixed per runtime version on a
-/// chain, so entries are kept across launches (they are not wallet data).
-/// After the first proof, each fee estimate, prepare or submit needs only
-/// `chain_getRuntimeVersion`. Concurrent proofs for one runtime share a
-/// single download.
+/// An entry is stored only after metadata downloaded from that node proved,
+/// through its `System.Version`, that it belongs to exactly that runtime
+/// version: by the extrinsic service's own download, or by the runtime sync
+/// service, which downloads the same bytes from the same node when the
+/// runtime changes. Entries are kept across launches (they are not wallet
+/// data). After the first proof for a node, each fee estimate, prepare or
+/// submit on that node needs only `chain_getRuntimeVersion`. Concurrent
+/// proofs for one node and runtime share a single download.
+///
+/// A proof is never carried from one node to another: metadata a node
+/// served is what that node claims, not a fact about the chain. A node
+/// selected later (another custom node, or a bundled node after a custom
+/// one) proves its own metadata before the app's stored metadata is used to
+/// sign there, and a mismatch replaces the stored metadata from that node.
 final class Sora2LiveRuntimeIdentityCache {
     static let shared = Sora2LiveRuntimeIdentityCache(defaults: .standard)
-    static let persistenceKey = "sora2.mainnet.liveRuntimeMetadataProofs.v1"
-    static let maximumEntries = 16
+    /// Version 1 was keyed by runtime version only and is no longer read.
+    static let persistenceKey = "sora2.mainnet.liveRuntimeMetadataProofs.v2"
+    static let maximumEntries = 48
 
     private struct Key: Hashable {
+        let node: String
         let specVersion: UInt32
         let transactionVersion: UInt32
 
-        var persisted: String { "\(specVersion):\(transactionVersion)" }
+        var persisted: String { "\(specVersion):\(transactionVersion) \(node)" }
 
-        init(specVersion: UInt32, transactionVersion: UInt32) {
+        init(node: String, specVersion: UInt32, transactionVersion: UInt32) {
+            self.node = node
             self.specVersion = specVersion
             self.transactionVersion = transactionVersion
         }
 
         init?(persisted: String) {
-            let parts = persisted.split(separator: ":", omittingEmptySubsequences: false)
+            guard let separator = persisted.firstIndex(of: " ") else {
+                return nil
+            }
+            let node = String(persisted[persisted.index(after: separator)...])
+            let parts = persisted[..<separator].split(
+                separator: ":",
+                omittingEmptySubsequences: false
+            )
             guard
                 parts.count == 2,
                 let spec = UInt32(parts[0]),
                 let transaction = UInt32(parts[1]),
                 spec >= Sora2RuntimeIdentity.minimumSpecVersion,
-                transaction > 0
+                transaction > 0,
+                Sora2LiveRuntimeIdentityCache.isNodeIdentity(node)
             else {
                 return nil
             }
-            self.init(specVersion: spec, transactionVersion: transaction)
+            self.init(
+                node: node,
+                specVersion: spec,
+                transactionVersion: transaction
+            )
         }
     }
 
@@ -181,13 +226,29 @@ final class Sora2LiveRuntimeIdentityCache {
         values = Self.load(from: defaults)
     }
 
+    /// The identity under which proofs of the node behind `url` are kept:
+    /// its HTTPS JSON-RPC endpoint (the route every signing request uses),
+    /// lowercased. Nil when the node has no such route.
+    static func nodeIdentity(for url: URL?) -> String? {
+        guard
+            let endpoint = try? Sora2BoundedHTTPJSONRPCEngine
+                .httpEndpoint(for: url)
+        else {
+            return nil
+        }
+        let identity = endpoint.absoluteString.lowercased()
+        return isNodeIdentity(identity) ? identity : nil
+    }
+
     func metadataSHA256(
+        node: String,
         specVersion: UInt32,
         transactionVersion: UInt32
     ) -> String? {
         lock.lock()
         defer { lock.unlock() }
         return values[Key(
+            node: node,
             specVersion: specVersion,
             transactionVersion: transactionVersion
         )]
@@ -195,11 +256,13 @@ final class Sora2LiveRuntimeIdentityCache {
 
     func store(
         metadataSHA256: String,
+        node: String,
         specVersion: UInt32,
         transactionVersion: UInt32
     ) {
         guard
             Self.isHash(metadataSHA256),
+            Self.isNodeIdentity(node),
             specVersion >= Sora2RuntimeIdentity.minimumSpecVersion,
             transactionVersion > 0
         else {
@@ -208,43 +271,52 @@ final class Sora2LiveRuntimeIdentityCache {
         lock.lock()
         defer { lock.unlock() }
         values[Key(
+            node: node,
             specVersion: specVersion,
             transactionVersion: transactionVersion
         )] = metadataSHA256
         while values.count > Self.maximumEntries,
               let oldest = values.keys.min(by: {
-                  ($0.specVersion, $0.transactionVersion) <
-                      ($1.specVersion, $1.transactionVersion)
+                  ($0.specVersion, $0.transactionVersion, $0.node) <
+                      ($1.specVersion, $1.transactionVersion, $1.node)
               }) {
             values[oldest] = nil
         }
         persist()
     }
 
-    /// Records metadata that the runtime sync service downloaded from the
-    /// connected node and admitted for this runtime version.
+    /// Records metadata that the runtime sync service downloaded from
+    /// `node` and admitted for this runtime version.
     func recordAdmittedMetadata(
         _ metadata: Data,
+        node: String,
         specVersion: UInt32,
         transactionVersion: UInt32
     ) {
         store(
             metadataSHA256: PolkamarktRuntimeContract.rawMetadataSHA256(metadata),
+            node: node,
             specVersion: specVersion,
             transactionVersion: transactionVersion
         )
     }
 
-    /// The live runtime for `version`: from a stored proof, or by proving
-    /// the node's current metadata (`fetchMetadataHex`) against it. Only one
-    /// download per runtime version runs at a time; other callers wait for
-    /// it (up to `waitTimeout`).
+    /// The live runtime of `node` for `version`: from a proof stored for
+    /// that node, or by proving the node's current metadata
+    /// (`fetchMetadataHex`) against it. Only one download per node and
+    /// runtime version runs at a time; other callers wait for it (up to
+    /// `waitTimeout`).
     func liveRuntime(
         for version: RuntimeVersion,
+        node: String,
         waitTimeout: TimeInterval = 75,
         fetchMetadataHex: () throws -> String
     ) throws -> Sora2LiveRuntime {
+        guard Self.isNodeIdentity(node) else {
+            throw Sora2BoundedHTTPJSONRPCError.invalidEndpoint
+        }
         let key = Key(
+            node: node,
             specVersion: version.specVersion,
             transactionVersion: version.transactionVersion
         )
@@ -284,6 +356,7 @@ final class Sora2LiveRuntimeIdentityCache {
         if case let .success(live) = result {
             store(
                 metadataSHA256: live.metadataSHA256,
+                node: node,
                 specVersion: live.specVersion,
                 transactionVersion: live.transactionVersion
             )
@@ -333,6 +406,16 @@ final class Sora2LiveRuntimeIdentityCache {
             (48 ... 57).contains($0) || (97 ... 102).contains($0)
         }
     }
+
+    fileprivate static func isNodeIdentity(_ value: String) -> Bool {
+        value.hasPrefix("https://") &&
+            value.utf8.count > 8 &&
+            value.utf8.count <= 512 &&
+            value == value.lowercased() &&
+            !value.unicodeScalars.contains(where: {
+                $0 == " " || CharacterSet.controlCharacters.contains($0)
+            })
+    }
 }
 
 /// Validates the runtime a SORA2 extrinsic is about to be encoded with
@@ -381,6 +464,17 @@ enum Sora2LiveRuntimeValidator {
             ) == live.metadataSHA256
         else {
             throw ExtrinsicServiceError.unsupportedRuntimeMetadata
+        }
+        // The metadata is the live one. The encoder still writes a fixed
+        // set of signed extensions: refuse to sign when this runtime wants
+        // bytes the encoder would not write (or the reverse), instead of
+        // submitting a transaction every node must reject.
+        do {
+            try Sora2SignedExtensionSupport.validate(metadata: factory.metadata)
+        } catch let error as Sora2SignedExtensionSupport.Unsupported {
+            throw ExtrinsicServiceError.unsupportedSignedExtension(
+                identifier: error.identifier
+            )
         }
     }
 
@@ -484,29 +578,94 @@ enum Sora2BoundedHTTPJSONRPCError: LocalizedError {
     case requestTooLarge
     case responseTooLarge
     case invalidResponse
-    case httpStatus
+    /// The node answered the HTTPS request with this status instead of 200.
+    case httpStatus(Int)
+    /// The address answered 200 with something that is not JSON (a web
+    /// page, for example): there is no JSON-RPC service behind it.
+    case notJSONRPC
+    /// The node answered with a JSON-RPC error object: it received the
+    /// request and refused it.
     case remoteError
     case subscriptionsUnavailable
+    /// The node answered that it no longer keeps the state of the block
+    /// asked for (JSON-RPC error "State already discarded": a node that
+    /// prunes state, like the first bundled node, which keeps about 256
+    /// blocks). The block itself may still be known to it. An archive node
+    /// can answer the same question.
+    case blockStateUnavailable
 
     var errorDescription: String? {
         switch self {
         case .invalidEndpoint:
-            return "The selected SORA2 node has no reviewed HTTPS RPC route."
-        case .methodNotAllowed:
-            return "The SORA2 RPC method is not admitted by the mobile manifest."
-        case .requestTooLarge:
-            return "The SORA2 RPC request exceeded the mobile byte limit."
-        case .responseTooLarge:
-            return "The SORA2 RPC response exceeded the mobile byte limit."
-        case .invalidResponse:
-            return "The SORA2 node returned an invalid JSON-RPC response."
-        case .httpStatus:
-            return "The SORA2 node rejected the HTTPS RPC request."
+            return WalletUX.text(
+                "The selected node does not answer over HTTPS at its address, so the app can't prepare or send transactions through it. Balances still load. Choose another node in the node settings and try again."
+            )
+        case .methodNotAllowed, .requestTooLarge, .subscriptionsUnavailable:
+            return WalletUX.text(
+                "The app could not send this request to the SORA network. Please try again."
+            )
+        case .httpStatus, .notJSONRPC, .responseTooLarge, .invalidResponse,
+             .blockStateUnavailable:
+            // An HTTP refusal is described by what is known here: the node
+            // gave no usable answer. Whether the node lacks the route
+            // altogether depends on the status and on which node it is;
+            // `Sora2SigningNotice` knows that and says so for a custom
+            // node.
+            return WalletUX.text(
+                "The SORA node did not give a usable answer. Please try again in a moment, or choose another node."
+            )
         case .remoteError:
-            return "The SORA2 node rejected the JSON-RPC operation."
-        case .subscriptionsUnavailable:
-            return "Subscriptions are unavailable on the bounded one-shot RPC route."
+            // The node is working: it read the request and said no.
+            // Changing the node would not help.
+            return WalletUX.text(
+                "The SORA network did not accept this request. Please try again."
+            )
         }
+    }
+
+    /// HTTP statuses that mean "nothing serves JSON-RPC at this address":
+    /// not found, method not allowed, upgrade required (a WebSocket-only
+    /// listener), not implemented. A busy or failing node answers 429, 502,
+    /// 503 or 504 and works again a moment later; those are not here.
+    static let missingRouteStatuses: Set<Int> = [404, 405, 426, 501]
+
+    /// The answer shows that the address has no HTTPS JSON-RPC route at
+    /// all, as opposed to a node that is in trouble for a moment.
+    var indicatesMissingSigningRoute: Bool {
+        switch self {
+        case .invalidEndpoint, .notJSONRPC:
+            return true
+        case let .httpStatus(status):
+            return Self.missingRouteStatuses.contains(status)
+        default:
+            return false
+        }
+    }
+
+    /// The message for a failure of the signing route itself, or nil for
+    /// any other error. Signing uses one-shot HTTPS requests at the node's
+    /// own address, while balances use the node's WebSocket, so a node
+    /// without that route shows balances and fails every send.
+    static func signingRouteUserMessage(for error: Error) -> String? {
+        guard let error = error as? Sora2BoundedHTTPJSONRPCError else {
+            return nil
+        }
+        switch error {
+        case .invalidEndpoint, .httpStatus, .notJSONRPC:
+            return error.errorDescription
+        default:
+            return nil
+        }
+    }
+
+    /// Recognises the node's "state already discarded" answer from the
+    /// fields of a JSON-RPC error object. Nodes report it with code 4003 and
+    /// a message naming the block; the wording differs between calls.
+    static func isBlockStateUnavailable(message: String) -> Bool {
+        let lowered = message.lowercased()
+        return lowered.contains("state already discarded") ||
+            lowered.contains("unknownblock") ||
+            lowered.contains("unknown block")
     }
 }
 
@@ -532,6 +691,136 @@ private final class Sora2OneShotURLSessionDelegate: NSObject,
         // A replay that needs a second body is never authorized. The durable
         // journal, not URLSession, resolves an uncertain first handoff.
         completionHandler(nil)
+    }
+}
+
+/// Tells the user why nothing can be sent when the reason is neither the
+/// transaction nor the account: the app must be updated for a new signed
+/// extension, or the selected node has no HTTPS route for signing. Every
+/// signing flow (send, swap, liquidity, farming, referrals) builds its
+/// extrinsic in one place, which reports here, so each of them gets the
+/// explanation even where the flow itself shows only "try again". Nothing is
+/// latched: the notice follows an actual failed attempt, at most once per
+/// `minimumInterval`.
+enum Sora2SigningNotice {
+    enum Kind: Hashable {
+        case appUpdateRequired
+        case nodeWithoutSigningRoute
+    }
+
+    /// Fee estimates repeat while a send or swap screen is open; the
+    /// notice must not come back every few seconds.
+    static let minimumInterval: TimeInterval = 120
+
+    private static let lock = NSLock()
+    private static var lastShown: [Kind: Date] = [:]
+    /// Replaced in tests. Called on any thread.
+    static var present: (Kind, String) -> Void = Sora2SigningNotice.presentAlert
+
+    static func kind(for error: Error, nodeURL: URL?) -> Kind? {
+        var error = error
+        if let transport = error as? PreparedExtrinsicTransportError {
+            error = transport.underlyingError
+        }
+        if let serviceError = error as? ExtrinsicServiceError,
+           case .unsupportedSignedExtension = serviceError {
+            return .appUpdateRequired
+        }
+        guard let nodeError = error as? Sora2BoundedHTTPJSONRPCError else {
+            return nil
+        }
+        // Only an answer that shows the route is not there. A node that
+        // answers 429, 502 or 503 once is busy, and is told apart from a
+        // node that can never send: the flow's own "try again" covers it.
+        guard nodeError.indicatesMissingSigningRoute else {
+            return nil
+        }
+        if case .invalidEndpoint = nodeError {
+            return .nodeWithoutSigningRoute
+        }
+        // A bundled node has the route; whatever it answered, it is having
+        // trouble, not missing it.
+        return isBundledNode(nodeURL) ? nil : .nodeWithoutSigningRoute
+    }
+
+    static func message(for kind: Kind) -> String {
+        switch kind {
+        case .appUpdateRequired:
+            return ExtrinsicServiceError.runtimeUserMessage(
+                for: ExtrinsicServiceError.unsupportedSignedExtension(
+                    identifier: ""
+                )
+            ) ?? ""
+        case .nodeWithoutSigningRoute:
+            return Sora2BoundedHTTPJSONRPCError.invalidEndpoint
+                .errorDescription ?? ""
+        }
+    }
+
+    /// Shows the notice for `error` if it has one and none of its kind was
+    /// shown in the last `minimumInterval` seconds.
+    @discardableResult
+    static func report(
+        _ error: Error,
+        nodeURL: URL?,
+        now: Date = Date()
+    ) -> Kind? {
+        guard let kind = kind(for: error, nodeURL: nodeURL) else {
+            return nil
+        }
+        lock.lock()
+        if let last = lastShown[kind],
+           abs(now.timeIntervalSince(last)) < minimumInterval {
+            lock.unlock()
+            return nil
+        }
+        lastShown[kind] = now
+        let present = self.present
+        lock.unlock()
+        present(kind, message(for: kind))
+        return kind
+    }
+
+    static func resetForTesting() {
+        lock.lock()
+        lastShown.removeAll()
+        lock.unlock()
+    }
+
+    private static func isBundledNode(_ url: URL?) -> Bool {
+        guard let host = url?.host?.lowercased() else {
+            return false
+        }
+        return SoraNodeConnectionPolicy.bundledMainnetNodes.contains {
+            $0.url.host?.lowercased() == host
+        }
+    }
+
+    private static func presentAlert(_: Kind, _ message: String) {
+        DispatchQueue.main.async {
+            guard
+                NSClassFromString("XCTestCase") == nil,
+                let root = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .flatMap(\.windows)
+                    .first(where: \.isKeyWindow)?
+                    .rootViewController
+            else {
+                return
+            }
+            let top = root.topModalViewController
+            guard !(top is UIAlertController) else {
+                return
+            }
+            UIAlertController.present(
+                message: message,
+                title: nil,
+                closeAction: R.string.localizable.commonOk(
+                    preferredLanguages: .currentLocale
+                ),
+                with: top
+            )
+        }
     }
 }
 
@@ -605,7 +894,11 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
         }
     }
 
-    private let sourceEngine: JSONRPCEngine
+    private let sourceEngine: JSONRPCEngine?
+    /// Set instead of `sourceEngine` for a node addressed directly (an
+    /// archive node asked for old state, a node being checked before it is
+    /// saved). It never follows the app's selected connection.
+    private let fixedNodeURL: URL?
     private let session: URLSession
     private let lock = NSLock()
     private var nextIdentifier: UInt16 = 1
@@ -626,8 +919,27 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
         )
     }
 
-    init(sourceEngine: JSONRPCEngine, session: URLSession? = nil) {
+    convenience init(sourceEngine: JSONRPCEngine, session: URLSession? = nil) {
+        self.init(
+            sourceEngine: sourceEngine,
+            fixedNodeURL: nil,
+            session: session
+        )
+    }
+
+    /// A one-shot engine for exactly the node at `nodeURL` (`wss://` or
+    /// `https://`), independent of the app's selected connection.
+    convenience init(nodeURL: URL, session: URLSession? = nil) {
+        self.init(sourceEngine: nil, fixedNodeURL: nodeURL, session: session)
+    }
+
+    private init(
+        sourceEngine: JSONRPCEngine?,
+        fixedNodeURL: URL?,
+        session: URLSession?
+    ) {
         self.sourceEngine = sourceEngine
+        self.fixedNodeURL = fixedNodeURL
         if let session {
             self.session = session
         } else {
@@ -651,8 +963,8 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
     }
 
     var url: URL? {
-        get { sourceEngine.url }
-        set { sourceEngine.url = newValue }
+        get { sourceEngine?.url ?? fixedNodeURL }
+        set { sourceEngine?.url = newValue }
     }
 
     var pendingEngineRequests: [JSONRPCRequest] {
@@ -842,7 +1154,7 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
         identifier: UInt16
     ) async throws -> Value {
         try Task.checkCancellation()
-        let endpoint = try Self.httpEndpoint(for: sourceEngine.url)
+        let endpoint = try Self.httpEndpoint(for: url)
         let body = try JSONEncoder().encode(
             Request(
                 identifier: identifier,
@@ -881,9 +1193,18 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
                 .map({ $0.caseInsensitiveCompare("identity") == .orderedSame })
                 ?? true
         else {
-            if let http = response as? HTTPURLResponse,
-               http.statusCode != 200 {
-                throw Sora2BoundedHTTPJSONRPCError.httpStatus
+            if let http = response as? HTTPURLResponse {
+                if http.statusCode != 200 {
+                    throw Sora2BoundedHTTPJSONRPCError.httpStatus(
+                        http.statusCode
+                    )
+                }
+                if http.url == endpoint,
+                   !Self.acceptsJSONContentType(
+                       http.value(forHTTPHeaderField: "Content-Type")
+                   ) {
+                    throw Sora2BoundedHTTPJSONRPCError.notJSONRPC
+                }
             }
             throw Sora2BoundedHTTPJSONRPCError.invalidResponse
         }
@@ -953,6 +1274,13 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
             message.utf8.count <= 4_096
         else {
             throw Sora2BoundedHTTPJSONRPCError.invalidResponse
+        }
+        // Only the class of the refusal is kept; the node's text (which
+        // names blocks or accounts) is never stored or shown.
+        if Sora2BoundedHTTPJSONRPCError.isBlockStateUnavailable(
+            message: message
+        ) {
+            throw Sora2BoundedHTTPJSONRPCError.blockStateUnavailable
         }
         throw Sora2BoundedHTTPJSONRPCError.remoteError
     }
@@ -1637,6 +1965,52 @@ struct Sora2PendingTerminalResolution: Codable, Equatable {
     }
 }
 
+/// Where a submitted transaction sits on the finalized canonical chain,
+/// recorded when the block was found but its execution result could not be
+/// read yet (the connected node had already discarded that block's state and
+/// no archive node or indexer answered). The transaction is final and can no
+/// longer enter the chain a second time, so the entry stops protecting
+/// anything; only its result is still missing, and later passes read just
+/// that, without scanning blocks again.
+struct Sora2PendingFinalizedInclusion: Codable, Equatable {
+    static let currentSchemaVersion = 1
+
+    let schemaVersion: Int
+    let blockNumber: Int
+    let blockHash: String
+    let extrinsicIndex: UInt32
+    let finalizedHeight: Int
+    /// When the inclusion was written down. The time the result is still
+    /// looked for counts from here, not from signing: an entry first
+    /// examined long after it was sent gets the same number of tries as
+    /// any other. Optional and additive.
+    var recordedAt: Date?
+
+    init(
+        schemaVersion: Int,
+        blockNumber: Int,
+        blockHash: String,
+        extrinsicIndex: UInt32,
+        finalizedHeight: Int,
+        recordedAt: Date? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.blockNumber = blockNumber
+        self.blockHash = blockHash
+        self.extrinsicIndex = extrinsicIndex
+        self.finalizedHeight = finalizedHeight
+        self.recordedAt = recordedAt
+    }
+
+    func isValid(for context: Sora2SubmissionRecoveryContext) -> Bool {
+        schemaVersion == Self.currentSchemaVersion &&
+            context.eraBirthBlock <= blockNumber &&
+            blockNumber < context.eraDeathBlockExclusive &&
+            finalizedHeight >= blockNumber &&
+            Sora2PendingSubmissionStore.normalizedHash(blockHash) == blockHash
+    }
+}
+
 enum Sora2AuthoritativeTerminalProof {
     case finalizedInclusion(
         blockNumber: Int,
@@ -1663,14 +2037,104 @@ struct Sora2PendingSubmission: Codable, Equatable {
     /// Optional for dual-read compatibility with journals written before the
     /// purpose discriminator existed. New entries always persist a value.
     let purpose: Sora2PendingSubmissionPurpose?
+    /// Optional and additive: builds that do not know it ignore it.
+    var finalizedInclusion: Sora2PendingFinalizedInclusion?
+
+    /// A signed transaction is mortal: it can enter a block only during its
+    /// era of 64 blocks (about six and a half minutes). One hour of wall
+    /// clock is a generous bound for "may still be entering the network"
+    /// that needs no network read, so it also holds offline and for an entry
+    /// that can never be reconciled.
+    static let submissionWindow: TimeInterval = 60 * 60
+    /// How long an entry without a result is still shown as pending, and
+    /// how long the result of a finalized transaction is still looked for.
+    /// After that the entry no longer claims anything in Activity; the
+    /// indexer's own row (which carries the real result) is the record.
+    static let resultRetryWindow: TimeInterval = 7 * 24 * 60 * 60
 
     /// Legacy submitted rows predate generic recovery and retain their prior
-    /// pruning behavior. Every newly qualified row remains deletion- and
-    /// capacity-protected until a durable authoritative terminal resolution
-    /// accompanies the submitted transport state.
+    /// pruning behavior. Every newly qualified row remains a durable witness
+    /// until an authoritative terminal resolution accompanies the submitted
+    /// transport state.
     var isPrunable: Bool {
         state == .submitted &&
             (recoveryContext == nil || terminalResolution != nil)
+    }
+
+    /// The transaction may still be entering the network: it has no
+    /// terminal resolution, it was not found in a finalized block, and it
+    /// was signed less than `submissionWindow` ago. A clock that was set
+    /// back (an entry "from the future") does not extend the window.
+    func mayStillEnterChain(now: Date) -> Bool {
+        guard !isPrunable, finalizedInclusion == nil else {
+            return false
+        }
+        return abs(now.timeIntervalSince(createdAt)) < Self.submissionWindow
+    }
+
+    /// Whether Activity may still show this entry as pending.
+    func isAwaitingResult(now: Date) -> Bool {
+        guard terminalResolution == nil else {
+            return false
+        }
+        return abs(now.timeIntervalSince(createdAt)) < Self.resultRetryWindow
+    }
+
+    /// Whether a failed read for this entry is worth another pass within
+    /// minutes: it is in a finalized block and its result is still looked
+    /// for, or it was signed within `resultRetryWindow`. An older entry
+    /// that still cannot be read waits for the next start or return to the
+    /// foreground.
+    func isWorthAskingAboutSoon(now: Date) -> Bool {
+        guard terminalResolution == nil else {
+            return false
+        }
+        if finalizedInclusion != nil {
+            return resultIsStillLookedFor(now: now)
+        }
+        return abs(now.timeIntervalSince(createdAt)) < Self.resultRetryWindow
+    }
+
+    /// No feature journal owns this entry.
+    var isGeneric: Bool {
+        purpose == nil || purpose == .generic
+    }
+
+    /// Whether a pass still asks for the result of this entry, which was
+    /// found in a finalized block. An entry a feature owns (a legacy
+    /// migration, a Polkamarkt order) is asked about until it has its
+    /// result, because that feature waits for it. A generic entry is asked
+    /// about for `resultRetryWindow` from the moment its inclusion was
+    /// written down; one failed read never ends the asking.
+    func resultIsStillLookedFor(now: Date) -> Bool {
+        guard terminalResolution == nil else {
+            return false
+        }
+        guard isGeneric, let inclusion = finalizedInclusion else {
+            return true
+        }
+        // Nothing changes an entry between the recording of its inclusion
+        // and its result, so for an entry written before `recordedAt`
+        // existed `updatedAt` is that moment.
+        let since = inclusion.recordedAt ?? updatedAt
+        return abs(now.timeIntervalSince(since)) < Self.resultRetryWindow
+    }
+
+    /// A generic entry that no feature journal owns, whose transaction can
+    /// no longer enter the chain. When the journal is full it may give its
+    /// place to a new transaction even without a resolution.
+    func isStale(now: Date) -> Bool {
+        guard
+            isGeneric,
+            [
+                Sora2PendingSubmissionState.submitting,
+                .submitted,
+                .submissionUnknown,
+            ].contains(state)
+        else {
+            return false
+        }
+        return !mayStillEnterChain(now: now)
     }
 
     init(
@@ -1682,7 +2146,8 @@ struct Sora2PendingSubmission: Codable, Equatable {
         state: Sora2PendingSubmissionState,
         recoveryContext: Sora2SubmissionRecoveryContext? = nil,
         terminalResolution: Sora2PendingTerminalResolution? = nil,
-        purpose: Sora2PendingSubmissionPurpose = .generic
+        purpose: Sora2PendingSubmissionPurpose = .generic,
+        finalizedInclusion: Sora2PendingFinalizedInclusion? = nil
     ) {
         self.id = id
         self.account = account
@@ -1693,6 +2158,7 @@ struct Sora2PendingSubmission: Codable, Equatable {
         self.recoveryContext = recoveryContext
         self.terminalResolution = terminalResolution
         self.purpose = purpose
+        self.finalizedInclusion = finalizedInclusion
     }
 }
 
@@ -1755,6 +2221,45 @@ final class Sora2PendingSubmissionStore {
         return try loadUnlocked()
     }
 
+    /// Whether the journal file was last written longer ago than the
+    /// submission window (or does not exist). Every entry whose transaction
+    /// may still be entering the network was written within that window, so
+    /// an older file holds none, even when its content cannot be read. An
+    /// unreadable modification date counts as recent.
+    static func journalPredatesSubmissionWindow(
+        now: Date,
+        fileManager: FileManager = .default,
+        baseURL: URL? = nil
+    ) -> Bool {
+        let root: URL
+        if let baseURL {
+            root = baseURL
+        } else if let support = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first {
+            root = support
+        } else {
+            return false
+        }
+        let file = root
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+            .appendingPathComponent("sora2-signed-v1.json")
+        guard fileManager.fileExists(atPath: file.path) else {
+            return true
+        }
+        guard
+            let modified = (try? fileManager.attributesOfItem(
+                atPath: file.path
+            ))?[.modificationDate] as? Date
+        else {
+            return false
+        }
+        return abs(now.timeIntervalSince(modified)) >=
+            Sora2PendingSubmission.submissionWindow
+    }
+
     func stage(
         account: String,
         hash: String,
@@ -1784,18 +2289,14 @@ final class Sora2PendingSubmissionStore {
         }) else {
             throw ExtrinsicServiceError.duplicatePreparedSubmission
         }
-        if values.count == Self.maximumEntries {
-            guard let pruneIndex = values.indices
-                .filter({ values[$0].isPrunable })
-                .min(by: {
-                    values[$0].updatedAt < values[$1].updatedAt
-                })
+        let now = Date()
+        if values.count >= Self.maximumEntries {
+            guard let pruneIndex = Self.evictionIndex(in: values, now: now)
             else {
                 throw ExtrinsicServiceError.pendingSubmissionCapacityExceeded
             }
             values.remove(at: pruneIndex)
         }
-        let now = Date()
         let pending = Sora2PendingSubmission(
             id: UUID(),
             account: account,
@@ -1839,6 +2340,38 @@ final class Sora2PendingSubmissionStore {
             after: values[index].updatedAt
         )
         try writeUnlocked(values)
+    }
+
+    /// The entry that gives its place to a new transaction when the journal
+    /// is full: the oldest resolved one; otherwise the oldest one already
+    /// found in a finalized block; otherwise the oldest stale one (see
+    /// `Sora2PendingSubmission.isStale`). An entry whose transaction may
+    /// still be entering the network, and entries owned by a feature
+    /// journal, are never evicted. Stale entries therefore cannot make the
+    /// journal refuse a new transaction.
+    static func evictionIndex(
+        in values: [Sora2PendingSubmission],
+        now: Date
+    ) -> Int? {
+        let oldestFirst: (Int, Int) -> Bool = {
+            values[$0].updatedAt < values[$1].updatedAt
+        }
+        if let index = values.indices
+            .filter({ values[$0].isPrunable })
+            .min(by: oldestFirst) {
+            return index
+        }
+        if let index = values.indices
+            .filter({
+                values[$0].finalizedInclusion != nil &&
+                    values[$0].isStale(now: now)
+            })
+            .min(by: oldestFirst) {
+            return index
+        }
+        return values.indices
+            .filter({ values[$0].isStale(now: now) })
+            .min(by: { values[$0].createdAt < values[$1].createdAt })
     }
 
     /// A request proven not to have reached transport needs no reconciliation.
@@ -1964,6 +2497,72 @@ final class Sora2PendingSubmissionStore {
         }
     }
 
+    /// Records that the exact hash was found in a finalized canonical block
+    /// of its mortal era while the execution result could not be read. The
+    /// entry stays without a terminal resolution; `resolveAuthoritatively`
+    /// completes it once the result is read for that same block.
+    func recordFinalizedInclusion(
+        _ pending: Sora2PendingSubmission,
+        blockNumber: Int,
+        blockHash rawBlockHash: String,
+        extrinsicIndex: UInt32,
+        finalizedHeight: Int,
+        recordedAt: Date = Date()
+    ) throws {
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        try validateNamespaceUnlocked()
+        var values = try loadUnlocked()
+        guard
+            let index = values.firstIndex(where: { $0.id == pending.id }),
+            values[index].account == pending.account,
+            values[index].extrinsicHash == pending.extrinsicHash,
+            values[index].recoveryContext == pending.recoveryContext,
+            values[index].terminalResolution == nil,
+            values[index].state != .stagedBeforeTransport,
+            let context = values[index].recoveryContext,
+            context.isValid(
+                account: values[index].account,
+                hash: values[index].extrinsicHash
+            ),
+            let blockHash = Self.normalizedHash(rawBlockHash)
+        else {
+            throw ExtrinsicServiceError.invalidPendingSubmissionTransition
+        }
+        let inclusion = Sora2PendingFinalizedInclusion(
+            schemaVersion: Sora2PendingFinalizedInclusion.currentSchemaVersion,
+            blockNumber: blockNumber,
+            blockHash: blockHash,
+            extrinsicIndex: extrinsicIndex,
+            finalizedHeight: finalizedHeight,
+            // Whole seconds, as the journal's date encoding keeps them.
+            recordedAt: Date(
+                timeIntervalSince1970:
+                    recordedAt.timeIntervalSince1970.rounded(.down)
+            )
+        )
+        guard inclusion.isValid(for: context) else {
+            throw ExtrinsicServiceError.invalidPendingSubmissionTransition
+        }
+        if let existing = values[index].finalizedInclusion {
+            guard
+                existing.blockNumber == inclusion.blockNumber,
+                existing.blockHash == inclusion.blockHash,
+                existing.extrinsicIndex == inclusion.extrinsicIndex
+            else {
+                throw ExtrinsicServiceError.invalidPendingSubmissionTransition
+            }
+            return
+        }
+        values[index].finalizedInclusion = inclusion
+        // Being in a finalized block settles whether transport happened.
+        values[index].state = .submitted
+        values[index].updatedAt = Self.monotonicNow(
+            after: values[index].updatedAt
+        )
+        try writeUnlocked(values)
+    }
+
     /// Resolves one exact restart witness only from a typed authoritative
     /// proof. Inclusion requires a finalized canonical block and one decoded
     /// System execution outcome. Absence requires a complete canonical scan of
@@ -2010,7 +2609,11 @@ final class Sora2PendingSubmissionStore {
                 context.eraBirthBlock <= blockNumber,
                 blockNumber < context.eraDeathBlockExclusive,
                 finalizedHeight >= blockNumber,
-                let blockHash = Self.normalizedHash(rawBlockHash)
+                let blockHash = Self.normalizedHash(rawBlockHash),
+                values[index].finalizedInclusion.map({
+                    $0.blockNumber == blockNumber &&
+                        $0.blockHash == blockHash
+                }) ?? true
             else {
                 throw ExtrinsicServiceError
                     .invalidPendingSubmissionTransition
@@ -2032,7 +2635,8 @@ final class Sora2PendingSubmissionStore {
                 scannedBirthBlock == context.eraBirthBlock,
                 scannedDeathBlockExclusive ==
                     context.eraDeathBlockExclusive,
-                finalizedHeight >= context.eraDeathBlockExclusive
+                finalizedHeight >= context.eraDeathBlockExclusive,
+                values[index].finalizedInclusion == nil
             else {
                 throw ExtrinsicServiceError
                     .invalidPendingSubmissionTransition
@@ -2140,7 +2744,28 @@ final class Sora2PendingSubmissionStore {
         else {
             throw ExtrinsicServiceError.invalidLocalHash
         }
-        return values
+        // The inclusion witness is an optimisation, not evidence anything
+        // else relies on. One that does not fit its entry is dropped and
+        // found again by the next scan; it never makes the journal
+        // unreadable.
+        return values.map { entry in
+            guard let inclusion = entry.finalizedInclusion else {
+                return entry
+            }
+            if entry.state == .submitted,
+               let context = entry.recoveryContext,
+               inclusion.isValid(for: context),
+               entry.terminalResolution.map({
+                   $0.blockNumber == nil ||
+                       ($0.blockNumber == inclusion.blockNumber &&
+                           $0.blockHash == inclusion.blockHash)
+               }) ?? true {
+                return entry
+            }
+            var sanitized = entry
+            sanitized.finalizedInclusion = nil
+            return sanitized
+        }
     }
 
     private func writeUnlocked(
@@ -2195,20 +2820,152 @@ enum Sora2PendingRecoveryError: Error {
     case unavailable
 }
 
+/// The execution result the indexer recorded for one transaction.
+struct Sora2IndexedExecution: Equatable {
+    let blockNumber: Int
+    let blockHash: String
+    let succeeded: Bool
+}
+
+/// Looks one exact transaction of one account up in the indexer.
+typealias Sora2IndexedExecutionLookup = (
+    _ account: String,
+    _ transactionHash: String
+) async throws -> Sora2IndexedExecution?
+
+/// What one reconciliation pass did. Counts only; never hashes or addresses.
+struct Sora2PendingReconciliationReport: Equatable {
+    /// Entries that received a terminal resolution in this pass.
+    var resolved = 0
+    /// Entries found in a finalized block whose result could not be read
+    /// yet. They are settled on chain and are asked again cheaply.
+    var awaitingResult = 0
+    /// Entries whose mortal era has not ended on the finalized chain and
+    /// that are not in a finalized block yet.
+    var withinEra = 0
+    /// Entries that could not be examined now: no wallet to bind them to,
+    /// a read failed, or the connected node follows another finalized
+    /// history than the one the transaction was signed on.
+    var deferred = 0
+    /// Of `deferred`, the entries a read failed for in this pass that are
+    /// worth asking about again within minutes
+    /// (`Sora2PendingSubmission.isWorthAskingAboutSoon`). The same read
+    /// can succeed a moment later.
+    var failedReads = 0
+    /// Entries left for the next pass by the per-pass limit.
+    var notExamined = 0
+
+    /// A later pass can still change something soon: an entry is inside
+    /// its era, was not reached, is in a finalized block without a result
+    /// that could be read, or met a read that failed. The follow-up
+    /// schedule is what bounds the asking.
+    var needsFollowUp: Bool {
+        withinEra > 0 || notExamined > 0 || awaitingResult > 0 ||
+            failedReads > 0
+    }
+
+    /// Something was left without a terminal resolution.
+    var hasUnresolved: Bool {
+        awaitingResult > 0 || withinEra > 0 || deferred > 0 ||
+            notExamined > 0
+    }
+}
+
+/// What one pass leaves for the recovery runtime, worked out where the pass
+/// ran, so the main actor reads no file to decide whether to schedule
+/// another one.
+struct Sora2PendingPassOutcome: Equatable {
+    /// Nil when the pass failed as a whole (offline, node not answering).
+    var report: Sora2PendingReconciliationReport?
+    /// Another pass soon can still change something
+    /// (`Sora2PendingFollowUpSchedule.needsFollowUp`).
+    var needsFollowUp: Bool
+}
+
+/// Remembers, for the life of the process, how often each entry was looked
+/// at without success, so that a pass prefers entries it has not tried yet.
+/// An entry that keeps failing moves behind the others instead of holding
+/// them back.
+final class Sora2PendingReconciliationRotation {
+    static let shared = Sora2PendingReconciliationRotation()
+
+    private let lock = NSLock()
+    private var attempts: [UUID: Int] = [:]
+
+    func attempts(for identifier: UUID) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return attempts[identifier] ?? 0
+    }
+
+    func recordAttempt(for identifier: UUID) {
+        lock.lock()
+        attempts[identifier, default: 0] += 1
+        lock.unlock()
+    }
+
+    func forget(_ identifier: UUID) {
+        lock.lock()
+        attempts[identifier] = nil
+        lock.unlock()
+    }
+
+    func retainOnly(_ identifiers: Set<UUID>) {
+        lock.lock()
+        attempts = attempts.filter { identifiers.contains($0.key) }
+        lock.unlock()
+    }
+}
+
 /// Status-only recovery for ordinary SORA2 submissions. It scans canonical
 /// finalized blocks from the exact signed mortal era and decodes only System
 /// execution events. It has no signer, builder, signed bytes, or submission
 /// API, so restart and foreground recovery cannot resubmit an ambiguous hash.
+///
+/// Blocks are read from the connected node, which keeps every block. The
+/// execution result lives in the state of the inclusion block, and a pruning
+/// node (the first bundled node keeps about 256 blocks, 25 minutes) answers
+/// "State already discarded" for anything older. The result is then read
+/// from an archive node that proves the same genesis and the same block hash
+/// at that height, and failing that from the indexer's record of that exact
+/// transaction in that exact block.
 final class Sora2PendingSubmissionReconciler {
-    private static let maximumWitnessesPerPass = 16
+    static let maximumWitnessesPerPass = 16
+    static let maximumResultReadsPerPass = 32
     private typealias CanonicalBlock = (
         blockHash: String,
         extrinsicIndices: [String: UInt32]
     )
 
     private struct RuntimeKey: Hashable {
+        let node: String
         let specVersion: UInt32
         let transactionVersion: UInt32
+    }
+
+    /// One node the execution result may be read from.
+    private struct Source {
+        let engine: JSONRPCEngine
+        let rpc: PolkamarktRPCClient
+
+        var node: String {
+            Sora2LiveRuntimeIdentityCache.nodeIdentity(for: engine.url) ?? ""
+        }
+    }
+
+    private struct Inclusion {
+        let blockNumber: Int
+        let blockHash: String
+        let extrinsicIndex: UInt32
+    }
+
+    private enum EntryOutcome {
+        case resolved
+        case awaitingResult
+        case withinEra
+        /// The connected node has another block at the height the
+        /// transaction was signed against.
+        case otherHistory
     }
 
     private let store: Sora2PendingSubmissionStore
@@ -2217,9 +2974,15 @@ final class Sora2PendingSubmissionReconciler {
     private let engine: JSONRPCEngine
     private let liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache
     private let loadWalletNetworkSnapshot: () throws -> WalletNetworkSnapshot?
+    private let makeArchiveEngines: () -> [JSONRPCEngine]
+    private let indexedExecution: Sora2IndexedExecutionLookup?
+    private let rotation: Sora2PendingReconciliationRotation
+    private let now: () -> Date
     private var canonicalBlockCache: [Int: CanonicalBlock] = [:]
     private var decodingFactories: [RuntimeKey: RuntimeCoderFactoryProtocol] = [:]
     private var recoveryHashes = Set<String>()
+    private var archiveSources: [Source]?
+    private var verifiedArchiveNodes = Set<String>()
 
     init(
         store: Sora2PendingSubmissionStore,
@@ -2228,7 +2991,14 @@ final class Sora2PendingSubmissionReconciler {
         liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared,
         walletNetworkSnapshot: @escaping () throws -> WalletNetworkSnapshot? = {
             try WalletNetworkStore().load()
-        }
+        },
+        archiveEngines: @escaping () -> [JSONRPCEngine] = {
+            Sora2PendingSubmissionReconciler.bundledArchiveEngines()
+        },
+        indexedExecution: Sora2IndexedExecutionLookup? =
+            Sora2PendingSubmissionReconciler.indexedExecutionFromPI,
+        rotation: Sora2PendingReconciliationRotation = .shared,
+        now: @escaping () -> Date = Date.init
     ) {
         self.store = store
         self.engine = Sora2BoundedHTTPJSONRPCEngine.wrapping(engine)
@@ -2236,117 +3006,277 @@ final class Sora2PendingSubmissionReconciler {
         self.runtimeService = runtimeService
         self.liveRuntimeIdentityCache = liveRuntimeIdentityCache
         loadWalletNetworkSnapshot = walletNetworkSnapshot
+        makeArchiveEngines = archiveEngines
+        self.indexedExecution = indexedExecution
+        self.rotation = rotation
+        self.now = now
     }
 
+    /// The bundled SORA2 mainnet nodes, each addressed directly. A node is
+    /// used for old state only after it proves the reviewed genesis and the
+    /// inclusion block's hash; whether it is an archive shows in its answer.
+    static func bundledArchiveEngines() -> [JSONRPCEngine] {
+        SoraNodeConnectionPolicy.bundledMainnetNodes.map {
+            Sora2BoundedHTTPJSONRPCEngine(nodeURL: $0.url)
+        }
+    }
+
+    /// The indexer's record of one transaction. Used only for the success
+    /// flag of a transaction this app already found in a finalized canonical
+    /// block; the caller checks that the indexer names that same block.
+    static func indexedExecutionFromPI(
+        account: String,
+        transactionHash: String
+    ) async throws -> Sora2IndexedExecution? {
+        guard
+            let normalized = Sora2PendingSubmissionStore.normalizedHash(
+                transactionHash
+            )
+        else {
+            return nil
+        }
+        let read = try await PIIndexerClient()
+            .qualifiedHistoryByTransactionHashes(
+                address: account,
+                transactionHashes: ["0x\(normalized)"]
+            )
+        guard read.qualification?.source == .live else {
+            return nil
+        }
+        let rows = read.value.filter {
+            Sora2PendingSubmissionStore.normalizedHash($0.id) == normalized
+        }
+        guard
+            rows.count == 1,
+            let row = rows.first,
+            let blockNumber = row.blockHeight,
+            blockNumber >= 0,
+            let rawBlockHash = row.blockHash,
+            let blockHash = Sora2PendingSubmissionStore.normalizedHash(
+                rawBlockHash
+            ),
+            let succeeded = PIHistoryCheckpointValidator.executionSucceeded(
+                row.execution
+            )
+        else {
+            return nil
+        }
+        return Sora2IndexedExecution(
+            blockNumber: blockNumber,
+            blockHash: blockHash,
+            succeeded: succeeded
+        )
+    }
+
+    /// One pass that reports an entry it had to leave unresolved as an
+    /// error, for callers that wait for a specific transaction.
     func reconcileStatusOnly() async throws {
+        let report = try await reconcile()
+        if report.deferred > 0 {
+            throw Sora2PendingRecoveryError.unavailable
+        }
+    }
+
+    /// One pass for the recovery runtime. It never throws: a pass that
+    /// failed as a whole has no report. Whether another pass is worth
+    /// scheduling is decided here, off the main actor, because it can need
+    /// the journal file.
+    func scheduledPass() async -> Sora2PendingPassOutcome {
+        let report = try? await reconcile()
+        if let report, report.needsFollowUp {
+            return Sora2PendingPassOutcome(report: report, needsFollowUp: true)
+        }
+        let journal = (try? store.all()) ?? []
+        return Sora2PendingPassOutcome(
+            report: report,
+            needsFollowUp: Sora2PendingFollowUpSchedule.needsFollowUp(
+                report: report,
+                journal: journal,
+                now: now()
+            )
+        )
+    }
+
+    /// One status-only pass over the journal.
+    @discardableResult
+    func reconcile() async throws -> Sora2PendingReconciliationReport {
         try Task.checkCancellation()
         canonicalBlockCache.removeAll(keepingCapacity: true)
         decodingFactories.removeAll(keepingCapacity: true)
         recoveryHashes.removeAll(keepingCapacity: true)
+        archiveSources = nil
+        verifiedArchiveNodes.removeAll(keepingCapacity: true)
+        var report = Sora2PendingReconciliationReport()
+        let currentTime = now()
         let values = try store.all()
+        rotation.retainOnly(Set(values.map(\.id)))
         let qualified = values.filter {
             !$0.isPrunable &&
                 $0.state != .stagedBeforeTransport &&
-                $0.recoveryContext != nil
+                $0.recoveryContext != nil &&
+                // A finalized generic transaction whose result nobody
+                // could give for a week of asking is no longer asked
+                // about. An entry a feature waits for always is.
+                ($0.finalizedInclusion == nil ||
+                    $0.resultIsStillLookedFor(now: currentTime))
         }
         guard !qualified.isEmpty else {
-            return
+            return report
         }
         guard let snapshot = try loadWalletNetworkSnapshot() else {
             throw Sora2PendingRecoveryError.unavailable
         }
         // An entry whose wallet binding fails (its account was removed, or
-        // its row no longer matches) stays pending and protected. It must not
-        // keep the other accounts' entries from being resolved.
-        var deferredEntry = false
+        // its row no longer matches) is left as it is. It does not keep the
+        // other accounts' entries from being resolved, and it costs no
+        // request.
         let bound = qualified.filter { pending in
             do {
                 try validateWalletBinding(pending, snapshot: snapshot)
                 return true
             } catch {
-                deferredEntry = true
+                report.deferred += 1
                 return false
             }
         }
         guard !bound.isEmpty else {
-            throw Sora2PendingRecoveryError.unavailable
+            return report
         }
 
         let finalized = try await rpc.finalizedBlockNumber()
         guard let finalizedHeight = Int(exactly: finalized) else {
             throw Sora2PendingRecoveryError.unavailable
         }
-        let ordered = bound.sorted { lhs, rhs in
-            let lhsExpired = lhs.recoveryContext.map {
-                finalizedHeight >= $0.eraDeathBlockExclusive
-            } ?? false
-            let rhsExpired = rhs.recoveryContext.map {
-                finalizedHeight >= $0.eraDeathBlockExclusive
-            } ?? false
-            if lhsExpired != rhsExpired {
-                return lhsExpired && !rhsExpired
+        // Entries the process has tried least come first, the newest of them
+        // first: a transaction just sent is what the user is waiting for,
+        // and an entry that keeps failing cannot hold the others back.
+        func order(
+            _ lhs: Sora2PendingSubmission,
+            _ rhs: Sora2PendingSubmission
+        ) -> Bool {
+            let lhsAttempts = rotation.attempts(for: lhs.id)
+            let rhsAttempts = rotation.attempts(for: rhs.id)
+            if lhsAttempts != rhsAttempts {
+                return lhsAttempts < rhsAttempts
             }
-            if lhs.updatedAt != rhs.updatedAt {
-                return lhs.updatedAt < rhs.updatedAt
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
             }
             return lhs.id.uuidString < rhs.id.uuidString
         }
-        let selected = Array(
-            ordered.prefix(Self.maximumWitnessesPerPass)
-        )
-        recoveryHashes = Set(selected.map(\.extrinsicHash))
+        let toScan = bound
+            .filter { $0.finalizedInclusion == nil }
+            .sorted(by: order)
+        let toRead = bound
+            .filter { $0.finalizedInclusion != nil }
+            .sorted(by: order)
+        let scanned = Array(toScan.prefix(Self.maximumWitnessesPerPass))
+        let read = Array(toRead.prefix(Self.maximumResultReadsPerPass))
+        report.notExamined =
+            (toScan.count - scanned.count) + (toRead.count - read.count)
+        recoveryHashes = Set(scanned.map(\.extrinsicHash))
         guard
-            recoveryHashes.count == selected.count,
+            recoveryHashes.count == scanned.count,
             let canonicalGenesis = try await canonicalBlock(
                 at: 0,
                 finalized: finalized
+            ),
+            PolkamarktRuntimeContract.matchesReviewedGenesisHash(
+                "0x\(canonicalGenesis.blockHash)"
             )
         else {
+            // Not SORA2 mainnet (or not answering): nothing read from this
+            // node says anything about these transactions.
             throw Sora2PendingRecoveryError.unavailable
         }
-        // Block zero of this engine is the reviewed SORA2 genesis (the
+        // Block zero of this engine is the reviewed SORA2 genesis (a
         // context is valid only for it), so every read below is bound to
         // mainnet. The runtime may have been upgraded since signing: events
         // are decoded with the runtime that produced the inclusion block.
-        for pending in selected {
+        for pending in scanned + read {
             try Task.checkCancellation()
             guard let context = pending.recoveryContext else {
                 continue
             }
-            guard canonicalGenesis.blockHash == context.genesisHash else {
-                throw Sora2PendingRecoveryError.unavailable
-            }
             do {
-                try await reconcile(
-                    pending,
-                    context: context,
-                    finalizedHeight: finalizedHeight,
-                    finalized: finalized
-                )
+                let outcome: EntryOutcome
+                if let known = pending.finalizedInclusion {
+                    outcome = try await resolveResult(
+                        pending,
+                        inclusion: Inclusion(
+                            blockNumber: known.blockNumber,
+                            blockHash: known.blockHash,
+                            extrinsicIndex: known.extrinsicIndex
+                        ),
+                        recorded: true,
+                        finalizedHeight: finalizedHeight
+                    )
+                } else {
+                    outcome = try await reconcile(
+                        pending,
+                        context: context,
+                        finalizedHeight: finalizedHeight,
+                        finalized: finalized
+                    )
+                }
+                switch outcome {
+                case .resolved:
+                    report.resolved += 1
+                    rotation.forget(pending.id)
+                case .awaitingResult:
+                    report.awaitingResult += 1
+                    rotation.recordAttempt(for: pending.id)
+                case .withinEra:
+                    report.withinEra += 1
+                case .otherHistory:
+                    // Nothing this node says is about this transaction.
+                    // The entry stays as it is; asking this node again
+                    // soon would change nothing.
+                    report.deferred += 1
+                    rotation.recordAttempt(for: pending.id)
+                }
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                // One entry that cannot be resolved yet stays pending and
-                // protected; it must not hold back the others.
-                deferredEntry = true
+                // One entry that cannot be examined now stays as it is; it
+                // does not hold back the others, and it goes to the back of
+                // the next pass.
+                report.deferred += 1
+                if pending.isWorthAskingAboutSoon(now: currentTime) {
+                    report.failedReads += 1
+                }
+                rotation.recordAttempt(for: pending.id)
             }
         }
-        if deferredEntry {
-            throw Sora2PendingRecoveryError.unavailable
-        }
+        return report
+    }
+
+    /// Returns a decoder for the runtime that produced `blockHash`, read
+    /// from the connected node.
+    func decodingFactory(
+        atBlock normalizedBlockHash: String
+    ) async throws -> RuntimeCoderFactoryProtocol {
+        try await decodingFactory(
+            atBlock: normalizedBlockHash,
+            source: Source(engine: engine, rpc: rpc)
+        )
     }
 
     /// Returns a decoder for the runtime that produced `blockHash`. The
     /// current runtime snapshot is reused only when it is exactly that
-    /// runtime and its metadata matches the proof stored for that version;
-    /// otherwise the block's own metadata is fetched, bound to its declared
-    /// `System.Version`, and combined with the bundled SORA2 type registry.
-    func decodingFactory(
-        atBlock normalizedBlockHash: String
+    /// runtime and its metadata matches the proof stored for that version
+    /// and that node; otherwise the block's own metadata is fetched from
+    /// the node, bound to its declared `System.Version`, and combined with
+    /// the bundled SORA2 type registry.
+    private func decodingFactory(
+        atBlock normalizedBlockHash: String,
+        source: Source
     ) async throws -> RuntimeCoderFactoryProtocol {
         let blockHash = "0x\(normalizedBlockHash)"
-        let version = try await rpc.runtimeVersion(at: blockHash)
+        let version = try await source.rpc.runtimeVersion(at: blockHash)
+        let node = source.node
         let key = RuntimeKey(
+            node: node,
             specVersion: version.specVersion,
             transactionVersion: version.transactionVersion
         )
@@ -2359,6 +3289,7 @@ final class Sora2PendingSubmissionReconciler {
             snapshot.specVersion == version.specVersion,
             snapshot.txVersion == version.transactionVersion,
             let proven = liveRuntimeIdentityCache.metadataSHA256(
+                node: node,
                 specVersion: version.specVersion,
                 transactionVersion: version.transactionVersion
             )
@@ -2376,7 +3307,7 @@ final class Sora2PendingSubmissionReconciler {
                 return current
             }
         }
-        let metadataHex = try await rpc.metadataHex(at: blockHash)
+        let metadataHex = try await source.rpc.metadataHex(at: blockHash)
         let live = try Sora2LiveRuntimeValidator.liveRuntime(
             version: version,
             metadataHex: metadataHex
@@ -2457,17 +3388,15 @@ final class Sora2PendingSubmissionReconciler {
         context: Sora2SubmissionRecoveryContext,
         finalizedHeight: Int,
         finalized: BigUInt
-    ) async throws {
+    ) async throws -> EntryOutcome {
         guard finalizedHeight >= context.eraBirthBlock else {
-            throw Sora2PendingRecoveryError.unavailable
+            // The chain this node follows has not reached the block the
+            // transaction was signed against.
+            return .withinEra
         }
         let lastEraBlock = context.eraDeathBlockExclusive - 1
         let scanThrough = min(finalizedHeight, lastEraBlock)
-        var foundInclusion: (
-            blockNumber: Int,
-            blockHash: String,
-            extrinsicIndex: UInt32
-        )?
+        var foundInclusion: Inclusion?
 
         for blockNumber in context.eraBirthBlock ... scanThrough {
             try Task.checkCancellation()
@@ -2477,53 +3406,43 @@ final class Sora2PendingSubmissionReconciler {
             ) else {
                 throw Sora2PendingRecoveryError.unavailable
             }
+            // The transaction was signed against the finalized head of
+            // the node it was built on. Another block at that height means
+            // this node follows another finalized history (a fork with the
+            // same genesis), so neither what it holds nor what it lacks is
+            // evidence about this transaction. The entry is left as it is:
+            // after an hour it blocks nothing, and it resolves when the
+            // app is connected to the chain it was signed on again.
             if blockNumber == context.eraBirthBlock,
                canonical.blockHash != context.eraBirthBlockHash {
-                throw Sora2PendingRecoveryError.unavailable
+                return .otherHistory
             }
             if let extrinsicIndex =
                 canonical.extrinsicIndices[pending.extrinsicHash] {
                 guard foundInclusion == nil else {
                     throw Sora2PendingRecoveryError.unavailable
                 }
-                foundInclusion = (
-                    blockNumber,
-                    canonical.blockHash,
-                    extrinsicIndex
+                foundInclusion = Inclusion(
+                    blockNumber: blockNumber,
+                    blockHash: canonical.blockHash,
+                    extrinsicIndex: extrinsicIndex
                 )
             }
         }
 
         if let inclusion = foundInclusion {
-            let factory = try await decodingFactory(
-                atBlock: inclusion.blockHash
-            )
-            guard let succeeded = try await authoritativeExecutionResult(
-                at: inclusion.blockHash,
-                extrinsicIndex: inclusion.extrinsicIndex,
-                factory: factory
-            ) else {
-                // Inclusion without exactly one System terminal event remains
-                // ambiguous. Never synthesize an outcome from PI or UI state.
-                return
-            }
-            try Task.checkCancellation()
-            try store.resolveAuthoritatively(
+            return try await resolveResult(
                 pending,
-                proof: .finalizedInclusion(
-                    blockNumber: inclusion.blockNumber,
-                    blockHash: inclusion.blockHash,
-                    succeeded: succeeded,
-                    finalizedHeight: finalizedHeight
-                )
+                inclusion: inclusion,
+                recorded: false,
+                finalizedHeight: finalizedHeight
             )
-            return
         }
 
         guard finalizedHeight >= context.eraDeathBlockExclusive else {
-            // A pre-expiry absence is not terminal and remains deletion- and
-            // capacity-protected for the next foreground recovery pass.
-            return
+            // A pre-expiry absence is not terminal. The entry stays as it
+            // is for the next pass.
+            return .withinEra
         }
         try Task.checkCancellation()
         try store.resolveAuthoritatively(
@@ -2535,6 +3454,153 @@ final class Sora2PendingSubmissionReconciler {
                 finalizedHeight: finalizedHeight
             )
         )
+        return .resolved
+    }
+
+    /// Reads the execution result of a transaction found in a finalized
+    /// canonical block and writes the terminal resolution. When no source
+    /// can give the result now, the inclusion itself is recorded.
+    private func resolveResult(
+        _ pending: Sora2PendingSubmission,
+        inclusion: Inclusion,
+        recorded: Bool,
+        finalizedHeight: Int
+    ) async throws -> EntryOutcome {
+        if let succeeded = try await executionResult(
+            of: pending,
+            inclusion: inclusion
+        ) {
+            try Task.checkCancellation()
+            try store.resolveAuthoritatively(
+                pending,
+                proof: .finalizedInclusion(
+                    blockNumber: inclusion.blockNumber,
+                    blockHash: inclusion.blockHash,
+                    succeeded: succeeded,
+                    finalizedHeight: max(
+                        finalizedHeight,
+                        inclusion.blockNumber
+                    )
+                )
+            )
+            return .resolved
+        }
+        if !recorded {
+            try Task.checkCancellation()
+            try store.recordFinalizedInclusion(
+                pending,
+                blockNumber: inclusion.blockNumber,
+                blockHash: inclusion.blockHash,
+                extrinsicIndex: inclusion.extrinsicIndex,
+                finalizedHeight: finalizedHeight,
+                recordedAt: now()
+            )
+        }
+        return .awaitingResult
+    }
+
+    /// The result of the transaction at `inclusion`, from the first source
+    /// that can give it: the connected node, an archive node that proves the
+    /// same chain and block, then the indexer. Nil when none can now.
+    private func executionResult(
+        of pending: Sora2PendingSubmission,
+        inclusion: Inclusion
+    ) async throws -> Bool? {
+        let connected = Source(engine: engine, rpc: rpc)
+        do {
+            if let succeeded = try await executionResult(
+                at: inclusion,
+                source: connected
+            ) {
+                return succeeded
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            // Most often "State already discarded". Whatever the reason,
+            // another source may still know.
+        }
+        for archive in archives(excluding: connected.node) {
+            try Task.checkCancellation()
+            do {
+                guard try await provesSameBlock(archive, inclusion: inclusion)
+                else {
+                    continue
+                }
+                if let succeeded = try await executionResult(
+                    at: inclusion,
+                    source: archive
+                ) {
+                    return succeeded
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                continue
+            }
+        }
+        guard let indexedExecution else {
+            return nil
+        }
+        do {
+            guard
+                let indexed = try await indexedExecution(
+                    pending.account,
+                    pending.extrinsicHash
+                ),
+                indexed.blockNumber == inclusion.blockNumber,
+                Sora2PendingSubmissionStore.normalizedHash(
+                    indexed.blockHash
+                ) == inclusion.blockHash
+            else {
+                return nil
+            }
+            return indexed.succeeded
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return nil
+        }
+    }
+
+    private func archives(excluding connectedNode: String) -> [Source] {
+        let sources: [Source]
+        if let archiveSources {
+            sources = archiveSources
+        } else {
+            sources = makeArchiveEngines().map {
+                let bounded = Sora2BoundedHTTPJSONRPCEngine.wrapping($0)
+                return Source(
+                    engine: bounded,
+                    rpc: PolkamarktRPCClient(engine: bounded)
+                )
+            }
+            archiveSources = sources
+        }
+        return sources.filter {
+            !$0.node.isEmpty && $0.node != connectedNode
+        }
+    }
+
+    /// An archive is asked about a block only after it returned the reviewed
+    /// genesis hash and, at the inclusion height, the very block hash the
+    /// connected node reported as canonical and final.
+    private func provesSameBlock(
+        _ archive: Source,
+        inclusion: Inclusion
+    ) async throws -> Bool {
+        if !verifiedArchiveNodes.contains(archive.node) {
+            _ = try await archive.rpc.reviewedGenesisHash()
+            verifiedArchiveNodes.insert(archive.node)
+        }
+        guard
+            let hash = try await archive.rpc.blockHash(
+                at: inclusion.blockNumber
+            )
+        else {
+            return false
+        }
+        return hash == inclusion.blockHash
     }
 
     private func canonicalBlock(
@@ -2566,11 +3632,15 @@ final class Sora2PendingSubmissionReconciler {
         return bounded
     }
 
-    private func authoritativeExecutionResult(
-        at normalizedBlockHash: String,
-        extrinsicIndex: UInt32,
-        factory: RuntimeCoderFactoryProtocol
+    /// The System execution result of one extrinsic of one block, decoded
+    /// from that block's events as `source` holds them. Nil when the block
+    /// does not carry exactly one terminal event for the extrinsic.
+    private func executionResult(
+        at inclusion: Inclusion,
+        source: Source
     ) async throws -> Bool? {
+        let normalizedBlockHash = inclusion.blockHash
+        let extrinsicIndex = inclusion.extrinsicIndex
         guard
             Sora2PendingSubmissionStore.normalizedHash(
                 normalizedBlockHash
@@ -2578,6 +3648,10 @@ final class Sora2PendingSubmissionReconciler {
         else {
             throw Sora2PendingRecoveryError.unavailable
         }
+        let factory = try await decodingFactory(
+            atBlock: normalizedBlockHash,
+            source: source
+        )
         let blockHashData = try Data(
             hexStringSSF: "0x\(normalizedBlockHash)"
         )
@@ -2589,7 +3663,7 @@ final class Sora2PendingSubmissionReconciler {
         let wrapper: CompoundOperationWrapper<
             [StorageResponse<[EventRecord]>]
         > = storage.queryItems(
-            engine: engine,
+            engine: source.engine,
             keys: { [storageKey] },
             factory: { factory },
             storagePath: .events,
@@ -2667,20 +3741,127 @@ final class Sora2PendingSubmissionReconciler {
     }
 }
 
+/// Posted on the main actor after a reconciliation pass gave at least one
+/// sent transaction its final status, so open Activity lists reload.
+struct Sora2PendingSubmissionsResolved: EventProtocol {
+    func accept(visitor: EventVisitorProtocol) {
+        visitor.processPendingSubmissionsResolved(event: self)
+    }
+}
+
+/// When the passes after a submission run. A transaction is normally in a
+/// finalized block within half a minute, so the first passes are close
+/// together and read only a few blocks. If it is still not there, nothing
+/// can change until its mortal era (64 blocks, about six and a half minutes)
+/// is over on the finalized chain, so the later passes wait for that.
+enum Sora2PendingFollowUpSchedule {
+    static let delays: [TimeInterval] = [12, 20, 30, 45, 60, 300, 300, 420]
+
+    static func delay(afterAttempt attempt: Int) -> TimeInterval? {
+        delays.indices.contains(attempt) ? delays[attempt] : nil
+    }
+
+    /// Whether another pass soon can still change something.
+    ///
+    /// - A pass that returned a report: it left entries inside their era,
+    ///   unexamined, without a readable result or behind a failed read, or
+    ///   the journal holds an entry whose transaction may still be entering
+    ///   the network.
+    /// - A pass that failed as a whole (offline, node not answering): the
+    ///   journal holds an entry a pass would have looked at.
+    ///
+    /// Either way the asking is bounded by `delays`; start, foreground and
+    /// the next submission begin it again.
+    static func needsFollowUp(
+        report: Sora2PendingReconciliationReport?,
+        journal: [Sora2PendingSubmission],
+        now: Date
+    ) -> Bool {
+        let examinable = journal.filter {
+            $0.recoveryContext != nil &&
+                $0.state != .stagedBeforeTransport &&
+                !$0.isPrunable
+        }
+        if let report {
+            return report.needsFollowUp ||
+                examinable.contains { $0.mayStillEnterChain(now: now) }
+        }
+        return examinable.contains { $0.isWorthAskingAboutSoon(now: now) }
+    }
+}
+
 /// Gates recovery until both lossless wallet storage and the SORA2 chain
 /// registry are ready. Foreground calls before either gate are no-ops.
+///
+/// Passes run at process start, on return to the foreground, on account
+/// change, and, after a transaction was handed to the network, by
+/// themselves on `Sora2PendingFollowUpSchedule` until nothing recent is
+/// left unresolved.
 @MainActor
 final class Sora2PendingSubmissionRecoveryRuntime {
     static let shared = Sora2PendingSubmissionRecoveryRuntime()
 
-    private let store: Sora2PendingSubmissionStore?
+    /// One status-only pass over the journal. It runs off the main actor
+    /// and brings back everything the schedule needs.
+    typealias Pass = () async -> Sora2PendingPassOutcome
+
+    /// Returns the pass to run against the connected node, or nil when the
+    /// SORA2 connection or its runtime is not available.
+    private let makePass: () -> Pass?
+    private let sleep: (TimeInterval) async throws -> Void
+    private let notifyResolved: () -> Void
     private var walletStorageReady = false
     private var chainReady = false
     private var recoveryTask: Task<Void, Never>?
     private var restartRequested = false
+    private var followUpTask: Task<Void, Never>?
+    private var followUpAttempt = 0
 
-    private init() {
-        store = try? Sora2PendingSubmissionStore()
+    private convenience init() {
+        let store = try? Sora2PendingSubmissionStore()
+        self.init(
+            makePass: {
+                let registry = ChainRegistryFacade.sharedRegistry
+                guard
+                    let store,
+                    let engine = registry.getConnection(
+                        for: Chain.sora.genesisHash()
+                    ),
+                    let runtimeService = registry.getRuntimeProvider(
+                        for: Chain.sora.genesisHash()
+                    )
+                else {
+                    return nil
+                }
+                let reconciler = Sora2PendingSubmissionReconciler(
+                    store: store,
+                    engine: engine,
+                    runtimeService: runtimeService
+                )
+                return { await reconciler.scheduledPass() }
+            },
+            sleep: {
+                try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+            },
+            notifyResolved: {
+                EventCenter.shared.notify(
+                    with: Sora2PendingSubmissionsResolved()
+                )
+            }
+        )
+    }
+
+    /// The parts that touch the chain registry, the journal file, the clock
+    /// and the event center are passed in, so the scheduling can be tested.
+    /// The runtime itself reads no file: it runs on the main actor.
+    init(
+        makePass: @escaping () -> Pass?,
+        sleep: @escaping (TimeInterval) async throws -> Void,
+        notifyResolved: @escaping () -> Void
+    ) {
+        self.makePass = makePass
+        self.sleep = sleep
+        self.notifyResolved = notifyResolved
     }
 
     func prepareForWalletStorageMigration() {
@@ -2688,6 +3869,8 @@ final class Sora2PendingSubmissionRecoveryRuntime {
         chainReady = false
         restartRequested = false
         recoveryTask?.cancel()
+        followUpTask?.cancel()
+        followUpTask = nil
     }
 
     func markWalletStorageReadyAndResume() {
@@ -2705,7 +3888,58 @@ final class Sora2PendingSubmissionRecoveryRuntime {
         recoveryTask?.cancel()
     }
 
+    /// A signed transaction was just handed to the network, or may have
+    /// been. Its status is looked up shortly, without waiting for the next
+    /// start or return to the foreground.
+    func noteSubmission() {
+        guard walletStorageReady, chainReady else {
+            return
+        }
+        followUpAttempt = 0
+        scheduleFollowUp()
+    }
+
+    private func scheduleFollowUp() {
+        followUpTask?.cancel()
+        followUpTask = nil
+        guard
+            let delay = Sora2PendingFollowUpSchedule.delay(
+                afterAttempt: followUpAttempt
+            )
+        else {
+            // The schedule is used up. Start, foreground and the next
+            // submission still run passes.
+            return
+        }
+        followUpAttempt += 1
+        let sleep = self.sleep
+        followUpTask = Task { [weak self] in
+            do {
+                try await sleep(delay)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else {
+                return
+            }
+            self.followUpTask = nil
+            self.runPass()
+        }
+    }
+
+    /// A pass asked for from outside: process start, return to the
+    /// foreground, account change, or the chain becoming ready.
     func resumePendingAfterProcessStart() {
+        guard walletStorageReady, chainReady else {
+            return
+        }
+        // Whatever this pass leaves inside its era is followed up from the
+        // start of the schedule again.
+        followUpAttempt = 0
+        runPass()
+    }
+
+    private func runPass() {
         guard walletStorageReady, chainReady else {
             return
         }
@@ -2713,37 +3947,40 @@ final class Sora2PendingSubmissionRecoveryRuntime {
             restartRequested = true
             return
         }
-        let registry = ChainRegistryFacade.sharedRegistry
-        guard
-            let store,
-            let engine = registry.getConnection(
-                for: Chain.sora.genesisHash()
-            ),
-            let runtimeService = registry.getRuntimeProvider(
-                for: Chain.sora.genesisHash()
-            )
-        else {
+        guard let pass = makePass() else {
             chainReady = false
             return
         }
-        let reconciler = Sora2PendingSubmissionReconciler(
-            store: store,
-            engine: engine,
-            runtimeService: runtimeService
-        )
         recoveryTask = Task { [weak self] in
-            // Errors remain represented by the protected journal. Never log
-            // hashes, addresses, signed bytes, or raw RPC responses here.
-            try? await reconciler.reconcileStatusOnly()
+            // Errors remain represented by the journal. Never log hashes,
+            // addresses, signed bytes, or raw RPC responses here.
+            let outcome = await pass()
+            let report = outcome.report
             guard let self else {
                 return
             }
             self.recoveryTask = nil
+            if let report, report.resolved > 0 {
+                self.notifyResolved()
+            }
             let shouldRestart = self.restartRequested &&
                 self.walletStorageReady && self.chainReady
             self.restartRequested = false
             if shouldRestart {
-                self.resumePendingAfterProcessStart()
+                self.runPass()
+                return
+            }
+            guard self.walletStorageReady, self.chainReady else {
+                return
+            }
+            if let report, report.notExamined > 0, report.resolved > 0 {
+                // More entries than one pass takes, and the pass got
+                // somewhere: go on with the next ones now.
+                self.runPass()
+                return
+            }
+            if self.followUpTask == nil, outcome.needsFollowUp {
+                self.scheduleFollowUp()
             }
         }
     }
@@ -2942,8 +4179,9 @@ final class ExtrinsicService {
 
         let currentCryptoType = cryptoType
         let currentAddress = address
+        let engine = self.engine
 
-        return ClosureOperation {
+        let build: () throws -> ExtrinsicInfo = {
             let nonce = try nonceOperation.extractNoCancellableResultData()
             let connectedGenesisHash = try genesisOperation
                 .extractNoCancellableResultData()
@@ -3053,6 +4291,17 @@ final class ExtrinsicService {
                 recoveryContext: recoveryContext
             )
         }
+        return ClosureOperation {
+            do {
+                return try build()
+            } catch {
+                // Every signing flow builds here. When the reason is an app
+                // update or a node without a signing route, say so, also in
+                // flows that show only a general error of their own.
+                Sora2SigningNotice.report(error, nodeURL: engine.url)
+                throw error
+            }
+        }
     }
 
     /// Encodes and signs one SORA2 extrinsic with the given runtime. The
@@ -3132,10 +4381,29 @@ final class ExtrinsicService {
         let cache = liveRuntimeIdentityCache
         let identityOperation = ClosureOperation<Sora2LiveRuntime> {
             let version = try versionOperation.extractNoCancellableResultData()
+            // A proof belongs to the node that served the metadata. A node
+            // without an HTTPS route cannot be asked at all.
+            guard let node = Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                for: engine.url
+            ) else {
+                throw Sora2BoundedHTTPJSONRPCError.invalidEndpoint
+            }
             // The node's metadata is downloaded only when no proof for this
-            // runtime version is stored yet, and only once at a time.
-            return try cache.liveRuntime(for: version) {
-                try Self.fetchCurrentMetadataHex(engine: engine, timeout: 60)
+            // node and runtime version is stored yet, and only once at a
+            // time.
+            return try cache.liveRuntime(for: version, node: node) {
+                let metadataHex = try Self.fetchCurrentMetadataHex(
+                    engine: engine,
+                    timeout: 60
+                )
+                // The connection may have moved to another node during the
+                // download. Its bytes must not be recorded for this node.
+                guard Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                    for: engine.url
+                ) == node else {
+                    throw ExtrinsicServiceError.connectionChanged
+                }
+                return metadataHex
             }
         }
         identityOperation.addDependency(versionOperation)
@@ -3219,6 +4487,14 @@ final class ExtrinsicService {
                 data,
                 lifecycleLease: lease
             ).rawData()
+        }
+    }
+
+    /// Signed bytes were handed to the network (or may have been): have
+    /// their status looked up shortly instead of at the next start.
+    private static func noteSubmissionForReconciliation() {
+        Task { @MainActor in
+            Sora2PendingSubmissionRecoveryRuntime.shared.noteSubmission()
         }
     }
 
@@ -3880,6 +5156,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                                 ? .submittedRetained
                                 : .submitted
                         )
+                        Self.noteSubmissionForReconciliation()
                         completion(.success(returnedHash))
                     case let .failure(error):
                         if mayHaveEnteredTransport {
@@ -3887,6 +5164,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                                 stagedPendingSubmission,
                                 state: .submissionUnknown
                             )
+                            Self.noteSubmissionForReconciliation()
                         } else {
                             try? self.pendingSubmissionStore?
                                 .removeBeforeSubmission(
@@ -3914,6 +5192,7 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                             stagedPendingSubmission,
                             state: .submissionUnknown
                         )
+                        Self.noteSubmissionForReconciliation()
                     } else {
                         try? self.pendingSubmissionStore?
                             .removeBeforeSubmission(
@@ -4232,6 +5511,9 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                                 .failedBeforeTransport(stageError)
                         )
                     }
+                }
+                if staged != nil, submitOperation.mayHaveEnteredTransport {
+                    Self.noteSubmissionForReconciliation()
                 }
                 completionClosure(
                     result,

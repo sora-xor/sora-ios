@@ -31,9 +31,20 @@
 import Foundation
 import SoraUIKit
 
+/// A row with one line of text and a Refresh button.
 final class ActivityErrorItem: ItemProtocol {
 
+    /// The text above the button. `nil`: "Some data is not up to date".
+    let title: String?
+    /// The row is the top of the list's card and has its rounded corners.
+    /// Not so for a row at the end of the list.
+    let roundsTop: Bool
     var handler: (() -> Void)?
+
+    init(title: String? = nil, roundsTop: Bool = true) {
+        self.title = title
+        self.roundsTop = roundsTop
+    }
 }
 
 extension ActivityErrorItem: Hashable {
@@ -50,9 +61,12 @@ extension ActivityErrorItem: Hashable {
 /// when the indexer can list only operations this account signed.
 final class ActivityNoticeItem: ItemProtocol {
     let text: String
+    /// The row is the top of the list's card and has its rounded corners.
+    let roundsTop: Bool
 
-    init(text: String) {
+    init(text: String, roundsTop: Bool = true) {
         self.text = text
+        self.roundsTop = roundsTop
     }
 }
 

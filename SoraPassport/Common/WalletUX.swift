@@ -34,6 +34,104 @@ enum WalletUX {
         String(format: text(value), arguments: arguments)
     }
 
+    /// Shown in place of an amount when the chain's answer for a balance
+    /// could not be read. Never "0": the funds are not gone.
+    static var balanceUnavailableText: String { text("Balance unavailable") }
+
+    /// Shown in place of a fiat total while no price is known.
+    static var priceUnavailableText: String { text("Price unavailable") }
+
+    /// A fiat total for display. Without prices the total is unknown, not
+    /// zero: a wallet that holds tokens must never read "$0" because the
+    /// price service could not be reached.
+    static func fiatTotalText(_ total: Decimal, pricesAvailable: Bool) -> String {
+        guard pricesAvailable else { return priceUnavailableText }
+        return "$" + (NumberFormatter.fiat.stringFromDecimal(total) ?? "")
+    }
+
+    /// "Prices as of 09:02" (with the date when it is not today): shown
+    /// next to a total valued with the last prices PI could give, while PI
+    /// cannot be read.
+    static func pricesAsOfText(
+        _ date: Date,
+        now: Date = Date(),
+        language: String? = nil,
+        calendar: Calendar = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        asOfText(
+            "Prices as of %@",
+            date,
+            now: now,
+            language: language,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
+
+    /// The same for the Activity list, when the indexer cannot be read and
+    /// the list is the one that was loaded last.
+    static func activityAsOfText(
+        _ date: Date,
+        now: Date = Date(),
+        language: String? = nil,
+        calendar: Calendar = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        asOfText(
+            "Activity as of %@. Newer transactions will appear when the list can be updated.",
+            date,
+            now: now,
+            language: language,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
+
+    private static func asOfText(
+        _ key: String,
+        _ date: Date,
+        now: Date,
+        language: String?,
+        calendar: Calendar,
+        timeZone: TimeZone
+    ) -> String {
+        var calendar = calendar
+        calendar.timeZone = timeZone
+        let formatter = DateFormatter()
+        formatter.locale = Locale(
+            identifier: language ?? LocalizationManager.shared.selectedLocalization
+        )
+        formatter.timeZone = timeZone
+        formatter.timeStyle = .short
+        formatter.dateStyle = calendar.isDate(date, inSameDayAs: now) ? .none : .medium
+        return String(
+            format: text(key, language: language),
+            formatter.string(from: date)
+        )
+    }
+
+    /// The fiat value of `amount` at `price`, or no text at all when the
+    /// price is not known. A missing price is never shown as "$0".
+    static func fiatText(amount: Decimal, price: Decimal?, prefix: String = "$") -> String {
+        guard let price else { return "" }
+        return prefix + (NumberFormatter.fiat.stringFromDecimal(amount * price) ?? "")
+    }
+
+    /// The same for a balance row, where a value below one cent reads
+    /// "<$0.01" and a real zero reads "$0".
+    static func balanceFiatText(amount: Decimal, price: Decimal?) -> String {
+        guard let price else { return "" }
+        return (amount * price).priceText()
+    }
+
+    /// How long a wallet total without prices waits before asking again:
+    /// 20 s, then twice as long each time, up to 5 minutes. The price
+    /// service applies its own backoff, so asking is cheap.
+    static func priceRetryDelay(afterFailures failures: Int) -> TimeInterval {
+        min(300, 20 * pow(2, Double(max(0, min(failures, 8)))))
+    }
+
     static func contrast(_ first: UIColor, _ second: UIColor) -> CGFloat {
         func luminance(_ color: UIColor) -> CGFloat {
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0

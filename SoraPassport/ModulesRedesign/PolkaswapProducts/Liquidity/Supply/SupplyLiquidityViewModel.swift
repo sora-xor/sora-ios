@@ -180,6 +180,8 @@ final class SupplyLiquidityViewModel {
         }
     }
     private var apy: Decimal?
+    /// The pair `apy` was read for; a rate is never shown for another pair.
+    private var apyPair: String?
     private var fiatData: [PIExactFiatData] = [] {
         didSet {
             updateBalanceData()
@@ -704,55 +706,76 @@ extension SupplyLiquidityViewModel {
         let requestId = UUID()
         detailsRequestId = requestId
 
+        // The button depends on the fee. The APY is only shown: it is read
+        // on the side and filled in when it arrives, so a slow or failed
+        // read of the pool catalog never holds the fee, and with it the
+        // button, back.
+        let pair = "\(baseAssetId)-\(targetAssetId)"
+        let apyRead = Task { [apyService] in
+            await apyService?.getApy(
+                for: baseAssetId,
+                targetAssetId: targetAssetId
+            )
+        }
+
         detailsTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            let isCurrent = { [weak self] () -> Bool in
+                guard let self else { return false }
+                return !Task.isCancelled &&
+                    self.detailsRequestId == requestId &&
+                    self.isPairStateValid &&
+                    self.isPairPresented == pairPresented &&
+                    self.isPairEnabled == pairEnabled &&
+                    self.firstAssetId == baseAssetId &&
+                    self.secondAssetId == targetAssetId &&
+                    self.inputedFirstAmount == firstAmount &&
+                    self.inputedSecondAmount == secondAmount &&
+                    self.transactionType == requestedType &&
+                    self.focusedField == focusedField &&
+                    self.slippageTolerance == slippageTolerance &&
+                    self.poolInfo?.baseAssetReserves == poolSnapshot?.baseAssetReserves &&
+                    self.poolInfo?.targetAssetReserves == poolSnapshot?.targetAssetReserves &&
+                    self.poolInfo?.totalIssuances == poolSnapshot?.totalIssuances
+            }
             do {
-                async let apy = apyService?.getApy(
-                    for: baseAssetId,
-                    targetAssetId: targetAssetId
-                )
-                async let exactFee = operationFactory.estimateLiquidityFee(for: transferInfo)
-                let results = try await (apy: apy, fee: exactFee)
+                let exactFee = try await operationFactory.estimateLiquidityFee(for: transferInfo)
 
-                guard !Task.isCancelled,
-                      results.fee > 0,
-                      self.detailsRequestId == requestId,
-                      self.isPairStateValid,
-                      self.isPairPresented == pairPresented,
-                      self.isPairEnabled == pairEnabled,
-                      self.firstAssetId == baseAssetId,
-                      self.secondAssetId == targetAssetId,
-                      self.inputedFirstAmount == firstAmount,
-                      self.inputedSecondAmount == secondAmount,
-                      self.transactionType == requestedType,
-                      self.focusedField == focusedField,
-                      self.slippageTolerance == slippageTolerance,
-                      self.poolInfo?.baseAssetReserves == poolSnapshot?.baseAssetReserves,
-                      self.poolInfo?.targetAssetReserves == poolSnapshot?.targetAssetReserves,
-                      self.poolInfo?.totalIssuances == poolSnapshot?.totalIssuances else {
+                guard exactFee > 0, isCurrent() else {
                     return
                 }
 
-                self.apy = results.apy
-                self.fee = results.fee
+                if self.apyPair != pair {
+                    self.apy = nil
+                    self.apyPair = pair
+                }
+                self.fee = exactFee
                 self.warningViewModel?.isHidden = self.isEnoughtFeeAssetLiquidity
 
                 let basedAmount = focusedField == .one ? firstAmount : secondAmount
                 let targetAmount = focusedField == .one ? secondAmount : firstAmount
-                self.details = self.detailsFactory.createSupplyLiquidityViewModels(
-                    with: basedAmount,
-                    targetAssetAmount: targetAmount,
-                    pool: poolSnapshot,
-                    apy: self.apy,
-                    fiatData: self.fiatData,
-                    focusedField: focusedField,
-                    slippageTolerance: slippageTolerance,
-                    isPresented: pairPresented,
-                    isEnabled: pairEnabled,
-                    fee: results.fee,
-                    viewModel: self
-                )
+                let makeDetails = { [unowned self] () -> [DetailViewModel] in
+                    self.detailsFactory.createSupplyLiquidityViewModels(
+                        with: basedAmount,
+                        targetAssetAmount: targetAmount,
+                        pool: poolSnapshot,
+                        apy: self.apy,
+                        fiatData: self.fiatData,
+                        focusedField: focusedField,
+                        slippageTolerance: slippageTolerance,
+                        isPresented: pairPresented,
+                        isEnabled: pairEnabled,
+                        fee: exactFee,
+                        viewModel: self
+                    )
+                }
+                self.details = makeDetails()
                 completion?()
+
+                let apy = await apyRead.value
+                guard isCurrent(), apy != self.apy else { return }
+                self.apy = apy
+                self.details = makeDetails()
             } catch is CancellationError {
                 return
             } catch {

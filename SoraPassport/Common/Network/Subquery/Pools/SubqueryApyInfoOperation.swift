@@ -37,15 +37,17 @@ struct PIExactApyInfo: Equatable, Sendable {
 }
 
 public final class SubqueryApyInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
-    private let client: PIIndexerClient
+    private let baseUrl: URL
 
     public init(baseUrl: URL) {
-        client = PIIndexerClient(endpoint: baseUrl)
+        self.baseUrl = baseUrl
         super.init()
     }
 
     override public func execute() async throws -> ResultType {
-        let values = try await client.allPoolXYKs().map { pool in
+        // The shared catalog reads the reviewed production PI only.
+        try PIIndexerClient.validateProductionEndpoint(baseUrl)
+        let values = try await PICatalogs.pools.values().map { pool in
             PIExactApyInfo(
                 id: pool.id,
                 sbApy: pool.strategicBonusApy

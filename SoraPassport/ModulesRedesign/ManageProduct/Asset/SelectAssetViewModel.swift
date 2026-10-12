@@ -72,6 +72,8 @@ final class SelectAssetViewModel {
             let marketCapInfo = priceInfo?.marketCapInfo ?? []
             
             assetItems.forEach { item in
+                // No value is worked out from a balance that was not read.
+                guard !item.balanceUnavailable else { return }
                 
                 let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
                 let deltaPrice = marketCapInfo.first(where: { $0.assetId == item.assetInfo.assetId })?.hourDelta
@@ -141,18 +143,22 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) async {
-        assetItems = balanceItems.compactMap { balance in
-            
-            guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
-                  let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                  assetInfo: assetInfo,
-                                                                                  fiatData: [],
-                                                                                  mode: self.mode) else {
-                return nil
-            }
-            
-            let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
-            
+        let mode = self.mode
+        let factory = assetViewModelFactory
+        // An asset whose balance could not be read can still be chosen;
+        // its row says "Balance unavailable".
+        let items = factory.assetListItems(
+            assetIds: assetIds,
+            balances: balanceItems,
+            unavailable: assetsProvider?.unavailableBalanceAssetIds(among: assetIds) ?? [],
+            mode: mode
+        ) { balance, assetInfo in
+            factory.createAssetViewModel(with: balance,
+                                         assetInfo: assetInfo,
+                                         fiatData: [],
+                                         mode: mode)
+        }
+        items.forEach { item in
             item.assetHandler = { [weak self] identifier in
                 self?.dismiss?(true)
                 self?.selectionCompletion?(identifier)
@@ -161,8 +167,8 @@ private extension SelectAssetViewModel {
             item.favoriteHandle = { item in
                 item.assetInfo.visible = !item.assetInfo.visible
             }
-            return item
-        }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+        }
+        assetItems = items.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
         let assetIds = balanceItems.map { $0.identifier }
         priceInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)

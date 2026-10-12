@@ -4139,7 +4139,10 @@ final class WalletModernizationTests: XCTestCase {
                     polkamarktTransactions: [],
                     sora2Submissions: [unresolvedSora2],
                     walletId: walletId,
-                    soraAddress: soraAddress
+                    soraAddress: soraAddress,
+                    // Just after signing: the transaction may still be
+                    // entering the network.
+                    now: createdAt.addingTimeInterval(60)
                 ),
                 "SORA2 state \(state.rawValue) did not block deletion"
             ) { error in
@@ -12671,9 +12674,17 @@ final class WalletModernizationTests: XCTestCase {
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
 
-        XCTAssertTrue(settings.nexusEnabled)
+        // Tester builds follow PI. An App Store build ships none of these
+        // surfaces, so there the flags stay off whatever PI sends.
+        XCTAssertEqual(
+            settings.nexusEnabled,
+            ProductSurfacePolicy.showsNexusPortfolio
+        )
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertTrue(settings.polkamarktEnabled)
+        XCTAssertEqual(
+            settings.polkamarktEnabled,
+            ProductSurfacePolicy.showsPolkamarkt
+        )
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
         XCTAssertFalse(config.typedAccountBalancesAvailable)
         XCTAssertFalse(settings.isTairaEnabled)
@@ -12694,7 +12705,10 @@ final class WalletModernizationTests: XCTestCase {
             refreshToken:
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
-        XCTAssertTrue(settings.isTairaEnabled)
+        XCTAssertEqual(
+            settings.isTairaEnabled,
+            ProductSurfacePolicy.showsTairaSettings
+        )
 
         settings.isTairaEnabled = false
         settings.set(
@@ -13138,79 +13152,102 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPIResponseRequiresStablePreflightAndPostflightCheckpoint() throws {
+    /// PI indexes a block about every six seconds, so the health records
+    /// read before and after a response often differ. The response is then
+    /// attributed to the later checkpoint. Only a move backwards, or another
+    /// indexer, is rejected.
+    func testPIResponseFollowsAForwardCheckpointAndRejectsABackwardOne() throws {
         let now = 2_000_000
-        let health = PIHealth(
-            ok: true,
-            repositoryReady: true,
-            service: "polkaswap-indexer",
-            serviceId: "pi.soramitsu.io",
-            schemaVersion: 1,
-            ecosystem: "sora2",
-            chainId: "sora:mainnet",
-            network: "mainnet",
-            publicBaseUrl: PIIndexerClient.endpoint,
-            readOnly: true,
-            genesisHash: PIIndexerClient.soraMainnetGenesis,
-            latestIndexedBlock: 123,
-            latestIndexedBlockHash:
-                "0x1111111111111111111111111111111111111111111111111111111111111111",
-            latestIndexedAt: now,
-            workerAvailable: true,
-            workerReady: true,
-            workerReadinessReason: nil,
-            workerLifecycle: "running",
-            workerStartupComplete: true,
-            workerLatestFinalizedBlock: 125,
-            workerLatestIndexedBlock: 123,
-            workerLag: 2,
-            workerLastSuccessfulIndexTimestamp: now,
-            workerLastError: nil,
-            workerLastErrorTimestamp: nil
+        func health(
+            indexed: Int,
+            finalized: Int,
+            serviceId: String = "pi.soramitsu.io",
+            hash: String =
+                "0x1111111111111111111111111111111111111111111111111111111111111111"
+        ) -> PIHealth {
+            PIHealth(
+                ok: true,
+                repositoryReady: true,
+                service: "polkaswap-indexer",
+                serviceId: serviceId,
+                schemaVersion: 1,
+                ecosystem: "sora2",
+                chainId: "sora:mainnet",
+                network: "mainnet",
+                publicBaseUrl: PIIndexerClient.endpoint,
+                readOnly: true,
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                latestIndexedBlock: indexed,
+                latestIndexedBlockHash: hash,
+                latestIndexedAt: now,
+                workerAvailable: true,
+                workerReady: true,
+                workerReadinessReason: nil,
+                workerLifecycle: "running",
+                workerStartupComplete: true,
+                workerLatestFinalizedBlock: finalized,
+                workerLatestIndexedBlock: indexed,
+                workerLag: finalized - indexed,
+                workerLastSuccessfulIndexTimestamp: now,
+                workerLastError: nil,
+                workerLastErrorTimestamp: nil
+            )
+        }
+        let before = health(indexed: 123, finalized: 125)
+
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: before
+            ),
+            before
+        )
+        // One block later: the response belongs to the later checkpoint.
+        let oneBlockLater = health(
+            indexed: 124,
+            finalized: 125,
+            hash: "0x2222222222222222222222222222222222222222222222222222222222222222"
+        )
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: oneBlockLater
+            ),
+            oneBlockLater
+        )
+        // Only the finalized head moved (it does so about three seconds
+        // before the indexed block): still the same indexed checkpoint.
+        let finalizedHeadMoved = health(indexed: 123, finalized: 126)
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: finalizedHeadMoved
+            ),
+            finalizedHeadMoved
         )
 
-        XCTAssertNoThrow(
-            try PIIndexerClient.validateStableResponseCheckpoint(
-                preflight: health,
-                postflight: health
-            )
-        )
-        XCTAssertThrowsError(
-            try PIIndexerClient.validateStableResponseCheckpoint(
-                preflight: health,
-                postflight: PIHealth(
-                    ok: health.ok,
-                    repositoryReady: health.repositoryReady,
-                    service: health.service,
-                    serviceId: health.serviceId,
-                    schemaVersion: health.schemaVersion,
-                    ecosystem: health.ecosystem,
-                    chainId: health.chainId,
-                    network: health.network,
-                    publicBaseUrl: health.publicBaseUrl,
-                    readOnly: health.readOnly,
-                    genesisHash: health.genesisHash,
-                    latestIndexedBlock: 124,
-                    latestIndexedBlockHash: health.latestIndexedBlockHash,
-                    latestIndexedAt: health.latestIndexedAt,
-                    workerAvailable: health.workerAvailable,
-                    workerReady: health.workerReady,
-                    workerReadinessReason: health.workerReadinessReason,
-                    workerLifecycle: health.workerLifecycle,
-                    workerStartupComplete: health.workerStartupComplete,
-                    workerLatestFinalizedBlock: 125,
-                    workerLatestIndexedBlock: 124,
-                    workerLag: 1,
-                    workerLastSuccessfulIndexTimestamp:
-                        health.workerLastSuccessfulIndexTimestamp,
-                    workerLastError: health.workerLastError,
-                    workerLastErrorTimestamp:
-                        health.workerLastErrorTimestamp
+        let rejected: [PIHealth] = [
+            // Backwards.
+            health(indexed: 122, finalized: 125),
+            // Another service answered.
+            health(indexed: 124, finalized: 125, serviceId: "other.example"),
+            // The same height with another block.
+            health(
+                indexed: 123,
+                finalized: 125,
+                hash: "0x3333333333333333333333333333333333333333333333333333333333333333"
+            ),
+        ]
+        for after in rejected {
+            XCTAssertThrowsError(
+                try PIIndexerClient.settledResponseCheckpoint(
+                    preflight: before,
+                    postflight: after
                 )
-            )
-        ) { error in
-            guard case PIIndexerError.staleCheckpoint = error else {
-                return XCTFail("Unexpected error: \(error)")
+            ) { error in
+                guard case PIIndexerError.staleCheckpoint = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
             }
         }
     }
@@ -13963,7 +14000,7 @@ final class WalletModernizationTests: XCTestCase {
         let presentationAsset = try decoder.decode(
             PIAsset.self,
             from: Data(
-                #"{"id":"xor","priceChangeDay":-4.5,"priceChangeWeek":3,"volumeDayUSD":"999999999999999999999.1"}"#.utf8
+                #"{"id":"xor","priceUSD":"999999999999999999999.1","priceChangeDay":-4.5}"#.utf8
             )
         )
 
@@ -13973,17 +14010,20 @@ final class WalletModernizationTests: XCTestCase {
         )
         XCTAssertEqual(presentationAsset.priceChangeDay, -4.5)
         XCTAssertEqual(
-            presentationAsset.volumeDayUSD?.rawValue,
+            presentationAsset.priceUSD?.rawValue,
             "999999999999999999999.1"
         )
-        XCTAssertThrowsError(
-            try decoder.decode(
-                PIAsset.self,
-                from: Data(
-                    #"{"id":"xor","volumeDayUSD":1.5}"#.utf8
-                )
+        // The live PI sends `volumeDayUSD` and `volumeWeekUSD` as JSON
+        // numbers. The wallet does not read them, so a row that carries them
+        // decodes; it used to fail the whole asset catalog.
+        let liveShapedAsset = try decoder.decode(
+            PIAsset.self,
+            from: Data(
+                #"{"id":"xor","priceUSD":"5.4","volumeDayUSD":1.5,"volumeWeekUSD":0}"#.utf8
             )
         )
+        XCTAssertEqual(liveShapedAsset.priceUSD?.rawValue, "5.4")
+        XCTAssertNoThrow(try PIIndexerClient.validateAssets([liveShapedAsset]))
         XCTAssertThrowsError(try PIIndexerClient.validatePools([pool]))
         XCTAssertThrowsError(
             try PIIndexerClient.validateReferrerRewards(
@@ -17351,12 +17391,14 @@ final class WalletModernizationTests: XCTestCase {
             updatedAt: Date(timeIntervalSince1970: 3),
             state: .submissionUnknown
         )
+        let journalTime = Date(timeIntervalSince1970: 100)
         let journalOverlay = TransactionHistoryMergeManager
             .pendingJournalOverlay(
                 address: "sender",
                 submissions: [journal, journal],
                 visibleLocalItems: [],
-                remoteHashes: []
+                remoteHashes: [],
+                now: journalTime
             )
         XCTAssertEqual(journalOverlay.count, 1)
         XCTAssertEqual(journalOverlay.first?.txHash, "0x\(journalHash)")
@@ -17379,7 +17421,19 @@ final class WalletModernizationTests: XCTestCase {
                 address: "another-account",
                 submissions: [journal],
                 visibleLocalItems: [],
-                remoteHashes: []
+                remoteHashes: [],
+                now: journalTime
+            ).isEmpty
+        )
+        // An entry nobody could resolve for more than a week no longer
+        // claims to be pending.
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.pendingJournalOverlay(
+                address: "sender",
+                submissions: [journal],
+                visibleLocalItems: [],
+                remoteHashes: [],
+                now: Date(timeIntervalSince1970: 2 + 8 * 24 * 3_600)
             ).isEmpty
         )
     }
@@ -19190,33 +19244,40 @@ final class WalletModernizationTests: XCTestCase {
             health: health(100),
             source: .live
         )
+        func collect(
+            second: PIReadQualification
+        ) async throws -> PIQualifiedRead<[String]> {
+            var page = 0
+            return try await client.collectQualifiedPagesRead(
+                pageSize: 1,
+                maximumPages: 2
+            ) { cursor in
+                defer { page += 1 }
+                return PIQualifiedRead(
+                    value: PIConnection<String>(
+                        nodes: [page == 0 ? "first" : "second"],
+                        edges: nil,
+                        pageInfo: PIPageInfo(
+                            hasNextPage: page == 0,
+                            hasPreviousPage: cursor != nil,
+                            startCursor: cursor,
+                            endCursor: page == 0 ? "next" : nil
+                        ),
+                        totalCount: 2
+                    ),
+                    qualification: page == 0 ? first : second
+                )
+            }
+        }
         let incompatible = [
+            // A cached page after a live one.
             PIReadQualification(health: health(100), source: .cache),
-            PIReadQualification(health: health(101), source: .live),
+            // The indexer went backwards between pages.
+            PIReadQualification(health: health(99), source: .live),
         ]
         for second in incompatible {
-            var page = 0
             do {
-                _ = try await client.collectQualifiedPages(
-                    pageSize: 1,
-                    maximumPages: 2
-                ) { cursor in
-                    defer { page += 1 }
-                    return PIQualifiedRead(
-                        value: PIConnection<String>(
-                            nodes: [page == 0 ? "first" : "second"],
-                            edges: nil,
-                            pageInfo: PIPageInfo(
-                                hasNextPage: page == 0,
-                                hasPreviousPage: cursor != nil,
-                                startCursor: cursor,
-                                endCursor: page == 0 ? "next" : nil
-                            ),
-                            totalCount: 2
-                        ),
-                        qualification: page == 0 ? first : second
-                    )
-                }
+                _ = try await collect(second: second)
                 XCTFail("PI composed pages from incompatible qualifications")
             } catch {
                 guard case PIIndexerError.staleCheckpoint = error else {
@@ -19224,6 +19285,27 @@ final class WalletModernizationTests: XCTestCase {
                 }
             }
         }
+
+        // The indexer moved forward between pages: normal progress. The
+        // result is attributed to the later checkpoint.
+        let later = PIReadQualification(health: health(101), source: .live)
+        let followed = try await collect(second: later)
+        XCTAssertEqual(followed.value, ["first", "second"])
+        XCTAssertEqual(followed.qualification, later)
+
+        // Two cached pages must carry one checkpoint.
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatePageCheckpoint(
+                previous: PIReadQualification(
+                    health: health(100),
+                    source: .cache
+                ),
+                current: PIReadQualification(
+                    health: health(101),
+                    source: .cache
+                )
+            )
+        )
 
         let qualified = try await client.collectQualifiedPagesRead(
             pageSize: 1,
@@ -19305,7 +19387,7 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPICacheFallbackAllowsOnlyTransientTransportErrors() {
+    func testPICacheFallbackAllowsOnlyFailuresWherePIGaveNoAnswer() {
         XCTAssertTrue(
             PIIndexerClient.allowsOfflineTransportFallback(
                 URLError(.notConnectedToInternet)
@@ -19321,7 +19403,11 @@ final class WalletModernizationTests: XCTestCase {
                 URLError(.cancelled)
             )
         )
-        XCTAssertFalse(
+        // Review round 4 of in1-indexer: a TLS failure and a status from a
+        // proxy or firewall mean that PI gave no answer, like a timeout.
+        // The last good validated value is shown with its time; nothing
+        // is read from the other side. (They used to hide it.)
+        XCTAssertTrue(
             PIIndexerClient.allowsOfflineTransportFallback(
                 URLError(.serverCertificateUntrusted)
             )
@@ -19329,9 +19415,17 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertTrue(PIIndexerError.httpStatus(408).allowsOfflineFallback)
         XCTAssertTrue(PIIndexerError.httpStatus(429).allowsOfflineFallback)
         XCTAssertTrue(PIIndexerError.httpStatus(503).allowsOfflineFallback)
-        XCTAssertFalse(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        XCTAssertTrue(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        // PI's own refusal of the request is never hidden by older data.
+        XCTAssertFalse(PIIndexerError.httpStatus(400).allowsOfflineFallback)
         XCTAssertFalse(PIIndexerError.invalidResponse.allowsOfflineFallback)
         XCTAssertFalse(PIIndexerError.responseTooLarge.allowsOfflineFallback)
+        // PI answered but had no consistent fresh checkpoint: the last good
+        // value is better than nothing. Wrong data never qualifies.
+        XCTAssertTrue(PIIndexerError.staleCheckpoint.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidQuantity.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidChainIdentity.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.graphQLErrors.allowsOfflineFallback)
     }
 
     func testValidatedPIHistoryCacheSurvivesRestartAndExpires()
