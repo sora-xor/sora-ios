@@ -920,7 +920,10 @@ extension RootInteractor: RootInteractorInputProtocol {
             // PIN until PIN setup saves this install's PIN. Onboarding saves
             // the account first, so a stop in between must lead back to PIN
             // setup, not to a PIN entry the user may not be able to answer.
-            if pincodeExists, !WalletPendingPinSetup.isPending(settings) {
+            let pendingSetup = try legacyUpgradeSelectedAccount().map {
+                try WalletOwnerPIN(keystore: keystore, settings: settings).requiresInitialSetup(accounts: [$0])
+            } ?? false
+            if pincodeExists, !pendingSetup {
                 presenter?.didDecideLocalAuthentication()
             } else {
                 presenter?.didDecidePincodeSetup()

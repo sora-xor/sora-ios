@@ -57,6 +57,7 @@ final class SetupAccountNameViewFactory {
                                     usernameViewModel: InputViewModelProtocol,
                                     passwordViewModel: InputViewModelProtocol?,
                                     derivationPathViewModel: InputViewModelProtocol?,
+                                    expectedAddress: String? = nil,
                                     endAddingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
@@ -83,7 +84,8 @@ final class SetupAccountNameViewFactory {
                                                         sourceViewModel: sourceViewModel,
                                                         usernameViewModel: usernameViewModel,
                                                         passwordViewModel: passwordViewModel,
-                                                        derivationPathViewModel: derivationPathViewModel)
+                                                        derivationPathViewModel: derivationPathViewModel,
+                                                        expectedAddress: expectedAddress)
         
         
         let wireframe = UsernameSetupWireframe(localizationManager: localizationManager)
@@ -113,7 +115,8 @@ final class SetupAccountNameViewFactory {
                                            sourceViewModel: InputViewModelProtocol,
                                            usernameViewModel: InputViewModelProtocol,
                                            passwordViewModel: InputViewModelProtocol?,
-                                           derivationPathViewModel: InputViewModelProtocol?) -> UsernameSetupViewProtocol? {
+                                           derivationPathViewModel: InputViewModelProtocol?,
+                                           expectedAddress: String? = nil) -> UsernameSetupViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
                 URLHandlingService.shared.findService() else {
             Logger.shared.error("Missing required keystore import service")
@@ -139,7 +142,8 @@ final class SetupAccountNameViewFactory {
                                                      sourceViewModel: sourceViewModel,
                                                      usernameViewModel: usernameViewModel,
                                                      passwordViewModel: passwordViewModel,
-                                                     derivationPathViewModel: derivationPathViewModel)
+                                                     derivationPathViewModel: derivationPathViewModel,
+                                                        expectedAddress: expectedAddress)
         
         
         let wireframe = UsernameSetupWireframe(localizationManager: localizationManager)

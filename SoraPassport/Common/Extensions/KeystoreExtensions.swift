@@ -78,7 +78,11 @@ extension KeystoreProtocol {
                 KeystoreTag.secretKeyTagForAddress(address),
                 KeystoreTag.entropyTagForAddress(address),
                 KeystoreTag.deriviationTagForAddress(address),
-                KeystoreTag.seedTagForAddress(address)
+                KeystoreTag.seedTagForAddress(address),
+                address + WalletOwnerPIN.bindingSuffix,
+                address + WalletOwnerPIN.throttleSuffix,
+                WalletOwnerPIN.rebindPrefix + address,
+                WalletOwnerPIN.setupPrefix + address
             ]
         )
     }

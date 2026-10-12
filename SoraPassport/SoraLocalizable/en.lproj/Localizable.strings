@@ -1208,3 +1208,39 @@
 "Also save this derivation path:" = "Also save this derivation path:";
 
 "Copy derivation path" = "Copy derivation path";
+
+// Wallet ownership PIN and restart recovery
+"Enter your current app PIN to change it." = "Enter your current app PIN to change it.";
+"PIN not changed" = "PIN not changed";
+"Enter the current app PIN to authorize this change." = "Enter the current app PIN to authorize this change.";
+"Enter a valid PIN." = "Enter a valid PIN.";
+"The PIN update could not be completed. Try again. Your wallet keys are unchanged." = "The PIN update could not be completed. Try again. Your wallet keys are unchanged.";
+"These wallets have no saved ownership PIN. Restore them with your recovery phrase or Google Drive backup." = "These wallets have no saved ownership PIN. Restore them with your recovery phrase or Google Drive backup.";
+"Enter the PIN that protected these wallets. Only wallets owned by that PIN will be restored, and this app will use that PIN." = "Enter the PIN that protected these wallets. Only wallets owned by that PIN will be restored, and this app will use that PIN.";
+"Enter the PIN that protected the wallets you want to restore." = "Enter the PIN that protected the wallets you want to restore.";
+"Enter this app's PIN. The restored wallets will from now on be protected by this app's PIN." = "Enter this app's PIN. The restored wallets will from now on be protected by this app's PIN.";
+"We found SORA data from an earlier install on this iPhone. Choose how to continue. Nothing will be deleted. Wallets saved by older versions without an ownership PIN need your recovery phrase or Google Drive backup." = "We found SORA data from an earlier install on this iPhone. Choose how to continue. Nothing will be deleted. Wallets saved by older versions without an ownership PIN need your recovery phrase or Google Drive backup.";
+"SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted, and the earlier wallet data is moved to a separate folder on this iPhone. You can restore any wallet with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored with that PIN." = "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted, and the earlier wallet data is moved to a separate folder on this iPhone. You can restore any wallet with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored with that PIN.";
+"SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN." = "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN.";
+
+"Restore a historical wallet" = "Restore a historical wallet";
+
+"For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved.";
+
+"SORA wallet address" = "SORA wallet address";
+
+"Advanced options" = "Advanced options";
+
+"Key type" = "Key type";
+
+"Derivation path (optional)" = "Derivation path (optional)";
+
+"Backup file password" = "Backup file password";
+
+"Complete PIN setup" = "Complete PIN setup";
+
+"Your restored wallets are saved. Complete PIN setup to continue. Your wallet keys are unchanged." = "Your restored wallets are saved. Complete PIN setup to continue. Your wallet keys are unchanged.";
+
+"Your restored wallets are saved, but the PIN protection update could not finish. Try again before using them." = "Your restored wallets are saved, but the PIN protection update could not finish. Try again before using them.";
+
+"Wallet restore" = "Wallet restore";

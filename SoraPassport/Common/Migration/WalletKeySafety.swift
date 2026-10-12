@@ -502,230 +502,62 @@ enum LegacyGlobalEntropyScopedBackfill {
     }
 }
 
-// MARK: - Retained PIN
+// MARK: - Per-wallet ownership after reinstall
 
-/// Checks a PIN against the PIN of an earlier install, before restoring the
-/// wallets that install left in the Keychain or showing their phrases.
-///
-/// - Welcome back (no wallet on this install yet): the `pincode` item is
-///   still the earlier install's PIN.
-/// - After setup: onboarding has replaced `pincode` with this install's PIN.
-///   Before it does, `keepEarlierInstallPin` keeps a copy of the earlier
-///   PIN (add-only), and only those copies unlock retained wallets. This
-///   install's PIN alone never does: it was chosen by whoever set up this
-///   install, not by the owner of the retained wallets. Keeping the copy is
-///   a precondition for leaving Welcome back and for setting a new PIN over
-///   an existing one (`PinSetupInteractor`); there is no limit on copies.
-///
-/// Wrong PINs lead to waits of 1, 5, 15 and then 30 minutes after the third
-/// failure, as on the normal PIN screen. There is no permanent lock; the
-/// recovery phrase and Google Drive backup stay available throughout.
+/// Legacy earlierInstallPin copies and the installation's pincode are never
+/// ownership evidence for a retained wallet. Leave old copies untouched.
 enum WalletRetainedPinGate {
     static let failuresBeforeWait = 3
-    static let failureCountKey = "wallet.retainedPinFailures"
-    static let lockedUntilKey = "wallet.retainedPinLockedUntil"
     static let earlierInstallPinTagPrefix = "earlierInstallPin-"
-
-    enum Scope: Equatable {
-        case welcomeBack
-        case afterSetup
-    }
-
+    enum Scope: Equatable { case welcomeBack, afterSetup }
     enum Failure: Error, Equatable {
         case noRetainedPin
         case incorrectPin(attemptsBeforeWait: Int)
         case locked(until: Date)
-        /// A copy of the earlier install's PIN could not be saved or read
-        /// back. Nothing that would replace that PIN may continue.
-        case earlierPinNotKept
     }
 
     static func cooldown(afterFailures count: Int) -> TimeInterval {
         switch count {
         case ..<failuresBeforeWait: return 0
         case failuresBeforeWait: return 60
-        case failuresBeforeWait + 1: return 5 * 60
-        case failuresBeforeWait + 2: return 15 * 60
-        default: return 30 * 60
+        case failuresBeforeWait + 1: return 300
+        case failuresBeforeWait + 2: return 900
+        default: return 1800
         }
-    }
-
-    static func earlierInstallPinTags(keystore: KeystoreProtocol) throws -> [String] {
-        try keystore.allKeyIdentifiers().filter { $0.hasPrefix(earlierInstallPinTagPrefix) }.sorted()
-    }
-
-    private static func candidateTags(scope: Scope, keystore: KeystoreProtocol) throws -> [String] {
-        var tags = try earlierInstallPinTags(keystore: keystore)
-        if scope == .welcomeBack, try keystore.checkKey(for: KeystoreTag.pincode.rawValue) {
-            tags.insert(KeystoreTag.pincode.rawValue, at: 0)
-        }
-        return tags
     }
 
     static func hasRetainedPin(keystore: KeystoreProtocol, scope: Scope = .welcomeBack) -> Bool {
-        (try? candidateTags(scope: scope, keystore: keystore).isEmpty == false) == true
+        (try? WalletOwnerPIN.boundAddresses(keystore: keystore).isEmpty == false) == true
     }
 
-    /// When a wait is running, its end.
-    static func lockedUntil(settings: SettingsManagerProtocol, now: Date = Date()) -> Date? {
-        guard let value = settings.integer(for: lockedUntilKey) else { return nil }
-        let until = Date(timeIntervalSince1970: TimeInterval(value))
-        return until > now ? until : nil
-    }
-
-    /// A PIN path exists (a wait, if running, ends by itself).
-    static func isUsable(
-        keystore: KeystoreProtocol,
-        settings: SettingsManagerProtocol,
-        scope: Scope = .welcomeBack
-    ) -> Bool {
+    static func isUsable(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                         scope: Scope = .welcomeBack) -> Bool {
         hasRetainedPin(keystore: keystore, scope: scope)
     }
 
-    /// Returns true when the PIN matched the current `pincode` item (on
-    /// Welcome back: the PIN the app will ask for after the restore), false
-    /// when it matched only a copy kept from an earlier install.
     @discardableResult
-    static func verify(
-        _ pin: String,
-        keystore: KeystoreProtocol,
-        settings: SettingsManagerProtocol,
-        scope: Scope = .welcomeBack,
-        now: Date = Date()
-    ) throws -> Bool {
-        if let until = lockedUntil(settings: settings, now: now) {
-            throw Failure.locked(until: until)
-        }
-        let tags = try candidateTags(scope: scope, keystore: keystore)
-        guard !tags.isEmpty else { throw Failure.noRetainedPin }
-        var entered = Data(pin.utf8)
-        defer { entered.resetBytes(in: entered.startIndex ..< entered.endIndex) }
-        var matched = false
-        var matchedCurrentPin = false
-        if !entered.isEmpty {
-            for tag in tags {
-                var stored = try keystore.fetchKey(for: tag)
-                defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
-                if LegacySoraIdentityValidator.constantTimeEqual(stored, entered) {
-                    matched = true
-                    if tag == KeystoreTag.pincode.rawValue { matchedCurrentPin = true }
-                }
-            }
-        }
-        guard matched else {
-            let failures = (settings.integer(for: failureCountKey) ?? 0) + 1
-            settings.set(value: failures, for: failureCountKey)
-            let wait = cooldown(afterFailures: failures)
-            guard wait > 0 else {
-                throw Failure.incorrectPin(attemptsBeforeWait: failuresBeforeWait - failures)
-            }
-            let until = now.addingTimeInterval(wait)
-            settings.set(value: Int(until.timeIntervalSince1970.rounded(.up)), for: lockedUntilKey)
-            throw Failure.locked(until: until)
-        }
-        settings.removeValue(for: failureCountKey)
-        settings.removeValue(for: lockedUntilKey)
-        return matchedCurrentPin
-    }
-
-    /// Keeps a copy of the current `pincode` (the earlier install's PIN while
-    /// no wallet exists) before anything replaces it, so wallets that stay in
-    /// the Keychain can still be restored with that PIN later. Add-only and
-    /// read back; an identical copy is not added twice, and every distinct
-    /// PIN gets its own copy. Returns true when a copy was added.
-    @discardableResult
-    static func preserveEarlierInstallPin(keystore: KeystoreProtocol) throws -> Bool {
-        guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return false }
-        var current = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
-        defer { current.resetBytes(in: current.startIndex ..< current.endIndex) }
-        guard !current.isEmpty else { return false }
-        let existing = try earlierInstallPinTags(keystore: keystore)
-        if try hasCopy(of: current, among: existing, keystore: keystore) { return false }
-        var index = 1
-        while existing.contains("\(earlierInstallPinTagPrefix)\(index)") { index += 1 }
-        let tag = "\(earlierInstallPinTagPrefix)\(index)"
-        try keystore.addKey(current, with: tag)
-        var stored = try keystore.fetchKey(for: tag)
-        defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
-        guard LegacySoraIdentityValidator.constantTimeEqual(stored, current) else {
-            throw WalletNetworkMigrationError.snapshotVerificationFailed
-        }
-        return true
-    }
-
-    /// The precondition for replacing `pincode` (leaving Welcome back for
-    /// onboarding, or setting a new PIN over an existing one): a copy equal
-    /// to the current `pincode` is stored and reads back. Throws
-    /// `earlierPinNotKept` otherwise; the caller must then stop. Without a
-    /// `pincode` (or with an empty one, which no PIN entry can match) there
-    /// is nothing to keep.
-    static func keepEarlierInstallPin(keystore: KeystoreProtocol) throws {
-        do {
-            guard try keystore.checkKey(for: KeystoreTag.pincode.rawValue) else { return }
-            _ = try preserveEarlierInstallPin(keystore: keystore)
-            var current = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
-            defer { current.resetBytes(in: current.startIndex ..< current.endIndex) }
-            guard try current.isEmpty ||
-                    hasCopy(of: current, among: earlierInstallPinTags(keystore: keystore), keystore: keystore)
-            else { throw Failure.earlierPinNotKept }
-        } catch let failure as Failure {
-            throw failure
-        } catch {
-            Logger.shared.warning(
-                "Wallet keys: earlier PIN not kept (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))")
-            throw Failure.earlierPinNotKept
-        }
-    }
-
-    private static func hasCopy(of pin: Data, among tags: [String], keystore: KeystoreProtocol) throws -> Bool {
-        var found = false
-        for tag in tags {
-            var stored = try keystore.fetchKey(for: tag)
-            defer { stored.resetBytes(in: stored.startIndex ..< stored.endIndex) }
-            if LegacySoraIdentityValidator.constantTimeEqual(stored, pin) { found = true }
-        }
-        return found
+    static func verify(_ pin: String, keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                       scope: Scope = .welcomeBack, addresses: Set<String>? = nil,
+                       now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
+                       boot: String = WalletOwnerPIN.bootIdentifier()) throws -> Set<String> {
+        try WalletOwnerPIN(keystore: keystore, settings: settings, now: { now },
+                           uptime: { uptime }, boot: { boot })
+            .verifyRetained(pin, addresses: addresses ?? WalletOwnerPIN.boundAddresses(keystore: keystore))
     }
 }
 
-/// Onboarding that starts from Welcome back keeps the earlier install's
-/// `pincode` until the user sets the PIN of this install, and onboarding
-/// saves the account before it shows PIN setup. If the app stops in between,
-/// the next launch must not ask for the earlier PIN (there is no "forgot
-/// PIN" on that screen): while this flag is set, Root routes to PIN setup
-/// instead of PIN entry. The earlier PIN is already kept as a copy
-/// (`WalletRetainedPinGate.keepEarlierInstallPin`), so the found wallets
-/// stay restorable with it. Cleared only when PIN setup has saved the new PIN.
+/// Compatibility/presentation hint only. The durable, identity-scoped Keychain
+/// setup intent in WalletOwnerPIN is the authority for authentication and setup.
+/// A stale or lost preference must neither authorize a new PIN nor the old PIN.
 enum WalletPendingPinSetup {
     static let settingsKey = "wallet.pinSetupPendingAfterWelcomeBack"
-
     static func isPending(_ settings: SettingsManagerProtocol) -> Bool {
         settings.bool(for: settingsKey) == true
     }
-
-    static func begin(_ settings: SettingsManagerProtocol) {
-        settings.set(value: true, for: settingsKey)
-    }
-
-    static func finish(_ settings: SettingsManagerProtocol) {
-        settings.removeValue(for: settingsKey)
-    }
-
-    /// Leaving Welcome back for onboarding (restore with a phrase or Google
-    /// Drive, or set up again). Keeps a copy of the earlier PIN first and
-    /// throws (leaving nothing changed but an added copy) when it cannot.
+    static func begin(_ settings: SettingsManagerProtocol) { settings.set(value: true, for: settingsKey) }
+    static func finish(_ settings: SettingsManagerProtocol) { settings.removeValue(for: settingsKey) }
     static func leaveWelcomeBack(keystore: KeystoreProtocol, settings: SettingsManagerProtocol) throws {
-        try WalletRetainedPinGate.keepEarlierInstallPin(keystore: keystore)
         begin(settings)
-    }
-
-    /// After "Restore wallets found on this iPhone" on Welcome back. When the
-    /// PIN the user entered is this install's `pincode`, the restored wallets
-    /// open with it. When it matched only a copy from an earlier install, the
-    /// app would ask for a `pincode` the user did not prove: ask for a new
-    /// PIN instead (PIN setup keeps the current one as a copy first).
-    static func settleAfterWelcomeBackRestore(matchedCurrentPin: Bool, settings: SettingsManagerProtocol) {
-        matchedCurrentPin ? finish(settings) : begin(settings)
     }
 }
 
@@ -1087,6 +919,7 @@ enum WalletRecoveryPhraseReveal {
         let address: String
         let name: String
         let words: [String]
+        var derivationPath: String? = nil
     }
 
     /// Accounts whose phrase can be shown (no PIN check, no secret returned).
@@ -1109,12 +942,14 @@ enum WalletRecoveryPhraseReveal {
         scope: WalletRetainedPinGate.Scope = .welcomeBack,
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> [Entry] {
-        try WalletRetainedPinGate.verify(pin, keystore: keystore, settings: settings, scope: scope)
+        let matched = try WalletRetainedPinGate.verify(pin, keystore: keystore, settings: settings, scope: scope,
+                                                      addresses: Set(accounts.map(\.address)))
         return try accounts.compactMap { account in
-            guard let words = try phraseWords(for: account, keystore: keystore, recoveryGate: recoveryGate) else {
+            guard matched.contains(account.address) else { return nil }
+            guard let phrase = try phraseWords(for: account, keystore: keystore, recoveryGate: recoveryGate) else {
                 return nil
             }
-            return Entry(address: account.address, name: account.username, words: words)
+            return Entry(address: account.address, name: account.username, words: phrase.words, derivationPath: phrase.path)
         }
     }
 
@@ -1122,7 +957,7 @@ enum WalletRecoveryPhraseReveal {
         for account: AccountItem,
         keystore: KeystoreProtocol,
         recoveryGate: WalletRecoveryCapabilityGate
-    ) throws -> [String]? {
+    ) throws -> (words: [String], path: String?)? {
         let derivationPath = try keystore.fetchDeriviationForAddress(account.address)
         var entropy: Data
         if let scoped = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address)) {
@@ -1150,7 +985,7 @@ enum WalletRecoveryPhraseReveal {
         } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
             return nil
         }
-        return try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords()
+        return (try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords(), derivationPath)
     }
 }
 
@@ -1172,6 +1007,8 @@ extension RetainedKeychainWalletDiscovery {
         selectedWalletSettings: SelectedWalletSettingsProtocol,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        prepareOwnership: ((RetainedKeychainWallet) throws -> Void)? = nil,
+        ownershipAuthorization: WalletOwnerPIN.RetainedAuthorization? = nil,
         username: (Int) -> String = { index in
             index == 0
                 ? WalletUX.text("Restored wallet")
@@ -1183,6 +1020,7 @@ extension RetainedKeychainWalletDiscovery {
             do {
                 let prepared = try preparedAccount(
                     for: wallet, username: username(index), keystore: keystore, recoveryGate: recoveryGate)
+                prepared.restrictToRetainedOwnership(ownershipAuthorization)
                 let lease = lifecycleCoordinator.acquire()
                 let finished = DispatchSemaphore(value: 0)
                 var outcome: Result<AccountItem, Error> = .failure(AccountCreateError.retainedKeyConflict)
@@ -1190,6 +1028,7 @@ extension RetainedKeychainWalletDiscovery {
                     prepared: prepared,
                     persistSecrets: {
                         try recoveryGate.requireAuthorizedLifecycleContinuation()
+                        try prepareOwnership?(wallet)
                         try prepared.persist(to: keystore)
                     },
                     lifecycleLease: lease
@@ -1237,7 +1076,8 @@ enum WalletAccountKeyAvailability: Equatable {
         activeSnapshot: WalletNetworkSnapshot?,
         recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> WalletAccountKeyAvailability {
-        if settings.bool(for: "wallet.watchOnly.\(account.address)") == true { return .watchOnly }
+        if settings.bool(for: "wallet.watchOnly.\(account.address)") == true ||
+            activeSnapshot?.wallets.first(where: { $0.id == account.address })?.secretSource == .watchOnly { return .watchOnly }
         try recoveryGate.requireAuthorizedLifecycleContinuation()
         if var direct = try keystore.fetchSecretKeyForAddress(account.address) {
             defer { direct.resetBytes(in: direct.startIndex ..< direct.endIndex) }
@@ -1250,41 +1090,20 @@ enum WalletAccountKeyAvailability: Equatable {
                 return .keysNotVerified
             }
         }
-        var entropy: Data?
-        do {
-            if let activeSnapshot {
-                entropy = try keystore.fetchEntropyForAddress(
-                    account.address, activeSnapshot: activeSnapshot, recoveryGate: recoveryGate)
-            } else {
-                entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
-            }
-        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-            entropy = nil
-        }
-        var seed = try keystore.fetchSeedForAddress(account.address)
-        var secret = try keystore.fetchSecretKeyForAddress(account.address)
-        defer {
-            if let count = entropy?.count { entropy?.resetBytes(in: 0 ..< count) }
-            if let count = seed?.count { seed?.resetBytes(in: 0 ..< count) }
-            if let count = secret?.count { secret?.resetBytes(in: 0 ..< count) }
-        }
-        guard entropy != nil || seed != nil || secret != nil else { return .keysMissing }
-        do {
-            try LegacySoraIdentityValidator.validate(
-                address: account.address,
-                publicKey: account.publicKeyData,
-                cryptoType: account.cryptoType,
-                networkType: account.networkType,
-                derivationPath: try keystore.fetchDeriviationForAddress(account.address),
-                entropy: entropy,
-                rawSeed: seed,
-                secret: secret,
-                recoveryGate: recoveryGate
-            )
-            return .available
-        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-            return .keysNotVerified
-        }
+        var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
+            readEntropy: {
+                if let activeSnapshot {
+                    return try keystore.fetchEntropyForAddress(account.address, activeSnapshot: activeSnapshot,
+                                                               recoveryGate: recoveryGate)
+                }
+                return try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+            }, readSeed: { try keystore.fetchSeedForAddress(account.address) },
+            readPath: { try keystore.fetchDeriviationForAddress(account.address) })
+        defer { backup.wipe() }
+        if backup.entropy != nil || backup.seed != nil { return .available }
+        if let error = backup.firstReadError { throw error }
+        return backup.phraseStatus == .absent && backup.seedStatus == .absent ? .keysMissing : .keysNotVerified
+
     }
 }
 
@@ -1293,12 +1112,16 @@ enum WalletAccountKeyAvailability: Equatable {
 enum WalletAccountAddresses {
     /// The addresses of every account row. Call from a background queue.
     static func current(storageFacade: StorageFacadeProtocol = UserDataStorageFacade.shared) throws -> Set<String> {
+        Set(try accounts(storageFacade: storageFacade).map(\.address))
+    }
+
+    static func accounts(storageFacade: StorageFacadeProtocol = UserDataStorageFacade.shared) throws -> [AccountItem] {
         let repository: CoreDataRepository<AccountItem, CDAccountItem> = storageFacade.createRepository(
             filter: nil, sortDescriptors: [], mapper: AnyCoreDataMapper(AccountItemMapper()))
         let operation = repository.fetchAllOperation(with: RepositoryFetchOptions())
         let queue = OperationQueue()
         queue.addOperations([operation], waitUntilFinished: true)
-        return Set(try operation.extractNoCancellableResultData().map(\.address))
+        return try operation.extractNoCancellableResultData()
     }
 }
 

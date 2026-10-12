@@ -16,6 +16,14 @@ import XCTest
 
 // MARK: - Fixtures
 
+private func saveOwnerBindingFixture(_ pin: String, accounts: [AccountItem], keystore: KeystoreProtocol) throws {
+    for account in accounts {
+        try keystore.saveKey(JSONEncoder().encode(WalletOwnerPIN.Binding(pin: pin)),
+                             with: account.address + WalletOwnerPIN.bindingSuffix)
+    }
+}
+
+
 /// A Keychain that behaves like the real one for `addKey` (duplicates are
 /// rejected) and records every write the code under test makes. Fixtures are
 /// written through `base`, so they are not recorded.
@@ -228,9 +236,12 @@ private final class HistoricalCompatibilitySigner: SigningWrapperProtocol {
 
 private final class AuxiliaryReadFailureKeychain: KeystoreProtocol {
     let base: KeystoreProtocol
-    init(_ base: KeystoreProtocol) { self.base = base }
+    let blockedSuffixes: [String]
+    init(_ base: KeystoreProtocol, blockedSuffixes: [String] = ["-entropy", "-seed", "-deriv"]) {
+        self.base = base; self.blockedSuffixes = blockedSuffixes
+    }
     private func check(_ tag: String) throws {
-        if tag.hasSuffix("-entropy") || tag.hasSuffix("-seed") || tag.hasSuffix("-deriv") {
+        if blockedSuffixes.contains(where: { tag.hasSuffix($0) }) {
             throw KeystoreError.unexpectedFail
         }
     }
@@ -948,14 +959,19 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
         XCTAssertEqual(try device.keychain.bytes(), retained)
         XCTAssertEqual(WalletRecoveryStateProbe.welcomeBack(keystore: device.keychain, settings: device.settings),
-                       .welcomeBack(adoptableWallets: 1, walletsWithPhrase: 1, retainedPinUsable: true))
+                       .welcomeBack(adoptableWallets: 0, walletsWithPhrase: 0, retainedPinUsable: false))
 
         let selection = try device.selectedWalletSettings()
         let imported = try device.importPhrase(phrase12, into: selection)
         XCTAssertEqual(imported.address, account.address)
-        XCTAssertEqual(device.keychain.added, [])
+        let setupTag = WalletOwnerPIN.setupPrefix + account.address
+        XCTAssertEqual(device.keychain.added, [setupTag])
         XCTAssertFalse(device.keychain.changedExistingItems)
-        XCTAssertEqual(try device.keychain.bytes(), retained)
+        let after = try device.keychain.bytes()
+        XCTAssertEqual(Set(after.keys), Set(retained.keys).union([setupTag]))
+        for (tag, bytes) in retained { XCTAssertEqual(after[tag], bytes, tag) }
+        XCTAssertTrue(try WalletOwnerPIN(keystore: device.keychain, settings: device.settings,
+            recoveryGate: device.isolatedGate()).requiresInitialSetup(accounts: [imported]))
         let snapshot = try XCTUnwrap(device.networkStore().load())
         XCTAssertEqual(snapshot.wallets.map(\.secretSource), [.mnemonicEntropy])
         XCTAssertEqual(snapshot.selectedWalletId, account.address)
@@ -1049,6 +1065,7 @@ final class WalletKeySafetyTests: XCTestCase {
         // A lone derivation tag is not a wallet.
         try device.keychain.base.addKey(Data("//1".utf8), with: "cnLoneDerivation-deriv")
         try device.keychain.base.addKey(Data("246810".utf8), with: KeystoreTag.pincode.rawValue)
+        try saveOwnerBindingFixture("246810", accounts: [phraseWallet, seedWallet, jsonWallet], keystore: device.keychain.base)
         let retained = try device.keychain.bytes()
 
         let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain,
@@ -1067,10 +1084,8 @@ final class WalletKeySafetyTests: XCTestCase {
         } catch {
             XCTAssertEqual(error as? WalletRetainedPinGate.Failure, .incorrectPin(attemptsBeforeWait: 2))
         }
-        XCTAssertEqual(device.settings.integer(for: WalletRetainedPinGate.failureCountKey), 1)
         XCTAssertEqual(try device.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("246810".utf8))
         XCTAssertNoThrow(try WalletRetainedPinGate.verify("246810", keystore: device.keychain, settings: device.settings))
-        XCTAssertNil(device.settings.integer(for: WalletRetainedPinGate.failureCountKey))
 
         let result = RetainedKeychainWalletDiscovery.restore(inventory.adoptable, keystore: device.keychain,
             selectedWalletSettings: try device.selectedWalletSettings(),
@@ -1079,8 +1094,8 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertTrue(result.failedAddresses.isEmpty)
         let restored = result.restored
         XCTAssertEqual(Set(restored.map(\.address)), Set(inventory.adoptable.map(\.address)))
-        XCTAssertEqual(device.keychain.added, [])
-        XCTAssertFalse(device.keychain.changedExistingItems)
+        XCTAssertTrue((device.keychain.added + device.keychain.updated + device.keychain.deleted)
+            .allSatisfy { $0.hasSuffix(WalletOwnerPIN.throttleSuffix) })
         XCTAssertEqual(try device.keychain.bytes(), retained)
         let snapshot = try XCTUnwrap(device.networkStore().load())
         XCTAssertEqual(Set(snapshot.wallets.map(\.id)), Set(restored.map(\.address)))
@@ -1092,7 +1107,7 @@ final class WalletKeySafetyTests: XCTestCase {
         let start = Date()
         for attempt in 1...3 {
             XCTAssertThrowsError(try WalletRetainedPinGate.verify("111111", keystore: device.keychain,
-                settings: device.settings, now: start)) {
+                settings: device.settings, now: start, uptime: 1000, boot: "test-boot")) {
                 if attempt < 3 {
                     XCTAssertEqual($0 as? WalletRetainedPinGate.Failure, .incorrectPin(attemptsBeforeWait: 3 - attempt))
                 } else {
@@ -1101,24 +1116,13 @@ final class WalletKeySafetyTests: XCTestCase {
             }
         }
         XCTAssertThrowsError(try WalletRetainedPinGate.verify("246810", keystore: device.keychain,
-            settings: device.settings, now: start.addingTimeInterval(30))) {
+            settings: device.settings, now: start.addingTimeInterval(30), uptime: 1030, boot: "test-boot")) {
             guard case .locked? = $0 as? WalletRetainedPinGate.Failure else { return XCTFail("\($0)") }
         }
         XCTAssertTrue(WalletRecoveryStateProbe.welcomeBack(keystore: device.keychain, settings: device.settings)
             .options.canRestoreExistingKeys)
         XCTAssertNoThrow(try WalletRetainedPinGate.verify("246810", keystore: device.keychain,
-            settings: device.settings, now: start.addingTimeInterval(61)))
-        XCTAssertNil(WalletRetainedPinGate.lockedUntil(settings: device.settings, now: start))
-        for failures in 4...8 {
-            device.settings.set(value: failures - 1, for: WalletRetainedPinGate.failureCountKey)
-            XCTAssertThrowsError(try WalletRetainedPinGate.verify("111111", keystore: device.keychain,
-                settings: device.settings, now: start))
-            let until = try XCTUnwrap(WalletRetainedPinGate.lockedUntil(settings: device.settings, now: start))
-            XCTAssertEqual(until.timeIntervalSince(start), WalletRetainedPinGate.cooldown(afterFailures: failures),
-                           accuracy: 1)
-            XCTAssertLessThanOrEqual(WalletRetainedPinGate.cooldown(afterFailures: failures), 30 * 60)
-            device.settings.removeValue(for: WalletRetainedPinGate.lockedUntilKey)
-        }
+            settings: device.settings, now: start.addingTimeInterval(61), uptime: 1061, boot: "test-boot"))
         XCTAssertEqual(try device.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("246810".utf8))
     }
 
@@ -1128,6 +1132,7 @@ final class WalletKeySafetyTests: XCTestCase {
         let seedAccount = try HistoricalWriter.seedImport(Data(repeating: 31, count: 32), cryptoType: .sr25519,
                                                           keystore: device.keychain.base)
         try device.keychain.base.addKey(Data("135790".utf8), with: KeystoreTag.pincode.rawValue)
+        try saveOwnerBindingFixture("135790", accounts: [account, seedAccount], keystore: device.keychain.base)
         XCTAssertEqual(WalletRecoveryPhraseReveal.availableAddresses(accounts: [account, seedAccount],
             keystore: device.keychain, recoveryGate: device.isolatedGate()), [account.address])
         XCTAssertThrowsError(try WalletRecoveryPhraseReveal.reveal(pin: "000000", accounts: [account],
@@ -1136,7 +1141,8 @@ final class WalletKeySafetyTests: XCTestCase {
             keystore: device.keychain, settings: device.settings, recoveryGate: device.isolatedGate())
         XCTAssertEqual(entries.map(\.address), [account.address])
         XCTAssertEqual(entries.first?.words.joined(separator: " "), phrase12)
-        XCTAssertTrue(device.keychain.added.isEmpty && !device.keychain.changedExistingItems)
+        XCTAssertTrue((device.keychain.added + device.keychain.updated + device.keychain.deleted)
+            .allSatisfy { $0.hasSuffix(WalletOwnerPIN.throttleSuffix) })
     }
 
     func testSetUpDeviceAgainMovesWalletFilesAsideAndNeverTouchesTheKeychain() throws {
@@ -1348,7 +1354,8 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertEqual(imported.address, account.address)
         XCTAssertEqual(try reimport.keychain.fetchKey(for: KeystoreTag.secretKeyTagForAddress(account.address)), stored)
         XCTAssertEqual(Set(reimport.keychain.added), [KeystoreTag.entropyTagForAddress(account.address),
-            KeystoreTag.deriviationTagForAddress(account.address), KeystoreTag.seedTagForAddress(account.address)])
+            KeystoreTag.deriviationTagForAddress(account.address), KeystoreTag.seedTagForAddress(account.address),
+            WalletOwnerPIN.setupPrefix + account.address])
         XCTAssertFalse(reimport.keychain.changedExistingItems)
     }
 
@@ -1608,11 +1615,125 @@ final class WalletKeySafetyTests: XCTestCase {
             XCTAssertEqual(snapshot.wallets.first { $0.id == account.address }?.secretSource, .legacyMnemonicEntropy)
             XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
             XCTAssertEqual(Set(device.keychain.added), [KeystoreTag.entropyTagForAddress(account.address),
-                KeystoreTag.seedTagForAddress(account.address), KeystoreTag.secretKeyTagForAddress(account.address)])
+                KeystoreTag.seedTagForAddress(account.address), KeystoreTag.secretKeyTagForAddress(account.address),
+                WalletOwnerPIN.setupPrefix + account.address])
         }
     }
 
     // MARK: (k) 3/6/9-word wallets imported by App Store 3.8.6
+
+    func testTypedShortPhrasesRequireAndRestoreTheKnownAddressBeforeSaving() throws {
+        for words in [3, 6, 9] {
+            for crypto: CryptoType in [.sr25519, .ed25519, .ecdsa] {
+                let phrase = try shortPhrase(words: words)
+                let path = "//7"
+                let oldKeys = InMemoryKeychain()
+                let old = try HistoricalWriter.phraseImport(phrase, path: path, cryptoType: crypto,
+                    keystore: oldKeys)
+                let device = try Installation()
+                let facade = UserDataStorageTestFacade()
+                let selection = try device.selectedWalletSettings(facade: facade)
+                let factory = AccountOperationFactory(keystore: device.keychain, recoveryGate: device.isolatedGate())
+                let interactor = AccountImportInteractor(accountOperationFactory: factory,
+                    accountRepository: AnyDataProviderRepository(facade.createRepository(
+                        mapper: AnyCoreDataMapper(AccountItemMapper())) as CoreDataRepository<AccountItem, CDAccountItem>),
+                    operationManager: OperationManager(), settings: selection,
+                    keystoreImportService: KeystoreImportService(logger: Logger.shared), eventCenter: EventCenter.shared,
+                    lifecycleCoordinator: device.coordinator)
+                var request = AccountImportMnemonicRequest(mnemonic: phrase, username: "Historical", networkType: .sora,
+                    derivationPath: path, cryptoType: crypto)
+                // No address, an empty address, and a different address must all
+                // fail before any account row or Keychain item is written.
+                XCTAssertThrowsError(try interactor.prepareMnemonic(request))
+                request.expectedAddress = "  "
+                XCTAssertThrowsError(try interactor.prepareMnemonic(request))
+                request.expectedAddress = "wrong-address"
+                let wrong = try interactor.prepareMnemonic(request)
+                wrong.start()
+                XCTAssertThrowsError(try wrong.extractResultData(throwing: BaseOperationError.parentOperationCancelled))
+                XCTAssertTrue(try device.keychain.bytes().isEmpty)
+                XCTAssertNil(selection.currentAccount)
+                request.expectedAddress = old.address
+                // A missing derivation path cannot be accepted for this address.
+                let missingPath = AccountImportMnemonicRequest(mnemonic: phrase, username: "Historical", networkType: .sora,
+                    derivationPath: "", cryptoType: crypto, expectedAddress: old.address)
+                let missing = try interactor.prepareMnemonic(missingPath)
+                missing.start()
+                XCTAssertThrowsError(try missing.extractResultData(throwing: BaseOperationError.parentOperationCancelled))
+                XCTAssertTrue(try device.keychain.bytes().isEmpty)
+                let completed = expectation(description: "typed historical import")
+                var result: Result<AccountItem, Error>?
+                interactor.importAccountWithMnemonic(request: request) { result = $0; completed.fulfill() }
+                wait(for: [completed], timeout: 10)
+                let imported = try XCTUnwrap(result).get()
+                XCTAssertEqual(imported.address, old.address)
+                XCTAssertEqual(try device.keychain.fetchSecretKeyForAddress(imported.address),
+                    try oldKeys.fetchSecretKeyForAddress(old.address))
+                XCTAssertTrue(try AppStore386Launch.canSign(imported, keystore: device.keychain.base))
+                XCTAssertEqual(try device.networkStore().load()?.wallets.first?.secretSource, .rawSeed)
+            }
+        }
+    }
+
+    func testImportScreenForwardsPathPasswordAndKeyType() throws {
+        let controller = ImportAccountViewController()
+        let presenter = AccountImportPresenter(sourceType: .mnemonic, config: ApplicationConfig.shared)
+        let interactor = LegacyUpgradeImportSpy()
+        presenter.interactor = interactor
+        presenter.view = controller
+        controller.presenter = presenter
+        controller.loadViewIfNeeded()
+        presenter.didReceiveAccountImport(metadata: AccountImportMetadata(availableSources: AccountImportSource.allCases,
+            defaultSource: .mnemonic, availableNetworks: [.sora], defaultNetwork: .sora,
+            availableCryptoTypes: CryptoType.allCases, defaultCryptoType: .sr25519))
+        func field(_ id: String) throws -> UITextField {
+            var pending = [controller.view!]
+            while let node = pending.popLast() {
+                if node.accessibilityIdentifier == id, let field = node as? UITextField { return field }
+                pending.append(contentsOf: node.subviews)
+            }
+            throw ImportAccountError.unexpectedError
+        }
+        let path = try field("wallet-import-derivation-path")
+        path.text = "//7///test-password"
+        path.sendActions(for: .editingChanged)
+        presenter.selectCryptoType(.ecdsa)
+        XCTAssertEqual(presenter.selectedCryptoType, .ecdsa)
+        XCTAssertEqual(presenter.derivationPathViewModel?.inputHandler.value, "//7///test-password")
+        let json = "{\"encoded\":\"public-test-placeholder\"}"
+        presenter.didSuggestKeystore(text: json, preferredInfo: nil)
+        XCTAssertEqual(presenter.sourceViewModel?.inputHandler.value, json)
+        let password = try field("wallet-import-json-password")
+        XCTAssertFalse(password.isHidden)
+        XCTAssertTrue(password.isSecureTextEntry)
+        password.text = "synthetic-json-password"
+        password.sendActions(for: .editingChanged)
+        XCTAssertEqual(presenter.passwordViewModel?.inputHandler.value, "synthetic-json-password")
+    }
+
+    func testTypedShortPhrasePresenterKeepsKnownAddressThroughValidationAndNameScreen() throws {
+        let presenter = AccountImportPresenter(sourceType: .mnemonic, config: ApplicationConfig.shared)
+        let interactor = LegacyUpgradeImportSpy()
+        let wireframe = AccountImportWireframeSpy()
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+        presenter.didReceiveAccountImport(metadata: AccountImportMetadata(availableSources: [.mnemonic],
+            defaultSource: .mnemonic, availableNetworks: [.sora], defaultNetwork: .sora,
+            availableCryptoTypes: [.sr25519], defaultCryptoType: .sr25519))
+        presenter.sourceViewModel?.inputHandler.changeValue(to: try shortPhrase(words: 6))
+        wireframe.knownAddressResponse = "known-wallet-address"
+        presenter.proceed()
+        XCTAssertEqual(wireframe.addressPrompts, 1)
+        XCTAssertEqual(interactor.validationRequests.first?.expectedAddress, "known-wallet-address")
+        XCTAssertEqual(wireframe.proceededAddress, "known-wallet-address")
+        XCTAssertEqual(wireframe.proceeded, 1)
+        // A failed identity check requires a new explicit address choice.
+        presenter.didReceiveAccountImport(error: AccountCreateError.backupIdentityMismatch)
+        wireframe.knownAddressResponse = nil
+        presenter.proceed()
+        XCTAssertEqual(wireframe.addressPrompts, 2)
+        XCTAssertEqual(wireframe.proceeded, 1)
+    }
 
     func testThreeSixNineWordRetainedWalletsRemainUsableOnSora2() throws {
         for words in [3, 6, 9] {
@@ -1662,7 +1783,11 @@ final class WalletKeySafetyTests: XCTestCase {
             // A second import of the same phrase adopts the items and completes.
             let imported = try device.importPhrase(phrase12, into: device.selectedWalletSettings())
             XCTAssertEqual(imported.address, account.address)
-            XCTAssertEqual(device.keychain.added, [])
+            let setupTag = WalletOwnerPIN.setupPrefix + account.address
+            XCTAssertEqual(device.keychain.added, [setupTag])
+            let after = try device.keychain.bytes()
+            XCTAssertEqual(Set(after.keys), Set(keys.keys).union([setupTag]))
+            for (tag, bytes) in keys { XCTAssertEqual(after[tag], bytes, tag) }
         }
     }
 
@@ -2181,38 +2306,32 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertFalse(conflicting.settings.walletMigrationRecoveryRequired)
     }
 
-    func testTheEarlierPinIsKeptWhenOnboardingStartsSoFoundWalletsStayRestorable() throws {
-        let device = try Installation()
-        let first = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
-        let second = try HistoricalWriter.phraseImport(phrase(entropy: 0x61, bytes: 16), keystore: device.keychain.base)
-        try device.keychain.base.addKey(Data("1111".utf8), with: KeystoreTag.pincode.rawValue)
-        XCTAssertTrue(WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: device.keychain,
-            existingAddresses: [], recoveryGate: device.isolatedGate()).isEmpty, "No copy of an earlier PIN yet")
-        XCTAssertTrue(try WalletRetainedPinGate.preserveEarlierInstallPin(keystore: device.keychain))
-        XCTAssertFalse(try WalletRetainedPinGate.preserveEarlierInstallPin(keystore: device.keychain))
-        XCTAssertEqual(device.keychain.added, ["\(WalletRetainedPinGate.earlierInstallPinTagPrefix)1"])
-        // Onboarding sets a new PIN over the old one; the user imports one wallet.
-        try device.keychain.base.updateKey(Data("2222".utf8), with: KeystoreTag.pincode.rawValue)
-        let selection = try device.selectedWalletSettings()
-        XCTAssertEqual(try device.importPhrase(phrase12, into: selection).address, first.address)
-        // The other wallet stays restorable, with the earlier PIN only.
-        XCTAssertEqual(WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: device.keychain,
-            existingAddresses: [first.address], recoveryGate: device.isolatedGate()).map(\.address), [second.address])
-        XCTAssertThrowsError(try WalletRetainedPinGate.verify("2222", keystore: device.keychain,
-            settings: device.settings, scope: .afterSetup))
-        XCTAssertNoThrow(try WalletRetainedPinGate.verify("1111", keystore: device.keychain,
-            settings: device.settings, scope: .afterSetup))
-        XCTAssertNoThrow(try WalletRetainedPinGate.verify("2222", keystore: device.keychain,
-            settings: device.settings, scope: .welcomeBack))
-        let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain,
-            excluding: [first.address], recoveryGate: device.isolatedGate())
-        let result = RetainedKeychainWalletDiscovery.restore(inventory.adoptable, existing: [first.address],
-            keystore: device.keychain, selectedWalletSettings: selection, lifecycleCoordinator: device.coordinator,
-            recoveryGate: device.isolatedGate())
-        XCTAssertEqual(result.restored.map(\.address), [second.address])
-        XCTAssertEqual(try device.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("2222".utf8))
-        XCTAssertEqual(device.keychain.updated, [])
-        XCTAssertEqual(device.keychain.deleted, [])
+    func testTwoReinstallsNeverPromoteNewAppPINToRetainedWalletOwnership() throws {
+        let keys = InMemoryKeychain()
+        let first = try HistoricalWriter.phraseImport(phrase12, keystore: keys)
+        let original = try keys.fetchSecretKeyForAddress(first.address)
+        let settings = InMemorySettingsManager()
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        WalletPendingPinSetup.begin(settings)
+        let owner = WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate)
+        try owner.prepareInitialSetup(account: first, operationID: UUID())
+        try owner.setInitialPIN("111111", accounts: [first])
+        let firstBinding = try keys.fetchKey(for: first.address + WalletOwnerPIN.bindingSuffix)
+        // First reinstall: no old rows. Creating an attacker's wallet proves only that wallet.
+        let reinstalled = InMemorySettingsManager()
+        let attacker = try HistoricalWriter.phraseImport(phrase(entropy: 0x61, bytes: 16), keystore: keys)
+        WalletPendingPinSetup.begin(reinstalled)
+        let newOwner = WalletOwnerPIN(keystore: keys, settings: reinstalled, recoveryGate: gate)
+        try newOwner.prepareInitialSetup(account: attacker, operationID: UUID())
+        try newOwner.setInitialPIN("222222", accounts: [attacker])
+        XCTAssertEqual(try keys.fetchKey(for: first.address + WalletOwnerPIN.bindingSuffix), firstBinding)
+        // Second reinstall: pincode is now the attacker's. It still owns only the attacker's wallet.
+        let again = WalletOwnerPIN(keystore: keys, settings: InMemorySettingsManager(), recoveryGate: gate)
+        XCTAssertEqual(try again.verifyRetained("222222", addresses: [first.address, attacker.address]), [attacker.address])
+        XCTAssertEqual(try again.verifyRetained("111111", addresses: [first.address, attacker.address]), [first.address])
+        XCTAssertEqual(try keys.fetchSecretKeyForAddress(first.address), original)
+        XCTAssertFalse(try keys.allKeyIdentifiers().contains { $0.hasPrefix(WalletRetainedPinGate.earlierInstallPinTagPrefix) })
     }
 
     func testAppStore386DriveBackupOfASixWordWalletRestores() throws {
@@ -2233,7 +2352,7 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertEqual(try device.networkStore().load()?.wallets.first?.secretSource, .rawSeed)
         XCTAssertTrue(try AppStore386Launch.canSign(account, keystore: device.keychain.base))
         // Onboarding: a short backup phrase is accepted only for the
-        // backup's own address; new imports never accept it.
+        // backup's own address; typed imports require an explicit known address.
         let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: short)
         let factory = AccountOperationFactory(keystore: AddOnlyRecordingKeychain(), recoveryGate: device.isolatedGate())
         let request = AccountCreationRequest(username: "Backup", type: .sora, derivationPath: "", cryptoType: .sr25519)
@@ -2290,7 +2409,7 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertTrue(window.rootViewController is WelcomeBackgroundViewController)
         // Leaving kept a copy of the earlier PIN and marked this install's
         // PIN as not set yet.
-        XCTAssertEqual(device.keychain.added, ["\(WalletRetainedPinGate.earlierInstallPinTagPrefix)1"])
+        XCTAssertTrue(device.keychain.added.isEmpty)
         XCTAssertTrue(WalletPendingPinSetup.isPending(device.settings))
         XCTAssertFalse(device.keychain.changedExistingItems)
     }
@@ -2339,6 +2458,7 @@ final class WalletKeySafetyTests: XCTestCase {
         let device = try Installation()
         let retained = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
         let other = try HistoricalWriter.phraseImport(phrase(entropy: 0x62, bytes: 16), keystore: device.keychain.base)
+        try saveOwnerBindingFixture("111111", accounts: [other], keystore: device.keychain.base)
         try device.keychain.base.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
         XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
         try WalletPendingPinSetup.leaveWelcomeBack(keystore: device.keychain, settings: device.settings)
@@ -2353,8 +2473,8 @@ final class WalletKeySafetyTests: XCTestCase {
         output.onSave = { saved.fulfill() }
         let interactor = PinSetupInteractor(secretManager: KeystoreSecretManager(restarted.keychain),
             settingsManager: restarted.settings, biometryAuth: KeySafetyNoBiometry(),
-            config: ApplicationConfig.shared, earlierPinKeystore: restarted.keychain,
-            recoveryGate: restarted.isolatedGate())
+            config: ApplicationConfig.shared, ownerPINKeystore: restarted.keychain,
+            recoveryGate: restarted.isolatedGate(), accounts: { [imported] })
         interactor.presenter = output
         interactor.process(pin: "222222")
         wait(for: [saved], timeout: 10)
@@ -2362,14 +2482,10 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertEqual(try restarted.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("222222".utf8))
         XCTAssertFalse(WalletPendingPinSetup.isPending(restarted.settings))
         XCTAssertEqual(try restarted.rootDecision(selected: imported), [.localAuthentication])
-        // Only `pincode` was replaced; nothing was added (the copy existed).
-        XCTAssertEqual(restarted.keychain.updated, [KeystoreTag.pincode.rawValue])
-        XCTAssertEqual(restarted.keychain.deleted, [])
-        XCTAssertEqual(restarted.keychain.added, [])
-        XCTAssertNoThrow(try WalletRetainedPinGate.verify("111111", keystore: restarted.keychain,
-            settings: restarted.settings, scope: .afterSetup))
-        XCTAssertThrowsError(try WalletRetainedPinGate.verify("222222", keystore: restarted.keychain,
-            settings: restarted.settings, scope: .afterSetup))
+        XCTAssertEqual(try WalletRetainedPinGate.verify("111111", keystore: restarted.keychain,
+            settings: restarted.settings, scope: .afterSetup), [other.address])
+        XCTAssertEqual(try WalletRetainedPinGate.verify("222222", keystore: restarted.keychain,
+            settings: restarted.settings, scope: .afterSetup), [imported.address])
         XCTAssertEqual(WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: restarted.keychain,
             existingAddresses: [imported.address], recoveryGate: restarted.isolatedGate()).map(\.address),
             [other.address])
@@ -2378,60 +2494,46 @@ final class WalletKeySafetyTests: XCTestCase {
     /// Leaving Welcome back needs a stored copy of the earlier PIN. Every
     /// distinct PIN gets one (no limit); when the copy cannot be saved,
     /// Welcome back stays, PIN setup stops, and the earlier PIN is unchanged.
-    func testTheEarlierPinMustBeKeptBeforeItCanBeReplacedWithoutALimit() throws {
+    func testUnbound386WalletsAndLegacyPinCopiesNeverAuthorizeRestoration() throws {
         let device = try Installation()
         let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
         for (index, pin) in ["111111", "222222", "333333", "444444"].enumerated() {
-            try device.keychain.base.addKey(Data(pin.utf8),
-                with: "\(WalletRetainedPinGate.earlierInstallPinTagPrefix)\(index + 1)")
+            try device.keychain.base.addKey(Data(pin.utf8), with: "earlierInstallPin-\(index + 1)")
         }
         try device.keychain.base.addKey(Data("555555".utf8), with: KeystoreTag.pincode.rawValue)
+        let before = try device.keychain.bytes()
+        for pin in ["111111", "222222", "555555"] {
+            XCTAssertThrowsError(try WalletRetainedPinGate.verify(pin, keystore: device.keychain,
+                settings: device.settings, addresses: [account.address])) {
+                XCTAssertEqual($0 as? WalletRetainedPinGate.Failure, .noRetainedPin)
+            }
+        }
         try WalletPendingPinSetup.leaveWelcomeBack(keystore: device.keychain, settings: device.settings)
-        XCTAssertEqual(device.keychain.added, ["\(WalletRetainedPinGate.earlierInstallPinTagPrefix)5"])
-        try WalletPendingPinSetup.leaveWelcomeBack(keystore: device.keychain, settings: device.settings)
-        XCTAssertEqual(device.keychain.added.count, 1, "An identical copy is not added twice")
-        XCTAssertFalse(device.keychain.changedExistingItems)
-        // Welcome back restore: the PIN of `pincode` keeps it; a PIN that only
-        // matched an earlier copy asks for a new PIN first.
-        XCTAssertTrue(try WalletRetainedPinGate.verify("555555", keystore: device.keychain, settings: device.settings))
-        XCTAssertFalse(try WalletRetainedPinGate.verify("111111", keystore: device.keychain, settings: device.settings))
-        WalletPendingPinSetup.settleAfterWelcomeBackRestore(matchedCurrentPin: true, settings: device.settings)
-        XCTAssertEqual(try device.rootDecision(selected: account), [.localAuthentication])
-        WalletPendingPinSetup.settleAfterWelcomeBackRestore(matchedCurrentPin: false, settings: device.settings)
-        XCTAssertEqual(try device.rootDecision(selected: account), [.pincodeSetup])
-
-        // A Keychain that cannot add: nothing continues.
+        XCTAssertTrue(WalletPendingPinSetup.isPending(device.settings))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+        XCTAssertTrue(device.keychain.added.isEmpty)
+        // A failed initial journal write never reports PIN setup success or changes the old PIN.
         let failing = AddFailingKeychain()
-        try HistoricalWriter.phraseImport(phrase12, keystore: failing.base)
+        let fresh = try HistoricalWriter.phraseImport(phrase12, keystore: failing.base)
         try failing.base.addKey(Data("777777".utf8), with: KeystoreTag.pincode.rawValue)
         let settings = InMemorySettingsManager()
-        XCTAssertThrowsError(try WalletPendingPinSetup.leaveWelcomeBack(keystore: failing, settings: settings)) {
-            XCTAssertEqual($0 as? WalletRetainedPinGate.Failure, .earlierPinNotKept)
-        }
-        XCTAssertFalse(WalletPendingPinSetup.isPending(settings))
-        var continued = false
-        let controller = WalletWelcomeBackViewController(keystore: failing, settings: settings,
-            onContinueToOnboarding: { continued = true }, onWalletsRestored: {})
-        controller.leaveForOnboarding()
-        spinRunLoop(until: { continued }, timeout: 2)
-        XCTAssertFalse(continued)
-        XCTAssertFalse(WalletPendingPinSetup.isPending(settings))
-
+        WalletPendingPinSetup.begin(settings)
+        try WalletOwnerPIN(keystore: failing.base, settings: settings)
+            .prepareInitialSetup(account: fresh, operationID: UUID())
         let output = PinSetupOutputSpy()
-        let interactor = PinSetupInteractor(secretManager: KeystoreSecretManager(failing),
-            settingsManager: settings, biometryAuth: KeySafetyNoBiometry(), config: ApplicationConfig.shared,
-            earlierPinKeystore: failing, recoveryGate: WalletRecoveryCapabilityGate(settings: settings,
-                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }))
+        let interactor = PinSetupInteractor(secretManager: KeystoreSecretManager(failing), settingsManager: settings,
+            biometryAuth: KeySafetyNoBiometry(), config: ApplicationConfig.shared, ownerPINKeystore: failing,
+            recoveryGate: WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }), accounts: { [fresh] })
         interactor.presenter = output
         interactor.process(pin: "888888")
-        XCTAssertEqual(output.errors.compactMap { $0 as? WalletRetainedPinGate.Failure }, [.earlierPinNotKept])
+        spinRunLoop(until: { !output.errors.isEmpty }, timeout: 10)
+        XCTAssertFalse(output.errors.isEmpty)
+        XCTAssertEqual(interactor.state, .waitingPincode)
+        XCTAssertTrue(WalletPendingPinSetup.isPending(settings))
         XCTAssertEqual(try failing.fetchKey(for: KeystoreTag.pincode.rawValue), Data("777777".utf8))
-        XCTAssertEqual(WalletPinPrompt.message(for: WalletRetainedPinGate.Failure.earlierPinNotKept),
-                       WalletUX.text("SORA could not save a copy of the PIN you used before. Nothing was changed. Try again."))
     }
 
-    /// While this install's PIN is not set yet, or on Welcome back, returning
-    /// from the background does not ask for the earlier install's PIN.
     func testNoResumePinIsAskedForWhileTheNewPinIsPendingOrOnWelcomeBack() {
         let keychain = InMemoryKeychain()
         try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
@@ -2676,6 +2778,7 @@ private final class SecurityLayerOutputSpy: SecurityLayerInteractorOutputProtoco
 /// Records the 1.x upgrade's import request; the test completes it.
 private final class LegacyUpgradeImportSpy: AccountImportInteractorInputProtocol {
     var requests: [AccountImportMnemonicRequest] = []
+    var validationRequests: [AccountImportMnemonicRequest] = []
     var completions: [(Result<AccountItem, Error>?) -> Void] = []
     func setup() {}
     func importAccountWithMnemonic(request: AccountImportMnemonicRequest,
@@ -2687,7 +2790,10 @@ private final class LegacyUpgradeImportSpy: AccountImportInteractorInputProtocol
     func importAccountWithKeystore(request: AccountImportKeystoreRequest,
                                    completion: ((Result<AccountItem, Error>?) -> Void)?) {}
     func validateAccountWithMnemonic(request: AccountImportMnemonicRequest,
-                                     completion: ((Result<AccountItem?, Error>?) -> Void)?) {}
+                                     completion: ((Result<AccountItem?, Error>?) -> Void)?) {
+        validationRequests.append(request)
+        completion?(.success(nil))
+    }
     func validateAccountWithSeed(request: AccountImportSeedRequest,
                                  completion: ((Result<AccountItem?, Error>?) -> Void)?) {}
     func validateAccountWithKeystore(request: AccountImportKeystoreRequest,
@@ -2698,10 +2804,19 @@ private final class LegacyUpgradeImportSpy: AccountImportInteractorInputProtocol
 
 private final class AccountImportWireframeSpy: AccountImportWireframeProtocol {
     var proceeded = 0
+    var proceededAddress: String?
+    var knownAddressResponse: String?
+    var addressPrompts = 0
+    func requestKnownAddress(from view: AccountImportViewProtocol?, completion: @escaping (String?) -> Void) {
+        addressPrompts += 1
+        completion(knownAddressResponse)
+    }
     var errors: [Error] = []
     func proceed(from view: AccountImportViewProtocol?, sourceType: AccountImportSource, cryptoType: CryptoType,
                  networkType: Chain, sourceViewModel: InputViewModelProtocol, usernameViewModel: InputViewModelProtocol,
-                 passwordViewModel: InputViewModelProtocol?, derivationPathViewModel: InputViewModelProtocol?) {
+                 passwordViewModel: InputViewModelProtocol?, derivationPathViewModel: InputViewModelProtocol?,
+                 expectedAddress: String?) {
+        proceededAddress = expectedAddress
         proceeded += 1
     }
     func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
@@ -4806,4 +4921,258 @@ extension WalletInterruptedWriteTests {
             }
         }
     }
+}
+
+private final class PINMutationFaultKeychain: KeystoreProtocol {
+    let base: KeystoreProtocol
+    var failureIndex: Int?
+    var mutations = 0
+    init(_ base: KeystoreProtocol) { self.base = base }
+    private func checkpoint() throws {
+        mutations += 1
+        if mutations == failureIndex { throw WalletOwnerPIN.Failure.persistenceFailed }
+    }
+    func addKey(_ key: Data, with identifier: String) throws { try checkpoint(); try base.addKey(key, with: identifier) }
+    func updateKey(_ key: Data, with identifier: String) throws { try checkpoint(); try base.updateKey(key, with: identifier) }
+    func deleteKey(for identifier: String) throws { try checkpoint(); try base.deleteKey(for: identifier) }
+    func fetchKey(for identifier: String) throws -> Data { try base.fetchKey(for: identifier) }
+    func checkKey(for identifier: String) throws -> Bool { try base.checkKey(for: identifier) }
+    func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
+}
+
+/// Own namespace only, using the production kSecClassKey / ThisDeviceOnly implementation.
+private final class PINRealKeychainNamespace: KeystoreProtocol {
+    let base = Keychain()
+    let prefix = "pin-audit-\(UUID().uuidString)-"
+    func addKey(_ key: Data, with identifier: String) throws { try base.addKey(key, with: prefix + identifier) }
+    func updateKey(_ key: Data, with identifier: String) throws { try base.updateKey(key, with: prefix + identifier) }
+    func deleteKey(for identifier: String) throws { try base.deleteKey(for: prefix + identifier) }
+    func fetchKey(for identifier: String) throws -> Data { try base.fetchKey(for: prefix + identifier) }
+    func checkKey(for identifier: String) throws -> Bool { try base.checkKey(for: prefix + identifier) }
+    func allKeyIdentifiers() throws -> [String] {
+        try base.allKeyIdentifiers().filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
+    }
+    func cleanUp() { for tag in (try? allKeyIdentifiers()) ?? [] { try? deleteKey(for: tag) } }
+}
+
+extension WalletKeySafetyTests {
+    func testOwnerPINRotationRecoversEveryInterruptedWriteBeforeAuthentication() throws {
+        for interruption in 1...5 {
+            let base = InMemoryKeychain()
+            let keys = PINMutationFaultKeychain(base)
+            let settings = InMemorySettingsManager()
+            let gate = WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+            let first = try HistoricalWriter.phraseImport(phrase12, keystore: base)
+            let second = try HistoricalWriter.phraseImport(phrase(entropy: 0x72, bytes: 16), keystore: base)
+            let accounts = [first, second]
+            let original = try accounts.map { try base.fetchSecretKeyForAddress($0.address) }
+            let service = WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate)
+            WalletPendingPinSetup.begin(settings)
+            for account in accounts { try service.prepareInitialSetup(account: account, operationID: UUID()) }
+            try service.setInitialPIN("111111", accounts: accounts)
+            let grant = try service.authenticateCurrent("111111", accounts: accounts)
+            keys.mutations = 0; keys.failureIndex = interruption
+            XCTAssertThrowsError(try service.rotate(to: "222222", authorization: grant, accounts: accounts))
+            keys.failureIndex = nil
+            let restarted = WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate)
+            try restarted.recoverRotation()
+            let expectedPIN = interruption == 1 ? "111111" : "222222"
+            XCTAssertEqual(try base.fetchKey(for: KeystoreTag.pincode.rawValue), Data(expectedPIN.utf8))
+            XCTAssertEqual(try restarted.verifyRetained(expectedPIN, addresses: Set(accounts.map(\.address))),
+                           Set(accounts.map(\.address)))
+            XCTAssertFalse(try base.checkKey(for: WalletOwnerPIN.rotationTag))
+            XCTAssertEqual(try accounts.map { try base.fetchSecretKeyForAddress($0.address) }, original)
+            // The same UI submission can retry after its failed write/readback.
+            XCTAssertNoThrow(try service.rotate(to: "222222", authorization: grant, accounts: accounts))
+            XCTAssertEqual(try base.fetchKey(for: KeystoreTag.pincode.rawValue), Data("222222".utf8))
+        }
+    }
+
+    func testOwnerPINThrottleSurvivesReinstallClockChangesAndAnotherOwnersSuccess() throws {
+        let keys = InMemoryKeychain()
+        let first = try HistoricalWriter.phraseImport(phrase12, keystore: keys)
+        let second = try HistoricalWriter.phraseImport(phrase(entropy: 0x73, bytes: 16), keystore: keys)
+        try saveOwnerBindingFixture("111111", accounts: [first], keystore: keys)
+        try saveOwnerBindingFixture("222222", accounts: [second], keystore: keys)
+        let settings = InMemorySettingsManager()
+        var now = Date(timeIntervalSince1970: 1_000), uptime: TimeInterval = 1000, boot = "boot-a"
+        func service() -> WalletOwnerPIN {
+            WalletOwnerPIN(keystore: keys, settings: InMemorySettingsManager(), now: { now },
+                           uptime: { uptime }, boot: { boot })
+        }
+        for _ in 0..<3 {
+            // The attacker's successful PIN cannot clear the victim's failed attempts.
+            XCTAssertEqual(try service().verifyRetained("222222", addresses: [first.address, second.address]), [second.address])
+        }
+        let tag = first.address + WalletOwnerPIN.throttleSuffix
+        XCTAssertEqual(try JSONDecoder().decode(WalletOwnerPIN.Throttle.self, from: keys.fetchKey(for: tag)).failures, 3)
+        settings.removeValue(for: "ignored-reinstalled-defaults")
+        now.addTimeInterval(30 * 86400)
+        XCTAssertThrowsError(try service().verifyRetained("111111", addresses: [first.address]))
+        uptime = 1030
+        XCTAssertThrowsError(try service().verifyRetained("111111", addresses: [first.address]))
+        boot = "boot-b"; uptime = 1
+        XCTAssertThrowsError(try service().verifyRetained("111111", addresses: [first.address]))
+        uptime = 62
+        XCTAssertThrowsError(try service().verifyRetained("000000", addresses: [first.address]))
+        XCTAssertEqual(try JSONDecoder().decode(WalletOwnerPIN.Throttle.self, from: keys.fetchKey(for: tag)).wait, 300)
+        uptime = 363
+        XCTAssertEqual(try service().verifyRetained("111111", addresses: [first.address]), [first.address])
+        XCTAssertFalse(try keys.checkKey(for: tag))
+    }
+
+    func testDowngradedAppPINReconcilesOnlyAfterManualProofAndOnlyExistingRows() throws {
+        let keys = InMemoryKeychain(), settings = InMemorySettingsManager()
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let first = try HistoricalWriter.phraseImport(phrase12, keystore: keys)
+        let retained = try HistoricalWriter.phraseImport(phrase(entropy: 0x74, bytes: 16), keystore: keys)
+        try saveOwnerBindingFixture("111111", accounts: [first, retained], keystore: keys)
+        // The released writer updates pincode only, leaving owner bindings unchanged.
+        try keys.saveKey(Data("222222".utf8), with: KeystoreTag.pincode.rawValue)
+        let before = try keys.fetchKey(for: first.address + WalletOwnerPIN.bindingSuffix)
+        let service = WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate)
+        try service.recoverRotation()
+        XCTAssertEqual(try keys.fetchKey(for: first.address + WalletOwnerPIN.bindingSuffix), before)
+        _ = try service.authenticateCurrent("222222", accounts: [first])
+        XCTAssertEqual(try service.verifyRetained("222222", addresses: [first.address, retained.address]), [first.address])
+        XCTAssertEqual(try service.verifyRetained("111111", addresses: [first.address, retained.address]), [retained.address])
+    }
+
+    func testMixedPINRestorationPublishesBindingOnlyWithCommittedRow() throws {
+        let keys = InMemoryKeychain(), settings = InMemorySettingsManager()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: keys)
+        try saveOwnerBindingFixture("111111", accounts: [account], keystore: keys)
+        try keys.saveKey(Data("222222".utf8), with: KeystoreTag.pincode.rawValue)
+        let original = try keys.fetchKey(for: account.address + WalletOwnerPIN.bindingSuffix)
+        let service = WalletOwnerPIN(keystore: keys, settings: settings)
+        XCTAssertEqual(try service.verifyRetained("111111", addresses: [account.address]), [account.address])
+        try service.prepareRebinding(address: account.address, to: "222222")
+        XCTAssertEqual(try keys.fetchKey(for: account.address + WalletOwnerPIN.bindingSuffix), original)
+        XCTAssertThrowsError(try service.verifyRetained("111111", addresses: [account.address]))
+        try service.settleRebindings(currentAddresses: [])
+        XCTAssertEqual(try keys.fetchKey(for: account.address + WalletOwnerPIN.bindingSuffix), original)
+        try service.prepareRebinding(address: account.address, to: "222222")
+        try service.settleRebindings(currentAddresses: [account.address])
+        XCTAssertEqual(try service.verifyRetained("222222", addresses: [account.address]), [account.address])
+        XCTAssertThrowsError(try service.verifyRetained("111111", addresses: [account.address]))
+    }
+
+    func testTwoReinstallBypassFailsOnProductionSimulatorKeychain() throws {
+        let keys = PINRealKeychainNamespace()
+        defer { keys.cleanUp() }
+        let settings = PINTestDefaults()
+        defer { settings.removeAll() }
+        let container = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let storeURL = container.appendingPathComponent("UserDataModel.sqlite")
+        try FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: container) }
+        func simulateUninstall() throws {
+            settings.removeAll()
+            try FileManager.default.removeItem(at: container)
+            try FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
+            XCTAssertTrue(try KeySafetyStore.rows(at: storeURL).isEmpty)
+            XCTAssertTrue(settings.allKeys().isEmpty)
+        }
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let victim = try HistoricalWriter.phraseImport(phrase12, keystore: keys)
+        try KeySafetyStore.write([victim], to: storeURL)
+        WalletPendingPinSetup.begin(settings)
+        let originalOwner = WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate)
+        try originalOwner.prepareInitialSetup(account: victim, operationID: UUID())
+        try originalOwner.setInitialPIN("111111", accounts: KeySafetyStore.rows(at: storeURL))
+        let before = try keys.fetchSecretKeyForAddress(victim.address)
+        // Account database and preferences of the first install do not survive.
+        try simulateUninstall()
+        let reinstallSettings = settings
+        let attacker = try HistoricalWriter.phraseImport(phrase(entropy: 0x75, bytes: 16), keystore: keys)
+        try KeySafetyStore.write([attacker], to: storeURL)
+        WalletPendingPinSetup.begin(reinstallSettings)
+        let newOwner = WalletOwnerPIN(keystore: keys, settings: reinstallSettings, recoveryGate: gate)
+        try newOwner.prepareInitialSetup(account: attacker, operationID: UUID())
+        try newOwner.setInitialPIN("222222", accounts: KeySafetyStore.rows(at: storeURL))
+        try simulateUninstall()
+        let secondReinstall = WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate)
+        XCTAssertEqual(try secondReinstall.verifyRetained("222222", addresses: [victim.address, attacker.address]), [attacker.address])
+        XCTAssertEqual(try secondReinstall.verifyRetained("111111", addresses: [victim.address, attacker.address]), [victim.address])
+        XCTAssertEqual(try keys.fetchSecretKeyForAddress(victim.address), before)
+        XCTAssertEqual(Keychain.accessibility, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
+    }
+}
+
+extension WalletKeySafetyTests {
+    func testAbsentDirectKeyUsesEachProvenBackupDespiteAStaleOrUnreadableSibling() throws {
+        for crypto in [CryptoType.sr25519, .ed25519, .ecdsa] {
+            for goodSource in ["phrase", "seed"] {
+                for unreadable in [false, true] {
+                    let device = try Installation()
+                    let account = try HistoricalWriter.phraseImport(phrase12, path: "//1", cryptoType: crypto,
+                                                                   keystore: device.keychain.base)
+                    try device.keychain.base.deleteKey(for: KeystoreTag.secretKeyTagForAddress(account.address))
+                    let suffix = goodSource == "phrase" ? "-seed" : "-entropy"
+                    if !unreadable {
+                        try device.keychain.base.updateKey(Data(repeating: 0x55, count: goodSource == "phrase" ? 32 : 16),
+                                                          with: account.address + suffix)
+                    }
+                    let keys: KeystoreProtocol = unreadable
+                        ? AuxiliaryReadFailureKeychain(device.keychain, blockedSuffixes: [suffix]) : device.keychain
+                    let before = try device.keychain.bytes()
+                    let gate = device.isolatedGate()
+                    XCTAssertEqual(try WalletAccountKeyAvailability.status(for: account, keystore: keys,
+                        settings: device.settings, activeSnapshot: nil, recoveryGate: gate), .available)
+                    let secret = try XCTUnwrap(LegacySoraSecretResolver.resolve(account: account, keystore: keys, recoveryGate: gate))
+                    XCTAssertNoThrow(try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                        publicKey: account.publicKeyData, cryptoType: crypto, networkType: account.networkType,
+                        secret: secret, recoveryGate: gate))
+                    try KeySafetyStore.write([account], to: device.storeURL, version: .version1)
+                    let migrator = UserStorageMigrator(targetVersion: .version2, storeURL: device.storeURL,
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: device.settings,
+                        fileManager: .default, recoveryGate: gate, availableCapacity: { _ in Int64.max },
+                        loadWalletNetworkSnapshot: { nil })
+                    XCTAssertNoThrow(try migrator.performMigration(), "\(crypto)/\(goodSource)/\(unreadable)")
+                    XCTAssertEqual(try device.keychain.bytes(), before)
+                }
+            }
+        }
+    }
+
+    func testRecoveryPhraseRevealIncludesProvenPathAndOnlyMatchedWallets() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, path: "/soft//hard///password",
+                                                        keystore: device.keychain.base)
+        let other = try HistoricalWriter.phraseImport(phrase(entropy: 0x76, bytes: 16), keystore: device.keychain.base)
+        try saveOwnerBindingFixture("111111", accounts: [account], keystore: device.keychain.base)
+        try saveOwnerBindingFixture("222222", accounts: [other], keystore: device.keychain.base)
+        let entries = try WalletRecoveryPhraseReveal.reveal(pin: "111111", accounts: [account, other],
+            keystore: device.keychain, settings: device.settings, recoveryGate: device.isolatedGate())
+        let entry = try XCTUnwrap(entries.first)
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entry.words.joined(separator: " "), phrase12)
+        XCTAssertEqual(entry.derivationPath, "/soft//hard///password")
+        let restored = try HistoricalWriter.phraseImport(entry.words.joined(separator: " "),
+            path: entry.derivationPath ?? "", keystore: InMemoryKeychain())
+        XCTAssertEqual(restored.address, account.address)
+    }
+}
+
+private final class PINTestDefaults: SettingsManagerProtocol {
+    private let name = "wallet-pin-tests-" + UUID().uuidString
+    private lazy var defaults = UserDefaults(suiteName: name)!
+    func set(value: Bool, for key: String) { set(anyValue: value, for: key) }
+    func set(value: Int, for key: String) { set(anyValue: value, for: key) }
+    func set(value: Double, for key: String) { set(anyValue: value, for: key) }
+    func set(value: String, for key: String) { set(anyValue: value, for: key) }
+    func set(value: Data, for key: String) { set(anyValue: value, for: key) }
+    func set(anyValue: Any, for key: String) { defaults.set(anyValue, forKey: key); defaults.synchronize() }
+    func bool(for key: String) -> Bool? { defaults.object(forKey: key) == nil ? nil : defaults.bool(forKey: key) }
+    func integer(for key: String) -> Int? { defaults.object(forKey: key) == nil ? nil : defaults.integer(forKey: key) }
+    func double(for key: String) -> Double? { defaults.object(forKey: key) == nil ? nil : defaults.double(forKey: key) }
+    func string(for key: String) -> String? { defaults.string(forKey: key) }
+    func data(for key: String) -> Data? { defaults.data(forKey: key) }
+    func anyValue(for key: String) -> Any? { defaults.object(forKey: key) }
+    func allKeys() -> [String] { Array((defaults.persistentDomain(forName: name) ?? [:]).keys) }
+    func removeValue(for key: String) { defaults.removeObject(forKey: key); defaults.synchronize() }
+    func removeAll() { defaults.removePersistentDomain(forName: name); defaults.synchronize() }
 }

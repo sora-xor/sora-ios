@@ -49,7 +49,8 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
                  sourceViewModel: InputViewModelProtocol,
                  usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?) {
+                 derivationPathViewModel: InputViewModelProtocol?,
+                 expectedAddress: String?) {
         guard let navigationController = view?.controller.navigationController else {
             return
         }
@@ -62,6 +63,7 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
                                                                                      usernameViewModel: usernameViewModel,
                                                                                      passwordViewModel: passwordViewModel,
                                                                                      derivationPathViewModel: derivationPathViewModel,
+                                                                                         expectedAddress: expectedAddress,
                                                                                      endAddingBlock: endAddingBlock)?.controller
         else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)

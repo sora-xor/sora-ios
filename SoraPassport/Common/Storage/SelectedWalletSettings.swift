@@ -496,6 +496,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                         throw AccountCreateError.duplicated
                     }
                     try persistSecrets()
+                    if let legacySettings, let keystore {
+                        try prepared.prepareOwnershipBinding(keystore: keystore, settings: legacySettings,
+                                                             existingAccounts: accounts.map(AccountItem.init(managedItem:)))
+                    }
                     let selectedAccount = AccountItem(
                         address: existing.address,
                         cryptoType: existing.cryptoType,
@@ -545,7 +549,24 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     .beforeSecretRetention
                 )
                 do {
+                    // Check every retained item before writing an initial-PIN
+                    // claim. The claim still precedes all new secret writes.
+                    if let keystore { try prepared.validatePersistence(to: keystore) }
+                    if let legacySettings, let keystore {
+                        let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: legacySettings,
+                                                      recoveryGate: recoveryGate)
+                        let current = accounts.map(AccountItem.init(managedItem:))
+                        if try current.isEmpty || ownerPIN.requiresInitialSetup(accounts: current) {
+                            try prepared.prepareInitialPINSetup(keystore: keystore, settings: legacySettings,
+                                                                operationID: journal.id)
+                            WalletPendingPinSetup.begin(legacySettings)
+                        }
+                    }
                     try persistSecrets()
+                    if let legacySettings, let keystore {
+                        try prepared.prepareOwnershipBinding(keystore: keystore, settings: legacySettings,
+                                                             existingAccounts: accounts.map(AccountItem.init(managedItem:)))
+                    }
                     journal = try journalStore.advance(
                         journal,
                         to: .secretsPersisted
@@ -647,6 +668,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                         journal,
                         to: .activated
                     )
+                }
+                if let legacySettings, let keystore {
+                    try WalletOwnerPIN(keystore: keystore, settings: legacySettings, recoveryGate: recoveryGate)
+                        .settleRebindings(currentAddresses: Set(accounts.map(\.address)))
                 }
                 self?.commitInternalValue(
                     preparedCommit.selectedAccount

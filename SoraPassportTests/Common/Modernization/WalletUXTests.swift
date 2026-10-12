@@ -220,7 +220,8 @@ final class WalletUXTests: XCTestCase {
                 view.mode = .securedInput
                 let presenter = AuthorizationPresenter()
                 let interactor = LocalAuthInteractor(secretManager: store, settingsManager: settings,
-                    biometryAuth: WalletUXNoBiometry(), locale: .current)
+                    biometryAuth: WalletUXNoBiometry(), locale: .current,
+                    ownerPINKeystore: store.keychain, accounts: { [] })
                 view.presenter = presenter; presenter.view = view; presenter.interactor = interactor
                 presenter.wireframe = delegate; interactor.presenter = presenter
                 pinPresenter = presenter

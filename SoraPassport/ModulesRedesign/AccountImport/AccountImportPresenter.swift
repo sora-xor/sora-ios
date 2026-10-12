@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraFoundation
+import SSFUtils
 import RobinHood
 
 enum AccountImportContext: String {
@@ -54,6 +55,7 @@ final class AccountImportPresenter {
     private(set) var selectedCryptoType: CryptoType?
     private(set) var selectedNetworkType: Chain?
     private var isRawSeedWarningShown: Bool = false
+    private var expectedAddress: String?
 
     private(set) var sourceViewModel: InputViewModelProtocol?
     private(set) var usernameViewModel: InputViewModelProtocol?
@@ -130,7 +132,7 @@ final class AccountImportPresenter {
                 predicate: NSPredicate.seed
             )
             viewModel = InputViewModel(inputHandler: inputHandler, placeholder: placeholder)
-        default: viewModel = InputViewModel(inputHandler: InputHandler())
+        default: viewModel = InputViewModel(inputHandler: InputHandler(value: value))
         }
 
         sourceViewModel = viewModel
@@ -202,7 +204,9 @@ final class AccountImportPresenter {
 
         switch selectedSourceType {
         case .mnemonic, .seed:
-//            applyCryptoTypeViewModel(preferredInfo)
+            if let selectedCryptoType, let metadata {
+                view?.setCryptoType(selectedCryptoType, available: metadata.availableCryptoTypes)
+            }
             applyDerivationPathViewModel()
 //            applyNetworkTypeViewModel(preferredInfo)
         case .keystore:
@@ -242,7 +246,8 @@ final class AccountImportPresenter {
             }
         }
 
-        let inputHandling = InputHandler(required: false, predicate: predicate)
+        let inputHandling = InputHandler(value: derivationPathViewModel?.inputHandler.value ?? "",
+                                        required: false, predicate: predicate)
 
         let viewModel = InputViewModel(inputHandler: inputHandling,
                                        placeholder: placeholder)
@@ -329,6 +334,13 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
     func setup() {
         interactor.setup()
     }
+
+    func selectCryptoType(_ type: CryptoType) {
+        guard metadata?.availableCryptoTypes.contains(type) == true,
+              selectedSourceType != .keystore else { return }
+        selectedCryptoType = type
+        applyAdvanced(nil)
+    }
     
     func validateAccount(completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
         guard 
@@ -349,7 +361,8 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                                                        username: username,
                                                        networkType: networkType,
                                                        derivationPath: derivationPath,
-                                                       cryptoType: cryptoType)
+                                                       cryptoType: cryptoType,
+                                                       expectedAddress: expectedAddress)
             interactor.validateAccountWithMnemonic(request: request, completion: completion)
         case .seed:
             let seed = sourceViewModel.inputHandler.value
@@ -363,13 +376,21 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             interactor.validateAccountWithSeed(request: request, completion: completion)
         case .keystore:
             let keystore = sourceViewModel.inputHandler.value
+            guard let data = keystore.data(using: .utf8),
+                  let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: data),
+                  let info = try? AccountImportJsonFactory().createInfo(from: definition),
+                  let jsonCrypto = info.cryptoType else {
+                completion?(.failure(AccountCreateError.invalidKeystore))
+                return
+            }
+            selectedCryptoType = jsonCrypto
             let password = passwordViewModel?.inputHandler.value ?? ""
             let username = usernameViewModel.inputHandler.value
             let request = AccountImportKeystoreRequest(keystore: keystore,
                                                        password: password,
                                                        username: username,
                                                        networkType: networkType,
-                                                       cryptoType: cryptoType)
+                                                       cryptoType: jsonCrypto)
 
             interactor.validateAccountWithKeystore(request: request, completion: completion)
         }
@@ -404,17 +425,31 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             return
         }
         
+        let isShortPhrase = selectedSourceType == .mnemonic &&
+            WalletMnemonicWordPolicy.retainedShortWordCounts.contains(
+                sourceViewModel.inputHandler.value.split(whereSeparator: { $0.isWhitespace }).count)
+        if isShortPhrase && expectedAddress == nil {
+            wireframe.requestKnownAddress(from: view) { [weak self] address in
+                guard let self, let address else { return }
+                self.expectedAddress = address
+                self.proceed()
+            }
+            return
+        }
+        if !isShortPhrase { expectedAddress = nil }
+
         validateAccount { [weak self] result in
             switch result {
             case .success:
                 self?.wireframe.proceed(from: self?.view,
                                         sourceType: selectedSourceType,
-                                        cryptoType: selectedCryptoType,
+                                        cryptoType: self?.selectedCryptoType ?? selectedCryptoType,
                                         networkType: selectedNetworkType,
                                         sourceViewModel: sourceViewModel,
                                         usernameViewModel: usernameViewModel,
                                         passwordViewModel: self?.passwordViewModel,
-                                        derivationPathViewModel: self?.derivationPathViewModel)
+                                        derivationPathViewModel: self?.derivationPathViewModel,
+                                        expectedAddress: self?.expectedAddress)
             case .failure(let error):
                 self?.didReceiveAccountImport(error: error)
             case .none:
@@ -446,6 +481,7 @@ extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
     func didCompleteAccountImport() {}
 
     func didReceiveAccountImport(error: Error) {
+        expectedAddress = nil
         let locale = localizationManager?.selectedLocale ?? Locale.current
 
         guard !wireframe.present(error: error, from: view, locale: locale, completion: { [weak self] in

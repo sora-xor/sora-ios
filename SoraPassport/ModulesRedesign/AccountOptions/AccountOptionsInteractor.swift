@@ -798,6 +798,10 @@ enum WalletExplicitRemovalIdentityPolicy {
         keystore: KeystoreProtocol,
         settings: SettingsManagerProtocol
     ) throws {
+        // Explicit removal revokes this wallet's PIN ownership even when
+        // unverified signing bytes must be preserved for later repair.
+        try keystore.deleteKeysIfExist(for: [address + WalletOwnerPIN.bindingSuffix,
+            address + WalletOwnerPIN.throttleSuffix, WalletOwnerPIN.rebindPrefix + address, WalletOwnerPIN.setupPrefix + address])
         if plan.removesOwnKeyMaterial {
             try keystore.deleteWalletMaterial(for: address)
             if isLastAccount {
