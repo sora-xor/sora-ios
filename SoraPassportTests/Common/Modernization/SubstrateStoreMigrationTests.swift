@@ -365,7 +365,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         )
     }
 
-    func testStoreFromUnknownModelIsRemovedAndOtherStoresAreUntouched() throws {
+    func testStoreFromUnknownModelIsPreservedAndOtherStoresAreUntouched() throws {
         let userStore = directory.appendingPathComponent("UserDataModel.sqlite")
         let userStoreBytes = Data("wallet accounts live here".utf8)
         try userStoreBytes.write(to: userStore)
@@ -386,7 +386,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
             defaults: defaults
         )
 
-        XCTAssertEqual(setup.preparation, .removedIncompatible)
+        XCTAssertEqual(setup.preparation, .movedAside)
         for suffix in ["", "-wal", "-shm"] {
             XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path + suffix))
         }
@@ -397,14 +397,19 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         try service.close()
     }
 
-    func testFileThatIsNotADatabaseIsRemoved() throws {
-        try Data(repeating: 0x5A, count: 4096).write(to: storeURL)
+    func testFileThatIsNotADatabaseIsPreserved() throws {
+        let original = Data(repeating: 0x5A, count: 4096)
+        try original.write(to: storeURL)
 
         XCTAssertEqual(
             prepare(),
-            .removedIncompatible
+            .movedAside
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        let aside = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("SubstrateDataModel-unreadable-") && $0.pathExtension == "sqlite" }
+        XCTAssertEqual(aside.count, 1)
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(aside.first)), original)
     }
 
     func testUnreadableStoreIsKeptAndThisSessionUsesMemory() throws {
@@ -464,7 +469,7 @@ final class SubstrateStoreMigrationTests: XCTestCase {
             userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC))]
         )
         XCTAssertTrue(SubstrateStoreMigrator.isTransient(nested))
-        XCTAssertFalse(SubstrateStoreMigrator.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_100)))
+        XCTAssertTrue(SubstrateStoreMigrator.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_100)))
 
         // Core Data wraps SQLite failures in the generic Cocoa read error 256. The SQLite
         // code decides: a corrupt or foreign file is permanent, not "try again later".
@@ -483,6 +488,8 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(13)), .noSpace)
         XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(10)), .transient)
         XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(5)), .transient, "SQLITE_BUSY")
+        XCTAssertEqual(SubstrateStoreMigrator.classify(sqliteError(99)), .transient, "unknown SQLite code")
+        XCTAssertEqual(SubstrateStoreMigrator.classify(NSError(domain: "new-storage-error", code: 1)), .transient)
         XCTAssertEqual(SubstrateStoreMigrator.classify(nested), .noSpace)
         XCTAssertEqual(
             SubstrateStoreMigrator.classify(NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnknownError)),
@@ -516,9 +523,9 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         XCTAssertEqual(prepare(), .ready)
     }
 
-    /// A -wal file without its database (left by an interrupted removal) is removed
-    /// before a new store is created, so SQLite cannot replay old pages into it.
-    func testSideFilesWithoutTheirDatabaseAreRemoved() throws {
+    /// Orphan sidecars stay available for recovery outside the active namespace,
+    /// where SQLite cannot replay old pages into a new database.
+    func testSideFilesWithoutTheirDatabaseArePreserved() throws {
         let wal = storeURL.path + "-wal"
         let shm = storeURL.path + "-shm"
         try Data(repeating: 0x37, count: 512).write(to: URL(fileURLWithPath: wal))
@@ -528,22 +535,27 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: wal))
         XCTAssertFalse(FileManager.default.fileExists(atPath: shm))
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        let retained = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        XCTAssertEqual(try retained.filter { $0.path.hasSuffix("-wal") }.map { try Data(contentsOf: $0) },
+                       [Data(repeating: 0x37, count: 512)])
+        XCTAssertEqual(try retained.filter { $0.path.hasSuffix("-shm") }.map { try Data(contentsOf: $0) },
+                       [Data(repeating: 0x00, count: 512)])
     }
 
-    private final class FailingRemovalFileManager: FileManager {
+    private final class FailingMoveFileManager: FileManager {
         var failingSuffix: String?
 
-        override func removeItem(atPath path: String) throws {
+        override func moveItem(atPath path: String, toPath destination: String) throws {
             if let failingSuffix, path.hasSuffix(failingSuffix) {
                 throw NSError(domain: NSPOSIXErrorDomain, code: Int(EBUSY))
             }
-            try super.removeItem(atPath: path)
+            try super.moveItem(atPath: path, toPath: destination)
         }
     }
 
-    /// Side files go first: if one cannot be removed, the database stays, and the next
-    /// launch removes the whole store instead of creating a new database beside an old WAL.
-    func testUnusableStoreKeepsItsDatabaseUntilItsSideFilesAreGone() throws {
+    /// A failed preservation move keeps the database and sidecars together, and
+    /// a later retry retains them rather than creating a new database beside old WAL.
+    func testUnusableStoreKeepsItsDatabaseWhenASideFileCannotBePreserved() throws {
         let coordinator = NSPersistentStoreCoordinator(managedObjectModel: unrelatedModel())
         let store = try coordinator.addPersistentStore(
             ofType: NSSQLiteStoreType,
@@ -555,13 +567,13 @@ final class SubstrateStoreMigrationTests: XCTestCase {
         let wal = storeURL.path + "-wal"
         try Data(repeating: 0x37, count: 512).write(to: URL(fileURLWithPath: wal))
 
-        let fileManager = FailingRemovalFileManager()
+        let fileManager = FailingMoveFileManager()
         fileManager.failingSuffix = "-wal"
         XCTAssertEqual(prepare(fileManager: fileManager), .deferred)
         XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path), "the database must outlive its WAL")
         XCTAssertTrue(FileManager.default.fileExists(atPath: wal))
 
-        XCTAssertEqual(prepare(), .removedIncompatible)
+        XCTAssertEqual(prepare(), .movedAside)
         for suffix in ["", "-wal", "-shm"] {
             XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path + suffix))
         }
@@ -569,15 +581,20 @@ final class SubstrateStoreMigrationTests: XCTestCase {
     }
 
     /// Core Data can report a corrupt store as the generic Cocoa error 256 with
-    /// SQLITE_CORRUPT inside. That is not "try again later": the store is replaced, as
-    /// `.removeStore` did, instead of a temporary store on every launch.
-    func testCorruptStoreBehindAGenericCocoaErrorIsRemoved() throws {
+    /// SQLITE_CORRUPT inside. A fresh store may be used, but the original bytes
+    /// must remain available for recovery.
+    func testCorruptStoreBehindAGenericCocoaErrorIsPreserved() throws {
         try writeStore(model: try bundledVersion("SubstrateDataModel"), includes386Entities: false)
 
+        let original = try Data(contentsOf: storeURL)
         let result = prepare(metadataReader: { _ in throw self.sqliteError(11) })
 
-        XCTAssertEqual(result, .removedIncompatible)
+        XCTAssertEqual(result, .movedAside)
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        let aside = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("SubstrateDataModel-unreadable-") && $0.pathExtension == "sqlite" }
+        XCTAssertEqual(aside.count, 1)
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(aside.first)), original)
     }
 
     /// A readable store that keeps failing with a temporary-looking error is retried within

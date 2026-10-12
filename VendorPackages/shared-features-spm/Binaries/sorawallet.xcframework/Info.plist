@@ -20,6 +20,8 @@
 			<string>ios</string>
 			<key>SupportedPlatformVariant</key>
 			<string>simulator</string>
+			<key>DebugSymbolsPath</key>
+			<string>dSYMs</string>
 		</dict>
 		<dict>
 			<key>BinaryPath</key>
@@ -34,6 +36,8 @@
 			</array>
 			<key>SupportedPlatform</key>
 			<string>ios</string>
+			<key>DebugSymbolsPath</key>
+			<string>dSYMs</string>
 		</dict>
 	</array>
 	<key>CFBundlePackageType</key>

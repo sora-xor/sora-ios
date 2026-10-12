@@ -245,8 +245,18 @@ final class AssetWhitelistTests: XCTestCase {
         let val = WalletAssetId.val.rawValue
         let pswap = WalletAssetId.pswap.rawValue
         let vxor = "0x006a271832f44c93bd8692584d85415f0f3dccef9748fecd129442c8edcb4361"
-        let store = makeStore()
-        XCTAssertNil(store.current().entry(for: vxor), "the bundled list predates VXOR")
+        // An explicit historical subset keeps this regression independent of
+        // future updates to the application's bundled whitelist.
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let oldBundle = directory.appendingPathComponent("historical-whitelist.json")
+        try json([
+            entry(xor, symbol: "XOR", name: "SORA"),
+            entry(val, symbol: "VAL", name: "SORA Validator Token"),
+            entry(pswap, symbol: "PSWAP", name: "Polkaswap")
+        ]).write(to: oldBundle)
+        let store = AssetWhitelistStore(directory: directory.appendingPathComponent("cache"),
+                                       bundledURL: oldBundle, logger: nil)
+        XCTAssertNil(store.current().entry(for: vxor))
         let network = [
             onChain(xor, symbol: "XOR", name: "SORA"),
             onChain(val, symbol: "VAL", name: "SORA Validator Token"),
@@ -328,7 +338,9 @@ final class AssetWhitelistTests: XCTestCase {
             try Data(contentsOf: try XCTUnwrap(R.file.whitelistJson())),
             source: .bundled
         ))
-        XCTAssertGreaterThanOrEqual(bundled.count, 185)
+        XCTAssertGreaterThanOrEqual(bundled.count, 277)
+        XCTAssertNotNil(bundled.entry(for: "0x006a271832f44c93bd8692584d85415f0f3dccef9748fecd129442c8edcb4361"),
+                        "VXOR is available on a first launch without the whitelist server")
         XCTAssertNotNil(bundled.entry(for: WalletAssetId.xor.rawValue))
 
         let mixedCase = "0x02000A" + String(repeating: "0", count: 58)
