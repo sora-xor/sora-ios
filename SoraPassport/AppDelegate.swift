@@ -35,6 +35,7 @@ import FirebaseCore
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
+import SoraKeystore
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -61,6 +62,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        if !isUnitTesting { applyFreshInstallAppearance() }
         migrationEvidenceDecision =
             RetainedMigrationEvidenceHarness.shared.bootstrap()
         if migrationEvidenceDecision == .evidenceOnly {
@@ -76,6 +78,29 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         return true
+    }
+
+    /// A missing theme key also means an existing user's System choice.
+    /// Only an otherwise empty installation may receive the new default.
+    private func applyFreshInstallAppearance() {
+        let defaults = UserDefaults.standard
+        let marker = "sora.neon.appearance-default-reviewed"
+        guard !defaults.bool(forKey: marker), let identifier = Bundle.main.bundleIdentifier else { return }
+        let domain = defaults.persistentDomain(forName: identifier) ?? [:]
+        let ignored = Set(["AppleLanguages", "AppleLocale"])
+        let hasPreferences = domain.keys.contains { !ignored.contains($0) }
+        let manager = FileManager.default
+        var hasFiles = false
+        for directory in [FileManager.SearchPathDirectory.documentDirectory, .applicationSupportDirectory] {
+            guard let url = manager.urls(for: directory, in: .userDomainMask).first else { hasFiles = true; continue }
+            if manager.fileExists(atPath: url.path) {
+                hasFiles = hasFiles || ((try? manager.contentsOfDirectory(atPath: url.path).isEmpty) != true)
+            }
+        }
+        // Never interpret locked, unreadable or retained Keychain data as new.
+        let keysEmpty = (try? Keychain().allKeyIdentifiers().isEmpty) == true
+        if !hasPreferences && !hasFiles && keysEmpty { SoramitsuUI.shared.themeMode = .manual(.dark) }
+        defaults.set(true, forKey: marker)
     }
 
     // MARK: - Scene life cycle

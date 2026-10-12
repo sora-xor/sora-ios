@@ -1153,3 +1153,11 @@
 "Check wallet again" = "重新檢查錢包";
 "Wallet verification needs attention. Check your saved wallet again." = "錢包驗證需要處理。請重新檢查已儲存的錢包。";
 "Wallet services are not ready. Try again or choose another node." = "錢包服務尚未就緒。請重試或選擇其他節點。";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "系統";
+"neon.theme.dark" = "深色";
+"neon.theme.light" = "淺色";
+"neon.reduce.effects" = "減少視覺效果";
+"neon.pin.clear" = "清除 PIN";
+"neon.pin.count" = "已輸入 %d 位，共 %d 位";

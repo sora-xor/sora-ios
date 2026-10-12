@@ -66,3 +66,23 @@ extension AppSettingsItem: SoramitsuTableViewItemProtocol {
         onTap?()
     }
 }
+
+/// One mutually exclusive appearance choice, stored in the existing theme key.
+final class AppAppearanceItem: NSObject, SoramitsuTableViewItemProtocol {
+    let title: String
+    let choices: [String]
+    let selectedIndex: Int
+    let onSelect: (Int) -> Void
+
+    init(title: String, choices: [String], selectedIndex: Int, onSelect: @escaping (Int) -> Void) {
+        self.title = title
+        self.choices = choices
+        self.selectedIndex = selectedIndex
+        self.onSelect = onSelect
+    }
+
+    var cellType: AnyClass { AppAppearanceCell.self }
+    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
+    var clipsToBounds: Bool { false }
+    func itemActionTap(with context: SoramitsuTableViewContext?) {}
+}

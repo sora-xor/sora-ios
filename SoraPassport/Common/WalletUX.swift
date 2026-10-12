@@ -938,3 +938,58 @@ extension NSLayoutConstraint {
         return self
     }
 }
+
+/// Covers an editable secret without discarding the user's in-progress import.
+/// The normal app lock remains responsible for authentication after backgrounding.
+final class WalletSensitiveScreenShield {
+    private weak var controller: UIViewController?
+    private let cover = UIView()
+    private var observers: [NSObjectProtocol] = []
+
+    init(controller: UIViewController) {
+        self.controller = controller
+        cover.accessibilityIdentifier = "wallet-secret-capture-shield"
+        cover.accessibilityViewIsModal = true
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.font = .preferredFont(forTextStyle: .body)
+        label.adjustsFontForContentSizeCategory = true
+        label.text = "SORA\n\n" + R.string.localizable.screenshotAlertText(preferredLanguages: .currentLocale)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        cover.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: cover.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(equalTo: cover.trailingAnchor, constant: -24),
+            label.centerYAnchor.constraint(equalTo: cover.centerYAnchor)
+        ])
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification,
+            object: nil, queue: .main) { [weak self] _ in self?.show() })
+        for name in [UIApplication.didBecomeActiveNotification, UIScreen.capturedDidChangeNotification] {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.refresh() })
+        }
+        refresh()
+    }
+
+    deinit { observers.forEach(NotificationCenter.default.removeObserver); cover.removeFromSuperview() }
+
+    func refresh() {
+        guard let controller else { return }
+        let captured = controller.view.window?.windowScene?.screen.isCaptured ?? UIScreen.main.isCaptured
+        if captured || UIApplication.shared.applicationState != .active { show() }
+        else { cover.removeFromSuperview() }
+    }
+
+    private func show() {
+        guard let view = controller?.viewIfLoaded else { return }
+        view.endEditing(true)
+        cover.backgroundColor = WalletUX.page
+        (cover.subviews.first as? UILabel)?.textColor = WalletUX.foreground
+        cover.frame = view.bounds
+        if cover.superview == nil { view.addSubview(cover) }
+        view.bringSubviewToFront(cover)
+        cover.layoutIfNeeded()
+    }
+}

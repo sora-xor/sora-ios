@@ -53,7 +53,8 @@ final class AccountExportRawSeedInteractor {
 extension AccountExportRawSeedInteractor: AccountExportRawSeedInteractorInputProtocol {
     func copyRawSeedToClipboard() {
         guard !rawSeed.isEmpty else { return }
-        UIPasteboard.general.string = rawSeed
+        UIPasteboard.general.setItems([["public.utf8-plain-text": rawSeed]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }
 
     func exportRawSeed() {

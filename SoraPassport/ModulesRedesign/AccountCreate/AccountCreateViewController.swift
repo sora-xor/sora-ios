@@ -53,10 +53,21 @@ final class AccountCreateViewController: SoramitsuViewController {
 
     var presenter: AccountCreatePresenterProtocol!
     var mode: Mode = .registration
+    private let scrollView = UIScrollView()
+    private var phraseWords: [String] = []
+    private var phraseRevealed = false
+    private var hideTimer: Timer?
+    private lazy var revealButton: WalletNeonButton = {
+        let button = WalletSafeMode.button(.secondary, title: WalletUX.text("Show my recovery phrase"))
+        button.accessibilityIdentifier = "wallet-backup-reveal"
+        button.addTarget(self, action: #selector(togglePhrase), for: .touchUpInside)
+        return button
+    }()
 
     private let containerView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .bgSurface
+        view.sora.material = .solid
         view.sora.axis = .vertical
         view.sora.shadow = .default
         view.spacing = 24
@@ -70,6 +81,7 @@ final class AccountCreateViewController: SoramitsuViewController {
     private let titleLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
             $0.sora.font = FontType.paragraphM
+            $0.sora.dynamicTextStyle = .body
             $0.sora.textColor = .fgPrimary
             $0.numberOfLines = 0
         }
@@ -79,9 +91,11 @@ final class AccountCreateViewController: SoramitsuViewController {
         MnemonicDisplayView(frame: .zero).then {
             $0.indexTitleColorInColumn = .fgPrimary
             $0.wordTitleColorInColumn = .fgPrimary
-            $0.indexFontInColumn = ScreenSizeMapper.value(small: FontType.textS, medium: FontType.textL, large: FontType.textL)
-            $0.wordFontInColumn =  ScreenSizeMapper.value(small: FontType.textBoldS, medium: FontType.textBoldL, large: FontType.textBoldL)
+            $0.indexFontInColumn = FontType.mono
+            $0.wordFontInColumn =  FontType.phraseWord
             $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.accessibilityIdentifier = "wallet-backup-words"
+            $0.isHidden = true
         }
     }()
 
@@ -124,6 +138,7 @@ final class AccountCreateViewController: SoramitsuViewController {
         button.sora.borderColor = .accentSecondary
         button.sora.borderWidth = 1
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.hidePhrase()
             self?.googleButton.isUserInteractionEnabled = false
             self?.loadingView.isHidden = false
             self?.presenter.backupToGoogle()
@@ -134,7 +149,7 @@ final class AccountCreateViewController: SoramitsuViewController {
     private var derivationPathModel: InputViewModelProtocol?
     private var backupPath = ""
     private let backupPathLabel = UILabel()
-    private let copyBackupPathButton = UIButton(type: .system)
+    private let copyBackupPathButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Copy derivation path"))
 
     var keyboardHandler: KeyboardHandler?
 
@@ -157,6 +172,11 @@ final class AccountCreateViewController: SoramitsuViewController {
         configure()
 
         presenter.setup()
+        [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification,
+         UIApplication.userDidTakeScreenshotNotification].forEach {
+            NotificationCenter.default.addObserver(self, selector: #selector(hidePhrase), name: $0, object: nil)
+        }
+        hidePhrase()
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(appEnterToForeground),
@@ -165,6 +185,7 @@ final class AccountCreateViewController: SoramitsuViewController {
     }
 
     deinit {
+        hideTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -175,17 +196,24 @@ final class AccountCreateViewController: SoramitsuViewController {
 
     private func configure() {
 
-        view.addSubview(containerView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
         view.addSubview(loadingView)
         backupPathLabel.numberOfLines = 0
         backupPathLabel.textColor = .label
         backupPathLabel.font = .preferredFont(forTextStyle: .body)
+        backupPathLabel.adjustsFontForContentSizeCategory = true
         backupPathLabel.isHidden = true
         copyBackupPathButton.setTitle(WalletUX.text("Copy derivation path"), for: .normal)
+        copyBackupPathButton.tintColor = WalletUX.tokens.cyan
+        copyBackupPathButton.titleLabel?.numberOfLines = 0
+        copyBackupPathButton.titleLabel?.adjustsFontForContentSizeCategory = true
         copyBackupPathButton.addTarget(self, action: #selector(copyBackupPath), for: .touchUpInside)
         copyBackupPathButton.isHidden = true
         containerView.addArrangedSubviews([
             titleLabel,
+            revealButton,
             mnemonicView,
             shareButton,
             backupPathLabel,
@@ -195,11 +223,17 @@ final class AccountCreateViewController: SoramitsuViewController {
         ])
 
         containerView.setCustomSpacing(16, after: nextButton)
-        containerView.do {
-            $0.topAnchor == view.soraSafeTopAnchor
-            $0.bottomAnchor <= view.soraSafeBottomAnchor
-            $0.horizontalAnchors == view.horizontalAnchors + 16
-        }
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+        ])
         
         NSLayoutConstraint.activate([
             loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
@@ -208,11 +242,53 @@ final class AccountCreateViewController: SoramitsuViewController {
             loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
 
-        view.backgroundColor = .clear
+        soramitsuView.sora.backgroundColor = .bgPage
 
         shareButton.isHidden = mode == .registration || mode == .registrationWithoutAccessToGoogle
         googleButton.isHidden = mode == .view || mode == .registration
         nextButton.isHidden = mode == .view
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        hidePhrase()
+        super.viewWillDisappear(animated)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if isViewLoaded { updatePhraseVisibility() }
+    }
+
+    @objc private func togglePhrase() {
+        if phraseRevealed { hidePhrase(); return }
+        guard !phraseWords.isEmpty, UIApplication.shared.applicationState == .active,
+              !(view.window?.windowScene?.screen.isCaptured ?? UIScreen.main.isCaptured) else { return }
+        phraseRevealed = true
+        updatePhraseVisibility()
+        hideTimer?.invalidate()
+        let timer = Timer(timeInterval: 60, repeats: false) { [weak self] _ in self?.hidePhrase() }
+        hideTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    @objc private func hidePhrase() {
+        phraseRevealed = false
+        hideTimer?.invalidate(); hideTimer = nil
+        updatePhraseVisibility()
+    }
+
+    private func updatePhraseVisibility() {
+        var words = phraseRevealed ? phraseWords : []
+        let columns = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 1 : 2
+        if words.count % columns != 0 { words.append("") }
+        mnemonicView.bind(words: words, columnsCount: columns)
+        mnemonicView.isHidden = !phraseRevealed
+        mnemonicView.accessibilityElementsHidden = !phraseRevealed
+        backupPathLabel.text = phraseRevealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
+        backupPathLabel.isHidden = !phraseRevealed || backupPath.isEmpty
+        copyBackupPathButton.isHidden = !phraseRevealed || backupPath.isEmpty
+        shareButton.isEnabled = phraseRevealed
+        revealButton.setTitle(phraseRevealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : WalletUX.text("Show my recovery phrase"), for: .normal)
     }
 
     private func setupNavigationItem() {
@@ -225,15 +301,18 @@ final class AccountCreateViewController: SoramitsuViewController {
         title = R.string.localizable.mnemonicTitle(preferredLanguages: locale.rLanguages).capitalized
         titleLabel.sora.text = R.string.localizable.mnemonicText(preferredLanguages: locale.rLanguages)
         nextButton.sora.title = mode.nextButtonTitle
+        shareButton.sora.title = R.string.localizable.commonCopy(preferredLanguages: .currentLocale)
         
         navigationItem.rightBarButtonItem = createRightButtonItem()
     }
 
     @IBAction private func actionNext() {
+        hidePhrase()
         presenter.proceed()
     }
 
     @IBAction private func actionShare() {
+        guard phraseRevealed else { return }
         shareButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
         presenter.share()
     }
@@ -287,26 +366,20 @@ final class AccountCreateViewController: SoramitsuViewController {
 extension AccountCreateViewController: AccountCreateViewProtocol {
     func set(backupDerivationPath: String) {
         backupPath = backupDerivationPath
-        backupPathLabel.text = WalletUX.text("Also save this derivation path:") + "\n" + backupDerivationPath
-        backupPathLabel.isHidden = backupDerivationPath.isEmpty
-        copyBackupPathButton.isHidden = backupDerivationPath.isEmpty
+        updatePhraseVisibility()
     }
 
     @objc private func copyBackupPath() {
-        guard !backupPath.isEmpty else { return }
-        UIPasteboard.general.string = backupPath
+        guard phraseRevealed, !backupPath.isEmpty else { return }
+        UIPasteboard.general.setItems([["public.utf8-plain-text": backupPath]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }
 
     func set(mnemonic: [String]) {
-        var conditionedMnemonic = mnemonic
-        if mnemonic.count % 2 == 1 {
-            // Display-only padding for retained odd-count legacy mnemonics.
-            // The phrase and its stored derivation material are never changed.
-            conditionedMnemonic.append("")
-        }
-        mnemonicView.bind(words: conditionedMnemonic, columnsCount: 2)
+        phraseWords = mnemonic
+        hidePhrase()
     }
-    
+
     func showLoading() {
         loadingView.isHidden = false
     }

@@ -48,7 +48,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                     self?.moneyLabel.sora.cornerRadius = !value.isEmpty ? .zero : .small
                     // "Price unavailable" is a quiet notice, not an amount.
                     let unavailable = self?.assetsItem?.service?.priceIsUnavailable ?? false
-                    self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.headline2
+                    self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.displayHero
                     self?.moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
                 }
                 .store(in: &cancellables)
@@ -82,15 +82,15 @@ final class AssetsCell: SoramitsuTableViewCell {
 
     private lazy var moneyLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.headline2
-        label.sora.dynamicTextStyle = .headline
+        label.sora.font = FontType.displayHero
+        label.sora.dynamicTextStyle = .largeTitle
         label.sora.numberOfLines = 0
         label.sora.lineBreakMode = .byCharWrapping
         label.sora.textColor = .fgPrimary
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.cornerRadius = .small
-        label.sora.alignment = localizationManager.isRightToLeft ? .left : .right
+        label.sora.alignment = .natural
         return label
     }()
 
@@ -101,7 +101,7 @@ final class AssetsCell: SoramitsuTableViewCell {
         label.sora.font = FontType.textXS
         label.sora.numberOfLines = 0
         label.sora.textColor = .fgSecondary
-        label.sora.alignment = localizationManager.isRightToLeft ? .left : .right
+        label.sora.alignment = .natural
         label.sora.isHidden = true
         return label
     }()
@@ -109,6 +109,7 @@ final class AssetsCell: SoramitsuTableViewCell {
     private let containerView: SoramitsuView = {
         var view = SoramitsuView()
         view.sora.backgroundColor = .bgSurface
+        view.sora.material = .glass
         view.sora.cornerRadius = .max
         return view
     }()
@@ -123,7 +124,7 @@ final class AssetsCell: SoramitsuTableViewCell {
     private let mainInfoView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .custom(uiColor: .clear)
-        view.sora.axis = .horizontal
+        view.sora.axis = .vertical
         view.sora.distribution = .fill
         return view
     }()
@@ -145,15 +146,6 @@ final class AssetsCell: SoramitsuTableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupView()
         setupConstraints()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let stacked = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
-        let axis: NSLayoutConstraint.Axis = stacked ? .vertical : .horizontal
-        if mainInfoView.axis != axis { mainInfoView.sora.axis = axis }
-        let alignment: NSTextAlignment = stacked ? .natural : (localizationManager.isRightToLeft ? .left : .right)
-        if moneyLabel.sora.alignment != alignment { moneyLabel.sora.alignment = alignment }
     }
 
     @available(*, unavailable)
@@ -306,7 +298,8 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
             return
         }
 
-        if assetsItem == nil {
+        if assetsItem !== item {
+            cancellables.removeAll()
             assetsItem = item
         }
 

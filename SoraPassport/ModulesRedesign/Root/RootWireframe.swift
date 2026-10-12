@@ -1274,6 +1274,9 @@ final class WalletRecoveryPhraseViewController: UIViewController {
     private let wordsCard = GlassView()
     private let hiddenLabel = UILabel()
     private var observers: [NSObjectProtocol] = []
+    private var revealed = false
+    private var hideTimer: Timer?
+    private lazy var revealButton = WalletSafeMode.button(.secondary, title: WalletUX.text("Show my recovery phrase"))
 
     init(entries: [WalletRecoveryPhraseReveal.Entry]) {
         self.entries = entries
@@ -1286,6 +1289,7 @@ final class WalletRecoveryPhraseViewController: UIViewController {
     }
 
     deinit {
+        hideTimer?.invalidate()
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
@@ -1311,6 +1315,7 @@ final class WalletRecoveryPhraseViewController: UIViewController {
                                                 weight: .regular)
         wordsLabel.textColor = WalletUX.tokens.textPrimary
         wordsLabel.numberOfLines = 0
+        wordsLabel.adjustsFontForContentSizeCategory = true
         wordsLabel.accessibilityIdentifier = "wallet-recovery-phrase-words"
         wordsCard.fill = .solid
         wordsCard.border = .safe
@@ -1333,7 +1338,9 @@ final class WalletRecoveryPhraseViewController: UIViewController {
 
         derivationStack.axis = .vertical
         derivationStack.spacing = 12
-        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, wordsCard, derivationStack, hiddenLabel, doneButton])
+        revealButton.accessibilityIdentifier = "wallet-recovery-phrase-reveal"
+        revealButton.addTarget(self, action: #selector(toggleReveal), for: .touchUpInside)
+        let stack = UIStackView(arrangedSubviews: [titleLabel, warningLabel, revealButton, wordsCard, derivationStack, hiddenLabel, doneButton])
         stack.axis = .vertical
         stack.spacing = 20
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -1356,13 +1363,13 @@ final class WalletRecoveryPhraseViewController: UIViewController {
         let center = NotificationCenter.default
         observers = [
             center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) {
-                [weak self] _ in self?.setWordsVisible(false)
+                [weak self] _ in self?.hideWords()
             },
             center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) {
-                [weak self] _ in self?.updateVisibility()
+                [weak self] _ in self?.hideWords()
             },
             center.addObserver(forName: UIScreen.capturedDidChangeNotification, object: nil, queue: .main) {
-                [weak self] _ in self?.updateVisibility()
+                [weak self] _ in self?.hideWords()
             },
             center.addObserver(forName: UIApplication.userDidTakeScreenshotNotification, object: nil, queue: .main) {
                 [weak self] _ in self?.warnAboutScreenshot()
@@ -1376,10 +1383,35 @@ final class WalletRecoveryPhraseViewController: UIViewController {
     }
 
     private func updateVisibility() {
-        setWordsVisible(UIApplication.shared.applicationState == .active && !isCaptured)
+        setWordsVisible(revealed && UIApplication.shared.applicationState == .active && !isCaptured)
+        hiddenLabel.isHidden = !isCaptured
+        revealButton.isEnabled = !isCaptured
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        hideWords()
+        super.viewWillDisappear(animated)
+    }
+
+    @objc private func toggleReveal() {
+        if revealed { hideWords(); return }
+        guard UIApplication.shared.applicationState == .active, !isCaptured else { return }
+        revealed = true
+        updateVisibility()
+        hideTimer?.invalidate()
+        let timer = Timer(timeInterval: 60, repeats: false) { [weak self] _ in self?.hideWords() }
+        hideTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func hideWords() {
+        revealed = false
+        hideTimer?.invalidate(); hideTimer = nil
+        updateVisibility()
     }
 
     private func setWordsVisible(_ visible: Bool) {
+        revealButton.setTitle(visible ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : WalletUX.text("Show my recovery phrase"), for: .normal)
         derivationStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         derivationStack.isHidden = !visible
         if visible {
@@ -1410,6 +1442,7 @@ final class WalletRecoveryPhraseViewController: UIViewController {
     }
 
     private func warnAboutScreenshot() {
+        hideWords()
         let languages = LocalizationManager.shared.selectedLocale.rLanguages
         let alert = UIAlertController(
             title: R.string.localizable.screenshotAlertTitle(preferredLanguages: languages),

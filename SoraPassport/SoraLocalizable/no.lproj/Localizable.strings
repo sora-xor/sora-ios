@@ -1148,3 +1148,11 @@
 "Check wallet again" = "Kontroller lommeboken på nytt";
 "Wallet verification needs attention. Check your saved wallet again." = "Verifiseringen av lommeboken krever oppmerksomhet. Kontroller den lagrede lommeboken på nytt.";
 "Wallet services are not ready. Try again or choose another node." = "Lommeboktjenestene er ikke klare ennå. Prøv igjen eller velg en annen node.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "System";
+"neon.theme.dark" = "Mørk";
+"neon.theme.light" = "Lys";
+"neon.reduce.effects" = "Reduser effekter";
+"neon.pin.clear" = "Tøm PIN";
+"neon.pin.count" = "%d av %d sifre angitt";

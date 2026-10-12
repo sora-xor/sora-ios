@@ -1151,3 +1151,11 @@
 "Check wallet again" = "वॉलेट फिर से जाँचें";
 "Wallet verification needs attention. Check your saved wallet again." = "वॉलेट के सत्यापन पर ध्यान देना आवश्यक है। अपने सहेजे गए वॉलेट को फिर से जाँचें।";
 "Wallet services are not ready. Try again or choose another node." = "वॉलेट सेवाएँ अभी तैयार नहीं हैं। फिर से कोशिश करें या कोई दूसरा नोड चुनें।";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "सिस्टम";
+"neon.theme.dark" = "डार्क";
+"neon.theme.light" = "लाइट";
+"neon.reduce.effects" = "प्रभाव कम करें";
+"neon.pin.clear" = "PIN साफ़ करें";
+"neon.pin.count" = "%2$d में से %1$d अंक दर्ज किए गए";

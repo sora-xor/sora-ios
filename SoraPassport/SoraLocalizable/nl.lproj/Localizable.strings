@@ -1151,3 +1151,11 @@
 "Check wallet again" = "Wallet opnieuw controleren";
 "Wallet verification needs attention. Check your saved wallet again." = "De walletverificatie vereist aandacht. Controleer je opgeslagen wallet opnieuw.";
 "Wallet services are not ready. Try again or choose another node." = "De walletdiensten zijn nog niet gereed. Probeer het opnieuw of kies een andere node.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "Systeem";
+"neon.theme.dark" = "Donker";
+"neon.theme.light" = "Licht";
+"neon.reduce.effects" = "Effecten verminderen";
+"neon.pin.clear" = "PIN wissen";
+"neon.pin.count" = "%d van %d cijfers ingevoerd";

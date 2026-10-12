@@ -1151,3 +1151,11 @@
 "Check wallet again" = "Tarkista lompakko uudelleen";
 "Wallet verification needs attention. Check your saved wallet again." = "Lompakon varmennus vaatii huomiota. Tarkista tallennettu lompakkosi uudelleen.";
 "Wallet services are not ready. Try again or choose another node." = "Lompakon palvelut eivät ole vielä valmiina. Yritä uudelleen tai valitse toinen solmu.";
+
+/* SORA Neon appearance and accessible PIN controls. */
+"neon.theme.system" = "Järjestelmä";
+"neon.theme.dark" = "Tumma";
+"neon.theme.light" = "Vaalea";
+"neon.reduce.effects" = "Vähennä tehosteita";
+"neon.pin.clear" = "Tyhjennä PIN";
+"neon.pin.count" = "%d/%d numeroa syötetty";

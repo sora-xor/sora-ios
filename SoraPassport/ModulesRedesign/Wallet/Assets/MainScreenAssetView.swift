@@ -79,7 +79,7 @@ public final class MainScreenAssetView: SoramitsuControl {
     
     public let amountUpLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.textM
+        label.sora.font = FontType.amountM
         label.sora.dynamicTextStyle = .body
         label.sora.numberOfLines = 0
         label.sora.lineBreakMode = .byCharWrapping
@@ -94,7 +94,7 @@ public final class MainScreenAssetView: SoramitsuControl {
 
     public let amountDownLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.textBoldXS
+        label.sora.font = FontType.amountS
         label.sora.dynamicTextStyle = .caption1
         label.sora.numberOfLines = 0
         label.sora.lineBreakMode = .byCharWrapping
