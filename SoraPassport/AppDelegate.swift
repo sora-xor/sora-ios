@@ -83,23 +83,36 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// A missing theme key also means an existing user's System choice.
     /// Only an otherwise empty installation may receive the new default.
     private func applyFreshInstallAppearance() {
-        let defaults = UserDefaults.standard
+        guard let identifier = Bundle.main.bundleIdentifier else { return }
+        let manager = FileManager.default
+        let directories = [FileManager.SearchPathDirectory.documentDirectory, .applicationSupportDirectory]
+            .compactMap { manager.urls(for: $0, in: .userDomainMask).first }
+        guard directories.count == 2 else { return }
+        Self.applyFreshInstallAppearance(defaults: .standard, identifier: identifier,
+            storageDirectories: directories,
+            keychainIsEmpty: { (try? Keychain().allKeyIdentifiers().isEmpty) == true })
+    }
+
+    static func applyFreshInstallAppearance(defaults: UserDefaults, identifier: String,
+                                           storageDirectories: [URL], keychainIsEmpty: () -> Bool) {
         let marker = "sora.neon.appearance-default-reviewed"
-        guard !defaults.bool(forKey: marker), let identifier = Bundle.main.bundleIdentifier else { return }
+        guard !defaults.bool(forKey: marker), !storageDirectories.isEmpty else { return }
         let domain = defaults.persistentDomain(forName: identifier) ?? [:]
         let ignored = Set(["AppleLanguages", "AppleLocale"])
         let hasPreferences = domain.keys.contains { !ignored.contains($0) }
         let manager = FileManager.default
         var hasFiles = false
-        for directory in [FileManager.SearchPathDirectory.documentDirectory, .applicationSupportDirectory] {
-            guard let url = manager.urls(for: directory, in: .userDomainMask).first else { hasFiles = true; continue }
+        for url in storageDirectories {
             if manager.fileExists(atPath: url.path) {
                 hasFiles = hasFiles || ((try? manager.contentsOfDirectory(atPath: url.path).isEmpty) != true)
             }
         }
+        // Do not write even an appearance marker into retained settings: an
+        // interrupted upgrade may need to compare them with its saved snapshot.
+        guard !hasPreferences && !hasFiles else { return }
         // Never interpret locked, unreadable or retained Keychain data as new.
-        let keysEmpty = (try? Keychain().allKeyIdentifiers().isEmpty) == true
-        if !hasPreferences && !hasFiles && keysEmpty { SoramitsuUI.shared.themeMode = .manual(.dark) }
+        guard keychainIsEmpty() else { return }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
         defaults.set(true, forKey: marker)
     }
 

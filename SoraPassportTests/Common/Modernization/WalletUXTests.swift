@@ -12,6 +12,42 @@ import Darwin
 
 final class WalletUXTests: XCTestCase {
     @MainActor
+    func testAppearanceDefaultNeverMutatesRetainedUpgradePreferences() throws {
+        let identifier = "sora-neon-appearance-tests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: identifier))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(identifier)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let previousTheme = SoramitsuUI.shared.themeMode
+        defer {
+            defaults.removePersistentDomain(forName: identifier)
+            try? FileManager.default.removeItem(at: directory)
+            SoramitsuUI.shared.themeMode = previousTheme
+        }
+        defaults.set("retained-value", forKey: "retained-setting")
+        let retained = defaults.persistentDomain(forName: identifier) ?? [:]
+        AppDelegate.applyFreshInstallAppearance(defaults: defaults, identifier: identifier,
+            storageDirectories: [directory], keychainIsEmpty: { XCTFail("Retained settings do not need a Keychain read"); return true })
+        XCTAssertEqual(NSDictionary(dictionary: defaults.persistentDomain(forName: identifier) ?? [:]), NSDictionary(dictionary: retained))
+
+        defaults.removePersistentDomain(forName: identifier)
+        let snapshot = directory.appendingPathComponent("settings-backup.plist")
+        try Data("public-fixture".utf8).write(to: snapshot)
+        AppDelegate.applyFreshInstallAppearance(defaults: defaults, identifier: identifier,
+            storageDirectories: [directory], keychainIsEmpty: { XCTFail("Retained files do not need a Keychain read"); return true })
+        XCTAssertTrue((defaults.persistentDomain(forName: identifier) ?? [:]).isEmpty)
+        try FileManager.default.removeItem(at: snapshot)
+
+        AppDelegate.applyFreshInstallAppearance(defaults: defaults, identifier: identifier,
+            storageDirectories: [directory], keychainIsEmpty: { false })
+        XCTAssertTrue((defaults.persistentDomain(forName: identifier) ?? [:]).isEmpty,
+            "Retained or unreadable Keychain data must not create a preference marker")
+        AppDelegate.applyFreshInstallAppearance(defaults: defaults, identifier: identifier,
+            storageDirectories: [directory], keychainIsEmpty: { true })
+        XCTAssertTrue(defaults.bool(forKey: "sora.neon.appearance-default-reviewed"))
+        XCTAssertEqual(SoramitsuUI.shared.themeMode, .manual(.dark))
+    }
+
+    @MainActor
     func testNeonPINKeysDeleteAndClearPreserveFourAndSixDigitInput() throws {
         for count in [4, 6] {
             let controller = PincodeViewController()
@@ -158,10 +194,15 @@ final class WalletUXTests: XCTestCase {
                 for large in [false, true] {
                     let window = makeSceneHostedWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
                     window.overrideUserInterfaceStyle = theme == .dark ? .dark : .light
-                    for count in [4, 6, 0, -1, -2, -3, -4] {
+                    for count in [4, 6, 0, -1, -2, -3, -4, -5] {
                         let controller: UIViewController
-                        if count <= -3 {
+                        if count == -5 {
+                            let account = AccountTableViewItem(accountName: "Public fixture")
+                            account.capability = .missingKeys
+                            controller = RecoveryHeaderVisualController(item: account)
+                        } else if count <= -3 {
                             let seed = AccountExportRawSeedViewController()
+                            seed.localizationManager = LocalizationManager.shared
                             seed.presenter = NeonRawSeedVisualPresenter()
                             controller = UINavigationController(rootViewController: seed)
                             seed.loadViewIfNeeded()
@@ -205,7 +246,7 @@ final class WalletUXTests: XCTestCase {
                         let image = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
                         let name = "\(language)-\(theme == .dark ? "dark" : "light")-\(large ? "AX5" : "normal")-\(count == 0 ? "settings" : (count < 0 ? "backup\(count)" : "pin\(count)")).png"
                         try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent(name))
-                        if let scroll = descendants(controller.view).compactMap({ $0 as? UIScrollView }).first {
+                        if let scroll = ([controller.view!] + descendants(controller.view)).compactMap({ $0 as? UIScrollView }).first {
                             scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
                             scroll.layoutIfNeeded()
                             let bottom = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
@@ -1679,9 +1720,8 @@ final class SoraNeonDesignTests: XCTestCase {
         XCTAssertEqual(FontType.buttonM.font.fontName, "Sora-SemiBold")
         XCTAssertEqual(FontType.headline4.font.fontName, "Sora-SemiBold")
         XCTAssertEqual(FontType.pinDigit.font.fontName, "Sora-Regular")
-        // The body face (Inter) is not bundled: body text uses the system font.
-        XCTAssertNil(FontType.textM.postScriptName)
-        XCTAssertEqual(FontType.textM.font.familyName, UIFont.systemFont(ofSize: 16).familyName)
+        XCTAssertEqual(FontType.textM.postScriptName, "Inter-Regular")
+        XCTAssertEqual(FontType.textM.font.familyName, "Inter")
         XCTAssertTrue(FontType.mono.font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
         // Fonts are cached.
         XCTAssertTrue(FontType.textS.font === FontType.textS.font)

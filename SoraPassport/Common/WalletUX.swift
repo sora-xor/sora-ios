@@ -680,7 +680,10 @@ final class WalletNeonButton: UIButton {
         titleLabel?.numberOfLines = 0
         titleLabel?.textAlignment = .center
         titleLabel?.adjustsFontForContentSizeCategory = true
-        heightAnchor.constraint(greaterThanOrEqualToConstant: style == .tertiary ? 44 : 52).isActive = true
+        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: style == .tertiary ? 44 : 52)
+        // Hidden arranged buttons must be able to collapse to zero height.
+        minimumHeight.priority = UILayoutPriority(999)
+        minimumHeight.isActive = true
         layer.masksToBounds = false
         SoramitsuUI.updates.addObserver(self)
     }
