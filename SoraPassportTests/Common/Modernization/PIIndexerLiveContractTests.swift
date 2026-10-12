@@ -5997,6 +5997,7 @@ private final class ActivityTestHistory: HistoryServiceProtocol {
     private var pages: [Int: HistoryPage] = [:]
     private var failures: [Int: Swift.Error] = [:]
     private var asked: [Int] = []
+    private var askedAssets: [String?] = []
     private var gate: TestGate?
 
     func set(_ page: Int, _ value: HistoryPage?) {
@@ -6030,10 +6031,17 @@ private final class ActivityTestHistory: HistoryServiceProtocol {
         return asked
     }
 
-    private func note(_ page: Int) -> TestGate? {
+    var requestedAssets: [String?] {
+        lock.lock()
+        defer { lock.unlock() }
+        return askedAssets
+    }
+
+    private func note(_ page: Int, assetId: String?) -> TestGate? {
         lock.lock()
         defer { lock.unlock() }
         asked.append(page)
+        askedAssets.append(assetId)
         return gate
     }
 
@@ -6049,9 +6057,9 @@ private final class ActivityTestHistory: HistoryServiceProtocol {
     func getPageHistory(
         count _: Int,
         page: Int,
-        assetId _: String?
+        assetId: String?
     ) async throws -> HistoryPage {
-        await note(page)?.passed()
+        await note(page, assetId: assetId)?.passed()
         return try answer(page).get()
     }
 
@@ -6083,6 +6091,21 @@ private final class ActivityTestEvents: EventCenterProtocol {
     }
     func add(observer _: EventVisitorProtocol, dispatchIn _: DispatchQueue?) {}
     func remove(observer _: EventVisitorProtocol) {}
+}
+
+private final class ActivityPagingTestView: ActivityViewProtocol {
+    let controller = UIViewController()
+    var isSetup: Bool { true }
+    private(set) var isPaginating = false
+    private(set) var paginationStops = 0
+
+    func stopAnimating() {}
+    func resetPagination() {}
+    func startPaginationLoader() { isPaginating = true }
+    func stopPaginationLoader() {
+        isPaginating = false
+        paginationStops += 1
+    }
 }
 
 /// What the list of a view model holds, row by row.
@@ -6133,6 +6156,7 @@ private enum ActivityTestList {
 }
 
 final class PIRound4ActivityTests: XCTestCase {
+    @MainActor
     private func wait(
         _ what: String,
         until condition: @escaping () -> Bool
@@ -6146,25 +6170,32 @@ final class PIRound4ActivityTests: XCTestCase {
     private func page(
         _ hashes: [String],
         day: String,
-        cachedAt: Date? = nil
+        cachedAt: Date? = nil,
+        endReached: Bool = false
     ) -> HistoryPage {
         HistoryPage(
             transactions: hashes.map { ActivityTestTransaction($0, day: day) },
-            endReached: false,
+            endReached: endReached,
             cachedAt: cachedAt
         )
     }
 
     /// These tests are about pages: the list does not ask again by itself
     /// while they run (`PIActivityRefreshTests` covers that).
-    private func viewModel(_ history: ActivityTestHistory) -> ActivityViewModel {
+    private func viewModel(
+        _ history: ActivityTestHistory,
+        factory: ActivityViewModelFactoryProtocol = ActivityTestFactory(),
+        assetId: String? = nil,
+        notificationCenter: NotificationCenter = NotificationCenter()
+    ) -> ActivityViewModel {
         ActivityViewModel(
             historyService: history,
-            viewModelFactory: ActivityTestFactory(),
+            viewModelFactory: factory,
             wireframe: ActivityWireframe(),
             assetManager: PriceTestAssetManager(assets: []),
             eventCenter: ActivityTestEvents(),
-            notificationCenter: NotificationCenter(),
+            assetId: assetId,
+            notificationCenter: notificationCenter,
             refreshDelay: { _ in 3_600 }
         )
     }
@@ -6179,6 +6210,450 @@ final class PIRound4ActivityTests: XCTestCase {
 
     private func retryRows(_ viewModel: ActivityViewModel) -> Int {
         ActivityTestList.retryRows(viewModel)
+    }
+
+    /// The old section-identity intersection missed a page when all of
+    /// its rows merged into a day already on screen.
+    @MainActor
+    func testSameDayPagesArePublishedAndCountedOnce() async throws {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], day: "D"))
+        history.set(2, page(["a3", "a4"], day: "D"))
+        history.set(3, page(["b1"], day: "D-1", endReached: true))
+        let viewModel = viewModel(history)
+        let view = ActivityPagingTestView()
+        viewModel.view = view
+
+        viewModel.viewDidLoad()
+        await wait("page 1 counted") { viewModel.pageNumber == 1 }
+        let originalSection = try XCTUnwrap(viewModel.sections.first)
+        let stopsAfterFirstPage = view.paginationStops
+        viewModel.updateContent()
+        XCTAssertTrue(view.isPaginating)
+        await wait("page 2 published") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2", "a3", "a4"]
+        }
+        XCTAssertEqual(viewModel.pageNumber, 2)
+        XCTAssertEqual(viewModel.sections.count, 1)
+        XCTAssertTrue(viewModel.sections.first === originalSection)
+        XCTAssertFalse(view.isPaginating)
+        XCTAssertGreaterThan(view.paginationStops, stopsAfterFirstPage)
+
+        viewModel.updateContent()
+        await wait("page 3 counted") { viewModel.pageNumber == 3 }
+        let expected = ["a1", "a2", "a3", "a4", "b1"]
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), expected)
+        XCTAssertEqual(rows(viewModel), expected)
+        XCTAssertEqual(history.requests, [1, 2, 3])
+        XCTAssertFalse(view.isPaginating)
+    }
+
+    /// Two answers for the same page may be in flight, but only the
+    /// first accepted answer may merge its rows or advance the list.
+    @MainActor
+    func testConcurrentSameDayPageAnswersDoNotDuplicateRows() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], day: "D"))
+        history.set(2, page(["a3", "a4"], day: "D", endReached: true))
+        let viewModel = viewModel(history)
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+
+        let gate = history.hold()
+        viewModel.updateContent()
+        viewModel.updateContent()
+        await wait("page 2 requested") { history.requests.contains(2) }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        gate.open()
+        await wait("page 2 counted") { viewModel.pageNumber == 2 }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(rows(viewModel), ["a1", "a2", "a3", "a4"])
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), rows(viewModel))
+        XCTAssertEqual(viewModel.pageNumber, 2)
+        viewModel.updateContent()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertFalse(history.requests.contains(3))
+    }
+
+    /// SubqueryHistoryOperation filters each remote page by asset. No
+    /// matching rows in page 2 says nothing about matching rows in page 3.
+    @MainActor
+    func testEmptyFilteredMiddlePageAutomaticallyLoadsTheNextPage() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], day: "D"))
+        history.set(2, page([], day: "D"))
+        history.set(3, page(["a3", "a4"], day: "D", endReached: true))
+        let viewModel = viewModel(history, assetId: priceTestXor)
+        let view = ActivityPagingTestView()
+        viewModel.view = view
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+
+        // One scroll must get past the empty page without another event
+        // from a last visible row that has not changed.
+        viewModel.updateContent()
+        await wait("matching rows beyond the empty page") {
+            ActivityTestList.drawnRows(viewModel) == ["a1", "a2", "a3", "a4"]
+        }
+        XCTAssertEqual(viewModel.pageNumber, 3)
+        XCTAssertEqual(history.requests, [1, 2, 3])
+        XCTAssertEqual(history.requestedAssets, [priceTestXor, priceTestXor, priceTestXor])
+        XCTAssertEqual(rows(viewModel), ["a1", "a2", "a3", "a4"])
+        XCTAssertFalse(view.isPaginating)
+    }
+
+    @MainActor
+    func testEmptyFilteredFirstPagesDoNotDeclareTheListEmpty() async {
+        let history = ActivityTestHistory()
+        history.set(1, page([], day: "D"))
+        history.set(2, page([], day: "D"))
+        history.set(3, page(["a1"], day: "D", endReached: true))
+        let viewModel = viewModel(history, assetId: priceTestXor)
+        var emptyLabels = 0
+        viewModel.setupEmptyLabel = { emptyLabels += 1 }
+
+        viewModel.viewDidLoad()
+        await wait("the first matching page") { viewModel.pageNumber == 3 }
+        XCTAssertEqual(history.requests, [1, 2, 3])
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1"])
+        XCTAssertEqual(emptyLabels, 0)
+    }
+
+    @MainActor
+    func testEmptyLastPageIsCountedAndEndsPaging() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1", "a2"], day: "D"))
+        history.set(2, page([], day: "D", endReached: true))
+        let viewModel = viewModel(history)
+        let view = ActivityPagingTestView()
+        viewModel.view = view
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("empty final page counted") { viewModel.pageNumber == 2 }
+        XCTAssertFalse(view.isPaginating)
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1", "a2"])
+        for _ in 0..<3 { viewModel.updateContent() }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(history.requests, [1, 2])
+        XCTAssertFalse(view.isPaginating)
+        XCTAssertEqual(retryRows(viewModel), 0)
+    }
+
+    @MainActor
+    func testAnEmptyFirstAndLastPageEndsWithoutAnotherRequest() async {
+        let history = ActivityTestHistory()
+        history.set(1, page([], day: "D", endReached: true))
+        let viewModel = viewModel(history, assetId: priceTestXor)
+        var emptyLabels = 0
+        viewModel.setupEmptyLabel = { emptyLabels += 1 }
+        viewModel.viewDidLoad()
+        await wait("the empty list counted") { viewModel.pageNumber == 1 }
+        XCTAssertEqual(emptyLabels, 1)
+        XCTAssertTrue(viewModel.snapshot.itemIdentifiers.isEmpty)
+        viewModel.updateContent()
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(history.requests, [1])
+    }
+
+    @MainActor
+    func testEmptyFilteredPagesStopAtTheHistoryPageLimit() async {
+        let history = ActivityTestHistory()
+        let maximum = PIIndexerClient.maximumHistoryPages
+        for number in 1...maximum {
+            history.set(number, page([], day: "D"))
+        }
+        let viewModel = viewModel(history, assetId: priceTestXor)
+        let view = ActivityPagingTestView()
+        viewModel.view = view
+        var emptyLabels = 0
+        viewModel.setupEmptyLabel = { emptyLabels += 1 }
+
+        viewModel.viewDidLoad()
+        await wait("all permitted pages counted") { viewModel.pageNumber == maximum }
+        XCTAssertEqual(history.requests, Array(1...maximum))
+        XCTAssertEqual(emptyLabels, 1)
+        XCTAssertEqual(retryRows(viewModel), 0)
+        XCTAssertFalse(view.isPaginating)
+        viewModel.updateContent()
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(history.requests, Array(1...maximum))
+    }
+
+    /// Even an empty filtered page must come from the same history as
+    /// the rows above it; it cannot silently bridge current and saved data.
+    @MainActor
+    func testAnEmptySavedPageCannotContinueACurrentList() async {
+        let history = ActivityTestHistory()
+        history.set(1, page(["a1"], day: "D"))
+        history.set(2, page([], day: "D", cachedAt: Date().addingTimeInterval(-3_600)))
+        history.set(3, page(["a2"], day: "D", endReached: true))
+        let viewModel = viewModel(history, assetId: priceTestXor)
+        viewModel.viewDidLoad()
+        await wait("page 1") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("the retry row") { self.retryRows(viewModel) == 1 }
+        XCTAssertEqual(viewModel.pageNumber, 1)
+        XCTAssertEqual(history.requests, [1, 2])
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1"])
+        XCTAssertEqual(viewModel.shownPages, .current)
+
+        history.set(2, page([], day: "D"))
+        viewModel.updateContent()
+        await wait("the consistent continuation") { viewModel.pageNumber == 3 }
+        XCTAssertEqual(history.requests, [1, 2, 2, 3])
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1", "a2"])
+        XCTAssertEqual(retryRows(viewModel), 0)
+        XCTAssertEqual(viewModel.snapshot.itemIdentifiers.filter {
+            if case .error = $0 { return true }
+            return false
+        }.count, 0)
+    }
+
+    /// The background refresh of a saved list also has to walk past an
+    /// empty current first page instead of waiting for a row to be scrolled.
+    @MainActor
+    func testQuietRefreshContinuesPastAnEmptyCurrentFirstPage() async {
+        let history = ActivityTestHistory()
+        let savedAt = Date().addingTimeInterval(-3_600)
+        history.set(1, page(["old1"], day: "D", cachedAt: savedAt))
+        let center = NotificationCenter()
+        let viewModel = viewModel(history, assetId: priceTestXor, notificationCenter: center)
+        var emptyLabels = 0
+        viewModel.setupEmptyLabel = { emptyLabels += 1 }
+        viewModel.viewDidLoad()
+        await wait("the saved list") { viewModel.pageNumber == 1 }
+        XCTAssertTrue(viewModel.isBehind)
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [WalletUX.activityAsOfText(savedAt)])
+
+        history.set(1, page([], day: "D"))
+        history.set(2, page(["current1"], day: "D-1", endReached: true))
+        center.post(name: UIApplication.willEnterForegroundNotification, object: nil)
+        await wait("the current matching page after quiet refresh") {
+            ActivityTestList.drawnRows(viewModel) == ["current1"]
+        }
+        XCTAssertEqual(viewModel.pageNumber, 2)
+        XCTAssertEqual(history.requests, [1, 1, 2])
+        XCTAssertEqual(viewModel.shownPages, .current)
+        XCTAssertFalse(viewModel.isBehind)
+        XCTAssertEqual(ActivityTestList.refreshRows(viewModel), [])
+        XCTAssertEqual(retryRows(viewModel), 0)
+        XCTAssertEqual(emptyLabels, 0)
+    }
+
+    private func transferPage(
+        _ hashes: [String],
+        at date: Date,
+        endReached: Bool = false
+    ) -> HistoryPage {
+        HistoryPage(
+            transactions: hashes.enumerated().map { index, hash in
+                TransferTransaction(
+                    base: TransactionBase(
+                        txHash: hash,
+                        blockHash: "",
+                        fee: Amount(value: 0),
+                        status: .success,
+                        timestamp: String(date.addingTimeInterval(-Double(index)).timeIntervalSince1970)
+                    ),
+                    amount: Amount(value: 1),
+                    peer: hash,
+                    transferType: .outcoming,
+                    tokenId: priceTestXor
+                )
+            },
+            endReached: endReached
+        )
+    }
+
+    private func productionFactory() -> ActivityViewModelFactory {
+        let assets = [
+            AssetInfo(
+                id: priceTestXor, symbol: "XOR", chainId: "", precision: 18,
+                icon: nil, displayName: "SORA", visible: true
+            ),
+        ]
+        return ActivityViewModelFactory(
+            walletAssets: assets,
+            assetManager: PriceTestAssetManager(assets: assets)
+        )
+    }
+
+    /// The real factory groups by calendar day and retains currentDate
+    /// between pages, including across pages with no matching transfers.
+    @MainActor
+    func testProductionFactoryMergesSameDayPagesAcrossAnEmptyPage() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026, month: 10, day: 11, hour: 12
+        )))
+        let previousDay = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: -1, to: day))
+        let factory = productionFactory()
+        let history = ActivityTestHistory()
+        history.set(1, transferPage(["a1", "a2"], at: day))
+        history.set(2, transferPage(["a3", "a4"], at: day.addingTimeInterval(-60)))
+        history.set(3, transferPage([], at: day))
+        history.set(4, transferPage(["b1"], at: previousDay, endReached: true))
+        let viewModel = viewModel(history, factory: factory, assetId: priceTestXor)
+
+        viewModel.viewDidLoad()
+        await wait("production page 1") { viewModel.pageNumber == 1 }
+        viewModel.updateContent()
+        await wait("production page 2") { viewModel.pageNumber == 2 }
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1", "a2", "a3", "a4"])
+        XCTAssertEqual(viewModel.sections.count, 1)
+        XCTAssertEqual(factory.currentDate, day.addingTimeInterval(-61))
+
+        viewModel.updateContent()
+        await wait("the previous calendar day") { viewModel.pageNumber == 4 }
+        XCTAssertEqual(history.requests, [1, 2, 3, 4])
+        XCTAssertEqual(ActivityTestList.drawnRows(viewModel), ["a1", "a2", "a3", "a4", "b1"])
+        XCTAssertEqual(rows(viewModel), ActivityTestList.drawnRows(viewModel))
+        XCTAssertEqual(viewModel.sections.map(\.date), [
+            DateFormatter.activityDate.string(from: day),
+            DateFormatter.activityDate.string(from: previousDay),
+        ])
+        XCTAssertEqual(viewModel.sections.map { $0.items.count }, [4, 1])
+        XCTAssertEqual(factory.currentDate, previousDay)
+
+        // Starting over must also clear the factory's date from page 4.
+        history.set(1, transferPage(["n1"], at: day, endReached: true))
+        viewModel.resetPagination()
+        await wait("the replacement list") { ActivityTestList.drawnRows(viewModel) == ["n1"] }
+        XCTAssertEqual(viewModel.pageNumber, 1)
+        XCTAssertEqual(viewModel.sections.count, 1)
+        XCTAssertEqual(factory.currentDate, day)
+    }
+
+    private func descendants<View: UIView>(of view: UIView, as _: View.Type) -> [View] {
+        view.subviews.flatMap { subview -> [View] in
+            let own = (subview as? View).map { [$0] } ?? []
+            return own + descendants(of: subview, as: View.self)
+        }
+    }
+
+    @MainActor
+    private func window(showing controller: UIViewController) throws -> UIWindow {
+        let scene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        )
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
+        window.windowLevel = .alert
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.isHidden = false
+        window.layoutIfNeeded()
+        return window
+    }
+
+    @MainActor
+    private func attach(_ window: UIWindow, as name: String) {
+        window.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// Self-sizing rows below the viewport initially have estimated
+    /// heights. Let the table measure them and correct the scroll until
+    /// the requested row really appears and its willDisplay callback runs.
+    @MainActor
+    private func scrollToRow(_ indexPath: IndexPath, in table: UITableView) async {
+        for _ in 0..<10 {
+            table.scrollToRow(at: indexPath, at: .bottom, animated: false)
+            table.layoutIfNeeded()
+            try? await Task.sleep(nanoseconds: 20_000_000)
+            if table.indexPathsForVisibleRows?.contains(indexPath) == true { return }
+        }
+    }
+
+    /// The real screen and factory on a simulator: scroll a 100-row day,
+    /// then an asset-filtered list whose next matching row is beyond an
+    /// empty remote page. Capture the long list and both list endings.
+    @MainActor
+    func testProductionScreenShowsLongAndAssetFilteredListsThroughTheirEnd() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026, month: 10, day: 11, hour: 12
+        )))
+        for filtered in [false, true] {
+            let history = ActivityTestHistory()
+            let first = (1...50).map { String(format: "Transfer %03d", $0) }
+            let later = (51...(filtered ? 52 : 100)).map { String(format: "Transfer %03d", $0) }
+            history.set(1, transferPage(first, at: day))
+            if filtered {
+                history.set(2, transferPage([], at: day))
+                history.set(3, transferPage(later, at: day.addingTimeInterval(-60)))
+                history.set(4, transferPage([], at: day, endReached: true))
+            } else {
+                history.set(2, transferPage(later, at: day.addingTimeInterval(-60)))
+                history.set(3, transferPage([], at: day, endReached: true))
+            }
+            let viewModel = viewModel(
+                history,
+                factory: productionFactory(),
+                assetId: filtered ? priceTestXor : nil
+            )
+            viewModel.title = filtered ? "XOR Activity" : "Activity"
+            let controller = ActivityViewController(viewModel: viewModel)
+            viewModel.view = controller
+            let window = try window(showing: controller)
+            defer { window.isHidden = true }
+            let table = try XCTUnwrap(descendants(of: controller.view, as: UITableView.self).first)
+            func screenState() -> String {
+                let counts = (0..<table.numberOfSections).map { table.numberOfRows(inSection: $0) }
+                return "filtered=\(filtered), requested=\(history.requests), page=\(viewModel.pageNumber), "
+                    + "tableRows=\(counts), snapshotRows=\(ActivityTestList.drawnRows(viewModel).count), "
+                    + "visible=\(table.indexPathsForVisibleRows ?? []), offset=\(table.contentOffset), "
+                    + "size=\(table.contentSize), bounds=\(table.bounds), inset=\(table.adjustedContentInset)"
+            }
+            await wait("the first 50 rows on screen") {
+                table.numberOfSections == 1 && table.numberOfRows(inSection: 0) == 50
+            }
+            guard table.numberOfSections == 1, table.numberOfRows(inSection: 0) == 50 else {
+                attach(window, as: "activity-paging-first-page-failure")
+                return XCTFail("The first page was not drawn: \(screenState())")
+            }
+            window.layoutIfNeeded()
+            try await Task.sleep(nanoseconds: 150_000_000)
+            if !filtered { attach(window, as: "activity-paging-long-list") }
+
+            await scrollToRow(IndexPath(row: 49, section: 0), in: table)
+            await wait("the continuation on screen") {
+                table.numberOfSections == 1
+                    && table.numberOfRows(inSection: 0) == first.count + later.count
+            }
+            guard table.numberOfSections == 1,
+                  table.numberOfRows(inSection: 0) == first.count + later.count else {
+                attach(window, as: "activity-paging-continuation-failure")
+                return XCTFail("The same-day continuation was not drawn: \(screenState())")
+            }
+            XCTAssertEqual(ActivityTestList.drawnRows(viewModel), first + later)
+            XCTAssertEqual(rows(viewModel), first + later)
+            await scrollToRow(IndexPath(row: first.count + later.count - 1, section: 0), in: table)
+            let lastPage = filtered ? 4 : 3
+            await wait("the final empty page and no spinner") {
+                viewModel.pageNumber == lastPage && table.tableFooterView == nil
+            }
+            try await Task.sleep(nanoseconds: 150_000_000)
+            XCTAssertTrue(history.requests.contains(lastPage))
+            XCTAssertFalse(history.requests.contains { $0 > lastPage })
+            XCTAssertEqual(Set(history.requests), Set(1...lastPage))
+            XCTAssertEqual(retryRows(viewModel), 0)
+            XCTAssertEqual(history.requestedAssets, history.requests.map { _ in filtered ? priceTestXor : nil })
+            attach(window, as: filtered ? "activity-paging-asset-filtered-end" : "activity-paging-long-list-end")
+            let requestsAtEnd = history.requests
+            viewModel.updateContent()
+            try await Task.sleep(nanoseconds: 100_000_000)
+            XCTAssertEqual(history.requests, requestsAtEnd)
+            XCTAssertNil(table.tableFooterView)
+        }
     }
 
     func testTheRuleForPuttingAPageUnderTheList() {
