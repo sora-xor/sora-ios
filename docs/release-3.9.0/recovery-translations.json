@@ -4,7 +4,17 @@
   "source": {
     "snapshot": "keys array in this manifest",
     "origin": "public recovery/authentication UI string inventory, frozen from /tmp/sora-ios-recovery-translation-final.json",
-    "originSHA256": "339842b16848ace4a054430a891db0a94d2f9e2c3cdae8abd4b01707967a002d"
+    "originSHA256": "339842b16848ace4a054430a891db0a94d2f9e2c3cdae8abd4b01707967a002d",
+    "additionalInventory": {
+      "file": "SoraPassport/ModulesRedesign/Pincode/PinSetup/PinSetupWireframe.swift",
+      "reason": "Tuple titles and conditional status literals missed by direct WalletUX.text-call extraction",
+      "keys": [
+        "Change node",
+        "Check wallet again",
+        "Wallet verification needs attention. Check your saved wallet again.",
+        "Wallet services are not ready. Try again or choose another node."
+      ]
+    }
   },
   "keys": [
     "Restore existing wallet keys",
@@ -237,11 +247,15 @@
     "SORA2 · Change network",
     "New app PIN",
     "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used.",
-    "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN."
+    "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN.",
+    "Change node",
+    "Check wallet again",
+    "Wallet verification needs attention. Check your saved wallet again.",
+    "Wallet services are not ready. Try again or choose another node."
   ],
   "locales": {
     "zh-Hans": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -249,7 +263,7 @@
       "syntaxValidation": "plutil passed"
     },
     "zh-Hant-TW": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation; Traditional Chinese adapted from authored Simplified Chinese",
@@ -257,7 +271,7 @@
       "syntaxValidation": "plutil passed"
     },
     "es": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -265,7 +279,7 @@
       "syntaxValidation": "plutil passed"
     },
     "de-DE": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -273,7 +287,7 @@
       "syntaxValidation": "plutil passed"
     },
     "fr": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -281,7 +295,7 @@
       "syntaxValidation": "plutil passed"
     },
     "it-IT": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -289,7 +303,7 @@
       "syntaxValidation": "plutil passed"
     },
     "pt": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -297,7 +311,7 @@
       "syntaxValidation": "plutil passed"
     },
     "ru": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -305,7 +319,7 @@
       "syntaxValidation": "plutil passed"
     },
     "pl": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -313,7 +327,7 @@
       "syntaxValidation": "plutil passed"
     },
     "cs": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -321,7 +335,7 @@
       "syntaxValidation": "plutil passed"
     },
     "no": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -329,7 +343,7 @@
       "syntaxValidation": "plutil passed"
     },
     "tr": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -337,7 +351,7 @@
       "syntaxValidation": "plutil passed"
     },
     "nl": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -345,7 +359,7 @@
       "syntaxValidation": "plutil passed"
     },
     "id": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -353,7 +367,7 @@
       "syntaxValidation": "plutil passed"
     },
     "ms-MY": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -361,7 +375,7 @@
       "syntaxValidation": "plutil passed"
     },
     "ca": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -369,7 +383,7 @@
       "syntaxValidation": "plutil passed"
     },
     "fi-FI": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -377,7 +391,7 @@
       "syntaxValidation": "plutil passed"
     },
     "sl": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -385,7 +399,7 @@
       "syntaxValidation": "plutil passed"
     },
     "hu": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -393,7 +407,7 @@
       "syntaxValidation": "plutil passed"
     },
     "vi": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -401,7 +415,7 @@
       "syntaxValidation": "plutil passed"
     },
     "ar": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -409,7 +423,7 @@
       "syntaxValidation": "plutil passed"
     },
     "he": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -417,7 +431,7 @@
       "syntaxValidation": "plutil passed"
     },
     "fa": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -425,7 +439,7 @@
       "syntaxValidation": "plutil passed"
     },
     "sr": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -433,7 +447,7 @@
       "syntaxValidation": "plutil passed"
     },
     "az": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",
@@ -441,7 +455,7 @@
       "syntaxValidation": "plutil passed"
     },
     "hi-IN": {
-      "addedCount": 230,
+      "addedCount": 234,
       "existingCount": 1,
       "nativeReview": "pending",
       "method": "AI translation",

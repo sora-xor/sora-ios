@@ -83,7 +83,7 @@ Each section covers one release task: what changed, why, and what users see.
   `SoraPassportTests` on a new iPhone 17 Pro simulator with the newest iOS
   runtime.
 - Job 2 builds the same tests in the Release configuration
-  (`ENABLE_TESTABILITY=YES`, unsigned), checks that the build carries
+  (`ENABLE_TESTABILITY=YES`, locally ad-hoc signed), checks that the build carries
   `-DF_RELEASE`, and runs `SoraPassportTests` on a new simulator. Code that
   exists only under `#if F_RELEASE` (genesis pinning, production config and
   node URLs, the production-only feature policy) is tested on every change,
@@ -2110,3 +2110,127 @@ appearance read, `fd24cc65` live re-colouring of toggles and terms text.
     failures (476 before plus the 3 new ones).
   - Pending: typing "abandon" quickly with the kana keyboard on the
     simulator (simulator access was not granted during this session).
+
+
+## ik0: Recovery layout completion
+
+Completed the interrupted UI review: scrollable legacy/recovery content, usable
+large-text actions, theme contrast and safe status presentation. Current recovery
+screens also expand read-only explanations and show full-width backup choices.
+Details: [ik0](fixes/ik0-ui-wip.md), [ik4](fixes/ik4-recovery-ux.md).
+
+## ik1: Local startup without a network dependency
+
+Local storage verification and routing proceed independently of asset/node
+readiness. Bounded wallet-opening retries offer a node/recovery path and preserve
+cached balances when an asset response is empty. Details: [ik1](fixes/ik1-startup.md).
+
+## ik2: Interrupted durable files remain recoverable
+
+Recognized writer helpers are classified safely across network, migration,
+account and transaction journals. Unknown or unreadable evidence is retained;
+recovery never interprets it as a successful transaction. Details:
+[ik2](fixes/ik2-leftover-files.md).
+
+## ik3: Per-wallet ownership and durable PIN changes
+
+Retained wallet ownership uses salted device-only verifiers, persistent
+per-wallet attempt limits and sealed manual grants. The stored app PIN and old
+PIN copies cannot claim an unbound wallet. Exact setup intents, rebind receipts
+and durable rotation keep interrupted writes from bypassing authentication.
+Details: [ik3](fixes/ik3-pin-binding.md).
+
+## ik4: Recovery choices and preserved data return
+
+Actual database/key state determines onboarding, Welcome back and read-only
+recovery. Text and actions share one flag model. Set-up-again preserves the
+complete allowlist/settings with hashes and backup exclusions; a verified return
+requires an empty live wallet plus each wallet's ownership proof. Explicit repair
+can restore an existing or absent account from fresh supplied material while
+quarantining failed keys and keeping working keys add-only. Details:
+[ik4](fixes/ik4-recovery-ux.md), [repair](fixes/credential-repair.md).
+
+## in1: Live indexer values and honest unavailable prices
+
+Asset numeric fields accept the observed indexer representations; catalog
+fetching and price state distinguish unavailable data from a measured zero.
+Details: [in1](fixes/in1-indexer.md).
+
+## in2: Transaction reconciliation after interruptions
+
+Pending sends reconcile from network status without signing or resubmitting.
+Runtime changes and ambiguous submission stay explicit, with Activity guiding
+follow-up. Integrated Activity paging preserves a stable row list while loading
+older pages and refreshing newer results. Details: [in2](fixes/in2-tx-reconcile.md).
+
+## in3: Historical identity and backup compatibility
+
+Production signing proves direct retained secrets independently of stale backup
+metadata. Original dependency fixtures cover historical Substrate families and
+1.x IrohaCrypto, including encrypted backup and restart boundaries. Short legacy
+phrases require the known address; independent Drive sources can restore a valid
+identity without adopting mismatching siblings. Details:
+[in3](fixes/in3-identity-compat.md).
+
+## in4: Data and release hygiene
+
+Unrecognized/corrupt auxiliary chain stores and SQLite companions are preserved;
+unknown failures remain retryable. The bundled whitelist was refreshed from the
+published source with a recorded address/name diff. Release scripts retain pinned
+dependencies and explicit signing/identity gates. Details:
+[in4](fixes/in4-hygiene.md).
+
+Current validation and limitations are in [VERIFICATION](VERIFICATION.md),
+[UPGRADE-PATHS](UPGRADE-PATHS.md) and [RELEASE-CHECKLIST](RELEASE-CHECKLIST.md).
+These changes do not constitute a signed-store release approval.
+
+## Final integration: node lookup and large-text recovery controls
+
+A custom-node save now waits for both the network probe and duplicate-node
+lookup. Previously a fast network response could race the lookup and reject a
+valid node; the delayed-lookup regression reproduces this order. The optimized
+test retains its interactor for the same lifetime as the app presenter and injects
+a deterministic genesis operation for its synthetic URL. The Release production
+node-identity check remains enabled.
+
+The account switcher measures read-only badges using the actual label width,
+including the cell's outer margins. The selected-account header reserves the
+wrapped restore-button label and padding before its self-sizing row is measured.
+Both have rendered-cell regressions at the largest Dynamic Type size.
+
+Recovery copy is present in all 28 shipped locales (235 keys each). The checked-in
+validation report covers 6,580 entries and placeholder integrity. Native review
+and RTL/device interaction are still release-checklist tasks.
+
+Release unit-test hosts explicitly opt into `WALLET_TESTING` for durable-writer
+fault checkpoints and use local simulator signing for Keychain entitlements.
+Ordinary unsigned device Release compilation excludes those test hooks. CI uses
+the pinned package graph and disables verbose failure diagnostics that previously
+left completed XCTest runs waiting in Xcode's diagnostic collector.
+
+
+## Final integration: missing PIN and legacy names
+
+Missing application PIN with retained signing rows now opens recovery unless
+every row has the exact durable intent created by a verified fresh setup. A
+selected read-only account cannot hide another retained signer from this check.
+The routing preflight is read-only; the PIN writer repeats ownership checks.
+PIN setup errors clear both PIN buffers and present from the visible screen,
+including a localized fallback for errors without a specialized presentation.
+
+Pre-account-model legacy upgrade keeps its display name in place until the
+legacy resolver consumes it. Stale-metadata preservation still runs for unrelated
+metadata and failed proof. The original global-key and entropy-only launch
+cases both pass with name, phrase, identity and key preservation assertions.
+
+Four wallet-opening keys that occur in tuple/conditional call sites are included
+in the translation inventory as well as direct literal calls. The scope is
+235 recovery/authentication strings in each of 28 locales; other pre-existing
+application translation gaps are outside this manifest.
+
+Final local validation: Debug and optimized Release each pass 843 tests with
+8 opt-in skips and no failures; ordinary unsigned device Release compilation
+passes. The 56-case normal-app simulator matrix includes two actual uninstalls,
+missing-PIN recovery and authenticated return of preserved data. All six owned
+iOS test simulators were removed after exporting their evidence. Exact results,
+failed-attempt history and external release gates are in VERIFICATION.md.
