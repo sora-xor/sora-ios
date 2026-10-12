@@ -226,6 +226,15 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
+    func testLaunchScreenStaysDarkBeforeAppAppearancePreferencesLoad() throws {
+        let launch = try XCTUnwrap(Bundle.main.loadNibNamed("LaunchScreen", owner: nil)?.compactMap { $0 as? UIView }.first)
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let color = try XCTUnwrap(launch.backgroundColor).resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+            XCTAssertEqual(color, NeonTokens.dark.canvas, "The system launch screen cannot read the app's saved dark preference")
+        }
+    }
+
+    @MainActor
     func testFastStartupPlaysTheOriginalSplashBeforeLeaving() async throws {
         let previousTheme = SoramitsuUI.shared.themeMode
         let previousEffects = FxPolicy.reduceEffects
