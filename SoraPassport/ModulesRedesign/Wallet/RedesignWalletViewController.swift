@@ -72,7 +72,8 @@ final class RedesignWalletViewController: SoramitsuViewController {
 
         viewModel.reloadItem = { [weak self] items in
             DispatchQueue.main.async {
-                self?.tableView.reloadItems(items: items )
+                guard let self = self else { return }
+                Self.refresh(items: items, in: self.tableView)
             }
         }
         
@@ -87,6 +88,14 @@ final class RedesignWalletViewController: SoramitsuViewController {
             UIView.performWithoutAnimation {
                 self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
             }
+        }
+    }
+
+    // Live balance updates can arrive in a burst. Animating a transparent card
+    // reload retains outgoing cell snapshots and overlays several sets of rows.
+    static func refresh(items: [SoramitsuTableViewItemProtocol], in tableView: SoramitsuTableView) {
+        UIView.performWithoutAnimation {
+            tableView.reloadItems(items: items, with: .none)
         }
     }
 

@@ -12,8 +12,9 @@ public final class SoramitsuLoadingPlaceholderDecorator {
 	/// Тип заглушки
 	public var type: SoramitsuLoadingPlaceholderType = .none {
 		didSet {
-			DispatchQueue.main.async {
-				self.updatePlaceholder()
+			guard type != oldValue else { return }
+			DispatchQueue.main.async { [weak self] in
+				self?.updatePlaceholder()
 			}
 		}
 	}
@@ -50,36 +51,35 @@ public final class SoramitsuLoadingPlaceholderDecorator {
 
 	private func updatePlaceholder() {
 		guard let view = view else { return }
-		UIView.transition(with: view,
-						  duration: CATransaction.animationDuration(),
-						  options: [.transitionCrossDissolve, .allowUserInteraction],
-						  animations: {
-							switch self.type {
-							case .none:
-								self.stopAll()
-							case .activity:
-								self.retryButton.removeFromSuperview()
-								self.stopShimmer()
-								self.add(self.activityView, on: view)
-								self.activityView.pinToSuperView(respectingSafeArea: false)
-								self.activityView.startAnimating()
-							case .shimmer:
-								self.retryButton.removeFromSuperview()
-								self.stopActivity()
-								self.add(self.shimmerview, on: view)
-								self.shimmerview.pinToSuperView(respectingSafeArea: false)
-								self.shimmerview.sora.startShimmering()
-							case .retry:
-								self.stopAll()
-								view.isUserInteractionEnabled = true
-								self.add(self.retryButton, on: view)
-								self.retryButton.makeSquare()
-								NSLayoutConstraint.activate([
-									self.retryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-									self.retryButton.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-								])
-							}
-		})
+		// Animate the shimmer itself, not a snapshot of the entire decorated
+		// view. Cross-dissolving loaded content makes tab changes flash.
+		UIView.performWithoutAnimation {
+			switch self.type {
+			case .none:
+				self.stopAll()
+			case .activity:
+				self.retryButton.removeFromSuperview()
+				self.stopShimmer()
+				self.add(self.activityView, on: view)
+				self.activityView.pinToSuperView(respectingSafeArea: false)
+				self.activityView.startAnimating()
+			case .shimmer:
+				self.retryButton.removeFromSuperview()
+				self.stopActivity()
+				self.add(self.shimmerview, on: view)
+				self.shimmerview.pinToSuperView(respectingSafeArea: false)
+				self.shimmerview.sora.startShimmering()
+			case .retry:
+				self.stopAll()
+				view.isUserInteractionEnabled = true
+				self.add(self.retryButton, on: view)
+				self.retryButton.makeSquare()
+				NSLayoutConstraint.activate([
+					self.retryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+					self.retryButton.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+				])
+			}
+		}
 	}
 
 	private func add(_ subview: UIView, on view: UIView) {

@@ -8,6 +8,8 @@ import SoraKeystore
 import SoraFoundation
 import CoreData
 import Darwin
+import SSFUtils
+import IrohaCrypto
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
@@ -169,6 +171,362 @@ final class WalletUXTests: XCTestCase {
         label.sora.text = "Body font"
         let renderedFont = try XCTUnwrap(label.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
         XCTAssertEqual(renderedFont.fontName, "Inter-Regular")
+    }
+
+    /// Store media uses production controllers; only their presentation data is synthetic.
+    /// This opt-in path never imports keys, reads a selected wallet, or submits a transaction.
+    @MainActor
+    func testRecipientEditingClearsOnlyPreviousValueValidationAndClearRestoresSearch() {
+        let model = StoreContactsPresentation()
+        let controller = ContactsViewController(viewModel: model)
+        controller.loadViewIfNeeded()
+        let field = controller.field
+        XCTAssertEqual(field.textField.placeholder, R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale))
+        XCTAssertEqual(field.textField.autocapitalizationType, .none)
+        XCTAssertEqual(field.textField.autocorrectionType, .no)
+        XCTAssertEqual(field.textField.spellCheckingType, .no)
+        controller.show(error: "Synthetic same-account error")
+        XCTAssertEqual(field.sora.state, .fail)
+        field.sora.state = .focused
+        XCTAssertEqual(field.sora.state, .fail, "Focus alone must retain a validation result")
+        field.textField.text = "abc"
+        field.textField.sendActions(for: .editingChanged)
+        XCTAssertEqual(model.searches, ["abc"])
+        XCTAssertNotEqual(field.sora.state, .fail)
+        XCTAssertNil(field.sora.descriptionLabelText)
+        XCTAssertTrue(field.descriptionLabel.isHidden)
+        XCTAssertFalse(field.titleLabel.isHidden)
+        controller.show(error: "Synthetic invalid-address error")
+        field.button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(model.searches, ["abc", ""])
+        XCTAssertEqual(field.textField.text, "")
+        XCTAssertTrue(field.titleLabel.isHidden)
+        XCTAssertTrue(field.descriptionLabel.isHidden)
+        XCTAssertNotEqual(field.sora.state, .fail)
+        field.button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(model.qrRequests, 1)
+    }
+
+    @MainActor
+    func testSendRecipientPromptSurvivesEmptyAddressAndShowsPublicRecipient() throws {
+        let controller = InputAssetAmountViewController(viewModel: StoreAmountPresentation())
+        controller.loadViewIfNeeded()
+        let contact = controller.recipientView.contactView
+        controller.updateRecipientView(with: "")
+        XCTAssertEqual(contact.accountTitle.text, R.string.localizable.selectRecipient(preferredLanguages: .currentLocale))
+        let placeholder = try XCTUnwrap(contact.accountImageView.image?.pngData())
+        let address = try SS58AddressFactory().address(fromAccountId: Data(repeating: 0x42, count: 32), type: SNAddressType(chain: .sora))
+        controller.updateRecipientView(with: address)
+        XCTAssertEqual(contact.accountTitle.text, address)
+        XCTAssertNotEqual(try XCTUnwrap(contact.accountImageView.image?.pngData()), placeholder)
+        controller.updateRecipientView(with: "")
+        XCTAssertEqual(contact.accountTitle.text, R.string.localizable.selectRecipient(preferredLanguages: .currentLocale))
+        XCTAssertEqual(contact.accountImageView.image?.pngData(), placeholder)
+    }
+
+    @MainActor
+    func testLoadingShimmerFollowsThemeWithoutFlashingLoadedContent() async throws {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        let owner = SoramitsuLabel()
+        owner.frame = CGRect(x: 0, y: 0, width: 220, height: 44)
+        owner.sora.text = "Loaded public content"
+        let placeholder = owner.sora.loadingPlaceholder
+        placeholder.type = .shimmer
+        var firstDarkColors: [CGColor] = []
+        for theme in [SoramitsuThemeType.dark, .light, .dark] {
+            SoramitsuUI.shared.themeMode = .manual(theme)
+            try await Task.sleep(nanoseconds: 50_000_000)
+            owner.layoutIfNeeded()
+            let shimmer = placeholder.shimmerview
+            XCTAssertTrue(shimmer.superview === owner)
+            let gradient = try XCTUnwrap(shimmer.layer.sublayers?.compactMap { $0 as? CAGradientLayer }.first)
+            let colors = try XCTUnwrap(gradient.colors as? [CGColor])
+            XCTAssertEqual(colors.count, 3)
+            func components(_ color: UIColor) -> [CGFloat] {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a))
+                return [r, g, b, a]
+            }
+            if theme == .dark {
+                let background = components(try XCTUnwrap(shimmer.backgroundColor))
+                for color in colors {
+                    let foreground = components(UIColor(cgColor: color))
+                    for index in 0..<3 {
+                        let displayed = foreground[index] * foreground[3] + background[index] * (1 - foreground[3])
+                        XCTAssertLessThan(displayed, 0.3, "Dark loading placeholders must stay subdued, not white")
+                    }
+                }
+                if firstDarkColors.isEmpty { firstDarkColors = colors }
+                else { XCTAssertEqual(colors, firstDarkColors) }
+            } else { XCTAssertNotEqual(colors, firstDarkColors) }
+        }
+        placeholder.type = .none
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(placeholder.shimmerview.superview)
+        XCTAssertEqual(owner.text, "Loaded public content")
+        XCTAssertTrue(owner.layer.animationKeys()?.isEmpty ?? true)
+        for _ in 0..<3 { placeholder.type = .none }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(placeholder.shimmerview.superview)
+        XCTAssertTrue(owner.layer.animationKeys()?.isEmpty ?? true, "Repeated completed loads must not cross-dissolve the owner")
+    }
+
+    @MainActor
+    func testAmountAccessoryKeepsContrastAndReplacesButtons() async throws {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        func luminance(_ color: UIColor) -> CGFloat {
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+            func channel(_ value: CGFloat) -> CGFloat { value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4) }
+            return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+        }
+        let accessory = InputAccessoryView(frame: CGRect(x: 0, y: 0, width: 393, height: 48))
+        let delegate = StoreAccessoryDelegate()
+        accessory.delegate = delegate
+        for theme in [SoramitsuThemeType.dark, .light] {
+            SoramitsuUI.shared.themeMode = .manual(theme)
+            accessory.variants = [25, 50, 75, 100].map { InputAccessoryVariant(displayValue: "\($0)%", value: Decimal($0) / 100) }
+            try await Task.sleep(nanoseconds: 100_000_000)
+            accessory.layoutIfNeeded()
+            let buttons = accessory.stackView.arrangedSubviews.compactMap { $0 as? SoramitsuButton }
+            XCTAssertEqual(buttons.count, 4)
+            XCTAssertEqual(accessory.stackView.arrangedSubviews.count, 7)
+            let background = luminance(try XCTUnwrap(accessory.backgroundColor))
+            for button in buttons {
+                let label = try XCTUnwrap(descendants(button).compactMap { $0 as? UILabel }.first { !($0.text ?? "").isEmpty })
+                let color = (label.attributedText?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor) ?? label.textColor!
+                let foreground = luminance(color)
+                XCTAssertGreaterThanOrEqual((max(foreground, background) + 0.05) / (min(foreground, background) + 0.05), 4.5)
+            }
+            accessory.variants = [InputAccessoryVariant(displayValue: "10%", value: 0.1), InputAccessoryVariant(displayValue: "100%", value: 1)]
+            let replacement = accessory.stackView.arrangedSubviews.compactMap { $0 as? SoramitsuButton }
+            XCTAssertEqual(replacement.count, 2)
+            XCTAssertEqual(accessory.stackView.arrangedSubviews.count, 3)
+            replacement.last?.sendActions(for: .touchUpInside)
+            XCTAssertEqual(delegate.values.last, 1)
+        }
+        XCTAssertEqual(delegate.values.count, 2)
+    }
+
+    @MainActor
+    func testSwapWordmarkFollowsAppThemeWhileOpen() async throws {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        let model = StoreSwapPresentation()
+        let controller = PolkaswapViewController(viewModel: model)
+        model.view = controller
+        controller.loadViewIfNeeded()
+        let view = try XCTUnwrap(controller.navigationItem.titleView as? UIImageView)
+        let light = try XCTUnwrap(view.image?.pngData())
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let dark = try XCTUnwrap(view.image?.pngData())
+        XCTAssertNotEqual(dark, light, "Dark appearance needs the high-contrast wordmark variant")
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(view.image?.pngData(), light, "An open swap screen must follow app appearance changes")
+    }
+
+    @MainActor
+    func testAssetDetailsNavigationContainerOffersWorkingClose() async throws {
+        let previousWindow = UIApplication.shared.keyWindow
+        defer { previousWindow?.makeKeyAndVisible() }
+        let presenter = UIViewController()
+        let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = presenter; window.makeKeyAndVisible()
+        let details = AssetDetailsViewController(viewModel: StoreAssetDetailsPresentation())
+        let navigation = SoraNavigationController(rootViewController: details)
+        let container = BlurViewController()
+        container.modalPresentationStyle = .overFullScreen
+        container.add(navigation)
+        await withCheckedContinuation { continuation in
+            presenter.present(container, animated: false) { continuation.resume() }
+        }
+        let item = try XCTUnwrap(details.navigationItem.rightBarButtonItem)
+        XCTAssertEqual(item.accessibilityLabel, R.string.localizable.commonClose(preferredLanguages: nil))
+        XCTAssertFalse(navigation.navigationBar.isHidden)
+        XCTAssertTrue(UIApplication.shared.sendAction(try XCTUnwrap(item.action), to: item.target, from: item, for: nil))
+        for _ in 0..<60 {
+            if presenter.presentedViewController == nil { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertNil(presenter.presentedViewController)
+        window.isHidden = true; window.rootViewController = nil
+    }
+
+    @MainActor
+    func testLongAssetBalanceKeepsTokenNameReadable() async throws {
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let previousWindow = UIApplication.shared.keyWindow
+        defer { SoramitsuUI.shared.themeMode = previousTheme; previousWindow?.makeKeyAndVisible() }
+        SoramitsuUI.shared.themeMode = .manual(.light)
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("AssetLayoutDiagnostics", isDirectory: true)
+        if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        }
+        for category in [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge] {
+            for width in [CGFloat(320), 393, 428] {
+                let row = MainScreenAssetView()
+                row.titleLabel.sora.text = "SORA Validator Token with a long name"
+                row.subtitleLabel.sora.text = "VAL"
+                row.amountUpLabel.sora.text = "123,456,789,012,345.678901234567890123"
+                row.amountDownLabel.sora.text = "$123,456,789,012,345.67"
+                if let icon = R.image.wallet.emptyToken() { row.assetImageView.sora.picture = .logo(image: icon) }
+                row.assetImageView.sora.loadingPlaceholder.type = .none
+                for label in [row.titleLabel, row.subtitleLabel, row.amountUpLabel, row.amountDownLabel] { label.sora.loadingPlaceholder.type = .none }
+                let controller = UIViewController()
+                controller.view.backgroundColor = WalletUX.page
+                controller.view.addSubview(row)
+                NSLayoutConstraint.activate([
+                    row.widthAnchor.constraint(equalToConstant: width),
+                    row.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+                    row.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 24)
+                ])
+                let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+                let host = UIViewController()
+                host.addChild(controller)
+                host.view.addSubview(controller.view)
+                controller.view.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([
+                    controller.view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                    controller.view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+                    controller.view.topAnchor.constraint(equalTo: host.view.topAnchor),
+                    controller.view.bottomAnchor.constraint(equalTo: host.view.bottomAnchor)
+                ])
+                controller.didMove(toParent: host)
+                host.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: category), forChild: controller)
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                host.view.layoutIfNeeded(); controller.view.layoutIfNeeded(); row.layoutIfNeeded(); controller.view.layoutIfNeeded()
+                try await Task.sleep(nanoseconds: 300_000_000)
+                controller.view.layoutIfNeeded(); row.layoutIfNeeded()
+                XCTAssertEqual(row.traitCollection.preferredContentSizeCategory, category)
+                if category.isAccessibilityCategory { XCTAssertGreaterThan(row.titleLabel.font.pointSize, 24) }
+                for label in [row.titleLabel, row.subtitleLabel, row.amountUpLabel, row.amountDownLabel] {
+                    let text = label.text ?? ""
+                    let attributed = label.attributedText ?? NSAttributedString(string: text, attributes: [.font: label.font as Any])
+                    let needed = attributed.boundingRect(with: CGSize(width: label.bounds.width, height: 10_000),
+                        options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).height
+                    XCTAssertGreaterThanOrEqual(label.bounds.height + 1, needed, "Full label must be visible at width \(width): \(text)")
+                }
+                XCTAssertGreaterThanOrEqual(row.titleLabel.bounds.width, 80, "Token name must remain readable at width \(width)")
+                XCTAssertGreaterThan(row.titleLabel.bounds.height, 10)
+                for target in [row.titleLabel, row.amountUpLabel, row.assetImageView] as [UIView] {
+                    let point = target.convert(CGPoint(x: target.bounds.midX, y: target.bounds.midY), to: row)
+                    XCTAssertTrue(row.hitTest(point, with: nil) === row, "Tapping name, amount, or icon must activate the asset row")
+                }
+                let amountFrame = row.amountUpLabel.convert(row.amountUpLabel.bounds, to: row)
+                XCTAssertLessThanOrEqual(amountFrame.maxX, row.bounds.width + 0.5)
+                XCTAssertGreaterThanOrEqual(amountFrame.minX, -0.5)
+                if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
+                    let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                        window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                    }
+                    try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("synthetic-large-balance-\(Int(width))-\(category.isAccessibilityCategory ? "AXXXL" : "normal").png"))
+                }
+                window.isHidden = true; window.rootViewController = nil
+            }
+        }
+    }
+
+    @MainActor
+    func testCaptureAppStoreScreenshots() async throws {
+        guard ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" else {
+            throw XCTSkip("Opt-in native App Store screenshots")
+        }
+        XCTAssertTrue(ProductSurfacePolicy.isAppStoreBuild, "Compile this capture host with F_RELEASE")
+        let previousWindow = UIApplication.shared.keyWindow
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let previousLanguage = LocalizationManager.shared.selectedLocalization
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("AppStoreScreenshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        defer {
+            previousWindow?.makeKeyAndVisible()
+            SoramitsuUI.shared.themeMode = previousTheme
+            LocalizationManager.shared.selectedLocalization = previousLanguage
+        }
+        LocalizationManager.shared.selectedLocalization = "en"
+        // 428 × 926 points at native @3x: App Store 6.5-inch accepted 1284 × 2778 pixels.
+        XCTAssertEqual(UIScreen.main.bounds.size, CGSize(width: 428, height: 926))
+        XCTAssertEqual(UIScreen.main.scale, 3)
+        let publicKey = Data(repeating: 0x42, count: 32)
+        let address = try SS58AddressFactory().address(fromAccountId: publicKey, type: SNAddressType(chain: .sora))
+        let encoder = WalletQREncoder(networkType: SNAddressType(chain: .sora), publicKey: publicKey, username: "Public demo wallet")
+        let payload = try encoder.encode(receiverInfo: ReceiveInfo(accountId: publicKey.toHex(),
+            assetId: WalletAssetId.xor.rawValue, amount: nil, details: ""))
+        let operation = WalletQROperationFactory().createCreationOperation(for: payload,
+            qrSize: CGSize(width: 300, height: 300))
+        operation.start()
+        let qrImage = try XCTUnwrap(operation.result).get()
+        var records: [[String: Any]] = []
+        for name in ["01-assets-dark", "02-receive-dark", "03-swap-dark", "04-pin-dark", "05-settings-dark", "06-settings-light", "07-assets-light", "08-receive-light", "09-swap-light", "10-pin-light"] {
+            let light = name.hasSuffix("light")
+            SoramitsuUI.shared.themeMode = .manual(light ? .light : .dark)
+            AppearanceFactory.applyGlobalAppearance()
+            let controller: UIViewController
+            if name.contains("assets") {
+                controller = UINavigationController(rootViewController: ProductListViewController(viewModel: StoreAssetPresentation()))
+            } else if name.contains("receive") {
+                controller = UINavigationController(rootViewController: GenerateQRViewController(
+                    viewModel: StoreReceivePresentation(address: address, image: qrImage)))
+            } else if name.contains("swap") {
+                let model = StoreSwapPresentation()
+                let swap = PolkaswapViewController(viewModel: model)
+                model.view = swap
+                controller = UINavigationController(rootViewController: swap)
+            } else if name.contains("pin") {
+                let pin = PincodeViewController()
+                pin.mode = .securedInput
+                pin.presenter = NeonPINVisualPresenter(view: pin, count: 6)
+                controller = pin
+            } else {
+                controller = UINavigationController(rootViewController: AppSettingsFactory.createAppSettings().controller)
+            }
+            let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+            window.overrideUserInterfaceStyle = light ? .light : .dark
+            window.backgroundColor = WalletUX.page
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.loadViewIfNeeded()
+            try await Task.sleep(nanoseconds: 700_000_000)
+            window.layoutIfNeeded()
+            if ProcessInfo.processInfo.environment["SORA_CAPTURE_NATIVE"] == "1" {
+                let acknowledgement = output.appendingPathComponent("capture-ack.txt")
+                try? FileManager.default.removeItem(at: acknowledgement)
+                try Data(name.utf8).write(to: output.appendingPathComponent("capture-request.txt"), options: .atomic)
+                var acknowledged = false
+                for _ in 0..<150 {
+                    if (try? String(contentsOf: acknowledgement, encoding: .utf8)) == name { acknowledged = true; break }
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                }
+                XCTAssertTrue(acknowledged, "Native simulator capture must acknowledge \(name)")
+            }
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = UIScreen.main.scale
+            format.opaque = true
+            let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+            XCTAssertEqual(image.cgImage?.width, 1284)
+            XCTAssertEqual(image.cgImage?.height, 2778)
+            let file = output.appendingPathComponent(name + ".png")
+            try XCTUnwrap(image.pngData()).write(to: file)
+            records.append(["file": file.lastPathComponent, "rootController": String(describing: type(of: controller)),
+                            "width": 1284, "height": 2778, "language": "en", "theme": light ? "light" : "dark"])
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        let receipt: [String: Any] = ["screenshots": records, "publicSyntheticAddress": address,
+            "publicKeyHex": publicKey.toHex(), "fixtureBalances": "All zero; synthetic presentation data, no balance claim about a live account",
+            "secretsIncluded": false, "networkOrWalletReadRequired": false,
+            "capture": "Native production-controller UIWindow.drawHierarchy at native size; no postprocessing"]
+        try JSONSerialization.data(withJSONObject: receipt, options: [.prettyPrinted, .sortedKeys])
+            .write(to: output.appendingPathComponent("capture-receipt.json"))
     }
 
     @MainActor
@@ -890,8 +1248,10 @@ final class WalletUXTests: XCTestCase {
 
     @MainActor
     func testRecoveryDetailsIncludeLatestSafeDiagnosticAndRejectInvalidStoredCodes() throws {
-        let previousClipboard = UIPasteboard.general.string
-        defer { UIPasteboard.general.string = previousClipboard }
+        // Seed only local synthetic data. Reading an arbitrary pre-existing
+        // host/universal clipboard item can wait for an external data provider.
+        UIPasteboard.general.setItems([["public.utf8-plain-text": "Synthetic prior clipboard"]], options: [.localOnly: true])
+        defer { UIPasteboard.general.setItems([], options: [.localOnly: true]) }
         let settings = InMemorySettingsManager()
         let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
         settings.setWalletMigrationRecovery(reason: reason)
@@ -2595,4 +2955,104 @@ private final class NeonRawSeedVisualPresenter: AccountExportRawSeedPresenterPro
     func exportRawSeed() { }
     func copyRawSeed() { }
     func exportJSON() { }
+}
+
+// Test-only data adapters. All layout, typography, controls, and QR generation are production code.
+private final class StoreAssetPresentation: Produtable {
+    var searchBarPlaceholder: String { R.string.localizable.assetListSearchPlaceholder(preferredLanguages: ["en"]) }
+    var searchText = ""
+    var mode: WalletViewMode = .view
+    var isActiveSearch = false
+    var setupNavigationBar: ((WalletViewMode) -> Void)?
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var dismiss: ((Bool) -> Void)?
+    func viewDidLoad() {
+        setupNavigationBar?(mode)
+        let assets = [("XOR", "SORA", "0x0200000000000000000000000000000000000000000000000000000000000000"),
+                      ("VAL", "SORA Validator Token", "0x0200040000000000000000000000000000000000000000000000000000000000"),
+                      ("PSWAP", "Polkaswap", "0x0200050000000000000000000000000000000000000000000000000000000000")]
+        setupItems?(assets.map { symbol, name, id in
+            let info = AssetInfo(id: id, symbol: symbol, chainId: "", precision: 18, icon: nil, displayName: name, visible: true)
+            var model = AssetViewModel(identifier: id, title: name, subtitle: "0 " + symbol,
+                fiatText: "", icon: R.image.wallet.emptyToken(), mode: .view)
+            model.priceLoadFinished = true
+            return AssetListItem(assetInfo: info, assetViewModel: model, balance: 0)
+        })
+    }
+}
+
+private final class StoreReceivePresentation: GenerateQRViewModelProtocol {
+    var setupSwicherView: ((SwitcherViewModel) -> Void)?
+    var setupReceiveView: ((ReceiveQRViewModel) -> Void)?
+    var setupRequestView: ((InputSendInfoViewModel) -> Void)?
+    var updateContent: ((GenerateQRMode) -> Void)?
+    var showShareContent: (([Any]) -> Void)?
+    var closeHadler: (() -> Void)?
+    let address: String
+    let image: UIImage
+    init(address: String, image: UIImage) { self.address = address; self.image = image }
+    func viewDidLoad() {
+        setupSwicherView?(SwitcherViewModel(buttonViewModels: [
+            SwitcherButtonViewModel(title: "Receive", isSelected: true),
+            SwitcherButtonViewModel(title: "Request", isSelected: false)]))
+        setupReceiveView?(ReceiveQRViewModel(name: "Public demo wallet", address: address, qrImage: image))
+        updateContent?(.receive)
+    }
+}
+
+private final class StoreSwapPresentation: LiquidityViewModelProtocol {
+    weak var view: PolkaswapViewController?
+    var title: String? { nil }
+    var imageName: String? { "Wallet/polkaswapLogo" }
+    var firstFieldEmptyStateFullFiatText: String? { R.string.localizable.swapWantFrom(preferredLanguages: ["en"]) }
+    var secondFieldEmptyStateFullFiatText: String? { R.string.localizable.swapWantTo(preferredLanguages: ["en"]) }
+    var isSwap: Bool { true }
+    var actionButtonImage: UIImage? { R.image.wallet.swapButton() }
+    var inputedFirstAmount: Decimal = 0
+    var inputedSecondAmount: Decimal = 0
+    var middleButtonActionHandler: (() -> Void)?
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var focusedField: FocusedField = .one
+    func viewDidLoad() {
+        view?.update(slippageTolerance: PolkaswapSlippage.defaultValue.displayValue)
+        view?.updateMiddleButton(isEnabled: false)
+        view?.setupButton(isEnabled: false)
+    }
+    func choiсeBaseAssetButtonTapped() {}
+    func choiсeTargetAssetButtonTapped() {}
+    func changeSlippageTolerance() {}
+    func reviewButtonTapped() {}
+    func recalculate(field: FocusedField) {}
+    func didSelect(variant: Decimal) {}
+}
+
+private final class StoreAssetDetailsPresentation: AssetDetailsViewModelProtocol {
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    func viewDidLoad() { setupItems?([]) }
+}
+
+private final class StoreAccessoryDelegate: InputAccessoryViewDelegate {
+    var values: [Decimal] = []
+    func didSelect(variant: Decimal) { values.append(variant) }
+}
+
+private final class StoreContactsPresentation: ContactsViewModelProtocol {
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var searches: [String] = []
+    var qrRequests = 0
+    func viewDidLoad() { setupItems?([]) }
+    func search(_ pattern: String) { searches.append(pattern) }
+    func openQR() { qrRequests += 1 }
+}
+
+private final class StoreAmountPresentation: InputAssetAmountViewModelProtocol {
+    var inputedFirstAmount: Decimal = 0
+    func viewDidLoad() {}
+    func choiceBaseAssetButtonTapped() {}
+    func reviewButtonTapped() {}
+    func selectAddress() {}
+    func didSelect(variant: Decimal) {}
 }

@@ -36,6 +36,7 @@ import Combine
 final class AssetsCell: SoramitsuTableViewCell {
     
     private var cancellables: Set<AnyCancellable> = []
+    private var heightUpdateScheduled = false
     
     private var assetsItem: AssetsItem? {
         didSet {
@@ -43,19 +44,21 @@ final class AssetsCell: SoramitsuTableViewCell {
             item.service?.$moneyText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    self?.moneyLabel.sora.text = value
+                    self?.moneyLabel.sora.text = value.isEmpty ? " " : value
                     self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.cornerRadius = !value.isEmpty ? .zero : .small
                     // "Price unavailable" is a quiet notice, not an amount.
                     let unavailable = self?.assetsItem?.service?.priceIsUnavailable ?? false
                     self?.moneyLabel.sora.font = unavailable ? FontType.textS : FontType.displayHero
                     self?.moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
+                    self?.scheduleHeightUpdate()
                 }
                 .store(in: &cancellables)
             item.service?.$priceNoteText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     self?.applyPriceNote(value)
+                    self?.scheduleHeightUpdate()
                 }
                 .store(in: &cancellables)
             item.service?.$assetViewModels
@@ -63,6 +66,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                 .sink { [weak self] value in
                     guard let self = self else { return }
                     self.updateContent(with: value, isNeedRearrange: value.count != self.views.count)
+                    self.scheduleHeightUpdate()
                 }
                 .store(in: &cancellables)
         }
@@ -82,6 +86,7 @@ final class AssetsCell: SoramitsuTableViewCell {
 
     private lazy var moneyLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
+        label.sora.text = " "
         label.sora.font = FontType.displayHero
         label.sora.dynamicTextStyle = .largeTitle
         label.sora.numberOfLines = 0
@@ -191,6 +196,30 @@ final class AssetsCell: SoramitsuTableViewCell {
         ])
     }
     
+    /// Published prices can arrive after UITableView has cached this row's
+    /// initial height. Coalesce one sizing pass for a burst of price/asset updates.
+    private func scheduleHeightUpdate() {
+        guard !heightUpdateScheduled else { return }
+        heightUpdateScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.heightUpdateScheduled = false
+            // Adaptive token columns must settle before UITableView measures
+            // this cell; otherwise an old stacked amount can leave a tall gap.
+            self.views.forEach { $0.setNeedsLayout(); $0.layoutIfNeeded() }
+            self.contentView.setNeedsLayout()
+            self.contentView.layoutIfNeeded()
+            var ancestor = self.superview
+            while let view = ancestor, !(view is UITableView) { ancestor = view.superview }
+            guard let table = ancestor as? UITableView,
+                  table.window != nil, table.indexPath(for: self) != nil else { return }
+            UIView.performWithoutAnimation {
+                table.beginUpdates()
+                table.endUpdates()
+            }
+        }
+    }
+
     private func updateContent(with viewModels: [AssetViewModel], isNeedRearrange: Bool = true) {
         if !isNeedRearrange {
             viewModels.enumerated().forEach { (index, assetModel) in

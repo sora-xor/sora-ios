@@ -17,6 +17,8 @@ enum NeonPaletteMapping {
 		case .bgSurface: return t.surface
 		case .bgSurfaceVariant: return t.surfaceVariant
 		case .bgSurfaceInverted: return t.isDark ? t.textPrimary : t.toast
+		case .skeletonBase: return t.skeletonBase
+		case .skeletonHighlight: return t.skeletonHighlight
 
 		case .fgPrimary: return t.textPrimary
 		case .fgSecondary: return t.textSecondary

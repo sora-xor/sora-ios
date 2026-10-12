@@ -190,11 +190,8 @@ final class PolkaswapViewController: SoramitsuViewController {
         setupConstraints()
         addObservers()
         
-        if let imageName = viewModel.imageName {
-            let logo = UIImage(named: imageName)
-            let imageView = UIImageView(image: logo)
-            navigationItem.titleView = imageView
-        }
+        updateNavigationLogo()
+        SoramitsuUI.updates.addObserver(self)
         
         if let title = viewModel.title {
             navigationItem.title = title
@@ -211,6 +208,19 @@ final class PolkaswapViewController: SoramitsuViewController {
         }
 
         viewModel.viewDidLoad()
+    }
+
+    private func updateNavigationLogo() {
+        guard let imageName = viewModel.imageName else { return }
+        // The app appearance can differ from the system's trait collection.
+        // Resolve the brand asset against the chosen app theme explicitly.
+        let traits = UITraitCollection(userInterfaceStyle: SoramitsuUI.shared.theme == .dark ? .dark : .light)
+        let logo = UIImage(named: imageName, in: nil, compatibleWith: traits)
+        if let imageView = navigationItem.titleView as? UIImageView {
+            imageView.image = logo
+        } else {
+            navigationItem.titleView = UIImageView(image: logo)
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -293,6 +303,12 @@ final class PolkaswapViewController: SoramitsuViewController {
         if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
             containerView.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
         }
+    }
+}
+
+extension PolkaswapViewController: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        updateNavigationLogo()
     }
 }
 

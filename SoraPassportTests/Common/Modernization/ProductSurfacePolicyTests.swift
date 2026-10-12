@@ -168,10 +168,33 @@ final class PrivacyDeclarationTests: XCTestCase {
         )
         XCTAssertEqual(app["NSPrivacyTracking"] as? Bool, false)
         let collected = (app["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? [])
-        XCTAssertFalse(collected.isEmpty)
+        let linkedTypes: Set<String> = [
+            "NSPrivacyCollectedDataTypeProductInteraction",
+            "NSPrivacyCollectedDataTypeDeviceID",
+            "NSPrivacyCollectedDataTypeUserID",
+            "NSPrivacyCollectedDataTypeOtherUserContent",
+            "NSPrivacyCollectedDataTypeOtherFinancialInfo",
+            "NSPrivacyCollectedDataTypeCoarseLocation"
+        ]
+        let diagnosticTypes: Set<String> = [
+            "NSPrivacyCollectedDataTypeCrashData",
+            "NSPrivacyCollectedDataTypeOtherDiagnosticData"
+        ]
+        let analyticsTypes: Set<String> = [
+            "NSPrivacyCollectedDataTypeProductInteraction",
+            "NSPrivacyCollectedDataTypeDeviceID",
+            "NSPrivacyCollectedDataTypeCoarseLocation"
+        ]
+        XCTAssertEqual(Set(collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }),
+                       linkedTypes.union(diagnosticTypes))
+        XCTAssertEqual(collected.count, linkedTypes.count + diagnosticTypes.count)
         for item in collected {
+            let category = try XCTUnwrap(item["NSPrivacyCollectedDataType"] as? String)
             XCTAssertEqual(item["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
-            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, false)
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, linkedTypes.contains(category))
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypePurposes"] as? [String],
+                           [analyticsTypes.contains(category) ? "NSPrivacyCollectedDataTypePurposeAnalytics"
+                            : "NSPrivacyCollectedDataTypePurposeAppFunctionality"])
         }
     }
 

@@ -22,13 +22,24 @@ public enum InputFieldState {
 }
 
 public final class InputFieldConfiguration<Type: InputField>: SoramitsuViewConfiguration<Type> {
+    private var isResettingValidation = false
+
     public var state: InputFieldState = .default {
         didSet(oldState) {
-            if (oldState.isResultState && state == .focused) || (oldState.isResultState && state == .default) {
+            if !isResettingValidation && oldState.isResultState && (state == .focused || state == .default) {
                 state = oldState
             }
             updateView()
         }
+    }
+
+    /// A validation result belongs to the value that was checked. Call this
+    /// when editing replaces that value; focus changes alone keep the result.
+    public func resetValidation() {
+        isResettingValidation = true
+        descriptionLabelText = nil
+        state = owner?.textField.isFirstResponder == true ? .focused : .default
+        isResettingValidation = false
     }
 
     public var leftImage: UIImage? {

@@ -88,11 +88,11 @@ final class SwapViewModel {
             checkBalances()
             
             let inputedFiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
-            let text = isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
-            let amountColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
-            let fiatColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
+            let text = shouldShowBalanceError ? R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale) : inputedFiatText
+            let amountColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgPrimary
+            let fiatColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgSecondary
             var state: InputFieldState = focusedField == .one ? .focused : .default
-            state = isEnoughtFirstAssetLiquidity ? state : .fail
+            state = shouldShowBalanceError ? .fail : state
             
             view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
             view?.updateFirstAsset(fiatText: text)
@@ -145,11 +145,11 @@ final class SwapViewModel {
             }
 
             let inputedFiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
-            let text = isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
-            let amountColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
-            let fiatColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
+            let text = shouldShowBalanceError ? R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale) : inputedFiatText
+            let amountColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgPrimary
+            let fiatColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgSecondary
             var state: InputFieldState = focusedField == .one ? .focused : .default
-            state = isEnoughtFirstAssetLiquidity ? state : .fail
+            state = shouldShowBalanceError ? .fail : state
             
             view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
             view?.updateFirstAsset(fiatText: text)
@@ -239,8 +239,10 @@ final class SwapViewModel {
         }
     }
 
-    private var isEnoughtFirstAssetLiquidity: Bool {
-        hasSufficientSwapBalances()
+    private var shouldShowBalanceError: Bool {
+        // An empty amount is not a failed swap. Readiness still requires a
+        // positive amount, a current quote, fee and sufficient balances.
+        inputedFirstAmount > 0 && !hasSufficientSwapBalances()
     }
 
     private func hasSufficientSwapBalances() -> Bool {
