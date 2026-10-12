@@ -22,9 +22,14 @@ final class WalletMigrationRetainedDeviceEvidenceTests: XCTestCase {
     private static let deviceProducer =
         "WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceScenarioEvidence()"
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         continueAfterFailure = false
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Retained-device evidence requires a physical iPhone and the signed Release host.")
+        #elseif DEBUG
+        throw XCTSkip("Retained-device evidence requires the signed Release production host.")
+        #endif
     }
 
     func testEmitRetainedDeviceRunBinding() throws {

@@ -7666,7 +7666,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n  echo \"Not running R.swift during indexing.\"\n  exit 0\nfi\n\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running R.swift during preview builds.\"\n  exit 0\nfi\n\nxcrun --sdk macosx swift run --package-path \"$PROJECT_DIR/VendorPackages/Rswift\" --scratch-path \"$DERIVED_FILE_DIR/RswiftBuild\" --configuration release rswift generate \"$PROJECT_DIR/R.generated.swift\"\n";
+			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n  echo \"Not running R.swift during indexing.\"\n  exit 0\nfi\n\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running R.swift during preview builds.\"\n  exit 0\nfi\n\nxcrun --sdk macosx swift run --package-path \"$PROJECT_DIR/VendorPackages/Rswift\" --scratch-path \"$DERIVED_FILE_DIR/RswiftBuild\" --configuration release --disable-automatic-resolution --skip-update rswift generate \"$PROJECT_DIR/R.generated.swift\"\n";
 		};
 		0292033321977A4400D9BACD /* Crashlytics */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -7729,7 +7729,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n  echo \"Not running R.swift during indexing.\"\n  exit 0\nfi\n\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running R.swift during preview builds.\"\n  exit 0\nfi\n\nxcrun --sdk macosx swift run --package-path \"$PROJECT_DIR/VendorPackages/Rswift\" --scratch-path \"$DERIVED_FILE_DIR/RswiftBuild\" --configuration release rswift generate \"$PROJECT_DIR/R.generated.swift\"\n";
+			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n  echo \"Not running R.swift during indexing.\"\n  exit 0\nfi\n\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running R.swift during preview builds.\"\n  exit 0\nfi\n\nxcrun --sdk macosx swift run --package-path \"$PROJECT_DIR/VendorPackages/Rswift\" --scratch-path \"$DERIVED_FILE_DIR/RswiftBuild\" --configuration release --disable-automatic-resolution --skip-update rswift generate \"$PROJECT_DIR/R.generated.swift\"\n";
 		};
 		C3B63270DEA7A9BCBC6D60A0 /* Inject Google Sign-In Info.plist */ = {
 			isa = PBXShellScriptBuildPhase;

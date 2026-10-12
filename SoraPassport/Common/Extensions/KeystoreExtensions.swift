@@ -83,9 +83,6 @@ extension KeystoreProtocol {
         )
     }
 
-    func deleteEntropy(for address: String) throws {
-        try deleteKeyIfExists(for: KeystoreTag.entropyTagForAddress(address))
-    }
 
     /// True when the address has any scoped item a signer can use:
     /// `-entropy`, `-seed` or `-secretKey` (a `-deriv` item alone is not one).

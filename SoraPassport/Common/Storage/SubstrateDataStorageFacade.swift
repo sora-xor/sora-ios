@@ -37,13 +37,8 @@ enum SubstrateStorePreparation: Equatable {
     case ready
     /// The store was written by an earlier model version and was migrated in place.
     case migrated
-    /// The store matched no model version this build knows, was not a database, or
-    /// SQLite reported it as corrupt. It was removed, which is what earlier releases did
-    /// with every model change.
-    case removedIncompatible
-    /// The store could not be opened on `maximumDeferredLaunches` launches in a row
-    /// although its file was readable and the disk was not full, or it is from a known
-    /// version but could not be migrated. It was renamed aside (never deleted) and a new,
+    /// The store is unrecognized/corrupt, could not be migrated, or could not
+    /// be opened on `maximumDeferredLaunches` readable, non-full launches. It was renamed aside (never deleted) and a new,
     /// empty store is used from now on.
     case movedAside
     /// The store could not be read or migrated for a reason that can pass: the
@@ -65,9 +60,10 @@ enum SubstrateStorePreparation: Equatable {
 /// whenever its schema differed from the app's (and whenever its metadata could not be
 /// read, for example before the first unlock). An upgrade therefore lost the user's
 /// contacts, custom and selected nodes and pool favourites. Now a store from any known
-/// version is migrated in place (lightweight migration), and a store is removed only when
-/// it is provably not usable. Stores from 2.x (before 3.0.1) have a different layout and
-/// were already reset by 3.0.1; they are still reset. The store holds no key material.
+/// version is migrated in place (lightweight migration), and an unrecognized or
+/// corrupt store is kept aside for recovery. Unknown errors
+/// are retryable. The store holds no key material, but contacts and custom nodes
+/// still belong to the user and must never be discarded automatically.
 enum SubstrateStoreMigrator {
     static let migrationOptions: [AnyHashable: Any] = [
         NSMigratePersistentStoresAutomaticallyOption: true,
@@ -172,9 +168,10 @@ enum SubstrateStoreMigrator {
     ) -> Attempt {
         guard fileManager.fileExists(atPath: storeURL.path) else {
             // A -wal, -shm or -journal file without its database is left over from an
-            // interrupted removal. SQLite could replay it into the new store, so remove
-            // it first. It cannot be opened without the database it belonged to.
-            return removeStore(at: storeURL, fileManager: fileManager, logger: logger, result: .ready)
+            // interrupted removal. SQLite could replay it into the new store, so preserve
+            // it outside the active namespace first. It cannot be opened without
+            // the database it belonged to.
+            return preserveStore(at: storeURL, fileManager: fileManager, logger: logger, result: .ready)
         }
 
         guard let currentModel = NSManagedObjectModel(contentsOf: modelURL) else {
@@ -190,7 +187,7 @@ enum SubstrateStoreMigrator {
             case .unreadable:
                 return .deferred(.notReadable)
             case .notDatabase:
-                return removeStore(at: storeURL, fileManager: fileManager, logger: logger)
+                return preserveStore(at: storeURL, fileManager: fileManager, logger: logger)
             case .database:
                 return outcome(of: error, storeURL: storeURL, fileManager: fileManager, logger: logger)
             }
@@ -204,7 +201,7 @@ enum SubstrateStoreMigrator {
             $0.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata)
         }
         guard isKnownVersion else {
-            return removeStore(at: storeURL, fileManager: fileManager, logger: logger)
+            return preserveStore(at: storeURL, fileManager: fileManager, logger: logger)
         }
 
         let coordinator = NSPersistentStoreCoordinator(managedObjectModel: currentModel)
@@ -220,8 +217,8 @@ enum SubstrateStoreMigrator {
             return .done(.migrated)
         } catch {
             // A store from a known version holds the user's contacts and node choices. If
-            // it cannot be migrated for a reason that will not pass, keep it aside instead
-            // of deleting it; remove it only if it cannot be moved.
+            // it cannot be migrated for a reason that will not pass, keep it aside.
+            // A failed move leaves the store for a later attempt; never delete it.
             if classify(error) == .permanent,
                moveAside(storeURL: storeURL, fileManager: fileManager, logger: logger) {
                 return .done(.movedAside)
@@ -238,7 +235,7 @@ enum SubstrateStoreMigrator {
     ) -> Attempt {
         switch classify(error) {
         case .permanent:
-            return removeStore(at: storeURL, fileManager: fileManager, logger: logger)
+            return preserveStore(at: storeURL, fileManager: fileManager, logger: logger)
         case .noSpace:
             return .deferred(.noSpace)
         case .transient:
@@ -301,11 +298,9 @@ enum SubstrateStoreMigrator {
         if sqliteCodes.contains(sqliteFull) || chain.contains(where: { isNoSpace($0) }) {
             return .noSpace
         }
-        if !sqliteCodes.isEmpty {
-            return sqliteCodes.contains(where: { transientSQLiteCodes.contains($0) }) ? .transient : .permanent
-        }
-        let isTransientFileError = chain.contains { transientCodes[$0.domain]?.contains($0.code) == true }
-        return isTransientFileError ? .transient : .permanent
+        // An unrecognized error does not establish corruption. Preserve the
+        // store and retry, including new SQLite/Cocoa error codes.
+        return .transient
     }
 
     /// "Not now" rather than "never".
@@ -348,51 +343,25 @@ enum SubstrateStoreMigrator {
 
     private static let sqliteErrorDomain = "NSSQLiteErrorDomain"
 
-    private static let transientCodes: [String: Set<Int>] = [
-        NSPOSIXErrorDomain: [Int(EPERM), Int(EIO), Int(EAGAIN), Int(EACCES), Int(EBUSY)],
-        NSCocoaErrorDomain: [
-            NSFileLockingError,
-            NSFileReadUnknownError,
-            NSFileReadNoPermissionError,
-            NSFileWriteUnknownError,
-            NSFileWriteNoPermissionError
-        ]
-    ]
-
     /// SQLITE_CORRUPT, SQLITE_NOTADB.
     private static let permanentSQLiteCodes: Set<Int> = [11, 26]
     /// SQLITE_FULL.
     private static let sqliteFull = 13
-    /// SQLITE_PERM, SQLITE_BUSY, SQLITE_LOCKED, SQLITE_IOERR, SQLITE_CANTOPEN, SQLITE_AUTH.
-    private static let transientSQLiteCodes: Set<Int> = [3, 5, 6, 10, 14, 23]
-
     /// The files that make up one SQLite store, side files first: the database is
-    /// removed or moved last, so a failure never leaves a side file without it.
+    /// moved last, so a failed move leaves its database in place.
     private static let storeFileSuffixes = ["-wal", "-shm", "-journal", ""]
 
-    private static func removeStore(
+    private static func preserveStore(
         at storeURL: URL,
         fileManager: FileManager,
         logger: LoggerProtocol?,
-        result: SubstrateStorePreparation = .removedIncompatible
+        result: SubstrateStorePreparation = .movedAside
     ) -> Attempt {
-        let path = storeURL.path
-        var removedAny = false
-        for suffix in storeFileSuffixes where fileManager.fileExists(atPath: path + suffix) {
-            do {
-                try fileManager.removeItem(atPath: path + suffix)
-                removedAny = true
-            } catch {
-                logger?.warning("Substrate store: an unusable store could not be removed now")
-                return .deferred(.failing)
-            }
-        }
-        if removedAny {
-            logger?.warning(
-                result == .ready
-                    ? "Substrate store: removed side files left without their database"
-                    : "Substrate store: removed a store that no known model can open"
-            )
+        guard storeFileSuffixes.contains(where: {
+            fileManager.fileExists(atPath: storeURL.path + $0)
+        }) else { return .done(.ready) }
+        guard moveAside(storeURL: storeURL, fileManager: fileManager, logger: logger) else {
+            return .deferred(.failing)
         }
         return .done(result)
     }
