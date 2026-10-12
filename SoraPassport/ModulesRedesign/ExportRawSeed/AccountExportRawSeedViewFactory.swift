@@ -47,6 +47,10 @@ final class AccountExportRawSeedViewFactory: AccountExportRawSeedViewFactoryProt
         view.localizationManager = LocalizationManager.shared
         view.presenter = presenter
         presenter.view = view
+        presenter.exportJSONAction = { [weak view] in
+            guard let jsonView = AccountExportViewFactory.createView(accounts: [account]) else { return }
+            view?.navigationController?.pushViewController(jsonView.controller, animated: true)
+        }
         presenter.interactor = interactor
         interactor.presenter = presenter
 

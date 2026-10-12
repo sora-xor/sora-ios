@@ -1200,3 +1200,11 @@
 "Confirmed by the network" = "Confirmed by the network";
 "It failed on the network" = "It failed on the network";
 "The network did not include it. Nothing was sent." = "The network did not include it. Nothing was sent.";
+
+"No matching recovery phrase is available on this iPhone. Use JSON export to back up a verified signing key." = "No matching recovery phrase is available on this iPhone. Use JSON export to back up a verified signing key.";
+
+"No matching raw seed is available on this iPhone. Use JSON export to back up a verified signing key." = "No matching raw seed is available on this iPhone. Use JSON export to back up a verified signing key.";
+
+"Also save this derivation path:" = "Also save this derivation path:";
+
+"Copy derivation path" = "Copy derivation path";

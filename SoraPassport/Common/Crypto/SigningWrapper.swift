@@ -73,46 +73,39 @@ extension SigningWrapperError: LocalizedError {
 enum LegacySoraSecretResolver {
     static func resolve(
         account: AccountItem,
-        keystore: KeystoreProtocol
+        keystore: KeystoreProtocol,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws -> Data? {
+        try recoveryGate.requireAuthorizedLifecycleContinuation()
         var directSecret = try keystore.fetchSecretKeyForAddress(
             account.address
         )
         defer { wipeSensitive(&directSecret) }
         if let secret = directSecret {
-            guard !secret.isEmpty else {
-                throw SigningWrapperError.missingSecretKey
-            }
+            try LegacySoraIdentityValidator.validateSigningSecret(
+                address: account.address, publicKey: account.publicKeyData,
+                cryptoType: account.cryptoType, networkType: account.networkType,
+                secret: secret, recoveryGate: recoveryGate)
             return secret
         }
 
-        let derivationPath =
-            try keystore.fetchDeriviationForAddress(account.address) ?? ""
-        let junction = derivationPath.isEmpty
-            ? nil
-            : try SubstrateJunctionFactory().parse(path: derivationPath)
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore, recoveryGate: recoveryGate)
+        defer { backup.wipe() }
+        let path = backup.derivationPath ?? ""
+        let junction = path.isEmpty ? nil : try SubstrateJunctionFactory().parse(path: path)
         let chaincodes = junction?.chaincodes ?? []
-
-        var entropy = try keystore.fetchEntropyForAddress(account.address)
-        defer { wipeSensitive(&entropy) }
-        var sourceSeed: Data?
+        var sourceSeed = backup.seed
         defer { wipeSensitive(&sourceSeed) }
-        // 3/6/9-word entropy (App Store 3.8.6 imports) cannot be expanded;
-        // the stored seed backs those accounts.
-        if let entropy, WalletMnemonicWordPolicy.isDerivableEntropy(entropy) {
-            let mnemonic = try IRMnemonicCreator(language: .english)
-                .mnemonic(fromEntropy: entropy)
-            var phrase = mnemonic.toString()
+        if sourceSeed == nil, let entropy = backup.entropy {
+            var phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
             defer { phrase.removeAll(keepingCapacity: false) }
-            sourceSeed = try SeedFactory().deriveSeed(
-                from: phrase,
-                password: junction?.password ?? ""
-            ).seed.miniSeed
-        } else {
-            sourceSeed = try keystore.fetchSeedForAddress(account.address)
+            sourceSeed = try SeedFactory().deriveSeed(from: phrase, password: junction?.password ?? "").seed.miniSeed
         }
-
-        guard let sourceSeed, !sourceSeed.isEmpty else {
+        guard let sourceSeed else {
+            if let error = backup.firstReadError { throw error }
+            if backup.phraseStatus != .absent || backup.seedStatus != .absent {
+                throw SigningWrapperError.identityMismatch
+            }
             return nil
         }
         let factory = keypairFactory(for: account.cryptoType)
@@ -176,6 +169,10 @@ enum Sora2SignatureVerifier {
         secretKey: Data,
         account: AccountItem
     ) throws {
+        guard LegacySoraIdentityValidator.hasValidSecretLength(secretKey, cryptoType: account.cryptoType),
+              account.publicKeyData.count == (account.cryptoType == .ecdsa ? 33 : 32) else {
+            throw SigningWrapperError.keysNotVerified
+        }
         let verified: Bool
         switch account.cryptoType {
         case .sr25519:
@@ -328,6 +325,10 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         }
 
         let snapshot = try WalletNetworkStore().load()
+        guard SettingsManager.shared.bool(for: "wallet.watchOnly.\(account.address)") != true,
+              snapshot?.wallets.first(where: { $0.id == account.address })?.secretSource != .watchOnly else {
+            throw SigningWrapperError.keysNotVerified
+        }
         if snapshot?.wallets.first(where: { $0.id == account.address })?
             .secretSource == .signingUnavailable {
             // Read-only on this device. Read no secret.
@@ -355,46 +356,16 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
             throw SigningWrapperError.missingNetworkSnapshot
         }
 
-        var secret = try keystore.fetchSecretKeyForAddress(account.address)
-        var entropy = try keystore.fetchEntropyForAddress(account.address)
-        var rawSeed = try keystore.fetchSeedForAddress(account.address)
-        defer {
-            if let count = secret?.count {
-                secret?.resetBytes(in: 0 ..< count)
-            }
-            if let count = entropy?.count {
-                entropy?.resetBytes(in: 0 ..< count)
-            }
-            if let count = rawSeed?.count {
-                rawSeed?.resetBytes(in: 0 ..< count)
-            }
-            secret = nil
-            entropy = nil
-            rawSeed = nil
-        }
-        guard
-            secret != nil ||
-                entropy != nil ||
-                rawSeed != nil
-        else {
-            throw SigningWrapperError.keysNotOnThisDevice
-        }
         do {
-            try LegacySoraIdentityValidator.validate(
-                address: account.address,
-                publicKey: account.publicKeyData,
-                cryptoType: account.cryptoType,
-                networkType: account.networkType,
-                derivationPath:
-                    try keystore.fetchDeriviationForAddress(account.address),
-                entropy: entropy,
-                rawSeed: rawSeed,
-                secret: secret,
-                recoveryGate: .shared
-            )
+            guard var secret = try LegacySoraSecretResolver.resolve(account: account, keystore: keystore) else {
+                throw SigningWrapperError.keysNotOnThisDevice
+            }
+            defer { secret.resetBytes(in: secret.startIndex ..< secret.endIndex) }
+            try LegacySoraIdentityValidator.validateSigningSecret(
+                address: account.address, publicKey: account.publicKeyData,
+                cryptoType: account.cryptoType, networkType: account.networkType,
+                secret: secret, recoveryGate: .shared)
         } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
-            // The stored keys do not prove this account. They stay as they
-            // are; the account is read-only on this device.
             throw SigningWrapperError.keysNotVerified
         }
     }

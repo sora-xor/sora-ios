@@ -132,6 +132,9 @@ final class AccountCreateViewController: SoramitsuViewController {
     }()
 
     private var derivationPathModel: InputViewModelProtocol?
+    private var backupPath = ""
+    private let backupPathLabel = UILabel()
+    private let copyBackupPathButton = UIButton(type: .system)
 
     var keyboardHandler: KeyboardHandler?
 
@@ -174,10 +177,19 @@ final class AccountCreateViewController: SoramitsuViewController {
 
         view.addSubview(containerView)
         view.addSubview(loadingView)
+        backupPathLabel.numberOfLines = 0
+        backupPathLabel.textColor = .label
+        backupPathLabel.font = .preferredFont(forTextStyle: .body)
+        backupPathLabel.isHidden = true
+        copyBackupPathButton.setTitle(WalletUX.text("Copy derivation path"), for: .normal)
+        copyBackupPathButton.addTarget(self, action: #selector(copyBackupPath), for: .touchUpInside)
+        copyBackupPathButton.isHidden = true
         containerView.addArrangedSubviews([
             titleLabel,
             mnemonicView,
             shareButton,
+            backupPathLabel,
+            copyBackupPathButton,
             nextButton,
             googleButton
         ])
@@ -273,6 +285,18 @@ final class AccountCreateViewController: SoramitsuViewController {
 }
 
 extension AccountCreateViewController: AccountCreateViewProtocol {
+    func set(backupDerivationPath: String) {
+        backupPath = backupDerivationPath
+        backupPathLabel.text = WalletUX.text("Also save this derivation path:") + "\n" + backupDerivationPath
+        backupPathLabel.isHidden = backupDerivationPath.isEmpty
+        copyBackupPathButton.isHidden = backupDerivationPath.isEmpty
+    }
+
+    @objc private func copyBackupPath() {
+        guard !backupPath.isEmpty else { return }
+        UIPasteboard.general.string = backupPath
+    }
+
     func set(mnemonic: [String]) {
         var conditionedMnemonic = mnemonic
         if mnemonic.count % 2 == 1 {
