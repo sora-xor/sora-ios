@@ -1145,3 +1145,9 @@
 "New app PIN" = "Yeni tətbiq PIN-i";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Bu bərpa olunmuş pulqabı üçün yeni tətbiq PIN-i seçin və təsdiqləyin. Əvvəlki quraşdırmanın PIN-i istifadə edilməyəcək.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Təmiri təsdiqləmək üçün tətbiqin cari PIN-ini daxil edin. Bu bərpa olunmuş pulqabı həmin PIN-dən istifadə edəcək.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Qovşağı dəyiş";
+"Check wallet again" = "Pul kisəsini yenidən yoxla";
+"Wallet verification needs attention. Check your saved wallet again." = "Pul kisəsinin təsdiqlənməsi diqqət tələb edir. Saxlanılmış pul kisənizi yenidən yoxlayın.";
+"Wallet services are not ready. Try again or choose another node." = "Pul kisəsi xidmətləri hələ hazır deyil. Yenidən cəhd edin və ya başqa qovşaq seçin.";

@@ -1145,3 +1145,9 @@
 "New app PIN" = "Novo PIN do app";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Escolha e confirme um novo PIN do app para esta carteira restaurada. O PIN da instalação anterior não será usado.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Insira o PIN atual do app para confirmar o reparo. Esta carteira restaurada usará esse PIN.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Alterar nó";
+"Check wallet again" = "Verificar a carteira novamente";
+"Wallet verification needs attention. Check your saved wallet again." = "A verificação da carteira requer atenção. Verifique novamente a carteira guardada.";
+"Wallet services are not ready. Try again or choose another node." = "Os serviços da carteira ainda não estão prontos. Tente novamente ou escolha outro nó.";

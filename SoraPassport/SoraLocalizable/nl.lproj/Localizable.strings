@@ -1145,3 +1145,9 @@
 "New app PIN" = "Nieuwe app-pincode";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Kies en bevestig een nieuwe app-pincode voor deze herstelde wallet. De pincode van de vorige installatie wordt niet gebruikt.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Voer de huidige app-pincode in om de reparatie te bevestigen. Deze herstelde wallet gaat die pincode gebruiken.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Node wijzigen";
+"Check wallet again" = "Wallet opnieuw controleren";
+"Wallet verification needs attention. Check your saved wallet again." = "De walletverificatie vereist aandacht. Controleer je opgeslagen wallet opnieuw.";
+"Wallet services are not ready. Try again or choose another node." = "De walletdiensten zijn nog niet gereed. Probeer het opnieuw of kies een andere node.";

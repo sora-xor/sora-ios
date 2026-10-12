@@ -1145,3 +1145,9 @@
 "New app PIN" = "ऐप का नया PIN";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "इस बहाल किए गए वॉलेट के लिए ऐप का नया PIN चुनें और उसकी पुष्टि करें। पिछली स्थापना के PIN का उपयोग नहीं होगा।";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "मरम्मत की पुष्टि करने के लिए ऐप का मौजूदा PIN दर्ज करें। यह बहाल किया गया वॉलेट उसी PIN का उपयोग करेगा।";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "नोड बदलें";
+"Check wallet again" = "वॉलेट फिर से जाँचें";
+"Wallet verification needs attention. Check your saved wallet again." = "वॉलेट के सत्यापन पर ध्यान देना आवश्यक है। अपने सहेजे गए वॉलेट को फिर से जाँचें।";
+"Wallet services are not ready. Try again or choose another node." = "वॉलेट सेवाएँ अभी तैयार नहीं हैं। फिर से कोशिश करें या कोई दूसरा नोड चुनें।";

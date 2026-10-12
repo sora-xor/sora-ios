@@ -1145,3 +1145,9 @@
 "New app PIN" = "קוד PIN חדש לאפליקציה";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "יש לבחור ולאשר קוד PIN חדש לאפליקציה עבור הארנק המשוחזר הזה. לא ייעשה שימוש בקוד ה-PIN מההתקנה הקודמת.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "יש להזין את קוד ה-PIN הנוכחי של האפליקציה כדי לאשר את התיקון. הארנק המשוחזר הזה ישתמש בקוד הזה.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "החלפת צומת";
+"Check wallet again" = "בדיקת הארנק שוב";
+"Wallet verification needs attention. Check your saved wallet again." = "אימות הארנק דורש תשומת לב. יש לבדוק שוב את הארנק השמור.";
+"Wallet services are not ready. Try again or choose another node." = "שירותי הארנק עדיין אינם מוכנים. יש לנסות שוב או לבחור צומת אחר.";

@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraKeystore
+import CryptoKit
 
 // MARK: - Availability flags for recovery and welcome-back states
 
@@ -154,7 +155,7 @@ enum WalletRecoveryStateProbe {
         pendingTransactionsBaseURL: URL? = nil
     ) -> WalletRecoveryState {
         let marker = WalletMigrationRecoveryMarker.capture(settings)
-        let missing = (try? migrator.accountsForMissingKeyRecovery()) ?? []
+        let missing = (try? migrator.accountsForCredentialRecovery()) ?? []
         let inventory = (try? migrator.recoveryInventory()) ?? []
         let withPhrase = WalletRecoveryPhraseReveal.availableAddresses(
             accounts: inventory,
@@ -167,13 +168,101 @@ enum WalletRecoveryStateProbe {
             )
         )
         return .recovery(
-            retryable: marker.isRetryableStartupFailure || marker.isDatabaseInterruption ||
+            retryable: !marker.required || marker.isRetryableStartupFailure || marker.isDatabaseInterruption ||
                 marker.isLegacyAccountCommitInterruption,
             accountsMissingKeys: missing.count,
             accountsWithPhrase: withPhrase.count,
             retainedPinUsable: WalletRetainedPinGate.isUsable(keystore: keystore, settings: settings),
             transactionRecordsUnreadable: !PendingTransactionRecords.isReadable(baseURL: pendingTransactionsBaseURL)
         )
+    }
+}
+
+/// Recovery copies stay on this device. Set and verify the attribute before
+/// copying settings or moving any wallet data, including on resumed attempts.
+enum WalletPreservedDataProtection {
+    static func excludeFromBackup(_ directory: URL) throws {
+        let current = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard current.isDirectory == true, current.isSymbolicLink != true else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        var url = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try url.setResourceValues(values)
+        guard try url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+    }
+}
+
+/// Restored defaults and network metadata are not an account database. On a
+/// new iPhone they can arrive without any ThisDeviceOnly keys. Keep that
+/// metadata locally, then let normal routing choose onboarding or Welcome
+/// back from the actual Keychain. SQLite companions and migration/commit
+/// journals remain with their existing recovery path: they may contain the
+/// only recoverable database and must be resumed before this classification.
+enum WalletMissingDatabaseRecovery {
+    private enum Failure: Error { case stateChanged }
+    @discardableResult
+    static func preserveStaleMetadata(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        paths: WalletLocalStateSetAside.Paths,
+        fileManager: FileManager = .default,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared
+    ) throws -> URL? {
+        func exists(_ url: URL) -> Bool {
+            var info = stat()
+            return url.withUnsafeFileSystemRepresentation { $0.map { lstat($0, &info) == 0 } ?? false }
+        }
+        func isStaleMetadata() throws -> Bool {
+            guard !exists(paths.storeURL),
+                  !["-wal", "-shm", "-journal"].contains(where: {
+                      exists(URL(fileURLWithPath: paths.storeURL.path + $0))
+                  }),
+                  !exists(paths.storeURL.deletingLastPathComponent()
+                    .appendingPathComponent("WalletMigrationSafety")) else { return false }
+            // This automatic path may preserve restored defaults, but must
+            // never set aside unreadable transfer records without the user's
+            // confirmation. Those records keep sending blocked in recovery.
+            guard PendingTransactionRecords.isReadable(baseURL: paths.applicationSupportURL) else { return false }
+            let sora = paths.applicationSupportURL.appendingPathComponent("SORA")
+            let commits = sora.appendingPathComponent("WalletAccountCommits")
+            if exists(commits) {
+                guard try fileManager.contentsOfDirectory(at: commits, includingPropertiesForKeys: nil).isEmpty else {
+                    return false
+                }
+            }
+            // Read the namespace before any move, even though both key states
+            // retain the metadata. A locked/erroring Keychain must reach recovery.
+            let identifiers = Set(try keystore.allKeyIdentifiers())
+            let networks = sora.appendingPathComponent("WalletNetworks")
+            let hasNetworkFiles = exists(networks) &&
+                ((try? fileManager.contentsOfDirectory(atPath: networks.path).isEmpty) != true)
+            // A genuine pre-account-model wallet never had a SQLite store.
+            // Its userName is live upgrade input, not restored stale metadata.
+            // Preserve it in place for the explicit legacy-upgrade proof; a
+            // scoped wallet or any network-model evidence keeps the normal
+            // missing-database preservation path.
+            if identifiers.contains(KeystoreTag.legacyEntropy.rawValue), !hasNetworkFiles,
+               try LegacyWalletUpgradePolicy.isProvenCandidate(keystore: keystore,
+                    hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(), snapshot: nil) {
+                return false
+            }
+            return !WalletLocalStateSetAside.walletSettingKeys(in: settings).isEmpty || exists(networks)
+        }
+        guard try isStaleMetadata() else { return nil }
+        do {
+            return try WalletLocalStateSetAside.setAside(
+                settings: settings, expectedMarker: WalletMigrationRecoveryMarker.capture(settings),
+                paths: paths, fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator,
+                preflight: {
+                    // An import may have committed while acquisition waited. Never
+                    // classify that newly created live database as restored defaults.
+                    guard try isStaleMetadata() else { throw Failure.stateChanged }
+                })
+        } catch Failure.stateChanged { return nil }
     }
 }
 
@@ -244,12 +333,14 @@ enum WalletLocalStateSetAside {
         paths: Paths,
         fileManager: FileManager = .default,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        preflight: () throws -> Void = {},
         closeDatabase: () -> Void = {},
         beforeMove: (URL) throws -> Void = { _ in },
         afterMoves: () throws -> Void = {}
     ) throws -> URL {
         let lease = lifecycleCoordinator.acquire()
         defer { lease.release() }
+        try preflight()
         let marker = WalletMigrationRecoveryMarker.capture(settings)
         if let expectedMarker, expectedMarker != marker {
             throw Failure.markerChanged
@@ -261,7 +352,10 @@ enum WalletLocalStateSetAside {
         let reused = incompleteFolder(in: paths.setAsideRootURL, fileManager: fileManager)
         let folder = reused ?? paths.setAsideRootURL.appendingPathComponent(
             "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: paths.setAsideRootURL, withIntermediateDirectories: true)
+        try WalletPreservedDataProtection.excludeFromBackup(paths.setAsideRootURL)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        try WalletPreservedDataProtection.excludeFromBackup(folder)
 
         // 0. Journal the attempt before anything moves. The marker stays
         // until the wallet files are moved and the wallet settings removed
@@ -294,8 +388,11 @@ enum WalletLocalStateSetAside {
             }
         }
         let plist = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
-        let settingsName = reused == nil ? "wallet-settings.plist" : "wallet-settings-\(UUID().uuidString).plist"
-        try plist.write(to: folder.appendingPathComponent(settingsName), options: [.atomic])
+        let settingsName = exists(folder.appendingPathComponent("wallet-settings.plist"))
+            ? "wallet-settings-\(UUID().uuidString).plist" : "wallet-settings.plist"
+        let settingsURL = folder.appendingPathComponent(settingsName)
+        try plist.write(to: settingsURL, options: [.atomic])
+        try DurableFileWriter.synchronizeRegularFileAndContainingDirectory(at: settingsURL)
 
         // 2. Move (rename) the wallet files. Never delete. If one move
         // fails, the moves already done are undone, so the install is left as
@@ -405,11 +502,13 @@ enum WalletLocalStateSetAside {
         // wallet's files would be mixed into this folder. If the marker
         // cannot be removed, the recovery marker stays too and a retry
         // continues here.
+        try WalletPreservedGeneration.recordComplete(folder: folder, paths: paths, fileManager: fileManager)
         try? fileManager.removeItem(at: incompleteMarkerURL)
         guard !exists(incompleteMarkerURL) else {
             Logger.shared.warning("Wallet storage: set-aside folder could not be completed; try again")
             throw Failure.incomplete(folder: folder)
         }
+        try WalletPreservedGeneration.syncDirectory(folder)
 
         // 5. Clear the marker this screen was shown for.
         if marker.required {
@@ -599,5 +698,282 @@ enum PendingTransactionRecords {
         try? fileManager.createDirectory(at: source, withIntermediateDirectories: true)
         Logger.shared.info("Wallet storage: unfinished-transaction records set aside on request")
         return folder
+    }
+}
+
+/// A complete preserved generation is immutable until an explicit return.
+/// The return plan and Keychain receipt bind every moved file to its digest,
+/// so a stopped return resumes that generation before ordinary startup.
+enum WalletPreservedGeneration {
+    static let manifestName = "generation.json"
+    static let returnName = "RETURNING.json"
+    private static let receiptPrefix = "wallet.preservedReturn."
+
+    struct Entry: Codable, Equatable {
+        let path: String
+        let digest: String
+    }
+    struct Manifest: Codable, Equatable {
+        let version: Int
+        let id: UUID
+        let entries: [Entry]
+        let settingsDigest: String
+    }
+    struct Plan: Codable {
+        let version: Int
+        let folder: String
+        let manifestDigest: String
+        let id: UUID
+    }
+    enum Failure: Error { case invalidGeneration, liveWalletPresent, ownerPINRequired, interrupted }
+
+    static func exists(_ url: URL) -> Bool {
+        var info = stat()
+        return url.withUnsafeFileSystemRepresentation { $0.map { lstat($0, &info) == 0 } ?? false }
+    }
+
+    private static func digest(_ url: URL) throws -> String {
+        let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey])
+        guard values.isSymbolicLink != true else { throw Failure.invalidGeneration }
+        if values.isDirectory == true {
+            let children = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            guard children.count <= 4096 else { throw Failure.invalidGeneration }
+            var hash = SHA256()
+            for child in children {
+                hash.update(data: Data(child.lastPathComponent.utf8))
+                hash.update(data: Data([0]))
+                hash.update(data: Data(try digest(child).utf8))
+            }
+            return Data(hash.finalize()).toHex()
+        }
+        guard values.isRegularFile == true else { throw Failure.invalidGeneration }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hash = SHA256()
+        while let data = try handle.read(upToCount: 1_048_576), !data.isEmpty { hash.update(data: data) }
+        return Data(hash.finalize()).toHex()
+    }
+
+    private static func destinations(_ paths: WalletLocalStateSetAside.Paths) -> [String: URL] {
+        let sora = paths.applicationSupportURL.appendingPathComponent("SORA")
+        var result: [String: URL] = [:]
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            result["CoreData/" + paths.storeURL.lastPathComponent + suffix] = URL(fileURLWithPath: paths.storeURL.path + suffix)
+        }
+        result["CoreData/WalletMigrationSafety"] = paths.storeURL.deletingLastPathComponent().appendingPathComponent("WalletMigrationSafety")
+        for name in ["WalletNetworks", "WalletAccountCommits", PendingTransactionRecords.directoryName] {
+            result[name] = sora.appendingPathComponent(name)
+        }
+        return result
+    }
+
+    static func recordComplete(folder: URL, paths: WalletLocalStateSetAside.Paths, fileManager: FileManager) throws {
+        // A legacy interrupted set-aside can contain multiple generations.
+        // Preserve it, but never guess which combination may be moved back.
+        let names = try fileManager.contentsOfDirectory(atPath: folder.path)
+        guard !names.contains(where: { $0.hasPrefix("later-") }) else { return }
+        let entries = try destinations(paths).keys.sorted().compactMap { path -> Entry? in
+            let url = folder.appendingPathComponent(path)
+            return exists(url) ? Entry(path: path, digest: try digest(url)) : nil
+        }
+        let manifest = Manifest(version: 1, id: UUID(), entries: entries,
+                                settingsDigest: try digest(folder.appendingPathComponent("wallet-settings.plist")))
+        try DurableFileWriter.write(JSONEncoder().encode(manifest), to: folder.appendingPathComponent(manifestName),
+                                    fileManager: fileManager, protection: .completeUntilFirstUserAuthentication)
+    }
+
+    private static func readManifest(folder: URL, paths: WalletLocalStateSetAside.Paths) throws -> Manifest {
+        let values = try folder.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true,
+              !exists(folder.appendingPathComponent(WalletLocalStateSetAside.incompleteMarkerName)) else {
+            throw Failure.invalidGeneration
+        }
+        let manifestURL = folder.appendingPathComponent(manifestName)
+        _ = try digest(manifestURL)
+        let data = try Data(contentsOf: manifestURL)
+        guard data.count <= 1_048_576 else { throw Failure.invalidGeneration }
+        let value = try JSONDecoder().decode(Manifest.self, from: data)
+        let allowed = destinations(paths)
+        guard value.version == 1, value.entries.count <= allowed.count,
+              Set(value.entries.map(\.path)).count == value.entries.count,
+              value.entries.allSatisfy({ allowed[$0.path] != nil && $0.digest.count == 64 }),
+              try digest(folder.appendingPathComponent("wallet-settings.plist")) == value.settingsDigest else {
+            throw Failure.invalidGeneration
+        }
+        return value
+    }
+
+    static func available(paths: WalletLocalStateSetAside.Paths, settings: SettingsManagerProtocol) -> [URL] {
+        guard !settings.walletMigrationRecoveryRequired,
+              WalletLocalStateSetAside.walletSettingKeys(in: settings).isEmpty,
+              !exists(paths.storeURL), !exists(paths.setAsideRootURL.appendingPathComponent(returnName)) else { return [] }
+        return ((try? FileManager.default.contentsOfDirectory(at: paths.setAsideRootURL,
+                    includingPropertiesForKeys: nil)) ?? []).sorted { $0.lastPathComponent > $1.lastPathComponent }.filter { folder in
+            guard let manifest = try? readManifest(folder: folder, paths: paths),
+                  manifest.entries.contains(where: { $0.path == "CoreData/" + paths.storeURL.lastPathComponent }) else { return false }
+            return manifest.entries.allSatisfy { (try? digest(folder.appendingPathComponent($0.path))) == $0.digest }
+        }
+    }
+
+    static func accounts(folder: URL, paths: WalletLocalStateSetAside.Paths,
+                         settings: SettingsManagerProtocol, keystore: KeystoreProtocol) throws -> [AccountItem] {
+        let manifest = try readManifest(folder: folder, paths: paths)
+        let database = "CoreData/" + paths.storeURL.lastPathComponent
+        guard manifest.entries.contains(where: { $0.path == database }) else { return [] }
+        // Core Data may create SHM files even for a read-only connection. Read
+        // a private temporary copy so the preserved generation stays immutable.
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try WalletPreservedDataProtection.excludeFromBackup(temporary)
+        let copy = temporary.appendingPathComponent(paths.storeURL.lastPathComponent)
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            let source = folder.appendingPathComponent(database + suffix)
+            if exists(source) {
+                try FileManager.default.copyItem(at: source, to: URL(fileURLWithPath: copy.path + suffix))
+            }
+        }
+        return try UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+            storeURL: copy, modelDirectory: UserStorageParams.modelDirectory,
+            keystore: keystore, settings: settings, fileManager: .default).preservedAccountInventory()
+    }
+
+    /// Each grant was created by a manually entered owner PIN. A new app PIN
+    /// is explicitly chosen for the returned wallets; biometrics/stored PINs
+    /// do not create grants. No signing key is changed.
+    static func restore(folder: URL, paths: WalletLocalStateSetAside.Paths,
+                        settings: SettingsManagerProtocol, keystore: KeystoreProtocol,
+                        grants: [WalletOwnerPIN.RetainedAuthorization], newPIN: String,
+                        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+                        checkpoint: (String) throws -> Void = { _ in }) throws {
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        guard available(paths: paths, settings: settings).contains(folder),
+              folder.deletingLastPathComponent().standardizedFileURL == paths.setAsideRootURL.standardizedFileURL else {
+            throw Failure.liveWalletPresent
+        }
+        let manifest = try readManifest(folder: folder, paths: paths)
+        let rows = try accounts(folder: folder, paths: paths, settings: settings, keystore: keystore)
+        let owner = WalletOwnerPIN(keystore: keystore, settings: settings,
+            recoveryGate: WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }))
+        try owner.requirePreservedOwners(accounts: rows, authorizations: grants)
+        // Check every destination before any authority or file is published.
+        try requireEmptyDestinations(manifest: manifest, paths: paths)
+        let plan = Plan(version: 1, folder: folder.lastPathComponent,
+                        manifestDigest: try digest(folder.appendingPathComponent(manifestName)), id: manifest.id)
+        let planData = try JSONEncoder().encode(plan)
+        let receipt = Data(SHA256.hash(data: planData))
+        // PIN publication uses the existing durable rotation journal. An
+        // interruption here leaves the old files preserved and requires the
+        // owner PIN again before another return can begin.
+        try owner.setPINForPreservedRestore(newPIN, accounts: rows, authorizations: grants)
+        let tag = receiptPrefix + plan.id.uuidString
+        try keystore.saveKey(receipt, with: tag)
+        guard try keystore.fetchKey(for: tag) == receipt else { throw Failure.interrupted }
+        try DurableFileWriter.write(planData, to: paths.setAsideRootURL.appendingPathComponent(returnName),
+                                    fileManager: .default, protection: .completeUntilFirstUserAuthentication)
+        try checkpoint("planned")
+        try resume(paths: paths, settings: settings, keystore: keystore, checkpoint: checkpoint)
+    }
+
+    private static func requireEmptyDestinations(manifest: Manifest, paths: WalletLocalStateSetAside.Paths) throws {
+        for (path, target) in destinations(paths) {
+            // Readable pending records deliberately survive set-aside. Other
+            // live wallet files cannot be mixed into the returned generation.
+            if path == PendingTransactionRecords.directoryName &&
+                !manifest.entries.contains(where: { $0.path == path }) { continue }
+            if exists(target) {
+                let values = try target.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values.isDirectory == true, values.isSymbolicLink != true,
+                      try FileManager.default.contentsOfDirectory(atPath: target.path).isEmpty else {
+                    throw Failure.liveWalletPresent
+                }
+            }
+        }
+    }
+
+    /// Call with the lifecycle lease held, before any database/authentication
+    /// reader. An unverified or conflicting plan stops startup without writes.
+    static func resume(paths: WalletLocalStateSetAside.Paths, settings: SettingsManagerProtocol,
+                       keystore: KeystoreProtocol, checkpoint: (String) throws -> Void = { _ in }) throws {
+        let planURL = paths.setAsideRootURL.appendingPathComponent(returnName)
+        guard exists(planURL) else { return }
+        _ = try digest(planURL)
+        let data = try Data(contentsOf: planURL)
+        let plan = try JSONDecoder().decode(Plan.self, from: data)
+        guard plan.version == 1, !plan.folder.isEmpty, ![".", ".."].contains(plan.folder),
+              !plan.folder.contains("/"),
+              try keystore.fetchKey(for: receiptPrefix + plan.id.uuidString) == Data(SHA256.hash(data: data)) else {
+            throw Failure.invalidGeneration
+        }
+        let folder = paths.setAsideRootURL.appendingPathComponent(plan.folder)
+        guard try digest(folder.appendingPathComponent(manifestName)) == plan.manifestDigest else { throw Failure.invalidGeneration }
+        let manifest = try readManifest(folder: folder, paths: paths)
+        guard manifest.id == plan.id else { throw Failure.invalidGeneration }
+        let targets = destinations(paths)
+        for (path, target) in targets where !manifest.entries.contains(where: { $0.path == path }) &&
+            path != PendingTransactionRecords.directoryName && exists(target) {
+            let values = try target.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard values.isDirectory == true, values.isSymbolicLink != true,
+                  try FileManager.default.contentsOfDirectory(atPath: target.path).isEmpty else { throw Failure.liveWalletPresent }
+        }
+        // Verify the whole generation on either side before resuming one move.
+        for entry in manifest.entries {
+            let source = folder.appendingPathComponent(entry.path), target = targets[entry.path]!
+            if exists(source) {
+                guard try digest(source) == entry.digest else { throw Failure.invalidGeneration }
+                if exists(target) {
+                    let values = try target.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                    guard values.isDirectory == true, values.isSymbolicLink != true,
+                          try FileManager.default.contentsOfDirectory(atPath: target.path).isEmpty else { throw Failure.liveWalletPresent }
+                }
+            } else {
+                guard try digest(target) == entry.digest else { throw Failure.invalidGeneration }
+            }
+        }
+        for entry in manifest.entries {
+            let source = folder.appendingPathComponent(entry.path), target = targets[entry.path]!
+            guard exists(source) else { continue }
+            if exists(target) { try FileManager.default.removeItem(at: target) } // proven empty directory only
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.moveItem(at: source, to: target)
+            try syncDirectory(target.deletingLastPathComponent())
+            try syncDirectory(source.deletingLastPathComponent())
+            try checkpoint("moved:" + entry.path)
+        }
+        let preserved = try PropertyListSerialization.propertyList(
+            from: Data(contentsOf: folder.appendingPathComponent("wallet-settings.plist")), format: nil)
+        guard let values = preserved as? [String: Any] else { throw Failure.invalidGeneration }
+        // Only the same allowlist used by set-aside may restore defaults.
+        for (key, value) in values {
+            guard isWalletSetting(key) else { throw Failure.invalidGeneration }
+            settings.set(anyValue: value, for: key)
+        }
+        for (key, value) in values {
+            guard let actual = settings.anyValue(for: key),
+                  NSDictionary(dictionary: [key: actual]).isEqual(to: [key: value]) else { throw Failure.interrupted }
+        }
+        try checkpoint("settingsRestored")
+        try FileManager.default.removeItem(at: planURL)
+        try syncDirectory(paths.setAsideRootURL)
+        try keystore.deleteKeyIfExists(for: receiptPrefix + plan.id.uuidString)
+        try checkpoint("finished")
+    }
+
+    private static func isWalletSetting(_ key: String) -> Bool {
+        [SettingsKey.selectedAccount.rawValue, SettingsKey.decentralizedId.rawValue,
+         SettingsKey.publicKeyId.rawValue, SettingsKey.hasMigrated.rawValue,
+         SettingsKey.migratedAccountsV1.rawValue, SettingsKey.walletNetworkStoreVersion.rawValue,
+         SettingsKey.walletStartupDiagnostic.rawValue, KeystoreTag.legacyUsername.rawValue].contains(key) ||
+            key.hasPrefix("wallet.watchOnly.")
+    }
+
+    static func syncDirectory(_ url: URL) throws {
+        let fd = Darwin.open(url.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw Failure.interrupted }
+        defer { Darwin.close(fd) }
+        guard Darwin.fsync(fd) == 0 else { throw Failure.interrupted }
     }
 }

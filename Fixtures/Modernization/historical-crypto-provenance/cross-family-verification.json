@@ -1,0 +1,250 @@
+{
+  "historicalImplementations": [
+    {
+      "implementation": "fearless-c1d17ccf",
+      "checks": [
+        {
+          "source": "ios-386-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-26dfc128-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-c1d17ccf-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-e6aaeb17-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        }
+      ]
+    },
+    {
+      "implementation": "fearless-e6aaeb17",
+      "checks": [
+        {
+          "source": "ios-386-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-26dfc128-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-c1d17ccf-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-e6aaeb17-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        }
+      ]
+    },
+    {
+      "implementation": "fearless-26dfc128",
+      "checks": [
+        {
+          "source": "ios-386-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-26dfc128-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-c1d17ccf-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-e6aaeb17-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        }
+      ]
+    },
+    {
+      "implementation": "ssf-pod-ssfutils-0.1.31-models-0.1.31",
+      "checks": [
+        {
+          "source": "ios-386-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-26dfc128-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-c1d17ccf-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-e6aaeb17-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        }
+      ]
+    },
+    {
+      "implementation": "ssf-pod-ssfutils-0.1.31-models-0.1.32",
+      "checks": [
+        {
+          "source": "ios-386-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-26dfc128-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-c1d17ccf-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-e6aaeb17-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        }
+      ]
+    },
+    {
+      "implementation": "spm-386",
+      "checks": [
+        {
+          "source": "ios-386-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-26dfc128-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-c1d17ccf-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-fearless-e6aaeb17-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        },
+        {
+          "source": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+          "verifiedExportImportIdentity": 20,
+          "verifiedImportedKeySignatures": 20,
+          "verifiedOriginalSignatures": 20
+        }
+      ]
+    }
+  ]
+}

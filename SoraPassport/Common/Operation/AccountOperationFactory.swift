@@ -57,6 +57,7 @@ protocol AccountOperationFactoryProtocol {
 /// `persist`, so typing/scanning a candidate cannot mutate Keychain.
 final class PreparedAccount {
     let account: AccountItem
+    var completedInitialPINSetup: WalletCredentialRepair.InitialPINCompletion?
     private var suppliedOwnershipProof: Bool
     private var retainedOwnershipProof = false
 
@@ -145,6 +146,18 @@ final class PreparedAccount {
         defer { stateLock.unlock() }
         guard !isConsumed else { throw AccountCreateError.duplicated }
         _ = try missingMaterialLocked(in: keystore)
+    }
+
+    /// Only freshly supplied, already-proven import material may authorize a
+    /// destructive repair. Retained discovery and an owner-PIN grant do not.
+    func credentialRepairMaterial() throws -> WalletCredentialRepair.Material {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !isConsumed, suppliedOwnershipProof else {
+            throw WalletCredentialRepair.Failure.suppliedMaterialRequired
+        }
+        return WalletCredentialRepair.Material(secret: secretKey, entropy: entropy,
+            seed: seed, derivation: derivation)
     }
 
     private func missingMaterialLocked(in keystore: KeystoreProtocol) throws -> [(String, Data)] {

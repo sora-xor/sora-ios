@@ -1145,3 +1145,9 @@
 "New app PIN" = "Nový PIN aplikace";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Zvolte a potvrďte nový PIN aplikace pro tuto obnovenou peněženku. PIN z předchozí instalace se nepoužije.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Zadejte aktuální PIN aplikace pro potvrzení opravy. Tato obnovená peněženka bude používat tento PIN.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Změnit uzel";
+"Check wallet again" = "Znovu zkontrolovat peněženku";
+"Wallet verification needs attention. Check your saved wallet again." = "Ověření peněženky vyžaduje pozornost. Znovu zkontrolujte uloženou peněženku.";
+"Wallet services are not ready. Try again or choose another node." = "Služby peněženky ještě nejsou připravené. Zkuste to znovu nebo zvolte jiný uzel.";

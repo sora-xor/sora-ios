@@ -38,6 +38,7 @@ final class AccountMenuItem: NSObject {
     
     let title: String
     let image: UIImage?
+    var capabilityBadge: String?
     var isSelected: Bool
     var isMultiselectionMode: Bool
     let onTap: (() -> ())?
@@ -73,7 +74,19 @@ extension AccountMenuItem: SoramitsuTableViewItemProtocol {
     }
     
     func itemHeight(forWidth width: CGFloat, context: SoramitsuTableViewContext?) -> CGFloat {
-        return AccountMenuItem.itemHeight
+        guard let badge = capabilityBadge, !badge.isEmpty else { return AccountMenuItem.itemHeight }
+        // Account titles and the capability badge share a vertical stack. The
+        // badge must remain readable at accessibility sizes and in long locales.
+        // The table passes its full width. AccountTableViewCell also insets
+        // this view by 24 points on each side, outside the view's controls.
+        let labelWidth = max(1, width - 48 - (image == nil ? 109 : 149))
+        let font = UIFont.preferredFont(forTextStyle: .caption1)
+        let badgeHeight = (badge as NSString).boundingRect(
+            with: CGSize(width: labelWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font], context: nil).height
+        let titleHeight = FontType.textM.attriburedString(with: title).size().height
+        return max(AccountMenuItem.itemHeight, ceil(titleHeight + 3 + badgeHeight + 32))
     }
     
     func itemActionTap(with context: SoramitsuTableViewContext?) {

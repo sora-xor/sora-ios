@@ -46,6 +46,7 @@ final class ChangeAccountPresenter {
     private var mode: ChangeAccountViewController.Mode = .view
     private var accounts: [AccountItem] = []
     private var accountViewModels: [AccountMenuItem] = []
+    private var capabilityGeneration = UUID()
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let operationManager: OperationManagerProtocol
     private let iconGenerator = PolkadotIconGenerator()
@@ -84,8 +85,19 @@ final class ChangeAccountPresenter {
         let address = settingsManager.currentAccount?.address ?? ""
 
         accountViewModels = makeModels(from: accounts, selectedAccountAddress: address)
+        let generation = UUID()
+        capabilityGeneration = generation
+        accountViewModels.forEach { $0.capabilityBadge = WalletAccountCapability.State.checking.badge }
         
         view?.update(with: accountViewModels)
+        for (index, account) in accounts.enumerated() {
+            WalletAccountCapability.probe(account: account) { [weak self] state in
+                guard let self, self.capabilityGeneration == generation,
+                      self.accountViewModels.indices.contains(index) else { return }
+                self.accountViewModels[index].capabilityBadge = state.badge
+                self.view?.update(with: self.accountViewModels)
+            }
+        }
     }
     
     private func makeModels(from accounts: [AccountItem], selectedAccountAddress: String) -> [AccountMenuItem] {

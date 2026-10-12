@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import SoraKeystore
 import SoraUIKit
 import Nantes
 
@@ -113,6 +114,27 @@ final class WelcomeViewController: SoramitsuViewController {
     private lazy var importAccountButton = WalletUX.button(
         R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale)
     ) { [weak self] in self?.presenter.activateAccountRestore() }
+
+    private lazy var earlierDataButton: WalletNeonButton = {
+        let button = WalletSafeMode.button(.secondary, title: WalletUX.text("Use the earlier wallet data again"))
+        button.accessibilityIdentifier = "wallet-onboarding-earlier-data"
+        button.isHidden = true
+        button.addTarget(self, action: #selector(restoreEarlierData), for: .touchUpInside)
+        return button
+    }()
+    private lazy var actionsStack: UIStackView = {
+        let stack = UIStackView(arrangedSubviews: [createAccountButton, importAccountButton, earlierDataButton])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
+    @objc private func restoreEarlierData() {
+        WalletPreservedDataRestoration.present(on: self) { [weak self] in
+            guard let window = self?.view.window as? SoraWindow else { return }
+            RootWireframe.restartStartup(on: window)
+        }
+    }
 
     private let scrollView = UIScrollView()
 
@@ -207,7 +229,13 @@ final class WelcomeViewController: SoramitsuViewController {
         scrollView.addSubview(containerView)
         createAccountButton.translatesAutoresizingMaskIntoConstraints = false
         importAccountButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubviews(titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
+        containerView.addSubviews(titleLabel, subtitleLabel, googleButton, actionsStack, termsLabel)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let available = (try? WalletLocalStateSetAside.Paths.production()).map {
+                !WalletPreservedGeneration.available(paths: $0, settings: SettingsManager.shared).isEmpty
+            } ?? false
+            DispatchQueue.main.async { self?.earlierDataButton.isHidden = !available }
+        }
         // The logo overlaps the card's top edge. It sits above the card, not
         // inside it: the card draws its hairline over its own subviews,
         // which put a line across the logo.
@@ -239,15 +267,10 @@ final class WelcomeViewController: SoramitsuViewController {
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             subtitleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
-            createAccountButton.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
-            createAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            createAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            
-            importAccountButton.topAnchor.constraint(equalTo: createAccountButton.bottomAnchor, constant: 16),
-            importAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            importAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            
-            termsLabel.topAnchor.constraint(equalTo: importAccountButton.bottomAnchor, constant: 16),
+            actionsStack.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
+            actionsStack.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
+            actionsStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -24),
+            termsLabel.topAnchor.constraint(equalTo: actionsStack.bottomAnchor, constant: 16),
             termsLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             termsLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             termsLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),

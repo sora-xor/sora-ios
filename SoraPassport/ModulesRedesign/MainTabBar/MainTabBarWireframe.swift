@@ -656,7 +656,19 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             reason: [
                 "The selected wallet was preserved, but SORA could not rebuild its account-bound screens safely.",
                 "Close and reopen SORA to retry. Do not delete or reinstall the app."
-            ].joined(separator: " ")
+            ].joined(separator: " "),
+            onRetry: { [weak tabBarController] in
+                guard let window = tabBarController?.view.window as? SoraWindow else { return }
+                RootWireframe.restartStartup(on: window)
+            },
+            onSetAside: { [weak tabBarController] in
+                guard let window = tabBarController?.view.window as? SoraWindow else { return }
+                RootWireframe.restartStartup(on: window)
+            },
+            onRestore: { [weak tabBarController] drive in
+                guard let window = tabBarController?.view.window else { return }
+                RootWireframe().showOnboarding(on: window, restoreFromDrive: drive)
+            }
         )
         // The prior tabs retain the old account's providers. Remove the whole
         // graph in one assignment so none can be exposed under the new durable

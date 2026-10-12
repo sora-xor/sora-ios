@@ -2,7 +2,8 @@ name: iOS CI
 
 # Lean CI: build the app and run the unit tests on an iOS simulator in both the
 # Debug and the Release configuration, and compile an unsigned Release build
-# for devices. No signing, no uploads, no secrets.
+# for devices. Simulator apps use local ad-hoc signing for Keychain access;
+# no distribution signing, uploads, or secrets.
 
 on:
   pull_request:
@@ -107,7 +108,9 @@ jobs:
             -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
             -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests.xcresult" \
             -only-testing:SoraPassportTests \
-            -skip-testing:SoraPassportTests/Sora2MainnetLiveSigningTests
+            -onlyUsePackageVersionsFromResolvedFile \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never
 
       - name: Upload test results
         if: always()
@@ -165,7 +168,8 @@ jobs:
         run: |
           set -euo pipefail
           # ENABLE_TESTABILITY lets the tests use @testable import against the
-          # optimized Release build; nothing is signed, archived or uploaded.
+          # optimized Release build. WALLET_TESTING exposes durable-writer fault
+          # checkpoints only in this local test host, never a distribution app.
           xcodebuild build-for-testing \
             -project SoraPassport.xcodeproj \
             -scheme SoraPassport \
@@ -174,8 +178,8 @@ jobs:
             -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
             -onlyUsePackageVersionsFromResolvedFile \
             ENABLE_TESTABILITY=YES \
-            ONLY_ACTIVE_ARCH=YES \
-            CODE_SIGNING_ALLOWED=NO
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) WALLET_TESTING' \
+            ONLY_ACTIVE_ARCH=YES
 
       - name: Check Release compilation conditions
         shell: bash
@@ -209,7 +213,9 @@ jobs:
             -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
             -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests-Release.xcresult" \
             -only-testing:SoraPassportTests \
-            -skip-testing:SoraPassportTests/Sora2MainnetLiveSigningTests
+            -onlyUsePackageVersionsFromResolvedFile \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never
 
       - name: Upload test results
         if: always()

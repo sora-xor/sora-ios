@@ -1145,3 +1145,9 @@
 "New app PIN" = "Sovelluksen uusi PIN-koodi";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Valitse ja vahvista sovelluksen uusi PIN-koodi tälle palautetulle lompakolle. Edellisen asennuksen PIN-koodia ei käytetä.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Vahvista korjaus antamalla sovelluksen nykyinen PIN-koodi. Tämä palautettu lompakko käyttää tätä PIN-koodia.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Vaihda solmua";
+"Check wallet again" = "Tarkista lompakko uudelleen";
+"Wallet verification needs attention. Check your saved wallet again." = "Lompakon varmennus vaatii huomiota. Tarkista tallennettu lompakkosi uudelleen.";
+"Wallet services are not ready. Try again or choose another node." = "Lompakon palvelut eivät ole vielä valmiina. Yritä uudelleen tai valitse toinen solmu.";

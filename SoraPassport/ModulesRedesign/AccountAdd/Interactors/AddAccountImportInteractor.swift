@@ -85,6 +85,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
             do {
                 let lifecycleLease = try leaseResult.get()
                 let prepared = try preparedResult.get()
+                if try self.requestExplicitCredentialRepairIfNeeded(prepared, lifecycleLease: lifecycleLease,
+                    eventCenter: selectionEventCenter, completion: completion) { return }
                 self.settings.performInsertAndSelect(
                     prepared: prepared,
                     persistSecrets: {
@@ -155,7 +157,6 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     by: prepared.account.address,
                     options: RepositoryFetchOptions()
                 )
-                let selection = self.settings
                 checkOperation.completionBlock = {
                     defer {
                         prepared.discard()
@@ -163,15 +164,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     }
                     let result: Result<AccountItem?, Error>
                     do {
-                        // An account already in the wallet is a duplicate,
-                        // unless its keys are not on this iPhone: then the
-                        // import restores them in place (same rule as the
-                        // insert that follows).
-                        if let existing = try checkOperation.extractNoCancellableResultData(),
-                           try !selection.restoresKeysInPlace(existing: existing, imported: prepared.account) {
-                            throw AccountCreateError.duplicated
-                        }
-                        result = .success(prepared.account)
+                        result = .success(try self.existingAccountRequiringRepair(
+                            checkOperation.extractNoCancellableResultData(), prepared: prepared, selection: self.settings))
                     } catch {
                         result = .failure(error)
                     }

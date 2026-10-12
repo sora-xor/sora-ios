@@ -41,6 +41,10 @@ final class AccountTableViewItem: NSObject {
     var networkHandler: (() -> Void)?
     var scanQRHandler: (() -> Void)?
     var updateHandler: (() -> Void)?
+    var credentialAccount: AccountItem?
+    var capability: WalletAccountCapability.State = .checking
+    var restoreKeysHandler: (() -> Void)?
+    private var capabilityGeneration = UUID()
     private let accountRepository: AnyDataProviderRepository<AccountItem>
 
     init(accountName: String) {
@@ -53,6 +57,17 @@ final class AccountTableViewItem: NSObject {
         )
         super.init()
         EventCenter.shared.add(observer: self)
+    }
+
+    func refreshCapability() {
+        guard let account = credentialAccount else { return }
+        let generation = UUID()
+        capabilityGeneration = generation
+        WalletAccountCapability.probe(account: account) { [weak self] state in
+            guard let self, self.capabilityGeneration == generation else { return }
+            self.capability = state
+            self.updateHandler?()
+        }
     }
 }
 

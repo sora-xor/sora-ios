@@ -1142,3 +1142,9 @@
 "New app PIN" = "Ny app-PIN";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Velg og bekreft en ny app-PIN for denne gjenopprettede lommeboken. PIN-koden fra den forrige installasjonen blir ikke brukt.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Skriv inn gjeldende app-PIN for å bekrefte reparasjonen. Denne gjenopprettede lommeboken vil bruke den PIN-koden.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Bytt node";
+"Check wallet again" = "Kontroller lommeboken på nytt";
+"Wallet verification needs attention. Check your saved wallet again." = "Verifiseringen av lommeboken krever oppmerksomhet. Kontroller den lagrede lommeboken på nytt.";
+"Wallet services are not ready. Try again or choose another node." = "Lommeboktjenestene er ikke klare ennå. Prøv igjen eller velg en annen node.";

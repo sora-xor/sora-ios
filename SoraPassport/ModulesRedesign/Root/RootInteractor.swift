@@ -683,6 +683,7 @@ final class RootInteractor {
     private let legacyUpgradeLock = NSLock()
     private var didStartLegacyWalletUpgrade = false
     private let legacyUpgradeSelectedAccount: () -> AccountItem?
+    private let initialPINAccounts: () throws -> [AccountItem]
     private let legacyUpgradeSnapshotLoader:
         () throws -> WalletNetworkSnapshot?
     private let legacyUpgradeUnresolvedCommitLoader:
@@ -729,7 +730,11 @@ final class RootInteractor {
                      expectedEntropyDigest: expectedEntropyDigest,
                      expectedDisplayName: expectedDisplayName
                  )
-             }) {
+             },
+         initialPINAccounts: @escaping () throws -> [AccountItem] = {
+             try WalletAccountAddresses.accounts()
+         }) {
+        self.initialPINAccounts = initialPINAccounts
         self.settings = settings
         self.keystore = keystore
         self.migrators = migrators
@@ -782,6 +787,9 @@ final class RootInteractor {
     }
 
     private func failLegacyWalletUpgrade(_ error: Error) {
+        legacyUpgradeLock.lock()
+        didStartLegacyWalletUpgrade = false
+        legacyUpgradeLock.unlock()
         settings.setWalletMigrationRecovery(
             reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
         )
@@ -884,7 +892,7 @@ extension RootInteractor: RootInteractorInputProtocol {
                     return
                 }
                 let hasProtectedWalletMaterial =
-                    try keystore.hasRetainedWalletMaterial()
+                    try keystore.hasRetainedWalletKeys()
 
                 if hasRetainedWalletSettings ||
                     hasWatchOnlyWallet ||
@@ -899,7 +907,7 @@ extension RootInteractor: RootInteractorInputProtocol {
                     return
                 }
 
-                if hasProtectedWalletMaterial || pincodeExists {
+                if hasProtectedWalletMaterial {
                     // Only Keychain items survived: the app was deleted and
                     // installed again (iOS keeps Keychain items), or every
                     // account was removed in an older release. Offer to
@@ -920,9 +928,17 @@ extension RootInteractor: RootInteractorInputProtocol {
             // PIN until PIN setup saves this install's PIN. Onboarding saves
             // the account first, so a stop in between must lead back to PIN
             // setup, not to a PIN entry the user may not be able to answer.
+            let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: settings)
             let pendingSetup = try legacyUpgradeSelectedAccount().map {
-                try WalletOwnerPIN(keystore: keystore, settings: settings).requiresInitialSetup(accounts: [$0])
+                try ownerPIN.requiresInitialSetup(accounts: [$0])
             } ?? false
+            if !pincodeExists || pendingSetup {
+                // Inspect every actual row: a selected read-only wallet cannot
+                // authorize a new PIN for a different retained signing wallet.
+                // Failed proof opens recovery with preserved data and explicit
+                // set-up/backup actions instead of an unsaveable PIN screen.
+                try ownerPIN.validateInitialSetupEligibility(accounts: initialPINAccounts())
+            }
             if pincodeExists, !pendingSetup {
                 presenter?.didDecideLocalAuthentication()
             } else {

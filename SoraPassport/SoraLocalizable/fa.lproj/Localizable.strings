@@ -1145,3 +1145,9 @@
 "New app PIN" = "PIN جدید برنامه";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "برای این کیف پول بازیابی‌شده یک PIN جدید برنامه انتخاب و تأیید کنید. از PIN نصب قبلی استفاده نخواهد شد.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "برای تأیید ترمیم، PIN فعلی برنامه را وارد کنید. این کیف پول بازیابی‌شده از همان PIN استفاده خواهد کرد.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "تغییر گره";
+"Check wallet again" = "بررسی دوبارهٔ کیف پول";
+"Wallet verification needs attention. Check your saved wallet again." = "تأیید کیف پول به رسیدگی نیاز دارد. کیف پول ذخیره‌شدهٔ خود را دوباره بررسی کنید.";
+"Wallet services are not ready. Try again or choose another node." = "خدمات کیف پول هنوز آماده نیستند. دوباره تلاش کنید یا گره دیگری را انتخاب کنید.";

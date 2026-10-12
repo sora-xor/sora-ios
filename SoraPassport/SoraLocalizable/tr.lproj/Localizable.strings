@@ -1145,3 +1145,9 @@
 "New app PIN" = "Yeni uygulama PIN'i";
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Bu geri yüklenen cüzdan için yeni bir uygulama PIN'i seçip onaylayın. Önceki yüklemenin PIN'i kullanılmayacak.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Onarımı onaylamak için mevcut uygulama PIN'ini girin. Bu geri yüklenen cüzdan bu PIN'i kullanacak.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Düğümü değiştir";
+"Check wallet again" = "Cüzdanı yeniden kontrol et";
+"Wallet verification needs attention. Check your saved wallet again." = "Cüzdan doğrulaması dikkat gerektiriyor. Kayıtlı cüzdanınızı yeniden kontrol edin.";
+"Wallet services are not ready. Try again or choose another node." = "Cüzdan hizmetleri henüz hazır değil. Yeniden deneyin veya başka bir düğüm seçin.";

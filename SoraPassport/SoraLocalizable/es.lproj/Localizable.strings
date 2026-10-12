@@ -1147,3 +1147,9 @@
 /* Wallet recovery and authentication — AI-translated, native review pending (2026-10-12). */
 "Choose and confirm a new app PIN for this restored wallet. The previous install's PIN will not be used." = "Elige y confirma un nuevo PIN de la app para esta cartera restaurada. No se usará el PIN de la instalación anterior.";
 "Enter the current app PIN to confirm the repair. This restored wallet will use that PIN." = "Introduce el PIN actual de la app para confirmar la reparación. Esta cartera restaurada usará ese PIN.";
+
+/* Wallet opening recovery — native review pending */
+"Change node" = "Cambiar nodo";
+"Check wallet again" = "Comprobar la cartera de nuevo";
+"Wallet verification needs attention. Check your saved wallet again." = "La verificación de la cartera requiere atención. Comprueba de nuevo la cartera guardada.";
+"Wallet services are not ready. Try again or choose another node." = "Los servicios de la cartera aún no están listos. Inténtalo de nuevo o elige otro nodo.";

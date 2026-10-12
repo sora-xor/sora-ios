@@ -1720,10 +1720,10 @@ enum DurableFileWriter {
         case failedPublicationWithdrawn
     }
 
-    #if DEBUG
+    #if DEBUG || WALLET_TESTING
         /// Tests observe the directory at a checkpoint (to copy what a kill at
         /// that instant leaves) or throw from it (an I/O error at that step).
-        /// Never set in the app. Not compiled into Release builds.
+        /// Opt-in test host only; absent from ordinary Release builds.
         static var checkpointObserver: ((Checkpoint, URL) throws -> Void)?
     #endif
 
@@ -1731,7 +1731,7 @@ enum DurableFileWriter {
         _ checkpoint: Checkpoint,
         _ context: DirectoryContext
     ) throws {
-        #if DEBUG
+        #if DEBUG || WALLET_TESTING
             try checkpointObserver?(checkpoint, context.directoryURL)
         #endif
     }
@@ -3789,11 +3789,27 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     private let settings: SettingsManagerProtocol
     private let unresolvedMigrationJournal: () -> Bool
     private let unresolvedWalletCommitJournal: () throws -> Bool
+    private let credentialRepairPending: () throws -> Bool
     private let stateLock = NSLock()
     private var didVerifyMigrationNamespace = false
     private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
     private let legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker?
     private let startupVerificationMarker: WalletMigrationRecoveryMarker?
+    private var addOnlyPreservationCheck: (() throws -> Void)?
+
+    /// Private to the add-only downgrade-preservation operation. Its marker
+    /// remains set and ordinary signing/authentication gates remain blocked.
+    static func forAddOnlyPreservation(settings: SettingsManagerProtocol,
+                                       marker: WalletMigrationRecoveryMarker) -> WalletRecoveryCapabilityGate {
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        gate.addOnlyPreservationCheck = {
+            guard marker.required, WalletMigrationRecoveryMarker.capture(settings) == marker else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
+        return gate
+    }
 
     init(
         settings: SettingsManagerProtocol,
@@ -3801,7 +3817,10 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         unresolvedWalletCommitJournal: @escaping () throws -> Bool,
         migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
         legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
-        startupVerificationMarker: WalletMigrationRecoveryMarker? = nil
+        startupVerificationMarker: WalletMigrationRecoveryMarker? = nil,
+        credentialRepairPending: @escaping () throws -> Bool = {
+            try Keychain().checkKey(for: WalletCredentialRepair.pendingTag)
+        }
     ) {
         self.settings = settings
         self.unresolvedMigrationJournal = unresolvedMigrationJournal
@@ -3810,10 +3829,24 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         self.migrationRecoveryMarker = migrationRecoveryMarker
         self.legacyAccountRecoveryMarker = legacyAccountRecoveryMarker
         self.startupVerificationMarker = startupVerificationMarker
+        self.credentialRepairPending = credentialRepairPending
     }
 
     func requireMutableWalletAccess() throws {
+        try requireMutableWalletAccess(allowPendingCredentialRepair: false)
+    }
+
+    /// A repair may resume its own durable intent, but never bypass another
+    /// migration or account transaction that is still using the same storage.
+    func requireCredentialRepairAccess() throws {
+        try requireMutableWalletAccess(allowPendingCredentialRepair: true)
+    }
+
+    private func requireMutableWalletAccess(allowPendingCredentialRepair: Bool) throws {
         try requireAuthorizedLifecycleContinuation()
+        guard try allowPendingCredentialRepair || !credentialRepairPending() else {
+            throw WalletCredentialRepair.Failure.persistenceFailed
+        }
 
         stateLock.lock()
         let shouldVerifyMigration = !didVerifyMigrationNamespace
@@ -3847,6 +3880,9 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         // Close the race with another integrity check latching recovery while
         // the bounded journal probes above were running.
         try requireAuthorizedLifecycleContinuation()
+        guard try allowPendingCredentialRepair || !credentialRepairPending() else {
+            throw WalletCredentialRepair.Failure.persistenceFailed
+        }
     }
 
     /// Recheck used only after a lifecycle lease was fully recovery-gated
@@ -3854,6 +3890,7 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     /// own expected in-flight commit journal, but a sticky recovery marker
     /// still aborts the next write phase.
     func requireAuthorizedLifecycleContinuation() throws {
+        if let addOnlyPreservationCheck { try addOnlyPreservationCheck(); return }
         if let startupVerificationMarker {
             try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
             return

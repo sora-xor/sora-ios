@@ -98,6 +98,8 @@ final class SetupAccountNameViewFactory {
                                                     keystoreImportService: keystoreImportService,
                                                     eventCenter: EventCenter.shared)
 
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.wireframe = wireframe
@@ -156,6 +158,8 @@ final class SetupAccountNameViewFactory {
                                                     keystoreImportService: keystoreImportService,
                                                     eventCenter: EventCenter.shared)
 
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.wireframe = wireframe
@@ -198,6 +202,8 @@ final class SetupAccountNameViewFactory {
                                                     keystoreImportService: keystoreImportService,
                                                     eventCenter: EventCenter.shared)
 
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.wireframe = wireframe
