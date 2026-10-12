@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-4-Clause
 
 import UIKit
+import Lottie
 import XCTest
 import SoraUIKit
 import SoraKeystore
@@ -222,6 +223,112 @@ final class WalletUXTests: XCTestCase {
         controller.updateRecipientView(with: "")
         XCTAssertEqual(contact.accountTitle.text, R.string.localizable.selectRecipient(preferredLanguages: .currentLocale))
         XCTAssertEqual(contact.accountImageView.image?.pngData(), placeholder)
+    }
+
+    @MainActor
+    func testFastStartupPlaysTheOriginalSplashBeforeLeaving() async throws {
+        let previousTheme = SoramitsuUI.shared.themeMode
+        let previousEffects = FxPolicy.reduceEffects
+        defer {
+            SoramitsuUI.shared.themeMode = previousTheme
+            FxPolicy.reduceEffects = previousEffects
+        }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        FxPolicy.reduceEffects = false
+        let controller = SplashViewController()
+        let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+        let finished = expectation(description: "Original splash finishes after fast startup")
+        var completions = 0
+        let start = CACurrentMediaTime()
+        // Startup may be ready even before UIKit displays its root controller.
+        controller.animate(duration: 2) { completions += 1; finished.fulfill() }
+        XCTAssertEqual(completions, 0)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let animation = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? LottieAnimationView }.first)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertTrue(animation.isAnimationPlaying)
+        XCTAssertLessThan(animation.realtimeAnimationProgress, 0.8, "Fast readiness must not skip the ring introduction")
+        XCTAssertEqual(completions, 0)
+        XCTAssertEqual(controller.view.backgroundColor, NeonTokens.dark.canvas)
+        await fulfillment(of: [finished], timeout: 6)
+        XCTAssertGreaterThan(CACurrentMediaTime() - start, 2.5)
+        XCTAssertEqual(completions, 1)
+        controller.animate(duration: 2) { XCTFail("Duplicate readiness must not navigate twice") }
+    }
+
+    @MainActor
+    func testSlowStartupWaitsAtTheLogoUntilReady() async throws {
+        let previousEffects = FxPolicy.reduceEffects
+        FxPolicy.reduceEffects = false
+        defer { FxPolicy.reduceEffects = previousEffects }
+        let controller = SplashViewController()
+        let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let animation = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? LottieAnimationView }.first)
+        try await Task.sleep(nanoseconds: 3_000_000_000)
+        XCTAssertEqual(animation.currentProgress, 0.8, accuracy: 0.01)
+        XCTAssertFalse(animation.isAnimationPlaying)
+        let finished = expectation(description: "Ready startup leaves the held logo")
+        let start = CACurrentMediaTime()
+        controller.animate(duration: 2) { finished.fulfill() }
+        await fulfillment(of: [finished], timeout: 2)
+        XCTAssertLessThan(CACurrentMediaTime() - start, 1.5, "Slow startup must not replay the introduction")
+    }
+
+    @MainActor
+    func testStoragePromptCancelsReadinessQueuedDuringSplash() async throws {
+        let previousEffects = FxPolicy.reduceEffects
+        FxPolicy.reduceEffects = false
+        defer { FxPolicy.reduceEffects = previousEffects }
+        let controller = SplashViewController()
+        let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        controller.animate(duration: 2) { XCTFail("Old readiness must not bypass the storage prompt") }
+        try await Task.sleep(nanoseconds: 200_000_000)
+        var retries = 0
+        controller.showStorageSpaceRetry { retries += 1 }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let retry = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == "wallet-upgrade-storage-retry"
+        })
+        retry.sendActions(for: .touchUpInside)
+        XCTAssertEqual(retries, 1)
+        let finished = expectation(description: "Only fresh readiness leaves the storage retry")
+        controller.animate(duration: 2) { finished.fulfill() }
+        await fulfillment(of: [finished], timeout: 2)
+    }
+
+    @MainActor
+    func testReducedEffectsSplashAndStorageRetryKeepStartupGated() throws {
+        let previousEffects = FxPolicy.reduceEffects
+        FxPolicy.reduceEffects = true
+        defer { FxPolicy.reduceEffects = previousEffects }
+        let controller = SplashViewController()
+        let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        controller.viewDidAppear(false)
+        let animation = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? LottieAnimationView }.first)
+        XCTAssertFalse(animation.isAnimationPlaying)
+        XCTAssertEqual(animation.currentProgress, 0.8, accuracy: 0.01)
+        var retries = 0
+        controller.showStorageSpaceRetry { retries += 1 }
+        let retry = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == "wallet-upgrade-storage-retry"
+        })
+        retry.sendActions(for: .touchUpInside)
+        XCTAssertEqual(retries, 1)
+        var completions = 0
+        controller.animate(duration: 2) { completions += 1 }
+        XCTAssertEqual(completions, 1)
+        XCTAssertFalse(animation.isAnimationPlaying)
     }
 
     @MainActor
