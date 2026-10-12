@@ -2313,3 +2313,7 @@ the introduction, and plays its ending once. A slower startup holds at the logo
 without repeating the introduction. The existing animation asset and dark-theme
 colors are preserved. Reduce Effects and the system Reduce Motion setting use a
 static logo, and a storage-retry prompt cancels pending navigation.
+
+The static system launch screen uses the neutral dark canvas so a phone in light
+mode does not show a white page before the app reads its saved dark appearance.
+The runtime animation continues to use the selected app theme.
