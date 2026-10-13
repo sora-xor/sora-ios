@@ -270,7 +270,7 @@ jobs:
           test "$(lipo -archs "${app}/SoraPassport")" = arm64
           test "$(plutil -extract CFBundleIdentifier raw -o - "${app}/Info.plist")" = co.jp.soramitsu.sora
           plutil -extract UIApplicationSceneManifest json -o - "${app}/Info.plist" >/dev/null
-          test "$(plutil -extract CFBundleShortVersionString raw -o - "${app}/Info.plist")" = 3.9.0
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "${app}/Info.plist")" = 3.9.1
           build_number="$(plutil -extract CFBundleVersion raw -o - "${app}/Info.plist")"
           case "${build_number}" in
             ''|*[!0-9]*) echo "::error::CFBundleVersion is not numeric"; exit 1 ;;

@@ -1236,3 +1236,15 @@
 "neon.reduce.effects" = "視覚効果を減らす";
 "neon.pin.clear" = "PINを消去";
 "neon.pin.count" = "%2$d桁中%1$d桁を入力済み";
+
+// Account switching and JSON import guidance.
+"Switching account…" = "アカウントを切り替えています…";
+"Couldn’t switch accounts" = "アカウントを切り替えられませんでした";
+"Your current account is still selected. Please try again." = "現在のアカウントが選択されたままです。もう一度お試しください。";
+"JSON backup" = "JSONバックアップ";
+"Import JSON backup" = "JSONバックアップをインポート";
+"Paste the full contents of your wallet’s JSON backup file. Enter the password used when you created that backup. This is not your app PIN." = "ウォレットのJSONバックアップファイルの内容をすべて貼り付けてください。バックアップ作成時に設定したパスワードを入力してください。アプリのPINではありません。";
+"Invalid JSON backup" = "無効なJSONバックアップ";
+"Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here." = "ウォレットのJSONバックアップファイルの内容をすべて貼り付けてください。ここにはリカバリーフレーズやウォレットアドレスは入力できません。";
+"Couldn’t open backup" = "バックアップを開けませんでした";
+"Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN." = "このJSONバックアップの保存時に設定したパスワードを確認してください。バックアップのパスワードはアプリのPINとは別のものです。";

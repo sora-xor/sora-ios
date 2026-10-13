@@ -1384,3 +1384,15 @@
 "neon.reduce.effects" = "Reduce effects";
 "neon.pin.clear" = "Clear PIN";
 "neon.pin.count" = "%d of %d digits entered";
+
+// Account switching and JSON import guidance.
+"Switching account…" = "Switching account…";
+"Couldn’t switch accounts" = "Couldn’t switch accounts";
+"Your current account is still selected. Please try again." = "Your current account is still selected. Please try again.";
+"JSON backup" = "JSON backup";
+"Import JSON backup" = "Import JSON backup";
+"Paste the full contents of your wallet’s JSON backup file. Enter the password used when you created that backup. This is not your app PIN." = "Paste the full contents of your wallet’s JSON backup file. Enter the password used when you created that backup. This is not your app PIN.";
+"Invalid JSON backup" = "Invalid JSON backup";
+"Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here." = "Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here.";
+"Couldn’t open backup" = "Couldn’t open backup";
+"Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN." = "Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN.";

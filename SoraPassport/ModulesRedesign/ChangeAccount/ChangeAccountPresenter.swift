@@ -47,6 +47,7 @@ final class ChangeAccountPresenter {
     private var accounts: [AccountItem] = []
     private var accountViewModels: [AccountMenuItem] = []
     private var capabilityGeneration = UUID()
+    private var isSwitchingAccount = false
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let operationManager: OperationManagerProtocol
     private let iconGenerator = PolkadotIconGenerator()
@@ -123,6 +124,7 @@ final class ChangeAccountPresenter {
 extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
 
     func onAction() {
+        guard !isSwitchingAccount else { return }
         switch mode {
         case .view:
             addOrCreateAccount()
@@ -131,13 +133,14 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         }
     }
     func set(mode: ChangeAccountViewController.Mode) {
+        guard !isSwitchingAccount else { return }
         self.mode = mode
 
         switch mode {
         case .view:
             getAccounts()
         case .edit:
-            for currentIndex in 0...accountViewModels.count - 1 {
+            for currentIndex in accountViewModels.indices {
                 accountViewModels[currentIndex].isSelected = false
             }
             _ = accountViewModels.map { $0.isMultiselectionMode = true }
@@ -150,14 +153,18 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
     }
     
     func selectItem(at index: Int) {
+        guard !isSwitchingAccount, accounts.indices.contains(index),
+              accountViewModels.indices.contains(index) else { return }
 
         switch mode {
         case .view:
-            guard settingsManager.currentAccount != accounts[index] else {
+            guard settingsManager.currentAccount?.address != accounts[index].address else {
                 return
             }
 
-            for currentIndex in 0...accountViewModels.count - 1 {
+            isSwitchingAccount = true
+            view?.setSwitchingAccount(true)
+            for currentIndex in accountViewModels.indices {
                 accountViewModels[currentIndex].isSelected = currentIndex == index
             }
             view?.update(with: accountViewModels)
@@ -177,7 +184,11 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
                         selectionEventCenter.notify(
                             with: SelectedAccountChanged(),
                             completionOnMain: { [weak self] in
-                                self?.view?.controller.dismiss(animated: true)
+                                guard let self else { return }
+                                self.view?.controller.dismiss(animated: true) { [weak self] in
+                                    self?.isSwitchingAccount = false
+                                    self?.view?.setSwitchingAccount(false)
+                                }
                             }
                         )
                     case .failure:
@@ -185,7 +196,15 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
                         // migration failed closed. Restore the durable
                         // selection instead of leaving the optimistic
                         // checkmark visible.
-                        self?.getAccounts()
+                        guard let self else { return }
+                        self.isSwitchingAccount = false
+                        self.view?.setSwitchingAccount(false)
+                        self.accountViewModels = self.makeModels(
+                            from: self.accounts,
+                            selectedAccountAddress: self.settingsManager.currentAccount?.address ?? ""
+                        )
+                        self.view?.update(with: self.accountViewModels)
+                        self.view?.showAccountSwitchError()
                     }
                 }
             }
@@ -198,6 +217,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
     }
 
     func editItem(at index: Int) {
+        guard !isSwitchingAccount, accounts.indices.contains(index) else { return }
         guard let view = view?.controller else {
             return
         }
@@ -234,7 +254,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
             let retained = WalletRecoveryStateProbe.retainedWalletsAfterSetup(
                 keystore: Keychain(), existingAddresses: existing)
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self, !self.isSwitchingAccount else { return }
                 guard !retained.isEmpty else {
                     self.showAddAccountStart(from: controller)
                     return
