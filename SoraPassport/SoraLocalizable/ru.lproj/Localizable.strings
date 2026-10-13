@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Парольная фраза";
 "common.passphrase.save.or.send" = "Сохранить или отправить";
 "common.passphrase.header" = "Парольная фраза – это\nвид пароля.";
-"common.passphrase.body" = "Она используется для восстановления доступа к аккаунту. В случае потери восстановить доступ будет невозможно!";
+"common.passphrase.body" = "При создании новой учетной записи SORA теперь вы получаете парольную фразу из 24 слов. Существующие парольные фразы SORA из 12 или 24 слов можно импортировать, и они продолжат работать.";
 "common.passphrase.your.passphrase" = "Ваша парольная фраза";
 "network.unavailable" = "Нет доступа к Интернету";
 "common.save" = "Сохранить";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Пожалуйста, проверьте подключение к Интернету и повторите попытку.";
 "common.error.general.message" = "Мы уже решаем эту проблему. Пожалуйста, попробуйте позже.";
 "result.ambiguous.error.title" = "Неоднозначный результат";
-"access.restore.words.error.message" = "Парольная фраза содержит 15 слов";
-"access.restore.phrase.error.message" = "Пожалуйста, убедитесь, что ваша кодовая фраза состоит из 12 или 15 слов и все они верны.";
+"access.restore.words.error.message" = "Парольная фраза содержит 12 или 24 слова";
+"access.restore.phrase.error.message" = "Пожалуйста, убедитесь, что ваша кодовая фраза состоит из 12 или 24 слов и все они верны.";
 "wallet.search.query.error.message" = "Длина запроса должна быть от 3 до 64 символов";
 "user.create.phone.registered.error.message" = "Номер телефона уже используется другим пользователем";
 "common.error.invalid.parameters" = "Неверные параметры";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Экспорт JSON";
 "export.protection.passphrase.title" = "Парольная фраза";
 "export.protection.json.description" = "На следующем шаге вы сможете загрузить файл JSON, который позволит вам восстановить ваши учетные записи.";
-"export.protection.passphrase.description" = "На следующем шаге вы увидите парольную фразу (12 слов), которая позволит вам восстановить учетную запись.";
+"export.protection.passphrase.description" = "На следующем шаге вы увидите парольную фразу (24 слов), которая позволит вам восстановить учетную запись.";
 "export.protection.seed.description" = "In the next step you will see Raw Seed (a long hash) that allow you to recover an account.";
 "export.protection.json.1" = "Если я потеряю свой JSON, мои средства будут потеряны навсегда.";
 "export.protection.json.2" = "Если я раскрою или поделюсь своим JSON с кем-либо, мои средства могут быть украдены.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

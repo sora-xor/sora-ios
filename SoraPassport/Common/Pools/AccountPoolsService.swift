@@ -31,7 +31,7 @@
 import SSFUtils
 import RobinHood
 import sorawallet
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 protocol PoolsServiceInputProtocol: AnyObject {
     func loadAccountPools()
@@ -40,6 +40,7 @@ protocol PoolsServiceInputProtocol: AnyObject {
     func getPool(by id: String) -> PoolInfo?
     func getPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
     func loadPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
+    func loadPairState(baseAssetId: String, targetAssetId: String) async throws -> PoolNetworkState
     func loadPools(currentAsset: AssetInfo) -> [PoolInfo]
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo]
     func appendDelegate(delegate: PoolsServiceOutput)
@@ -55,6 +56,31 @@ protocol PoolsServiceInputProtocol: AnyObject {
         targetAssetId: String,
         accountId: String,
         completion: @escaping (Bool) -> Void)
+}
+
+struct PoolNetworkState: Equatable, Sendable {
+    let isPresented: Bool
+    let isEnabled: Bool
+
+    var liquidityAction: LiquidityPairAction {
+        switch (isPresented, isEnabled) {
+        case (false, false):
+            return .registerInitializeAndDeposit
+        case (false, true):
+            return .initializeAndDeposit
+        case (true, true):
+            return .deposit
+        case (true, false):
+            return .reject
+        }
+    }
+}
+
+enum LiquidityPairAction: Equatable, Sendable {
+    case registerInitializeAndDeposit
+    case initializeAndDeposit
+    case deposit
+    case reject
 }
 
 protocol PoolsServiceOutput: AnyObject {
@@ -139,7 +165,7 @@ final class AccountPoolsService {
                                                                               failureClosure: { _, _ in })
             subscriptionIds.append(subscriptionId)
         } catch {
-            print("Can't subscribe to storage:  \(error)")
+            print("Account-pools storage subscription failed")
         }
     }
     
@@ -157,8 +183,6 @@ final class AccountPoolsService {
                 decodingOperation.result = .failure(error)
             }
         }
-        operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
-        
         return try await withCheckedThrowingContinuation { continuetion in
             decodingOperation.completionBlock = {
                 do {
@@ -170,16 +194,18 @@ final class AccountPoolsService {
                     let assetIds = result.map { $0.value }
                     continuetion.resume(returning: assetIds)
                 } catch {
-                    print("Decoding error \(error)")
+                    print("Account-pools storage decoding failed")
+                    continuetion.resume(throwing: error)
                 }
             }
+            operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
         }
     }
     
     func subscribePoolReserves(baseAsset: String, targetAsset: String) {
         do {
             let storageKey = try StorageKeyFactory()
-                .poolReservesKey(baseAssetId: Data(hex: baseAsset), targetAssetId: Data(hex: targetAsset))
+                .poolReservesKey(baseAssetId: Data.sora(hex: baseAsset), targetAssetId: Data.sora(hex: targetAsset))
                 .toHex(includePrefix: true)
             
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
@@ -199,7 +225,7 @@ final class AccountPoolsService {
                                                                               failureClosure: { _, _ in })
             subscriptionIds.append(subscriptionId)
         } catch {
-            print("Can't subscribe to storage:  \(error)")
+            print("Account-pools storage subscription failed")
         }
     }
     
@@ -253,6 +279,20 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             accountPoolBalance: poolDetails.accountPoolBalance,
             farms: poolDetails.farms
         )
+    }
+
+    func loadPairState(baseAssetId: String, targetAssetId: String) async throws -> PoolNetworkState {
+        async let isPresented = loadPairPresence(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId
+        )
+        async let isEnabled = loadPairAvailability(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId
+        )
+
+        let state = try await (isPresented, isEnabled)
+        return PoolNetworkState(isPresented: state.0, isEnabled: state.1)
     }
     
     func checkIsPairExists(baseAsset: String, targetAsset: String, completion: @escaping (Bool) -> Void) {
@@ -411,7 +451,10 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             let operationQueue = OperationQueue()
             operationQueue.qualityOfService = .utility
             
-            guard let operation = try? polkaswapOperationFactory.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) else { return }
+            guard let operation = try? polkaswapOperationFactory.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
+                completion(false)
+                return
+            }
             operation.completionBlock = {
                 DispatchQueue.main.async {
                     let reserves = try? operation.extractResultData()
@@ -424,6 +467,47 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
 }
 
 extension AccountPoolsService {
+    private func loadPairPresence(baseAssetId: String, targetAssetId: String) async throws -> Bool {
+        let operation = try polkaswapOperationFactory.poolReserves(
+            baseAsset: baseAssetId,
+            targetAsset: targetAssetId
+        )
+
+        return try await withCheckedThrowingContinuation { continuation in
+            operation.completionBlock = {
+                do {
+                    let reserves = try operation.extractResultData()
+                    continuation.resume(returning: reserves?.underlyingValue != nil)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            operationManager.enqueue(operations: [operation], in: .transient)
+        }
+    }
+
+    private func loadPairAvailability(baseAssetId: String, targetAssetId: String) async throws -> Bool {
+        let dexId = polkaswapOperationFactory.dexId(for: baseAssetId)
+        let operation = polkaswapOperationFactory.isPairEnabled(
+            dexId: dexId,
+            assetId: baseAssetId,
+            tokenAddress: targetAssetId
+        )
+
+        return try await withCheckedThrowingContinuation { continuation in
+            operation.completionBlock = {
+                do {
+                    continuation.resume(returning: try operation.extractResultData(
+                        throwing: BaseOperationError.parentOperationCancelled
+                    ))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            operationManager.enqueue(operations: [operation], in: .transient)
+        }
+    }
+
     private func orderSort(_ asset0: PoolInfo, _ asset1: PoolInfo) -> Bool {
         if let index0 = currentOrder.firstIndex(where: { $0 == asset0.poolId }),
            let index1 = currentOrder.firstIndex(where: { $0 == asset1.poolId }) {

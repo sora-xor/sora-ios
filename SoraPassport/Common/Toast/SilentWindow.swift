@@ -44,6 +44,7 @@ final class SilentWindow: UIWindow {
     init(root: SilentViewController) {
         self.root = root
         super.init(frame: UIScreen.main.bounds)
+        windowScene = (UIApplication.shared.delegate as? AppDelegate)?.window?.windowScene
         rootViewController = root
 
         isHidden = false

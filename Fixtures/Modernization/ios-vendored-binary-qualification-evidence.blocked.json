@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "contractId": "sora-ios-vendored-binary-evidence-v1",
+  "platform": "ios",
+  "status": "blocked",
+  "runId": null,
+  "qualificationSequenceNumber": 0,
+  "sourceRevision": null,
+  "runStartedAtEpochSeconds": 0,
+  "runFinishedAtEpochSeconds": 0,
+  "producedAtEpochSeconds": 0,
+  "qualificationContractSha256": null,
+  "trustRootSha256": null,
+  "artifactEvidenceProducerKeyId": null,
+  "independentReviewerKeyId": null,
+  "artifacts": [
+    {
+      "id": "shared-blake2lib",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/blake2lib.xcframework",
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-blake2lib.sha256",
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-blake2lib.provenance.json",
+      "reviewedFileCount": null,
+      "contentManifestSha256": null,
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityEvidenceSha256": null,
+      "licenseAndNoticeEvidenceSha256": null,
+      "sbomSha256": null,
+      "buildProvenanceSha256": null,
+      "artifactAttestationSha256": null,
+      "treeContentSha256": null
+    },
+    {
+      "id": "shared-libed25519",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/libed25519.xcframework",
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-libed25519.sha256",
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-libed25519.provenance.json",
+      "reviewedFileCount": null,
+      "contentManifestSha256": null,
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityEvidenceSha256": null,
+      "licenseAndNoticeEvidenceSha256": null,
+      "sbomSha256": null,
+      "buildProvenanceSha256": null,
+      "artifactAttestationSha256": null,
+      "treeContentSha256": null
+    },
+    {
+      "id": "shared-sr25519lib",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/sr25519lib.xcframework",
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-sr25519lib.sha256",
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-sr25519lib.provenance.json",
+      "reviewedFileCount": null,
+      "contentManifestSha256": null,
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityEvidenceSha256": null,
+      "licenseAndNoticeEvidenceSha256": null,
+      "sbomSha256": null,
+      "buildProvenanceSha256": null,
+      "artifactAttestationSha256": null,
+      "treeContentSha256": null
+    },
+    {
+      "id": "shared-sorawallet",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/sorawallet.xcframework",
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-sorawallet.sha256",
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-sorawallet.provenance.json",
+      "reviewedFileCount": null,
+      "contentManifestSha256": null,
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityEvidenceSha256": null,
+      "licenseAndNoticeEvidenceSha256": null,
+      "sbomSha256": null,
+      "buildProvenanceSha256": null,
+      "artifactAttestationSha256": null,
+      "treeContentSha256": null
+    },
+    {
+      "id": "shared-mpqr-core-sdk",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/MPQRCoreSDK.xcframework",
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-mpqr-core-sdk.sha256",
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-mpqr-core-sdk.provenance.json",
+      "reviewedFileCount": null,
+      "contentManifestSha256": null,
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityEvidenceSha256": null,
+      "licenseAndNoticeEvidenceSha256": null,
+      "sbomSha256": null,
+      "buildProvenanceSha256": null,
+      "artifactAttestationSha256": null,
+      "treeContentSha256": null
+    },
+    {
+      "id": "sora-wallet-binary-sorawallet",
+      "treePath": "VendorPackages/SoraWalletBinary/Binaries/sorawallet.xcframework",
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/sora-wallet-binary-sorawallet.sha256",
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/sora-wallet-binary-sorawallet.provenance.json",
+      "reviewedFileCount": null,
+      "contentManifestSha256": null,
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityEvidenceSha256": null,
+      "licenseAndNoticeEvidenceSha256": null,
+      "sbomSha256": null,
+      "buildProvenanceSha256": null,
+      "artifactAttestationSha256": null,
+      "treeContentSha256": null
+    }
+  ],
+  "duplicateAssertions": [
+    {
+      "leftId": "shared-sorawallet",
+      "rightId": "sora-wallet-binary-sorawallet",
+      "byteIdentical": false,
+      "contentManifestSha256": null,
+      "treeContentSha256": null
+    }
+  ],
+  "blockingReasons": [
+    "Template only: no independently authenticated whole-tree evidence, provenance evidence, or duplicate-tree proof has been supplied."
+  ]
+}

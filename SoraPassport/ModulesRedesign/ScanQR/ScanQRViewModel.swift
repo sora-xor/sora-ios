@@ -65,6 +65,22 @@ struct ScanQRResult {
     var receiverInfo: ReceiveInfo?
 }
 
+private final class IrohaConnectOrInvoiceMatcher: WalletQRMatcherProtocol {
+    let invoiceMatcher: InvoiceScanMatcher
+
+    init(invoiceMatcher: InvoiceScanMatcher) {
+        self.invoiceMatcher = invoiceMatcher
+    }
+
+    func match(code: String) -> Bool {
+        if let url = URL(string: code),
+           IrohaConnectCoordinator.shared.canHandle(url) {
+            return true
+        }
+        return invoiceMatcher.match(code: code)
+    }
+}
+
 final class ScanQRViewModel: NSObject {
     enum ScanState {
         case initializing(accessRequested: Bool)
@@ -93,6 +109,7 @@ final class ScanQRViewModel: NSObject {
     private let providerFactory: BalanceProviderFactory
     private let feeProvider: FeeProviderProtocol
     private let marketCapService: MarketCapServiceProtocol
+    private var isOpeningIrohaConnect = false
     
     
     var qrExtractionService: WalletQRExtractionServiceProtocol?
@@ -130,9 +147,13 @@ final class ScanQRViewModel: NSObject {
         self.marketCapService = marketCapService
 
         let qrDecoder = qrCoderFactory.createDecoder()
-        self.qrScanMatcher = InvoiceScanMatcher(decoder: qrDecoder)
+        let invoiceMatcher = InvoiceScanMatcher(decoder: qrDecoder)
+        let contentMatcher = IrohaConnectOrInvoiceMatcher(
+            invoiceMatcher: invoiceMatcher
+        )
+        self.qrScanMatcher = invoiceMatcher
 
-        self.qrScanService = qrScanServiceFactory.createService(with: qrScanMatcher,
+        self.qrScanService = qrScanServiceFactory.createService(with: contentMatcher,
                                                                 delegate: nil,
                                                                 delegateQueue: nil)
 
@@ -221,6 +242,31 @@ final class ScanQRViewModel: NSObject {
     private func handleFailedMatching(for code: String) {
         let message = L10n.InvoiceScan.Error.extractFail
         view?.presentAlert(title: message)
+    }
+
+    @discardableResult
+    private func handleIrohaConnect(code: String) -> Bool {
+        guard
+            !isOpeningIrohaConnect,
+            let url = URL(string: code),
+            IrohaConnectCoordinator.shared.canHandle(url)
+        else {
+            return isOpeningIrohaConnect
+        }
+        guard
+            let controller = view?.controller,
+            let window = controller.viewIfLoaded?.window
+        else {
+            return false
+        }
+
+        isOpeningIrohaConnect = true
+        scanState = .inactive
+        qrScanService.stop()
+        controller.dismiss(animated: true) {
+            IrohaConnectCoordinator.shared.handle(url, in: window)
+        }
+        return true
     }
 
     private func performProcessing(of receiverInfo: ReceiveInfo) {
@@ -330,15 +376,23 @@ final class ScanQRViewModel: NSObject {
     private func didCompleteImageSelection(with selectedImages: [UIImage]) {
         if let image = selectedImages.first {
             let qrDecoder = qrCoderFactory.createDecoder()
-            let matcher = InvoiceScanMatcher(decoder: qrDecoder)
+            let invoiceMatcher = InvoiceScanMatcher(decoder: qrDecoder)
+            let matcher = IrohaConnectOrInvoiceMatcher(
+                invoiceMatcher: invoiceMatcher
+            )
 
             qrExtractionService?.extract(from: image,
                                          using: matcher,
                                          dispatchCompletionIn: .main) { [weak self] result in
                 switch result {
-                case .success:
-                    if let recieverInfo = matcher.receiverInfo {
+                case let .success(code):
+                    if self?.handleIrohaConnect(code: code) == true {
+                        return
+                    }
+                    if let recieverInfo = invoiceMatcher.receiverInfo {
                         self?.handleMatched(receiverInfo: recieverInfo)
+                    } else {
+                        self?.handleFailedMatching(for: code)
                     }
                 case .failure(let error):
                     self?.handleQRService(error: error)
@@ -360,17 +414,23 @@ extension ScanQRViewModel: WalletQRCaptureServiceDelegate {
     }
 
     func qrCapture(service: WalletQRCaptureServiceProtocol, didMatch code: String) {
-        guard let receiverInfo = qrScanMatcher.receiverInfo else {
-            return
-        }
-
         DispatchQueue.main.async {
+            if self.handleIrohaConnect(code: code) {
+                return
+            }
+            guard let receiverInfo = self.qrScanMatcher.receiverInfo else {
+                self.handleFailedMatching(for: code)
+                return
+            }
             self.handleMatched(receiverInfo: receiverInfo)
         }
     }
 
     func qrCapture(service: WalletQRCaptureServiceProtocol, didFailMatching code: String) {
         DispatchQueue.main.async {
+            if self.handleIrohaConnect(code: code) {
+                return
+            }
             self.handleFailedMatching(for: code)
         }
     }

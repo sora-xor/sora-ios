@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Anımsatıcı Dizi";
 "common.passphrase.save.or.send" = "Kaydet veya gönder";
 "common.passphrase.header" = "Anımsatıcı Dizi bir çeşit paroladır.";
-"common.passphrase.body" = "Hesabınıza erişiminizi kurtarmak için kullanılır. Bir yere not edin, Anımsatıcı Dizi olmadan hesabınız kurtarılamaz!";
+"common.passphrase.body" = "SORA'da yeni bir hesap oluşturduğunuzda artık 24 kelimelik bir parola alırsınız. Mevcut 12 veya 24 kelimelik SORA parolaları içe aktarılabilir ve çalışmaya devam eder.";
 "common.passphrase.your.passphrase" = "Anımsatıcı Dizi'niz";
 "network.unavailable" = "Ağ bağlantısı kullanılamıyor";
 "common.save" = "Kaydet";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Lütfen internet bağlantısını kontrol edin ve daha sonra tekrar deneyin.";
 "common.error.general.message" = "Bu sorunu çözmek için sıkı çalışıyoruz. Lütfen daha sonra tekrar deneyin.";
 "result.ambiguous.error.title" = "Belirsiz sonuç";
-"access.restore.words.error.message" = "Anımsatıcı Dizi 15 kelime içermelidir";
-"access.restore.phrase.error.message" = "Anımsatıcı Dizi geçersiz. Lütfen başka bir Dizi deneyin.";
+"access.restore.words.error.message" = "Anımsatıcı Dizi 12 veya 24 kelime içermelidir";
+"access.restore.phrase.error.message" = "Parolanızın 12 veya 24 kelimeden oluştuğundan ve tüm kelimelerin doğru olduğundan emin olun.";
 "wallet.search.query.error.message" = "Arama boyutu 3 ile 64 karakter arasında olmalıdır";
 "user.create.phone.registered.error.message" = "Bu telefon numarası bu veya bir başka kullanıcı tarafından kayıt esnasında kullanılmış.";
 "common.error.invalid.parameters" = "Geçersiz Parametre";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Export JSON";
 "export.protection.passphrase.title" = "Passphrase";
 "export.protection.json.description" = "In the next step you will be able to download a JSON file that allow you to recover your accounts.";
-"export.protection.passphrase.description" = "In the next step you will see Passphrase (12 words) that allow you to recover an account.";
+"export.protection.passphrase.description" = "In the next step you will see the 24-word passphrase that allows you to recover the account.";
 "export.protection.seed.description" = "In the next step you will see Raw Seed (a long hash) that allow you to recover an account.";
 "export.protection.json.1" = "If I lose my JSON, my funds will be lost forever.";
 "export.protection.json.2" = "If I expose or share my JSON to anybody, my funds can get stolen.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

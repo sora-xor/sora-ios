@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme
+   LastUpgradeVersion = "1230"
+   version = "1.3">
+   <BuildAction
+      parallelizeBuildables = "YES"
+      buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02623EB42178C0910011250E"
+               BuildableName = "SoraPassport.app"
+               BlueprintName = "SoraPassport"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02623EC82178C0930011250E"
+               BuildableName = "SoraPassportTests.xctest"
+               BlueprintName = "SoraPassportTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "84324BCA2411446000CA339A"
+               BuildableName = "SoraPassportIntegrationTests.xctest"
+               BlueprintName = "SoraPassportIntegrationTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "Release"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "02623EB42178C0910011250E"
+            BuildableName = "SoraPassport.app"
+            BlueprintName = "SoraPassport"
+            ReferencedContainer = "container:SoraPassport.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "-UNITTEST"
+            isEnabled = "YES">
+         </CommandLineArgument>
+      </CommandLineArguments>
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02623EC82178C0930011250E"
+               BuildableName = "SoraPassportTests.xctest"
+               BlueprintName = "SoraPassportTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+            <SelectedTests>
+               <Test
+                  Identifier = "WalletModernizationTests">
+               </Test>
+               <Test
+                  Identifier = "WalletRecoveryCapabilityGateTests">
+               </Test>
+               <Test
+                  Identifier = "WalletRecoveryExporterTests">
+               </Test>
+            </SelectedTests>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "84324BCA2411446000CA339A"
+               BuildableName = "SoraPassportIntegrationTests.xctest"
+               BlueprintName = "SoraPassportIntegrationTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+            <SelectedTests>
+               <Test
+                  Identifier = "WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceRunBinding()">
+               </Test>
+               <Test
+                  Identifier = "WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedKeychainCohortEvidence()">
+               </Test>
+               <Test
+                  Identifier = "WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceScenarioEvidence()">
+               </Test>
+            </SelectedTests>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Release"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      launchStyle = "0"
+      useCustomWorkingDirectory = "NO"
+      ignoresPersistentStateOnLaunch = "NO"
+      debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
+      allowLocationSimulation = "NO">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "02623EB42178C0910011250E"
+            BuildableName = "SoraPassport.app"
+            BlueprintName = "SoraPassport"
+            ReferencedContainer = "container:SoraPassport.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </LaunchAction>
+   <ProfileAction
+      buildConfiguration = "Release"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      savedToolIdentifier = ""
+      useCustomWorkingDirectory = "NO"
+      debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "02623EB42178C0910011250E"
+            BuildableName = "SoraPassport.app"
+            BlueprintName = "SoraPassport"
+            ReferencedContainer = "container:SoraPassport.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction
+      buildConfiguration = "Release">
+   </AnalyzeAction>
+   <ArchiveAction
+      buildConfiguration = "Release"
+      revealArchiveInOrganizer = "NO">
+   </ArchiveAction>
+</Scheme>

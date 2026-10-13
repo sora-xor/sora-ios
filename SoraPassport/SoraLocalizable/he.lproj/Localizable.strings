@@ -131,7 +131,7 @@
 "common.passphrase.title" = "מילות מפתח";
 "common.passphrase.save.or.send" = "שמור או שלח";
 "common.passphrase.header" = "מילות מפתח הן סוג של סיסמה";
-"common.passphrase.body" = "בעת יצירת חשבון חדש בסורה, כעת אתה מקבל מילות מפתח באורך 12 מילים. אם כבר יש לך מילות מפתח של סורה באורך 15 מילים, אתה יכול לייבא איתן את החשבון שלך - גם הן תואמות וימשיכו לעבוד.";
+"common.passphrase.body" = "בעת יצירת חשבון חדש בסורה, כעת אתה מקבל מילות מפתח באורך 24 מילים. ניתן לייבא מילות מפתח קיימות של SORA באורך 12 או 24 מילים, והן ימשיכו לעבוד.";
 "common.passphrase.your.passphrase" = "מילות המפתח שלך";
 "network.unavailable" = "חיבור הרשת אינו זמין";
 "common.save" = "שמור";
@@ -145,8 +145,8 @@
 "connection.error.message" = "אנא בדוק את חיבור האינטרנט ונסה שוב מאוחר יותר.";
 "common.error.general.message" = "אנו עובדים קשה בכדי לתקן את הבעיה. אנא, נסה שוב מאוחר יותר.";
 "result.ambiguous.error.title" = "תוצאה דו-משמעית";
-"access.restore.words.error.message" = "מילות המפתח חייבות להכיל 15 מילים";
-"access.restore.phrase.error.message" = "אנא ודא שמילות המפתח שלך מורכבות מ 12 או 15 מילים וכולן נכונות.";
+"access.restore.words.error.message" = "מילות המפתח חייבות להכיל 12 או 24 מילים";
+"access.restore.phrase.error.message" = "אנא ודא שמילות המפתח שלך מורכבות מ 12 או 24 מילים וכולן נכונות.";
 "wallet.search.query.error.message" = "גודל החיפוש חייב להיות בין 3 ל -64 תווים";
 "user.create.phone.registered.error.message" = "כבר נעשה שימוש במספר הטלפון הזה במהלך ההרשמה עם משתמש זה או אחר";
 "common.error.invalid.parameters" = "פרמטרים לא חוקיים";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "ייצא JSON";
 "export.protection.passphrase.title" = "מילות מפתח";
 "export.protection.json.description" = "בשלב הבא תוכל להוריד קובץ JSON המאפשר לך לשחזר את החשבונות שלך.";
-"export.protection.passphrase.description" = "בשלב הבא תראה מילות מפתח (12 מילים) המאפשרות לך לשחזר חשבון.";
+"export.protection.passphrase.description" = "בשלב הבא תראה מילות מפתח (24 מילים) המאפשרות לך לשחזר חשבון.";
 "export.protection.seed.description" = "בשלב הבא תראה קוד סיד (האש ארוך) המאפשר לך לשחזר חשבון.";
 "export.protection.json.1" = "אם אאבד את ה- JSON שלי, הכספים שלי יאבדו לנצח.";
 "export.protection.json.2" = "אם אחשוף או אשתף את ה- JSON שלי למישהו, הכספים שלי עלולים להיגנב.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

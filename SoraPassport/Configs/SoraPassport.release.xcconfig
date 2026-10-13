@@ -1,8 +1,8 @@
-#include "../../Pods/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"
-
 OTHER_SWIFT_FLAGS = $(inherited) "-DF_RELEASE"
+MARKETING_VERSION = 3.8.7
 
 SORA_APPLICATION_CONFIG = Release
+SORA_MINAMOTO_NETWORK_ID =
 FIREBASE_CONFIG = GoogleService-Info-Release.plist
 SORA_NAME = SORA
 SORA_GOOGLE_TOKEN = 

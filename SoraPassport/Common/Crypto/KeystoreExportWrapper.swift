@@ -66,7 +66,10 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
     }
 
     private func export(account: AccountItem, password: String?) throws -> KeystoreDefinition {
-        guard let secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {
+        guard let secretKey = try LegacySoraSecretResolver.resolve(
+            account: account,
+            keystore: keystore
+        ) else {
             throw KeystoreExportWrapperError.missingSecretKey
         }
 

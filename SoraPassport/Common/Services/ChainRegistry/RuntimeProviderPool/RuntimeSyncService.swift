@@ -114,9 +114,30 @@ final class RuntimeSyncService {
             return
         }
 
-        let chainTypesSyncWrapper = shouldSyncTypes ? syncInfo.typesURL.map {
-            createChainTypesSyncOperation(chainId, hasher: dataHasher, url: $0)
-        } : nil
+        let chainTypesSyncWrapper: CompoundOperationWrapper<String>?
+        if shouldSyncTypes {
+            let typesDataOperation: BaseOperation<Data>?
+            if ReviewedSoraRuntimeSnapshotAdmission
+                .isReviewedSoraChain(chainId) {
+                typesDataOperation = ClosureOperation {
+                    try ReviewedSoraRuntimeSnapshotAdmission
+                        .loadReviewedChainTypes()
+                }
+            } else {
+                typesDataOperation = syncInfo.typesURL.map {
+                    dataOperationFactory.fetchData(from: $0)
+                }
+            }
+            chainTypesSyncWrapper = typesDataOperation.map {
+                createChainTypesSyncOperation(
+                    chainId,
+                    hasher: dataHasher,
+                    typesDataOperation: $0
+                )
+            }
+        } else {
+            chainTypesSyncWrapper = nil
+        }
 
         let metadataSyncWrapper = newVersion.map {
             createMetadataSyncOperation(
@@ -260,29 +281,36 @@ final class RuntimeSyncService {
     private func createChainTypesSyncOperation(
         _ chainId: ChainModel.Id,
         hasher: StorageHasher,
-        url: URL
+        typesDataOperation: BaseOperation<Data>
     ) -> CompoundOperationWrapper<String> {
-        let remoteFileOperation = dataOperationFactory.fetchData(from: url)
-
         let fileSaveWrapper = filesOperationFactory.saveChainTypesOperation(for: chainId) {
-            try remoteFileOperation.extractNoCancellableResultData()
+            let data = try typesDataOperation.extractNoCancellableResultData()
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: chainId,
+                data: data
+            )
+            return data
         }
 
-        fileSaveWrapper.addDependency(operations: [remoteFileOperation])
+        fileSaveWrapper.addDependency(operations: [typesDataOperation])
 
         let mapOperation = ClosureOperation<String> {
             _ = try fileSaveWrapper.targetOperation.extractNoCancellableResultData()
-            let data = try remoteFileOperation.extractNoCancellableResultData()
+            let data = try typesDataOperation.extractNoCancellableResultData()
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: chainId,
+                data: data
+            )
 
             return try hasher.hash(data: data).toHex()
         }
 
         mapOperation.addDependency(fileSaveWrapper.targetOperation)
-        mapOperation.addDependency(remoteFileOperation)
+        mapOperation.addDependency(typesDataOperation)
 
         return CompoundOperationWrapper(
             targetOperation: mapOperation,
-            dependencies: [remoteFileOperation] + fileSaveWrapper.allOperations
+            dependencies: [typesDataOperation] + fileSaveWrapper.allOperations
         )
     }
 
@@ -296,8 +324,13 @@ final class RuntimeSyncService {
             options: RepositoryFetchOptions()
         )
 
+        let metadataConnection: JSONRPCEngine =
+            ReviewedSoraRuntimeSnapshotAdmission
+                .isReviewedSoraChain(chainId)
+            ? Sora2BoundedHTTPJSONRPCEngine.wrapping(connection)
+            : connection
         let remoteMetadaOperation = JSONRPCOperation<[String], String>(
-            engine: connection,
+            engine: metadataConnection,
             method: RPCMethod.getRuntimeMetadata
         )
 
@@ -305,8 +338,26 @@ final class RuntimeSyncService {
             do {
                 let currentItem = try localMetadataOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-                if let item = currentItem, item.version == runtimeVersion.specVersion {
-                    remoteMetadaOperation.result = .failure(RuntimeSyncServiceError.skipMetadataUnchanged)
+                if let item = currentItem,
+                   item.version == runtimeVersion.specVersion {
+                    if ReviewedSoraRuntimeSnapshotAdmission
+                        .isReviewedSoraChain(chainId) {
+                        do {
+                            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                                chainId: chainId,
+                                item: item
+                            )
+                        } catch {
+                            // A stale/corrupt same-version cache is never
+                            // admitted, but it is also not deleted in place.
+                            // Fetch the reviewed live bytes and replace it only
+                            // after their full identity check below succeeds.
+                            return
+                        }
+                    }
+                    remoteMetadaOperation.result = .failure(
+                        RuntimeSyncServiceError.skipMetadataUnchanged
+                    )
                 }
             } catch {
                 remoteMetadaOperation.result = .failure(error)
@@ -324,6 +375,10 @@ final class RuntimeSyncService {
                 txVersion: runtimeVersion.transactionVersion,
                 metadata: rawMetadata,
                 resolver: nil
+            )
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: chainId,
+                item: metadataItem
             )
 
             return [metadataItem]

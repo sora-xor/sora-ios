@@ -46,6 +46,16 @@ class IRSigningDecorator {
 
 extension IRSigningDecorator: IRSignatureCreatorProtocol {
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
+        guard
+            let lifecycleLease =
+                try WalletLifecycleCoordinator.shared
+                    .tryAcquireForMutableWalletAccess()
+        else {
+            throw WalletNetworkMigrationError.lifecycleMutationBusy
+        }
+        defer { lifecycleLease.release() }
+        try WalletRecoveryCapabilityGate.shared
+            .requireAuthorizedLifecycleContinuation()
         let rawKey = try keystore.fetchKey(for: identifier)
 
         let privateKey = try IRIrohaPrivateKey(rawData: rawKey)
@@ -56,6 +66,16 @@ extension IRSigningDecorator: IRSignatureCreatorProtocol {
     }
 
     func sign(_ originalData: Data, privateKey: IRPrivateKeyProtocol) throws -> IRSignatureProtocol {
+        guard
+            let lifecycleLease =
+                try WalletLifecycleCoordinator.shared
+                    .tryAcquireForMutableWalletAccess()
+        else {
+            throw WalletNetworkMigrationError.lifecycleMutationBusy
+        }
+        defer { lifecycleLease.release() }
+        try WalletRecoveryCapabilityGate.shared
+            .requireAuthorizedLifecycleContinuation()
         let rawSigner = IRIrohaSigner(privateKey: privateKey)
 
         return try rawSigner.sign(originalData)

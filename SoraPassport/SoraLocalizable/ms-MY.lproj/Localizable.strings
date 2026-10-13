@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Frasa Laluan";
 "common.passphrase.save.or.send" = "Simpan atau hantar";
 "common.passphrase.header" = "Frasa Laluan ialah \n sejenis kata laluan.";
-"common.passphrase.body" = "Apabila membuat akaun baru dalam SORA, anda kini mendapat 12 perkataan frasa laluan. Jika anda sudah mempunyai 15 perkataan frasa laluan SORA, anda boleh mengimport akaun anda dengannya - ini juga serasi dan akan terus bekerja.";
+"common.passphrase.body" = "Apabila membuat akaun baru dalam SORA, anda kini mendapat frasa laluan 24 perkataan. Frasa laluan SORA sedia ada dengan 12 atau 24 perkataan boleh diimport dan akan terus berfungsi.";
 "common.passphrase.your.passphrase" = "Frasa laluan anda";
 "network.unavailable" = "Sambungan rangkaian tidak tersedia";
 "common.save" = "Simpan";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Sila, periksa sambungan internet dan cuba lagi kemudian.";
 "common.error.general.message" = "Kami berusaha keras untuk menyelesaikan masalah tersebut. Sila cuba sebentar lagi.";
 "result.ambiguous.error.title" = "Keputusan tidak jelas";
-"access.restore.words.error.message" = "Frasa Laluan mesti mengandungi 15 perkataan";
-"access.restore.phrase.error.message" = "Sila pastikan frasa laluan anda terdiri daripada 12 atau 15 perkataan dan semuanya betul.";
+"access.restore.words.error.message" = "Frasa Laluan mesti mengandungi 12 atau 24 perkataan";
+"access.restore.phrase.error.message" = "Sila pastikan frasa laluan anda terdiri daripada 12 atau 24 perkataan dan semuanya betul.";
 "wallet.search.query.error.message" = "Saiz carian mestilah di antara 3 dan 64 aksara";
 "user.create.phone.registered.error.message" = "Nombor telefon telah digunakan semasa pendaftaran dengan pengguna ini atau yang lain";
 "common.error.invalid.parameters" = "Parameter Tidak Sah";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Eksport JSON";
 "export.protection.passphrase.title" = "Frasa laluan";
 "export.protection.json.description" = "Dalam langkah seterusnya anda akan dapat memuat turun fail JSON yang membolehkan anda memulihkan akaun anda.";
-"export.protection.passphrase.description" = "Dalam langkah seterusnya anda akan melihat Frasa Laluan (12 perkataan) yang membolehkan anda memulihkan akaun.";
+"export.protection.passphrase.description" = "Dalam langkah seterusnya anda akan melihat Frasa Laluan (24 perkataan) yang membolehkan anda memulihkan akaun.";
 "export.protection.seed.description" = "Dalam langkah seterusnya anda akan melihat Raw Seed (hash panjang) yang membolehkan anda memulihkan akaun.";
 "export.protection.json.1" = "Jika saya kehilangan JSON saya, dana saya akan hilang selama-lamanya.";
 "export.protection.json.2" = "Jika saya mendedahkan atau berkongsi JSON saya kepada sesiapa sahaja, dana saya boleh dicuri.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

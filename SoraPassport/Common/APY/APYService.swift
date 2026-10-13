@@ -39,17 +39,87 @@ protocol APYServiceProtocol: Actor {
 }
 
 actor APYService {
+    private final class ContinuationGate<Value>: @unchecked Sendable {
+        private enum State {
+            case pending
+            case waiting(CheckedContinuation<Value, Never>)
+            case completed(Value)
+        }
+
+        private let lock = NSLock()
+        private var state: State = .pending
+
+        func install(_ continuation: CheckedContinuation<Value, Never>) {
+            lock.lock()
+            switch state {
+            case .pending:
+                state = .waiting(continuation)
+                lock.unlock()
+            case let .completed(value):
+                lock.unlock()
+                continuation.resume(returning: value)
+            case .waiting:
+                lock.unlock()
+                preconditionFailure("A continuation may only be installed once")
+            }
+        }
+
+        func resume(returning value: Value) {
+            lock.lock()
+            switch state {
+            case .pending:
+                state = .completed(value)
+                lock.unlock()
+            case let .waiting(continuation):
+                state = .completed(value)
+                lock.unlock()
+                continuation.resume(returning: value)
+            case .completed:
+                lock.unlock()
+            }
+        }
+    }
+
+    private struct RequestKey: Hashable {
+        let baseAssetId: String
+        let targetAssetId: String
+        let accountAddress: String
+        let factoryIdentifier: ObjectIdentifier
+    }
+
+    private struct RequestFlight {
+        let id: UUID
+        let task: Task<Decimal?, Never>
+    }
+
+    private struct CatalogRefresh {
+        let id: UUID
+        let task: Task<[PIExactApyInfo], Swift.Error>
+    }
+
     static let shared = APYService()
+
+    private static let cacheLifetime: TimeInterval = 60
+    private static let failureRetryDelay: TimeInterval = 10
+
     private var polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
+    private let client = PIIndexerClient()
     private let operationManager: OperationManager = OperationManager()
-    private var expiredDate: Date = Date()
-    private var apy: [SbApyInfo] = []
-    private var task: Task<Void, Swift.Error>?
+    private var nextRefreshDate: Date = .distantPast
+    private var apy: [PIExactApyInfo] = []
+    private var hasValidatedSnapshot = false
+    private var catalogRefresh: CatalogRefresh?
+    private var requestFlights: [RequestKey: RequestFlight] = [:]
 }
 
 extension APYService: APYServiceProtocol {
     
     func setup(factory: PolkaswapNetworkOperationFactoryProtocol) {
+        if let currentFactory = polkaswapNetworkOperationFactory,
+           ObjectIdentifier(currentFactory) != ObjectIdentifier(factory) {
+            requestFlights.values.forEach { $0.task.cancel() }
+            requestFlights.removeAll()
+        }
         polkaswapNetworkOperationFactory = factory
     }
 
@@ -57,54 +127,156 @@ extension APYService: APYServiceProtocol {
         guard !baseAssetId.isEmpty,
               !targetAssetId.isEmpty,
               let factory = self.polkaswapNetworkOperationFactory,
-              let poolPropertiesOperation = try? factory.poolProperties(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
+              let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             return nil
         }
-        
-        let queryOperation = SubqueryApyInfoOperation<[SbApyInfo]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        
-        return await withCheckedContinuation { continuation in
-            queryOperation.completionBlock = { [weak self] in
-                guard let self = self,
-                      let reservesAccountData = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId,
-                      let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
-                    continuation.resume(returning: nil)
-                    return
+        let networkType = selectedAccount.networkType
+
+        let key = RequestKey(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            accountAddress: selectedAccount.address,
+            factoryIdentifier: ObjectIdentifier(factory)
+        )
+        if let flight = requestFlights[key] {
+            return await flight.task.value
+        }
+
+        let flight = RequestFlight(
+            id: UUID(),
+            task: Task { [weak self] in
+                guard let self else {
+                    return nil
                 }
-                
-                let reservesAccountId = try? SS58AddressFactory().addressFromAccountId(data: reservesAccountData.value,
-                                                                                       type: selectedAccount.networkType)
-                Task {
-                    let expiredDate = await self.expiredDate
-                    let apy = await self.apy
-                    guard expiredDate < Date() || apy.isEmpty else {
-                        let apy = apy.first(where: { $0.id == reservesAccountId })
-                        continuation.resume(returning: apy?.sbApy?.decimalValue)
-                        return
-                    }
-                    
-                    guard let response = try? queryOperation.extractNoCancellableResultData() else {
-                        continuation.resume(returning: nil)
-                        return
-                    }
-                    let info = response.first(where: { $0.id == reservesAccountId })
-                    await self.updateApy(apy: response)
-                    await self.updateExpiredDate()
-                    continuation.resume(returning: info?.sbApy?.decimalValue)
-                }
+                return await self.loadApy(
+                    for: baseAssetId,
+                    targetAssetId: targetAssetId,
+                    factory: factory,
+                    networkType: networkType
+                )
             }
-            
-            queryOperation.addDependency(poolPropertiesOperation)
-            
-            operationManager.enqueue(operations: [poolPropertiesOperation, queryOperation], in: .transient)
+        )
+        requestFlights[key] = flight
+
+        let result = await flight.task.value
+        if requestFlights[key]?.id == flight.id {
+            requestFlights.removeValue(forKey: key)
+        }
+        return result
+    }
+
+    private func loadApy(
+        for baseAssetId: String,
+        targetAssetId: String,
+        factory: PolkaswapNetworkOperationFactoryProtocol,
+        networkType: SNAddressType
+    ) async -> Decimal? {
+        guard let catalog = await loadCatalog(), !catalog.isEmpty else {
+            return nil
+        }
+
+        guard
+            let poolPropertiesOperation = try? factory.poolProperties(
+                baseAsset: baseAssetId,
+                targetAsset: targetAssetId
+            )
+        else {
+            return nil
+        }
+
+        // PI itself is fully async. Only the authoritative legacy runtime
+        // storage lookup still crosses an Operation boundary. The gate lets
+        // cancellation and Operation completion race without double-resuming
+        // or stranding the checked continuation.
+        let gate = ContinuationGate<String?>()
+        let reservesAccountId: String? = await withTaskCancellationHandler(
+            operation: {
+                await withCheckedContinuation { continuation in
+                    gate.install(continuation)
+                    guard !Task.isCancelled else {
+                        poolPropertiesOperation.cancel()
+                        gate.resume(returning: nil)
+                        return
+                    }
+                    poolPropertiesOperation.completionBlock = {
+                        guard
+                            let reservesAccountData = try? poolPropertiesOperation
+                                .extractResultData()?
+                                .underlyingValue?
+                                .reservesAccountId
+                        else {
+                            gate.resume(returning: nil)
+                            return
+                        }
+                        let address = try? SS58AddressFactory().addressFromAccountId(
+                            data: reservesAccountData.value,
+                            type: networkType
+                        )
+                        gate.resume(returning: address)
+                    }
+                    operationManager.enqueue(
+                        operations: [poolPropertiesOperation],
+                        in: .transient
+                    )
+                }
+            },
+            onCancel: {
+                poolPropertiesOperation.cancel()
+                gate.resume(returning: nil)
+            }
+        )
+
+        return catalog
+            .first(where: { $0.id == reservesAccountId })?
+            .sbApy?
+            .decimalValue
+    }
+
+    /// Returns the last fully validated PI catalog when a refresh fails. An
+    /// empty successful response is cached as a valid snapshot, while an
+    /// initial failure remains distinguishable from that valid empty state.
+    private func loadCatalog() async -> [PIExactApyInfo]? {
+        if Date() < nextRefreshDate {
+            return hasValidatedSnapshot ? apy : nil
+        }
+
+        let refresh: CatalogRefresh
+        if let catalogRefresh {
+            refresh = catalogRefresh
+        } else {
+            refresh = CatalogRefresh(
+                id: UUID(),
+                task: Task {
+                    try await self.fetchCatalog()
+                }
+            )
+            catalogRefresh = refresh
+        }
+
+        do {
+            let response = try await refresh.task.value
+            if catalogRefresh?.id == refresh.id {
+                apy = response
+                hasValidatedSnapshot = true
+                nextRefreshDate = Date().addingTimeInterval(Self.cacheLifetime)
+                catalogRefresh = nil
+            }
+            return response
+        } catch {
+            if catalogRefresh?.id == refresh.id {
+                catalogRefresh = nil
+                nextRefreshDate = Date().addingTimeInterval(Self.failureRetryDelay)
+            }
+            return hasValidatedSnapshot ? apy : nil
         }
     }
-    
-    private func updateApy(apy: [SbApyInfo]) {
-        self.apy = apy
-    }
-    
-    private func updateExpiredDate() {
-        self.expiredDate = Date().addingTimeInterval(60)
+
+    private func fetchCatalog() async throws -> [PIExactApyInfo] {
+        try await client.allPoolXYKs().map { pool in
+            PIExactApyInfo(
+                id: pool.id,
+                sbApy: pool.strategicBonusApy
+            )
+        }
     }
 }

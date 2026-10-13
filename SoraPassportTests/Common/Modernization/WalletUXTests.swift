@@ -1,0 +1,1456 @@
+// This file is part of the SORA network and Polkaswap app.
+// SPDX-License-Identifier: BSD-4-Clause
+
+import UIKit
+import XCTest
+import SoraUIKit
+import SoraKeystore
+import SoraFoundation
+import CoreData
+import CryptoKit
+import Darwin
+import NexusTransferCodec
+@testable import SoraPassport
+
+final class TairaFaucetAppTests: XCTestCase {
+    private let receiveAddress = "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH"
+
+    private func account(network: NetworkId = .taira, key: Data? = nil) throws -> NetworkAccount {
+        let parsed = try IrohaAddressCodec.parse(receiveAddress, expectedDiscriminant: 369)
+        return NetworkAccount(walletId: "faucet-test-wallet", networkId: network, derivationVersion: 1,
+            publicKey: try key ?? Data(hex: parsed.publicKeyHex), address: receiveAddress)
+    }
+
+    func testNativeFaucetScryptMatchesIndependentKnownAnswer() throws {
+        // Python hashlib.scrypt, using the live puzzle's work parameters.
+        let derived = try TairaFaucetService.scrypt(Data(repeating: 0, count: 8), Data(0..<32), 8192, 8, 1)
+        XCTAssertEqual(derived, try Data(hex: "a68d2ca8fc05956205688b5e8776085c3f73328aad71aaabbbd0a85114369d49"))
+    }
+
+    func testFaucetOnlyAcceptsMatchingCurrentTairaAccount() throws {
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let valid = try account()
+        XCTAssertEqual(try TairaFaucetService.validatedPublicKey(account: valid, configuration: configuration), valid.publicKey)
+        XCTAssertThrowsError(try TairaFaucetService.validatedPublicKey(account: valid, configuration: .minamoto))
+        XCTAssertThrowsError(try TairaFaucetService.validatedPublicKey(account: account(network: .minamoto), configuration: configuration))
+        XCTAssertThrowsError(try TairaFaucetService.validatedPublicKey(account: account(key: Data(repeating: 7, count: 32)), configuration: configuration))
+    }
+
+    func testPersistedFaucetRequestResumesWithoutAnotherClaim() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let account = try account()
+        let hash = String(repeating: "b", count: 64)
+        let pending = TairaFaucetService.PendingClaim(network: TairaClient.networkLiteral, account: account.address, transactionHash: hash, amount: "25000")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let filename = SHA256.hash(data: Data((TairaClient.networkLiteral + "\n" + account.address).utf8)).map { String(format: "%02x", $0) }.joined() + ".json"
+        let saved = directory.appendingPathComponent(filename)
+        try JSONEncoder().encode(pending).write(to: saved)
+        let client = TairaFaucetClient(scrypt: { _, _, _, _, _ in
+            XCTFail("Recovery must never solve another claim")
+            throw CancellationError()
+        }, transport: { request, _ in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/v1/pipeline/transactions/status")
+            XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, hash)
+            return .init(data: Data("{\"hash\":\"\(hash)\",\"scope\":\"global\",\"resolved_from\":\"state\",\"status\":{\"kind\":\"Applied\",\"block_height\":75}}".utf8))
+        })
+        let service = TairaFaucetService(client: client, directory: directory)
+        let before = try await service.hasPending(account: account.address)
+        XCTAssertTrue(before)
+        let outcome = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { phase in
+            guard case .checking = phase else { XCTFail("Recovery must only check the saved hash"); return }
+        })
+        XCTAssertEqual(outcome.state, .applied(blockHeight: 75))
+        let after = try await service.hasPending(account: account.address)
+        XCTAssertFalse(after)
+        // A damaged journal fails closed instead of silently requesting more.
+        try Data("broken".utf8).write(to: saved)
+        do { _ = try await service.hasPending(account: account.address); XCTFail("Corrupt journal accepted") }
+        catch { XCTAssertTrue(error is TairaFaucetService.Failure) }
+    }
+
+    @MainActor
+    func testFaucetButtonIsVisibleOnlyOnTairaAndFitsNarrowLayout() throws {
+        for configuration in [try XCTUnwrap(NexusNetworkConfiguration.taira), .minamoto] {
+            let detail = NexusNetworkDetailViewController(account: try account(network: configuration.networkId),
+                configuration: configuration, coordinator: nil, readClient: NexusToriiReadClient(), mutationUnavailableReason: nil)
+            detail.loadViewIfNeeded()
+            detail.view.frame = CGRect(x: 0, y: 0, width: 375, height: 812)
+            detail.view.layoutIfNeeded()
+            func find(_ view: UIView) -> UIButton? {
+                if view.accessibilityIdentifier == "taira.faucet.request" { return view as? UIButton }
+                return view.subviews.compactMap(find).first
+            }
+            let button = detail.tableView.tableHeaderView.flatMap(find)
+            if configuration.networkId == .taira {
+                let button = try XCTUnwrap(button)
+                XCTAssertTrue(button.isEnabled)
+                XCTAssertGreaterThanOrEqual(button.bounds.height, 48)
+                XCTAssertLessThanOrEqual(button.bounds.width, 375)
+                let image = UIGraphicsImageRenderer(bounds: detail.view.bounds).image { context in
+                    detail.view.layer.render(in: context.cgContext)
+                }
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "Taira faucet screen"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            } else { XCTAssertNil(button) }
+        }
+    }
+}
+
+final class WalletUXTests: XCTestCase {
+    func testTairaPendingJournalRetainsAndCannotChangeSigningNetwork() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let now = Date()
+        var pending = NexusPendingTransaction(
+            id: UUID(), idempotencyKey: UUID(), walletId: "test-wallet", networkId: .taira,
+            chainId: configuration.chainId, signingNetworkId: TairaClient.networkLiteral,
+            sender: "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH",
+            receiver: "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6",
+            assetDefinitionID: TairaClient.xorDefinition, amount: try PIQuantity("0.001"),
+            fee: try PIQuantity("0.01"), createdAt: now, updatedAt: now, hash: nil,
+            state: .signing, terminalBlockHeight: nil, errorClass: nil, historyReconciledAt: nil)
+        pending = try await store.put(pending)
+        let reloaded = try await store.all()
+        XCTAssertEqual(reloaded, [pending])
+        XCTAssertTrue(pending.hasCurrentDeploymentIdentity(for: configuration))
+        pending.signingNetworkId = nil
+        do {
+            _ = try await store.put(pending)
+            XCTFail("A persisted send must not lose its signing network")
+        } catch { XCTAssertTrue(error is NexusToriiError) }
+        pending.signingNetworkId = "different-testnet-genesis"
+        XCTAssertFalse(pending.hasCurrentDeploymentIdentity(for: configuration))
+        do {
+            _ = try await store.put(pending)
+            XCTFail("A send from another genesis must not enter the current journal")
+        } catch { XCTAssertTrue(error is NexusToriiError) }
+        let retained = try await store.all()
+        XCTAssertEqual(retained, reloaded)
+    }
+
+    func testTairaSendQualificationDoesNotEnableProduction() throws {
+        let signer = TairaTransactionSigner()
+        let reader = TairaToriiConfirmationReader()
+        let taira = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        XCTAssertTrue(signer.isQualified(for: taira))
+        XCTAssertTrue(reader.isQualified(for: taira))
+        XCTAssertFalse(signer.isQualified(for: .minamoto))
+        XCTAssertFalse(reader.isQualified(for: .minamoto))
+        let settings = InMemorySettingsManager()
+        settings.nexusEnabled = true
+        settings.isTairaEnabled = true
+        XCTAssertTrue(settings.nexusSendsEnabled(for: .taira))
+        XCTAssertFalse(settings.nexusSendsEnabled(for: .minamoto))
+        settings.isTairaEnabled = false
+        XCTAssertFalse(settings.nexusSendsEnabled(for: .taira))
+        settings.isTairaEnabled = true
+        settings.nexusEnabled = false
+        XCTAssertFalse(settings.nexusSendsEnabled(for: .taira))
+    }
+
+    func testTairaCurrentLiveSubmissionReceiptAndChecksumBinding() throws {
+        // Public controlled canary: 0.001 XOR, fee 0.01, applied at block 74.
+        let fixture = #"""
+        {"content":[{"type":"text","text":"http 200"}],"isError":false,"resultType":"complete","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"iroha-torii-mcp","version":"2.0.0-rc.2.0"}},"structuredContent":{"attempts":3,"elapsed_ms":1489,"hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","status":200,"terminal_kind":"Applied","final":{"body":{"hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","resolved_from":"state","scope":"global","status":{"block_height":74,"kind":"Applied"}},"content_type":"application/json; charset=utf-8","headers":{"content-type":"application/json; charset=utf-8","vary":"Accept"},"status":200},"submit":{"body":{"payload":{"entrypoint_hash":"hash:4A48384AD05A8E1669BAF4CD0ED83773F006F178E486AD421BCF2ABCADD658A1#EC45","signed_transaction_hash":"hash:4A48384AD05A8E1669BAF4CD0ED83773F006F178E486AD421BCF2ABCADD658A1#EC45","signer":"e7012102B9A460EEDA8A8FE990F963BF58084A9D6E6DAB8C6267454A9DEE9A369BBD3D8B","submitted_at_height":73,"submitted_at_ms":1791874407875},"signature":"67A6412192176609480398C63614A09959B9FA853747FF3EC269519D3E8D6D760C339392AB80DCAA8BE58C263DFA40013DE6531EB19F08B19B37A9419F4526DD"},"content_type":"application/json; charset=utf-8","headers":{"content-type":"application/json; charset=utf-8","x-iroha-entrypoint-hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","x-iroha-route-dataspace-id":"0","x-iroha-route-lane-id":"0","x-iroha-routed-by":"local","x-iroha-signed-transaction-hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","vary":"Accept"},"status":202}}}
+        """#
+        let hash = "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1"
+        func parse(_ json: String) throws -> NexusTairaAppliedSubmission {
+            try NexusTairaTransactionSubmissionContract.appliedSubmission(
+                from: JSONDecoder().decode(NexusJSONValue.self, from: Data(json.utf8)), expectedHash: hash)
+        }
+        XCTAssertEqual(try parse(fixture).blockHeight, 74)
+        XCTAssertEqual(try parse(fixture).hash, hash)
+        XCTAssertThrowsError(try parse(fixture.replacingOccurrences(of: "#EC45", with: "#EC44")))
+        XCTAssertThrowsError(try parse(fixture.replacingOccurrences(of: "Applied", with: "Approved")))
+        XCTAssertThrowsError(try parse(fixture.replacingOccurrences(of: "\"block_height\":74", with: "\"block_height\":0")))
+    }
+
+    func testNexusHistoryBrowsingBeyondFormerAccountLimit() throws {
+        var cursor = NexusHistoryCursor()
+        for pageNumber in 1...25 {
+            let ids = (0..<100).map { "\(pageNumber):\($0)" }
+            try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ids, nextCursor: pageNumber < 25 ? "cursor_\(pageNumber)" : nil))
+        }
+        XCTAssertNil(cursor.nextCursor)
+        XCTAssertFalse(cursor.hasMore)
+    }
+
+    func testNexusHistoryCursorRejectsChangedSnapshotWithoutAdvancing() throws {
+        var cursor = NexusHistoryCursor()
+        try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["first"], nextCursor: "next"))
+        XCTAssertThrowsError(try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["second"], nextCursor: "next")))
+        XCTAssertEqual(cursor.nextCursor, "next")
+        XCTAssertThrowsError(try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["first"], nextCursor: "third")))
+        XCTAssertEqual(cursor.nextCursor, "next")
+        // Bounded scans can advance through empty pages.
+        try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: [], nextCursor: "third"))
+        XCTAssertTrue(cursor.hasMore)
+        try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["second"], nextCursor: nil))
+        XCTAssertFalse(cursor.hasMore)
+    }
+
+    func testNexusRecoveryHistoryRequiresCompleteExactHashProjection() throws {
+        let hash = String(repeating: "a", count: 64)
+        let request = try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "exact-history", account: "test-account",
+            assetDefinitionID: NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            cursor: nil, transactionHash: hash
+        )
+        let filter = try XCTUnwrap(request.params.nexusTestObject?["arguments"]?.nexusTestObject?["filter"]?.nexusTestString)
+        XCTAssertTrue(filter.contains("tx_hash = \"\(hash)\""))
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "bad", account: "account", assetDefinitionID: NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            cursor: nil, transactionHash: "invalid"
+        ))
+    }
+
+    func testTairaCursorMovementProjectionAndLocalRoute() throws {
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let account = "testuﾛ1NｼXCeｱﾈﾁRｴUﾀPWﾏVｱrﾋhESEbpﾂｾ9Vﾗ5ﾇJｵavsｷ26TMSNN"
+        let receiver = "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        let asset = NexusAssetDefinitionIdentity.tairaXorDefinitionID
+        let hash = String(repeating: "a", count: 64)
+        var row: [String: NexusJSONValue] = [
+            "id": .string("\(hash):\(account):0"), "source": .string("transaction"),
+            "type": .string("TRANSFER"), "timestamp_ms": .number("1775260800000"),
+            "status": .string("SUCCESS"), "result_ok": .bool(true), "direction": .string("outgoing"),
+            "account_id": .string(account), "counterparty_account_id": .string(receiver),
+            "asset_id": .string("\(asset)#\(account)"), "asset_definition_id": .string(asset),
+            "amount": .string("1.5"), "tx_hash": .string(hash),
+            "block_height": .number("42"), "block_index": .number("0"), "movement_index": .number("0"),
+        ]
+        func projection(_ row: [String: NexusJSONValue]) -> NexusJSONValue {
+            .object(["body": .object(["items": .array([.object(row)]), "next_cursor": .string("next_cursor")])])
+        }
+        let page = try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset)
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items.first?.amount.rawValue, "1.5")
+        XCTAssertEqual(page.items.first?.transactionHash, hash)
+        XCTAssertEqual(page.nextCursor, "next_cursor")
+        row["amount"] = .string("1.0000000001")
+        XCTAssertThrowsError(try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset))
+        row["amount"] = .string("1.5")
+        row["account_id"] = .string(receiver)
+        XCTAssertThrowsError(try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset))
+        row["account_id"] = .string(account)
+        row["status"] = .string("FAILED")
+        row["result_ok"] = .bool(false)
+        XCTAssertThrowsError(try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset))
+        var headers = ["x-iroha-routed-by": "local", "x-iroha-route-lane-id": "0", "x-iroha-route-dataspace-id": "0"]
+        XCTAssertNoThrow(try NexusToriiClient.validateFanoutHeaderValues({ headers[$0] }, allowsPublicLocalRoute: true))
+        XCTAssertThrowsError(try NexusToriiClient.validateFanoutHeaderValues({ headers[$0] }))
+        headers["x-iroha-fanout-routes-attempted"] = "1"
+        XCTAssertThrowsError(try NexusToriiClient.validateFanoutHeaderValues({ headers[$0] }, allowsPublicLocalRoute: true))
+    }
+
+    func testTairaLiveAnonymousReads() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["SORA_LIVE_TAIRA_READS"] == "1", "Opt-in public read-only integration check")
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let client = NexusToriiClient()
+        let account = "testuﾛ1NｼXCeｱﾈﾁRｴUﾀPWﾏVｱrﾋhESEbpﾂｾ9Vﾗ5ﾇJｵavsｷ26TMSNN"
+        try await client.health(configuration: configuration)
+        let definition = try await client.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(definition.id, NexusAssetDefinitionIdentity.tairaXorDefinitionID)
+        let balances = try await client.accountAssets(account: account, configuration: configuration, asset: definition.id, limit: 100, offset: 0)
+        XCTAssertNoThrow(try NexusBalanceValidator.xorBalance(in: balances, account: account, configuration: configuration, assetDefinitionID: definition.id))
+        let history = try await client.transferHistoryPage(account: account, configuration: configuration, assetDefinitionID: definition.id, cursor: nil)
+        XCTAssertLessThanOrEqual(history.items.count, 100)
+    }
+
+    func testNexusProductionAddressExistsWithoutLiveTransport() throws {
+        let production = NexusNetworkConfiguration.minamoto
+        XCTAssertFalse(production.isLive)
+        XCTAssertFalse(NexusNetworkConfiguration.transportIsAdmitted(for: production.toriiURL))
+        XCTAssertTrue(NexusNetworkConfiguration.admittedWalletNetworkIds.contains(.minamoto))
+        XCTAssertTrue(try XCTUnwrap(NexusNetworkConfiguration.taira).isLive)
+        let tairaReadOnly = NexusPortfolioPresentationPolicy.networkDetailAccess(
+            networkId: .taira, nexusEnabled: true, tairaEnabled: true,
+            tairaAdmitted: true, mutationCoordinatorAvailable: false
+        )
+        XCTAssertTrue(tairaReadOnly.readsAvailable)
+        XCTAssertFalse(tairaReadOnly.mutationSurfaceAvailable)
+        XCTAssertTrue(NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+            networkId: .minamoto, nexusEnabled: true, tairaEnabled: false, tairaAdmitted: true
+        ))
+    }
+
+    func testTairaMCPMetadataOnEveryRequestKind() throws {
+        let requests = [
+            NexusTairaMCPToolContract.initializeRequest(id: "init"),
+            try NexusTairaMCPToolContract.discoveryRequest(id: "list", toolsetVersion: String(repeating: "a", count: 64), cursor: nil),
+            NexusTairaMCPToolContract.healthRequest(id: "health"),
+        ]
+        for request in requests {
+            let metadata = try XCTUnwrap(request.params.nexusTestObject?["_meta"]?.nexusTestObject)
+            XCTAssertEqual(metadata["io.modelcontextprotocol/protocolVersion"], .string("2026-07-28"))
+            XCTAssertEqual(metadata["io.modelcontextprotocol/clientCapabilities"], .object([:]))
+        }
+    }
+
+
+
+    @MainActor
+    func testAuthenticatedWalletOpeningRetriesLateServicesAndLeavesPIN() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        let wallet = UIViewController()
+        var attempts = 0
+        var refreshes = 0
+        var opened = 0
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            if attempts < 3 { throw WalletOpeningError.assetsNotReady }
+            return wallet
+        }, refresh: { refreshes += 1 }, makeNodes: { nil }, recheckWallet: { XCTFail("No storage recovery required") }, opened: {
+            opened += 1
+            window.rootViewController = $0
+        }, retryInterval: 0.01, maximumAttempts: 5)
+        window.rootViewController = UINavigationController(rootViewController: opening)
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { window.rootViewController === wallet }
+        XCTAssertTrue(window.rootViewController === wallet)
+        XCTAssertEqual(attempts, 3)
+        XCTAssertEqual(refreshes, 1)
+        XCTAssertEqual(opened, 1)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(opened, 1, "Successful opening cancels pending retries")
+    }
+
+    @MainActor
+    func testWalletOpeningStopsWaitingAndOffersRetryAndNodes() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        var attempts = 0
+        var ready = false
+        var nodeRequests = 0
+        let wallet = UIViewController()
+        let nodes = UIViewController()
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            if !ready { throw WalletOpeningError.connectionNotReady }
+            return wallet
+        }, refresh: {}, makeNodes: {
+            nodeRequests += 1
+            return nodeRequests == 1 ? nil : nodes
+        }, recheckWallet: { XCTFail("A node failure is not a storage failure") }, opened: {
+            window.rootViewController = $0
+        }, retryInterval: 0.01, maximumAttempts: 2)
+        let navigation = UINavigationController(rootViewController: opening)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 2 }
+        XCTAssertEqual(attempts, 2)
+        let buttons = descendants(opening.view).compactMap { $0 as? UIButton }
+        let retry = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" })
+        let changeNode = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" })
+        let status = try XCTUnwrap(descendants(opening.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-opening-status" })
+        XCTAssertTrue(retry.isEnabled && !retry.isHidden)
+        XCTAssertTrue(changeNode.isEnabled && !changeNode.isHidden)
+        XCTAssertTrue(descendants(opening.view).compactMap { $0 as? UIActivityIndicatorView }.allSatisfy { !$0.isAnimating })
+        XCTAssertEqual(status.text, WalletUX.text("Wallet services are not ready. Try again or choose another node."))
+        retry.sendActions(for: .touchUpInside)
+        try await waitForWalletOpening { attempts == 4 }
+        XCTAssertEqual(attempts, 4)
+        changeNode.sendActions(for: .touchUpInside)
+        XCTAssertEqual(status.text, WalletUX.text("Node settings are still loading. Try again."))
+        XCTAssertTrue(retry.isEnabled)
+        changeNode.sendActions(for: .touchUpInside)
+        XCTAssertTrue(navigation.topViewController === nodes)
+        try await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(attempts, 4, "Do not replace a node picker with a background retry")
+        ready = true
+        navigation.popViewController(animated: false)
+        try await waitForWalletOpening { window.rootViewController === wallet }
+        XCTAssertTrue(window.rootViewController === wallet)
+        XCTAssertEqual(attempts, 5)
+    }
+
+    @MainActor
+    func testTairaRemainsReachableWhileSora2ServicesAreUnavailable() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        var attempts = 0
+        let networks = UIViewController()
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            throw WalletOpeningError.assetsNotReady
+        }, refresh: {}, makeNodes: { nil }, recheckWallet: { XCTFail("No recovery required") },
+           opened: { _ in XCTFail("SORA2 services are unavailable") },
+           makeNetworks: { networks }, retryInterval: 0.5, maximumAttempts: 3)
+        let navigation = UINavigationController(rootViewController: opening)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 1 }
+        XCTAssertEqual(attempts, 1, "Navigate while the next retry is still scheduled")
+        let button = try XCTUnwrap(descendants(opening.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-opening-networks" })
+        XCTAssertFalse(button.isHidden)
+        button.sendActions(for: .touchUpInside)
+        try await waitForWalletOpening { navigation.topViewController === networks }
+        XCTAssertTrue(navigation.topViewController === networks)
+        try await Task.sleep(nanoseconds: 700_000_000)
+        XCTAssertEqual(attempts, 1, "A scheduled SORA2 retry must not interrupt Taira navigation")
+        XCTAssertTrue(navigation.topViewController === networks)
+    }
+
+    @MainActor
+    func testWalletOpeningAccountNotReadyCannotNavigateToOtherNetworks() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        var attempts = 0
+        var rechecks = 0
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            throw WalletOpeningError.accountNotReady
+        }, refresh: {}, makeNodes: { XCTFail("An unverified account cannot expose node settings"); return nil },
+           recheckWallet: { rechecks += 1 }, opened: { _ in XCTFail("An unverified account cannot open the wallet") },
+           makeNetworks: { XCTFail("An unverified account cannot expose other networks"); return UIViewController() },
+           retryInterval: 0.01, maximumAttempts: 2)
+        let navigation = UINavigationController(rootViewController: opening)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 1 }
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(attempts, 1)
+        let buttons = descendants(opening.view).compactMap { $0 as? UIButton }
+        let networks = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-networks" })
+        XCTAssertTrue(networks.isHidden)
+        networks.sendActions(for: .touchUpInside)
+        XCTAssertTrue(navigation.topViewController === opening)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" }).isHidden)
+        let recheck = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-recheck" })
+        XCTAssertFalse(recheck.isHidden)
+        recheck.sendActions(for: .touchUpInside)
+        XCTAssertEqual(rechecks, 1)
+    }
+
+    @MainActor
+    func testWalletOpeningNeverBypassesRetainedRecoveryForANodeError() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        let settings = InMemorySettingsManager()
+        settings.setWalletMigrationRecovery(reason: "Retained fixture")
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        let keys = InMemoryKeychain()
+        try keys.addKey(Data([1, 2, 3]), with: "retained-fixture-key")
+        let identifiers = try keys.allKeyIdentifiers()
+        var attempts = 0
+        var rechecks = 0
+        let controller = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            throw WalletOpeningError.recoveryRequired
+        }, refresh: {}, makeNodes: { XCTFail("Recovery cannot expose node settings"); return nil },
+           recheckWallet: { rechecks += 1 }, opened: { _ in XCTFail("Recovery cannot open the wallet") },
+           makeNetworks: { XCTFail("Recovery cannot expose other networks"); return UIViewController() },
+           retryInterval: 0.01, maximumAttempts: 2)
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 1 }
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(attempts, 1)
+        let buttons = descendants(controller.view).compactMap { $0 as? UIButton }
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-networks" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" }).isHidden)
+        let recheck = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-recheck" })
+        XCTAssertFalse(recheck.isHidden)
+        recheck.sendActions(for: .touchUpInside)
+        XCTAssertEqual(rechecks, 1)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+        XCTAssertEqual(try keys.allKeyIdentifiers(), identifiers)
+        XCTAssertEqual(try keys.fetchKey(for: "retained-fixture-key"), Data([1, 2, 3]))
+    }
+
+    @MainActor
+    func testNodeFailureUsesStatusWithoutBlockingPINOrClaimingAccountCreation() {
+        let view = WalletUXNetworkStatusSpy()
+        let presenter = NetworkAvailabilityLayerPresenter()
+        presenter.view = view
+        presenter.didDecideUnreachableNodesAllertPresentation()
+        XCTAssertEqual(view.alerts, 0)
+        XCTAssertEqual(view.statuses, [WalletUX.text("Network unavailable. Retrying connection…")])
+    }
+
+    @MainActor
+    private func makeWalletOpeningWindow() throws -> (window: UIWindow, cleanup: () -> Void) {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = try XCTUnwrap(
+            scenes.first { $0.activationState == .foregroundActive } ?? scenes.first,
+            "Wallet opening requires the test host's connected window scene"
+        )
+        let previousWindow = scene.windows.first { $0.isKeyWindow }
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        // Finish navigation synchronously so an earlier test's appearance
+        // callbacks cannot start another retry during the next test.
+        UIView.setAnimationsEnabled(false)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 375, height: 667)
+        return (window, {
+            window.isHidden = true
+            window.rootViewController = nil
+            window.windowScene = nil
+            previousWindow?.makeKeyAndVisible()
+            UIView.setAnimationsEnabled(animationsWereEnabled)
+        })
+    }
+
+    @MainActor
+    private func waitForWalletOpening(_ condition: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(3)
+        while !condition(), Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    @MainActor
+    func testResumeAuthorizationPreservesRecoveryAndGoogleCompletionAfterTimeout() async throws {
+        let previousKeyWindow = UIApplication.shared.keyWindow
+        for pin in ["1234", "123456"] {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+            defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKeyAndVisible() }
+            let settings = InMemorySettingsManager()
+            settings.biometryEnabled = false
+            settings.setWalletMigrationRecovery(reason: "retained missing credentials")
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            let store = InMemoryKeychainManager()
+            try store.keychain.addKey(Data(pin.utf8), with: KeystoreTag.pincode.rawValue)
+            let recovery = WalletRecoveryViewController(reason: "retained missing credentials", onRetry: {})
+            let root = UINavigationController(rootViewController: recovery)
+            window.rootViewController = root
+            root.loadViewIfNeeded()
+            recovery.loadViewIfNeeded()
+            window.makeKeyAndVisible()
+            window.layoutIfNeeded()
+            root.view.layoutIfNeeded()
+            // Establish an attached fixture before testing whether the lock preserves it.
+            // Queued PIN callbacks alone do not complete UIKit appearance transactions.
+            try await waitForWalletOpening { recovery.view.window === window }
+            guard recovery.view.window === window else {
+                XCTFail("Recovery fixture did not attach before the background transition")
+                return
+            }
+            var pinPresenter: AuthorizationPresenter?
+            let wireframe = SecurityLayerWireframe(windowProvider: { window }, pinFactory: { delegate in
+                let view = PincodeViewController()
+                view.mode = .securedInput
+                let presenter = AuthorizationPresenter()
+                let interactor = LocalAuthInteractor(secretManager: store, settingsManager: settings,
+                    biometryAuth: WalletUXNoBiometry(), locale: .current)
+                view.presenter = presenter; presenter.view = view; presenter.interactor = interactor
+                presenter.wireframe = delegate; interactor.presenter = presenter
+                pinPresenter = presenter
+                return view
+            })
+            defer {
+                wireframe.authorizationWindow?.isHidden = true
+                wireframe.authorizationWindow?.rootViewController = nil
+            }
+            var date = Date(timeIntervalSince1970: 1_000)
+            let lifecycle = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
+                keystore: store.keychain, pincodeDelay: 300, currentDate: { date })
+            let presenter = SecurityLayerPresenter()
+            presenter.wireframe = wireframe; presenter.interactor = lifecycle; lifecycle.presenter = presenter
+            lifecycle.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
+            date.addTimeInterval(301)
+            lifecycle.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
+            lifecycle.didReceiveDidBecomeActive(notification: Notification(name: UIApplication.didBecomeActiveNotification))
+            await drainPINCallbacks()
+            let lockWindow = try XCTUnwrap(wireframe.authorizationWindow)
+            XCTAssertTrue(window.rootViewController === root)
+            XCTAssertTrue(recovery.view.window === window)
+            XCTAssertFalse(window.isHidden)
+            XCTAssertFalse(lockWindow.isHidden)
+            XCTAssertGreaterThan(lockWindow.windowLevel.rawValue, window.windowLevel.rawValue)
+            XCTAssertEqual(lockWindow.rootViewController?.view.backgroundColor, .systemBackground)
+            XCTAssertEqual(lockWindow.rootViewController?.view.alpha, 1)
+            XCTAssertTrue(lockWindow.rootViewController?.view.isUserInteractionEnabled == true)
+            // A Google completion arrives while the lock is visible. Its result
+            // stays attached to the original flow and remains covered by the PIN window.
+            let backupPrompt = UIAlertController(title: "Backup password", message: "Synthetic callback", preferredStyle: .alert)
+            backupPrompt.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            recovery.present(backupPrompt, animated: false)
+            XCTAssertTrue(recovery.presentedViewController === backupPrompt)
+            wireframe.showAuthorization()
+            XCTAssertTrue(wireframe.authorizationWindow === lockWindow, "Repeated foreground notifications cannot replace pending auth")
+            let input = try XCTUnwrap(pinPresenter)
+            for digit in String(repeating: "0", count: pin.count) { input.padButtonTapped(with: String(digit)) }
+            await drainPINCallbacks()
+            try await Task.sleep(nanoseconds: 600_000_000)
+            XCTAssertTrue(wireframe.authorizationWindow === lockWindow, "An incorrect PIN cannot uncover recovery")
+            for digit in pin { input.padButtonTapped(with: String(digit)) }
+            await drainPINCallbacks()
+            XCTAssertNil(wireframe.authorizationWindow)
+            XCTAssertTrue(window.rootViewController === root)
+            XCTAssertTrue(recovery.presentedViewController === backupPrompt, "Successful PIN must resume the outstanding import result")
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            XCTAssertEqual(try store.keychain.allKeyIdentifiers(), [KeystoreTag.pincode.rawValue])
+            XCTAssertEqual(try store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data(pin.utf8), "Resume authentication cannot rewrite even a legacy PIN")
+            var didDismissPrompt = false
+            backupPrompt.dismiss(animated: false) { didDismissPrompt = true }
+            try await waitForWalletOpening { didDismissPrompt && recovery.presentedViewController == nil }
+            XCTAssertTrue(didDismissPrompt)
+            XCTAssertNil(recovery.presentedViewController)
+            window.isHidden = true
+            window.rootViewController = nil
+            try await waitForWalletOpening { recovery.view.window == nil }
+            XCTAssertNil(recovery.view.window)
+        }
+    }
+
+    @MainActor
+    func testPINPresentersSubmitStoredLengthOnceAndKeepSixDigitUpgrade() async throws {
+        for length in [4, 6] {
+            let input = InputPincodePresenter()
+            let inputView = WalletUXPINViewSpy()
+            let inputAuth = WalletUXLocalAuthSpy()
+            let inputWireframe = WalletUXPINWireframeSpy()
+            input.view = inputView; input.interactor = inputAuth; input.wireframe = inputWireframe
+            input.start()
+            XCTAssertEqual(inputAuth.countRequests, 1)
+            input.padButtonTapped(with: "1")
+            XCTAssertTrue(inputAuth.submitted.isEmpty, "Do not guess the length before Keychain responds")
+            input.setupPinCodeSymbols(with: 0)
+            XCTAssertTrue(inputView.titles.last?.contains("PIN unavailable") == true)
+            input.padButtonTapped(with: "1")
+            XCTAssertEqual(inputAuth.countRequests, 2)
+            XCTAssertTrue(inputAuth.submitted.isEmpty)
+            input.setupPinCodeSymbols(with: length)
+            for _ in 0 ..< length - 1 { input.padButtonTapped(with: "1") }
+            XCTAssertTrue(inputAuth.submitted.isEmpty)
+            input.padButtonTapped(with: "1")
+            input.padButtonTapped(with: "9")
+            XCTAssertEqual(inputAuth.submitted, [String(repeating: "1", count: length)])
+            input.didEnterWrongPincode()
+            await drainPINCallbacks()
+            for _ in 0 ..< length { input.padButtonTapped(with: "2") }
+            XCTAssertEqual(inputAuth.submitted.count, 2)
+            input.didCompleteAuth()
+            await drainPINCallbacks()
+            if length == 4 {
+                XCTAssertEqual(inputView.updateRequests, 1)
+                XCTAssertEqual(inputWireframe.mainCount, 0)
+                input.updatePinButtonTapped()
+                for _ in 0 ..< 6 { input.padButtonTapped(with: "3") }
+                for _ in 0 ..< 6 { input.padButtonTapped(with: "3") }
+                XCTAssertEqual(inputAuth.updated, ["333333"])
+                XCTAssertEqual(inputWireframe.mainCount, 1)
+            } else {
+                XCTAssertEqual(inputView.updateRequests, 0)
+                XCTAssertEqual(inputWireframe.mainCount, 1)
+                XCTAssertTrue(inputAuth.updated.isEmpty)
+            }
+
+            let authorization = AuthorizationPresenter()
+            let auth = WalletUXLocalAuthSpy()
+            let view = WalletUXPINViewSpy()
+            let completion = WalletUXAuthorizationSpy()
+            authorization.interactor = auth; authorization.view = view; authorization.wireframe = completion
+            authorization.start()
+            XCTAssertEqual(auth.countRequests, 1)
+            authorization.setupPinCodeSymbols(with: 5)
+            XCTAssertTrue(view.titles.last?.contains("PIN unavailable") == true)
+            authorization.padButtonTapped(with: "1")
+            XCTAssertEqual(auth.countRequests, 2)
+            XCTAssertTrue(auth.submitted.isEmpty)
+            authorization.setupPinCodeSymbols(with: length)
+            XCTAssertEqual(view.symbolCounts.last, length)
+            for _ in 0 ..< length { authorization.padButtonTapped(with: "4") }
+            authorization.padButtonTapped(with: "5")
+            XCTAssertEqual(auth.submitted, [String(repeating: "4", count: length)])
+            authorization.didCompleteAuth()
+            await drainPINCallbacks()
+            XCTAssertEqual(completion.results, [true])
+            XCTAssertTrue(auth.updated.isEmpty)
+
+            let cooldownInput = InputPincodePresenter()
+            let cooldownView = WalletUXPINViewSpy()
+            let cooldownAuth = WalletUXLocalAuthSpy()
+            cooldownAuth.blockDate = Date().addingTimeInterval(30)
+            cooldownInput.view = cooldownView; cooldownInput.interactor = cooldownAuth
+            cooldownInput.wireframe = inputWireframe
+            cooldownInput.start()
+            XCTAssertEqual(cooldownAuth.countRequests, 1, "Load the retained length even when reopening during cooldown")
+            XCTAssertEqual(cooldownView.blockedDates.count, 1)
+            cooldownInput.setupPinCodeSymbols(with: length)
+            cooldownAuth.blockDate = nil
+            for _ in 0 ..< length { cooldownInput.padButtonTapped(with: "7") }
+            XCTAssertEqual(cooldownAuth.submitted, [String(repeating: "7", count: length)],
+                "After cooldown, the first typed digit must not be consumed by a length reload")
+        }
+
+        let actualView = PincodeViewController()
+        let actualPresenter = InputPincodePresenter()
+        let actualAuth = WalletUXLocalAuthSpy()
+        actualView.mode = .securedInput; actualView.presenter = actualPresenter
+        actualPresenter.view = actualView; actualPresenter.interactor = actualAuth
+        actualPresenter.wireframe = WalletUXPINWireframeSpy()
+        actualView.loadViewIfNeeded()
+        actualPresenter.setupPinCodeSymbols(with: 0)
+        actualView.view.frame = CGRect(x: 0, y: 0, width: 375, height: 667)
+        actualView.view.layoutIfNeeded()
+        let feedback = try XCTUnwrap(descendants(actualView.view).compactMap { $0 as? SoramitsuLabel }
+            .first { ($0.text ?? "").hasPrefix("PIN unavailable") })
+        XCTAssertEqual(feedback.numberOfLines, 0)
+        XCTAssertEqual(feedback.sora.lineBreakMode, .byWordWrapping)
+        XCTAssertTrue(feedback.text?.contains("tap a number to retry") == true)
+        XCTAssertLessThanOrEqual(feedback.frame.width, actualView.view.bounds.width)
+        XCTAssertGreaterThan(feedback.frame.height, feedback.font.lineHeight)
+    }
+
+    @MainActor
+    func testResumeAuthorizationFailureKeepsOpaqueLockAndAllowsRetry() throws {
+        let previousKeyWindow = UIApplication.shared.keyWindow
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        let original = UIViewController()
+        window.rootViewController = original
+        window.makeKeyAndVisible()
+        let delegate = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+        let previousAppWindow = delegate.window
+        delegate.window = window
+        let loadingWindow = UIWindow(frame: window.frame)
+        loadingWindow.windowLevel = .alert
+        let spinnerRoot = UIViewController()
+        loadingWindow.rootViewController = spinnerRoot
+        loadingWindow.makeKeyAndVisible()
+        var attempts = 0
+        let wireframe = SecurityLayerWireframe(pinFactory: { _ in attempts += 1; return nil })
+        defer {
+            wireframe.authorizationWindow?.isHidden = true
+            loadingWindow.isHidden = true; loadingWindow.rootViewController = nil
+            window.isHidden = true; window.rootViewController = nil
+            delegate.window = previousAppWindow
+            previousKeyWindow?.makeKeyAndVisible()
+        }
+        wireframe.showAuthorization()
+        let lock = try XCTUnwrap(wireframe.authorizationWindow)
+        let retry = try XCTUnwrap(descendants(try XCTUnwrap(lock.rootViewController?.view)).compactMap { $0 as? UIButton }.first)
+        XCTAssertEqual(attempts, 1)
+        XCTAssertFalse(lock.isHidden)
+        XCTAssertEqual(lock.rootViewController?.view.backgroundColor, .systemBackground)
+        retry.sendActions(for: .touchUpInside)
+        XCTAssertEqual(attempts, 2)
+        wireframe.showAuthorizationCompletion(with: false)
+        XCTAssertEqual(attempts, 3)
+        XCTAssertTrue(wireframe.authorizationWindow === lock)
+        XCTAssertFalse(lock.isHidden)
+        XCTAssertTrue(window.rootViewController === original)
+        XCTAssertTrue(loadingWindow.rootViewController === spinnerRoot)
+        XCTAssertGreaterThan(lock.windowLevel.rawValue, loadingWindow.windowLevel.rawValue)
+        XCTAssertEqual((lock.rootViewController?.presentedViewController as? UIAlertController)?.title, "PIN verification unavailable")
+    }
+
+    @MainActor
+    private func drainPINCallbacks() async {
+        for _ in 0 ..< 5 {
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+        }
+    }
+
+
+    func testStartupRetryReportsCurrentFailureWithoutReplacingRecoveryMarker() throws {
+        let settings = InMemorySettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
+        settings.setWalletMigrationRecovery(reason: reason)
+        let original = WalletMigrationRecoveryMarker.capture(settings)
+        let secret = "PRIVATE-wallet-address-path-and-phrase"
+        let failures: [(Error, WalletStartupDiagnostic.Cause, Int?)] = [
+            (UserStorageMigrationError.backupVerificationFailed(secret), .backupVerification, nil),
+            (WalletNetworkMigrationError.legacyIdentityMismatch(secret), .legacyIdentityMismatch, nil),
+            (WalletIntegrityError.selectedAccountSecretMissing(address: secret), .missingSecret, nil),
+            (KeystoreSystemError(status: -25308), .keychainSystem, -25308),
+            (NSError(domain: NSCocoaErrorDomain, code: 134100,
+                userInfo: [NSLocalizedDescriptionKey: secret, NSFilePathErrorKey: secret]), .cocoa, 134100),
+            (NSError(domain: secret, code: 7, userInfo: [NSLocalizedDescriptionKey: secret]), .unexpected, nil)
+        ]
+        for (error, cause, systemCode) in failures {
+            var migrated = false
+            XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                try WalletStartupDiagnostic.check(.databaseInventory) { throw error }
+            }, migration: { migrated = true }), .recoveryRequired)
+            XCTAssertFalse(migrated)
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), original)
+            let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+            XCTAssertEqual(diagnostic.phase, .databaseInventory)
+            XCTAssertEqual(diagnostic.cause, cause)
+            XCTAssertEqual(diagnostic.systemCode, systemCode)
+            XCTAssertFalse(diagnostic.summary.contains(secret))
+            XCTAssertFalse(diagnostic.userMessage.isEmpty)
+            XCTAssertFalse(diagnostic.userMessage.contains(secret))
+            XCTAssertFalse(try String(decoding: JSONEncoder().encode(diagnostic), as: UTF8.self).contains(secret))
+        }
+        settings.setWalletMigrationRecovery(reason: "A newer integrity failure")
+        XCTAssertNil(WalletStartupDiagnostic.current(settings), "A new marker must not display the previous attempt's diagnostic")
+
+        let fresh = InMemorySettingsManager()
+        XCTAssertEqual(WalletStorageStartup.run(settings: fresh, migration: {
+            throw KeystoreSystemError(status: -34018)
+        }), .recoveryRequired)
+        XCTAssertEqual(WalletStartupDiagnostic.current(fresh)?.phase, .databaseMigration)
+        XCTAssertEqual(WalletStartupDiagnostic.current(fresh)?.systemCode, -34018)
+        XCTAssertEqual(fresh.walletMigrationRecoveryReason, reason)
+    }
+
+    @MainActor
+    func testRecoveryDetailsIncludeLatestSafeDiagnosticAndRejectInvalidStoredCodes() throws {
+        let previousClipboard = UIPasteboard.general.string
+        defer { UIPasteboard.general.string = previousClipboard }
+        let settings = InMemorySettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.unexpectedFail)
+        settings.setWalletMigrationRecovery(reason: reason)
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        WalletStartupDiagnostic.record(KeystoreSystemError(status: -25308),
+            phase: .networkBootstrap, settings: settings)
+        let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
+        let controller = WalletRecoveryViewController(reason: reason, diagnostic: diagnostic)
+        controller.loadViewIfNeeded()
+        let copy = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-copy-details" })
+        copy.sendActions(for: .touchUpInside)
+        let details = try XCTUnwrap(UIPasteboard.general.string)
+        XCTAssertTrue(details.contains(reason))
+        XCTAssertTrue(details.contains("Latest verification: network_bootstrap / keychain_system (-25308)"))
+        XCTAssertTrue(details.contains("Recovery report format: 2"))
+        XCTAssertTrue(details.contains("Protected data when copied: "))
+        XCTAssertTrue(details.contains("iOS: "))
+        XCTAssertTrue(details.contains("Current failure: \(diagnostic.userMessage)"))
+        let latestRange = try XCTUnwrap(details.range(of: "Latest verification:"))
+        let originalRange = try XCTUnwrap(details.range(of: "Original recovery trigger:"))
+        XCTAssertLessThan(latestRange.lowerBound, originalRange.lowerBound)
+        let visibleDiagnostic = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-diagnostic" })
+        XCTAssertEqual(visibleDiagnostic.text, diagnostic.summary)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+
+        let privateHistoricalText = "PRIVATE-ACCOUNT-ADDRESS-PHRASE-PATH"
+        let historicalController = WalletRecoveryViewController(reason: privateHistoricalText, diagnostic: diagnostic)
+        historicalController.loadViewIfNeeded()
+        let historicalCopy = try XCTUnwrap(descendants(historicalController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-copy-details" })
+        historicalCopy.sendActions(for: .touchUpInside)
+        let historicalDetails = try XCTUnwrap(UIPasteboard.general.string)
+        XCTAssertFalse(historicalDetails.contains(privateHistoricalText))
+        XCTAssertTrue(historicalDetails.contains(diagnostic.summary))
+        XCTAssertTrue(historicalDetails.contains("Original recovery trigger: legacy record"))
+
+        let oldController = WalletRecoveryViewController(reason: reason, onRetry: {})
+        oldController.loadViewIfNeeded()
+        let oldDiagnostic = try XCTUnwrap(descendants(oldController.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-diagnostic" })
+        XCTAssertTrue(try XCTUnwrap(oldDiagnostic.text).contains("Try again"))
+
+        var stored = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(diagnostic)) as? [String: Any])
+        stored["cause"] = "PRIVATE-ACCOUNT"
+        let malformed = try JSONSerialization.data(withJSONObject: stored)
+        settings.set(value: String(decoding: malformed, as: UTF8.self), for: "walletStartupDiagnostic")
+        XCTAssertNil(WalletStartupDiagnostic.current(settings))
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+    }
+
+    @MainActor
+    func testWalletRecoveryRetryRunsOnceWithoutClearingRecoveryState() throws {
+        let settings = InMemorySettingsManager()
+        let reason = UserStorageMigrationError.privacySafeRecoveryDescription(for: KeystoreError.invalidIdentifierFormat)
+        settings.setWalletMigrationRecovery(reason: reason)
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        var retries = 0
+        let controller = WalletRecoveryViewController(reason: reason, onRetry: {
+            XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+            retries += 1
+        })
+        controller.loadViewIfNeeded()
+        controller.view.frame = CGRect(x: 0, y: 0, width: 375, height: 667)
+        controller.view.layoutIfNeeded()
+        let retry = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
+        XCTAssertEqual(retry.title(for: .normal), "Try again")
+        XCTAssertTrue(retry.isEnabled)
+        XCTAssertFalse(retry.isHidden)
+        XCTAssertFalse(retry.frame.isEmpty)
+        retry.sendActions(for: .touchUpInside)
+        retry.sendActions(for: .touchUpInside)
+        XCTAssertEqual(retries, 1)
+        XCTAssertFalse(retry.isEnabled)
+        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+        let passiveController = WalletRecoveryViewController(reason: reason)
+        passiveController.loadViewIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(descendants(passiveController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-retry" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" }).isHidden)
+
+        WalletStartupDiagnostic.record(UserStorageMigrationError.missingWalletSecret("fixture"),
+            phase: .databaseMigration, settings: settings)
+        let missingKeysController = WalletRecoveryViewController(reason: reason,
+            diagnostic: WalletStartupDiagnostic.current(settings), onRetry: {})
+        missingKeysController.loadViewIfNeeded()
+        let restore = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" })
+        XCTAssertFalse(restore.isHidden)
+        XCTAssertTrue(restore.isEnabled)
+        let restoreCloud = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" })
+        XCTAssertFalse(restoreCloud.isHidden)
+        XCTAssertTrue(restoreCloud.isEnabled)
+        XCTAssertEqual(restoreCloud.title(for: .normal), "Restore from Google Drive backup")
+        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.notFound),
+            "Backup not found")
+        XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.notFound)
+            .contains("again to choose another Google account"))
+        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.authorizationCanceled),
+            "Google sign-in canceled")
+        XCTAssertTrue(WalletCloudBackupRecoveryError.userMessage(for: WalletCloudBackupRecoveryError.authorizationCanceled)
+            .contains("No wallet keys were changed"))
+        XCTAssertEqual(WalletCloudBackupRecoveryError.title(for: WalletCloudBackupRecoveryError.incorrectPassword),
+            "Wallet keys not restored")
+        XCTAssertTrue(try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UILabel }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-cloud-status" }).isHidden)
+        let missingKeysRetry = try XCTUnwrap(descendants(missingKeysController.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-retry" })
+        missingKeysRetry.sendActions(for: .touchUpInside)
+        XCTAssertFalse(restore.isEnabled)
+        XCTAssertFalse(restoreCloud.isEnabled)
+        let missingKeysWithoutRetry = WalletRecoveryViewController(reason: reason,
+            diagnostic: WalletStartupDiagnostic.current(settings))
+        missingKeysWithoutRetry.loadViewIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-keys" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(descendants(missingKeysWithoutRetry.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-recovery-restore-cloud-backup" }).isHidden)
+    }
+
+    @MainActor
+    func testStorageRetryRemainsAvailableAfterRepeatedLowSpace() throws {
+        let window = SoraWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        let presenter = SplashPresenter(window: window)
+        let controller = SplashViewController()
+        controller.presenter = presenter
+        presenter.view = controller
+        var retries = 0
+        for expected in 1 ... 2 {
+            controller.showStorageSpaceRetry { retries += 1 }
+            controller.view.layoutIfNeeded()
+            let retry = try XCTUnwrap(descendants(controller.view)
+                .compactMap { $0 as? UIButton }
+                .first { $0.accessibilityIdentifier == "wallet-upgrade-storage-retry" })
+            XCTAssertTrue(retry.isEnabled)
+            XCTAssertFalse(retry.frame.isEmpty)
+            retry.sendActions(for: .touchUpInside)
+            XCTAssertEqual(retries, expected)
+            XCTAssertFalse(retry.isEnabled)
+        }
+    }
+
+    @MainActor
+    func testEditableSoraTextRetainsDynamicTypeAfterChanges() throws {
+        let parent = UIViewController()
+        let child = UIViewController()
+        parent.addChild(child)
+        parent.view.addSubview(child.view)
+        child.didMove(toParent: parent)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        window.rootViewController = parent
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let field = SoramitsuTextField()
+        let textView = SoramitsuTextView()
+        let unchanged = SoramitsuTextField()
+        [field, textView, unchanged].forEach { child.view.addSubview($0) }
+        field.sora.dynamicTextStyle = .body
+        textView.sora.dynamicTextStyle = .body
+        let base = FontType.textM.font
+        for category: UIContentSizeCategory in [.large, .accessibilityExtraExtraExtraLarge] {
+            if #available(iOS 17.0, *) {
+                child.traitOverrides.preferredContentSizeCategory = category
+                child.updateTraitsIfNeeded()
+                child.view.updateTraitsIfNeeded()
+                [field, textView, unchanged].forEach { $0.updateTraitsIfNeeded() }
+            } else {
+                parent.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: category), forChild: child)
+            }
+            parent.view.layoutIfNeeded()
+            child.view.layoutIfNeeded()
+            XCTAssertEqual(field.traitCollection.preferredContentSizeCategory, category)
+            XCTAssertEqual(textView.traitCollection.preferredContentSizeCategory, category)
+            for input in ["First", "Edited again"] {
+                field.sora.text = input
+                textView.sora.text = input
+                unchanged.sora.text = input
+                let expected = UIFontMetrics(forTextStyle: .body).scaledFont(for: base,
+                    compatibleWith: UITraitCollection(preferredContentSizeCategory: category)).pointSize
+                let fieldFont = try XCTUnwrap(field.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+                let viewFont = try XCTUnwrap(textView.attributedText.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+                XCTAssertEqual(fieldFont.pointSize, expected, accuracy: 0.1)
+                XCTAssertEqual(viewFont.pointSize, expected, accuracy: 0.1)
+                let originalFont = try XCTUnwrap(unchanged.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+                XCTAssertEqual(originalFont.pointSize, base.pointSize, accuracy: 0.1)
+            }
+        }
+    }
+
+    @MainActor
+    func testRecoveryChoicesExposeSelectionAndRequireAllAcknowledgements() throws {
+        let controller = AccountWarningViewController(warningType: .passphrase)
+        var completions = 0
+        controller.completion = { completions += 1 }
+        controller.loadViewIfNeeded()
+        let choices = descendants(controller.view).compactMap { $0 as? CheckView }
+        XCTAssertEqual(choices.count, 3)
+        controller.completeTapped()
+        XCTAssertEqual(completions, 0)
+        for choice in choices {
+            XCTAssertTrue(choice.isAccessibilityElement)
+            XCTAssertFalse(choice.accessibilityLabel?.isEmpty ?? true)
+            XCTAssertFalse(choice.accessibilityTraits.contains(.selected))
+            XCTAssertTrue(choice.accessibilityActivate())
+            XCTAssertTrue(choice.accessibilityTraits.contains(.selected))
+        }
+        controller.completeTapped()
+        XCTAssertEqual(completions, 1)
+        XCTAssertTrue(try XCTUnwrap(choices.first).accessibilityActivate())
+        controller.completeTapped()
+        XCTAssertEqual(completions, 1)
+    }
+
+    func testPristineCurrentSQLiteCanRelaunchWithOrdinarySidecars() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        let modelURL = try XCTUnwrap(Bundle.main.url(forResource: UserStorageParams.modelVersion.rawValue,
+            withExtension: "omo", subdirectory: UserStorageParams.modelDirectory)
+            ?? Bundle.main.url(forResource: UserStorageParams.modelVersion.rawValue,
+                withExtension: "mom", subdirectory: UserStorageParams.modelDirectory))
+        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: modelURL))
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let database = try coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil,
+            at: storeURL, options: nil)
+        defer { try? coordinator.remove(database) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path + "-shm"))
+        let originalStore = try Data(contentsOf: storeURL)
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let migrator = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory, keystore: keychain, settings: settings,
+            fileManager: .default, recoveryGate: gate, loadWalletNetworkSnapshot: { nil })
+        for _ in 0 ..< 2 {
+            try migrator.performMigration()
+            XCTAssertFalse(settings.hasRetainedWalletSettings())
+            XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("WalletMigrationSafety").path))
+            XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        }
+        try keychain.addKey(Data([1]), with: KeystoreTag.pincode.rawValue)
+        XCTAssertThrowsError(try migrator.performMigration()) { error in
+            guard case UserStorageMigrationError.missingWalletStore = error else {
+                return XCTFail("Unexpected retained-wallet admission: \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+    }
+
+    func testFirstLaunchKeepsPristineNamespaceAndReachesOnboarding() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let root = RootInteractor(settings: settings, keystore: keychain, migrators: [],
+            securityLayerInteractor: WalletUXSecurityLayerStub(),
+            networkAvailabilityLayerInteractor: nil, legacyUpgradeSelectedAccount: { nil },
+            legacyUpgradeSnapshotLoader: { try store.load() }, legacyUpgradeUnresolvedCommitLoader: { [] })
+        let presenter = WalletUXRootPresenterSpy()
+        root.presenter = presenter
+        for _ in 0 ..< 2 {
+            try SplashInteractor.initializeWalletNetworksIfNeeded(accounts: [], selectedAddress: nil,
+                store: store, keystore: keychain, settings: settings)
+            XCTAssertNil(try store.load())
+            XCTAssertFalse(settings.hasRetainedWalletSettings())
+            root.decideModuleSynchroniously()
+        }
+        XCTAssertEqual(presenter.decisions, [.onboarding, .onboarding])
+    }
+
+    func testEmptyBootstrapPreservesRetainedEvidenceAndRecovery() throws {
+        for kind in ["pin", "watch-only", "version", "identity"] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let store = try makeWalletNetworkStore(baseURL: directory)
+            let settings = InMemorySettingsManager()
+            let keychain = InMemoryKeychain()
+            switch kind {
+            case "pin": try keychain.addKey(Data([1, 2, 3]), with: KeystoreTag.pincode.rawValue)
+            case "watch-only": settings.set(value: true, for: "wallet.watchOnly.retained")
+            case "version": settings.set(value: 3, for: SettingsKey.walletNetworkStoreVersion.rawValue)
+            default: settings.set(value: "retained-id", for: SettingsKey.decentralizedId.rawValue)
+            }
+            let keysBefore = Set(settings.allKeys())
+            let identifiersBefore = try keychain.allKeyIdentifiers()
+            try SplashInteractor.initializeWalletNetworksIfNeeded(accounts: [], selectedAddress: nil,
+                store: store, keystore: keychain, settings: settings)
+            XCTAssertEqual(Set(settings.allKeys()), keysBefore)
+            XCTAssertEqual(try keychain.allKeyIdentifiers(), identifiersBefore)
+            XCTAssertNil(try store.load())
+            let root = RootInteractor(settings: settings, keystore: keychain, migrators: [],
+                securityLayerInteractor: WalletUXSecurityLayerStub(),
+                networkAvailabilityLayerInteractor: nil, legacyUpgradeSelectedAccount: { nil },
+                legacyUpgradeSnapshotLoader: { try store.load() }, legacyUpgradeUnresolvedCommitLoader: { [] })
+            let presenter = WalletUXRootPresenterSpy()
+            root.presenter = presenter
+            root.decideModuleSynchroniously()
+            XCTAssertEqual(presenter.decisions, [.broken], kind)
+        }
+    }
+
+    func testEmptyBootstrapRejectsCorruptSnapshotWithoutChangingIt() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let pointer = directory.appendingPathComponent("SORA/WalletNetworks/active.json")
+        let retained = Data("interrupted-pointer".utf8)
+        try retained.write(to: pointer)
+        XCTAssertThrowsError(try SplashInteractor.initializeWalletNetworksIfNeeded(accounts: [], selectedAddress: nil,
+            store: store, keystore: InMemoryKeychain(), settings: InMemorySettingsManager()))
+        XCTAssertEqual(try Data(contentsOf: pointer), retained)
+    }
+
+    private func makeWalletNetworkStore(baseURL: URL) throws -> WalletNetworkStore {
+        let gate = WalletRecoveryCapabilityGate(settings: InMemorySettingsManager(),
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        return try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+    }
+
+    @MainActor
+    func testChartKeepsItsDescriptionAndExpandsForNarrowScreens() {
+        let chart = PolkamarktLineChartView(frame: .zero)
+        chart.caption = "Yes probability history"
+        chart.context = "From 30% yesterday to 65% today. Vertical scale: 0% to 100%. Snapshots run from oldest to newest at equal spacing."
+        chart.values = [0.3, 0.5, 0.65]
+        XCTAssertTrue(chart.isAccessibilityElement)
+        XCTAssertTrue(chart.accessibilityLabel?.contains(chart.context) == true)
+        let wide = chart.sizeThatFits(CGSize(width: 600, height: 1000))
+        let narrow = chart.sizeThatFits(CGSize(width: 320, height: 1000))
+        XCTAssertGreaterThan(narrow.height, wide.height)
+        XCTAssertGreaterThan(narrow.height, 180)
+    }
+
+    func testTotalRetainsExactPrecisionAndRejectsInvalidAmounts() throws {
+        for (amount, fee, expected) in [
+            ("12.5", "0.01", "12.51"),
+            ("0.000000001", "0.000000009", "0.000000010"),
+            ("999999999999999999999999999999999999999999.99", "0.01", "1000000000000000000000000000000000000000000.00")
+        ] {
+            XCTAssertEqual(WalletUX.total(amount: try PIQuantity(amount), fee: try PIQuantity(fee)), expected)
+        }
+        XCTAssertNil(WalletUX.total(amount: try PIQuantity("-1"), fee: try PIQuantity("0.01")))
+        XCTAssertNil(WalletUX.total(amount: try PIQuantity("1"), fee: try PIQuantity("-0.01")))
+    }
+
+    func testLocalizationUsesSelectedLanguageThenEnglishFallback() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("bundle")
+        defer { try? FileManager.default.removeItem(at: root) }
+        for (language, content) in [
+            ("en", "\"Greeting\" = \"Hello\";\n\"Fallback\" = \"English fallback\";"),
+            ("ja", "\"Greeting\" = \"こんにちは\";")
+        ] {
+            let directory = root.appendingPathComponent(language + ".lproj")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try content.write(to: directory.appendingPathComponent("Localizable.strings"), atomically: true, encoding: .utf8)
+        }
+        let bundle = try XCTUnwrap(Bundle(url: root))
+        XCTAssertEqual(WalletUX.text("Greeting", language: "ja", bundle: bundle), "こんにちは")
+        XCTAssertEqual(WalletUX.text("Fallback", language: "ja", bundle: bundle), "English fallback")
+        XCTAssertEqual(WalletUX.text("Greeting", language: "missing", bundle: bundle), "Hello")
+    }
+
+    @MainActor
+    func testWalletSecondaryTextMeetsContrastInBothThemes() {
+        let previous = SoramitsuUI.shared.themeMode
+        defer { SoramitsuUI.shared.themeMode = previous }
+        for mode in [SoramitsuThemeMode.manual(.light), .manual(.dark)] {
+            SoramitsuUI.shared.themeMode = mode
+            XCTAssertGreaterThanOrEqual(WalletUX.contrast(WalletUX.secondary, WalletUX.page), 4.5)
+            XCTAssertGreaterThanOrEqual(WalletUX.contrast(WalletUX.secondary, WalletUX.surface), 4.5)
+        }
+    }
+
+    @MainActor
+    func testBusySendCannotStartAnotherReview() throws {
+        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
+        view.loadViewIfNeeded()
+        try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextView }.first).text = "recipient"
+        try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextField }.first).text = "1"
+        var reviews = 0
+        view.onReview = { _, _ in reviews += 1; view.setBusy(true) }
+        let primary = try XCTUnwrap(button("Review send", in: view.view))
+        primary.sendActions(for: .touchUpInside)
+        primary.sendActions(for: .touchUpInside)
+        XCTAssertEqual(reviews, 1)
+    }
+
+    @MainActor
+    func testEditingReviewPreservesDraftAndRequiresAnotherQuote() throws {
+        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
+        view.loadViewIfNeeded()
+        let recipient = try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextView }.first)
+        let amount = try XCTUnwrap(descendants(view.view).compactMap { $0 as? UITextField }.first)
+        recipient.text = "test-recipient-address"
+        amount.text = "12.5"
+        let quantity = try PIQuantity("12.5")
+        let request = NexusTransferRequest(walletId: "test-wallet", networkId: .taira,
+            sender: "test-sender", receiver: recipient.text, amount: quantity)
+        let quote = NexusTransferFeeQuote(networkId: .taira, authority: "test-sender", receiver: recipient.text,
+            assetDefinitionId: "test-asset", amount: quantity, fee: try PIQuantity("0.01"), quoteIdentity: "test-quote", validUntilBlock: 100)
+        let prepared = NexusPreparedTransfer(request: request, canonicalReceiver: recipient.text,
+            assetDefinitionID: "test-asset", availableBalance: try PIQuantity("100"), quote: quote)
+        XCTAssertFalse(prepared.submissionMayHaveStarted)
+        view.showReview(prepared)
+        XCTAssertTrue(descendants(view.view).compactMap { ($0 as? UILabel)?.text }.contains("12.51 XOR"))
+        let edit = try XCTUnwrap(button("Edit details", in: view.view))
+        edit.sendActions(for: .touchUpInside)
+        XCTAssertEqual(recipient.text, "test-recipient-address")
+        XCTAssertEqual(amount.text, "12.5")
+        var reviewedDraft: (String, String)?
+        view.onReview = { reviewedDraft = ($0, $1) }
+        view.onConfirm = { _ in XCTFail("Editing must invalidate the prepared quote") }
+        try XCTUnwrap(button("Review send", in: view.view)).sendActions(for: .touchUpInside)
+        XCTAssertEqual(reviewedDraft?.0, "test-recipient-address")
+        XCTAssertEqual(reviewedDraft?.1, "12.5")
+
+        view.showReview(prepared)
+        view.setBusy(true)
+        view.showUnsentError(WalletUX.sendError(NexusToriiError.quoteExpired))
+        reviewedDraft = nil
+        try XCTUnwrap(button("Review send", in: view.view)).sendActions(for: .touchUpInside)
+        XCTAssertEqual(reviewedDraft?.0, "test-recipient-address")
+        XCTAssertEqual(reviewedDraft?.1, "12.5")
+
+        view.showReview(prepared)
+        var submissions = 0
+        view.onConfirm = { _ in submissions += 1; view.setBusy(true) }
+        let confirm = try XCTUnwrap(button("Confirm and send", in: view.view))
+        confirm.sendActions(for: .touchUpInside)
+        confirm.sendActions(for: .touchUpInside)
+        XCTAssertEqual(submissions, 1, "A busy confirmation must not submit twice")
+        prepared.markTransportStarted()
+        XCTAssertTrue(prepared.submissionMayHaveStarted)
+    }
+
+    func testAmbiguousSendNeverLooksCompletedOrInvitesResubmission() {
+        XCTAssertNotEqual(WalletUX.status(.submissionUnknown), WalletUX.status(.committed))
+        XCTAssertTrue(WalletUX.statusDetail(.submissionUnknown).contains("do not send it again"))
+        XCTAssertTrue(WalletUX.sendError(NexusToriiError.ambiguousSubmission).contains("Activity"))
+        XCTAssertNotEqual(WalletUX.status(.committedPendingReconciliation), WalletUX.status(.committed))
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.ambiguousSubmission))
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.confirmationAlreadySubmitted))
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.transactionHashMismatch))
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.httpStatus(500)))
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.server))
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.invalidResponse))
+        XCTAssertFalse(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.insufficientBalance))
+        XCTAssertFalse(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.quoteExpired))
+        XCTAssertFalse(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.httpStatus(500), submissionMayHaveStarted: false),
+                       "A failed read before transport must restore the draft")
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.quoteExpired, submissionMayHaveStarted: true),
+                      "The transport boundary takes precedence over an error classification")
+        XCTAssertTrue(WalletUX.sendOutcomeNeedsChecking(NexusToriiError.confirmationAlreadySubmitted, submissionMayHaveStarted: false))
+    }
+
+    @MainActor
+    func testUncertainSubmissionOnlyOffersActivity() throws {
+        let view = NexusSendViewController(network: "Taira · TESTNET", balance: "100")
+        view.loadViewIfNeeded()
+        view.onConfirm = { _ in XCTFail("An uncertain submission must not be sent again") }
+        view.onReview = { _, _ in XCTFail("An uncertain submission must not be reviewed again") }
+        view.showUncertainSubmission(WalletUX.sendError(NexusToriiError.ambiguousSubmission))
+        let primary = try XCTUnwrap(button("Review send", in: view.view))
+        let edit = try XCTUnwrap(button("Edit details", in: view.view))
+        XCTAssertTrue(primary.isHidden)
+        XCTAssertTrue(edit.isHidden)
+        XCTAssertFalse(try XCTUnwrap(button("View Activity", in: view.view)).isHidden)
+        primary.sendActions(for: .touchUpInside)
+        edit.sendActions(for: .touchUpInside)
+        XCTAssertTrue(primary.isHidden)
+    }
+
+    func testDurableAncestorSynchronizationStopsAtContainerBeforeSandboxDeniedParent() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let container = root.appendingPathComponent("AppHome", isDirectory: true)
+        let shallow = container.appendingPathComponent("Documents/CoreData", isDirectory: true)
+        let deep = container.appendingPathComponent("Library/Application Support/SORA/WalletNetworks", isDirectory: true)
+        try FileManager.default.createDirectory(at: shallow, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: deep, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let alias = root.appendingPathComponent("AppHomeAlias", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: container)
+        let homeDescriptor = Darwin.open(container.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(homeDescriptor, 0)
+        defer { _ = Darwin.close(homeDescriptor) }
+        var homeIdentity = stat()
+        XCTAssertEqual(Darwin.fstat(homeDescriptor, &homeIdentity), 0)
+        let cases: [(URL, URL, Int)] = [
+            (container, container, 0),
+            (shallow, container, 2),
+            (deep, container, 4),
+            (alias.appendingPathComponent("Documents/CoreData"), container, 2),
+            (shallow, alias, 2)
+        ]
+        for (start, boundary, expectedOpens) in cases {
+            let descriptor = Darwin.open(start.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            XCTAssertGreaterThanOrEqual(descriptor, 0)
+            defer { _ = Darwin.close(descriptor) }
+            var opens = 0
+            var outsideContainerAttempted = false
+            try DurableFileWriter.synchronizeAncestorDirectoryEntries(from: descriptor,
+                maximumDepth: 4, containerURL: boundary, openParent: { current in
+                    var identity = stat()
+                    guard Darwin.fstat(current, &identity) == 0 else { return -1 }
+                    if identity.st_dev == homeIdentity.st_dev && identity.st_ino == homeIdentity.st_ino {
+                        outsideContainerAttempted = true
+                        errno = EACCES
+                        return -1
+                    }
+                    opens += 1
+                    return Darwin.openat(current, "..", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                })
+            XCTAssertEqual(opens, expectedOpens)
+            XCTAssertFalse(outsideContainerAttempted,
+                "The app container must be recognized before openat attempts its forbidden parent")
+        }
+        let descriptor = Darwin.open(shallow.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { _ = Darwin.close(descriptor) }
+        var attempted = 0
+        XCTAssertThrowsError(try DurableFileWriter.synchronizeAncestorDirectoryEntries(from: descriptor,
+            maximumDepth: 4, containerURL: container, openParent: { _ in
+                attempted += 1
+                errno = EACCES
+                return -1
+            })) { error in
+                guard case DurableFileWriter.Failure.fileSystemFailure = error else {
+                    return XCTFail("An in-container durability failure must remain a failure")
+                }
+            }
+        XCTAssertEqual(attempted, 1)
+    }
+
+    @MainActor
+    private func descendants(_ view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + descendants($0) }
+    }
+    @MainActor
+    private func button(_ title: String, in view: UIView) -> UIButton? {
+        descendants(view).compactMap { $0 as? UIButton }.first {
+            ($0.configuration?.title ?? $0.title(for: .normal)) == WalletUX.text(title)
+        }
+    }
+}
+
+private final class WalletUXSecurityLayerStub: SecurityLayerInteractorInputProtocol {
+    func setup() {}
+}
+
+private final class WalletUXRootPresenterSpy: RootInteractorOutputProtocol {
+    enum Decision: Equatable { case onboarding, legacyWalletUpgrade, localAuthentication, broken, pincodeSetup }
+    var decisions: [Decision] = []
+    func didDecideOnboarding() { decisions.append(.onboarding) }
+    func didDecideLegacyWalletUpgrade() { decisions.append(.legacyWalletUpgrade) }
+    func didDecideLocalAuthentication() { decisions.append(.localAuthentication) }
+    func didDecideBroken() { decisions.append(.broken) }
+    func didDecidePincodeSetup() { decisions.append(.pincodeSetup) }
+}
+
+private final class WalletUXNoBiometry: BiometryAuthProtocol {
+    var availableBiometryType: AvailableBiometryType { .none }
+    func authenticate(localizedReason: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        completionQueue.async { completionBlock(false) }
+    }
+}
+
+private final class WalletUXPINViewSpy: UIViewController, PinSetupViewProtocol {
+    var controller: UIViewController { self }
+    var symbolCounts: [Int] = []
+    var updateRequests = 0
+    var titles: [String] = []
+    var blockedDates: [Date] = []
+    func didRequestBiometryUsage(biometryType: AvailableBiometryType, completionBlock: @escaping (Bool) -> Void) { completionBlock(false) }
+    func didChangeAccessoryState(enabled: Bool) {}
+    func didReceiveWrongPincode() {}
+    func updatePinCodeSymbolsCount(with count: Int) { symbolCounts.append(count) }
+    func showUpdatePinRequestView() { updateRequests += 1 }
+    func blockUserInputUntil(date: Date) { blockedDates.append(date) }
+    func showLastChanceAlert() {}
+    func updateInputedCircles(with count: Int) {}
+    func setupDeleteButton(isHidden: Bool) {}
+    func setupTitleLabel(text: String) { titles.append(text) }
+    func resetTitleColor() {}
+    func animateWrongInputError(with completion: @escaping (Bool) -> Void) { completion(true) }
+    func askBiometryPermission() {}
+}
+
+private final class WalletUXLocalAuthSpy: LocalAuthInteractorInputProtocol {
+    var allowManualBiometryAuth: Bool { false }
+    var countRequests = 0
+    var submitted: [String] = []
+    var updated: [String] = []
+    var blockDate: Date?
+    func startAuth(completion: (() -> Void)?) {}
+    func process(pin: String) { submitted.append(pin) }
+    func getPinCodeCount() { countRequests += 1 }
+    func getInputBlockDate() -> Date? { blockDate }
+    func updatePin(pin: String, completion: (() -> Void)?) { updated.append(pin); completion?() }
+}
+
+private final class WalletUXPINWireframeSpy: PinSetupWireframeProtocol {
+    var mainCount = 0
+    func dismiss(from view: PinSetupViewProtocol?) {}
+    func showMain(from view: PinSetupViewProtocol?) { mainCount += 1 }
+    func showSignup(from view: PinSetupViewProtocol?) {}
+    func showPinUpdatedNotify(from view: PinSetupViewProtocol?, completionBlock: @escaping () -> Void) { completionBlock() }
+}
+
+private final class WalletUXAuthorizationSpy: ScreenAuthorizationWireframeProtocol {
+    var results: [Bool] = []
+    func showAuthorizationCompletion(with result: Bool) { results.append(result) }
+}
+
+private final class WalletUXNetworkStatusSpy: ApplicationStatusPresentable {
+    var alerts = 0
+    var statuses: [String] = []
+    func presentAlert(alert: UIAlertController, animated: Bool) { alerts += 1 }
+    func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) { statuses.append(title) }
+    func dismissStatus(title: String?, style: ApplicationStatusStyle?, animated: Bool) {}
+}
+
+// Test-only projections leave the production JSON decoder's access control intact.
+extension NexusJSONValue {
+    var nexusTestObject: [String: NexusJSONValue]? {
+        guard case let .object(value) = self else { return nil }
+        return value
+    }
+    var nexusTestArray: [NexusJSONValue]? {
+        guard case let .array(value) = self else { return nil }
+        return value
+    }
+    var nexusTestString: String? {
+        guard case let .string(value) = self else { return nil }
+        return value
+    }
+}

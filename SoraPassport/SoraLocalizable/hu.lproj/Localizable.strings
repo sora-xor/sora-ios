@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Helyreállítási szavak";
 "common.passphrase.save.or.send" = "Mentés vagy küldés";
 "common.passphrase.header" = "A helyreállítási szavak\negyfajta jelszó.";
-"common.passphrase.body" = "A fiókhoz való hozzáférés helyreállítására szolgál. Írd le, nem leszünk képesek visszaállítani a fiókod  ez nélkül!";
+"common.passphrase.body" = "Új SORA-fiók létrehozásakor mostantól 24 szavas jelmondatot kap. A meglévő 12 vagy 24 szavas SORA-jelmondatok importálhatók, és továbbra is működnek.";
 "common.passphrase.your.passphrase" = "Helyreállítási szavaid";
 "network.unavailable" = "A hálózati kapcsolat nem érhető el";
 "common.save" = "Ment";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Kérjük ellenőrizd az internet kapcsolatot és próbáld újra később";
 "common.error.general.message" = "Dolgozunk a probléma megoldásán. Kérlek próbáld újra később.";
 "result.ambiguous.error.title" = "Nem egyértelmű eredmény";
-"access.restore.words.error.message" = "A helyreállítási szavaknak 15 szót kell tartalmaznia";
-"access.restore.phrase.error.message" = "Az általad megadott helyreállítási szavak érvénytelenek. Kérjük próbálkozz egy másikkal.";
+"access.restore.words.error.message" = "A helyreállítási szavaknak 12 vagy 24 szót kell tartalmaznia";
+"access.restore.phrase.error.message" = "Ellenőrizze, hogy a jelmondata 12 vagy 24 szóból áll-e, és minden szó helyes-e.";
 "wallet.search.query.error.message" = "Minimum 3 és 64 karakter között kell lennie";
 "user.create.phone.registered.error.message" = "Ezt a telefonszámot már regisztrálták";
 "common.error.invalid.parameters" = "Érvénytelen paraméterek";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Export JSON";
 "export.protection.passphrase.title" = "Passphrase";
 "export.protection.json.description" = "In the next step you will be able to download a JSON file that allow you to recover your accounts.";
-"export.protection.passphrase.description" = "In the next step you will see Passphrase (12 words) that allow you to recover an account.";
+"export.protection.passphrase.description" = "In the next step you will see the 24-word passphrase that allows you to recover the account.";
 "export.protection.seed.description" = "In the next step you will see Raw Seed (a long hash) that allow you to recover an account.";
 "export.protection.json.1" = "If I lose my JSON, my funds will be lost forever.";
 "export.protection.json.2" = "If I expose or share my JSON to anybody, my funds can get stolen.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

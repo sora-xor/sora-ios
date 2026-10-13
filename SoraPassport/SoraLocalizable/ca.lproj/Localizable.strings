@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Passphrase";
 "common.passphrase.save.or.send" = "Desar o enviar";
 "common.passphrase.header" = "Les passphrase són\nun tipus de contrasenya.";
-"common.passphrase.body" = "Quan creeu un compte nou a SORA, ara obtindreu una frase de contrasenya de 12 paraules. Si ja teniu una frase de contrasenya SORA de 15 paraules, podeu importar-hi el compte; també són compatibles i continuaran funcionant.";
+"common.passphrase.body" = "Quan creeu un compte nou a SORA, ara obtindreu una frase de contrasenya de 24 paraules. Les frases de contrasenya SORA existents de 12 o 24 paraules es poden importar i continuaran funcionant.";
 "common.passphrase.your.passphrase" = "Les teves paraules de pas";
 "network.unavailable" = "Connexió de xarxa no disponible";
 "common.save" = "Desar";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Si us plau, comproveu la connexió a Internet i torneu a provar més tard.";
 "common.error.general.message" = "Estem treballant dur per solucionar el problema. Si us plau, torneu-ho a provar més tard.";
 "result.ambiguous.error.title" = "Resultat ambigu";
-"access.restore.words.error.message" = "Les paraules de pas es componen de 15 paraules";
-"access.restore.phrase.error.message" = "Assegureu-vos que la vostra frase de contrasenya consti de 12 o 15 paraules i que totes siguin correctes.";
+"access.restore.words.error.message" = "Les paraules de pas es componen de 12 o 24 paraules";
+"access.restore.phrase.error.message" = "Assegureu-vos que la vostra frase de contrasenya consti de 12 o 24 paraules i que totes siguin correctes.";
 "wallet.search.query.error.message" = "La mida de la cerca ha d'estar entre 3 i 64 caràcters";
 "user.create.phone.registered.error.message" = "Número de telèfon ja utilitzat durant el registre amb aquest o un altre usuari";
 "common.error.invalid.parameters" = "Paràmetres no vàlids";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Exportar el JSON";
 "export.protection.passphrase.title" = "Passphrase";
 "export.protection.json.description" = "En el següent pas podràs descarregar un arxiu JSON que et permetrà recuperar un compte.";
-"export.protection.passphrase.description" = "En el següent pas veuràs la frase de pas (12 paraules) que et permetrà recuperar un compte.";
+"export.protection.passphrase.description" = "En el següent pas veuràs la frase de pas (24 paraules) que et permetrà recuperar un compte.";
 "export.protection.seed.description" = "En el següent pas veuràs la llavor completa (un hash llarg) que et permetrà recuperar un compte.";
 "export.protection.json.1" = "Si perdo el meu JSON, els meus fons es perdran per sempre.";
 "export.protection.json.2" = "Si exposo o comparteixo el meu JSON amb algú, els meus fons poden ser robats.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

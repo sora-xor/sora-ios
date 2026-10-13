@@ -93,6 +93,11 @@ final class ConfirmViewController: SoramitsuViewController {
         viewModel.viewDidLoad()
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        viewModel.viewWillDisappear()
+        super.viewWillDisappear(animated)
+    }
+
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)

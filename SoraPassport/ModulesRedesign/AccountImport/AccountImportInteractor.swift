@@ -38,6 +38,8 @@ import SSFCloudStorage
 final class AccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     private let eventCenter: EventCenterProtocol
+    private let preparedAccountPersistence: (PreparedAccount) throws -> Void
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -45,10 +47,20 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol,
-         cloudStorage: CloudStorageServiceProtocol? = nil
+         cloudStorage: CloudStorageServiceProtocol? = nil,
+         allowedMnemonicWordCounts: Set<Int> =
+             WalletMnemonicWordPolicy.userImportWordCounts,
+         preparedAccountPersistence:
+             ((PreparedAccount) throws -> Void)? = nil,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared
     ) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.lifecycleCoordinator = lifecycleCoordinator
+        self.preparedAccountPersistence =
+            preparedAccountPersistence ?? { prepared in
+                try accountOperationFactory.persistPreparedAccount(prepared)
+            }
 
         super.init(accountOperationFactory: accountOperationFactory,
                    accountRepository: accountRepository,
@@ -56,57 +68,103 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                    keystoreImportService: keystoreImportService,
                    supportedNetworks: Chain.allCases,
                    defaultNetwork: Chain.sora,
-                   cloudStorage: cloudStorage)
+                   cloudStorage: cloudStorage,
+                   allowedMnemonicWordCounts: allowedMnemonicWordCounts)
     }
 
-    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        let persistentOperation = accountRepository.saveOperation({
-            let accountItem = try importOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            return [accountItem]
-        }, { [] })
-
-        persistentOperation.addDependency(importOperation)
-
-        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
-            let accountItem = try importOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-
-            return accountItem
-        }
-
-        connectionOperation.addDependency(persistentOperation)
-
-        connectionOperation.completionBlock = { [weak self] in
-            DispatchQueue.main.async {
-                switch connectionOperation.result {
-                case .success(let accountItem):
-                    self?.settings.save(value: accountItem)
-                    self?.eventCenter.notify(with: SelectedAccountChanged())
-                    self?.presenter?.didCompleteAccountImport()
-                case .failure(let error):
-                    self?.presenter?.didReceiveAccountImport(error: error)
-                case .none:
-                    let error = BaseOperationError.parentOperationCancelled
-                    self?.presenter?.didReceiveAccountImport(error: error)
+    override func importAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
+    ) {
+        let lifecycleCoordinator = self.lifecycleCoordinator
+        let lifecycleOperation =
+            lifecycleCoordinator.makeAcquireOperation()
+        importOperation.addDependency(lifecycleOperation)
+        let selectionEventCenter = eventCenter
+        importOperation.completionBlock = { [weak self] in
+            let leaseResult = Result {
+                try lifecycleOperation.extractNoCancellableResultData()
+            }
+            let preparedResult = Result {
+                try importOperation.extractNoCancellableResultData()
+            }
+            guard let self else {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                return
+            }
+            do {
+                let lifecycleLease = try leaseResult.get()
+                let prepared = try preparedResult.get()
+                self.settings.performInsertAndSelect(
+                    prepared: prepared,
+                    persistSecrets: {
+                        try self.preparedAccountPersistence(prepared)
+                    },
+                    lifecycleLease: lifecycleLease
+                ) { [weak self] result in
+                    lifecycleLease.release()
+                    DispatchQueue.main.async {
+                        switch result {
+                        case let .success(accountItem):
+                            selectionEventCenter.notify(
+                                with: SelectedAccountChanged(),
+                                completionOnMain: { [weak self] in
+                                    self?.presenter?
+                                        .didCompleteAccountImport()
+                                    completion?(.success(accountItem))
+                                }
+                            )
+                        case let .failure(error):
+                            self?.presenter?
+                                .didReceiveAccountImport(error: error)
+                            completion?(.failure(error))
+                        }
+                    }
                 }
-                
-                completion?(connectionOperation.result)
+            } catch {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                DispatchQueue.main.async { [weak self] in
+                    self?.presenter?
+                        .didReceiveAccountImport(error: error)
+                    completion?(.failure(error))
+                }
             }
         }
 
-        operationManager.enqueue(operations: [importOperation, persistentOperation, connectionOperation],
+        lifecycleCoordinator.enqueueOwnedAcquireOperation(
+            lifecycleOperation
+        )
+        operationManager.enqueue(operations: [
+            importOperation,
+        ],
                                  in: .sync)
     }
     
-    override func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Error>?) -> Void)?) {
+    override func validateAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem?, Error>?) -> Void)?
+    ) {
+        let lifecycleCoordinator = self.lifecycleCoordinator
+        let lifecycleOperation =
+            lifecycleCoordinator.makeAcquireOperation()
+        importOperation.addDependency(lifecycleOperation)
         importOperation.completionBlock = { [weak self] in
-            guard let self else { return }
+            let lifecycleLease = try? lifecycleOperation
+                .extractNoCancellableResultData()
+            guard let self else {
+                lifecycleLease?.release()
+                return
+            }
             switch importOperation.result {
-            case .success(let accountItem):
+            case .success(let prepared):
+                let accountItem = prepared.account
                 let checkOperation = self.accountRepository.fetchOperation(by: accountItem.address,
                                                                            options: RepositoryFetchOptions())
                 checkOperation.completionBlock = {
+                    prepared.discard()
+                    lifecycleLease?.release()
                     DispatchQueue.main.async {
                         completion?(checkOperation.result)
                     }
@@ -114,13 +172,29 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                 
                 operationManager.enqueue(operations: [checkOperation], in: .sync)
             case .failure(let error):
-                presenter.didReceiveAccountImport(error: error)
+                (try? importOperation
+                    .extractNoCancellableResultData())?.discard()
+                lifecycleLease?.release()
+                DispatchQueue.main.async {
+                    self.presenter.didReceiveAccountImport(error: error)
+                    completion?(.failure(error))
+                }
             case .none:
+                lifecycleLease?.release()
                 let error = BaseOperationError.parentOperationCancelled
-                presenter.didReceiveAccountImport(error: error)
+                DispatchQueue.main.async {
+                    self.presenter.didReceiveAccountImport(error: error)
+                    completion?(.failure(error))
+                }
             }
         }
         
-        operationManager.enqueue(operations: [importOperation], in: .sync)
+        lifecycleCoordinator.enqueueOwnedAcquireOperation(
+            lifecycleOperation
+        )
+        operationManager.enqueue(
+            operations: [importOperation],
+            in: .sync
+        )
     }
 }

@@ -31,6 +31,7 @@
 import Foundation
 import UIKit
 import SoraUIKit
+import SoraKeystore
 import SoraFoundation
 import Combine
 
@@ -39,6 +40,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     var viewModels: [ExplorePageViewModelProtocol]
     var searchViewModel: ExplorePageViewModelProtocol
     var wireframe: ExploreWireframeProtocol?
+    var showPredictionMarkets: (@MainActor () -> Void)?
     let debouncer = Debouncer(interval: 0.8)
     
     private let searchController = UISearchController(searchResultsController: nil)
@@ -171,8 +173,24 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         ], for: .normal)
 
         navigationItem.rightBarButtonItem = cratePoolButton
+        if SettingsManager.shared.polkamarktEnabled {
+            navigationItem.leftBarButtonItem = UIBarButtonItem(title: WalletUX.text("Prediction markets"), style: .plain,
+                target: self, action: #selector(openPredictionMarkets))
+        } else {
+            navigationItem.leftBarButtonItem = nil
+        }
     }
     
+    @objc private func openPredictionMarkets() {
+        guard SettingsManager.shared.polkamarktEnabled else { return }
+        showPredictionMarkets?()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateRightButtonItem()
+    }
+
     @objc
     private func createPool() {
         wireframe?.showLiquidity(on: self)

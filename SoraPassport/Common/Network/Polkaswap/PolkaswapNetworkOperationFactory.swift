@@ -160,8 +160,8 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
             engine: engine, method: RPCMethod.getStorage,
             parameters: [
                 try StorageKeyFactory().poolPropertiesKey(
-                    baseAssetId: Data(hex: baseAsset),
-                    targetAssetId: Data(hex: targetAsset)
+                    baseAssetId: Data.sora(hex: baseAsset),
+                    targetAssetId: Data.sora(hex: targetAsset)
                 ).toHex(includePrefix: true)
             ]
         )
@@ -190,8 +190,8 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
             method: RPCMethod.getStorage,
             parameters: [
                 try StorageKeyFactory().poolReservesKey(
-                    baseAssetId: Data(hex: baseAsset),
-                    targetAssetId: Data(hex: targetAsset)
+                    baseAssetId: Data.sora(hex: baseAsset),
+                    targetAssetId: Data.sora(hex: targetAsset)
                 ).toHex(includePrefix: true)
             ]
         )

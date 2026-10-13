@@ -65,7 +65,7 @@ final class ClaimRewardsViewModel {
         }
     }
     
-    private var fiatData: [FiatData] = [] {
+    private var fiatData: [PIExactFiatData] = [] {
         didSet {
             reload()
         }
@@ -124,7 +124,7 @@ extension ClaimRewardsViewModel: ClaimRewardsViewModelProtocol, AlertPresentable
                     isFarm: userFarmInfo.isFarm
                 ) ?? Decimal(0)
             } catch {
-                print("fee error: \(error)")
+                print("Claim fee calculation failed")
             }
             
             self?.fiatData = await self?.fiatService?.getFiat() ?? []
@@ -231,5 +231,3 @@ extension ClaimRewardsViewModel: ClaimRewardsViewModelProtocol, AlertPresentable
         }
     }
 }
-
-

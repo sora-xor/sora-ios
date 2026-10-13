@@ -34,12 +34,11 @@ import RobinHood
 import sorawallet
 
 struct PriceInfo {
-    let fiatData: [FiatData]
+    let fiatData: [PIExactFiatData]
     let marketCapInfo: Set<MarketCapInfo>
 }
 
 protocol PriceInfoServiceProtocol: AnyObject {
-    func setup(for assetIds: [String]) async
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo
 }
 
@@ -48,7 +47,6 @@ actor PriceInfoService {
     private var priceInfo: PriceInfo?
     private let fiatService = FiatService.shared
     private let marketCapService = MarketCapService.shared
-    private var task: Task<Void, Swift.Error>?
     
     private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
         async let fiatData = self.fiatService.getFiat()
@@ -59,11 +57,7 @@ actor PriceInfoService {
 }
 
 extension PriceInfoService: PriceInfoServiceProtocol {
-    
-    func setup(for assetIds: [String]) async {
-        priceInfo = await self.downloadInfo(for: assetIds)
-    }
-    
+
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo {
         if let priceInfo {
             let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })

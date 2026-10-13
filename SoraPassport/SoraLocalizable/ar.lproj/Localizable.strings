@@ -131,7 +131,7 @@
 "common.passphrase.title" = "الكلمات الأولية";
 "common.passphrase.save.or.send" = "حفظ أو إرسال";
 "common.passphrase.header" = "كلمات الإستذكار الأولية تعتبر ككلمة مرور";
-"common.passphrase.body" = "عند إنشاء حساب جديد في سورا، ستحصل على كلمات تولية مؤلفة من ١٢ كلمة. إذا كان لديك بالفعل كلمات اولية لسورا مكونة من ١٥ كلمة، فيمكنك استيراد حسابك بها - فهي ايضاً مفاتيح متوافقة وستبقى صالحة.";
+"common.passphrase.body" = "عند إنشاء حساب جديد في SORA، ستحصل الآن على عبارة مرور من 24 كلمة. يمكن استيراد عبارات مرور SORA الحالية المكونة من 12 أو 24 كلمة وستستمر في العمل.";
 "common.passphrase.your.passphrase" = "الكلمات الأولية الخاصة بك";
 "network.unavailable" = "شبكة الاتصال غير متوفرة";
 "common.save" = "حفظ";
@@ -145,8 +145,8 @@
 "connection.error.message" = "الرجاء التحقق من اتصال الإنترنت وإعادة المحاولة لاحقًا.";
 "common.error.general.message" = "نعمل بجد لإصلاح المشكلة. من فضلك، حاول مرة أخرى لاحقاً.";
 "result.ambiguous.error.title" = "نتيجة مبهمة";
-"access.restore.words.error.message" = "يجب أن تتكون كلمات الإستذكار الأولية من ١٥ كلمة";
-"access.restore.phrase.error.message" = "كلمات الإستذكار الأولية غير صحيحة. الرجاء المحاولة مرة أخرى";
+"access.restore.words.error.message" = "يجب أن تتكون كلمات الإستذكار الأولية من 12 أو 24 كلمة";
+"access.restore.phrase.error.message" = "يرجى التأكد من أن عبارة المرور تتكون من 12 أو 24 كلمة وأن جميع الكلمات صحيحة.";
 "wallet.search.query.error.message" = "يجب أن يكون حجم البحث بين 3 و 64 حرفًا";
 "user.create.phone.registered.error.message" = "رقم الهاتف قيد الاستخدام مسبقاً سواء مع هذا المستخدم او مستخدم اخر.";
 "common.error.invalid.parameters" = "معلمات غير صالحة";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "تصدير JSON";
 "export.protection.passphrase.title" = "الكلمات الأولية(Passphrase)";
 "export.protection.json.description" = "في الخطوة التالية ، ستتمكن من تنزيل ملف JSON يسمح لك باستعادة حساباتك.";
-"export.protection.passphrase.description" = "في الخطوة التالية ، سترى عبارة المرور Passphrase (12 كلمة) التي تتيح لك استرداد حساب.";
+"export.protection.passphrase.description" = "في الخطوة التالية ، سترى عبارة المرور Passphrase (24 كلمة) التي تتيح لك استرداد حساب.";
 "export.protection.seed.description" = "في الخطوة التالية ، سترى Raw Seed (تجزئة طويلة) تسمح لك باسترداد حساب.";
 "export.protection.json.1" = "إذا فقدت رمزي السري الأوليJSON  ، فستضيع أموالي إلى الأبد.";
 "export.protection.json.2" = "إذا قمت بكشف الرمز الأولي JSON الخاص بي أو مشاركته مع أي شخص ، فقد تتم سرقة أموالي.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

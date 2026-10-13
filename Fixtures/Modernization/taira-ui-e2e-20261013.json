@@ -1,0 +1,100 @@
+{
+  "schema": "sora-taira-ui-e2e-v1",
+  "observed_date": "2026-10-13",
+  "network": "https://taira.sora.org",
+  "genesis": "hash:5C3E66C94E079079FF4FC46F59810B9C4EC7B2646DD45CE937831C0FDCE20C9B#44D9",
+  "scope": "Live Taira testnet sends from fresh wallets through each app UI; faucet funding uses the public faucet API. No production network transactions.",
+  "confirmation_policy": "Canonical HTTPS Taira node Applied status, exact transaction hash, finalized transfer history, and balance; not independent consensus-proof verification.",
+  "runs": [
+    {
+      "platform": "iOS",
+      "simulator": "SORA-Taira-UI-E2E / iPhone 13 Pro Max / iOS 27.0",
+      "wallet_name": "Taira iOS UI",
+      "source_address": "testuﾛ1Nn6XcfﾅﾏXYﾓﾔxﾋTEPuPﾜｳRFDuL3RMEH5ﾓsﾘｾAYkY1DGJN",
+      "recipient": "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6",
+      "network": "https://taira.sora.org",
+      "genesis": "hash:5C3E66C94E079079FF4FC46F59810B9C4EC7B2646DD45CE937831C0FDCE20C9B#44D9",
+      "faucet_tx": "b1d3438a6252ef77d51df8b30e9ecead5aacf5f7f47d2bfa22ccedebaff25223",
+      "transfer_tx": "2511b4bd23948342e28040f9d3d0f85303fa8b3168f509aff3f0a2d79bc0e59d",
+      "block": 78,
+      "status": "Applied",
+      "amount_xor": "0.001",
+      "quoted_fee_xor": "0.01",
+      "before_xor": "25000",
+      "after_xor": "24999.989",
+      "ui_completed": true,
+      "ui_history_verified": true,
+      "force_stop_relaunch_verified": true,
+      "outgoing_count_after_relaunch": 1,
+      "private_keys_exported": false,
+      "recovery_phrase_persisted_outside_app": false,
+      "screens": [
+        "confirm.png",
+        "completed.png",
+        "activity.png",
+        "transaction-details.png",
+        "relaunch-activity.png"
+      ],
+      "focused_tests": {
+        "suites": [
+          "SceneLifecycleTests",
+          "WalletUXTests (7 startup/network/recovery cases)"
+        ],
+        "tests": 15,
+        "failures": 0,
+        "unexpected_failures": 0,
+        "skipped": 0,
+        "runtime": "iOS 27.0",
+        "result": "TEST EXECUTE SUCCEEDED"
+      }
+    },
+    {
+      "platform": "Android",
+      "emulator": "SORA-Taira-UI-20261013 / emulator-5672 / API 36 Google ATD",
+      "wallet_name": "Taira_UI_Android",
+      "source_address": "testuﾛ1Q5ﾚg5GkhﾒrjNXrｳヱ7ﾐｺｴ6aｻsdﾏS2dｾﾒﾜuﾉdwｳ97G1MY6K",
+      "recipient": "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6",
+      "network": "https://taira.sora.org",
+      "genesis": "hash:5C3E66C94E079079FF4FC46F59810B9C4EC7B2646DD45CE937831C0FDCE20C9B#44D9",
+      "faucet_tx": "d1f092ff6611b52bb0e706f098548727c954a311036f67d2d08ce94752e64ad1",
+      "transfer_tx": "97cf414ee6501bcb137da78014d1146eba224d4c1a27654847be76a295376393",
+      "block": 76,
+      "status": "Applied",
+      "amount_xor": "0.001",
+      "quoted_fee_xor": "0.01",
+      "before_xor": "25000",
+      "after_xor": "24999.989",
+      "ui_completed": true,
+      "ui_history_verified": true,
+      "force_stop_relaunch_verified": true,
+      "outgoing_count_after_relaunch": 1,
+      "secret_material_extracted": false,
+      "apk_sha256": "f7f0f70daea10c4d47f63599990959bab479db07d00812c32cb2146523e90540",
+      "focused_tests": {
+        "suite": "PinCodeViewModelTest",
+        "tests": 36,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "screens": [
+        "confirm.png",
+        "completed.png",
+        "activity-expanded.png",
+        "relaunch-activity.png"
+      ]
+    }
+  ],
+  "last_public_chain_recheck": "2026-10-13T09:01:45.292392+00:00",
+  "artifact_retention": {
+    "public_transaction_summary": "Retained in this repository fixture.",
+    "ui_captures": "Screenshots were captured during the UI run. Temporary capture files were cleared by a subsequent host restart.",
+    "post_restart_audit": "Both transactions remain Applied; each source account retains 24999.989 XOR and exactly one outgoing transfer."
+  },
+  "final_validation": {
+    "completed_at": "2026-10-13T09:28:12.672213+00:00",
+    "ios": "Current app and test sources compiled and linked; required dependency/rollout checks and resource/plist phases passed. After host-restart cache repair, remaining build phases were replayed with the exact current Xcode build-plan commands. All 15 focused iOS 27 tests passed.",
+    "android": "Debug APK used for UI validation retained with recorded SHA-256; all 36 PinCodeViewModelTest tests passed.",
+    "production": "Offline account/address creation preserved; no production network or production send was enabled."
+  }
+}

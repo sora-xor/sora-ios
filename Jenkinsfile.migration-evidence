@@ -1,0 +1,106 @@
+// Observed-only retained-device migration evidence collection.
+//
+// This job consumes a protected, immutable raw-input namespace prepared by the
+// retained physical-device authority. It cannot allocate a qualification
+// sequence, create trust material or signatures, publish a qualified receipt,
+// enable rollout/canary state, or promote a build.
+
+pipeline {
+    agent { label 'mac-sora-retained-device' }
+
+    options {
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+        timestamps()
+        timeout(time: 180, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('Checkout exact source') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Fail-closed collection preflight') {
+            steps {
+                sh '''
+                    set -eu
+                    umask 077
+
+                    : "${IOS_MIGRATION_EVIDENCE_RAW_INPUT_ROOT:?protected raw input root is required}"
+                    : "${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT:?private observed output parent is required}"
+                    : "${IOS_MIGRATION_EVIDENCE_RUN_ID:?run ID is required}"
+
+                    case "${IOS_MIGRATION_EVIDENCE_RAW_INPUT_ROOT}" in /*) ;; *) exit 1 ;; esac
+                    case "${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT}" in /*) ;; *) exit 1 ;; esac
+                    case "${IOS_MIGRATION_EVIDENCE_RUN_ID}" in
+                        00000000-0000-0000-0000-000000000000|'') exit 1 ;;
+                    esac
+
+                    test -d "${IOS_MIGRATION_EVIDENCE_RAW_INPUT_ROOT}"
+                    test ! -L "${IOS_MIGRATION_EVIDENCE_RAW_INPUT_ROOT}"
+                    test -d "${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT}"
+                    test ! -L "${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT}"
+
+                    /bin/sh SoraPassport/Scripts/run-ios-migration-evidence-collection.sh \
+                        --raw-input-root "${IOS_MIGRATION_EVIDENCE_RAW_INPUT_ROOT}" \
+                        --output-root "${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT}/${IOS_MIGRATION_EVIDENCE_RUN_ID}-pass-1"
+                '''
+            }
+        }
+
+        stage('Deterministic independent collection') {
+            steps {
+                sh '''
+                    set -eu
+                    umask 077
+
+                    first="${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT}/${IOS_MIGRATION_EVIDENCE_RUN_ID}-pass-1"
+                    second="${IOS_MIGRATION_EVIDENCE_OBSERVED_OUTPUT_PARENT}/${IOS_MIGRATION_EVIDENCE_RUN_ID}-pass-2"
+
+                    /bin/sh SoraPassport/Scripts/run-ios-migration-evidence-collection.sh \
+                        --raw-input-root "${IOS_MIGRATION_EVIDENCE_RAW_INPUT_ROOT}" \
+                        --output-root "${second}"
+
+                    /usr/bin/diff -rq "${first}" "${second}"
+                    test "$(/usr/bin/find "${first}" -type f | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]')" = 5
+                    test -z "$(/usr/bin/find "${first}" ! -type d ! -type f -print -quit)"
+
+                    archive_root="${WORKSPACE}/migration-evidence-observed"
+                    test ! -e "${archive_root}"
+                    /bin/mkdir -m 700 "${archive_root}"
+                    for artifact in \
+                        ios-migration-collection-receipt.json \
+                        ios-migration-retained-snapshot-manifest.json \
+                        ios-migration-tests.xcresult.zip \
+                        ios-migration-keychain-evidence.json \
+                        ios-migration-device-execution-evidence.json
+                    do
+                        test -f "${first}/${artifact}"
+                        test ! -L "${first}/${artifact}"
+                        /bin/cp -p "${first}/${artifact}" "${archive_root}/${artifact}"
+                        test "$(/usr/bin/shasum -a 256 "${first}/${artifact}" | /usr/bin/awk '{print $1}')" = \
+                             "$(/usr/bin/shasum -a 256 "${archive_root}/${artifact}" | /usr/bin/awk '{print $1}')"
+                    done
+                '''
+            }
+        }
+
+        stage('Archive observed outputs only') {
+            steps {
+                archiveArtifacts(
+                    artifacts: 'migration-evidence-observed/*',
+                    fingerprint: true,
+                    onlyIfSuccessful: true
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            deleteDir()
+        }
+    }
+}

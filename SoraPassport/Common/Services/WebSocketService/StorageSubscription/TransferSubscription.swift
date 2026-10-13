@@ -148,8 +148,8 @@ final class TransactionSubscription {
                             self.eventCenter.notify(with: WalletNewTransactionInserted(items: items))
                         }
                     }
-                case let .failure(error):
-                    self.logger.error("Did fail block processing: \(error)")
+                case .failure:
+                    self.logger.error("Transfer block processing failed")
                 case .none:
                     self.logger.error("Block processing cancelled")
                 }
@@ -168,7 +168,7 @@ final class TransactionSubscription {
 
             operationManager.enqueue(operations: operations, in: .transient)
         } catch {
-            logger.error("Block processing failed: \(error)")
+            logger.error("Transfer block processing failed")
         }
     }
 }

@@ -165,7 +165,7 @@ final class PoolDetailsItemFactory {
                     detailsFactory: DetailViewModelFactoryProtocol,
                     viewModel: FarmDetailsViewModelProtocol,
                     supplyItem: SupplyPoolItem?,
-                    fiatData: [FiatData] = []
+                    fiatData: [PIExactFiatData] = []
     ) -> FarmDetailsItem {
         let baseAssetSymbol = farm.baseAsset?.symbol ?? ""
         let poolAssetSymbol = farm.poolAsset?.symbol ?? ""

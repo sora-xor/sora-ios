@@ -67,7 +67,11 @@ actor MarketCapService {
     private var marketCapInfos: Set<MarketCapInfo> = []
     
     private func updateMarketCapInfo(with newValues: [MarketCapInfo]) async {
-        marketCapInfos.formUnion(newValues)
+        // MarketCapInfo identity is assetId-only, so formUnion would retain the
+        // stale equal member instead of replacing its liquidity and delta.
+        for newValue in newValues {
+            marketCapInfos.update(with: newValue)
+        }
     }
     
     private func updateExpiredDate() async {
@@ -78,33 +82,62 @@ actor MarketCapService {
 extension MarketCapService: MarketCapServiceProtocol {
     
     func getMarketCap(for assetIds: [String]) async -> Set<MarketCapInfo> {
+        // The public production entry point is non-throwing. Fail closed before
+        // constructing an operation so empty, duplicate, or unbounded input
+        // cannot reach the full PI asset catalog.
+        guard
+            (try? PIMarketCapCatalogValidator
+                .validatedRequestedAssetIDs(assetIds)) != nil
+        else {
+            return []
+        }
         return await withCheckedContinuation { continuation in
             let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
             let result = searchableInfo.subtracting(marketCapInfos)
+            let cacheExpired = expiredDate < Date()
             
-            guard expiredDate < Date() || !result.isEmpty else {
+            guard cacheExpired || !result.isEmpty else {
                 continuation.resume(returning: marketCapInfos)
                 return
             }
             
-            let findAssetIds = result.map { $0.assetId }
+            // Refresh the complete non-empty requested subset after expiry.
+            // Query only missing identities while the cache is still fresh.
+            let findAssetIds = cacheExpired
+                ? assetIds
+                : result.map { $0.assetId }
             
             let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: findAssetIds)
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
-            
+
             queryOperation.completionBlock = { [weak self] in
                 guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
                     continuation.resume(returning: [])
                     return
                 }
 
-                let result = response.map { info in
-                    let bigIntLiquidity = BigUInt(info.liquidity) ?? BigUInt(0)
+                let result = response.compactMap { info -> MarketCapInfo? in
+                    guard
+                        let bigIntLiquidity = BigUInt(info.liquidity),
+                        let liquidity = Decimal.fromSubstrateAmount(
+                            bigIntLiquidity,
+                            precision: 18
+                        )
+                    else {
+                        return nil
+                    }
                     return MarketCapInfo(
                         assetId: info.tokenId,
                         hourDelta: Decimal(Double(truncating: info.hourDelta ?? 0)),
-                        liquidity: Decimal.fromSubstrateAmount(bigIntLiquidity, precision: 18) ?? 0)
+                        liquidity: liquidity
+                    )
+                }
+                guard result.count == response.count else {
+                    // Never publish a partially converted catalog. The PI
+                    // operation already required every requested asset and an
+                    // exact integer liquidity; Decimal overflow or any KMM
+                    // bridge contradiction invalidates the whole refresh.
+                    continuation.resume(returning: [])
+                    return
                 }
 
                 Task {
@@ -113,6 +146,8 @@ extension MarketCapService: MarketCapServiceProtocol {
                     await continuation.resume(returning: self.marketCapInfos)
                 }
             }
+
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
     }
 }

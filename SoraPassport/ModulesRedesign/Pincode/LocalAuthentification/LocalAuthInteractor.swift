@@ -202,7 +202,7 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
         secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
                                  completionQueue: DispatchQueue.main
         ) { [weak self] (secret: SecretDataRepresentable?) -> Void in
-            self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 6) 
+            self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 0)
         }
     }
 
@@ -231,6 +231,15 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
         self.pincode = pin
         
         guard let currentPincode = pincode else { return }
+        do {
+            try WalletRecoveryCapabilityGate.shared
+                .requireAuthorizedLifecycleContinuation()
+        } catch {
+            pincode = nil
+            state = .unexpectedFail
+            presenter?.didUnexpectedFail()
+            return
+        }
         
         secretManager.saveSecret(currentPincode,
                                  for: KeystoreTag.pincode.rawValue,

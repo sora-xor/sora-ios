@@ -32,7 +32,7 @@ import Foundation
 import SSFUtils
 import RobinHood
 import BigInt
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 final class PolkaswapMainInteractor {
     weak var presenter: PolkaswapMainInteractorOutputProtocol!
@@ -201,7 +201,7 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
     func subscribePoolXYK(assetId1: String, assetId2: String) {
         do {
             let storageKey = try StorageKeyFactory()
-                .xykPoolKey(asset1: Data(hex: assetId1), asset2: Data(hex: assetId2))
+                .xykPoolKey(asset1: Data.sora(hex: assetId1), asset2: Data.sora(hex: assetId2))
                 .toHex(includePrefix: true)
 
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] _ in
@@ -227,7 +227,7 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
     func subscribePoolTBC(assetId: String) {
         do {
             let storageKey = try StorageKeyFactory()
-                .tbcPoolKey(asset: Data(hex: assetId))
+                .tbcPoolKey(asset: Data.sora(hex: assetId))
                 .toHex(includePrefix: true)
 
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] _ in

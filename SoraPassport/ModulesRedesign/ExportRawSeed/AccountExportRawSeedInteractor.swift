@@ -61,7 +61,8 @@ extension AccountExportRawSeedInteractor: AccountExportRawSeedInteractorInputPro
             rawSeed = expectedSeedData.toHex(includePrefix: true)
             presenter.set(rawSeed: rawSeed)
         } catch {
-            print("Error Keystore fetching Seed For Address: \(account.address), \(error.localizedDescription)")
+            // Never emit the address, Keychain identifier, or underlying error from a
+            // secret-export path. The presenter keeps the existing no-value failure behavior.
             // TODO: show error
             return
         }

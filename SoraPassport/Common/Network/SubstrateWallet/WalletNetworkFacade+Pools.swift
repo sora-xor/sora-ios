@@ -75,11 +75,15 @@ extension WalletNetworkFacade {
     fileprivate func loadPoolsDetails(accountPools: [String: [String]]) async throws -> [PoolDetails] {
         return try await withCheckedThrowingContinuation({ continuetion in
             Task {
-                async let poolsDetails = collectPools(accountPools: accountPools).concurrentMap { pool in
-                    return try await self.getPoolDetails(baseAsset: pool.baseAsset, targetAsset: pool.targetAsset)
+                do {
+                    async let poolsDetails = collectPools(accountPools: accountPools).concurrentMap { pool in
+                        return try await self.getPoolDetails(baseAsset: pool.baseAsset, targetAsset: pool.targetAsset)
+                    }
+
+                    continuetion.resume(returning: try await poolsDetails)
+                } catch {
+                    continuetion.resume(throwing: error)
                 }
-                
-                continuetion.resume(returning: try await poolsDetails)
             }
         })
     }
@@ -108,13 +112,13 @@ extension WalletNetworkFacade {
         guard let operation = try? polkaswapNetworkOperationFactory.accountPools(accountId: address.accountId!, baseAssetId: baseAssetIdData) else {
             return nil
         }
-        operationQueue.addOperation(operation)
         
         return try? await withCheckedThrowingContinuation({ continuetion in
             operation.completionBlock = {
                 let assetIds = (try? operation.extractResultData()?.underlyingValue?.assetIds) ?? []
                 continuetion.resume(returning: (baseAssetId, assetIds))
             }
+            operationQueue.addOperation(operation)
         })
     }
     
@@ -168,7 +172,16 @@ extension WalletNetworkFacade {
             
             // farms
             let farmsOperation: BaseOperation<[UserFarm]> = AwaitOperation { [weak self] in
-                return await self?.demeterFarmingService.getUserFarmInfos(baseAssetId: baseAsset, targetAssetId: targetAsset) ?? []
+                guard let self,
+                      let accountId = self.address.accountId,
+                      !accountId.isEmpty else {
+                    throw DemeterFarmingServiceError.unavailable
+                }
+                return try await self.demeterFarmingService.loadUserFarmInfos(
+                    baseAssetId: baseAsset,
+                    targetAssetId: targetAsset,
+                    accountId: accountId
+                )
             }
             
             let processingOperation: BaseOperation<Void> = ClosureOperation {
@@ -179,7 +192,15 @@ extension WalletNetworkFacade {
                 }
                 
                 let accountPoolBalance = (try? poolProvidersBalanceOperation.extractResultData()?.underlyingValue) ?? Balance(value: 0)
-                let farms = (try? farmsOperation.extractResultData()) ?? []
+                let farms: [UserFarm]
+                do {
+                    farms = try farmsOperation.extractResultData(
+                        throwing: DemeterFarmingServiceError.unavailable
+                    )
+                } catch {
+                    continuetion.resume(throwing: error)
+                    return
+                }
                 
                 guard let totalIssuances = try? accountPoolTotalIssuancesOperation.extractResultData()?.underlyingValue else {
                     continuetion.resume(throwing: PoolError.noProperties)
