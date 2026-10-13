@@ -30,6 +30,7 @@
 
 import UIKit
 import SoraFoundation
+import SoraKeystore
 
 class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPresentable {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
@@ -76,7 +77,18 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
                 guard let window = window as? SoraWindow else { return }
                 SplashPresenterFactory.createSplashPresenter(with: window)
             },
-            opened: transition
+            opened: transition,
+            makeNetworks: {
+                guard !SettingsManager.shared.walletMigrationRecoveryRequired,
+                      SettingsManager.shared.nexusEnabled,
+                      let walletId = SelectedWalletSettings.shared.currentAccount?.address,
+                      let snapshot = try? WalletNetworkStore().load(),
+                      snapshot.wallets.contains(where: { $0.id == walletId }),
+                      snapshot.accounts.contains(where: {
+                          $0.walletId == walletId && $0.networkId != .sora2
+                      }) else { return nil }
+                return NexusPortfolioViewController(assetsProvider: nil)
+            }
         )
         transition(UINavigationController(rootViewController: opening))
     }
@@ -108,6 +120,7 @@ final class WalletOpeningViewController: UIViewController {
     private let makeNodes: () -> UIViewController?
     private let recheckWallet: () -> Void
     private let opened: (UIViewController) -> Void
+    private let makeNetworks: () -> UIViewController?
     private let retryInterval: TimeInterval
     private let maximumAttempts: Int
     private var retryTask: Task<Void, Never>?
@@ -118,12 +131,14 @@ final class WalletOpeningViewController: UIViewController {
     private let retryButton = UIButton(type: .system)
     private let nodesButton = UIButton(type: .system)
     private let recheckButton = UIButton(type: .system)
+    private let networksButton = UIButton(type: .system)
 
     init(makeWallet: @escaping () throws -> UIViewController,
          refresh: @escaping () -> Void,
          makeNodes: @escaping () -> UIViewController?,
          recheckWallet: @escaping () -> Void,
          opened: @escaping (UIViewController) -> Void,
+         makeNetworks: @escaping () -> UIViewController? = { nil },
          retryInterval: TimeInterval = 1,
          maximumAttempts: Int = 10) {
         self.makeWallet = makeWallet
@@ -131,6 +146,7 @@ final class WalletOpeningViewController: UIViewController {
         self.makeNodes = makeNodes
         self.recheckWallet = recheckWallet
         self.opened = opened
+        self.makeNetworks = makeNetworks
         self.retryInterval = retryInterval
         self.maximumAttempts = maximumAttempts
         super.init(nibName: nil, bundle: nil)
@@ -151,7 +167,9 @@ final class WalletOpeningViewController: UIViewController {
         status.textAlignment = .center
         status.accessibilityIdentifier = "wallet-opening-status"
         progress.hidesWhenStopped = true
+        networksButton.isHidden = true
         for (button, title, identifier, action) in [
+            (networksButton, "Choose network", "wallet-opening-networks", #selector(selectNetwork)),
             (retryButton, "Try again", "wallet-opening-retry", #selector(retry)),
             (nodesButton, "Change node", "wallet-opening-nodes", #selector(selectNode)),
             (recheckButton, "Check wallet again", "wallet-opening-recheck", #selector(recheck))
@@ -162,7 +180,7 @@ final class WalletOpeningViewController: UIViewController {
             button.addTarget(self, action: action, for: .touchUpInside)
             button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
         }
-        let stack = UIStackView(arrangedSubviews: [progress, status, retryButton, nodesButton, recheckButton])
+        let stack = UIStackView(arrangedSubviews: [progress, status, networksButton, retryButton, nodesButton, recheckButton])
         stack.axis = .vertical
         stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -210,6 +228,9 @@ final class WalletOpeningViewController: UIViewController {
             Logger.shared.warning("Wallet opening deferred: \(reason.rawValue); attempt=\(attempts)")
             let recoveryRequired = reason == .recoveryRequired || reason == .accountNotReady
             recheckButton.isHidden = !recoveryRequired
+            // Nexus has its own network client and local account snapshot. A
+            // SORA2 runtime or asset outage must not block authenticated access.
+            networksButton.isHidden = recoveryRequired || makeNetworks() == nil
             nodesButton.isHidden = recoveryRequired
             retryButton.isHidden = recoveryRequired
             nodesButton.isEnabled = !recoveryRequired
@@ -231,6 +252,16 @@ final class WalletOpeningViewController: UIViewController {
                     : "Wallet services are not ready. Try again or choose another node.")
             }
         }
+    }
+
+    @objc private func selectNetwork() {
+        guard !networksButton.isHidden,
+              navigationController?.topViewController === self,
+              let networks = makeNetworks() else { return }
+        retryTask?.cancel()
+        retryTask = nil
+        progress.stopAnimating()
+        navigationController?.pushViewController(networks, animated: true)
     }
 
     @objc private func selectNode() {

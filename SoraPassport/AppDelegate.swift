@@ -39,7 +39,11 @@ import SoraFoundation
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    // Compatibility reference for existing wireframes. SceneDelegate owns the
+    // single application window and attaches it to the connected UIWindowScene.
     var window: UIWindow?
+    private var migrationEvidenceDecision =
+        RetainedMigrationEvidenceHarness.BootstrapDecision.inactive
 
     var isUnitTesting: Bool {
         return ProcessInfo.processInfo.arguments.contains("-UNITTEST")
@@ -47,58 +51,57 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        let migrationEvidenceDecision =
-            RetainedMigrationEvidenceHarness.shared.bootstrap()
-        if migrationEvidenceDecision == .evidenceOnly {
-            let evidenceWindow = UIWindow(frame: UIScreen.main.bounds)
-            evidenceWindow.backgroundColor = .systemBackground
-            evidenceWindow.rootViewController =
-                RetainedMigrationEvidenceHarness.shared
-                    .makeEvidenceOnlyViewController()
-            window = evidenceWindow
-            RetainedMigrationEvidenceHarness.shared
-                .installStatusSurface(in: evidenceWindow)
-            evidenceWindow.makeKeyAndVisible()
+        migrationEvidenceDecision = RetainedMigrationEvidenceHarness.shared.bootstrap()
+        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else {
             return true
         }
 
-        if !isUnitTesting {
-            #if !NO_FIREBASE
-            FirebaseApp.configure()
-            #endif
-
-            setupLanguage()
-            
-            let rootWindow = SoraWindow()
-            rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
-            window = rootWindow
-
-            SplashPresenterFactory.createSplashPresenter(with: rootWindow)
-
-            if migrationEvidenceDecision == .authorized {
-                RetainedMigrationEvidenceHarness.shared
-                    .installStatusSurface(in: rootWindow)
-            }
-
-            rootWindow.makeKeyAndVisible()
-
-            if let connectURL = launchOptions?[.url] as? URL,
-               IrohaConnectCoordinator.shared.canHandle(connectURL) {
-                IrohaConnectCoordinator.shared.handle(connectURL, in: rootWindow)
-            }
-        }
-
+        #if !NO_FIREBASE
+        FirebaseApp.configure()
+        #endif
+        setupLanguage()
         return true
     }
 
+    /// Called only after UIKit connects the scene. Migration authorization has
+    /// already run before any wallet, settings, or presentation work starts.
+    func makeWindow(in windowScene: UIWindowScene) -> UIWindow {
+        if migrationEvidenceDecision == .evidenceOnly {
+            let evidenceWindow = UIWindow(windowScene: windowScene)
+            evidenceWindow.backgroundColor = .systemBackground
+            evidenceWindow.rootViewController =
+                RetainedMigrationEvidenceHarness.shared.makeEvidenceOnlyViewController()
+            window = evidenceWindow
+            RetainedMigrationEvidenceHarness.shared.installStatusSurface(in: evidenceWindow)
+            return evidenceWindow
+        }
+
+        if isUnitTesting {
+            let testWindow = UIWindow(windowScene: windowScene)
+            testWindow.rootViewController = UIViewController()
+            window = testWindow
+            return testWindow
+        }
+
+        let rootWindow = SoraWindow(windowScene: windowScene)
+        rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
+        window = rootWindow
+        SplashPresenterFactory.createSplashPresenter(with: rootWindow)
+        if migrationEvidenceDecision == .authorized {
+            RetainedMigrationEvidenceHarness.shared.installStatusSurface(in: rootWindow)
+        }
+        return rootWindow
+    }
+
     func applicationWillEnterForeground(_ application: UIApplication) {
-        guard !isUnitTesting else {
+        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else {
             return
         }
         resumePendingNexusTransactions()
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
+        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else { return }
         IrohaConnectCoordinator.shared.applicationDidEnterBackground()
     }
 
@@ -107,6 +110,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
+        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else { return false }
         if IrohaConnectCoordinator.shared.handle(url, in: window) {
             return true
         }
@@ -116,6 +120,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      continue userActivity: NSUserActivity,
                      restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else { return false }
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
 
             if IrohaConnectCoordinator.shared.handle(url, in: window) {

@@ -7,6 +7,8 @@ import copy
 import hashlib
 import json
 import os
+import re
+import runpy
 import stat
 import subprocess
 import tempfile
@@ -94,9 +96,9 @@ class Workspace:
                     "genesisSha256": synthetic(f"current-{current}"),
                     "i105Discriminant": 369,
                     "status": "current",
-                    "toriiBaseUrl": "https://public-01.taira.example.org",
-                    "publicNodeMcpEndpoint": "https://public-01.taira.example.org/v1/mcp",
-                    "explorerBaseUrl": "https://explorer.taira.example.org",
+                    "toriiBaseUrl": "https://taira.sora.org",
+                    "publicNodeMcpEndpoint": "https://taira.sora.org/v1/mcp",
+                    "explorerBaseUrl": "https://taira.sora.org",
                 },
                 {
                     "epoch": 100,
@@ -214,28 +216,27 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
         )
         self.assertIn("blocked; no admitted manifest", result.stdout.decode())
 
-    def test_both_operator_selected_current_mappings_are_admitted(self) -> None:
-        first = self.success(NEW)
-        second = self.success(OLD)
-        self.assertNotEqual(first["current"]["genesisHash"], second["current"]["genesisHash"])
+    def test_current_mapping_matches_runtime_and_retired_mapping_is_rejected(self) -> None:
+        receipt = self.success(NEW)
+        source = (ROOT / "SoraPassport/Common/Model/WalletNetworkModel.swift").read_text()
+        runtime_origin = re.search(r'static let canonicalToriiBaseURL = URL\(\s*string: "([^"]+)"', source).group(1)
+        runtime_chain = re.search(r'static let canonicalChainId = UUID\(\s*uuidString: "([^"]+)"', source).group(1)
+        self.assertEqual(receipt["current"]["chainId"], runtime_chain)
+        verifier = runpy.run_path(str(TOOL))
+        self.assertEqual(verifier["canonical_public_base"](runtime_origin, "runtime origin"), runtime_origin)
+        retired = Workspace(current=OLD)
+        retired.write_and_sign()
+        self.assertIn("canonical public Taira runtime", retired.invoke(False).stderr.decode())
 
-    def test_rejects_convenience_route(self) -> None:
-        error = self.mutation(lambda value: value["epochs"][0].update({
-            "toriiBaseUrl": "https://taira.sora.org",
-            "publicNodeMcpEndpoint": "https://taira.sora.org/v1/mcp",
-        }))
-        self.assertIn("must not use taira.sora.org", error)
-        self.assertIn("must not use taira.sora.org", self.mutation(
-            lambda value: value["epochs"][0].update({
-                "explorerBaseUrl": "https://taira.sora.org",
-            })
-        ))
-        self.assertIn("canonical explicit public HTTPS origin", self.mutation(
-            lambda value: value["epochs"][0].update({
-                "toriiBaseUrl": "https://public-01.taira.example.org:443",
-                "publicNodeMcpEndpoint": "https://public-01.taira.example.org:443/v1/mcp",
-            })
-        ))
+    def test_rejects_alternate_origin(self) -> None:
+        for field, value in (
+            ("toriiBaseUrl", "https://public-01.taira.example.org"),
+            ("explorerBaseUrl", "https://explorer.taira.example.org"),
+            ("toriiBaseUrl", "https://taira.sora.org:443"),
+        ):
+            self.assertIn("canonical public HTTPS origin", self.mutation(
+                lambda manifest: manifest["epochs"][0].update({field: value})
+            ))
 
     def test_rejects_non_https_and_non_exact_mcp_routes(self) -> None:
         self.assertIn("HTTPS", self.mutation(lambda value: value["epochs"][0].update({
@@ -243,7 +244,7 @@ class TairaDeploymentAdmissionTests(unittest.TestCase):
             "publicNodeMcpEndpoint": "http://public-01.taira.example.org/v1/mcp",
         })))
         self.assertIn("explicit canonical /v1/mcp", self.mutation(
-            lambda value: value["epochs"][0].update({"publicNodeMcpEndpoint": "https://public-01.taira.example.org/mcp"})
+            lambda value: value["epochs"][0].update({"publicNodeMcpEndpoint": "https://taira.sora.org/mcp"})
         ))
 
     def test_rejects_missing_or_duplicate_known_uuid(self) -> None:

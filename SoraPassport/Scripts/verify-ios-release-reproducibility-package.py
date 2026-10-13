@@ -92,7 +92,7 @@ TAIRA_CHAIN_IDS = {
     "809574f5-fee7-5e69-bfcf-52451e42d50f",
     "fc56984b-2be7-431d-840e-21514d1883f0",
 }
-TAIRA_CONVENIENCE_HOST = "taira.sora.org"
+TAIRA_CANONICAL_HOST = "taira.sora.org"
 EXPECTED_SIGNING_CERTIFICATE_SHA1 = "84AB95335BE14CAE9B050A353910F86FF2F9539B"
 EXPECTED_SIGNING_CERTIFICATE_SHA256 = (
     "d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"
@@ -280,6 +280,8 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
         projection["currentChainId"], projection["retiredChainId"]
     } != TAIRA_CHAIN_IDS:
         fail(f"{label} does not preserve both known Taira UUIDs in distinct roles")
+    if projection["currentChainId"] != "fc56984b-2be7-431d-840e-21514d1883f0":
+        fail(f"{label} current Taira UUID differs from the canonical runtime")
     require_sha256(projection["currentGenesisHash"], f"{label} current Taira genesis")
     require_sha256(projection["retiredGenesisHash"], f"{label} retired Taira genesis")
     if projection["currentGenesisHash"] == projection["retiredGenesisHash"]:
@@ -299,14 +301,17 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
     base = urlsplit(projection["canonicalToriiBaseUrl"])
     explorer = urlsplit(projection["explorerBaseUrl"])
     if (
-        base.scheme != "https"
+        projection["canonicalToriiBaseUrl"] != "https://taira.sora.org"
+        or projection["explorerBaseUrl"] != "https://taira.sora.org"
+        or projection["publicMcpEndpoint"] != "https://taira.sora.org/v1/mcp"
+        or base.scheme != "https"
         or base.hostname is None
         or base.hostname != base.hostname.lower()
-        or base.hostname == TAIRA_CONVENIENCE_HOST
+        or base.hostname != TAIRA_CANONICAL_HOST
         or "." not in base.hostname
         or base.username is not None
         or base.password is not None
-        or base.port not in (None, 443)
+        or base.port is not None
         or base.path
         or base.query
         or base.fragment
@@ -315,11 +320,11 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
         or explorer.scheme != "https"
         or explorer.hostname is None
         or explorer.hostname != explorer.hostname.lower()
-        or explorer.hostname == TAIRA_CONVENIENCE_HOST
+        or explorer.hostname != TAIRA_CANONICAL_HOST
         or "." not in explorer.hostname
         or explorer.username is not None
         or explorer.password is not None
-        or explorer.port not in (None, 443)
+        or explorer.port is not None
         or explorer.path
         or explorer.query
         or explorer.fragment

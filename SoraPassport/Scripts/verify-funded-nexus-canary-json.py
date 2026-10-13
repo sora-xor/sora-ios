@@ -451,6 +451,7 @@ def configure_authenticated_taira(admission_path: str) -> None:
     current = exact_keys(root["current"], epoch_keys, "Taira admission current")
     retired = exact_keys(root["retired"], epoch_keys, "Taira admission retired")
     require_string(current["role"], "Taira current role", "current")
+    require_string(current["chainId"], "Taira current chain", "fc56984b-2be7-431d-840e-21514d1883f0")
     require_string(retired["role"], "Taira retired role", "retired")
     if {current["chainId"], retired["chainId"]} != TAIRA_KNOWN_CHAIN_IDS:
         fail("Taira admission must retain both known UUIDs in distinct roles")
@@ -472,14 +473,17 @@ def configure_authenticated_taira(admission_path: str) -> None:
     parsed = urlsplit(base)
     parsed_explorer = urlsplit(explorer)
     if (
-        parsed.scheme != "https"
+        base != "https://taira.sora.org"
+        or explorer != "https://taira.sora.org"
+        or endpoint != "https://taira.sora.org/v1/mcp"
+        or parsed.scheme != "https"
         or parsed.hostname is None
         or parsed.hostname != parsed.hostname.lower()
-        or parsed.hostname == "taira.sora.org"
+        or parsed.hostname != "taira.sora.org"
         or "." not in parsed.hostname
         or parsed.username is not None
         or parsed.password is not None
-        or parsed.port not in (None, 443)
+        or parsed.port is not None
         or parsed.path
         or parsed.query
         or parsed.fragment
@@ -487,11 +491,11 @@ def configure_authenticated_taira(admission_path: str) -> None:
         or parsed_explorer.scheme != "https"
         or parsed_explorer.hostname is None
         or parsed_explorer.hostname != parsed_explorer.hostname.lower()
-        or parsed_explorer.hostname == "taira.sora.org"
+        or parsed_explorer.hostname != "taira.sora.org"
         or "." not in parsed_explorer.hostname
         or parsed_explorer.username is not None
         or parsed_explorer.password is not None
-        or parsed_explorer.port not in (None, 443)
+        or parsed_explorer.port is not None
         or parsed_explorer.path
         or parsed_explorer.query
         or parsed_explorer.fragment

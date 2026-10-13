@@ -40,9 +40,9 @@ TAIRA_DEPLOYMENT = {
     "retiredGenesisHash": "f" * 64,
     "currentDeploymentEpoch": "200",
     "retiredDeploymentEpoch": "100",
-    "canonicalToriiBaseUrl": "https://public-01.taira.example.org",
-    "publicMcpEndpoint": "https://public-01.taira.example.org/v1/mcp",
-    "explorerBaseUrl": "https://explorer.taira.example.org",
+    "canonicalToriiBaseUrl": "https://taira.sora.org",
+    "publicMcpEndpoint": "https://taira.sora.org/v1/mcp",
+    "explorerBaseUrl": "https://taira.sora.org",
     "pendingRowPolicy":
         "schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation",
 }
@@ -469,6 +469,12 @@ class ReleaseReproducibilityPackageTests(unittest.TestCase):
                 info_names[key]: value
                 for key, value in TAIRA_DEPLOYMENT.items()
             }
+            release.parse_taira_deployment_projection(archive_info, "canonical archive")
+            for key in ("SoraTairaCanonicalToriiBaseUrl", "SoraTairaExplorerBaseUrl"):
+                for alternative in ("https://TAIRA.SORA.ORG", "https://taira.sora.org:", "https://public-01.taira.example.org"):
+                    altered = {**archive_info, key: alternative}
+                    with self.assertRaisesRegex(release.ReleaseReproducibilityError, "canonical public HTTPS"):
+                        release.parse_taira_deployment_projection(altered, "noncanonical archive")
             archive_info["SoraTairaCurrentDeploymentEpoch"] = "50"
             with self.assertRaisesRegex(
                 release.ReleaseReproducibilityError,

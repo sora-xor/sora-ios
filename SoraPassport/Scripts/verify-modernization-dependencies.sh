@@ -672,7 +672,7 @@ run_ios_migration_release_source_gate() {
        /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Eq '(^|[[:space:]])archive([[:space:]]|$)|-exportArchive|upload|allowProvisioningUpdates' ||
        ! /usr/bin/grep -Fq 'KNOWN_CHAIN_IDS' "${ios_gate_taira_deployment}" ||
        ! /usr/bin/grep -Fq 'quarantine-recovery-only' "${ios_gate_taira_deployment}" ||
-       ! /usr/bin/grep -Fq 'CONVENIENCE_HOST = "taira.sora.org"' "${ios_gate_taira_deployment}"; then
+       ! /usr/bin/grep -Fq 'CANONICAL_HOST = "taira.sora.org"' "${ios_gate_taira_deployment}"; then
         echo "error: iOS migration Release source, scheme, test, archive, or signing hook is fail-open" >&2
         return 1
     fi
@@ -2568,7 +2568,7 @@ if ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_CONTRACT_SHA256' "${ios_signing_qua
    ! /usr/bin/grep -Fq 'must not use a repository-controlled path' "${ios_signing_qualification_json_validator}" ||
    ! /usr/bin/grep -Fq 'test_qualified_dual_signature_path_succeeds' "${ios_signing_qualification_harness}" ||
    ! /usr/bin/grep -Fq 'test_non_p256_producer_key_is_rejected' "${ios_signing_qualification_harness}" ||
-   ! /usr/bin/grep -Fq 'Editing its nulls and booleans cannot qualify' "${ios_signing_qualification_documentation}" ||
+   ! /usr/bin/grep -Fq 'booleans cannot qualify a signing selection' "${ios_signing_qualification_documentation}" ||
    [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json' "${project}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json' "${project}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/verify-ios-production-signing-identity.py' "${project}")" -lt 2 ] ||
@@ -3682,7 +3682,7 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq 'current["deploymentEpoch"] <= retired["deploymentEpoch"]' "${rollout_json_validator}" ||
    ! /usr/bin/grep -Fq 'current["deploymentEpoch"] <= retired["deploymentEpoch"]' "${funded_canary_json_validator}" ||
    ! /usr/bin/grep -Fq 'KNOWN_CHAIN_IDS' "${taira_deployment_validator}" ||
-   ! /usr/bin/grep -Fq 'CONVENIENCE_HOST = "taira.sora.org"' "${taira_deployment_validator}" ||
+   ! /usr/bin/grep -Fq 'CANONICAL_HOST = "taira.sora.org"' "${taira_deployment_validator}" ||
    ! /usr/bin/grep -Fq 'operator and reviewer signature/key identities must be distinct' "${taira_deployment_validator}" ||
    ! /usr/bin/grep -Fq 'schema-77 pending rows must preserve UUID' "${taira_deployment_validator}" ||
    ! /usr/bin/grep -Fq 'current["epoch"] != positive_integer(manifest["currentEpoch"], "currentEpoch")' "${taira_deployment_validator}" ||
@@ -3773,7 +3773,7 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq 'secure_openssl dgst -sha256' "${funded_canary_validator}" ||
    [ "$(/usr/bin/grep -Fc '/usr/bin/python3' "${rollout_validator}")" -ne "$(/usr/bin/grep -Fc '/usr/bin/python3 -I -S' "${rollout_validator}")" ] ||
    [ "$(/usr/bin/grep -Fc '/usr/bin/python3' "${funded_canary_validator}")" -ne "$(/usr/bin/grep -Fc '/usr/bin/python3 -I -S' "${funded_canary_validator}")" ] ||
-   ! /usr/bin/grep -Fq '5 success paths and 37 fail-closed mutations passed' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq '4 success paths and 38 fail-closed mutations passed' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'stale-taira-deployment-admission' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'future-taira-deployment-admission' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'sora-pi-production-capability-probe-v3' "${rollout_regression_harness}" ||
@@ -4282,7 +4282,7 @@ if [ ! -f "${recovery_gate_tests}" ] ||
    ! /usr/bin/grep -Fq "tryAcquireForMutableWalletAccess()" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "requireAuthorizedLifecycleContinuation()" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "tryAcquireForMutableWalletAccess()" "${nexus_service}" ||
-   ! /usr/bin/grep -Fq "async let submittedReceipt = submissionClient.submit(" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "async let submittedResult = submissionClient.submit(" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "acquireForMutableWalletAccessAsync()" "${nexus_service}" ||
    [ "$(/usr/bin/grep -Fc 'acquireForMutableWalletAccessAsync()' "${polkamarkt_runtime}")" -lt 2 ] ||
    ! /usr/bin/grep -Fq "private func submitClaimAdmitted(" "${polkamarkt_runtime}" ||
@@ -4745,8 +4745,8 @@ if /usr/bin/grep -Fq "Set(NetworkId.allCases)" "${root_interactor}" ||
    ! /usr/bin/grep -Fq ".current.isTairaAdmitted" "${more_menu_presenter}" ||
    ! /usr/bin/grep -Fq "exposesTairaSettings(" "${app_settings_presenter}" ||
    ! /usr/bin/grep -Fq ".current.isTairaAdmitted" "${app_settings_presenter}" ||
-   ! /usr/bin/grep -Fq '"SORA2 · Minamoto"' "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq '"SORA2 · Minamoto · Taira Testnet"' "${modernization_tests}"; then
+   ! /usr/bin/grep -Fq '"SORA2 · Nexus Production Address"' "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq '"SORA2 · Nexus Production Address · Taira Testnet"' "${modernization_tests}"; then
     echo "error: retained-wallet migration and verification disagree on bundle-admitted Nexus networks"
     exit 1
 fi
@@ -4820,7 +4820,7 @@ if ! /usr/bin/grep -Fq "private static let maximumTransactions = 500" "${nexus_s
    ! /usr/bin/grep -Fq "static let maximumScale = 255" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "testI105RejectsUnboundedInputBeforeBaseConversion" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testNexusAmountScaleMatchesNoritoUnsignedByteContract" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq "try transactions.forEach(validate)" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq 'try validate($0, allowsReadOnlyHistoricalChain: true)' "${nexus_service}" ||
    ! /usr/bin/grep -Fq "Set(transactionHashes).count == transactionHashes.count" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "oldestTerminalIndex" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "try receipt.validate(expectedHash: expectedHash)" "${nexus_service}" ||
@@ -6497,7 +6497,7 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
    ! /usr/bin/grep -Fq "let rowsRemainAvailable = rows.allSatisfy" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "NexusPortfolioPresentationPolicy.networkDetailIsAvailable" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "static func networkDetailAccess(" "${nexus_ui}" ||
-	   ! /usr/bin/grep -Fq "readsAvailable && mutationCoordinatorAvailable" "${nexus_ui}" ||
+	   ! /usr/bin/grep -Fq "readsAvailable && networkId == .taira && mutationCoordinatorAvailable" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "private let readClient: NexusToriiReading" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "readClient: NexusToriiReading = NexusToriiReadClient()" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "private func readCurrentNexusXorBalance(" "${nexus_ui}" ||
@@ -6537,9 +6537,9 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
    ! /usr/bin/grep -Fq "loadTask?.cancel()" "${polkamarkt_ui}" ||
 	   ! /usr/bin/grep -Fq "testRetainedNetworkDetailsRejectAChangedSelectedWallet" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "let journalRecoveryAccess =" "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq "XCTAssertTrue(journalRecoveryAccess.readsAvailable)" "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq "XCTAssertFalse(journalRecoveryAccess.readsAvailable)" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "XCTAssertFalse(journalRecoveryAccess.mutationSurfaceAvailable)" "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq "XCTAssertTrue(qualifiedMutationAccess.mutationSurfaceAvailable)" "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq "XCTAssertFalse(qualifiedMutationAccess.mutationSurfaceAvailable)" "${modernization_tests}" ||
 	   [ "$(/usr/bin/grep -Fc 'NexusPortfolioPresentationPolicy.mutationIsReady(' "${modernization_tests}")" -lt 6 ] ||
    ! /usr/bin/grep -Fq "currentXorAssetDefinitionID: nil" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "let unboundChainPending = try pending(" "${modernization_tests}" ||
@@ -6555,7 +6555,7 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
 fi
 
 if ! /usr/bin/grep -Fq "SORA2 · MAINNET" "${nexus_ui}" ||
-   ! /usr/bin/grep -Fq "MINAMOTO · MAINNET" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "SORA NEXUS · PRODUCTION ADDRESS" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "TAIRA · TESTNET" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "configuration.validate(address: receiver)" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.walletId == self.account.walletId' "${nexus_ui}" ||
@@ -6563,7 +6563,7 @@ if ! /usr/bin/grep -Fq "SORA2 · MAINNET" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIImageView(image: qrImage(account.address))" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIPasteboard.general.string = account.address" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq "UIApplication.shared.open(configuration.explorerURL)" "${nexus_ui}" ||
-   ! /usr/bin/grep -Fq "unknown submission result is never retried" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "The transaction was not retried." "${nexus_service}" ||
    ! /usr/bin/grep -Fq "testI105RejectsCrossNetworkAddress" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testPIMobileFlagsCannotEnableUnqualifiedMutationsOrOverrideTairaChoice" "${modernization_tests}"; then
     echo "error: unified iOS portfolio actions are not visibly and durably network-scoped"
@@ -6575,7 +6575,7 @@ if ! /usr/bin/grep -Fq "enum NexusSendAvailabilityPolicy" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "networkAdmitted" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "signerQualified" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "finalityQualified" "${nexus_service}" ||
-   ! /usr/bin/grep -Fq "TairaDeploymentBinding.admittedFromBundle != nil" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "networkAdmitted: configuration.isLive && configuration.satisfiesCurrentTairaContract" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "signer.isQualified(for: configuration)" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "finalityReader.isQualified(for: configuration)" "${nexus_service}" ||
    [ "$(/usr/bin/grep -Fc 'validateLiveFeatureFlags(for: request.networkId)' "${nexus_service}")" -lt 5 ] ||
@@ -6667,9 +6667,9 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq 'let finalizedBlockHash: String' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'NexusTransactionHash.normalized(finalizedBlockHash)' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'protocol NexusFinalityReading' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'challenge-bound BridgeFinalityAttestationV1' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'bounded sequential BridgeFinalityBundle catch-up' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'Scalar status height' "${nexus_service}" ||
+   ! /usr/bin/grep -Fq 'TairaToriiConfirmationReader()' "${nexus_service}" ||
+   ! /usr/bin/grep -Fq 'TairaTransactionSigner()' "${nexus_service}" ||
+   ! /usr/bin/grep -Fq 'the testnet adapter never qualifies production' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'func finalizedCheckpoint(' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'private let finalityReader: NexusFinalityReading' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'let finalizedCheckpoint = try await finalityReader' "${nexus_service}" ||
@@ -6677,7 +6677,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq '.requireHeight(for: configuration)' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'finalityReader.isQualified(for: configuration)' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'quote.validUntilBlock.map({ $0 > 0 }) ?? true' "${nexus_service}" ||
-   ! /usr/bin/grep -Fq 'fee.unscaled > 0' "${nexus_service}" ||
+   ! /usr/bin/grep -Fq 'fee.unscaled >= 0' "${nexus_service}" ||
    /usr/bin/grep -Fq 'signer.finalizedBlockHeight(' "${nexus_service}" ||
    ! /usr/bin/grep -Fq 'prepareForWalletStorageMigration()' "${splash_interactor}" ||
    ! /usr/bin/grep -Fq 'markWalletStorageReadyAndResume()' "${splash_interactor}" ||
@@ -6686,17 +6686,17 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq 'func applicationWillEnterForeground' "${app_delegate}" ||
    ! /usr/bin/grep -Fq 'URLQueryItem(name: "scope", value: "global")' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'status.hasAuthoritativeGlobalResolution' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'for page in 1 ... maximumPages' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'while cursor.hasMore' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'enum NexusMCPAccountHistoryContract' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'static let toolName = "iroha.accounts.history"' "${nexus_service}" ||
-	   /usr/bin/grep -Fq 'iroha.instructions.list' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'method: "initialize"' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'ensureTairaTool(.accountHistory' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'method: "server/discover"' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'method: "tools/list"' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'validateToolList' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'validateToolPage' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq '"account_history_index", "account_history_fanout"' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'sourceItemIDs.insert(id).inserted' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'sourceIDs.isDisjoint(with: page.sourceItemIDs)' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'timestamp > 0,' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'expectedIndexedBlockHash' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'seenCursors.contains' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'NexusToriiError.deploymentUnavailable' "${nexus_service}" ||
 	   /usr/bin/grep -Fq 'taira-recovery.invalid' "${wallet_network_model}" ||
 	   /usr/bin/grep -Fq 'container.decode(Decimal.self)' "${nexus_service}" ||
@@ -6710,7 +6710,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'timestamp: 0' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusCommittedHistoryValidatesRawOnChainAndFailedRowsBeforeFiltering' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusMCPAccountHistoryContractNegotiatesExactToolSchema' "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq 'An unbound Taira pending row was accepted' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'The retired Taira chain was admitted' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusPipelineStatusRequiresGlobalAuthoritativeResolution' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusAppliedStatusRequiresStateAndPositiveBlock' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusTerminalFailureRequiresStateResolution' "${modernization_tests}" ||
@@ -6769,7 +6769,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'guard firstFailure == nil, !requiresFanout else' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'firstFailure == nil' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'rawCounts.allSatisfy({ $0 != nil })' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'guard routeLaneID == nil else' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'guard routeLaneID == nil || (' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'counts[1] == counts[0]' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'counts[0] > 0' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'counts.dropFirst(2).allSatisfy({ $0 == 0 })' "${nexus_service}" ||
@@ -6807,9 +6807,9 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'enum NexusMCPEnvelopeContract {' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'responseID: response.id' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'expectedID: payload.id' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'let structuredResult = try NexusMCPResultContract' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'let structured = try NexusMCPResultContract' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq '.validateEmbeddedRoute(' "${nexus_service}" ||
-	   ! /usr/bin/grep -Fq 'result: structuredResult' "${nexus_service}" ||
+	   ! /usr/bin/grep -Fq 'result: structured' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'direct["body"] == nil' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'structured["body"]?.objectValue != nil' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'structured["items"] == nil' "${nexus_service}" ||
@@ -6855,7 +6855,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq '"application/x-norito"' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'NexusToriiClient.isExpectedResponseContentType(' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq '"application/json, text/plain"' "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq 'https://public-01.taira.example.org/v1/assets/definitions/xor%23universal' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'https://taira.sora.org/v1/mcp' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'https://taira.sora.org/v1/mcp' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'testNexusToriiRejectsPartialFanoutSuccess' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq '"x-iroha-route-lane-id": "1"' "${modernization_tests}" ||

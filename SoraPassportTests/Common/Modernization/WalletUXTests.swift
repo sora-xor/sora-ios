@@ -8,15 +8,209 @@ import SoraKeystore
 import SoraFoundation
 import CoreData
 import Darwin
+import NexusTransferCodec
 @testable import SoraPassport
 
 final class WalletUXTests: XCTestCase {
+    func testTairaPendingJournalRetainsAndCannotChangeSigningNetwork() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        let now = Date()
+        var pending = NexusPendingTransaction(
+            id: UUID(), idempotencyKey: UUID(), walletId: "test-wallet", networkId: .taira,
+            chainId: configuration.chainId, signingNetworkId: TairaClient.networkLiteral,
+            sender: "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH",
+            receiver: "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6",
+            assetDefinitionID: TairaClient.xorDefinition, amount: try PIQuantity("0.001"),
+            fee: try PIQuantity("0.01"), createdAt: now, updatedAt: now, hash: nil,
+            state: .signing, terminalBlockHeight: nil, errorClass: nil, historyReconciledAt: nil)
+        pending = try await store.put(pending)
+        let reloaded = try await store.all()
+        XCTAssertEqual(reloaded, [pending])
+        XCTAssertTrue(pending.hasCurrentDeploymentIdentity(for: configuration))
+        pending.signingNetworkId = nil
+        do {
+            _ = try await store.put(pending)
+            XCTFail("A persisted send must not lose its signing network")
+        } catch { XCTAssertTrue(error is NexusToriiError) }
+        pending.signingNetworkId = "different-testnet-genesis"
+        XCTAssertFalse(pending.hasCurrentDeploymentIdentity(for: configuration))
+        do {
+            _ = try await store.put(pending)
+            XCTFail("A send from another genesis must not enter the current journal")
+        } catch { XCTAssertTrue(error is NexusToriiError) }
+        let retained = try await store.all()
+        XCTAssertEqual(retained, reloaded)
+    }
+
+    func testTairaSendQualificationDoesNotEnableProduction() throws {
+        let signer = TairaTransactionSigner()
+        let reader = TairaToriiConfirmationReader()
+        let taira = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        XCTAssertTrue(signer.isQualified(for: taira))
+        XCTAssertTrue(reader.isQualified(for: taira))
+        XCTAssertFalse(signer.isQualified(for: .minamoto))
+        XCTAssertFalse(reader.isQualified(for: .minamoto))
+        let settings = InMemorySettingsManager()
+        settings.nexusEnabled = true
+        settings.isTairaEnabled = true
+        XCTAssertTrue(settings.nexusSendsEnabled(for: .taira))
+        XCTAssertFalse(settings.nexusSendsEnabled(for: .minamoto))
+        settings.isTairaEnabled = false
+        XCTAssertFalse(settings.nexusSendsEnabled(for: .taira))
+        settings.isTairaEnabled = true
+        settings.nexusEnabled = false
+        XCTAssertFalse(settings.nexusSendsEnabled(for: .taira))
+    }
+
+    func testTairaCurrentLiveSubmissionReceiptAndChecksumBinding() throws {
+        // Public controlled canary: 0.001 XOR, fee 0.01, applied at block 74.
+        let fixture = #"""
+        {"content":[{"type":"text","text":"http 200"}],"isError":false,"resultType":"complete","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"iroha-torii-mcp","version":"2.0.0-rc.2.0"}},"structuredContent":{"attempts":3,"elapsed_ms":1489,"hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","status":200,"terminal_kind":"Applied","final":{"body":{"hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","resolved_from":"state","scope":"global","status":{"block_height":74,"kind":"Applied"}},"content_type":"application/json; charset=utf-8","headers":{"content-type":"application/json; charset=utf-8","vary":"Accept"},"status":200},"submit":{"body":{"payload":{"entrypoint_hash":"hash:4A48384AD05A8E1669BAF4CD0ED83773F006F178E486AD421BCF2ABCADD658A1#EC45","signed_transaction_hash":"hash:4A48384AD05A8E1669BAF4CD0ED83773F006F178E486AD421BCF2ABCADD658A1#EC45","signer":"e7012102B9A460EEDA8A8FE990F963BF58084A9D6E6DAB8C6267454A9DEE9A369BBD3D8B","submitted_at_height":73,"submitted_at_ms":1791874407875},"signature":"67A6412192176609480398C63614A09959B9FA853747FF3EC269519D3E8D6D760C339392AB80DCAA8BE58C263DFA40013DE6531EB19F08B19B37A9419F4526DD"},"content_type":"application/json; charset=utf-8","headers":{"content-type":"application/json; charset=utf-8","x-iroha-entrypoint-hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","x-iroha-route-dataspace-id":"0","x-iroha-route-lane-id":"0","x-iroha-routed-by":"local","x-iroha-signed-transaction-hash":"4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1","vary":"Accept"},"status":202}}}
+        """#
+        let hash = "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1"
+        func parse(_ json: String) throws -> NexusTairaAppliedSubmission {
+            try NexusTairaTransactionSubmissionContract.appliedSubmission(
+                from: JSONDecoder().decode(NexusJSONValue.self, from: Data(json.utf8)), expectedHash: hash)
+        }
+        XCTAssertEqual(try parse(fixture).blockHeight, 74)
+        XCTAssertEqual(try parse(fixture).hash, hash)
+        XCTAssertThrowsError(try parse(fixture.replacingOccurrences(of: "#EC45", with: "#EC44")))
+        XCTAssertThrowsError(try parse(fixture.replacingOccurrences(of: "Applied", with: "Approved")))
+        XCTAssertThrowsError(try parse(fixture.replacingOccurrences(of: "\"block_height\":74", with: "\"block_height\":0")))
+    }
+
+    func testNexusHistoryBrowsingBeyondFormerAccountLimit() throws {
+        var cursor = NexusHistoryCursor()
+        for pageNumber in 1...25 {
+            let ids = (0..<100).map { "\(pageNumber):\($0)" }
+            try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ids, nextCursor: pageNumber < 25 ? "cursor_\(pageNumber)" : nil))
+        }
+        XCTAssertNil(cursor.nextCursor)
+        XCTAssertFalse(cursor.hasMore)
+    }
+
+    func testNexusHistoryCursorRejectsChangedSnapshotWithoutAdvancing() throws {
+        var cursor = NexusHistoryCursor()
+        try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["first"], nextCursor: "next"))
+        XCTAssertThrowsError(try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["second"], nextCursor: "next")))
+        XCTAssertEqual(cursor.nextCursor, "next")
+        XCTAssertThrowsError(try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["first"], nextCursor: "third")))
+        XCTAssertEqual(cursor.nextCursor, "next")
+        // Bounded scans can advance through empty pages.
+        try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: [], nextCursor: "third"))
+        XCTAssertTrue(cursor.hasMore)
+        try cursor.accept(NexusCursorHistoryPage(items: [], sourceItemIDs: ["second"], nextCursor: nil))
+        XCTAssertFalse(cursor.hasMore)
+    }
+
+    func testNexusRecoveryHistoryRequiresCompleteExactHashProjection() throws {
+        let hash = String(repeating: "a", count: 64)
+        let request = try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "exact-history", account: "test-account",
+            assetDefinitionID: NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            cursor: nil, transactionHash: hash
+        )
+        let filter = try XCTUnwrap(request.params.nexusTestObject?["arguments"]?.nexusTestObject?["filter"]?.nexusTestString)
+        XCTAssertTrue(filter.contains("tx_hash = \"\(hash)\""))
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.accountHistoryRequest(
+            id: "bad", account: "account", assetDefinitionID: NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            cursor: nil, transactionHash: "invalid"
+        ))
+    }
+
+    func testTairaCursorMovementProjectionAndLocalRoute() throws {
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let account = "testuﾛ1NｼXCeｱﾈﾁRｴUﾀPWﾏVｱrﾋhESEbpﾂｾ9Vﾗ5ﾇJｵavsｷ26TMSNN"
+        let receiver = "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        let asset = NexusAssetDefinitionIdentity.tairaXorDefinitionID
+        let hash = String(repeating: "a", count: 64)
+        var row: [String: NexusJSONValue] = [
+            "id": .string("\(hash):\(account):0"), "source": .string("transaction"),
+            "type": .string("TRANSFER"), "timestamp_ms": .number("1775260800000"),
+            "status": .string("SUCCESS"), "result_ok": .bool(true), "direction": .string("outgoing"),
+            "account_id": .string(account), "counterparty_account_id": .string(receiver),
+            "asset_id": .string("\(asset)#\(account)"), "asset_definition_id": .string(asset),
+            "amount": .string("1.5"), "tx_hash": .string(hash),
+            "block_height": .number("42"), "block_index": .number("0"), "movement_index": .number("0"),
+        ]
+        func projection(_ row: [String: NexusJSONValue]) -> NexusJSONValue {
+            .object(["body": .object(["items": .array([.object(row)]), "next_cursor": .string("next_cursor")])])
+        }
+        let page = try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset)
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items.first?.amount.rawValue, "1.5")
+        XCTAssertEqual(page.items.first?.transactionHash, hash)
+        XCTAssertEqual(page.nextCursor, "next_cursor")
+        row["amount"] = .string("1.0000000001")
+        XCTAssertThrowsError(try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset))
+        row["amount"] = .string("1.5")
+        row["account_id"] = .string(receiver)
+        XCTAssertThrowsError(try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset))
+        row["account_id"] = .string(account)
+        row["status"] = .string("FAILED")
+        row["result_ok"] = .bool(false)
+        XCTAssertThrowsError(try NexusTransferHistoryParser.cursorPage(result: projection(row), configuration: configuration, account: account, assetDefinitionID: asset))
+        var headers = ["x-iroha-routed-by": "local", "x-iroha-route-lane-id": "0", "x-iroha-route-dataspace-id": "0"]
+        XCTAssertNoThrow(try NexusToriiClient.validateFanoutHeaderValues({ headers[$0] }, allowsPublicLocalRoute: true))
+        XCTAssertThrowsError(try NexusToriiClient.validateFanoutHeaderValues({ headers[$0] }))
+        headers["x-iroha-fanout-routes-attempted"] = "1"
+        XCTAssertThrowsError(try NexusToriiClient.validateFanoutHeaderValues({ headers[$0] }, allowsPublicLocalRoute: true))
+    }
+
+    func testTairaLiveAnonymousReads() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["SORA_LIVE_TAIRA_READS"] == "1", "Opt-in public read-only integration check")
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let client = NexusToriiClient()
+        let account = "testuﾛ1NｼXCeｱﾈﾁRｴUﾀPWﾏVｱrﾋhESEbpﾂｾ9Vﾗ5ﾇJｵavsｷ26TMSNN"
+        try await client.health(configuration: configuration)
+        let definition = try await client.xorAssetDefinition(configuration: configuration)
+        XCTAssertEqual(definition.id, NexusAssetDefinitionIdentity.tairaXorDefinitionID)
+        let balances = try await client.accountAssets(account: account, configuration: configuration, asset: definition.id, limit: 100, offset: 0)
+        XCTAssertNoThrow(try NexusBalanceValidator.xorBalance(in: balances, account: account, configuration: configuration, assetDefinitionID: definition.id))
+        let history = try await client.transferHistoryPage(account: account, configuration: configuration, assetDefinitionID: definition.id, cursor: nil)
+        XCTAssertLessThanOrEqual(history.items.count, 100)
+    }
+
+    func testNexusProductionAddressExistsWithoutLiveTransport() throws {
+        let production = NexusNetworkConfiguration.minamoto
+        XCTAssertFalse(production.isLive)
+        XCTAssertFalse(NexusNetworkConfiguration.transportIsAdmitted(for: production.toriiURL))
+        XCTAssertTrue(NexusNetworkConfiguration.admittedWalletNetworkIds.contains(.minamoto))
+        XCTAssertTrue(try XCTUnwrap(NexusNetworkConfiguration.taira).isLive)
+        let tairaReadOnly = NexusPortfolioPresentationPolicy.networkDetailAccess(
+            networkId: .taira, nexusEnabled: true, tairaEnabled: true,
+            tairaAdmitted: true, mutationCoordinatorAvailable: false
+        )
+        XCTAssertTrue(tairaReadOnly.readsAvailable)
+        XCTAssertFalse(tairaReadOnly.mutationSurfaceAvailable)
+        XCTAssertTrue(NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+            networkId: .minamoto, nexusEnabled: true, tairaEnabled: false, tairaAdmitted: true
+        ))
+    }
+
+    func testTairaMCPMetadataOnEveryRequestKind() throws {
+        let requests = [
+            NexusTairaMCPToolContract.initializeRequest(id: "init"),
+            try NexusTairaMCPToolContract.discoveryRequest(id: "list", toolsetVersion: String(repeating: "a", count: 64), cursor: nil),
+            NexusTairaMCPToolContract.healthRequest(id: "health"),
+        ]
+        for request in requests {
+            let metadata = try XCTUnwrap(request.params.nexusTestObject?["_meta"]?.nexusTestObject)
+            XCTAssertEqual(metadata["io.modelcontextprotocol/protocolVersion"], .string("2026-07-28"))
+            XCTAssertEqual(metadata["io.modelcontextprotocol/clientCapabilities"], .object([:]))
+        }
+    }
+
+
 
     @MainActor
     func testAuthenticatedWalletOpeningRetriesLateServicesAndLeavesPIN() async throws {
-        let previousWindow = UIApplication.shared.keyWindow
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
-        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
         let wallet = UIViewController()
         var attempts = 0
         var refreshes = 0
@@ -42,9 +236,9 @@ final class WalletUXTests: XCTestCase {
 
     @MainActor
     func testWalletOpeningStopsWaitingAndOffersRetryAndNodes() async throws {
-        let previousWindow = UIApplication.shared.keyWindow
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
-        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
         var attempts = 0
         var ready = false
         var nodeRequests = 0
@@ -92,7 +286,72 @@ final class WalletUXTests: XCTestCase {
     }
 
     @MainActor
+    func testTairaRemainsReachableWhileSora2ServicesAreUnavailable() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        var attempts = 0
+        let networks = UIViewController()
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            throw WalletOpeningError.assetsNotReady
+        }, refresh: {}, makeNodes: { nil }, recheckWallet: { XCTFail("No recovery required") },
+           opened: { _ in XCTFail("SORA2 services are unavailable") },
+           makeNetworks: { networks }, retryInterval: 0.5, maximumAttempts: 3)
+        let navigation = UINavigationController(rootViewController: opening)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 1 }
+        XCTAssertEqual(attempts, 1, "Navigate while the next retry is still scheduled")
+        let button = try XCTUnwrap(descendants(opening.view).compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == "wallet-opening-networks" })
+        XCTAssertFalse(button.isHidden)
+        button.sendActions(for: .touchUpInside)
+        try await waitForWalletOpening { navigation.topViewController === networks }
+        XCTAssertTrue(navigation.topViewController === networks)
+        try await Task.sleep(nanoseconds: 700_000_000)
+        XCTAssertEqual(attempts, 1, "A scheduled SORA2 retry must not interrupt Taira navigation")
+        XCTAssertTrue(navigation.topViewController === networks)
+    }
+
+    @MainActor
+    func testWalletOpeningAccountNotReadyCannotNavigateToOtherNetworks() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
+        var attempts = 0
+        var rechecks = 0
+        let opening = WalletOpeningViewController(makeWallet: {
+            attempts += 1
+            throw WalletOpeningError.accountNotReady
+        }, refresh: {}, makeNodes: { XCTFail("An unverified account cannot expose node settings"); return nil },
+           recheckWallet: { rechecks += 1 }, opened: { _ in XCTFail("An unverified account cannot open the wallet") },
+           makeNetworks: { XCTFail("An unverified account cannot expose other networks"); return UIViewController() },
+           retryInterval: 0.01, maximumAttempts: 2)
+        let navigation = UINavigationController(rootViewController: opening)
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 1 }
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(attempts, 1)
+        let buttons = descendants(opening.view).compactMap { $0 as? UIButton }
+        let networks = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-networks" })
+        XCTAssertTrue(networks.isHidden)
+        networks.sendActions(for: .touchUpInside)
+        XCTAssertTrue(navigation.topViewController === opening)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" }).isHidden)
+        let recheck = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-recheck" })
+        XCTAssertFalse(recheck.isHidden)
+        recheck.sendActions(for: .touchUpInside)
+        XCTAssertEqual(rechecks, 1)
+    }
+
+    @MainActor
     func testWalletOpeningNeverBypassesRetainedRecoveryForANodeError() async throws {
+        let fixture = try makeWalletOpeningWindow()
+        let window = fixture.window
+        defer { fixture.cleanup() }
         let settings = InMemorySettingsManager()
         settings.setWalletMigrationRecovery(reason: "Retained fixture")
         let marker = WalletMigrationRecoveryMarker.capture(settings)
@@ -106,12 +365,15 @@ final class WalletUXTests: XCTestCase {
             throw WalletOpeningError.recoveryRequired
         }, refresh: {}, makeNodes: { XCTFail("Recovery cannot expose node settings"); return nil },
            recheckWallet: { rechecks += 1 }, opened: { _ in XCTFail("Recovery cannot open the wallet") },
+           makeNetworks: { XCTFail("Recovery cannot expose other networks"); return UIViewController() },
            retryInterval: 0.01, maximumAttempts: 2)
-        controller.loadViewIfNeeded()
-        controller.viewDidAppear(false)
+        window.rootViewController = UINavigationController(rootViewController: controller)
+        window.makeKeyAndVisible()
+        try await waitForWalletOpening { attempts == 1 }
         try await Task.sleep(nanoseconds: 80_000_000)
         XCTAssertEqual(attempts, 1)
         let buttons = descendants(controller.view).compactMap { $0 as? UIButton }
+        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-networks" }).isHidden)
         XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" }).isHidden)
         XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" }).isHidden)
         let recheck = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-recheck" })
@@ -131,6 +393,29 @@ final class WalletUXTests: XCTestCase {
         presenter.didDecideUnreachableNodesAllertPresentation()
         XCTAssertEqual(view.alerts, 0)
         XCTAssertEqual(view.statuses, [WalletUX.text("Network unavailable. Retrying connection…")])
+    }
+
+    @MainActor
+    private func makeWalletOpeningWindow() throws -> (window: UIWindow, cleanup: () -> Void) {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = try XCTUnwrap(
+            scenes.first { $0.activationState == .foregroundActive } ?? scenes.first,
+            "Wallet opening requires the test host's connected window scene"
+        )
+        let previousWindow = scene.windows.first { $0.isKeyWindow }
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        // Finish navigation synchronously so an earlier test's appearance
+        // callbacks cannot start another retry during the next test.
+        UIView.setAnimationsEnabled(false)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 375, height: 667)
+        return (window, {
+            window.isHidden = true
+            window.rootViewController = nil
+            window.windowScene = nil
+            previousWindow?.makeKeyAndVisible()
+            UIView.setAnimationsEnabled(animationsWereEnabled)
+        })
     }
 
     @MainActor
@@ -1063,4 +1348,20 @@ private final class WalletUXNetworkStatusSpy: ApplicationStatusPresentable {
     func presentAlert(alert: UIAlertController, animated: Bool) { alerts += 1 }
     func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) { statuses.append(title) }
     func dismissStatus(title: String?, style: ApplicationStatusStyle?, animated: Bool) {}
+}
+
+// Test-only projections leave the production JSON decoder's access control intact.
+extension NexusJSONValue {
+    var nexusTestObject: [String: NexusJSONValue]? {
+        guard case let .object(value) = self else { return nil }
+        return value
+    }
+    var nexusTestArray: [NexusJSONValue]? {
+        guard case let .array(value) = self else { return nil }
+        return value
+    }
+    var nexusTestString: String? {
+        guard case let .string(value) = self else { return nil }
+        return value
+    }
 }

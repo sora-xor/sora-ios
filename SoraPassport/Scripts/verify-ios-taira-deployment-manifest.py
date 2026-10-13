@@ -3,7 +3,7 @@
 
 The repository deliberately contains no admitted deployment manifest.  This
 tool consumes protected, owner-only runtime inputs and emits a fresh owner-only
-admission receipt.  It never chooses which known UUID is current.
+admission receipt.  The current deployment must match the public Taira runtime contract.
 """
 
 from __future__ import annotations
@@ -28,7 +28,8 @@ KNOWN_CHAIN_IDS = {
     "809574f5-fee7-5e69-bfcf-52451e42d50f",
     "fc56984b-2be7-431d-840e-21514d1883f0",
 }
-CONVENIENCE_HOST = "taira.sora.org"
+CANONICAL_HOST = "taira.sora.org"
+CANONICAL_CHAIN_ID = "fc56984b-2be7-431d-840e-21514d1883f0"
 MAX_JSON_BYTES = 64 * 1024
 MAX_SIGNATURE_BYTES = 1024
 MAX_KEY_BYTES = 4 * 1024
@@ -212,7 +213,7 @@ def canonical_public_base(value: Any, label: str) -> str:
         parts.scheme != "https"
         or host is None
         or host != host.lower()
-        or host == CONVENIENCE_HOST
+        or host != CANONICAL_HOST
         or DNS_NAME.fullmatch(host) is None
         or parts.username is not None
         or parts.password is not None
@@ -222,7 +223,7 @@ def canonical_public_base(value: Any, label: str) -> str:
         or parts.fragment
         or candidate.endswith("/")
     ):
-        fail(f"{label} must be one canonical explicit public HTTPS origin and must not use {CONVENIENCE_HOST}")
+        fail(f"{label} must be the canonical public HTTPS origin https://{CANONICAL_HOST}")
     expected = f"https://{host}"
     if candidate != expected:
         fail(f"{label} is not in canonical origin form")
@@ -250,6 +251,8 @@ def validate_epoch(value: Any, label: str) -> dict[str, Any]:
     if epoch["i105Discriminant"] != 369:
         fail(f"{label}.i105Discriminant must be the reviewed Taira value")
     if status == "current":
+        if chain_id != CANONICAL_CHAIN_ID:
+            fail(f"{label}.chainId must match the canonical public Taira runtime")
         base = canonical_public_base(epoch["toriiBaseUrl"], f"{label}.toriiBaseUrl")
         endpoint = text(epoch["publicNodeMcpEndpoint"], f"{label}.publicNodeMcpEndpoint", 2060)
         if endpoint != f"{base}/v1/mcp":
