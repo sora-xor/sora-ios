@@ -77,7 +77,10 @@ extension AccountCreateError: ErrorContentConvertible {
                 "This backup does not match the wallet it was saved for. Nothing was changed.",
                 language: locale?.rLanguages?.first
             )
-        case .invalidKeystore, .unsupportedNetwork:
+        case .invalidKeystore:
+            title = WalletUX.text("Invalid JSON backup", language: locale?.rLanguages?.first)
+            message = WalletUX.text("Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here.", language: locale?.rLanguages?.first)
+        case .unsupportedNetwork:
             title = R.string.localizable.accountImportDefaultError(preferredLanguages: locale?.rLanguages)
             message = "" // TODO: no design
         }

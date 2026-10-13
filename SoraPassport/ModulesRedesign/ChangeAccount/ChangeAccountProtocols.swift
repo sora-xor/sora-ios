@@ -34,6 +34,8 @@ protocol ChangeAccountViewProtocol: ControllerBackedProtocol {
     var presenter: ChangeAccountPresenterProtocol? { get set }
     
     func update(with accountViewModels: [AccountMenuItem])
+    func setSwitchingAccount(_ switching: Bool)
+    func showAccountSwitchError()
 }
 
 protocol ChangeAccountPresenterProtocol: AnyObject {
