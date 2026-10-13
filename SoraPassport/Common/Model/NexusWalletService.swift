@@ -3,6 +3,7 @@
 
 import BigInt
 import Foundation
+import NexusTransferCodec
 import SoraKeystore
 
 struct NexusExactDecimal: Comparable {
@@ -802,6 +803,16 @@ struct NexusAccountAssetList: Decodable, Equatable {
 private struct NexusTairaAccountAssetPage: Decodable {
     let items: [NexusAccountAssetList.Item]
     let total: Int64
+    let nextCursor: String?
+
+    enum CodingKeys: String, CodingKey { case items, total, nextCursor = "next_cursor" }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        items = try container.decode([NexusAccountAssetList.Item].self, forKey: .items)
+        total = try container.decode(Int64.self, forKey: .total)
+        guard container.contains(.nextCursor) else { throw NexusToriiError.invalidResponse }
+        nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
+    }
 }
 
 enum NexusBalanceValidator {
@@ -861,7 +872,7 @@ enum NexusBalanceValidator {
                 item.asset == assetDefinitionID,
                 item.assetID == nil ||
                     item.assetID == assetDefinitionID,
-                expectedAssetName.map({ item.assetName == $0 }) ?? true,
+                expectedAssetName.map({ item.assetName?.lowercased() == $0.lowercased() }) ?? true,
                 expectedAssetAlias.map({ item.assetAlias == $0 }) ?? true,
                 item.scope == "global",
                 NexusAmountPolicy.accepts(
@@ -1208,15 +1219,20 @@ enum NexusToriiDeploymentHealthContract {
 /// not invalidate the wallet, while every field the wallet sends remains typed
 /// and pinned to the advertised tool-set version.
 enum NexusTairaMCPToolContract {
-    static let protocolVersion = "2025-06-18"
+    static let protocolVersion = "2026-07-28"
     static let serverName = "iroha-torii-mcp"
+
+    static let requestMetadata: NexusJSONValue = .object([
+        "io.modelcontextprotocol/protocolVersion": .string(protocolVersion),
+        "io.modelcontextprotocol/clientCapabilities": .object([:]),
+    ])
 
     enum Tool: String, CaseIterable, Hashable {
         case health = "iroha.health"
         case accountAssets = "iroha.accounts.assets"
         case assetDefinition = "iroha.assets.definitions.get"
         case transactionStatus = "iroha.transactions.status"
-        case instructions = "iroha.instructions.list"
+        case accountHistory = "iroha.accounts.history"
         case submitAndWait = "iroha.transactions.submit_and_wait"
 
         fileprivate var requestProperties: [String: SchemaType] {
@@ -1224,42 +1240,20 @@ enum NexusTairaMCPToolContract {
             case .health:
                 return [:]
             case .accountAssets:
-                return [
-                    "account_id": .scalar("string"),
-                    "asset": .scalar("string"),
-                    "limit": .scalar("integer"),
-                    "offset": .scalar("integer"),
-                    "scope": .scalar("string"),
-                    "accept": .scalar("string"),
-                ]
+                return ["path": .object(["account_id": "string"]), "filter": .scalar("string"),
+                        "limit": .scalar("integer"), "include_total": .scalar("boolean"), "accept": .scalar("string")]
             case .assetDefinition:
-                return [
-                    "definition_id": .scalar("string"),
-                    "accept": .scalar("string"),
-                ]
+                return ["path": .object(["definition_id": "string"]), "accept": .scalar("string")]
             case .transactionStatus:
-                return [
-                    "hash": .scalar("string"),
-                    "scope": .scalar("string"),
-                    "accept": .scalar("string"),
-                ]
-            case .instructions:
-                return [
-                    "account": .scalar("string"),
-                    "asset_definition_id": .scalar("string"),
-                    "kind": .scalar("string"),
-                    "page": .scalar("integer"),
-                    "per_page": .scalar("integer"),
-                    "transaction_hash": .scalar("string"),
-                    "transaction_status": .scalar("string"),
-                    "accept": .scalar("string"),
-                ]
+                return ["query": .object(["hash": "string"]), "accept": .scalar("string")]
+            case .accountHistory:
+                return ["path": .object(["account_id": "string"]), "filter": .scalar("string"),
+                        "limit": .scalar("integer"), "cursor": .scalar("string"), "accept": .scalar("string")]
             case .submitAndWait:
                 return [
                     "body_base64": .scalar("string"),
                     "hash": .scalar("string"),
                     "status_accept": .scalar("string"),
-                    "terminal_statuses": .stringArray,
                     "timeout_ms": .scalar("integer"),
                 ]
             }
@@ -1267,23 +1261,9 @@ enum NexusTairaMCPToolContract {
 
         fileprivate var alwaysProvidedProperties: Set<String> {
             let names = Set(requestProperties.keys)
-            return self == .instructions
-                ? names.subtracting(["transaction_hash"])
-                : names
+            return names.subtracting(["transaction_hash", "cursor"])
         }
 
-        fileprivate func permitsUndeclaredRequestProperty(
-            _ name: String
-        ) -> Bool {
-            switch self {
-            case .accountAssets:
-                return name == "asset" || name == "scope"
-            case .transactionStatus:
-                return name == "scope"
-            default:
-                return false
-            }
-        }
     }
 
     struct ToolDiscoveryPage: Equatable {
@@ -1294,22 +1274,14 @@ enum NexusTairaMCPToolContract {
 
     fileprivate enum SchemaType {
         case scalar(String)
-        case stringArray
+        case object([String: String])
     }
 
     static func initializeRequest(id: String) -> NexusMCPRequest {
-        NexusMCPRequest(
-            id: id,
-            method: "initialize",
-            params: .object([
-                "protocolVersion": .string(protocolVersion),
-                "capabilities": .object([:]),
-                "clientInfo": .object([
-                    "name": .string("sora-wallet-ios"),
-                    "version": .string("1"),
-                ]),
-            ])
-        )
+        // Stateless MCP discovers capabilities without creating a session.
+        NexusMCPRequest(id: id, method: "server/discover", params: .object([
+            "_meta": requestMetadata,
+        ]))
     }
 
     static func discoveryRequest(
@@ -1322,7 +1294,8 @@ enum NexusTairaMCPToolContract {
             throw NexusToriiError.mcpContractMismatch
         }
         var params: [String: NexusJSONValue] = [
-            "toolset_version": .string(toolsetVersion),
+            "toolsetVersion": .string(toolsetVersion),
+            "_meta": requestMetadata,
         ]
         if let cursor {
             guard isCanonicalCursor(cursor) else {
@@ -1347,6 +1320,7 @@ enum NexusTairaMCPToolContract {
             params: .object([
                 "name": .string(tool.rawValue),
                 "arguments": .object(arguments),
+                "_meta": requestMetadata,
             ])
         )
     }
@@ -1360,35 +1334,48 @@ enum NexusTairaMCPToolContract {
             id: id,
             tool: .assetDefinition,
             arguments: [
-                "definition_id": .string(
+                "path": .object(["definition_id": .string(
                     NexusAssetDefinitionIdentity.tairaXorDefinitionID
-                ),
+                )]),
                 "accept": .string("application/json"),
             ]
         )
     }
 
     static func accountAssetsRequest(
-        id: String,
-        account: String,
-        assetDefinitionID: String,
-        limit: Int,
-        offset: Int
+        id: String, account: String, assetDefinitionID: String, limit: Int, offset: Int
     ) -> NexusMCPRequest {
-        callRequest(
-            id: id,
-            tool: .accountAssets,
-            arguments: [
-                "account_id": .string(account),
-                // Unpatched Torii advertises `asset_id`, but its GET handler
-                // consumes `asset`. Discovery admits only that known drift.
-                "asset": .string(assetDefinitionID),
-                "limit": .number(String(limit)),
-                "offset": .number(String(offset)),
-                "scope": .string("global"),
-                "accept": .string("application/json"),
-            ]
-        )
+        callRequest(id: id, tool: .accountAssets, arguments: [
+            "path": .object(["account_id": .string(account)]),
+            "filter": .string("asset = \"\(assetDefinitionID)\" and scope = \"global\""),
+            "limit": .number(String(limit)), "include_total": .bool(true),
+            "accept": .string("application/json"),
+        ])
+    }
+
+    static func accountHistoryRequest(
+        id: String, account: String, assetDefinitionID: String,
+        cursor: String?, transactionHash: String? = nil
+    ) throws -> NexusMCPRequest {
+        guard NexusAssetDefinitionIdentity.hasCanonicalWireShape(assetDefinitionID),
+              cursor.map(validCollectionCursor) ?? true,
+              transactionHash.map({ NexusTransactionHash.normalized($0) == $0 }) ?? true else {
+            throw NexusToriiError.invalidRoute
+        }
+        var filter = "asset_definition_id = \"\(assetDefinitionID)\" and type = \"TRANSFER\" and status = \"SUCCESS\""
+        if let hash = transactionHash { filter += " and tx_hash = \"\(hash)\"" }
+        var arguments: [String: NexusJSONValue] = [
+            "path": .object(["account_id": .string(account)]),
+            "filter": .string(filter), "limit": .number("100"),
+            "accept": .string("application/json"),
+        ]
+        if let cursor { arguments["cursor"] = .string(cursor) }
+        return callRequest(id: id, tool: .accountHistory, arguments: arguments)
+    }
+
+    static func validCollectionCursor(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.count <= 4096 &&
+            value.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil
     }
 
     static func transactionStatusRequest(
@@ -1402,47 +1389,9 @@ enum NexusTairaMCPToolContract {
             id: id,
             tool: .transactionStatus,
             arguments: [
-                "hash": .string(hash),
-                "scope": .string("global"),
+                "query": .object(["hash": .string(hash)]),
                 "accept": .string("application/json"),
             ]
-        )
-    }
-
-    static func instructionsRequest(
-        id: String,
-        account: String,
-        assetDefinitionID: String,
-        page: Int,
-        perPage: Int,
-        transactionHash: String? = nil
-    ) throws -> NexusMCPRequest {
-        guard page > 0, perPage > 0 else {
-            throw NexusToriiError.invalidRoute
-        }
-        var arguments: [String: NexusJSONValue] = [
-            "account": .string(account),
-            // `asset_id` is a source-owned balance bucket and would exclude
-            // incoming transfers. Use the explicit definition selector.
-            "asset_definition_id": .string(assetDefinitionID),
-            "kind": .string("Transfer"),
-            "transaction_status": .string("committed"),
-            "page": .number(String(page)),
-            "per_page": .number(String(perPage)),
-            "accept": .string("application/json"),
-        ]
-        if let transactionHash {
-            guard NexusTransactionHash.normalized(transactionHash) ==
-                transactionHash
-            else {
-                throw NexusToriiError.invalidRoute
-            }
-            arguments["transaction_hash"] = .string(transactionHash)
-        }
-        return callRequest(
-            id: id,
-            tool: .instructions,
-            arguments: arguments
         )
     }
 
@@ -1451,15 +1400,15 @@ enum NexusTairaMCPToolContract {
     {
         guard
             let root = result.objectValue,
-            root["protocolVersion"]?.exactWireStringValue == protocolVersion,
+            root["supportedVersions"]?.arrayValue?.contains(.string(protocolVersion)) == true,
             let capabilities = root["capabilities"]?.objectValue,
-            let tools = capabilities["tools"]?.objectValue,
+            let tools = capabilities["extensions"]?.objectValue?["org.hyperledger.iroha/tools"]?.objectValue,
             let version = tools["toolsetVersion"]?.exactWireStringValue,
             NexusTransactionHash.normalized(version) == version
         else {
             throw NexusToriiError.mcpContractMismatch
         }
-        if let server = root["serverInfo"]?.objectValue,
+        if let server = root["_meta"]?.objectValue?["io.modelcontextprotocol/serverInfo"]?.objectValue,
            let name = server["name"]?.exactWireStringValue,
            name != serverName
         {
@@ -1476,8 +1425,9 @@ enum NexusTairaMCPToolContract {
         guard
             !requiredTools.isEmpty,
             let root = result.objectValue,
-            root["listChanged"]?.boolValue == false,
-            root["toolsetVersion"]?.exactWireStringValue ==
+            let metadata = root["_meta"]?.objectValue?["iroha"]?.objectValue,
+            metadata["listChanged"]?.boolValue == false,
+            metadata["toolsetVersion"]?.exactWireStringValue ==
                 expectedToolsetVersion,
             let advertised = root["tools"]?.arrayValue
         else {
@@ -1509,7 +1459,7 @@ enum NexusTairaMCPToolContract {
         }
         let nextCursor: String?
         switch root["nextCursor"] {
-        case .some(.null):
+        case .none, .some(.null):
             nextCursor = nil
         case let .some(.string(cursor)) where isCanonicalCursor(cursor):
             nextCursor = cursor
@@ -1536,17 +1486,9 @@ enum NexusTairaMCPToolContract {
         else {
             throw NexusToriiError.mcpContractMismatch
         }
-        let admitsAdditionalProperties =
-            input["additionalProperties"]?.boolValue == true
         for (name, expectedType) in tool.requestProperties {
             guard let property = properties[name] else {
-                guard
-                    admitsAdditionalProperties,
-                    tool.permitsUndeclaredRequestProperty(name)
-                else {
-                    throw NexusToriiError.mcpContractMismatch
-                }
-                continue
+                throw NexusToriiError.mcpContractMismatch
             }
             guard validates(property, as: expectedType) else {
                 throw NexusToriiError.mcpContractMismatch
@@ -1573,11 +1515,17 @@ enum NexusTairaMCPToolContract {
         }
         switch expected {
         case let .scalar(type):
-            return schema["type"]?.exactWireStringValue == type
-        case .stringArray:
-            return schema["type"]?.exactWireStringValue == "array" &&
-                schema["items"]?.objectValue?["type"]?
-                    .exactWireStringValue == "string"
+            return schema["type"]?.exactWireStringValue == type ||
+                schema["type"]?.arrayValue?.contains(.string(type)) == true
+        case let .object(properties):
+            guard schema["type"]?.exactWireStringValue == "object",
+                  let fields = schema["properties"]?.objectValue,
+                  let required = try? schemaRequiredNames(schema["required"]),
+                  required.isSubset(of: Set(properties.keys)) else { return false }
+            return properties.allSatisfy { name, type in
+                fields[name]?.objectValue?["type"]?.exactWireStringValue == type
+            }
+
         }
     }
 
@@ -1611,8 +1559,8 @@ enum NexusTairaMCPToolContract {
     }
 }
 
-/// Minamoto compatibility contract for its legacy indexed account-history
-/// projection. Public Taira never discovers or calls this tool.
+/// Legacy indexed account-history contract retained for migration fixtures.
+/// Current public Taira uses the cursor contract above.
 enum NexusMCPAccountHistoryContract {
     static let protocolVersion = "2025-06-18"
     static let serverName = "iroha-torii-mcp"
@@ -1901,6 +1849,7 @@ enum NexusMCPResultContract {
     static func validateEmbeddedRoute(
         _ result: NexusJSONValue,
         requiresFanout: Bool = false,
+        allowsPublicLocalRoute: Bool = false,
         expectedContentType: String = "application/json",
         requiresObjectBody: Bool = true
     ) throws -> NexusJSONValue {
@@ -1944,7 +1893,8 @@ enum NexusMCPResultContract {
         // embedded routed-read headers.
         try NexusToriiClient.validateFanoutHeaderValues(
             { headers[$0] },
-            requiresFanout: false
+            requiresFanout: false,
+            allowsPublicLocalRoute: allowsPublicLocalRoute
         )
         if !(200 ... 299).contains(status) {
             if try NexusToriiDeploymentHealthContract.isRouteUnavailable(
@@ -1982,7 +1932,8 @@ enum NexusMCPResultContract {
         // succeeded before the embedded body is trusted.
         try NexusToriiClient.validateFanoutHeaderValues(
             { headers[$0] },
-            requiresFanout: requiresFanout
+            requiresFanout: requiresFanout,
+            allowsPublicLocalRoute: allowsPublicLocalRoute
         )
         return .object(structured)
     }
@@ -2007,6 +1958,8 @@ struct NexusTairaTransferHistoryPage {
     let perPage: UInt64
     let totalPages: UInt64
     let totalItems: UInt64
+
+
 
     func validate(expectedPage: Int, maximumPageSize: Int) throws {
         guard
@@ -2037,6 +1990,36 @@ struct NexusTairaTransferHistoryPage {
         else {
             throw NexusToriiError.invalidResponse
         }
+    }
+}
+
+struct NexusCursorHistoryPage {
+    let items: [NexusTransferHistoryItem]
+    let sourceItemIDs: [String]
+    let nextCursor: String?
+
+
+}
+
+/// The server cursor binds the committed snapshot; even an empty page can have
+/// a continuation when the server's bounded scan budget has been consumed.
+struct NexusHistoryCursor {
+    private(set) var nextCursor: String?
+    private(set) var hasMore = true
+    private var seenCursors = Set<String>()
+    private var sourceIDs = Set<String>()
+
+    mutating func accept(_ page: NexusCursorHistoryPage) throws {
+        guard hasMore,
+              sourceIDs.isDisjoint(with: page.sourceItemIDs),
+              Set(page.sourceItemIDs).count == page.sourceItemIDs.count,
+              page.nextCursor.map({ !seenCursors.contains($0) }) ?? true else {
+            throw NexusToriiError.invalidResponse
+        }
+        sourceIDs.formUnion(page.sourceItemIDs)
+        if let cursor = page.nextCursor { seenCursors.insert(cursor) }
+        nextCursor = page.nextCursor
+        hasMore = nextCursor != nil
     }
 }
 
@@ -2456,6 +2439,43 @@ enum NexusTransferHistoryParser {
         "operation_id", "expires_at_ms", "finalized_at_ms",
         "requesting_fi_id",
     ]
+
+    static func cursorPage(
+        result: NexusJSONValue, configuration: NexusNetworkConfiguration,
+        account: String, assetDefinitionID: String
+    ) throws -> NexusCursorHistoryPage {
+        let account = try IrohaAddressCodec.parse(account, expectedDiscriminant: configuration.i105Discriminant).i105
+        guard let body = result.objectValue?["body"]?.objectValue,
+              let rows = body["items"]?.arrayValue, rows.count <= 100 else {
+            throw NexusToriiError.invalidResponse
+        }
+        let nextCursor: String?
+        switch body["next_cursor"] {
+        case .some(.null): nextCursor = nil
+        case let .some(.string(value)) where NexusTairaMCPToolContract.validCollectionCursor(value): nextCursor = value
+        default: throw NexusToriiError.invalidResponse
+        }
+        var ids: [String] = []
+        let items = try rows.compactMap { row -> NexusTransferHistoryItem? in
+            guard var object = row.objectValue,
+                  let height = canonicalUInt64(object.removeValue(forKey: "block_height")), height > 0,
+                  canonicalUInt64(object.removeValue(forKey: "block_index")) != nil,
+                  canonicalUInt64(object.removeValue(forKey: "movement_index")) != nil,
+                  let id = object["id"]?.exactWireStringValue else {
+                throw NexusToriiError.invalidResponse
+            }
+            guard object["type"] == .string("TRANSFER"),
+                  object["status"] == .string("SUCCESS"),
+                  let item = try parseItem(object, configuration: configuration, account: account, assetDefinitionID: assetDefinitionID),
+                  NexusAmountPolicy.accepts(item.amount, networkId: configuration.networkId, allowingZero: false) else {
+                throw NexusToriiError.invalidResponse
+            }
+            ids.append(id)
+            return item
+        }
+        guard Set(ids).count == ids.count else { throw NexusToriiError.invalidResponse }
+        return NexusCursorHistoryPage(items: items, sourceItemIDs: ids, nextCursor: nextCursor)
+    }
 
     static func page(
         result: NexusJSONValue,
@@ -2899,11 +2919,11 @@ enum NexusTairaTransactionSubmissionContract {
         }
         return .object([
             "name": .string(toolName),
+            "_meta": NexusTairaMCPToolContract.requestMetadata,
             "arguments": .object([
                 "body_base64": .string(signedNorito.base64EncodedString()),
                 "hash": .string(hash),
                 "status_accept": .string("application/json"),
-                "terminal_statuses": .array([.string("Applied")]),
                 "timeout_ms": .number(String(timeoutMilliseconds))
             ])
         ])
@@ -2916,7 +2936,8 @@ enum NexusTairaTransactionSubmissionContract {
         guard
             let expectedHash = NexusTransactionHash.normalized(expectedHash),
             let wrapper = result.objectValue,
-            Set(wrapper.keys) == ["content", "isError", "structuredContent"],
+            Set(wrapper.keys).isSubset(of: ["content", "isError", "structuredContent", "_meta", "resultType"]),
+            wrapper["resultType"] == nil || wrapper["resultType"] == .string("complete"),
             let isError = wrapper["isError"]?.boolValue
         else {
             throw NexusToriiError.invalidResponse
@@ -2939,10 +2960,10 @@ enum NexusTairaTransactionSubmissionContract {
             Set(contentItem.keys) == ["type", "text"],
             contentItem["type"]?.exactWireStringValue == "text",
             let structured = wrapper["structuredContent"]?.objectValue,
-            Set(structured.keys) == [
+            Set(structured.keys).isSubset(of: [
                 "attempts", "elapsed_ms", "final", "hash", "status",
                 "submit", "terminal_kind", "terminal_statuses"
-            ],
+            ]),
             let status = canonicalUInt64(structured["status"]),
             (200 ... 299).contains(status),
             contentItem["text"]?.exactWireStringValue == "http \(status)",
@@ -2950,9 +2971,8 @@ enum NexusTairaTransactionSubmissionContract {
             attempts > 0,
             canonicalUInt64(structured["elapsed_ms"]) != nil,
             structured["terminal_kind"]?.exactWireStringValue == "Applied",
-            structured["terminal_statuses"]?.arrayValue == [
-                .string("Applied")
-            ],
+            structured["terminal_statuses"] == nil ||
+                structured["terminal_statuses"]?.arrayValue == [.string("Applied")],
             let returnedHash = structured["hash"]?.exactWireStringValue
         else {
             throw NexusToriiError.invalidResponse
@@ -2971,9 +2991,8 @@ enum NexusTairaTransactionSubmissionContract {
                 submitHeaderContentType,
                 expected: "application/json"
             ),
-            let submitHeaderHash = submitHeaders[
-                "x-iroha-transaction-hash"
-            ]?.exactWireStringValue,
+            let submitHeaderHash = (submitHeaders["x-iroha-entrypoint-hash"] ??
+                submitHeaders["x-iroha-transaction-hash"])?.exactWireStringValue,
             let submitContentType = submit["content_type"]?
                 .exactWireStringValue,
             NexusToriiMediaTypeContract.matches(
@@ -2982,12 +3001,18 @@ enum NexusTairaTransactionSubmissionContract {
             ),
             let submitBody = submit["body"]?.objectValue,
             let receiptPayload = submitBody["payload"]?.objectValue,
-            let receiptHash = receiptPayload["tx_hash"]?
+            let receiptHash = (receiptPayload["entrypoint_hash"] ?? receiptPayload["tx_hash"])?
                 .exactWireStringValue
         else {
             throw NexusToriiError.invalidResponse
         }
         try requireHash(submitHeaderHash, equals: expectedHash)
+        for name in ["x-iroha-entrypoint-hash", "x-iroha-signed-transaction-hash", "x-iroha-transaction-hash"] {
+            if let value = submitHeaders[name] {
+                guard let hash = value.exactWireStringValue else { throw NexusToriiError.invalidResponse }
+                try requireHash(hash, equals: expectedHash)
+            }
+        }
         try requireHash(receiptHash, equals: expectedHash)
         let submitHashes = try transactionHashes(in: .object(submitBody))
         for hash in submitHashes {
@@ -3071,7 +3096,7 @@ enum NexusTairaTransactionSubmissionContract {
         _ value: String,
         equals expectedHash: String
     ) throws {
-        guard NexusTransactionHash.normalized(value) == expectedHash else {
+        guard (TairaClient.hashLiteral(value) ?? NexusTransactionHash.normalized(value)) == expectedHash else {
             throw NexusToriiError.transactionHashMismatch
         }
     }
@@ -3312,7 +3337,8 @@ final class NexusToriiClient {
 
     static func validateFanoutHeaderValues(
         _ headerValue: (String) -> String?,
-        requiresFanout: Bool = false
+        requiresFanout: Bool = false,
+        allowsPublicLocalRoute: Bool = false
     ) throws {
         let firstFailure = headerValue("x-iroha-fanout-first-failure")
         let routedBy = headerValue(routedByHeader)
@@ -3335,11 +3361,13 @@ final class NexusToriiClient {
             headerValue($0)
         }
         if rawCounts.allSatisfy({ $0 == nil }) {
-            // Lane/dataspace provenance is meaningful only together with the
-            // complete single-route fanout counters validated below. Never
-            // accept an otherwise plausible local route identity as partial
-            // evidence on a response that did not declare its fanout result.
-            guard routeLaneID == nil else {
+            // Current public Taira collection routes identify the global lane
+            // directly. Only explicitly opted-in callers admit that exact route;
+            // every declared fanout family still has to be complete.
+            guard routeLaneID == nil || (
+                allowsPublicLocalRoute && !requiresFanout &&
+                routedBy == "local" && routeLaneID == "0" && routeDataspaceID == "0"
+            ) else {
                 throw NexusToriiError.invalidResponse
             }
             if firstFailure == "route_unavailable" {
@@ -3573,6 +3601,7 @@ final class NexusToriiClient {
             throw NexusToriiError.invalidRoute
         }
         if configuration.networkId == .taira {
+            guard offset == 0 else { throw NexusToriiError.invalidRoute }
             try await ensureTairaTool(
                 .accountAssets,
                 configuration: configuration
@@ -3591,26 +3620,19 @@ final class NexusToriiClient {
                 throw NexusToriiError.mcpContractMismatch
             }
             let structured = try NexusMCPResultContract
-                .validateEmbeddedRoute(result, requiresFanout: true)
+                .validateEmbeddedRoute(result, allowsPublicLocalRoute: true)
             let current = try decodeMCPBody(
                 NexusTairaAccountAssetPage.self,
                 from: structured
             )
-            let consumed = Int64(offset) + Int64(current.items.count)
-            guard
-                current.total >= 0,
-                current.total <= 10_000,
-                consumed >= Int64(offset),
-                consumed <= current.total,
-                current.items.count <= limit
-            else {
+            guard current.nextCursor == nil,
+                  current.total == Int64(current.items.count),
+                  current.items.count <= min(limit, 1) else {
                 throw NexusToriiError.invalidResponse
             }
             return NexusAccountAssetList(
-                items: current.items,
-                hasMore: consumed < current.total,
-                countMode: "exact",
-                total: current.total
+                items: current.items, hasMore: false,
+                countMode: "exact", total: current.total
             )
         }
 
@@ -3734,42 +3756,11 @@ final class NexusToriiClient {
         }
 
         if configuration.networkId == .taira {
-            try await ensureTairaTool(
-                .instructions,
-                configuration: configuration
+            let transfers = try await committedXorTransfers(
+                account: canonicalAccount, configuration: configuration,
+                assetDefinitionID: assetDefinitionID, transactionHash: expectedHash
             )
-            let response = try await mcp(
-                NexusTairaMCPToolContract.instructionsRequest(
-                    id: "taira-committed-\(expectedHash.prefix(12))",
-                    account: canonicalAccount,
-                    assetDefinitionID: assetDefinitionID,
-                    page: 1,
-                    perPage: 100,
-                    transactionHash: expectedHash
-                ),
-                configuration: configuration
-            )
-            guard let result = response.result else {
-                throw NexusToriiError.mcpContractMismatch
-            }
-            let structured = try NexusMCPResultContract
-                .validateEmbeddedRoute(result)
-            let page = try NexusTairaTransferHistoryParser.page(
-                result: structured,
-                configuration: configuration,
-                account: canonicalAccount,
-                assetDefinitionID: assetDefinitionID
-            )
-            try page.validate(expectedPage: 1, maximumPageSize: 100)
-            guard
-                page.totalPages <= 1,
-                page.items.allSatisfy({
-                    $0.transactionHash == expectedHash
-                })
-            else {
-                throw NexusToriiError.invalidResponse
-            }
-            return !page.items.isEmpty
+            return !transfers.isEmpty
         }
 
         var proof = try NexusAccountTransactionProof(
@@ -3796,213 +3787,74 @@ final class NexusToriiClient {
         }
     }
 
-    /// Reads committed XOR transfers. Taira uses the current explorer
-    /// instruction projection; Minamoto retains its legacy indexed history.
-    func committedXorTransfers(
-        account: String,
-        configuration: NexusNetworkConfiguration
-    ) async throws -> [NexusTransferHistoryItem] {
-        let definition = try await xorAssetDefinition(
-            configuration: configuration
-        )
-        return try await committedXorTransfers(
-            account: account,
-            configuration: configuration,
-            assetDefinitionID: definition.id
-        )
-    }
-
-    func committedXorTransfers(
+    /// A single validated page keeps browsing independent of account age.
+    func transferHistoryPage(
         account: String,
         configuration: NexusNetworkConfiguration,
-        assetDefinitionID: String
-    ) async throws -> [NexusTransferHistoryItem] {
-        let canonicalAccount = try IrohaAddressCodec.parse(
-            account,
-            expectedDiscriminant: configuration.i105Discriminant
-        ).i105
-        guard
-            NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
-                assetDefinitionID,
-                configuration: configuration
-            )
-        else {
+        assetDefinitionID: String,
+        cursor: String?,
+        transactionHash: String? = nil
+    ) async throws -> NexusCursorHistoryPage {
+        guard configuration.isLive,
+              NexusAssetDefinitionIdentity.isQualifiedXorDefinitionID(
+                  assetDefinitionID, configuration: configuration
+              ) else {
             throw NexusToriiError.invalidRoute
         }
-        if configuration.networkId == .taira {
-            return try await tairaCommittedXorTransfers(
+        let canonicalAccount = try IrohaAddressCodec.parse(
+            account, expectedDiscriminant: configuration.i105Discriminant
+        ).i105
+        try await ensureTairaTool(.accountHistory, configuration: configuration)
+        let response = try await mcp(
+            NexusTairaMCPToolContract.accountHistoryRequest(
+                id: "history-page",
                 account: canonicalAccount,
-                configuration: configuration,
-                assetDefinitionID: assetDefinitionID
-            )
-        }
-        // Minamoto compatibility only. Public Taira never discovers or calls
-        // `iroha.accounts.history`.
-        try await validateAccountHistoryMCPContract(
+                assetDefinitionID: assetDefinitionID,
+                cursor: cursor,
+                transactionHash: transactionHash
+            ),
             configuration: configuration
         )
-
-        let pageSize = 100
-        let maximumPages = 20
-        var history: [NexusTransferHistoryItem] = []
-        var sourceItemIDs = Set<String>()
-        var expectedTotal: UInt64?
-        var expectedIndexedHeight: UInt64?
-        var expectedIndexedBlockHash: String?
-        var expectedQuerySource: String?
-        var offset = 0
-        for page in 1 ... maximumPages {
-            let response = try await mcp(
-                NexusMCPRequest(
-                    id: "history-\(page)",
-                    params: .object([
-                        "name": .string("iroha.accounts.history"),
-                        "arguments": .object([
-                            "account_id": .string(canonicalAccount),
-                            "asset_id": .string(assetDefinitionID),
-                            "limit": .number(String(pageSize)),
-                            "offset": .number(String(offset)),
-                            "accept": .string("application/json")
-                        ])
-                    ])
-                ),
-                configuration: configuration
-            )
-            guard response.error == nil, let result = response.result else {
-                throw NexusToriiError.server
-            }
-            let structuredResult = try NexusMCPResultContract
-                .validateEmbeddedRoute(
-                    result,
-                    requiresFanout: true
-                )
-            let parsed = try NexusTransferHistoryParser.page(
-                result: structuredResult,
-                configuration: configuration,
-                account: canonicalAccount,
-                assetDefinitionID: assetDefinitionID
-            )
-            guard parsed.sourceItemCount <= pageSize else {
-                throw NexusToriiError.invalidResponse
-            }
-            guard
-                expectedTotal.map({ $0 == parsed.total }) ?? true,
-                expectedQuerySource.map({ $0 == parsed.querySource }) ?? true,
-                expectedIndexedHeight.map({ $0 == parsed.indexedHeight }) ?? true,
-                expectedIndexedBlockHash.map({
-                    $0 == parsed.indexedBlockHash
-                }) ?? true,
-                UInt64(offset) <= parsed.total,
-                UInt64(parsed.sourceItemCount) <= parsed.total - UInt64(offset),
-                parsed.hasMore == (
-                    UInt64(offset + parsed.sourceItemCount) < parsed.total
-                )
-            else {
-                throw NexusToriiError.invalidResponse
-            }
-            expectedTotal = parsed.total
-            expectedQuerySource = parsed.querySource
-            expectedIndexedHeight = parsed.indexedHeight
-            expectedIndexedBlockHash = parsed.indexedBlockHash
-            for id in parsed.sourceItemIDs {
-                guard sourceItemIDs.insert(id).inserted else {
-                    throw NexusToriiError.invalidResponse
-                }
-            }
-            history.append(contentsOf: parsed.items)
-            offset += parsed.sourceItemCount
-            if parsed.querySource == "account_history_fanout" {
-                guard UInt64(offset) == parsed.total else {
-                    throw NexusToriiError.invalidResponse
-                }
-                return history
-            }
-            if !parsed.hasMore {
-                return history
-            }
-            guard parsed.sourceItemCount > 0 else {
-                throw NexusToriiError.invalidResponse
-            }
+        guard let result = response.result else {
+            throw NexusToriiError.mcpContractMismatch
         }
-        throw NexusToriiError.invalidResponse
+        let structured = try NexusMCPResultContract.validateEmbeddedRoute(result, allowsPublicLocalRoute: true)
+        let parsed = try NexusTransferHistoryParser.cursorPage(
+            result: structured,
+            configuration: configuration,
+            account: canonicalAccount,
+            assetDefinitionID: assetDefinitionID
+        )
+        return parsed
     }
 
-    private func tairaCommittedXorTransfers(
+    /// Recovery requests only the signed transaction. Never scan account history
+    /// or let the presentation page size determine whether a send can finalize.
+    func committedXorTransfers(
         account: String,
         configuration: NexusNetworkConfiguration,
-        assetDefinitionID: String
+        assetDefinitionID: String,
+        transactionHash: String
     ) async throws -> [NexusTransferHistoryItem] {
-        try await ensureTairaTool(.instructions, configuration: configuration)
-        let pageSize = 100
-        let maximumPages = 20
-        let maximumItems = pageSize * maximumPages
-        var history: [NexusTransferHistoryItem] = []
-        var sourceItemIDs = Set<String>()
-        var expectedTotalPages: UInt64?
-        var expectedTotalItems: UInt64?
-        var consumedSourceItems: UInt64 = 0
-
-        for pageNumber in 1 ... maximumPages {
-            let response = try await mcp(
-                NexusTairaMCPToolContract.instructionsRequest(
-                    id: "history-\(pageNumber)",
-                    account: account,
-                    assetDefinitionID: assetDefinitionID,
-                    page: pageNumber,
-                    perPage: pageSize
-                ),
-                configuration: configuration
-            )
-            guard let result = response.result else {
-                throw NexusToriiError.mcpContractMismatch
-            }
-            let structured = try NexusMCPResultContract
-                .validateEmbeddedRoute(result)
-            let parsed = try NexusTairaTransferHistoryParser.page(
-                result: structured,
-                configuration: configuration,
-                account: account,
-                assetDefinitionID: assetDefinitionID
-            )
-            try parsed.validate(
-                expectedPage: pageNumber,
-                maximumPageSize: pageSize
-            )
-            guard
-                parsed.perPage == UInt64(pageSize),
-                parsed.totalPages <= UInt64(maximumPages),
-                parsed.totalItems <= UInt64(maximumItems),
-                expectedTotalPages.map({ $0 == parsed.totalPages }) ?? true,
-                expectedTotalItems.map({ $0 == parsed.totalItems }) ?? true,
-                consumedSourceItems <= parsed.totalItems,
-                UInt64(parsed.sourceItemCount) <=
-                    parsed.totalItems - consumedSourceItems
-            else {
-                throw NexusToriiError.invalidResponse
-            }
-            expectedTotalPages = parsed.totalPages
-            expectedTotalItems = parsed.totalItems
-            for id in parsed.sourceItemIDs {
-                guard sourceItemIDs.insert(id).inserted else {
-                    throw NexusToriiError.invalidResponse
-                }
-            }
-            consumedSourceItems += UInt64(parsed.sourceItemCount)
-            history.append(contentsOf: parsed.items)
-            guard history.count <= maximumItems else {
-                throw NexusToriiError.invalidResponse
-            }
-            if UInt64(pageNumber) >= parsed.totalPages {
-                guard consumedSourceItems == parsed.totalItems else {
-                    throw NexusToriiError.invalidResponse
-                }
-                return history
-            }
-            guard parsed.sourceItemCount > 0 else {
-                throw NexusToriiError.invalidResponse
-            }
+        guard let hash = NexusTransactionHash.normalized(transactionHash) else {
+            throw NexusToriiError.invalidRoute
         }
-        throw NexusToriiError.invalidResponse
+        var cursor = NexusHistoryCursor()
+        var transfers: [NexusTransferHistoryItem] = []
+        while cursor.hasMore {
+            try Task.checkCancellation()
+            let page = try await transferHistoryPage(
+                account: account, configuration: configuration,
+                assetDefinitionID: assetDefinitionID,
+                cursor: cursor.nextCursor, transactionHash: hash
+            )
+            guard page.items.allSatisfy({ $0.transactionHash == hash }) else {
+                throw NexusToriiError.invalidResponse
+            }
+            try cursor.accept(page)
+            transfers.append(contentsOf: page.items)
+        }
+        return transfers
     }
 
     private func ensureTairaTool(
@@ -4265,6 +4117,14 @@ final class NexusToriiClient {
         if let timeoutInterval {
             mcpRequest.timeoutInterval = timeoutInterval
         }
+        mcpRequest.setValue(
+            NexusTairaMCPToolContract.protocolVersion,
+            forHTTPHeaderField: "MCP-Protocol-Version"
+        )
+        mcpRequest.setValue(payload.method, forHTTPHeaderField: "Mcp-Method")
+        if payload.method == "tools/call", let name = payload.params.objectValue?["name"]?.exactWireStringValue {
+            mcpRequest.setValue(name, forHTTPHeaderField: "Mcp-Name")
+        }
         mcpRequest.httpBody = try encoder.encode(payload)
         mcpRequest.setValue(
             "application/json",
@@ -4414,10 +4274,18 @@ protocol NexusToriiReading {
         transactionHash: String
     ) async throws -> Bool
 
+    func transferHistoryPage(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        cursor: String?
+    ) async throws -> NexusCursorHistoryPage
+
     func committedXorTransfers(
         account: String,
         configuration: NexusNetworkConfiguration,
-        assetDefinitionID: String
+        assetDefinitionID: String,
+        transactionHash: String
     ) async throws -> [NexusTransferHistoryItem]
 }
 
@@ -4483,15 +4351,29 @@ final class NexusToriiReadClient: NexusToriiReading {
         )
     }
 
+    func transferHistoryPage(
+        account: String,
+        configuration: NexusNetworkConfiguration,
+        assetDefinitionID: String,
+        cursor: String?
+    ) async throws -> NexusCursorHistoryPage {
+        try await transport.transferHistoryPage(
+            account: account, configuration: configuration,
+            assetDefinitionID: assetDefinitionID, cursor: cursor
+        )
+    }
+
     func committedXorTransfers(
         account: String,
         configuration: NexusNetworkConfiguration,
-        assetDefinitionID: String
+        assetDefinitionID: String,
+        transactionHash: String
     ) async throws -> [NexusTransferHistoryItem] {
         try await transport.committedXorTransfers(
             account: account,
             configuration: configuration,
-            assetDefinitionID: assetDefinitionID
+            assetDefinitionID: assetDefinitionID,
+            transactionHash: transactionHash
         )
     }
 }
@@ -4606,20 +4488,21 @@ final class NexusPreparedTransfer: Equatable {
 }
 
 struct NexusSignedTransaction: Equatable {
-    /// Exact Norito bytes produced by the reviewed native bridge.
+    /// Exact locally encoded and signed Norito bytes.
     var payload: Data
-    /// Canonical pipeline hash derived locally by that same bridge before any
+    /// Canonical pipeline hash derived locally from the encoded payload before any
     /// network I/O. Persisting it before submission makes a timeout
     /// reconcilable after restart without ever resubmitting the transaction.
     let pipelineHash: String
 }
 
-/// Read-only finalized checkpoint returned by the reviewed network adapter.
+/// Read-only applied checkpoint returned by the selected confirmation adapter.
+/// Taira uses HTTPS node confirmations; production requires independent verification.
 /// A height without the exact selected network, configured chain UUID, and
 /// canonical nonzero finalized block hash is not authoritative enough to
 /// expire a quote or reconcile a transaction.
-/// A qualified native verifier must decode Torii's checksummed Norito hash
-/// literal and project the verified 32 bytes as the shared Android/iOS
+/// Each adapter decodes Torii's checksummed Norito hash literal and projects
+/// its 32 bytes as the shared Android/iOS
 /// lowercase, prefix-free 64-hex representation used here.
 struct NexusFinalityCheckpoint: Equatable {
     let networkId: NetworkId
@@ -4647,11 +4530,9 @@ struct NexusFinalityCheckpoint: Equatable {
 /// reconciliation. Keeping it separate from `NexusTransactionSigning` makes
 /// it impossible for recovery to reach quote or secret-signing capability.
 protocol NexusFinalityReading {
-    /// May return true only when the exact network has reviewed node,
-    /// signed-genesis, and first-context trust anchors plus a provenance-bound
-    /// native verifier for challenge-bound BridgeFinalityAttestationV1 and
-    /// bounded sequential BridgeFinalityBundle catch-up. Scalar status height
-    /// and response-declared identity are never qualification evidence.
+    /// Taira admits canonical HTTPS node confirmations bound to its pinned
+    /// genesis. Production requires independently verified consensus proofs;
+    /// the testnet adapter never qualifies production.
     func isQualified(
         for configuration: NexusNetworkConfiguration
     ) -> Bool
@@ -4806,11 +4687,13 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
     let idempotencyKey: UUID
     let walletId: String
     let networkId: NetworkId
-    /// Exact chain UUID used to construct and sign this transaction. Taira
-    /// admits only the canonical first-release UUID.
+    /// Legacy wallet deployment identity retained for journal compatibility.
     let chainId: UUID?
     /// Decoding compatibility only; current Taira rows require this to be nil.
     var tairaDeployment: NexusPendingTairaDeploymentIdentity? = nil
+    /// Actual current-protocol replay domain. New Taira writes bind the genesis;
+    /// a future testnet reset must never reconcile them against its replacement.
+    var signingNetworkId: String? = nil
     let sender: String
     let receiver: String
     /// Exact opaque definition selected by `xor#universal` when the signed
@@ -4835,6 +4718,10 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
         tairaBinding: TairaDeploymentBinding? = nil
     ) -> Bool {
         guard chainId == configuration.chainId else {
+            return false
+        }
+        if let signingNetworkId,
+           configuration.networkId != .taira || signingNetworkId != TairaClient.networkLiteral {
             return false
         }
         switch configuration.networkId {
@@ -5181,6 +5068,7 @@ actor NexusPendingTransactionStore {
             lhs.walletId == rhs.walletId &&
             lhs.networkId == rhs.networkId &&
             lhs.chainId == rhs.chainId &&
+            lhs.signingNetworkId == rhs.signingNetworkId &&
             lhs.tairaDeployment == rhs.tairaDeployment &&
             lhs.sender == rhs.sender &&
             lhs.receiver == rhs.receiver &&
@@ -5202,7 +5090,7 @@ actor NexusPendingTransactionStore {
         guard let scope = transactionHashScope(for: transaction) else {
             return nil
         }
-        let chainIdentity = transaction.chainId?.uuidString.lowercased() ??
+        let chainIdentity = transaction.signingNetworkId ?? transaction.chainId?.uuidString.lowercased() ??
             "legacy-unbound"
         return "\(scope):\(chainIdentity)"
     }
@@ -5462,8 +5350,8 @@ actor NexusTransactionCoordinator {
         readClient: NexusToriiReading = NexusToriiReadClient(),
         submissionClient: NexusToriiSubmitting =
             NexusToriiSubmissionClient(),
-        signer: NexusTransactionSigning = UnavailableNexusTransactionSigner(),
-        finalityReader: NexusFinalityReading = UnavailableNexusFinalityReader(),
+        signer: NexusTransactionSigning = TairaTransactionSigner(),
+        finalityReader: NexusFinalityReading = TairaToriiConfirmationReader(),
         pendingStore: NexusPendingTransactionStore,
         settings: SettingsManagerProtocol = SettingsManager.shared,
         featureClient: PIIndexerClient = PIIndexerClient()
@@ -5544,10 +5432,9 @@ actor NexusTransactionCoordinator {
         )
     }
 
-    /// Builds the exact confirmation contract without signing. The quote must
-    /// come from the reviewed native Iroha/Norito implementation because it
-    /// binds the authority, recipient, asset, amount, network and transaction
-    /// construction inputs that determine the fee.
+    /// Builds the confirmation contract without transaction signing. Taira's
+    /// authenticated Torii quote binds the exact locally encoded draft, including
+    /// authority, recipient, asset, amount, network and transaction fee limits.
     func prepare(
         _ request: NexusTransferRequest,
         selectedAccount: @MainActor @escaping () -> NetworkAccount?
@@ -5605,7 +5492,7 @@ actor NexusTransactionCoordinator {
         )
         guard
             let fee = NexusExactDecimal(quote.fee.rawValue),
-            fee.unscaled > 0
+            fee.unscaled >= 0
         else {
             throw PIIndexerError.invalidQuantity
         }
@@ -5722,6 +5609,7 @@ actor NexusTransactionCoordinator {
                 NexusPendingTairaDeploymentIdentity.admitted(
                     for: configuration
                 ),
+            signingNetworkId: request.networkId == .taira ? TairaClient.networkLiteral : nil,
             sender: request.sender,
             receiver: request.receiver,
             assetDefinitionID: freshDefinition.id,
@@ -6105,7 +5993,7 @@ actor NexusTransactionCoordinator {
             !quote.quoteIdentity.isEmpty,
             quote.validUntilBlock.map({ $0 > 0 }) ?? true,
             let fee = NexusExactDecimal(quote.fee.rawValue),
-            fee.unscaled > 0,
+            fee.unscaled >= 0,
             fee.scale <= NexusAmountPolicy.maximumScale(
                 for: configuration.networkId
             ),
@@ -6148,9 +6036,9 @@ actor NexusTransactionCoordinator {
         return NexusSendAvailabilityPolicy.permits(
             networkId: networkId,
             nexusEnabled: settings.nexusEnabled,
-            sendsEnabled: settings.nexusSendsEnabled,
+            sendsEnabled: settings.nexusSendsEnabled(for: networkId),
             tairaEnabled: settings.isTairaEnabled,
-            networkAdmitted: configuration.satisfiesCurrentTairaContract,
+            networkAdmitted: configuration.isLive && configuration.satisfiesCurrentTairaContract,
             signerQualified: signer.isQualified(for: configuration),
             finalityQualified: finalityReader.isQualified(for: configuration)
         )
@@ -6159,6 +6047,12 @@ actor NexusTransactionCoordinator {
     private func validateLiveFeatureFlags(
         for networkId: NetworkId
     ) async throws {
+        // Taira is a public testnet with a local signer and HTTPS node confirmations.
+        // The production rollout service cannot qualify a network that has not launched.
+        if networkId == .taira {
+            guard sendAvailabilityAllows(networkId) else { throw NexusToriiError.sendsDisabled }
+            return
+        }
         let capabilitySession = ProductionRemoteCapabilitySession.shared
         let refreshToken = capabilitySession.beginLiveRefresh()
         let config: PIMobileConfig
@@ -6204,6 +6098,7 @@ actor NexusTransactionCoordinator {
                     NexusNetworkConfiguration.configuration(
                         for: transaction.networkId
                     ),
+                journalConfiguration.isLive,
                 transaction.hasCurrentDeploymentIdentity(
                     for: journalConfiguration
                 )
@@ -6363,7 +6258,8 @@ actor NexusTransactionCoordinator {
                 let history = try await readClient.committedXorTransfers(
                     account: account.address,
                     configuration: configuration,
-                    assetDefinitionID: assetDefinitionID
+                    assetDefinitionID: assetDefinitionID,
+                    transactionHash: expectedHash
                 )
                 guard NexusCommittedHistoryReconciliation.matchesExactlyOne(
                     history: history,

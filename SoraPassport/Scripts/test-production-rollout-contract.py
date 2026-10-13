@@ -2090,8 +2090,8 @@ def generate_taira_deployment(
     retired_genesis = synthetic_sha256(
         f"taira-retired-genesis:{retired_chain_id}"
     )
-    current_base = "https://taira-public.synthetic.invalid"
-    explorer_base = "https://taira-explorer.synthetic.invalid"
+    current_base = "https://taira.sora.org"
+    explorer_base = "https://taira.sora.org"
     operator_pin = public_key_spki_sha256(operator_public)
     reviewer_pin = public_key_spki_sha256(reviewer_public)
     write_taira_manifest(
@@ -2844,38 +2844,20 @@ def main() -> int:
 
         reversed_root = temporary_root / "reversed-taira-deployment"
         reversed_root.mkdir(mode=0o700)
-        TAIRA_DEPLOYMENT, TAIRA_DEPLOYMENT_ENVIRONMENT = generate_taira_deployment(
-            reversed_root,
-            validator=release_root / "SoraPassport/Scripts" / TAIRA_DEPLOYMENT_VALIDATOR.name,
-            evaluated_at=now,
-            current_chain_id=TAIRA_RETIRED_CHAIN_ID,
-        )
-        reversed_common = build_common_evidence(
-            reversed_root / "common",
-            private_key,
-            earliest_gate_epoch,
-            funded_private_keys=funded_private_keys,
-            funded_public_keys=funded_public_keys,
-            funded_key_ids=funded_key_ids,
-            funded_trust_sha256=funded_trust_sha256,
-            readiness_path=readiness_path,
-        )
-        reversed_chain = build_chain(
-            reversed_root / "success-1",
-            target=1,
-            common=reversed_common,
-            private_key=private_key,
-            current_evaluated_at=current_evaluated_at,
-        )
-        run_gate(
-            name="success-reversed-operator-selected-taira",
-            shell_path=shell_path,
-            environment=make_environment(reversed_chain),
-            should_succeed=True,
-            expected_fragment="production rollout v3 gate to 1% qualified",
-        )
+        try:
+            generate_taira_deployment(
+                reversed_root,
+                validator=release_root / "SoraPassport/Scripts" / TAIRA_DEPLOYMENT_VALIDATOR.name,
+                evaluated_at=now,
+                current_chain_id=TAIRA_RETIRED_CHAIN_ID,
+            )
+        except HarnessFailure as error:
+            if "canonical public Taira runtime" not in str(error):
+                raise
+        else:
+            raise HarnessFailure("retired Taira identity was admitted as current")
 
-    print("production rollout hermetic regression: 5 success paths and 37 fail-closed mutations passed")
+    print("production rollout hermetic regression: 4 success paths and 38 fail-closed mutations passed")
     return 0
 
 

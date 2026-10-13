@@ -49,6 +49,7 @@ final class ConfirmWireframe {
 extension ConfirmWireframe: ConfirmWireframeProtocol {    
     func showActivityIndicator() {
         activityIndicatorWindow = UIWindow(frame: UIScreen.main.bounds)
+        activityIndicatorWindow?.windowScene = (UIApplication.shared.delegate as? AppDelegate)?.window?.windowScene
         activityIndicatorWindow?.windowLevel = UIWindow.Level.alert
         activityIndicatorWindow?.rootViewController = ActivityIndicatorViewController()
         activityIndicatorWindow?.isHidden = false

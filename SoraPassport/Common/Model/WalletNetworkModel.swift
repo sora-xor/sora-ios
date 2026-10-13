@@ -2419,6 +2419,10 @@ struct NexusNetworkConfiguration: Codable, Equatable {
     let derivationPath: String
     let isTestnet: Bool
 
+    /// Production identities can be created offline before the network launches.
+    /// Only Taira currently admits network I/O or transaction capabilities.
+    var isLive: Bool { networkId == .taira }
+
     var derivationProfile: NexusDerivationProfile {
         NexusDerivationProfile(
             networkId: networkId,
@@ -2429,7 +2433,7 @@ struct NexusNetworkConfiguration: Codable, Equatable {
 
     static let minamoto = NexusNetworkConfiguration(
         networkId: .minamoto,
-        displayName: "Minamoto",
+        displayName: "SORA Nexus Production",
         chainId: UUID(uuidString: "00000000-0000-0000-0000-000000000753")!,
         i105Discriminant: NexusDerivationProfile.minamoto.i105Discriminant,
         toriiURL: URL(string: "https://minamoto.sora.org")!,
@@ -2507,22 +2511,6 @@ struct NexusNetworkConfiguration: Codable, Equatable {
     }
 
     static func transportIsAdmitted(for url: URL) -> Bool {
-        if let minamotoOrigin = URLComponents(
-            url: minamoto.toriiURL,
-            resolvingAgainstBaseURL: false
-        ),
-           let requested = URLComponents(
-               url: url,
-               resolvingAgainstBaseURL: false
-           ),
-           requested.scheme == "https",
-           requested.host?.lowercased() == minamotoOrigin.host?.lowercased(),
-           (requested.port ?? 443) == (minamotoOrigin.port ?? 443),
-           requested.user == nil,
-           requested.password == nil,
-           requested.fragment == nil {
-            return true
-        }
         guard
             let tairaOrigin = URLComponents(
                 url: TairaDeploymentBinding.canonicalToriiBaseURL,

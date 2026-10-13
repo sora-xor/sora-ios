@@ -2961,11 +2961,11 @@ final class WalletModernizationTests: XCTestCase {
                 "name": .string(
                     "iroha.transactions.submit_and_wait"
                 ),
+                "_meta": NexusTairaMCPToolContract.requestMetadata,
                 "arguments": .object([
                     "body_base64": .string(body.base64EncodedString()),
                     "hash": .string(hash),
                     "status_accept": .string("application/json"),
-                    "terminal_statuses": .array([.string("Applied")]),
                     "timeout_ms": .number("120000")
                 ])
             ])
@@ -3079,8 +3079,14 @@ final class WalletModernizationTests: XCTestCase {
                 }
             }
         }
+        XCTAssertEqual(
+            try NexusTairaTransactionSubmissionContract.appliedSubmission(
+                from: result(receiptHashKey: "entrypoint_hash"), expectedHash: hash
+            ),
+            NexusTairaAppliedSubmission(hash: hash, blockHeight: 42)
+        )
         for failure in [
-            result(receiptHashKey: "entrypoint_hash"),
+            result(receiptHashKey: "unrecognized_hash"),
             result(terminalKind: "Rejected"),
             result(terminalKind: "Expired"),
             result(isError: true),
@@ -3314,7 +3320,7 @@ final class WalletModernizationTests: XCTestCase {
                 "quote.validUntilBlock.map({ $0 > 0 }) ?? true"
             )
         )
-        XCTAssertTrue(nexusSource.contains("fee.unscaled > 0"))
+        XCTAssertTrue(nexusSource.contains("fee.unscaled >= 0"))
     }
 
     func testNexusAmountScaleMatchesNoritoUnsignedByteContract() throws {
@@ -15150,13 +15156,13 @@ final class WalletModernizationTests: XCTestCase {
             NexusPortfolioPresentationPolicy.portfolioSubtitle(
                 tairaAdmitted: false
             ),
-            "SORA2 · Minamoto"
+            "SORA2 · Nexus Production Address"
         )
         XCTAssertEqual(
             NexusPortfolioPresentationPolicy.portfolioSubtitle(
                 tairaAdmitted: true
             ),
-            "SORA2 · Minamoto · Taira Testnet"
+            "SORA2 · Nexus Production Address · Taira Testnet"
         )
         XCTAssertFalse(
             NexusPortfolioPresentationPolicy.exposesTairaSettings(
@@ -15176,7 +15182,7 @@ final class WalletModernizationTests: XCTestCase {
                 tairaAdmitted: false,
                 mutationCoordinatorAvailable: false
             )
-        XCTAssertTrue(journalRecoveryAccess.readsAvailable)
+        XCTAssertFalse(journalRecoveryAccess.readsAvailable)
         XCTAssertFalse(journalRecoveryAccess.mutationSurfaceAvailable)
         let qualifiedMutationAccess =
             NexusPortfolioPresentationPolicy.networkDetailAccess(
@@ -15186,8 +15192,8 @@ final class WalletModernizationTests: XCTestCase {
                 tairaAdmitted: false,
                 mutationCoordinatorAvailable: true
             )
-        XCTAssertTrue(qualifiedMutationAccess.readsAvailable)
-        XCTAssertTrue(qualifiedMutationAccess.mutationSurfaceAvailable)
+        XCTAssertFalse(qualifiedMutationAccess.readsAvailable)
+        XCTAssertFalse(qualifiedMutationAccess.mutationSurfaceAvailable)
         XCTAssertTrue(
             NexusPortfolioPresentationPolicy.mutationIsReady(
                 mutationCoordinatorAvailable: true,
@@ -17414,381 +17420,359 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     private func verifyCurrentTairaMCPDiscoveryContract() throws {
-        let toolset = String(repeating: "c", count: 64)
-        let initialize: NexusJSONValue = .object([
-            "protocolVersion": .string("2025-06-18"),
-            "capabilities": .object([
-                "tools": .object([
-                    "toolsetVersion": .string(toolset),
-                    "futureCapability": .bool(true),
-                ]),
-            ]),
-            "serverInfo": .object([
-                "name": .string("iroha-torii-mcp"),
-                "version": .string("next"),
-            ]),
-            "futureTopLevel": .bool(true),
-        ])
-        XCTAssertEqual(
-            try NexusTairaMCPToolContract.toolsetVersion(
-                initialize: initialize
-            ),
-            toolset
-        )
-
-        func scalar(_ type: String) -> NexusJSONValue {
-            .object(["type": .string(type)])
-        }
-        func submissionSchema(
-            includesTimeout: Bool = true
-        ) -> NexusJSONValue {
-            var properties: [String: NexusJSONValue] = [
-                "body_base64": scalar("string"),
-                "hash": scalar("string"),
-                "status_accept": scalar("string"),
-                "terminal_statuses": .object([
-                    "type": .string("array"),
-                    "items": scalar("string"),
-                ]),
-                "future_optional_field": scalar("string"),
-            ]
-            if includesTimeout {
-                properties["timeout_ms"] = scalar("integer")
-            }
-            return .object([
-                "type": .string("object"),
-                "additionalProperties": .bool(false),
-                "required": .array([.string("body_base64")]),
-                "properties": .object(properties),
-            ])
-        }
-        func listing(schema: NexusJSONValue) -> NexusJSONValue {
-            .object([
-                "tools": .array([
-                    .object([
-                        "name": .string("iroha.future.read"),
-                        "description": .string("Unrelated additive tool"),
-                        "inputSchema": .object([
-                            "type": .string("object"),
-                            "properties": .object([:]),
-                        ]),
-                        "outputSchema": .object([
-                            "type": .string("object"),
-                        ]),
-                    ]),
-                    .object([
-                        "name": .string(
-                            "iroha.transactions.submit_and_wait"
-                        ),
-                        "description": .string("Current submission"),
-                        "inputSchema": schema,
-                        "outputSchema": .object([
-                            "type": .string("object"),
-                            "futureOutput": .bool(true),
-                        ]),
-                        "futureDescriptor": .bool(true),
-                    ]),
-                ]),
-                "nextCursor": .string("64"),
-                "listChanged": .bool(false),
-                "toolsetVersion": .string(toolset),
-                "futurePageField": .bool(true),
-            ])
-        }
-        let page = try NexusTairaMCPToolContract.validateToolPage(
-            listing(schema: submissionSchema()),
-            tools: [.submitAndWait],
-            expectedToolsetVersion: toolset
-        )
-        XCTAssertEqual(page.matched, [.submitAndWait])
-        XCTAssertEqual(page.nextCursor, "64")
-        XCTAssertTrue(page.advertisedNames.contains("iroha.future.read"))
-        XCTAssertThrowsError(
-            try NexusTairaMCPToolContract.validateToolPage(
-                listing(schema: submissionSchema(includesTimeout: false)),
-                tools: [.submitAndWait],
-                expectedToolsetVersion: toolset
-            )
-        )
-        let discovery = try NexusTairaMCPToolContract.discoveryRequest(
-            id: "tools-page-2",
-            toolsetVersion: toolset,
-            cursor: "64"
-        )
-        XCTAssertEqual(
-            discovery.params,
-            .object([
-                "toolset_version": .string(toolset),
-                "cursor": .string("64"),
-            ])
-        )
-
-        func routeSchema(
-            _ properties: [String: NexusJSONValue],
-            additionalProperties: Bool
-        ) -> NexusJSONValue {
-            .object([
-                "type": .string("object"),
-                "additionalProperties": .bool(additionalProperties),
-                "properties": .object(properties),
-            ])
-        }
-        func routeListing(
-            tool: NexusTairaMCPToolContract.Tool,
-            schema: NexusJSONValue
-        ) -> NexusJSONValue {
-            .object([
-                "tools": .array([.object([
-                    "name": .string(tool.rawValue),
-                    "inputSchema": schema,
-                    "outputSchema": .object([
-                        "type": .string("object"),
-                    ]),
-                ])]),
-                "nextCursor": .null,
-                "listChanged": .bool(false),
-                "toolsetVersion": .string(toolset),
-            ])
-        }
-        let currentRouteSchemas: [(
-            NexusTairaMCPToolContract.Tool,
-            [String: NexusJSONValue],
-            Bool
-        )] = [
-            (.health, [:], false),
-            (
-                .accountAssets,
-                [
-                    "account_id": scalar("string"),
-                    "asset_id": scalar("string"),
-                    "limit": scalar("integer"),
-                    "offset": scalar("integer"),
-                    "accept": scalar("string"),
-                ],
-                true
-            ),
-            (
-                .assetDefinition,
-                [
-                    "definition_id": scalar("string"),
-                    "accept": scalar("string"),
-                ],
-                false
-            ),
-            (
-                .transactionStatus,
-                [
-                    "hash": scalar("string"),
-                    "accept": scalar("string"),
-                ],
-                true
-            ),
-            (
-                .instructions,
-                [
-                    "account": scalar("string"),
-                    "asset_definition_id": scalar("string"),
-                    "kind": scalar("string"),
-                    "page": scalar("integer"),
-                    "per_page": scalar("integer"),
-                    "transaction_hash": scalar("string"),
-                    "transaction_status": scalar("string"),
-                    "accept": scalar("string"),
-                ],
-                false
-            ),
-        ]
-        for (tool, properties, admitsAdditionalProperties) in
-            currentRouteSchemas
+        // Advertised schema fields used by the wallet, captured from public Taira on 2026-10-13.
+        let discovery = try JSONDecoder().decode(NexusJSONValue.self, from: Data(#"""
         {
-            let schema = routeSchema(
-                properties,
-                additionalProperties: admitsAdditionalProperties
-            )
-            let validated = try NexusTairaMCPToolContract.validateToolPage(
-                routeListing(tool: tool, schema: schema),
-                tools: [tool],
-                expectedToolsetVersion: toolset
-            )
-            XCTAssertEqual(validated.matched, [tool])
+          "_meta": {
+            "io.modelcontextprotocol/serverInfo": {
+              "name": "iroha-torii-mcp",
+              "version": "2.0.0-rc.2.0"
+            }
+          },
+          "cacheScope": "private",
+          "capabilities": {
+            "extensions": {
+              "org.hyperledger.iroha/tools": {
+                "callBatch": {
+                  "maxDispatches": 64,
+                  "method": "tools/call_batch"
+                },
+                "toolsetVersion": "70e43ee6d824e209e968b79f763feec890963eefdbb9aaa30e5af82a9cce9a36"
+              }
+            },
+            "resources": {
+              "listChanged": false
+            },
+            "tools": {
+              "listChanged": false
+            }
+          },
+          "resultType": "complete",
+          "supportedVersions": [
+            "2026-07-28"
+          ],
+          "ttlMs": 30000
         }
-        let legacyInstructionProperties: [String: NexusJSONValue] = [
-            "account": scalar("string"),
-            "asset_id": scalar("string"),
-            "kind": scalar("string"),
-            "page": scalar("integer"),
-            "per_page": scalar("integer"),
-            "transaction_hash": scalar("string"),
-            "transaction_status": scalar("string"),
-            "accept": scalar("string"),
-        ]
-        XCTAssertThrowsError(
-            try NexusTairaMCPToolContract.validateToolPage(
-                routeListing(
-                    tool: .instructions,
-                    schema: routeSchema(
-                        legacyInstructionProperties,
-                        additionalProperties: true
-                    )
-                ),
-                tools: [.instructions],
-                expectedToolsetVersion: toolset
-            )
-        )
-        for tool in [
-            NexusTairaMCPToolContract.Tool.accountAssets,
-            .transactionStatus,
-        ] {
-            let properties = try XCTUnwrap(
-                currentRouteSchemas.first(where: { $0.0 == tool })?.1
-            )
-            XCTAssertThrowsError(
-                try NexusTairaMCPToolContract.validateToolPage(
-                    routeListing(
-                        tool: tool,
-                        schema: routeSchema(
-                            properties,
-                            additionalProperties: false
-                        )
-                    ),
-                    tools: [tool],
-                    expectedToolsetVersion: toolset
-                )
-            )
+        """#.utf8))
+        let listing = try JSONDecoder().decode(NexusJSONValue.self, from: Data(#"""
+        {
+          "_meta": {
+            "io.modelcontextprotocol/serverInfo": {
+              "name": "iroha-torii-mcp",
+              "version": "2.0.0-rc.2.0"
+            },
+            "iroha": {
+              "listChanged": false,
+              "toolsetVersion": "70e43ee6d824e209e968b79f763feec890963eefdbb9aaa30e5af82a9cce9a36"
+            }
+          },
+          "cacheScope": "private",
+          "resultType": "complete",
+          "tools": [
+            {
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "accept": {
+                    "type": "string"
+                  },
+                  "filter": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "args": {
+                        "type": "array"
+                      },
+                      "op": {
+                        "enum": [
+                          "and",
+                          "or",
+                          "not",
+                          "eq",
+                          "ne",
+                          "lt",
+                          "lte",
+                          "gt",
+                          "gte",
+                          "in",
+                          "nin",
+                          "exists",
+                          "is_null"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "op",
+                      "args"
+                    ],
+                    "type": [
+                      "string",
+                      "object"
+                    ]
+                  },
+                  "include_total": {
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "account_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "account_id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "iroha.accounts.assets",
+              "outputSchema": {
+                "type": "object"
+              }
+            },
+            {
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "accept": {
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "type": "string"
+                  },
+                  "filter": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "args": {
+                        "type": "array"
+                      },
+                      "op": {
+                        "enum": [
+                          "and",
+                          "or",
+                          "not",
+                          "eq",
+                          "ne",
+                          "lt",
+                          "lte",
+                          "gt",
+                          "gte",
+                          "in",
+                          "nin",
+                          "exists",
+                          "is_null"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "op",
+                      "args"
+                    ],
+                    "type": [
+                      "string",
+                      "object"
+                    ]
+                  },
+                  "limit": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "account_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "account_id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "iroha.accounts.history",
+              "outputSchema": {
+                "type": "object"
+              }
+            },
+            {
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "accept": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "definition_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "definition_id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "iroha.assets.definitions.get",
+              "outputSchema": {
+                "type": "object"
+              }
+            },
+            {
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              },
+              "name": "iroha.health",
+              "outputSchema": {
+                "type": "object"
+              }
+            },
+            {
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "accept": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "hash": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{63}[13579bdf]$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "hash"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "type": "object"
+              },
+              "name": "iroha.transactions.status",
+              "outputSchema": {
+                "type": "object"
+              }
+            },
+            {
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "body_base64": {
+                    "type": "string"
+                  },
+                  "hash": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{63}[13579bdf]$",
+                    "type": "string"
+                  },
+                  "status_accept": {
+                    "type": "string"
+                  },
+                  "timeout_ms": {
+                    "maximum": 600000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "body_base64"
+                ],
+                "type": "object"
+              },
+              "name": "iroha.transactions.submit_and_wait",
+              "outputSchema": {
+                "type": "object"
+              }
+            }
+          ],
+          "ttlMs": 30000
         }
-        let correctedAccountAssets = routeSchema(
-            [
-                "account_id": scalar("string"),
-                "asset": scalar("string"),
-                "limit": scalar("integer"),
-                "offset": scalar("integer"),
-                "scope": scalar("string"),
-                "accept": scalar("string"),
-            ],
-            additionalProperties: false
-        )
-        XCTAssertNoThrow(
-            try NexusTairaMCPToolContract.validateToolPage(
-                routeListing(
-                    tool: .accountAssets,
-                    schema: correctedAccountAssets
-                ),
-                tools: [.accountAssets],
-                expectedToolsetVersion: toolset
-            )
-        )
-        let correctedTransactionStatus = routeSchema(
-            [
-                "hash": scalar("string"),
-                "scope": scalar("string"),
-                "accept": scalar("string"),
-            ],
-            additionalProperties: false
-        )
-        XCTAssertNoThrow(
-            try NexusTairaMCPToolContract.validateToolPage(
-                routeListing(
-                    tool: .transactionStatus,
-                    schema: correctedTransactionStatus
-                ),
-                tools: [.transactionStatus],
-                expectedToolsetVersion: toolset
-            )
-        )
+        """#.utf8))
+        let version = try NexusTairaMCPToolContract.toolsetVersion(initialize: discovery)
+        let required: Set<NexusTairaMCPToolContract.Tool> = [.health, .accountAssets, .accountHistory, .assetDefinition, .transactionStatus, .submitAndWait]
+        let page = try NexusTairaMCPToolContract.validateToolPage(listing, tools: required, expectedToolsetVersion: version)
+        XCTAssertEqual(page.matched, required)
+        XCTAssertNil(page.nextCursor)
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.validateToolPage(listing, tools: required, expectedToolsetVersion: String(repeating: "a", count: 64)))
 
-        let account =
-            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
-        XCTAssertEqual(
-            NexusTairaMCPToolContract.healthRequest(id: "health").params,
-            .object([
-                "name": .string("iroha.health"),
-                "arguments": .object([:]),
-            ])
-        )
-        XCTAssertEqual(
-            NexusTairaMCPToolContract.assetDefinitionRequest(
-                id: "definition"
-            ).params,
-            .object([
-                "name": .string("iroha.assets.definitions.get"),
-                "arguments": .object([
-                    "definition_id": .string(
-                        NexusAssetDefinitionIdentity.tairaXorDefinitionID
-                    ),
-                    "accept": .string("application/json"),
-                ]),
-            ])
-        )
-        let assets = NexusTairaMCPToolContract.accountAssetsRequest(
-            id: "assets-1",
-            account: account,
-            assetDefinitionID:
-                NexusAssetDefinitionIdentity.tairaXorDefinitionID,
-            limit: 100,
-            offset: 0
-        )
-        guard
-            case let .object(assetParams) = assets.params,
-            case let .object(assetArguments)? = assetParams["arguments"]
-        else {
-            return XCTFail("Missing current account-assets arguments")
+        var badDiscovery = try XCTUnwrap(discovery.nexusTestObject)
+        badDiscovery["supportedVersions"] = .array([.string("2025-06-18")])
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.toolsetVersion(initialize: .object(badDiscovery)))
+        let descriptors = try XCTUnwrap(listing.nexusTestObject?["tools"]?.nexusTestArray)
+        for descriptor in descriptors {
+            var changed = try XCTUnwrap(descriptor.nexusTestObject)
+            var schema = try XCTUnwrap(changed["inputSchema"]?.nexusTestObject)
+            // An additional required field cannot be silently ignored.
+            schema["required"] = .array([.string("unknown_required_field")])
+            changed["inputSchema"] = .object(schema)
+            var malformed = try XCTUnwrap(listing.nexusTestObject)
+            malformed["tools"] = .array([.object(changed)])
+            XCTAssertThrowsError(try NexusTairaMCPToolContract.validateToolPage(.object(malformed), tools: required, expectedToolsetVersion: version))
         }
-        XCTAssertEqual(
-            assetArguments["asset"],
-            .string(NexusAssetDefinitionIdentity.tairaXorDefinitionID)
-        )
-        XCTAssertNil(assetArguments["asset_id"])
-        XCTAssertEqual(assetArguments["scope"], .string("global"))
+        var additive = try XCTUnwrap(listing.nexusTestObject)
+        additive["futurePageField"] = .bool(true)
+        additive["tools"] = .array(descriptors + [.object(["name": .string("iroha.future.read")])])
+        XCTAssertNoThrow(try NexusTairaMCPToolContract.validateToolPage(.object(additive), tools: required, expectedToolsetVersion: version))
+        additive["tools"] = .array(descriptors + [try XCTUnwrap(descriptors.first)])
+        XCTAssertThrowsError(try NexusTairaMCPToolContract.validateToolPage(.object(additive), tools: required, expectedToolsetVersion: version))
 
-        let status = try NexusTairaMCPToolContract.transactionStatusRequest(
-            id: "status",
-            hash: String(repeating: "d", count: 64)
-        )
-        guard
-            case let .object(statusParams) = status.params,
-            case let .object(statusArguments)? = statusParams["arguments"]
-        else {
-            return XCTFail("Missing current transaction-status arguments")
-        }
-        XCTAssertEqual(
-            Set(statusArguments.keys),
-            ["hash", "scope", "accept"]
-        )
-        XCTAssertEqual(statusArguments["scope"], .string("global"))
-
-        let instructions = try NexusTairaMCPToolContract.instructionsRequest(
-            id: "history-1",
-            account: account,
-            assetDefinitionID:
-                NexusAssetDefinitionIdentity.tairaXorDefinitionID,
-            page: 1,
-            perPage: 100
-        )
-        guard
-            case let .object(instructionParams) = instructions.params,
-            case let .object(instructionArguments)? =
-                instructionParams["arguments"]
-        else {
-            return XCTFail("Missing current instruction arguments")
-        }
-        XCTAssertEqual(
-            Set(instructionArguments.keys),
-            [
-                "account", "asset_definition_id", "kind",
-                "transaction_status",
-                "page", "per_page", "accept",
-            ]
-        )
-        XCTAssertEqual(
-            instructionArguments["asset_definition_id"],
-            .string(NexusAssetDefinitionIdentity.tairaXorDefinitionID)
-        )
-        XCTAssertNil(instructionArguments["asset_id"])
-        XCTAssertEqual(instructionArguments["kind"], .string("Transfer"))
-        XCTAssertEqual(
-            instructionArguments["transaction_status"],
-            .string("committed")
-        )
+        let request = try NexusTairaMCPToolContract.discoveryRequest(id: "tools", toolsetVersion: version, cursor: "64")
+        XCTAssertEqual(request.params, .object(["toolsetVersion": .string(version), "cursor": .string("64"), "_meta": NexusTairaMCPToolContract.requestMetadata]))
+        XCTAssertEqual(NexusTairaMCPToolContract.initializeRequest(id: "discover").method, "server/discover")
+        let asset = NexusAssetDefinitionIdentity.tairaXorDefinitionID
+        let assets = NexusTairaMCPToolContract.accountAssetsRequest(id: "assets", account: "account", assetDefinitionID: asset, limit: 100, offset: 0)
+        XCTAssertEqual(assets.params.nexusTestObject?["arguments"], .object([
+            "path": .object(["account_id": .string("account")]),
+            "filter": .string("asset = \"\(asset)\" and scope = \"global\""),
+            "limit": .number("100"), "include_total": .bool(true), "accept": .string("application/json")
+        ]))
+        XCTAssertEqual(NexusTairaMCPToolContract.assetDefinitionRequest(id: "definition").params.nexusTestObject?["arguments"], .object([
+            "path": .object(["definition_id": .string(asset)]), "accept": .string("application/json")
+        ]))
+        let hash = String(repeating: "d", count: 64)
+        let status = try NexusTairaMCPToolContract.transactionStatusRequest(id: "status", hash: hash)
+        XCTAssertEqual(status.params.nexusTestObject?["arguments"], .object(["query": .object(["hash": .string(hash)]), "accept": .string("application/json")]))
+        let history = try NexusTairaMCPToolContract.accountHistoryRequest(id: "history", account: "account", assetDefinitionID: asset, cursor: "opaque_cursor", transactionHash: hash)
+        let arguments = try XCTUnwrap(history.params.nexusTestObject?["arguments"]?.nexusTestObject)
+        XCTAssertEqual(arguments["path"], .object(["account_id": .string("account")]))
+        XCTAssertEqual(arguments["cursor"], .string("opaque_cursor"))
+        XCTAssertTrue(try XCTUnwrap(arguments["filter"]?.nexusTestString).contains("tx_hash = \"\(hash)\""))
     }
 
     func testNexusToriiRejectsPartialFanoutSuccess() throws {

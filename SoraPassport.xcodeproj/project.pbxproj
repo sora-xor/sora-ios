@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A77A00000000000000000001 /* NexusTransferCodec in Frameworks */ = {isa = PBXBuildFile; productRef = A77A00000000000000000002 /* NexusTransferCodec */; };
+		A77A00000000000000000004 /* TairaTransactionSigning.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77A00000000000000000005 /* TairaTransactionSigning.swift */; };
+		A10000F00000000000000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000F10000000000000001 /* SceneDelegate.swift */; };
+		A10000F00000000000000002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000F10000000000000001 /* SceneDelegate.swift */; };
+		A10000F00000000000000003 /* SceneLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000F10000000000000002 /* SceneLifecycleTests.swift */; };
 		A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
 		A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */; };
 		A66B00012F5B000000000003 /* IrohaConnectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000102 /* IrohaConnectSession.swift */; };
@@ -2805,6 +2810,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A77A00000000000000000005 /* TairaTransactionSigning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TairaTransactionSigning.swift; sourceTree = "<group>"; };
+		A10000F10000000000000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		A10000F10000000000000002 /* SceneLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLifecycleTests.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000101 /* IrohaConnectProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectProtocol.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000102 /* IrohaConnectSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectSession.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000103 /* IrohaConnectUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectUI.swift; sourceTree = "<group>"; };
@@ -4304,6 +4312,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A77A00000000000000000001 /* NexusTransferCodec in Frameworks */,
 				36CEAD832B948A0B00D532E0 /* SSFQRService in Frameworks */,
 				369E10BB2B91DAEC0097DB61 /* IrohaCrypto in Frameworks */,
 				36CEAD7B2B9471DD00D532E0 /* SSFCloudStorage in Frameworks */,
@@ -4343,6 +4352,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A77A00000000000000000001 /* NexusTransferCodec in Frameworks */,
 				32076F83B05451F842290FE9 /* IrohaCrypto in Frameworks */,
 				D5C065EFD9855642646B46B3 /* SSFCloudStorage in Frameworks */,
 				B2D6F0462D43D35208C36904 /* SSFCrypto in Frameworks */,
@@ -4382,6 +4392,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A77A00000000000000000001 /* NexusTransferCodec in Frameworks */,
 				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4390,6 +4401,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A77A00000000000000000001 /* NexusTransferCodec in Frameworks */,
 				997C9227D81670D037C059A7 /* SSFQRService in Frameworks */,
 				A421862AD533FF087C98F404 /* IrohaCrypto in Frameworks */,
 				919E9F1C9F8D08EB5B718DD8 /* SSFCloudStorage in Frameworks */,
@@ -4427,6 +4439,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A77A00000000000000000001 /* NexusTransferCodec in Frameworks */,
 				C8D9AC138F4498C0C66DC742 /* IrohaCrypto in Frameworks */,
 				0E1C30DB858CF3BCC4BC7E72 /* SSFCloudStorage in Frameworks */,
 				00A78C8887DF45D49FEA5A20 /* SSFCrypto in Frameworks */,
@@ -4810,6 +4823,7 @@
 				02623EF92179D0B50011250E /* Common */,
 				8B8ED5C4295C4B47003D15A9 /* ModulesRedesign */,
 				02623EB82178C0910011250E /* AppDelegate.swift */,
+				A10000F10000000000000001 /* SceneDelegate.swift */,
 				02E319B021D4BAFA00B33B66 /* R.generated.swift */,
 				02623EBF2178C0930011250E /* Assets.xcassets */,
 				02623EC42178C0930011250E /* Info.plist */,
@@ -4831,6 +4845,7 @@
 				02623F0E2179FAF90011250E /* Modules */,
 				02623ECF2178C0930011250E /* Info.plist */,
 				02601CF1217A05D3006BD248 /* Constants.swift */,
+				A10000F10000000000000002 /* SceneLifecycleTests.swift */,
 			);
 			path = SoraPassportTests;
 			sourceTree = "<group>";
@@ -5157,6 +5172,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000150000000000000001 /* NexusWalletService.swift */,
+				A77A00000000000000000005 /* TairaTransactionSigning.swift */,
 				A10000160000000000000001 /* PolkamarktRuntime.swift */,
 				A10000110000000000000001 /* IrohaAddressCodec.swift */,
 				A10000120000000000000001 /* WalletNetworkModel.swift */,
@@ -8184,6 +8200,7 @@
 			);
 			name = SoraPassport;
 			packageProductDependencies = (
+				A77A00000000000000000002 /* NexusTransferCodec */,
 				369E10BA2B91DAEC0097DB61 /* IrohaCrypto */,
 				36CEAD7A2B9471DD00D532E0 /* SSFCloudStorage */,
 				36CEAD7C2B94734200D532E0 /* SSFCrypto */,
@@ -8235,6 +8252,7 @@
 			);
 			name = SoraPassportTests;
 			packageProductDependencies = (
+				A77A00000000000000000002 /* NexusTransferCodec */,
 				D083260D0CF6AC00E21F7D03 /* IrohaCrypto */,
 				11ECB54AC166C12F312FE794 /* SSFCloudStorage */,
 				6C9140CE8EF47C374E2AED69 /* SSFCrypto */,
@@ -8305,6 +8323,7 @@
 			);
 			name = SoraPassportIntegrationTests;
 			packageProductDependencies = (
+				A77A00000000000000000002 /* NexusTransferCodec */,
 				E7C44364DFDAA650B77611FE /* IrohaCrypto */,
 				25FA0D7B279C7DEEA82F6362 /* SSFCloudStorage */,
 				49D0F24C9E3077A7AC8636D3 /* SSFCrypto */,
@@ -8358,6 +8377,7 @@
 			);
 			name = SoraPassportDev;
 			packageProductDependencies = (
+				A77A00000000000000000002 /* NexusTransferCodec */,
 				BCB2BF01F4082B3D6CD05327 /* IrohaCrypto */,
 				BAC4470CA84527C4353AB727 /* SSFCloudStorage */,
 				FF8AC730EDA259EE94EA082C /* SSFCrypto */,
@@ -8489,6 +8509,7 @@
 			);
 			mainGroup = 02623EAC2178C0910011250E;
 			packageReferences = (
+				A77A00000000000000000003 /* XCLocalSwiftPackageReference "NexusTransferCodec" */,
 				5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */,
 				3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */,
 				610B2592625C191BFCCC9C60 /* XCLocalSwiftPackageReference "SoraDocuments" */,
@@ -8934,6 +8955,7 @@
 				B66B00012F5B000000000005 /* WalletUX.swift in Sources */,
 				E71D0A010000000000000003 /* RetainedMigrationEvidenceHarness.swift in Sources */,
 				A10000090000000000000001 /* NexusWalletService.swift in Sources */,
+				A77A00000000000000000004 /* TairaTransactionSigning.swift in Sources */,
 				A100000B0000000000000001 /* PolkamarktRuntime.swift in Sources */,
 				A100000D0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
 				A100000F0000000000000001 /* PolkamarktViewController.swift in Sources */,
@@ -9716,6 +9738,7 @@
 				848A880B247C602B00B22C44 /* NSDecimalNumberHandler+Wallet.swift in Sources */,
 				0298790D218196BF0085E605 /* NetworkRequestModifier.swift in Sources */,
 				02623EB92178C0910011250E /* AppDelegate.swift in Sources */,
+				A10000F00000000000000001 /* SceneDelegate.swift in Sources */,
 				9441F92925C96CC300775559 /* CodableExtensions.swift in Sources */,
 				3603A3972917E1FD00DF6EFE /* PoolViewModelFactory.swift in Sources */,
 				9441F8F825C9699400775559 /* ManagedConnectionItemMapper.swift in Sources */,
@@ -10118,6 +10141,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
+				A10000F00000000000000003 /* SceneLifecycleTests.swift in Sources */,
 				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
 				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
@@ -10225,6 +10249,7 @@
 				B66B00012F5B000000000006 /* WalletUX.swift in Sources */,
 				B66B00012F5B000000000020 /* RetainedMigrationEvidenceHarness.swift in Sources */,
 				A100000A0000000000000001 /* NexusWalletService.swift in Sources */,
+				A77A00000000000000000004 /* TairaTransactionSigning.swift in Sources */,
 				A100000C0000000000000001 /* PolkamarktRuntime.swift in Sources */,
 				A100000E0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
 				A10000100000000000000001 /* PolkamarktViewController.swift in Sources */,
@@ -11044,6 +11069,7 @@
 				6687FCAE57DED2DC97BEF9A4 /* NSDecimalNumberHandler+Wallet.swift in Sources */,
 				E716478022669A76C06EEB4B /* NetworkRequestModifier.swift in Sources */,
 				06F01FDAF8BF3CB016BD8F78 /* AppDelegate.swift in Sources */,
+				A10000F00000000000000002 /* SceneDelegate.swift in Sources */,
 				6A0BD6FFD0269069576CE232 /* CodableExtensions.swift in Sources */,
 				526B07828FEB903CD36D6029 /* PoolViewModelFactory.swift in Sources */,
 				29182A9E042AD2CFAD93311A /* ManagedConnectionItemMapper.swift in Sources */,
@@ -12633,6 +12659,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		A77A00000000000000000003 /* XCLocalSwiftPackageReference "NexusTransferCodec" */ = {isa = XCLocalSwiftPackageReference; relativePath = VendorPackages/NexusTransferCodec; };
 		0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = VendorPackages/JOSESwift;
@@ -12795,6 +12822,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A77A00000000000000000002 /* NexusTransferCodec */ = {isa = XCSwiftPackageProductDependency; package = A77A00000000000000000003 /* XCLocalSwiftPackageReference "NexusTransferCodec" */; productName = NexusTransferCodec; };
 		013F0A55657CA981B8F3B20B /* FirebaseMessaging */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

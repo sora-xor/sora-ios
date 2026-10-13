@@ -605,6 +605,14 @@ extension SettingsManagerProtocol {
         set { set(value: newValue, for: SettingsKey.nexusSendsEnabled.rawValue) }
     }
 
+    /// Taira shipping capability is independent of production rollout qualification.
+    /// The network-specific coordinator still checks the user's testnet preference,
+    /// canonical endpoint, local signing implementation, and confirmation adapter.
+    func nexusSendsEnabled(for networkId: NetworkId) -> Bool {
+        if networkId == .taira { return nexusEnabled && isTairaEnabled }
+        return nexusSendsEnabled
+    }
+
     var polkamarktEnabled: Bool {
         get { bool(for: SettingsKey.polkamarktEnabled.rawValue) ?? true }
         set { set(value: newValue, for: SettingsKey.polkamarktEnabled.rawValue) }

@@ -283,13 +283,12 @@ tairaFinalizedHeight=...
 tairaFinalizedBlockHash=...
 ```
 
-The repository never chooses between the two known Taira UUIDs. Before artifact, funded-canary, or
+The runtime pins the current Taira UUID `fc56984b-2be7-431d-840e-21514d1883f0`. Before artifact, funded-canary, or
 rollout validation, the controller re-verifies one fresh owner-only manifest with distinct operator
 and reviewer P-256 signatures, independently pinned public-key digests, and the protected
-`IOS_TAIRA_DEPLOYMENT_*` inputs. Either UUID may be designated current; the other is transportless
-recovery evidence. The admitted current epoch supplies the exact nonzero genesis and canonical
-public HTTPS origin, and only its explicit `/v1/mcp` route is accepted. `taira.sora.org` is a
-convenience route and is rejected. The manifest and admission digests are embedded in the signed IPA
+`IOS_TAIRA_DEPLOYMENT_*` inputs. The manifest must match that current UUID; the retired UUID is
+transportless recovery evidence. The admitted current epoch supplies the exact nonzero genesis and canonical
+public HTTPS origin `https://taira.sora.org`, and only its explicit `/v1/mcp` route is accepted. The manifest and admission digests are embedded in the signed IPA
 and transitively bound above; omission or disagreement blocks rollout.
 
 The immutable admission must be no more than six hours old when each primary or reproduction

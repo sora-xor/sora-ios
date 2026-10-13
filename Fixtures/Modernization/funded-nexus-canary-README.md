@@ -75,15 +75,16 @@ The signed artifact receipt and IPA must preserve bundle ID `co.jp.soramitsu.sor
 `YLWWUD25VZ`, version/build/App Store identity, source revision, provisioning and signing identity,
 and runtime 130. The checked-in Taira candidate values are inert blocked placeholders, not a choice
 of current chain. Only a fresh protected manifest signed by the external release operator and an
-independent reviewer may map the two known UUIDs to current and retired roles. Either UUID may be
-current; the other is retained only as recovery evidence. The authenticated manifest supplies the
+independent reviewer may admit the current UUID `fc56984b-2be7-431d-840e-21514d1883f0`.
+The other known UUID is retained only as recovery evidence. The authenticated manifest supplies the
 current genesis, deployment epoch, canonical public HTTPS Torii origin, and exact `/v1/mcp` route;
-the convenience route `taira.sora.org` is never admission. Taira funded canaries and production
+the public route must be `https://taira.sora.org/v1/mcp`, matching the runtime. Taira funded canaries and production
 mutation admission remain blocked until that manifest is admitted against independently pinned
 public keys. Each new iOS Taira pending row binds the exact admitted manifest digest, deployment
 epoch, and genesis as well as the UUID. A missing binding, another digest, or a legacy schema-77 row
-remains recovery-only even if its UUID later becomes current. Minamoto is only
-`00000000-0000-0000-0000-000000000753`.
+remains recovery-only. Production is not deployed. Minamoto's reserved wallet identity remains
+`00000000-0000-0000-0000-000000000753` for offline address creation and copying; its funded-canary
+template describes future qualification and is not evidence of a live network.
 
 Signer and finality are separate bindings. The signer must be a reviewed platform-release Apple
 artifact, ABI 21, source-tree clean, backed by the iOS Data Protection Keychain, and matched to the
