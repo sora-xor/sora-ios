@@ -963,3 +963,18 @@
 "Wallet services are not ready. Try again or choose another node." = "ウォレットの準備が完了していません。再試行するか、別のノードを選択してください。";
 "Node settings are still loading. Try again." = "ノード設定を読み込んでいます。再試行してください。";
 "Network unavailable. Retrying connection…" = "ネットワークに接続できません。再接続しています…";
+
+/* Taira testnet faucet */
+"Get test XOR" = "テスト用XORを受け取る";
+"Free XOR for testing on Taira." = "Tairaでのテストに使える無料のXORです。";
+"Check faucet request" = "受け取り状況を確認";
+"Your faucet request is still processing. Check again to update your balance." = "受け取りリクエストを処理しています。もう一度確認すると残高が更新されます。";
+"Your saved faucet request could not be read. Try again after restarting the app." = "保存されたリクエストを読み込めませんでした。アプリを再起動してお試しください。";
+"Please wait %@ seconds before requesting more test XOR." = "テスト用XORを再度受け取るには、%@秒お待ちください。";
+"Preparing your test XOR…" = "テスト用XORを準備しています…";
+"Requesting test XOR…" = "テスト用XORをリクエストしています…";
+"Checking your faucet request…" = "受け取り状況を確認しています…";
+"Received %@ test XOR." = "テスト用XORを%@受け取りました。";
+"The faucet request was not completed. Please try again." = "受け取りが完了しませんでした。もう一度お試しください。";
+"The faucet limit has been reached. Please try again later." = "受け取り回数の上限に達しました。しばらくしてからお試しください。";
+"Could not get test XOR. Check your connection and try again." = "テスト用XORを受け取れませんでした。接続を確認してお試しください。";

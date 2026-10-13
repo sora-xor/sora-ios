@@ -3,6 +3,7 @@
 
 import CoreImage
 import Foundation
+import NexusTransferCodec
 import SoraFoundation
 import SoraKeystore
 import UIKit
@@ -642,7 +643,7 @@ extension NexusPortfolioViewController: AssetProviderObserverProtocol {
 }
 
 @MainActor
-private final class NexusNetworkDetailViewController: WalletTableViewController {
+final class NexusNetworkDetailViewController: WalletTableViewController {
     private let account: NetworkAccount
     private let configuration: NexusNetworkConfiguration
     private let coordinator: NexusTransactionCoordinator?
@@ -661,6 +662,12 @@ private final class NexusNetworkDetailViewController: WalletTableViewController 
     private var historyCursor = NexusHistoryCursor()
     private var historyAssetDefinitionID: String?
     private var historyPageError: String?
+    private var faucetTask: Task<Void, Never>?
+    private var faucetButton: UIButton?
+    private var faucetStatus: UILabel?
+    private var faucetHasPending = false
+    private var faucetRetryAfter: Date?
+    private let faucetService = TairaFaucetService.shared
 
     init(
         account: NetworkAccount,
@@ -685,6 +692,7 @@ private final class NexusNetworkDetailViewController: WalletTableViewController 
     deinit {
         loadTask?.cancel()
         historyPageTask?.cancel()
+        faucetTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -739,16 +747,26 @@ private final class NexusNetworkDetailViewController: WalletTableViewController 
             // selection or network availability changes it must not keep
             // presenting stale receive addresses or transaction data.
             loadTask?.cancel()
+            faucetTask?.cancel()
             setMutationReady(false)
             navigationController?.popViewController(animated: false)
             return
         }
         reload()
+        restoreFaucetRequest()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if isMovingFromParent || navigationController?.isBeingDismissed == true {
+            faucetTask?.cancel()
+        }
     }
 
     @objc private func refreshVisible() {
         guard isViewLoaded, view.window != nil else { return }
         reload()
+        restoreFaucetRequest()
     }
 
     @objc private func refresh() {
@@ -921,6 +939,8 @@ private final class NexusNetworkDetailViewController: WalletTableViewController 
         else {
             refreshControl?.endRefreshing()
             setMutationReady(false)
+            faucetTask?.cancel()
+            faucetButton?.isEnabled = false
             if presentedViewController != nil { dismiss(animated: false) }
             navigationController?.popViewController(animated: false)
             return false
@@ -1014,9 +1034,22 @@ private final class NexusNetworkDetailViewController: WalletTableViewController 
         explorer.addTarget(self, action: #selector(openExplorer), for: .touchUpInside)
         explorer.isHidden = !configuration.isLive
 
-        let stack = UIStackView(
-            arrangedSubviews: [badge, image, address, copy, explorer]
-        )
+        var headerViews: [UIView] = [badge, image, address, copy]
+        if account.networkId == .taira, configuration.satisfiesCurrentTairaContract {
+            let button = WalletUX.button("Get test XOR", primary: true) { [weak self] in
+                self?.requestTestXor()
+            }
+            button.accessibilityIdentifier = "taira.faucet.request"
+            let status = WalletUX.label(WalletUX.text("Free XOR for testing on Taira."), style: .footnote)
+            status.textColor = WalletUX.secondary
+            status.textAlignment = .center
+            status.accessibilityIdentifier = "taira.faucet.status"
+            faucetButton = button
+            faucetStatus = status
+            headerViews += [button, status]
+        }
+        headerViews.append(explorer)
+        let stack = UIStackView(arrangedSubviews: headerViews)
         stack.axis = .vertical
         stack.alignment = .fill
         stack.spacing = 8
@@ -1032,6 +1065,99 @@ private final class NexusNetworkDetailViewController: WalletTableViewController 
             explorer.heightAnchor.constraint(greaterThanOrEqualToConstant: configuration.isLive ? 48 : 0)
         ])
         return container
+    }
+
+    private func updateFaucet(message: String? = nil, busy: Bool = false) {
+        if let message { faucetStatus?.text = message }
+        var style = faucetButton?.configuration
+        style?.title = WalletUX.text(faucetHasPending ? "Check faucet request" : "Get test XOR")
+        style?.showsActivityIndicator = busy
+        faucetButton?.configuration = style
+        // Keep the button tappable during a cooldown to explain when to retry.
+        faucetButton?.isEnabled = !busy
+        view.setNeedsLayout()
+    }
+
+    private func restoreFaucetRequest() {
+        guard faucetButton != nil, faucetTask == nil else { return }
+        faucetTask = Task { [weak self] in
+            guard let self else { return }
+            defer { faucetTask = nil }
+            do {
+                let pending = try await faucetService.hasPending(account: account.address)
+                guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
+                faucetHasPending = pending
+                updateFaucet(message: pending ? WalletUX.text("Your faucet request is still processing. Check again to update your balance.") : nil)
+            } catch {
+                guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
+                updateFaucet(message: WalletUX.text("Your saved faucet request could not be read. Try again after restarting the app."))
+                faucetButton?.isEnabled = false
+            }
+        }
+    }
+
+    private func requestTestXor() {
+        guard faucetButton != nil, faucetTask == nil, networkActionContextIsCurrent() else { return }
+        if let retry = faucetRetryAfter, retry > Date() {
+            updateFaucet(message: WalletUX.format("Please wait %@ seconds before requesting more test XOR.", String(Int(ceil(retry.timeIntervalSinceNow)))))
+            return
+        }
+        updateFaucet(busy: true)
+        faucetTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                faucetTask = nil
+                updateFaucet()
+            }
+            do {
+                let outcome = try await faucetService.request(
+                    account: account, configuration: configuration,
+                    contextIsCurrent: { [weak self] in
+                        guard let self else { return false }
+                        return await self.networkActionContextIsCurrent()
+                    }, progress: { [weak self] phase in
+                        guard let self else { return }
+                        await MainActor.run {
+                            guard self.networkActionContextIsCurrent() else { return }
+                            let text: String
+                            switch phase {
+                            case .preparing: text = "Preparing your test XOR…"
+                            case .submitting: text = "Requesting test XOR…"
+                            case .checking: text = "Checking your faucet request…"
+                            }
+                            self.updateFaucet(message: WalletUX.text(text), busy: true)
+                        }
+                    }
+                )
+                guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
+                switch outcome.state {
+                case .applied:
+                    faucetHasPending = false
+                    let message = WalletUX.format("Received %@ test XOR.", outcome.amount)
+                    updateFaucet(message: message)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    UIAccessibility.post(notification: .announcement, argument: message)
+                    reload()
+                case .pending:
+                    faucetHasPending = true
+                    updateFaucet(message: WalletUX.text("Your faucet request is still processing. Check again to update your balance."))
+                case .rejected:
+                    faucetHasPending = false
+                    updateFaucet(message: WalletUX.text("The faucet request was not completed. Please try again."))
+                }
+            } catch {
+                guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
+                faucetHasPending = (try? await faucetService.hasPending(account: account.address)) ?? true
+                if let failure = error as? TairaFaucetClient.Failure, case .rateLimited(let seconds) = failure {
+                    faucetRetryAfter = Date().addingTimeInterval(min(max(seconds ?? 60, 1), 86_400))
+                    updateFaucet(message: WalletUX.text("The faucet limit has been reached. Please try again later."))
+                } else {
+                    updateFaucet(message: WalletUX.text(faucetHasPending
+                        ? "Your faucet request is still processing. Check again to update your balance."
+                        : "Could not get test XOR. Check your connection and try again."))
+                }
+            }
+        }
     }
 
     private func qrImage(_ value: String) -> UIImage? {
