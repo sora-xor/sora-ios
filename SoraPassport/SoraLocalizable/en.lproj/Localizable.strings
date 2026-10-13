@@ -1121,3 +1121,18 @@
 "Wallet services are not ready. Try again or choose another node." = "Wallet services are not ready. Try again or choose another node.";
 "Node settings are still loading. Try again." = "Node settings are still loading. Try again.";
 "Network unavailable. Retrying connection…" = "Network unavailable. Retrying connection…";
+
+/* Taira testnet faucet */
+"Get test XOR" = "Get test XOR";
+"Free XOR for testing on Taira." = "Free XOR for testing on Taira.";
+"Check faucet request" = "Check faucet request";
+"Your faucet request is still processing. Check again to update your balance." = "Your faucet request is still processing. Check again to update your balance.";
+"Your saved faucet request could not be read. Try again after restarting the app." = "Your saved faucet request could not be read. Try again after restarting the app.";
+"Please wait %@ seconds before requesting more test XOR." = "Please wait %@ seconds before requesting more test XOR.";
+"Preparing your test XOR…" = "Preparing your test XOR…";
+"Requesting test XOR…" = "Requesting test XOR…";
+"Checking your faucet request…" = "Checking your faucet request…";
+"Received %@ test XOR." = "Received %@ test XOR.";
+"The faucet request was not completed. Please try again." = "The faucet request was not completed. Please try again.";
+"The faucet limit has been reached. Please try again later." = "The faucet limit has been reached. Please try again later.";
+"Could not get test XOR. Check your connection and try again." = "Could not get test XOR. Check your connection and try again.";

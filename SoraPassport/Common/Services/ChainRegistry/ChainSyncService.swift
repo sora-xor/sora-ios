@@ -238,6 +238,7 @@ final class ChainSyncService {
                 asset.name = listed.name
                 asset.symbol = listed.symbol
             }
+            asset.normalizeNativeAssetMetadata()
             return ChainAssetModel(assetId: asset.assetId, staking: nil, purchaseProviders: nil,
                                    type: .normal, asset: asset, chain: chain)
         }

@@ -7,9 +7,98 @@ import SoraUIKit
 import SoraKeystore
 import SoraFoundation
 import CoreData
+import CryptoKit
 import Darwin
 import NexusTransferCodec
 @testable import SoraPassport
+
+final class TairaFaucetAppTests: XCTestCase {
+    private let receiveAddress = "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH"
+
+    private func account(network: NetworkId = .taira, key: Data? = nil) throws -> NetworkAccount {
+        let parsed = try IrohaAddressCodec.parse(receiveAddress, expectedDiscriminant: 369)
+        return NetworkAccount(walletId: "faucet-test-wallet", networkId: network, derivationVersion: 1,
+            publicKey: try key ?? Data(hex: parsed.publicKeyHex), address: receiveAddress)
+    }
+
+    func testNativeFaucetScryptMatchesIndependentKnownAnswer() throws {
+        // Python hashlib.scrypt, using the live puzzle's work parameters.
+        let derived = try TairaFaucetService.scrypt(Data(repeating: 0, count: 8), Data(0..<32), 8192, 8, 1)
+        XCTAssertEqual(derived, try Data(hex: "a68d2ca8fc05956205688b5e8776085c3f73328aad71aaabbbd0a85114369d49"))
+    }
+
+    func testFaucetOnlyAcceptsMatchingCurrentTairaAccount() throws {
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let valid = try account()
+        XCTAssertEqual(try TairaFaucetService.validatedPublicKey(account: valid, configuration: configuration), valid.publicKey)
+        XCTAssertThrowsError(try TairaFaucetService.validatedPublicKey(account: valid, configuration: .minamoto))
+        XCTAssertThrowsError(try TairaFaucetService.validatedPublicKey(account: account(network: .minamoto), configuration: configuration))
+        XCTAssertThrowsError(try TairaFaucetService.validatedPublicKey(account: account(key: Data(repeating: 7, count: 32)), configuration: configuration))
+    }
+
+    func testPersistedFaucetRequestResumesWithoutAnotherClaim() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let account = try account()
+        let hash = String(repeating: "b", count: 64)
+        let pending = TairaFaucetService.PendingClaim(network: TairaClient.networkLiteral, account: account.address, transactionHash: hash, amount: "25000")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let filename = SHA256.hash(data: Data((TairaClient.networkLiteral + "\n" + account.address).utf8)).map { String(format: "%02x", $0) }.joined() + ".json"
+        let saved = directory.appendingPathComponent(filename)
+        try JSONEncoder().encode(pending).write(to: saved)
+        let client = TairaFaucetClient(scrypt: { _, _, _, _, _ in
+            XCTFail("Recovery must never solve another claim")
+            throw CancellationError()
+        }, transport: { request, _ in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/v1/pipeline/transactions/status")
+            XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, hash)
+            return .init(data: Data("{\"hash\":\"\(hash)\",\"scope\":\"global\",\"resolved_from\":\"state\",\"status\":{\"kind\":\"Applied\",\"block_height\":75}}".utf8))
+        })
+        let service = TairaFaucetService(client: client, directory: directory)
+        let before = try await service.hasPending(account: account.address)
+        XCTAssertTrue(before)
+        let outcome = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { phase in
+            guard case .checking = phase else { XCTFail("Recovery must only check the saved hash"); return }
+        })
+        XCTAssertEqual(outcome.state, .applied(blockHeight: 75))
+        let after = try await service.hasPending(account: account.address)
+        XCTAssertFalse(after)
+        // A damaged journal fails closed instead of silently requesting more.
+        try Data("broken".utf8).write(to: saved)
+        do { _ = try await service.hasPending(account: account.address); XCTFail("Corrupt journal accepted") }
+        catch { XCTAssertTrue(error is TairaFaucetService.Failure) }
+    }
+
+    @MainActor
+    func testFaucetButtonIsVisibleOnlyOnTairaAndFitsNarrowLayout() throws {
+        for configuration in [try XCTUnwrap(NexusNetworkConfiguration.taira), .minamoto] {
+            let detail = NexusNetworkDetailViewController(account: try account(network: configuration.networkId),
+                configuration: configuration, coordinator: nil, readClient: NexusToriiReadClient(), mutationUnavailableReason: nil)
+            detail.loadViewIfNeeded()
+            detail.view.frame = CGRect(x: 0, y: 0, width: 375, height: 812)
+            detail.view.layoutIfNeeded()
+            func find(_ view: UIView) -> UIButton? {
+                if view.accessibilityIdentifier == "taira.faucet.request" { return view as? UIButton }
+                return view.subviews.compactMap(find).first
+            }
+            let button = detail.tableView.tableHeaderView.flatMap(find)
+            if configuration.networkId == .taira {
+                let button = try XCTUnwrap(button)
+                XCTAssertTrue(button.isEnabled)
+                XCTAssertGreaterThanOrEqual(button.bounds.height, 48)
+                XCTAssertLessThanOrEqual(button.bounds.width, 375)
+                let image = UIGraphicsImageRenderer(bounds: detail.view.bounds).image { context in
+                    detail.view.layer.render(in: context.cgContext)
+                }
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "Taira faucet screen"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            } else { XCTAssertNil(button) }
+        }
+    }
+}
 
 final class WalletUXTests: XCTestCase {
     func testTairaPendingJournalRetainsAndCannotChangeSigningNetwork() async throws {
