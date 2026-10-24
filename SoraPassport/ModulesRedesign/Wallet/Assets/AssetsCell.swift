@@ -73,6 +73,7 @@ final class AssetsCell: SoramitsuTableViewCell {
     }
     
     private var views: [MainScreenAssetView] = []
+    private var networkViews: [MainScreenAssetView] = []
     private var localizationManager = LocalizationManager.shared
     
     private lazy var arrowButton: WalletHeaderView = {
@@ -231,7 +232,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                 self.views[index].assetImageView.sora.loadingPlaceholder.type = assetModel.icon == nil ? .shimmer : .none
 
                 if !assetModel.title.isEmpty {
-                    self.views[index].titleLabel.sora.text = assetModel.title
+                    self.views[index].titleLabel.sora.text = self.sora2Title(assetModel.title)
                 }
                 self.views[index].titleLabel.sora.loadingPlaceholder.type = assetModel.title.isEmpty ? .shimmer : .none
 
@@ -245,6 +246,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                     assetsItem?.assetHandler?(assetModel.identifier)
                 }
             }
+            renderNetworkRows()
             return
         }
         fullStackView.arrangedSubviews.filter { $0 is MainScreenAssetView }.forEach { subview in
@@ -262,7 +264,7 @@ final class AssetsCell: SoramitsuTableViewCell {
             assetView.assetImageView.sora.loadingPlaceholder.type = assetModel.icon == nil ? .shimmer : .none
 
             if !assetModel.title.isEmpty {
-                assetView.titleLabel.sora.text = assetModel.title
+                assetView.titleLabel.sora.text = sora2Title(assetModel.title)
             }
             assetView.titleLabel.sora.loadingPlaceholder.type = assetModel.title.isEmpty ? .shimmer : .none
 
@@ -286,7 +288,79 @@ final class AssetsCell: SoramitsuTableViewCell {
         }
 
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
+        renderNetworkRows()
         setNeedsLayout()
+    }
+
+    /// SORA2 rows carry the network's name only once SORA2 is no longer the
+    /// main network.
+    private func sora2Title(_ title: String) -> String {
+        guard let label = assetsItem?.sora2RowLabel else { return title }
+        return "\(title) · \(label)"
+    }
+
+    /// XOR on other networks, in the same list: rows on the main network
+    /// before the SORA2 rows, the others after them, above Expand.
+    private func renderNetworkRows() {
+        networkViews.forEach { view in
+            fullStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        let rows = assetsItem?.networkRows ?? []
+        let leading = rows.filter(\.isMain).map(makeNetworkView)
+        let trailing = rows.filter { !$0.isMain }.map(makeNetworkView)
+        let firstRow = views.first.flatMap { fullStackView.arrangedSubviews.firstIndex(of: $0) }
+            ?? fullStackView.arrangedSubviews.firstIndex(of: openFullListAssetsButton)
+            ?? fullStackView.arrangedSubviews.count
+        for (offset, view) in leading.enumerated() {
+            fullStackView.insertArrangedSubview(view, at: firstRow + offset)
+        }
+        let expand = fullStackView.arrangedSubviews.firstIndex(of: openFullListAssetsButton)
+            ?? fullStackView.arrangedSubviews.count
+        for (offset, view) in trailing.enumerated() {
+            fullStackView.insertArrangedSubview(view, at: expand + offset)
+        }
+        networkViews = leading + trailing
+        if let lastAsset = views.last {
+            fullStackView.setCustomSpacing(trailing.isEmpty ? 8 : UIStackView.spacingUseDefault, after: lastAsset)
+        }
+        if let lastNetwork = trailing.last {
+            fullStackView.setCustomSpacing(8, after: lastNetwork)
+        }
+    }
+
+    private func makeNetworkView(_ row: NetworkAssetRow) -> MainScreenAssetView {
+        let view = MainScreenAssetView()
+        view.sora.isHidden = !(assetsItem?.isExpand ?? false)
+        if let icon = row.icon {
+            view.assetImageView.sora.picture = .logo(image: icon)
+        }
+        view.assetImageView.sora.loadingPlaceholder.type = row.icon == nil ? .shimmer : .none
+        view.titleLabel.sora.text = row.title
+        view.titleLabel.sora.loadingPlaceholder.type = .none
+        view.subtitleLabel.sora.text = row.amount.isEmpty ? " " : row.amount
+        view.subtitleLabel.sora.loadingPlaceholder.type = row.amount.isEmpty ? .shimmer : .none
+        // Where a SORA2 row shows its value, a testnet or not-yet-live network
+        // says why it has none.
+        switch row.tag {
+        case .testnet:
+            view.amountUpLabel.sora.text = row.tag?.title
+            view.amountUpLabel.sora.textColor = .custom(uiColor: .systemOrange)
+        case .comingSoon:
+            view.amountUpLabel.sora.text = row.tag?.title
+            view.amountUpLabel.sora.textColor = .fgSecondary
+        case .main, nil:
+            view.amountUpLabel.sora.text = ""
+        }
+        view.amountUpLabel.sora.font = FontType.textBoldXS
+        view.amountUpLabel.sora.loadingPlaceholder.type = .none
+        view.amountDownLabel.sora.text = ""
+        view.amountDownLabel.sora.loadingPlaceholder.type = .none
+        view.accessibilityIdentifier = "wallet.network-row.\(row.account.networkId.rawValue)"
+        view.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
+            assetsItem?.networkRowHandler?(row.account)
+        }
+        return view
     }
 }
 

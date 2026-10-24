@@ -35,6 +35,12 @@ import SoraKeystore
 import RobinHood
 import SoraFoundation
 
+/// A network row's XOR balance once its read has finished.
+enum NetworkRowBalance: Equatable {
+    case loaded(String)
+    case unavailable
+}
+
 enum UpdatedSection {
     case assets
     case pools
@@ -93,6 +99,13 @@ final class RedesignWalletViewModel {
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
     let assetsViewModelService: AssetsItemService
+
+    /// The selected wallet's accounts on other networks, shown as XOR rows in
+    /// the assets list. Never another wallet's: see `refreshNetworkRows()`.
+    private var networkAccounts: [NetworkAccount] = []
+    private var networkBalances: [String: NetworkRowBalance] = [:]
+    private var networkRowsTask: Task<Void, Never>?
+    private let nexusReadClient: NexusToriiReading = NexusToriiReadClient()
     
     init(wireframe: RedesignWalletWireframeProtocol?,
          providerFactory: BalanceProviderFactory,
@@ -235,6 +248,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         walletItems = buildItems()
         updateItems()
         setupModels()
+        refreshNetworkRows()
     }
 
     @MainActor
@@ -275,6 +289,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                      fiatService: fiatService,
                                                                                      itemService: assetsViewModelService,
                                                                                      marketCapService: marketCapService)
+        (assetItem as? AssetsItem)?.networkRowHandler = { [weak self] account in
+            Task { @MainActor in self?.openNetwork(account: account) }
+        }
         items.append(assetItem)
         
         
@@ -408,6 +425,18 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     
     @MainActor
     func sendFromWallet() {
+        startNetworkAction(.send) { [weak self] in
+            self?.showSora2Send()
+        }
+    }
+
+    @MainActor
+    func receive(showSora2Receive: @escaping () -> Void) {
+        startNetworkAction(.receive, sora2: showSora2Receive)
+    }
+
+    @MainActor
+    private func showSora2Send() {
         wireframe?.showSend(on: view?.controller, selectedTokenId: nil, selectedAddress: "",
                             fiatService: fiatService, assetManager: assetManager,
                             providerFactory: providerFactory, networkFacade: networkFacade,
@@ -415,18 +444,194 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                             sharingFactory: sharingFactory, marketCapService: marketCapService)
     }
 
+    /// Send and Receive ask which network only when there is a real choice;
+    /// otherwise they open SORA2's flow exactly as before.
     @MainActor
-    func showNetworks() {
-        guard ProductSurfacePolicy.showsNexusPortfolio,
-              SettingsManager.shared.nexusEnabled,
-              let source = view?.controller, let navigation = source.navigationController else { return }
-        let picker = NexusPortfolioViewController(assetsProvider: assetsProvider, openSora2Experience: { [weak navigation] in
-            navigation?.popToRootViewController(animated: true)
-            return navigation != nil
-        })
+    private func startNetworkAction(_ action: WalletNetworkAction, sora2: @escaping () -> Void) {
+        let accounts = WalletNetworkAccounts.selectedWallet()
+        guard
+            accounts.contains(where: { $0.networkId == .sora2 }),
+            accounts.contains(where: { $0.networkId != .sora2 }),
+            let source = view?.controller
+        else {
+            sora2()
+            return
+        }
+        let sendable = Set(accounts.map(\.networkId).filter { WalletNetworkAccounts.canSend(on: $0) })
+        let choices = WalletNetworkChoices.make(
+            action: action,
+            accounts: accounts,
+            balances: networkBalanceTexts(for: accounts),
+            canSend: { sendable.contains($0) }
+        )
+        let open: @MainActor (WalletNetworkChoice) -> Void = { [weak self] choice in
+            if choice.account.networkId == .sora2 {
+                sora2()
+            } else {
+                self?.openNetwork(account: choice.account, startSend: action == .send)
+            }
+        }
+        if let only = WalletNetworkChoices.onlyChoice(choices) {
+            open(only)
+            return
+        }
+        WalletNetworkPickerViewController.present(action: action, choices: choices, from: source, onPick: open)
+    }
+
+    /// XOR on a network other than SORA2: its balance, receive address,
+    /// history and, where the network allows it, Send.
+    @MainActor
+    func openNetwork(account: NetworkAccount, startSend: Bool = false) {
+        let settings = SettingsManager.shared
+        guard
+            ProductSurfacePolicy.showsNexusPortfolio,
+            settings.nexusEnabled,
+            account.walletId == SelectedWalletSettings.shared.currentAccount?.address,
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: account.networkId,
+                nexusEnabled: settings.nexusEnabled,
+                tairaEnabled: settings.isTairaEnabled,
+                tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
+            ),
+            let configuration = NexusNetworkConfiguration.configuration(for: account.networkId),
+            let navigation = view?.controller.navigationController
+        else {
+            return
+        }
+        let runtime = NexusTransactionRuntime.shared
+        let detail = NexusNetworkDetailViewController(
+            account: account,
+            configuration: configuration,
+            coordinator: runtime.coordinator,
+            readClient: nexusReadClient,
+            mutationUnavailableReason: runtime.initializationFailed
+                ? NexusPortfolioPresentationPolicy.journalUnavailableMessage
+                : nil,
+            opensSendWhenReady: startSend
+        )
         navigation.setNavigationBarHidden(false, animated: false)
-        picker.hidesBottomBarWhenPushed = true
-        navigation.pushViewController(picker, animated: true)
+        detail.hidesBottomBarWhenPushed = true
+        navigation.pushViewController(detail, animated: true)
+    }
+
+    /// Reloads the other networks' XOR rows for the selected wallet. Account
+    /// selection is a privacy boundary: rows and balances of any other wallet
+    /// are dropped before anything is read.
+    @MainActor
+    func refreshNetworkRows() {
+        networkRowsTask?.cancel()
+        let accounts = WalletNetworkAccounts.selectedWallet()
+        networkBalances = networkBalances.filter { key, _ in accounts.contains { $0.id == key } }
+        networkAccounts = accounts
+        applyNetworkRows()
+        let liveAccounts = accounts.filter {
+            $0.networkId != .sora2 && WalletNetworkDirectory.current.info($0.networkId).isLive
+        }
+        guard !liveAccounts.isEmpty else {
+            return
+        }
+        let readClient = nexusReadClient
+        networkRowsTask = Task { [weak self] in
+            for account in liveAccounts {
+                guard let configuration = NexusNetworkConfiguration.configuration(for: account.networkId) else {
+                    continue
+                }
+                let balance: NetworkRowBalance
+                do {
+                    let current = try await readCurrentNexusXorBalance(
+                        account: account,
+                        configuration: configuration,
+                        readClient: readClient
+                    )
+                    balance = .loaded(current.quantity.rawValue)
+                } catch {
+                    if NexusPortfolioTaskPolicy.isCancellation(error) {
+                        return
+                    }
+                    balance = .unavailable
+                }
+                guard
+                    let self,
+                    !Task.isCancelled,
+                    account.walletId == SelectedWalletSettings.shared.currentAccount?.address,
+                    self.networkAccounts.contains(account)
+                else {
+                    return
+                }
+                self.networkBalances[account.id] = balance
+                self.applyNetworkRows()
+            }
+        }
+    }
+
+    @MainActor
+    private func applyNetworkRows() {
+        guard let assetsItem = walletItems.first(where: { $0 is AssetsItem }) as? AssetsItem else {
+            return
+        }
+        let directory = WalletNetworkDirectory.current
+        let main = directory.mainNetwork(walletNetworks: Set(networkAccounts.map(\.networkId)))
+        let xor = assetManager.assetInfo(for: WalletAssetId.xor.rawValue)
+        let icon = xor.flatMap { RemoteSerializer.shared.image(with: $0.icon ?? "") }
+        let name = xor?.name ?? "XOR"
+        let rows: [NetworkAssetRow] = directory.ordered(networkAccounts.map(\.networkId), main: main)
+            .filter { $0 != .sora2 }
+            .compactMap { networkId in
+                guard let account = networkAccounts.first(where: { $0.networkId == networkId }) else {
+                    return nil
+                }
+                let network = directory.info(networkId)
+                let amount: String
+                if !network.isLive {
+                    amount = WalletUX.text("Address ready")
+                } else {
+                    switch networkBalances[account.id] {
+                    case let .loaded(quantity):
+                        amount = "\(Self.xorText(quantity)) XOR"
+                    case .unavailable:
+                        amount = WalletUX.balanceUnavailableText
+                    case nil:
+                        amount = ""
+                    }
+                }
+                return NetworkAssetRow(
+                    account: account,
+                    title: directory.rowLabel(for: networkId, main: main).map { "\(name) · \($0)" } ?? name,
+                    amount: amount,
+                    tag: directory.tag(for: networkId, main: main),
+                    icon: icon,
+                    isMain: networkId == main
+                )
+            }
+        let sora2Label = directory.rowLabel(for: .sora2, main: main)
+        guard assetsItem.networkRows != rows || assetsItem.sora2RowLabel != sora2Label else {
+            return
+        }
+        assetsItem.networkRows = rows
+        assetsItem.sora2RowLabel = sora2Label
+        reloadItem?([assetsItem])
+    }
+
+    /// XOR balances by network for the Receive and Send choices.
+    @MainActor
+    private func networkBalanceTexts(for accounts: [NetworkAccount]) -> [NetworkId: String] {
+        var texts: [NetworkId: String] = [:]
+        if let sora2 = assetsProvider.getBalances(with: [WalletAssetId.xor.rawValue]).first {
+            texts[.sora2] = Self.xorText(sora2.balance.stringValue)
+        }
+        for account in accounts {
+            if case let .loaded(quantity) = networkBalances[account.id] {
+                texts[account.networkId] = Self.xorText(quantity)
+            }
+        }
+        return texts
+    }
+
+    private static func xorText(_ quantity: String) -> String {
+        guard let value = Decimal(string: quantity, locale: Locale(identifier: "en_US_POSIX")) else {
+            return quantity
+        }
+        return NumberFormatter.cryptoAmounts.stringFromDecimal(value) ?? quantity
     }
 
     func showBackupAccount() {
@@ -439,5 +644,12 @@ extension RedesignWalletViewModel: EventVisitorProtocol {
     @MainActor
     func processAccountBackuped(event: AccountBackuped) {
         updateItems()
+    }
+
+    /// Switching account in a sheet does not make the wallet reappear; drop
+    /// the previous wallet's network rows at once.
+    @MainActor
+    func processSelectedAccountChanged(event: SelectedAccountChanged) {
+        refreshNetworkRows()
     }
 }

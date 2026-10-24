@@ -173,7 +173,7 @@ final class WalletOpeningViewController: UIViewController {
         progress.hidesWhenStopped = true
         networksButton.isHidden = true
         for (button, title, identifier, action) in [
-            (networksButton, "Choose network", "wallet-opening-networks", #selector(selectNetwork)),
+            (networksButton, "Networks", "wallet-opening-networks", #selector(selectNetwork)),
             (retryButton, "Try again", "wallet-opening-retry", #selector(retry)),
             (nodesButton, "Change node", "wallet-opening-nodes", #selector(selectNode)),
             (recheckButton, "Check wallet again", "wallet-opening-recheck", #selector(recheck))

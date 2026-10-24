@@ -1204,6 +1204,8 @@ rollout_regression_harness="${root}/SoraPassport/Scripts/test-production-rollout
 application_info_plist="${root}/SoraPassport/Info.plist"
 nexus_service="${root}/SoraPassport/Common/Model/NexusWalletService.swift"
 nexus_ui="${root}/SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift"
+wallet_network_directory="${root}/SoraPassport/Common/Model/WalletNetworkDirectory.swift"
+wallet_home_view_model="${root}/SoraPassport/ModulesRedesign/Wallet/WalletViewModel.swift"
 more_menu_presenter="${root}/SoraPassport/ModulesRedesign/MoreMenu/MoreMenuPresenter.swift"
 app_settings_presenter="${root}/SoraPassport/ModulesRedesign/AppSettings/AppSettingsPresenter.swift"
 app_delegate="${root}/SoraPassport/AppDelegate.swift"
@@ -6530,7 +6532,7 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
 	   ! /usr/bin/grep -Fq "readsAvailable && networkId == .taira && mutationCoordinatorAvailable" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "private let readClient: NexusToriiReading" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "readClient: NexusToriiReading = NexusToriiReadClient()" "${nexus_ui}" ||
-	   ! /usr/bin/grep -Fq "private func readCurrentNexusXorBalance(" "${nexus_ui}" ||
+	   ! /usr/bin/grep -Fq "func readCurrentNexusXorBalance(" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "let definition = try await readClient.xorAssetDefinition(" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "let response = try await readClient.accountAssets(" "${nexus_ui}" ||
 	   ! /usr/bin/grep -Fq "limit: 100" "${nexus_ui}" ||
@@ -6584,9 +6586,20 @@ if ! /usr/bin/grep -Fq "override func viewWillAppear" "${more_menu_view}" ||
     exit 1
 fi
 
-if ! /usr/bin/grep -Fq "SORA2 · MAINNET" "${nexus_ui}" ||
-   ! /usr/bin/grep -Fq "SORA NEXUS · PRODUCTION ADDRESS" "${nexus_ui}" ||
-   ! /usr/bin/grep -Fq "TAIRA · TESTNET" "${nexus_ui}" ||
+# Networks are labels, never a mode: every network list takes its names, tags
+# and order from WalletNetworkDirectory, the main network is never a testnet or
+# a network that is not live, and the home reads other networks' XOR only
+# through the validated reader.
+if [ ! -f "${wallet_network_directory}" ] ||
+   [ -L "${wallet_network_directory}" ] ||
+   ! /usr/bin/grep -Fq 'name: "SORA2"' "${wallet_network_directory}" ||
+   ! /usr/bin/grep -Fq 'name: "SORA Nexus"' "${wallet_network_directory}" ||
+   ! /usr/bin/grep -Fq 'name: "Taira", isTestnet: true' "${wallet_network_directory}" ||
+   ! /usr/bin/grep -Fq "guard !candidate.isTestnet, candidate.isLive, walletNetworks.contains(preferred) else" "${wallet_network_directory}" ||
+   ! /usr/bin/grep -Fq "WalletNetworkDirectory.current" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "directory.tag(for: network, main: main)" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "readCurrentNexusXorBalance(" "${wallet_home_view_model}" ||
+   /usr/bin/grep -Fq "accountAssets(" "${wallet_home_view_model}" ||
    ! /usr/bin/grep -Fq "configuration.validate(address: receiver)" "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.walletId == self.account.walletId' "${nexus_ui}" ||
    ! /usr/bin/grep -Fq '$0.networkId == self.account.networkId' "${nexus_ui}" ||

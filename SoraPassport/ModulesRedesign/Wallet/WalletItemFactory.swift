@@ -111,10 +111,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         accountItem.sendHandler = { [weak walletViewModel] in
             Task { @MainActor in walletViewModel?.sendFromWallet() }
         }
-        accountItem.networkHandler = { [weak walletViewModel] in
-            Task { @MainActor in walletViewModel?.showNetworks() }
-        }
-        accountItem.scanQRHandler = {
+        let showSora2Receive = {
             guard let view = view?.controller else { return }
             
             let accountId = try? SS58AddressFactory().accountId(
@@ -134,6 +131,9 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                                       isScanQRShown: false,
                                       marketCapService: marketCapService,
                                       closeHandler: nil)
+        }
+        accountItem.scanQRHandler = { [weak walletViewModel] in
+            Task { @MainActor in walletViewModel?.receive(showSora2Receive: showSora2Receive) }
         }
         
         accountItem.updateHandler = { [weak accountItem] in

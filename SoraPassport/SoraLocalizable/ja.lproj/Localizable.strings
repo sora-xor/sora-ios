@@ -1263,3 +1263,24 @@
 "Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here." = "ウォレットのJSONバックアップファイルの内容をすべて貼り付けてください。ここにはリカバリーフレーズやウォレットアドレスは入力できません。";
 "Couldn’t open backup" = "バックアップを開けませんでした";
 "Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN." = "このJSONバックアップの保存時に設定したパスワードを確認してください。バックアップのパスワードはアプリのPINとは別のものです。";
+
+/* One wallet, networks as labels */
+"Main" = "メイン";
+"Coming soon" = "近日公開";
+"Testnet" = "テストネット";
+"Receive on" = "受信するネットワーク";
+"Send on" = "送信するネットワーク";
+"Each network has its own address. Share the address of the network the sender uses." = "アドレスはネットワークごとに異なります。送信者が使うネットワークのアドレスを伝えてください。";
+"The recipient needs an address on the network you choose." = "受取人には、選んだネットワークのアドレスが必要です。";
+"Sending on %@ starts when the network launches." = "%@ での送信は、ネットワークの開始後に利用できます。";
+"Sending on %@ is paused right now." = "%@ での送信は現在一時停止中です。";
+"Address ready" = "アドレス準備済み";
+"XOR on %@" = "%@ の XOR";
+"Networks" = "ネットワーク";
+"XOR on each network" = "ネットワークごとの XOR";
+"Copy receive address" = "受取アドレスをコピー";
+"Copy address" = "アドレスをコピー";
+"Open explorer" = "エクスプローラーで開く";
+"Close" = "閉じる";
+"Use Taira for testnet balances and activity. You can create and copy your Nexus production address before the production network launches. Testnet funds have no monetary value." = "テストネットの残高と履歴は Taira で確認できます。SORA Nexus の本番アドレスは、本番ネットワークの開始前から作成・コピーできます。テストネットの資金に金銭的な価値はありません。";
+"Only SORA2 is available for this account. To add other networks, import this wallet using its recovery phrase in Accounts." = "このアカウントで使えるのは SORA2 のみです。他のネットワークを追加するには、アカウント画面でリカバリーフレーズを使ってこのウォレットをインポートしてください。";

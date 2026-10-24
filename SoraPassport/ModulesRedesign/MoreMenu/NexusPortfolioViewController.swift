@@ -44,6 +44,9 @@ enum NexusPortfolioPresentationPolicy {
         walletId == selectedWalletId
     }
 
+    static let journalUnavailableMessage =
+        "The protected pending-transaction journal is unavailable. Receive addresses, balances, and finalized history remain read-only; Nexus sends are disabled until the journal is recovered."
+
     static func portfolioSubtitle(tairaAdmitted: Bool) -> String {
         tairaAdmitted
             ? "SORA2 · Nexus Production Address · Taira Testnet"
@@ -127,7 +130,7 @@ enum NexusPortfolioPresentationPolicy {
     }
 }
 
-private func readCurrentNexusXorBalance(
+func readCurrentNexusXorBalance(
     account: NetworkAccount,
     configuration: NexusNetworkConfiguration,
     readClient: NexusToriiReading
@@ -157,7 +160,7 @@ private func readCurrentNexusXorBalance(
     )
 }
 
-private enum NexusPortfolioTaskPolicy {
+enum NexusPortfolioTaskPolicy {
     static func isCancellation(_ error: Error) -> Bool {
         error is CancellationError ||
             (error as? URLError)?.code == .cancelled
@@ -179,6 +182,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
     private var coordinator: NexusTransactionCoordinator?
     private var nexusInfrastructureError: String?
     private var rows: [Row] = []
+    private var mainNetwork: NetworkId = MainNetworkPolicy.preferred
     private var loadTask: Task<Void, Never>?
 
     init(
@@ -193,8 +197,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
         let runtime = NexusTransactionRuntime.shared
         coordinator = runtime.coordinator
         if runtime.initializationFailed {
-            nexusInfrastructureError =
-                "The protected pending-transaction journal is unavailable. Receive addresses, balances, and finalized history remain read-only; Nexus sends are disabled until the journal is recovered."
+            nexusInfrastructureError = NexusPortfolioPresentationPolicy.journalUnavailableMessage
         }
     }
 
@@ -211,7 +214,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         NotificationCenter.default.addObserver(self, selector: #selector(refreshVisible), name: UIApplication.didBecomeActiveNotification, object: nil)
-        title = WalletUX.text("Choose network")
+        title = WalletUX.text("Networks")
         view.backgroundColor = WalletUX.page
         tableView.register(
             UITableViewCell.self,
@@ -292,12 +295,17 @@ final class NexusPortfolioViewController: WalletTableViewController {
                                 NexusNetworkAdmissionPolicy
                                     .current.isTairaAdmitted)
                     }
-                    .sorted {
-                        Self.order($0.networkId) < Self.order($1.networkId)
-                    }
                 if !settings.nexusEnabled {
                     accounts.removeAll { $0.networkId != .sora2 }
                 }
+                let directory = WalletNetworkDirectory.current
+                let main = directory.mainNetwork(walletNetworks: Set(accounts.map(\.networkId)))
+                let order = directory.ordered(accounts.map(\.networkId), main: main)
+                accounts.sort {
+                    (order.firstIndex(of: $0.networkId) ?? order.count) <
+                        (order.firstIndex(of: $1.networkId) ?? order.count)
+                }
+                mainNetwork = main
 
                 guard portfolioContextIsCurrent(walletId: walletId) else {
                     clearRowsAfterContextChange()
@@ -345,8 +353,8 @@ final class NexusPortfolioViewController: WalletTableViewController {
                     .first?
                     .balance
                     .stringValue ?? "—"
-            } else if account.networkId == .minamoto {
-                rows[index].balance = "Not live yet · Copy address"
+            } else if !WalletNetworkDirectory.current.info(account.networkId).isLive {
+                rows[index].balance = WalletUX.text("Address ready")
             } else {
                 do {
                     guard
@@ -462,7 +470,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
         _ tableView: UITableView,
         titleForHeaderInSection section: Int
     ) -> String? {
-        "XOR by network"
+        WalletUX.text("XOR on each network")
     }
 
     override func tableView(
@@ -485,10 +493,10 @@ final class NexusPortfolioViewController: WalletTableViewController {
             reuseIdentifier: "Network"
         )
         var configuration = cell.defaultContentConfiguration()
-        configuration.text = Self.title(for: row.account.networkId)
-        configuration.secondaryText = row.account.networkId == .minamoto
-            ? "\(row.balance)\n\(Self.short(row.account.address))"
-            : "\(row.balance) XOR\n\(Self.short(row.account.address))"
+        configuration.text = Self.title(for: row.account.networkId, main: mainNetwork)
+        configuration.secondaryText = WalletNetworkDirectory.current.info(row.account.networkId).isLive
+            ? "\(row.balance) XOR\n\(Self.short(row.account.address))"
+            : "\(row.balance)\n\(Self.short(row.account.address))"
         configuration.secondaryTextProperties.numberOfLines = 2
         cell.contentConfiguration = configuration
         cell.accessoryType = .disclosureIndicator
@@ -604,26 +612,10 @@ final class NexusPortfolioViewController: WalletTableViewController {
         present(alert, animated: true)
     }
 
-    private static func title(for network: NetworkId) -> String {
-        switch network {
-        case .sora2:
-            return "SORA2 · MAINNET"
-        case .minamoto:
-            return "SORA NEXUS · PRODUCTION ADDRESS"
-        case .taira:
-            return "TAIRA · TESTNET"
-        }
-    }
-
-    private static func order(_ network: NetworkId) -> Int {
-        switch network {
-        case .sora2:
-            return 0
-        case .minamoto:
-            return 1
-        case .taira:
-            return 2
-        }
+    private static func title(for network: NetworkId, main: NetworkId) -> String {
+        let directory = WalletNetworkDirectory.current
+        let name = directory.info(network).name
+        return directory.tag(for: network, main: main).map { "\(name) · \($0.title)" } ?? name
     }
 
     private static func short(_ value: String) -> String {
@@ -668,19 +660,25 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
     private var faucetHasPending = false
     private var faucetRetryAfter: Date?
     private let faucetService = TairaFaucetService.shared
+    /// Opened from the wallet's Send: show the send form once the checks
+    /// below have made sending safe. Used once; a later refresh never
+    /// reopens it.
+    private var opensSendWhenReady: Bool
 
     init(
         account: NetworkAccount,
         configuration: NexusNetworkConfiguration,
         coordinator: NexusTransactionCoordinator?,
         readClient: NexusToriiReading,
-        mutationUnavailableReason: String?
+        mutationUnavailableReason: String?,
+        opensSendWhenReady: Bool = false
     ) {
         self.account = account
         self.configuration = configuration
         self.coordinator = coordinator
         self.readClient = readClient
         self.mutationUnavailableReason = mutationUnavailableReason
+        self.opensSendWhenReady = opensSendWhenReady
         super.init(style: .insetGrouped)
     }
 
@@ -699,7 +697,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         NotificationCenter.default.addObserver(self, selector: #selector(refreshVisible), name: UIApplication.didBecomeActiveNotification, object: nil)
-        title = configuration.displayName
+        title = WalletUX.format("XOR on %@", network.name)
         view.backgroundColor = WalletUX.page
         tableView.tableHeaderView = makeReceiveHeader()
         let access = NexusPortfolioPresentationPolicy.networkDetailAccess(
@@ -782,7 +780,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         historyPageError = nil
         setMutationReady(false)
         if !configuration.isLive {
-            balance = "Not live yet"
+            balance = WalletUX.text("Coming soon")
             history = []
             pendingRows = []
             sendAvailabilityMessage = WalletUX.text("Your production address is ready to copy or share. Balances, activity, and transfers will be available when the SORA Nexus production network launches.")
@@ -951,6 +949,30 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
     private func setMutationReady(_ ready: Bool) {
         mutationReady = ready
         navigationItem.rightBarButtonItem?.isEnabled = ready
+        guard ready, opensSendWhenReady, view.window != nil, presentedViewController == nil else {
+            return
+        }
+        opensSendWhenReady = false
+        // The checks can finish while this screen is still being pushed.
+        if let transition = navigationController?.transitionCoordinator {
+            transition.animate(alongsideTransition: nil) { [weak self] _ in
+                self?.send()
+            }
+        } else {
+            send()
+        }
+    }
+
+    private var network: WalletNetworkInfo {
+        WalletNetworkDirectory.current.info(account.networkId)
+    }
+
+    /// "Taira · Testnet" or "SORA Nexus · Coming soon".
+    private var networkLabel: String {
+        let directory = WalletNetworkDirectory.current
+        let main = directory.mainNetwork(walletNetworks: [.sora2, account.networkId])
+        return directory.tag(for: account.networkId, main: main)
+            .map { "\(network.name) · \($0.title)" } ?? network.name
     }
 
     private func loadMoreHistory() {
@@ -1012,7 +1034,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         badge.numberOfLines = 0
         badge.textAlignment = .center
         badge.textColor = configuration.isTestnet ? .systemOrange : .secondaryLabel
-        badge.text = configuration.isTestnet ? "TAIRA · TESTNET" : "SORA NEXUS · PRODUCTION NOT LIVE YET"
+        badge.text = networkLabel
 
         let image = UIImageView(image: qrImage(account.address))
         image.contentMode = .scaleAspectFit
@@ -1026,11 +1048,11 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         address.text = account.address
 
         let copy = UIButton(type: .system)
-        copy.setTitle(configuration.isLive ? "Copy receive address" : "Copy production address", for: .normal)
+        copy.setTitle(WalletUX.text(configuration.isLive ? "Copy receive address" : "Copy address"), for: .normal)
         copy.addTarget(self, action: #selector(copyAddress), for: .touchUpInside)
 
         let explorer = UIButton(type: .system)
-        explorer.setTitle("Open explorer", for: .normal)
+        explorer.setTitle(WalletUX.text("Open explorer"), for: .normal)
         explorer.addTarget(self, action: #selector(openExplorer), for: .touchUpInside)
         explorer.isHidden = !configuration.isLive
 
@@ -1209,7 +1231,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             return
         }
         let form = NexusSendViewController(
-            network: "\(configuration.displayName) · \(configuration.isTestnet ? "TESTNET" : "MAINNET")",
+            network: networkLabel,
             balance: balance
         )
         form.onReview = { [weak self] receiver, amount in self?.reviewSend(receiver: receiver, amount: amount) }
@@ -1381,7 +1403,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         switch indexPath.section {
         case 0:
             content.text = configuration.isLive ? "\(balance) XOR" : balance
-            content.secondaryText = configuration.displayName
+            content.secondaryText = networkLabel
         case 1:
             if let pendingLoadError {
                 content.text = WalletUX.text("Recovery required")
