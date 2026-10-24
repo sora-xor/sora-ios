@@ -5,7 +5,7 @@ import Foundation
 import RobinHood
 import SoraKeystore
 
-/// `portfolioView` (portfolio spec §2): on in every non-production configuration, off in Release.
+/// `portfolioView` (portfolio spec §2): on in every configuration, Release included.
 /// The one constant lives with the app's other optional surfaces (`ProductSurfacePolicy`).
 enum PortfolioFeature {
     static var isEnabled: Bool { ProductSurfacePolicy.showsPortfolioView }
