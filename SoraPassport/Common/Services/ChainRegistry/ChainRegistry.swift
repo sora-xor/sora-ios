@@ -31,6 +31,7 @@
 import Foundation
 import SoraKeystore
 import RobinHood
+import SSFModels
 
 protocol ChainRegistryProtocol: AnyObject {
     var availableChainIds: Set<ChainModel.Id>? { get }
@@ -52,6 +53,22 @@ protocol ChainRegistryProtocol: AnyObject {
     func performHotBoot()
     func performColdBoot()
     func syncUp()
+    /// Asks the runtime sync service to fetch the runtime the live node runs.
+    /// Does nothing while a sync for that chain is already running or queued,
+    /// unless the stored metadata must be replaced.
+    func requestRuntimeRefresh(
+        for chainId: ChainModel.Id,
+        liveVersion: RuntimeVersion,
+        replacingCachedMetadata: Bool
+    )
+}
+
+extension ChainRegistryProtocol {
+    func requestRuntimeRefresh(
+        for _: ChainModel.Id,
+        liveVersion _: RuntimeVersion,
+        replacingCachedMetadata _: Bool
+    ) {}
 }
 
 final class ChainRegistry {
@@ -273,6 +290,24 @@ extension ChainRegistry: ChainRegistryProtocol {
             failing: failureClosure,
             options: options
         )
+    }
+
+    func requestRuntimeRefresh(
+        for chainId: ChainModel.Id,
+        liveVersion: RuntimeVersion,
+        replacingCachedMetadata: Bool
+    ) {
+        guard runtimeSyncService.hasChain(with: chainId) else {
+            return
+        }
+        if replacingCachedMetadata {
+            runtimeSyncService.applyReplacingCachedMetadata(
+                version: liveVersion,
+                for: chainId
+            )
+        } else if !runtimeSyncService.isChainSyncing(chainId) {
+            runtimeSyncService.apply(version: liveVersion, for: chainId)
+        }
     }
 
     func getConnection(for chainId: ChainModel.Id) -> ChainConnection? {

@@ -1136,3 +1136,5 @@
 "The faucet request was not completed. Please try again." = "The faucet request was not completed. Please try again.";
 "The faucet limit has been reached. Please try again later." = "The faucet limit has been reached. Please try again later.";
 "Could not get test XOR. Check your connection and try again." = "Could not get test XOR. Check your connection and try again.";
+"The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds." = "The SORA network was just upgraded. The app is updating its network data. Please try again in a few seconds.";
+"The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment." = "The app could not confirm the SORA network version, so nothing was signed. Please try again in a moment.";
