@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import SoraUIKit
 
 /// Locks the existing presentation in place. Authentication must never replace
 /// an in-progress import/recovery root or attempt to construct an unverified wallet.
@@ -43,7 +44,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
              // Loading and authentication windows can temporarily be key. The
              // app delegate owns the flow that must survive reauthentication.
              (UIApplication.shared.delegate as? AppDelegate)?.window ??
-                 UIApplication.shared.windows.first { $0 is SoraWindow }
+                 UIApplication.shared.soraWindowScene?.windows.first { $0 is SoraWindow }
          },
          pinFactory: @escaping (ScreenAuthorizationWireframeProtocol) -> PinSetupViewProtocol? = {
              PinViewFactory.createRedesignScreenAuthorizationView(with: $0, cancellable: false)
@@ -55,6 +56,12 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
 
     private func containsRootPincode(_ controller: UIViewController) -> Bool {
         controller is PinSetupViewProtocol || controller.children.contains(where: containsRootPincode)
+    }
+
+    /// Welcome back shows no wallet, and the `pincode` it would ask for is
+    /// an earlier install's PIN; it has its own PIN-gated actions.
+    private func showsWelcomeBack(_ controller: UIViewController) -> Bool {
+        controller is WalletWelcomeBackViewController || controller.children.contains(where: showsWelcomeBack)
     }
 
     func showSecuringOverlay() {
@@ -70,7 +77,8 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
 
     func showAuthorization() {
         guard authorizationWindow == nil, let window = windowProvider(),
-              let root = window.rootViewController, !containsRootPincode(root) else { return }
+              let root = window.rootViewController, !containsRootPincode(root),
+              !showsWelcomeBack(root) else { return }
         let lockWindow: UIWindow
         if let scene = window.windowScene {
             lockWindow = UIWindow(windowScene: scene)
@@ -78,6 +86,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             lockWindow = UIWindow(frame: window.bounds)
         }
         lockWindow.frame = window.frame
+        SoramitsuUI.shared.applyInterfaceStyle(to: lockWindow)
         lockWindow.windowLevel = UIWindow.Level(rawValue: max(window.windowLevel.rawValue, UIWindow.Level.alert.rawValue) + 1)
         applicationWindow = window
         authorizationWindow = lockWindow
@@ -105,7 +114,7 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             pin.controller.didMove(toParent: container)
         } else {
             let retry = UIButton(type: .system)
-            retry.setTitle("PIN verification unavailable. Try again", for: .normal)
+            retry.setTitle(WalletUX.text("PIN verification unavailable. Try again"), for: .normal)
             retry.translatesAutoresizingMaskIntoConstraints = false
             retry.addTarget(self, action: #selector(retryAuthorization), for: .touchUpInside)
             container.view.addSubview(retry)
@@ -128,9 +137,9 @@ final class SecurityLayerWireframe: NSObject, SecurityLayerWireframProtocol, Scr
             // original wallet flow. A fresh interactor allows a safe retry.
             logger?.error("Resume PIN authorization failed")
             installPincode(on: lockWindow)
-            let message = UIAlertController(title: "PIN verification unavailable",
-                message: "Your wallet screen is still protected. Try entering your PIN again.", preferredStyle: .alert)
-            message.addAction(UIAlertAction(title: "Try again", style: .default))
+            let message = UIAlertController(title: WalletUX.text("PIN verification unavailable"),
+                message: WalletUX.text("Your wallet screen is still protected. Try entering your PIN again."), preferredStyle: .alert)
+            message.addAction(UIAlertAction(title: WalletUX.text("Try again"), style: .default))
             lockWindow.rootViewController?.present(message, animated: true)
             return
         }

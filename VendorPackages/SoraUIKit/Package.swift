@@ -10,8 +10,7 @@ let package = Package(
     targets: [
         .target(
             name: "SoraUIKit",
-            path: "SoraUIKit/SoraUIKit/Sources",
-            exclude: ["Scripts"]
+            path: "SoraUIKit/SoraUIKit/Sources"
         )
     ]
 )

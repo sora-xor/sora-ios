@@ -27,9 +27,9 @@
 
 - (nullable SECSignature *)sign:(nonnull NSData*)originalData
                               error:(NSError*_Nullable*_Nullable)error {
-    if (originalData.length != 32) {
+    if (originalData.length != 32 || _privateKey.rawData.length != 32) {
         if (error) {
-            NSString *message = [NSString stringWithFormat:@"Signing data must be 32 byte"];
+            NSString *message = [NSString stringWithFormat:@"Signing data and secret key must be 32 bytes"];
             *error = [NSError errorWithDomain:NSStringFromClass([self class])
                                          code:IRSignatureErrorInvalidRawData
                                      userInfo:@{NSLocalizedDescriptionKey: message}];
@@ -47,9 +47,8 @@
                                                   _privateKey.rawData.bytes,
                                                   NULL, NULL);
 
-    secp256k1_context_destroy(context);
-
     if (status == 0) {
+        secp256k1_context_destroy(context);
         if (error) {
             NSString *message = [NSString stringWithFormat:@"Invalid secret key or nonce function failed"];
             *error = [NSError errorWithDomain:NSStringFromClass([self class])
@@ -68,6 +67,7 @@
                                                             compactSignature,
                                                             &recid,
                                                             &rawSignature);
+    secp256k1_context_destroy(context);
     compactSignature[signatureLength - 1] = (unsigned char)recid;
 
     NSData *signatureData = [NSData dataWithBytes:compactSignature length:[SECSignature length]];

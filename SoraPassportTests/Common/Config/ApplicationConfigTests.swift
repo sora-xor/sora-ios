@@ -151,10 +151,14 @@ class ApplicationConfigTests: XCTestCase {
             }
         }
         let queue = OperationQueue()
+        let whitelistDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: whitelistDirectory) }
+        let whitelistStore = AssetWhitelistStore(directory: whitelistDirectory, bundledURL: R.file.whitelistJson())
         let service = ChainSyncService(
             typesUrl: nil, assetsUrl: URL(string: "https://metadata.invalid/whitelist"),
             dataFetchFactory: fetchFactory, repository: AnyDataProviderRepository(repository),
-            eventCenter: EventCenter(), operationQueue: queue
+            eventCenter: EventCenter(), operationQueue: queue, whitelistStore: whitelistStore
         )
         service.syncUp()
         wait(for: [requestedWhitelist], timeout: 3)
@@ -165,10 +169,13 @@ class ApplicationConfigTests: XCTestCase {
         let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
         let local = configuredChain(selected: custom, custom: [custom])
         local.assets = [ChainAssetModel(assetId: AssetInfo.xor.assetId, type: .normal, asset: .xor, chain: local)]
-        for unavailableWhitelist in [nil, Data("invalid metadata".utf8)] as [Data?] {
+        // Without the remote whitelist the bundled list (or, if even that is
+        // unreadable, the predefined assets) decides; XOR stays listed.
+        XCTAssertNil(AssetWhitelist.decode(Data("invalid metadata".utf8), source: .remote))
+        for unavailableWhitelist in [whitelistStore.current(), AssetWhitelist.empty] {
             let synced = ChainSyncService.preparedChain(
                 chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
-                typesURL: nil, local: local, assets: [], whitelistData: unavailableWhitelist
+                typesURL: nil, local: local, assets: [], whitelist: unavailableWhitelist
             )
             XCTAssertEqual(synced.selectedNode, custom)
             XCTAssertEqual(synced.customNodes, [custom])
@@ -180,17 +187,90 @@ class ApplicationConfigTests: XCTestCase {
         }
         let cold = ChainSyncService.preparedChain(
             chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
-            typesURL: nil, local: nil, assets: [.xor], whitelistData: nil
+            typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
         )
         XCTAssertEqual(cold.nodes.count, 2)
         XCTAssertEqual(cold.assets.count, 1)
         let different = ChainSyncService.preparedChain(
             chainId: "other-genesis", addressPrefix: 42, name: "Other", nodes: [],
-            typesURL: nil, local: local, assets: [], whitelistData: nil
+            typesURL: nil, local: local, assets: [], whitelist: .empty
         )
         XCTAssertTrue(different.nodes.isEmpty)
         XCTAssertNil(different.selectedNode)
         XCTAssertNil(different.customNodes)
+
+        // PI lists mof2 under another name. The store allows one node per
+        // URL, so the chain must keep exactly one entry per URL, with the
+        // bundled name, plus genuinely new PI nodes.
+        let renamedMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
+        let extra = ChainNodeModel(url: URL(string: "wss://extra.sora.example")!, name: "Extra", apikey: nil)
+        let merged = ChainSyncService.preparedChain(
+            chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [renamedMof2, extra],
+            typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
+        )
+        XCTAssertEqual(merged.nodes.count, 3)
+        XCTAssertEqual(Set(merged.nodes.map(\.url)).count, merged.nodes.count)
+        XCTAssertEqual(
+            merged.nodes.first { $0.url == renamedMof2.url }?.name,
+            "SORA Ministry of Finance 2"
+        )
+        XCTAssertTrue(merged.nodes.contains(extra))
+    }
+
+    /// Node rows have a store-wide unique URL. Chains saved by older releases
+    /// (a custom node at a URL 3.9.0 bundles, a selected node under PI's
+    /// name) must save again without a constraint conflict, and the next sync
+    /// must see no change.
+    func testChainSyncSavesCustomAndSelectedNodesFromOlderReleases() throws {
+        let store = try ChainTestStore()
+        defer { store.remove() }
+        let piMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
+        let bundledMof2 = SoraNodeConnectionPolicy.bundledMainnetNodes[1]
+        let customMof = ChainNodeModel(
+            url: SoraNodeConnectionPolicy.bundledMainnetNodes[0].url, name: "My node", apikey: nil
+        )
+
+        // 3.8.6 saved PI's mof2 as "Sora" and selected it; PI did not list
+        // ws.mof.sora.org, so the user added it as a custom node.
+        try store.save(store.legacyChain(nodes: [piMof2], selected: piMof2, custom: [customMof]))
+
+        let upgraded = store.sync(try store.stored(), piNodes: [piMof2])
+        XCTAssertEqual(upgraded.nodes, [bundledMof2])
+        XCTAssertEqual(upgraded.customNodes, [customMof])
+        XCTAssertEqual(upgraded.selectedNode, bundledMof2)
+        XCTAssertNoThrow(try store.save(upgraded))
+        let afterUpgrade = try store.stored()
+        XCTAssertEqual(store.nodeState(afterUpgrade), store.nodeState(upgraded))
+        // The next sync finds no node change, so it does not rewrite the
+        // chain and restart its connection.
+        XCTAssertEqual(
+            store.nodeState(store.sync(afterUpgrade, piNodes: [piMof2])),
+            store.nodeState(afterUpgrade)
+        )
+    }
+
+    /// An older release saved a selected node that was in neither list on its
+    /// own row. When 3.9.0 bundles that URL, the row is reused.
+    func testChainSyncReusesAStandaloneSelectedNodeRow() throws {
+        let store = try ChainTestStore()
+        defer { store.remove() }
+        let piMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
+        let bundledMof = SoraNodeConnectionPolicy.bundledMainnetNodes[0]
+        let bundledMof2 = SoraNodeConnectionPolicy.bundledMainnetNodes[1]
+        let standalone = ChainNodeModel(url: bundledMof.url, name: "Old name", apikey: nil)
+
+        try store.save(store.legacyChain(nodes: [piMof2], selected: standalone, custom: nil))
+
+        let resynced = store.sync(try store.stored(), piNodes: [piMof2])
+        XCTAssertEqual(Set(resynced.nodes), [bundledMof, bundledMof2])
+        XCTAssertEqual(resynced.selectedNode, bundledMof)
+        XCTAssertNoThrow(try store.save(resynced))
+        let afterResync = try store.stored()
+        XCTAssertEqual(store.nodeState(afterResync), store.nodeState(resynced))
+        XCTAssertEqual(
+            store.nodeState(store.sync(afterResync, piNodes: [piMof2])),
+            store.nodeState(afterResync)
+        )
     }
 
     private func configuredChain(
@@ -317,4 +397,96 @@ private final class NodeTestRepository: DataProviderRepositoryProtocol {
     }
     func deleteAllOperation() -> BaseOperation<Void> { replaceOperation { [] } }
     func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { self.snapshot.count } }
+}
+
+/// A chain store on disk (SQLite enforces the node URL uniqueness constraint
+/// the way the app's store does).
+private final class ChainTestStore {
+    let directory: URL
+    let repository: CoreDataRepository<ChainModel, CDChain>
+
+    init() throws {
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let modelURL = try XCTUnwrap(
+            Bundle.main.url(forResource: "SubstrateDataModel", withExtension: "momd")
+        )
+        let service = CoreDataService(configuration: CoreDataServiceConfiguration(
+            modelURL: modelURL,
+            storageType: .persistent(settings: CoreDataPersistentSettings(
+                databaseDirectory: directory,
+                databaseName: "Chains.sqlite",
+                incompatibleModelStrategy: .removeStore
+            ))
+        ))
+        repository = CoreDataRepository(
+            databaseService: service,
+            mapper: AnyCoreDataMapper(ChainModelMapper())
+        )
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    func legacyChain(
+        nodes: Set<ChainNodeModel>,
+        selected: ChainNodeModel?,
+        custom: Set<ChainNodeModel>?
+    ) -> ChainModel {
+        let chain = ChainModel(
+            chainId: SoraNodeConnectionPolicy.mainnetGenesis, name: "SORA", nodes: nodes,
+            addressPrefix: 69, icon: nil, selectedNode: selected, customNodes: custom,
+            iosMinAppVersion: nil
+        )
+        chain.assets = [ChainAssetModel(
+            assetId: AssetInfo.xor.assetId, type: .normal, asset: .xor, chain: chain
+        )]
+        return chain
+    }
+
+    func save(_ chain: ChainModel) throws {
+        let operation = repository.saveOperation({ [chain] }, { [] })
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        switch operation.result {
+        case .success:
+            return
+        case let .failure(error):
+            throw error
+        case .none:
+            throw BaseOperationError.parentOperationCancelled
+        }
+    }
+
+    func stored() throws -> ChainModel {
+        let operation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        guard case let .success(chains) = operation.result else {
+            throw BaseOperationError.parentOperationCancelled
+        }
+        return try XCTUnwrap(chains.first)
+    }
+
+    struct NodeState: Equatable {
+        let nodes: Set<ChainNodeModel>
+        let selected: ChainNodeModel?
+        let custom: Set<ChainNodeModel>
+    }
+
+    func nodeState(_ chain: ChainModel) -> NodeState {
+        NodeState(nodes: chain.nodes, selected: chain.selectedNode, custom: chain.customNodes ?? [])
+    }
+
+    func sync(_ local: ChainModel, piNodes: Set<ChainNodeModel>) -> ChainModel {
+        ChainSyncService.preparedChain(
+            chainId: SoraNodeConnectionPolicy.mainnetGenesis,
+            addressPrefix: 69,
+            name: "SORA",
+            nodes: piNodes,
+            typesURL: nil,
+            local: local,
+            assets: [.xor],
+            whitelist: .empty
+        )
+    }
 }

@@ -86,13 +86,40 @@ enum LegacyWalletUpgradePolicy {
         return true
     }
 
+    /// `isCandidate`, where retained 1.x material that does not prove itself
+    /// (for example a `privateKey` that `seedEntropy` does not derive, or
+    /// entropy that is not a 12–24 word phrase) means "not a candidate"
+    /// instead of an error. Its items stay untouched; the user continues with
+    /// Welcome back or onboarding (restore with the recovery phrase). A
+    /// Keychain read error still throws and is retried.
+    static func isProvenCandidate(
+        keystore: KeystoreProtocol,
+        hasWatchOnlyWallet: Bool,
+        snapshot: WalletNetworkSnapshot?
+    ) throws -> Bool {
+        do {
+            guard try isCandidate(
+                keystore: keystore,
+                hasWatchOnlyWallet: hasWatchOnlyWallet,
+                snapshot: snapshot
+            ) else { return false }
+            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+            guard WalletMnemonicWordPolicy.isDerivableEntropy(entropy) else { return false }
+            let words = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).allWords().count
+            return WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(words)
+        } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+            return false
+        }
+    }
+
     static func shouldDeferStorageMigration(
         storeExists: Bool,
         keystore: KeystoreProtocol,
         hasWatchOnlyWallet: Bool,
         snapshot: WalletNetworkSnapshot?
     ) throws -> Bool {
-        try !storeExists && isCandidate(
+        try !storeExists && isProvenCandidate(
             keystore: keystore,
             hasWatchOnlyWallet: hasWatchOnlyWallet,
             snapshot: snapshot
@@ -186,6 +213,9 @@ enum LegacyWalletUpgradeDisplayNameResolver {
 /// Activates the account model for an unsuffixed legacy entropy record without
 /// copying, normalizing, or replacing any secret. The normal importer remains
 /// responsible only for in-memory derivation and identity verification.
+/// After the upgrade is verified, `LegacyGlobalEntropyScopedBackfill` adds
+/// scoped copies (add-only) for downgrade safety; it never runs inside the
+/// journaled activation, whose recovery requires the scoped tags to be absent.
 enum LegacyWalletUpgradeSecretRetention {
     static func consumeWithoutPersisting(
         _ prepared: PreparedAccount,
@@ -328,10 +358,36 @@ enum LegacyWalletAccountCommitRecovery {
             startupVerificationMarker: startupVerificationMarker)
         var journalStore = try WalletAccountCommitJournalStore(baseURL: baseURL, recoveryGate: gate)
         let journals = try journalStore.journalsForLegacyRecovery()
-        let unresolved = journals.filter { $0.stage != .activated }
+        // Activated and abandoned journals are finished. Counting an abandoned
+        // journal here would send every later startup into the ordinary
+        // branch below, which refuses to run while a database attempt is
+        // unfinished, so that attempt could never be resumed.
+        let unresolved = journals.filter { !$0.stage.isTerminal }
         let candidates = unresolved.isEmpty && marker.required
-            ? journals.filter { $0.recoveryMarker == marker } : unresolved
+            ? journals.filter { $0.recoveryMarker == marker && $0.stage != .abandoned } : unresolved
         guard !candidates.isEmpty else { return false }
+        if !unresolved.isEmpty, !OrdinaryWalletAccountCommitRecovery.isLegacyFirstActivation(
+            journals: journals, candidates: candidates, keystore: keystore, settings: settings
+        ) {
+            // An ordinary create or import was interrupted. It is resolved
+            // from Core Data alone; no key material is written or deleted.
+            try requireMarkerUnchanged()
+            guard !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL) else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            let networkStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+            try OrdinaryWalletAccountCommitRecovery.resolve(
+                journals: unresolved, storeURL: storeURL, modelDirectory: modelDirectory,
+                keystore: keystore, settings: settings, journalStore: journalStore,
+                networkStore: networkStore, recoveryGate: gate)
+            try requireMarkerUnchanged()
+            if startupVerificationMarker == nil, marker.required,
+               marker.reason == WalletMigrationRecoveryMarker.accountCommitInterruptionReason {
+                try marker.clearAfterVerifiedLegacyAccountActivation(settings)
+                try recoveryGate.requireMutableWalletAccess()
+            }
+            return true
+        }
         guard journals.count == 1, candidates.count == 1,
               candidates[0].expectedExistingWalletIds.isEmpty,
               !WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
@@ -580,6 +636,23 @@ enum LegacyWalletAccountCommitRecovery {
         }
     }
 
+    /// Every account row, read-only. Used by the ordinary commit resolver.
+    static func readAllAccounts(storeURL: URL, modelDirectory: String) throws -> [AccountItem] {
+        let model = try accountModel(modelDirectory: modelDirectory)
+        try validateStoreFiles(storeURL)
+        guard FileManager.default.fileExists(atPath: storeURL.path) else { return [] }
+        return try withContext(storeURL: storeURL, model: model, writable: false) { context in
+            let request = NSFetchRequest<CDAccountItem>(entityName: "CDAccountItem")
+            request.returnsObjectsAsFaults = false
+            return try context.fetch(request).map { entity in
+                guard (0...255).contains(Int(entity.cryptoType)), (0...255).contains(Int(entity.networkType)) else {
+                    throw UserStorageMigrationError.accountInventoryMismatch
+                }
+                return try AccountItemMapper().transform(entity: entity)
+            }
+        }
+    }
+
     private static func readAccounts(storeURL: URL, model: NSManagedObjectModel) throws -> [AccountItem] {
         try validateStoreFiles(storeURL)
         guard FileManager.default.fileExists(atPath: storeURL.path) else { return [] }
@@ -610,6 +683,7 @@ final class RootInteractor {
     private let legacyUpgradeLock = NSLock()
     private var didStartLegacyWalletUpgrade = false
     private let legacyUpgradeSelectedAccount: () -> AccountItem?
+    private let initialPINAccounts: () throws -> [AccountItem]
     private let legacyUpgradeSnapshotLoader:
         () throws -> WalletNetworkSnapshot?
     private let legacyUpgradeUnresolvedCommitLoader:
@@ -656,7 +730,11 @@ final class RootInteractor {
                      expectedEntropyDigest: expectedEntropyDigest,
                      expectedDisplayName: expectedDisplayName
                  )
-             }) {
+             },
+         initialPINAccounts: @escaping () throws -> [AccountItem] = {
+             try WalletAccountAddresses.accounts()
+         }) {
+        self.initialPINAccounts = initialPINAccounts
         self.settings = settings
         self.keystore = keystore
         self.migrators = migrators
@@ -700,7 +778,7 @@ final class RootInteractor {
     private func isLegacyWalletUpgradeCandidate(
         snapshot: WalletNetworkSnapshot?
     ) throws -> Bool {
-        try LegacyWalletUpgradePolicy.isCandidate(
+        try LegacyWalletUpgradePolicy.isProvenCandidate(
             keystore: keystore,
             hasWatchOnlyWallet:
                 settings.hasRetainedWatchOnlyWallet(),
@@ -709,6 +787,9 @@ final class RootInteractor {
     }
 
     private func failLegacyWalletUpgrade(_ error: Error) {
+        legacyUpgradeLock.lock()
+        didStartLegacyWalletUpgrade = false
+        legacyUpgradeLock.unlock()
         settings.setWalletMigrationRecovery(
             reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
         )
@@ -811,18 +892,27 @@ extension RootInteractor: RootInteractorInputProtocol {
                     return
                 }
                 let hasProtectedWalletMaterial =
-                    try keystore.hasRetainedWalletMaterial()
+                    try keystore.hasRetainedWalletKeys()
 
-                if hasProtectedWalletMaterial ||
-                    hasRetainedWalletSettings ||
+                if hasRetainedWalletSettings ||
                     hasWatchOnlyWallet ||
-                    hasInventoriedWallets ||
-                    pincodeExists {
+                    hasInventoriedWallets {
+                    // Settings or a network inventory exist, but no account
+                    // row: the wallet database was lost or is unreadable.
                     let error = WalletIntegrityError.selectedAccountMissing
                     settings.setWalletMigrationRecovery(
                         reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
                     )
                     presenter?.didDecideBroken()
+                    return
+                }
+
+                if hasProtectedWalletMaterial {
+                    // Only Keychain items survived: the app was deleted and
+                    // installed again (iOS keeps Keychain items), or every
+                    // account was removed in an older release. Offer to
+                    // restore them; nothing is deleted or changed here.
+                    presenter?.didDecideWelcomeBack()
                     return
                 }
 
@@ -834,7 +924,22 @@ extension RootInteractor: RootInteractorInputProtocol {
             // The wallet model remains dual-readable for rollback/recovery and
             // a successful import is not permission to delete its source.
 
-            if pincodeExists {
+            // After Welcome back, `pincode` is still the earlier install's
+            // PIN until PIN setup saves this install's PIN. Onboarding saves
+            // the account first, so a stop in between must lead back to PIN
+            // setup, not to a PIN entry the user may not be able to answer.
+            let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: settings)
+            let pendingSetup = try legacyUpgradeSelectedAccount().map {
+                try ownerPIN.requiresInitialSetup(accounts: [$0])
+            } ?? false
+            if !pincodeExists || pendingSetup {
+                // Inspect every actual row: a selected read-only wallet cannot
+                // authorize a new PIN for a different retained signing wallet.
+                // Failed proof opens recovery with preserved data and explicit
+                // set-up/backup actions instead of an unsaveable PIN screen.
+                try ownerPIN.validateInitialSetupEligibility(accounts: initialPINAccounts())
+            }
+            if pincodeExists, !pendingSetup {
                 presenter?.didDecideLocalAuthentication()
             } else {
                 presenter?.didDecidePincodeSetup()
@@ -935,6 +1040,7 @@ extension RootInteractor: RootInteractorInputProtocol {
                             expectedDisplayName: username
                         )
                         self.legacyImportInteractor = nil
+                        self.addScopedCopiesAfterLegacyUpgrade(account)
                         self.decideModuleSynchroniously()
                     } catch {
                         self.failLegacyWalletUpgrade(error)
@@ -950,6 +1056,27 @@ extension RootInteractor: RootInteractorInputProtocol {
             }
         } catch {
             failLegacyWalletUpgrade(error)
+        }
+    }
+
+    /// Downgrade safety: give the upgraded account scoped `-entropy`,
+    /// `-seed` and `-secretKey` copies (add-only) so an App Store 3.8.6 build
+    /// that deletes `seedEntropy` cannot lose it. Best effort; it is retried
+    /// at every startup.
+    private func addScopedCopiesAfterLegacyUpgrade(_ account: AccountItem) {
+        do {
+            guard let snapshot = try legacyUpgradeSnapshotLoader(),
+                  let lease = WalletLifecycleCoordinator.shared.tryAcquire() else { return }
+            defer { lease.release() }
+            try LegacyGlobalEntropyScopedBackfill.run(
+                accounts: [account],
+                snapshot: snapshot,
+                keystore: keystore
+            )
+        } catch {
+            Logger.shared.warning(
+                "Wallet keys: scoped copies deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+            )
         }
     }
 

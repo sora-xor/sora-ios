@@ -64,14 +64,16 @@ extension Struct {
       ),
       Function(
         availables: [],
-        comments: ["Find first language and bundle for which the table exists"],
-        accessModifier: .filePrivate,
+        comments: ["Find the first language with a nonempty value for this key"],
+        accessModifier: .internalLevel,
         isStatic: true,
         name: "localeBundle",
         generics: nil,
         parameters: [
           .init(name: "tableName", type: Type._String),
-          .init(name: "preferredLanguages", type: Type._Array.withGenericArgs([Type._String]))
+          .init(name: "key", type: Type._String),
+          .init(name: "preferredLanguages", type: Type._Array.withGenericArgs([Type._String])),
+          .init(name: "in", localName: "resourceBundle", type: Type._Bundle, defaultValue: "hostingBundle")
         ],
         doesThrow: false,
         returnType: Type._Tuple.withGenericArgs([Type._Locale, Type._Bundle]).asOptional(),
@@ -81,13 +83,13 @@ extension Struct {
             .map { Locale(identifier: $0) }
             .prefix(1)
             .flatMap { locale -> [String] in
-              if hostingBundle.localizations.contains(locale.identifier) {
-                if let language = locale.languageCode, hostingBundle.localizations.contains(language) {
+              if resourceBundle.localizations.contains(locale.identifier) {
+                if let language = locale.languageCode, resourceBundle.localizations.contains(language) {
                   return [locale.identifier, language]
                 } else {
                   return [locale.identifier]
                 }
-              } else if let language = locale.languageCode, hostingBundle.localizations.contains(language) {
+              } else if let language = locale.languageCode, resourceBundle.localizations.contains(language) {
                 return [language]
               } else {
                 return []
@@ -96,7 +98,7 @@ extension Struct {
 
           // If there's no languages, use development language as backstop
           if languages.isEmpty {
-            if let developmentLocalization = hostingBundle.developmentLocalization {
+            if let developmentLocalization = resourceBundle.developmentLocalization {
               languages = [developmentLocalization]
             }
           } else {
@@ -104,32 +106,49 @@ extension Struct {
             languages.insert("Base", at: 1)
 
             // Add development language as backstop
-            if let developmentLocalization = hostingBundle.developmentLocalization {
+            if let developmentLocalization = resourceBundle.developmentLocalization {
               languages.append(developmentLocalization)
             }
           }
 
-          // Find first language for which table exists
-          // Note: key might not exist in chosen language (in that case, key will be shown)
+          // A locale can have the table but lack this key. Try the next locale,
+          // including the development language, before returning a raw key.
+          let missingValue = UUID().uuidString
           for language in languages {
-            if let lproj = hostingBundle.url(forResource: language, withExtension: "lproj"),
+            if let lproj = resourceBundle.url(forResource: language, withExtension: "lproj"),
                let lbundle = Bundle(url: lproj)
             {
               let strings = lbundle.url(forResource: tableName, withExtension: "strings")
               let stringsdict = lbundle.url(forResource: tableName, withExtension: "stringsdict")
 
               if strings != nil || stringsdict != nil {
-                return (Locale(identifier: language), lbundle)
+                let value = lbundle.localizedString(forKey: key, value: missingValue, table: tableName)
+                // An empty plural format may be deliberate; an empty .strings
+                // value is not a usable translation.
+                if value != missingValue {
+                  let hasPlural = value.isEmpty &&
+                    stringsdict.flatMap { NSDictionary(contentsOf: $0)?[key] } != nil
+                  if !value.isEmpty || hasPlural {
+                    return (Locale(identifier: language), lbundle)
+                  }
+                }
               }
             }
           }
 
-          // If table is available in main bundle, don't look for localized resources
-          let strings = hostingBundle.url(forResource: tableName, withExtension: "strings", subdirectory: nil, localization: nil)
-          let stringsdict = hostingBundle.url(forResource: tableName, withExtension: "stringsdict", subdirectory: nil, localization: nil)
+          // If the table is directly in the bundle, check the key there too.
+          let strings = resourceBundle.url(forResource: tableName, withExtension: "strings", subdirectory: nil, localization: nil)
+          let stringsdict = resourceBundle.url(forResource: tableName, withExtension: "stringsdict", subdirectory: nil, localization: nil)
 
           if strings != nil || stringsdict != nil {
-            return (applicationLocale, hostingBundle)
+            let value = resourceBundle.localizedString(forKey: key, value: missingValue, table: tableName)
+            if value != missingValue {
+              let hasPlural = value.isEmpty &&
+                stringsdict.flatMap { NSDictionary(contentsOf: $0)?[key] } != nil
+              if !value.isEmpty || hasPlural {
+                return (applicationLocale, resourceBundle)
+              }
+            }
           }
 
           // If table is not found for requested languages, key will be shown

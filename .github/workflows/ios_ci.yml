@@ -1,0 +1,319 @@
+name: iOS CI
+
+# Lean CI: build the app and run the unit tests on an iOS simulator in both the
+# Debug and the Release configuration, and compile an unsigned Release build
+# for devices. Simulator apps use local ad-hoc signing for Keychain access;
+# no distribution signing, uploads, or secrets.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - modernize
+      - master
+      - develop
+      - 'release/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Xcode is pinned. Use the newest Xcode 26.x or 27.x on the runner image and
+  # the same version for App Store archives (docs/release-3.9.0/RELEASE-CHECKLIST.md).
+  # If the runner image does not have this path, the "Select Xcode" step lists
+  # the installed versions; update this line to the newest 26.x/27.x path.
+  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  # Every build uses exactly the package versions pinned in
+  # SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  # (-onlyUsePackageVersionsFromResolvedFile), so CI never drifts to newer
+  # dependency releases.
+  # Simulator model used for tests (needs an iOS 26+ runtime).
+  SIMULATOR_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+
+jobs:
+  build-and-test:
+    name: Build and unit tests (simulator)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "${DEVELOPER_DIR}" ]; then
+            echo "::error::Pinned Xcode not found at ${DEVELOPER_DIR}. Installed:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          xcodebuild -version | head -1 | grep -Eq '^Xcode (26|27)\.'
+          case "$(xcrun --sdk iphonesimulator --show-sdk-version)" in
+            26.*|27.*) ;;
+            *) echo "::error::iOS SDK too old"; exit 1 ;;
+          esac
+
+      - name: Create simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="$(xcrun simctl list runtimes --json | python3 -c '
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)["runtimes"]
+                      if r.get("platform") == "iOS" and r.get("isAvailable")]
+          runtimes.sort(key=lambda r: [int(p) for p in r["version"].split(".")])
+          print(runtimes[-1]["identifier"] if runtimes else "")
+          ')"
+          test -n "${runtime}"
+          udid="$(xcrun simctl create sora-ci "${SIMULATOR_DEVICE_TYPE}" "${runtime}")"
+          echo "Simulator ${udid} (${runtime})"
+          echo "SIMULATOR_UDID=${udid}" >> "${GITHUB_ENV}"
+
+      - name: Build app and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild build-for-testing \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile
+          # Simulator builds are ad-hoc signed ("Sign to Run Locally"), which
+          # keeps the Keychain entitlement the wallet tests rely on.
+
+      - name: Check scene manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          plist="${RUNNER_TEMP}/DerivedData/Build/Products/Debug-iphonesimulator/SoraPassport.app/Info.plist"
+          plutil -extract UIApplicationSceneManifest.UISceneConfigurations.UIWindowSceneSessionRoleApplication.0.UISceneDelegateClassName raw -o - "${plist}" | grep -qx 'SoraPassport.SceneDelegate'
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test-without-building \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests.xcresult" \
+            -only-testing:SoraPassportTests \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoraPassportTests-${{ github.sha }}
+          path: ${{ runner.temp }}/SoraPassportTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-tests:
+    # The same unit tests in the Release configuration, so code under
+    # `#if F_RELEASE` (genesis pinning, production config and node URLs,
+    # production-only feature policy) is compiled and tested on every change.
+    name: Unit tests, Release configuration (simulator)
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "${DEVELOPER_DIR}" ]; then
+            echo "::error::Pinned Xcode not found at ${DEVELOPER_DIR}. Installed:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          case "$(xcrun --sdk iphonesimulator --show-sdk-version)" in
+            26.*|27.*) ;;
+            *) echo "::error::iOS SDK too old"; exit 1 ;;
+          esac
+
+      - name: Create simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="$(xcrun simctl list runtimes --json | python3 -c '
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)["runtimes"]
+                      if r.get("platform") == "iOS" and r.get("isAvailable")]
+          runtimes.sort(key=lambda r: [int(p) for p in r["version"].split(".")])
+          print(runtimes[-1]["identifier"] if runtimes else "")
+          ')"
+          test -n "${runtime}"
+          udid="$(xcrun simctl create sora-ci-release "${SIMULATOR_DEVICE_TYPE}" "${runtime}")"
+          echo "Simulator ${udid} (${runtime})"
+          echo "SIMULATOR_UDID=${udid}" >> "${GITHUB_ENV}"
+
+      - name: Build Release app and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ENABLE_TESTABILITY lets the tests use @testable import against the
+          # optimized Release build. WALLET_TESTING exposes durable-writer fault
+          # checkpoints only in this local test host, never a distribution app.
+          xcodebuild build-for-testing \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile \
+            ENABLE_TESTABILITY=YES \
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) WALLET_TESTING' \
+            ONLY_ACTIVE_ARCH=YES
+
+      - name: Check Release compilation conditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The Release build must carry the production flag (F_RELEASE).
+          grep -q -- '-DF_RELEASE' SoraPassport/Configs/SoraPassport.release.xcconfig
+          settings="$(xcodebuild -showBuildSettings \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile 2>/dev/null)"
+          flags="$(printf '%s\n' "${settings}" | grep -E '^ *OTHER_SWIFT_FLAGS = ' || true)"
+          echo "${flags}"
+          case "${flags}" in
+            *-DF_RELEASE*) ;;
+            *) echo "::error::Release build lacks -DF_RELEASE"; exit 1 ;;
+          esac
+
+      - name: Run unit tests (Release)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test-without-building \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -resultBundlePath "${RUNNER_TEMP}/SoraPassportTests-Release.xcresult" \
+            -only-testing:SoraPassportTests \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoraPassportTests-Release-${{ github.sha }}
+          path: ${{ runner.temp }}/SoraPassportTests-Release.xcresult
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-device-compile:
+    name: Unsigned Release device compile
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "${DEVELOPER_DIR}" ]; then
+            echo "::error::Pinned Xcode not found at ${DEVELOPER_DIR}. Installed:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          case "$(xcrun --sdk iphoneos --show-sdk-version)" in
+            26.*|27.*) ;;
+            *) echo "::error::iOS SDK too old"; exit 1 ;;
+          esac
+
+      - name: Compile unsigned Release app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project SoraPassport.xcodeproj \
+            -scheme SoraPassport \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Check Release app bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="${RUNNER_TEMP}/DerivedData/Build/Products/Release-iphoneos/SoraPassport.app"
+          test "$(lipo -archs "${app}/SoraPassport")" = arm64
+          test "$(plutil -extract CFBundleIdentifier raw -o - "${app}/Info.plist")" = co.jp.soramitsu.sora
+          plutil -extract UIApplicationSceneManifest json -o - "${app}/Info.plist" >/dev/null
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "${app}/Info.plist")" = 3.9.1
+          build_number="$(plutil -extract CFBundleVersion raw -o - "${app}/Info.plist")"
+          case "${build_number}" in
+            ''|*[!0-9]*) echo "::error::CFBundleVersion is not numeric"; exit 1 ;;
+          esac
+          # Must exceed the highest TestFlight build of the 3.8.7 train.
+          test "${build_number}" -gt 2026091402
+          # App Store builds compile the migration-evidence harness out.
+          if strings "${app}/SoraPassport" | grep -q 'keychain-baseline-v3.sealed'; then
+            echo "::error::Migration-evidence harness compiled into Release"
+            exit 1
+          fi
+          # IrohaConnect URL schemes are not registered in App Store builds.
+          if plutil -extract CFBundleURLTypes json -o - "${app}/Info.plist" | grep -q irohaconnect; then
+            echo "::error::IrohaConnect URL scheme registered in Release"
+            exit 1
+          fi
+          # Privacy: required-reason API declarations and permission strings.
+          for category in UserDefaults FileTimestamp DiskSpace SystemBootTime; do
+            grep -q "NSPrivacyAccessedAPICategory${category}" "${app}/PrivacyInfo.xcprivacy"
+          done
+          test -f "${app}/Frameworks/sorawallet.framework/PrivacyInfo.xcprivacy"
+          plutil -extract NSPhotoLibraryAddUsageDescription raw -o - "${app}/Info.plist" >/dev/null
+          if plutil -extract NSMicrophoneUsageDescription raw -o - "${app}/Info.plist" >/dev/null 2>&1; then
+            echo "::error::Unused microphone permission string"
+            exit 1
+          fi
+          # Removed tester-only locales.
+          if [ -e "${app}/akk.lproj" ] || [ -e "${app}/egy-Egyp.lproj" ]; then
+            echo "::error::Removed locales are packaged"
+            exit 1
+          fi
+          # App Store Connect rejects static archives inside Frameworks/.
+          if find "${app}/Frameworks" -name '*.a' 2>/dev/null | grep -q .; then
+            echo "::error::Static library archives found in Frameworks/"
+            find "${app}/Frameworks" -name '*.a'
+            exit 1
+          fi
+          for framework in "${app}"/Frameworks/*.framework; do
+            [ -e "${framework}" ] || continue
+            binary="${framework}/$(basename "${framework}" .framework)"
+            if file -b "${binary}" | grep -q 'ar archive'; then
+              echo "::error::Static library embedded as ${framework}"
+              exit 1
+            fi
+          done
+          echo "Unsigned Release iPhoneOS arm64 build: OK"

@@ -63,6 +63,8 @@ final class AccountImportViewFactory {
         
         let wireframe = AccountImportWireframe(localizationManager: localizationManager)
 
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.interactor = interactor
@@ -140,6 +142,8 @@ final class AccountImportViewFactory {
 
         let wireframe = AddImportedWireframe(localizationManager: localizationManager)
    
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.interactor = interactor
@@ -179,6 +183,8 @@ final class AccountImportViewFactory {
 
         let wireframe = AddImportedWireframe(localizationManager: localizationManager)
    
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.interactor = interactor

@@ -71,7 +71,11 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
         }
         let opening = WalletOpeningViewController(
             makeWallet: mainViewFactory,
-            refresh: { ChainRegistryFacade.sharedRegistry.syncUp() },
+            refresh: {
+                ChainRegistryFacade.sharedRegistry.syncUp()
+                // "Try again" also means the asset list, if it is still wanted.
+                StartupNetworkCoordinator.shared.retryNow()
+            },
             makeNodes: { NodesViewFactory.createView()?.controller },
             recheckWallet: { [weak window] in
                 guard let window = window as? SoraWindow else { return }

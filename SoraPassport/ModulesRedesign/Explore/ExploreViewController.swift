@@ -107,7 +107,8 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         
-        soramitsuView.sora.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(scrollView)
         view.addSubview(segmentView)
         view.addSubview(searchView)
@@ -167,13 +168,12 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
                                               style: .plain,
                                               target: self,
                                               action: #selector(createPool))
-        cratePoolButton.setTitleTextAttributes([
-            .font: FontType.textBoldS.font,
-            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
-        ], for: .normal)
+        // Styled by the bar appearance (`NeonChrome`), which follows the
+        // theme: no red text on bars.
 
         navigationItem.rightBarButtonItem = cratePoolButton
-        if SettingsManager.shared.polkamarktEnabled {
+        if ProductSurfacePolicy.showsPolkamarkt,
+           SettingsManager.shared.polkamarktEnabled {
             navigationItem.leftBarButtonItem = UIBarButtonItem(title: WalletUX.text("Prediction markets"), style: .plain,
                 target: self, action: #selector(openPredictionMarkets))
         } else {
@@ -182,7 +182,10 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
     
     @objc private func openPredictionMarkets() {
-        guard SettingsManager.shared.polkamarktEnabled else { return }
+        guard
+            ProductSurfacePolicy.showsPolkamarkt,
+            SettingsManager.shared.polkamarktEnabled
+        else { return }
         showPredictionMarkets?()
     }
 

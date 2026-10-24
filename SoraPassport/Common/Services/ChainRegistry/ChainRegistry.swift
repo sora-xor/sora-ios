@@ -31,6 +31,7 @@
 import Foundation
 import SoraKeystore
 import RobinHood
+import SSFModels
 
 protocol ChainRegistryProtocol: AnyObject {
     var availableChainIds: Set<ChainModel.Id>? { get }
@@ -52,6 +53,23 @@ protocol ChainRegistryProtocol: AnyObject {
     func performHotBoot()
     func performColdBoot()
     func syncUp()
+    /// Asks the runtime sync service to fetch the runtime the live node runs.
+    /// Does nothing while a sync for that chain is already running or queued.
+    /// A request to replace the stored metadata does nothing while such a
+    /// replacement is already running or scheduled for that runtime version.
+    func requestRuntimeRefresh(
+        for chainId: ChainModel.Id,
+        liveVersion: RuntimeVersion,
+        replacingCachedMetadata: Bool
+    )
+}
+
+extension ChainRegistryProtocol {
+    func requestRuntimeRefresh(
+        for _: ChainModel.Id,
+        liveVersion _: RuntimeVersion,
+        replacingCachedMetadata _: Bool
+    ) {}
 }
 
 final class ChainRegistry {
@@ -67,6 +85,7 @@ final class ChainRegistry {
     private let logger: LoggerProtocol?
     private let eventCenter: EventCenterProtocol
     private let networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol?
+    private let nodeDidConnect: () -> Void
 
     private let chainRepository: AnyDataProviderRepository<ChainModel>
     private let operationManager: OperationManagerProtocol
@@ -95,7 +114,8 @@ final class ChainRegistry {
         eventCenter: EventCenterProtocol,
         chainRepository: AnyDataProviderRepository<ChainModel>,
         operationManager: OperationManagerProtocol,
-        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol
+        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol,
+        nodeDidConnect: @escaping () -> Void = { StartupNetworkCoordinator.shared.nodeDidConnect() }
     ) {
         self.snapshotHotBootBuilder = snapshotHotBootBuilder
         self.runtimeProviderPool = runtimeProviderPool
@@ -110,6 +130,7 @@ final class ChainRegistry {
         self.chainRepository = chainRepository
         self.operationManager = operationManager
         self.networkStatusPresenter = networkStatusPresenter
+        self.nodeDidConnect = nodeDidConnect
 
         connectionPool.setDelegate(self)
 
@@ -275,6 +296,24 @@ extension ChainRegistry: ChainRegistryProtocol {
         )
     }
 
+    func requestRuntimeRefresh(
+        for chainId: ChainModel.Id,
+        liveVersion: RuntimeVersion,
+        replacingCachedMetadata: Bool
+    ) {
+        guard runtimeSyncService.hasChain(with: chainId) else {
+            return
+        }
+        if replacingCachedMetadata {
+            runtimeSyncService.applyReplacingCachedMetadata(
+                version: liveVersion,
+                for: chainId
+            )
+        } else if !runtimeSyncService.isChainSyncing(chainId) {
+            runtimeSyncService.apply(version: liveVersion, for: chainId)
+        }
+    }
+
     func getConnection(for chainId: ChainModel.Id) -> ChainConnection? {
         mutex.lock()
 
@@ -416,12 +455,28 @@ extension ChainRegistry: ConnectionPoolDelegate {
         processingQueue.async { [weak self] in
             guard let self = self else { return }
             self.mutex.lock()
-            defer { self.mutex.unlock() }
             guard let chain = self.chains.first(where: {
                 self.connectionPool.getConnection(for: $0.chainId)?.url == url
-            }) else { return }
-            self.nodeFailover[chain.chainId]?.connected()
+            }) else {
+                self.mutex.unlock()
+                return
+            }
+            let wasUnavailablePresented = self.nodeFailover[chain.chainId]?.connected() ?? false
+            self.mutex.unlock()
+
             SettingsManager.shared.lastSuccessfulUrl = url
+            if wasUnavailablePresented {
+                // The status said that no node could be reached. Only a change
+                // of the device's reachability took it down, so after a node
+                // outage or a captive network it stayed over a working wallet.
+                DispatchQueue.main.async { [weak self] in
+                    self?.networkStatusPresenter?.didDecideReachableStatusPresentation()
+                }
+            }
+            // Work that was waiting for a node (the asset list) can go on.
+            // The registry's lock is not held: that work asks the registry
+            // for its connection.
+            self.nodeDidConnect()
         }
     }
 

@@ -185,29 +185,31 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
     }
     
     @MainActor func showSend() {
-        let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
-                                                  selectedAddress: nil,
-                                                  fiatService: fiatService,
-                                                  assetManager: assetManager,
-                                                  providerFactory: providerFactory,
-                                                  networkFacade: networkFacade,
-                                                  wireframe: InputAssetAmountWireframe(),
-                                                  assetsProvider: assetsProvider,
-                                                  qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory,
-                                                  marketCapService: marketCapService)
-        let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
-        viewModel.view = inputAmountController
-        
-        let navigationController = UINavigationController(rootViewController: inputAmountController)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
+        WalletAccountCapability.preflightSend(from: controller, expectedAddress: address) { [self] in
+            let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
+                                                      selectedAddress: nil,
+                                                      fiatService: fiatService,
+                                                      assetManager: assetManager,
+                                                      providerFactory: providerFactory,
+                                                      networkFacade: networkFacade,
+                                                      wireframe: InputAssetAmountWireframe(),
+                                                      assetsProvider: assetsProvider,
+                                                      qrEncoder: qrEncoder,
+                                                      sharingFactory: sharingFactory,
+                                                      marketCapService: marketCapService)
+            let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
+            viewModel.view = inputAmountController
+
+            let navigationController = UINavigationController(rootViewController: inputAmountController)
+            navigationController.navigationBar.backgroundColor = .clear
+            navigationController.addCustomTransitioning()
+
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+            containerView.add(navigationController)
+
+            controller?.present(containerView, animated: true)
+        }
     }
     
     @MainActor func showReceive() {

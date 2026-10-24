@@ -1,86 +1,185 @@
 // This file is part of the SORA network and Polkaswap app.
-
-// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
 // SPDX-License-Identifier: BSD-4-Clause
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
-//
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
-//
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 import UIKit
+import GoogleSignIn
+import SoraUIKit
 
-/// The wallet deliberately has one scene: existing PIN, recovery, and account
-/// flows share its root window rather than creating independent wallet sessions.
+/// Hosts the wallet UI in the app's single window scene.
+///
+/// Apps built with the iOS 26+ SDKs must adopt the UIScene life cycle. All
+/// process-wide state stays in `AppDelegate`: the root window and the Splash
+/// flow (which starts wallet storage migration) are created once per process.
+/// When the system disconnects the scene and later connects a new one, the
+/// existing windows are moved to the new scene; nothing is created again.
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
-    weak var appDelegate: AppDelegate?
 
-    func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
-               options connectionOptions: UIScene.ConnectionOptions) {
-        guard let windowScene = scene as? UIWindowScene,
-              let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
-        self.appDelegate = appDelegate
-        let rootWindow = appDelegate.makeWindow(in: windowScene)
-        window = rootWindow
-        rootWindow.makeKeyAndVisible()
+    private var appDelegate: AppDelegate? {
+        UIApplication.shared.delegate as? AppDelegate
+    }
 
-        // Scene connection options carry cold-start links; application launch
-        // options no longer receive them after adopting the scene lifecycle.
-        self.scene(scene, openURLContexts: connectionOptions.urlContexts)
-        for activity in connectionOptions.userActivities {
-            self.scene(scene, continue: activity)
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        // Defense in depth: AppDelegate gives this delegate only to the
+        // application role. A display scene must never take the wallet UI.
+        guard session.role.isSoraWalletScene,
+              let windowScene = scene as? UIWindowScene,
+              let appDelegate else {
+            return
         }
-    }
 
-    func sceneWillEnterForeground(_ scene: UIScene) {
-        appDelegate?.applicationWillEnterForeground(UIApplication.shared)
-    }
+        window = appDelegate.attachRootWindow(to: windowScene)
 
-    func sceneDidEnterBackground(_ scene: UIScene) {
-        appDelegate?.applicationDidEnterBackground(UIApplication.shared)
-    }
-
-    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        for context in URLContexts {
-            var options: [UIApplication.OpenURLOptionsKey: Any] = [
-                .openInPlace: context.options.openInPlace
-            ]
-            if let source = context.options.sourceApplication { options[.sourceApplication] = source }
-            if let annotation = context.options.annotation { options[.annotation] = annotation }
-            _ = appDelegate?.application(UIApplication.shared, open: context.url, options: options)
-        }
-    }
-
-    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        _ = appDelegate?.application(UIApplication.shared, continue: userActivity,
-                                    restorationHandler: { _ in })
+        // Cold launch through a URL or a universal link. These are delivered
+        // only here; UIKit does not call the open-URL callbacks for them.
+        handle(urlContexts: connectionOptions.urlContexts)
+        connectionOptions.userActivities.forEach { handle(userActivity: $0) }
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
-        // A discarded scene must not keep an obsolete root alive through the
-        // compatibility reference used by older presentation wireframes.
-        if appDelegate?.window === window { appDelegate?.window = nil }
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
+        // Never tear down Splash, the migration flow or any window here.
+        appDelegate?.sceneDidDisconnect(scene)
         window = nil
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
+        appDelegate?.sceneWillEnterForeground()
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
+        appDelegate?.sceneDidEnterBackground()
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
+        handle(urlContexts: URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        guard scene.session.role.isSoraWalletScene else {
+            return
+        }
+        handle(userActivity: userActivity)
+    }
+
+    // MARK: - Routing
+
+    private func handle(urlContexts: Set<UIOpenURLContext>) {
+        guard let appDelegate, appDelegate.acceptsExternalRoutes else {
+            return
+        }
+
+        for url in urlContexts.map(\.url) {
+            if IrohaConnectCoordinator.shared.handle(url, in: appDelegate.window) {
+                continue
+            }
+            // Google Sign-In 7 completes through ASWebAuthenticationSession;
+            // the URL callback is kept for its EMM and fallback flows.
+            _ = GIDSignIn.sharedInstance.handle(url)
+        }
+    }
+
+    private func handle(userActivity: NSUserActivity) {
+        guard let appDelegate, appDelegate.acceptsExternalRoutes,
+              userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL else {
+            return
+        }
+
+        if IrohaConnectCoordinator.shared.handle(url, in: appDelegate.window) {
+            return
+        }
+
+        if !DeepLinkService.shared.handle(url: url) {
+            Logger.shared.warning("Can't continue activity for url \(url)")
+        }
+    }
+}
+
+// MARK: - Window scene helpers
+
+extension UISceneSession.Role {
+    /// True only for the device's own interactive application scene, the one
+    /// scene that may host wallet windows: the standard application role, or
+    /// the Assistive Access application role on iOS 26+ (if the system ever
+    /// uses it for this app, the wallet must still appear rather than a blank
+    /// screen). External-display roles (AirPlay mirroring, a wired display)
+    /// are never used for wallet UI.
+    var isSoraWalletScene: Bool {
+        if self == .windowApplication {
+            return true
+        }
+        if #available(iOS 26.0, *), self == .windowAssistiveAccessApplication {
+            return true
+        }
+        return false
+    }
+}
+
+extension UIApplication {
+    /// The window scene that hosts the wallet UI: the root window's scene,
+    /// otherwise the foreground application scene, otherwise any connected
+    /// application scene. External-display scenes are never returned.
+    var soraWindowScene: UIWindowScene? {
+        if let scene = (delegate as? AppDelegate)?.window?.windowScene,
+           scene.session.role.isSoraWalletScene {
+            return scene
+        }
+
+        let scenes = connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role.isSoraWalletScene }
+        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    }
+
+    /// Height of the status bar of the wallet scene. Replaces the deprecated
+    /// `UIApplication.statusBarFrame`, which is not reliable with scenes.
+    var soraStatusBarHeight: CGFloat {
+        if let height = soraWindowScene?.statusBarManager?.statusBarFrame.height, height > 0 {
+            return height
+        }
+        return (delegate as? AppDelegate)?.window?.safeAreaInsets.top ?? 0
+    }
+
+    /// The window that shows the network status banner. Uses the key window
+    /// when it can show the banner, otherwise the root wallet window (a
+    /// loading or PIN window can be key for a moment).
+    var soraStatusPresentableWindow: ApplicationStatusPresentable? {
+        if let keyWindow = soraWindowScene?.keyWindow as? ApplicationStatusPresentable {
+            return keyWindow
+        }
+        return (delegate as? AppDelegate)?.window as? ApplicationStatusPresentable
+    }
+}
+
+extension UIWindow {
+    /// Creates an overlay window in the wallet's window scene. A window made
+    /// with `init(frame:)` is never displayed in a scene-based app, so a
+    /// frame-based window is used only when no scene is connected (tests).
+    static func makeSoraSceneWindow() -> UIWindow {
+        let window: UIWindow
+        if let scene = UIApplication.shared.soraWindowScene {
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: UIScreen.main.bounds)
+        }
+        // Overlays (loading, toasts) follow the in-app theme too.
+        SoramitsuUI.shared.applyInterfaceStyle(to: window)
+        return window
     }
 }

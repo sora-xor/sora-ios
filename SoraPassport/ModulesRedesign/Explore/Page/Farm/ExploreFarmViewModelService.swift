@@ -54,9 +54,9 @@ final class ExploreFarmsViewModelService {
             viewModels = farms?.sorted { $0.tvl > $1.tvl }.enumerated().compactMap { (index, farm) in
                 return ExploreFarmViewModel(farmId: farm.id,
                                             title: farm.name,
-                                            tvl: "$" + (farm.tvl).formatNumber() + " TVL",
+                                            tvl: farm.tvlText(suffix: " TVL"),
                                             serialNumber: String(index + 1),
-                                            apr: "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")% APR",
+                                            apr: farm.aprText(suffix: "% APR"),
                                             baseAssetId: farm.baseAsset?.assetId,
                                             poolAssetId: farm.poolAsset?.assetId,
                                             rewardAssetId: farm.rewardAsset?.assetId,

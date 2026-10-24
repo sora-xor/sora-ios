@@ -37,6 +37,7 @@ final class AssetsItemService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
+    private let priceInfoService: PriceInfoServiceProtocol
     var priceInfo: PriceInfo?
     var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
@@ -47,20 +48,57 @@ final class AssetsItemService {
                                                          AssetViewModel(identifier: "4", title: "", subtitle: "", fiatText: ""),
                                                          AssetViewModel(identifier: "5", title: "", subtitle: "", fiatText: "") ]
     
+    /// Empty while loading, the total once prices are known, or the "price
+    /// unavailable" notice. Never "$0" for want of prices.
     @Published var moneyText: String = ""
-    
+    /// Set before `moneyText`, so the cell can style the notice.
+    private(set) var priceIsUnavailable = false
+    /// "Prices as of 09:02" while the total is valued with the last prices
+    /// PI could give; empty when the prices are current or unknown.
+    @Published var priceNoteText: String = ""
+
+    private let priceRetryLock = NSLock()
+    private var priceRetry: Task<Void, Never>?
+    private var priceFailures = 0
+    private var pricesObserver: NSObjectProtocol?
+
+    /// A retry is waiting to run. For tests.
+    var hasScheduledPriceRetry: Bool {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        return priceRetry != nil
+    }
+
+    deinit {
+        priceRetry?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
+
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
         assetViewModelsFactory: AssetViewModelFactory,
         assetManager: AssetManagerProtocol,
-        assetProvider: AssetProviderProtocol
+        assetProvider: AssetProviderProtocol,
+        priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared
     ) {
         self.assetProvider = assetProvider
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.assetViewModelsFactory = assetViewModelsFactory
         self.assetManager = assetManager
+        self.priceInfoService = priceInfoService
+        // Prices were refreshed in the background, or the app came back to
+        // the foreground: value the wallet again.
+        pricesObserver = NotificationCenter.default.addObserver(
+            forName: PICatalogs.pricesDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setup()
+        }
     }
     
     func setup() {
@@ -68,36 +106,121 @@ final class AssetsItemService {
         if priceInfo == nil || assetIds.count != assetViewModels.count {
             let items = assetProvider.getBalances(with: assetIds)
 
-            assetViewModels = items.compactMap { item in
+            assetViewModels = rows(for: assetIds, balances: items) { item in
                 return self.assetViewModelsFactory.createAssetViewModel(with: item, fiatData: [], mode: .view)
             }
             updateHandler?()
         }
 
         Task {
-            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+            let poolItemInfo = await priceInfoService.getPriceInfo(for: assetIds)
             self.priceInfo = poolItemInfo
             
             let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
             let items = assetProvider.getBalances(with: assetIds)
             
-            let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in
-                if let priceUsd = poolItemInfo.fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
-                    return partialResult + balanceData.balance.decimalValue * priceUsd
-                }
-                return partialResult
-            })
+            let pricesAvailable = Self.pricesKnown(for: items, fiatData: poolItemInfo.fiatData)
+            priceIsUnavailable = !pricesAvailable
+            let pricesAsOf = pricesAvailable ? poolItemInfo.pricesAsOf : nil
+            // A total that leaves a balance out says so. That matters more
+            // than the age of the prices.
+            let balancesMissing = !assetProvider.unavailableBalanceAssetIds(among: assetIds).isEmpty
+            priceNoteText = balancesMissing
+                ? WalletUX.text("This total does not include balances that could not be read")
+                : (pricesAsOf.map { WalletUX.pricesAsOfText($0) } ?? "")
+            moneyText = Self.fiatTotalText(balances: items, fiatData: poolItemInfo.fiatData)
+            // Keep asking while the prices could not be read, and while
+            // the ones read are old. A wallet whose tokens PI has no price
+            // for gains nothing from asking again.
+            schedulePriceRetry(needed: poolItemInfo.fiatData.isEmpty || poolItemInfo.pricesAsOf != nil)
             
-            moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
-            
-            assetViewModels = items.compactMap { item in
+            assetViewModels = rows(for: assetIds, balances: items) { item in
                 let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
-                return self.assetViewModelsFactory.createAssetViewModel(with: item,
-                                                                        fiatData: poolItemInfo.fiatData,
-                                                                        mode: .view,
-                                                                        priceDelta: deltaPrice)
+                var viewModel = self.assetViewModelsFactory.createAssetViewModel(with: item,
+                                                                                 fiatData: poolItemInfo.fiatData,
+                                                                                 mode: .view,
+                                                                                 priceDelta: deltaPrice)
+                // The price read is over: a row without a price shows no
+                // value instead of a placeholder that never ends.
+                viewModel?.priceLoadFinished = true
+                return viewModel
             }
             updateHandler?()
+        }
+    }
+}
+
+extension AssetsItemService {
+    /// The wallet total for these balances at these prices. When no price
+    /// is known for anything the wallet holds, the total is the "price
+    /// unavailable" notice: a wallet that holds tokens must not read "$0".
+    static func fiatTotalText(balances: [BalanceData], fiatData: [PIExactFiatData]) -> String {
+        let total = balances.reduce(Decimal(0)) { partialResult, balanceData in
+            if let priceUsd = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
+                return partialResult + balanceData.balance.decimalValue * priceUsd
+            }
+            return partialResult
+        }
+        return WalletUX.fiatTotalText(total, pricesAvailable: pricesKnown(for: balances, fiatData: fiatData))
+    }
+
+    /// Whether a total can be given for these balances. Not when the prices
+    /// could not be read at all, and not when the wallet holds tokens and
+    /// none of them has a price (PI could not price them): its value is
+    /// then unknown, not zero. A wallet that holds nothing is worth "$0",
+    /// and a wallet with some priced tokens shows the sum of those.
+    static func pricesKnown(for balances: [BalanceData], fiatData: [PIExactFiatData]) -> Bool {
+        guard !fiatData.isEmpty else { return false }
+        let held = balances.filter { $0.balance.decimalValue > 0 }
+        guard !held.isEmpty else { return true }
+        return held.contains { balanceData in
+            fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue != nil
+        }
+    }
+}
+
+private extension AssetsItemService {
+    /// The rows in list order. An asset whose balance could not be read
+    /// keeps its row, which says "Balance unavailable"; it is neither left
+    /// out nor shown as zero.
+    func rows(
+        for assetIds: [String],
+        balances: [BalanceData],
+        build: (BalanceData) -> AssetViewModel?
+    ) -> [AssetViewModel] {
+        let unavailable = assetProvider.unavailableBalanceAssetIds(among: assetIds)
+        guard !unavailable.isEmpty else {
+            return balances.compactMap(build)
+        }
+        return assetIds.compactMap { assetId in
+            if unavailable.contains(assetId) {
+                return assetViewModelsFactory.createBalanceUnavailableViewModel(assetId: assetId, mode: .view)
+            }
+            return balances.first(where: { $0.identifier == assetId }).flatMap(build)
+        }
+    }
+
+    /// While prices are unavailable, asks again by itself so the notice is
+    /// replaced as soon as PI answers; nothing is asked of the user.
+    func schedulePriceRetry(needed: Bool) {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        guard needed else {
+            priceFailures = 0
+            priceRetry?.cancel()
+            priceRetry = nil
+            return
+        }
+        guard priceRetry == nil else { return }
+        let delay = WalletUX.priceRetryDelay(afterFailures: priceFailures)
+        priceFailures += 1
+        priceRetry = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.priceRetryLock.lock()
+            self.priceRetry = nil
+            self.priceRetryLock.unlock()
+            self.setup()
         }
     }
 }

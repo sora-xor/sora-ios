@@ -1,0 +1,171 @@
+{
+  "sourceArchive": "runtime/fearless-build/IrohaCrypto-0.9.0/blake2Imp/libblake2.a",
+  "sourceSHA256": "6924544fd892fbb3049c59f17dfa1f44103484af7581367b0b5e385fae9115be",
+  "adaptation": "Only existing Mach-O platform/minimum-version metadata is replaced in place with macOS 13.0; no algorithm edits",
+  "objects": [
+    {
+      "name": "blake2b.o",
+      "metadataChanges": [
+        {
+          "offset": 1224,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 4252,
+          "sha256": "e3020dbb027b690f7bd6ab7a84790fd5e17b2385c39bb46658f3f7be64b11744"
+        },
+        {
+          "section": "__TEXT,__const",
+          "length": 256,
+          "sha256": "b64b4e83cbe46661187672a2f9c293946d54ba3af3ff5f780d6834af71b0df60"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 17856,
+          "sha256": "548a96c9d5ad9718b06e8305a7791e0378d809f661326da2da001721639e2c07"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 485,
+          "sha256": "cd439496163b21c518f548b9435d845759d487103135df8b7ff51f68574b5fb4"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 229,
+          "sha256": "9921ac35b860b1eb95f3606a29ec9fd7f5b56400b16d40df07d87d55596987e5"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 789,
+          "sha256": "2d1c6bbfa6ca436e4c76dd449cc6d3d0272ae27336ea243f6712a419b609d339"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 200,
+          "sha256": "39ccf97889c060b19bbb33ad1ecd27c28b27777dfe515d0b588fb9bd812291e2"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 319,
+          "sha256": "21caa39790121a34edb1a1f79956224ba0561ab56739cf7503da1123308d32d2"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 160,
+          "sha256": "f490fb79cdaf735cca825a244100793ae29c740abeae5837d2eb6d1efc37e720"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 1192,
+          "sha256": "7cb084d60c5fba62dc33de8fd8caab12b8de2598df81d5ae48ef3f3d816068a7"
+        }
+      ]
+    },
+    {
+      "name": "blake2s.o",
+      "metadataChanges": [
+        {
+          "offset": 1224,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 4100,
+          "sha256": "52094ad4b5dc8657697ec0cbfd0afc770183581f81048e1decf0786edbd77c15"
+        },
+        {
+          "section": "__TEXT,__const",
+          "length": 192,
+          "sha256": "213ced6e7c107c4d779a355f540a94cdbab2e1af584efb5b58722aa34849c39e"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 17552,
+          "sha256": "e8f55764e47de471027177a86bd9536d0f54d28108d1b1809c22477945573ac6"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 475,
+          "sha256": "b53f5a2d9d5df3f2e559d2966c0aebbbd6322f706c775c24e0699d44f12b5918"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 229,
+          "sha256": "9921ac35b860b1eb95f3606a29ec9fd7f5b56400b16d40df07d87d55596987e5"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 790,
+          "sha256": "364a68cae14ad00d06236d481031451a0c572fb93288b032ce62cb1f0432a23b"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 200,
+          "sha256": "0691e520fef3a2b32aefdb879f5dbc7aadf44c103156145c1571f4c58d3197c9"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 319,
+          "sha256": "49254596039e5a1e2c84546a96b057d483d8379228197dfac68ebfda0311dcc1"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 160,
+          "sha256": "55433128355feb6da49903f4908c154cea06d41eafbeb3c1f88875df40c37776"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 1186,
+          "sha256": "f93aaaa89135ea1bb40b26f21e30421a5e7a03fbdf16856936e765299c34c6a1"
+        }
+      ]
+    }
+  ]
+}

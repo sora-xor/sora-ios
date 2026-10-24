@@ -214,7 +214,8 @@ final class TransactionHistoryMergeManager {
         address: String,
         submissions: [Sora2PendingSubmission],
         visibleLocalItems: [TransactionHistoryItem],
-        remoteHashes: Set<Data>
+        remoteHashes: Set<Data>,
+        now: Date = Date()
     ) -> [TransactionHistoryItem] {
         guard !address.isEmpty else {
             return []
@@ -251,11 +252,19 @@ final class TransactionHistoryMergeManager {
             case .finalizedFailure, .expiredNotIncluded:
                 status = .failed
             case .none:
+                // "Pending" is a claim with an end. An entry that nobody
+                // could give a result for a week no longer makes it; the
+                // indexer's own row is the record of that transaction.
+                guard submission.isAwaitingResult(now: now) else {
+                    continue
+                }
                 status = .pending
             }
 
-            let blockNumber = submission.terminalResolution?.blockNumber
-                .flatMap { UInt64(exactly: $0) }
+            let blockNumber = (
+                submission.terminalResolution?.blockNumber ??
+                    submission.finalizedInclusion?.blockNumber
+            ).flatMap { UInt64(exactly: $0) }
             overlay.append(
                 TransactionHistoryItem(
                     sender: address,

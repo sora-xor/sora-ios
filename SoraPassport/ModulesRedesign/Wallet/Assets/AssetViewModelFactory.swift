@@ -74,6 +74,68 @@ extension AssetViewModelFactory {
                               deltaPriceText: deltaArributedText)
     }
     
+    /// The row of an asset whose balance could not be read. It keeps its
+    /// place in the list and says so; it shows no amount and no value.
+    func createBalanceUnavailableViewModel(assetId: String, mode: WalletViewMode) -> AssetViewModel? {
+        guard let asset = walletAssets.first(where: { $0.identifier == assetId }),
+              let assetInfo = assetManager.assetInfo(for: asset.identifier) else {
+            return nil
+        }
+        var viewModel = AssetViewModel(identifier: asset.identifier,
+                                       title: asset.name,
+                                       subtitle: WalletUX.balanceUnavailableText,
+                                       fiatText: "",
+                                       icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+                                       mode: mode,
+                                       isFavorite: assetInfo.visible,
+                                       deltaPriceText: nil)
+        // Nothing more will arrive for this row: no loading placeholder.
+        viewModel.priceLoadFinished = true
+        return viewModel
+    }
+
+    /// The rows of an asset list, in the order of `assetIds`: one for each
+    /// balance that was read, and one saying "Balance unavailable" for each
+    /// asset whose balance could not be read. Such an asset is neither left
+    /// out of the list nor shown as zero.
+    func assetListItems(
+        assetIds: [String],
+        balances: [BalanceData],
+        unavailable: Set<String>,
+        mode: WalletViewMode,
+        build: (BalanceData, AssetInfo) -> AssetViewModel?
+    ) -> [AssetListItem] {
+        guard !unavailable.isEmpty else {
+            return balances.compactMap { item(for: $0, build: build) }
+        }
+        var listed = Set<String>()
+        var items: [AssetListItem] = assetIds.compactMap { assetId in
+            guard listed.insert(assetId).inserted else { return nil }
+            if let balance = balances.first(where: { $0.identifier == assetId }) {
+                return item(for: balance, build: build)
+            }
+            guard unavailable.contains(assetId),
+                  let assetInfo = assetManager.assetInfo(for: assetId),
+                  let viewModel = createBalanceUnavailableViewModel(assetId: assetId, mode: mode) else {
+                return nil
+            }
+            let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: 0)
+            item.balanceUnavailable = true
+            return item
+        }
+        // A balance for an asset the caller did not name keeps its row.
+        items.append(contentsOf: balances.filter { !listed.contains($0.identifier) }.compactMap { item(for: $0, build: build) })
+        return items
+    }
+
+    private func item(for balance: BalanceData, build: (BalanceData, AssetInfo) -> AssetViewModel?) -> AssetListItem? {
+        guard let assetInfo = assetManager.assetInfo(for: balance.identifier),
+              let viewModel = build(balance, assetInfo) else {
+            return nil
+        }
+        return AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
+    }
+
     func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         
         let isRTL = LocalizationManager.shared.isRightToLeft

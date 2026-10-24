@@ -38,6 +38,7 @@ protocol ConfirmPassphraseViewProtocol: ControllerBackedProtocol {
 }
 
 final class ConfirmPassphraseViewController: SoramitsuViewController, ControllerBackedProtocol {
+    private var secretShield: WalletSensitiveScreenShield?
 
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
@@ -69,6 +70,12 @@ final class ConfirmPassphraseViewController: SoramitsuViewController, Controller
         setupView()
         setupConstraints()
         viewModel.setup()
+        secretShield = WalletSensitiveScreenShield(controller: self)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        secretShield?.refresh()
     }
 
     private func setupView() {

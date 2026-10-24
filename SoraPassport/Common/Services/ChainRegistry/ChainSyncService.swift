@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import CoreData
 import Foundation
 import RobinHood
 import SSFUtils
@@ -35,6 +36,65 @@ import SoraKeystore
 
 protocol ChainSyncServiceProtocol {
     func syncUp()
+}
+
+protocol ChainStoreRepairing {
+    /// Makes damaged chain rows readable again so the chain sync can overwrite them.
+    func repairDamagedChainRows()
+}
+
+/// Core Data does not return a stored row whose required text is missing: it logs "missing
+/// mandatory text data" and skips the row. A chain row whose name was lost to store damage
+/// is therefore invisible to every fetch, yet still holds the chain id, so the chain sync
+/// can neither read it nor insert the chain again (the id is unique). The chain would never
+/// load. This gives such rows an empty name, below Core Data's validation, so the next fetch
+/// returns them and the sync writes the real name. A row without a chain id is left alone:
+/// it is never returned and does not block the chain.
+final class ChainStoreRepair: ChainStoreRepairing {
+    private let databaseService: CoreDataServiceProtocol
+    private let logger: LoggerProtocol?
+
+    init(databaseService: CoreDataServiceProtocol, logger: LoggerProtocol? = Logger.shared) {
+        self.databaseService = databaseService
+        self.logger = logger
+    }
+
+    func repairDamagedChainRows() {
+        let done = DispatchSemaphore(value: 0)
+        databaseService.performAsync { [logger] context, _ in
+            defer { done.signal() }
+            // Batch updates exist only for SQLite stores (not for the in-memory store a
+            // session uses when the chain store could not be opened).
+            guard let context,
+                  let stores = context.persistentStoreCoordinator?.persistentStores,
+                  !stores.isEmpty,
+                  stores.allSatisfy({ $0.type == NSSQLiteStoreType }) else {
+                return
+            }
+            let request = NSBatchUpdateRequest(entityName: String(describing: CDChain.self))
+            request.predicate = NSPredicate(
+                format: "%K != nil AND %K == nil",
+                #keyPath(CDChain.chainId),
+                #keyPath(CDChain.name)
+            )
+            request.propertiesToUpdate = [#keyPath(CDChain.name): ""]
+            request.resultType = .updatedObjectIDsResultType
+            do {
+                let result = try context.execute(request) as? NSBatchUpdateResult
+                guard let ids = result?.result as? [NSManagedObjectID], !ids.isEmpty else {
+                    return
+                }
+                NSManagedObjectContext.mergeChanges(
+                    fromRemoteContextSave: [NSUpdatedObjectsKey: ids],
+                    into: [context]
+                )
+                logger?.warning("Chain store: \(ids.count) chain row(s) without a name were made readable")
+            } catch {
+                logger?.warning("Chain store: damaged chain rows could not be repaired now")
+            }
+        }
+        done.wait()
+    }
 }
 
 final class ChainSyncService {
@@ -50,11 +110,23 @@ final class ChainSyncService {
     let eventCenter: EventCenterProtocol
     let retryStrategy: ReconnectionStrategyProtocol
     let operationQueue: OperationQueue
+    let whitelistStore: AssetWhitelistStoring
+    let storeRepair: ChainStoreRepairing?
     let logger: LoggerProtocol?
 
     private(set) var retryAttempt: Int = 0
     private(set) var isSyncing: Bool = false
+    private var isSyncRequestedAgain: Bool = false
+    /// True while the running sync has saved the chain and only waits for the
+    /// optional whitelist request.
+    private var isAwaitingWhitelist: Bool = false
     private let mutex = NSLock()
+
+    /// The passes over the chain store run one after another: each reads the
+    /// stored chain and saves what it made of it, so two passes at once could
+    /// save an older answer over a newer one.
+    private let passLock = NSLock()
+    private weak var lastPass: Operation?
 
     private lazy var scheduler = Scheduler(with: self, callbackQueue: DispatchQueue.global())
 
@@ -66,6 +138,8 @@ final class ChainSyncService {
         eventCenter: EventCenterProtocol,
         operationQueue: OperationQueue,
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
+        whitelistStore: AssetWhitelistStoring = AssetWhitelistStore.shared,
+        storeRepair: ChainStoreRepairing? = nil,
         logger: LoggerProtocol? = nil
     ) {
         self.typesUrl = typesUrl
@@ -75,12 +149,27 @@ final class ChainSyncService {
         self.eventCenter = eventCenter
         self.operationQueue = operationQueue
         self.retryStrategy = retryStrategy
+        self.whitelistStore = whitelistStore
+        self.storeRepair = storeRepair
         self.logger = logger
     }
 
     private func performSyncUpIfNeeded() {
         guard !isSyncing else {
-            logger?.debug("Tried to sync up chains but already syncing")
+            // Whoever asked has something new for the chain (the on-chain
+            // asset list or the remote node list arrived), and the running
+            // sync may already have read the old value.
+            if isAwaitingWhitelist {
+                // The running sync has saved the chain and only waits for the
+                // whitelist, which can take as long as a request timeout (a
+                // slow or filtered network). The new value does not wait for
+                // that: it is saved now, with the last good whitelist.
+                logger?.debug("Tried to sync up chains during the whitelist request; saving the chain now")
+                executeSync(refreshWhitelist: false, completesSync: false)
+            } else {
+                isSyncRequestedAgain = true
+                logger?.debug("Tried to sync up chains but already syncing; will sync again")
+            }
             return
         }
 
@@ -95,13 +184,34 @@ final class ChainSyncService {
         executeSync()
     }
 
-    private func executeSync(whitelistData: Data? = nil, refreshWhitelist: Bool = true) {
+    /// One pass: read the stored chain, prepare it from what is known now
+    /// (nodes, asset list, whitelist) and save it if it changed.
+    ///
+    /// - Parameters:
+    ///   - remoteWhitelist: the whitelist fetched in this sync; `nil` uses the
+    ///     last good one.
+    ///   - refreshWhitelist: after this pass, fetch the whitelist and run a
+    ///     pass with it.
+    ///   - completesSync: `false` for a pass that saves a new value while the
+    ///     running sync waits for the whitelist; the sync goes on after it.
+    private func executeSync(
+        whitelist remoteWhitelist: AssetWhitelist? = nil,
+        refreshWhitelist: Bool = true,
+        completesSync: Bool = true
+    ) {
+        let repairOperation = ClosureOperation<Void> { [storeRepair] in
+            storeRepair?.repairDamagedChainRows()
+        }
         let localFetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        localFetchOperation.addDependency(repairOperation)
         let processingOperation: BaseOperation<SyncChanges> = ClosureOperation {
             let localChains = try localFetchOperation.extractNoCancellableResultData()
             let chainId = Chain.sora.genesisHash()
-            // A remote whitelist is optional metadata. Its outage must not
-            // prevent the local chain and its working nodes from being saved.
+            // The remote whitelist can be slow or down. Its outage must not
+            // prevent the local chain and its working nodes from being saved,
+            // and must not let unvetted assets in: until it arrives, the last
+            // good list (or the bundled one) decides which assets are listed.
+            let whitelist = remoteWhitelist ?? self.whitelistStore.current()
             let defaultChain = Self.preparedChain(
                 chainId: chainId,
                 addressPrefix: ApplicationConfig.shared.addressType,
@@ -110,7 +220,7 @@ final class ChainSyncService {
                 typesURL: self.typesUrl,
                 local: localChains.first { $0.chainId == chainId },
                 assets: AssetManager.networkAssets,
-                whitelistData: whitelistData
+                whitelist: whitelist
             )
 
             let remoteChains: [ChainModel] = [defaultChain]
@@ -161,39 +271,86 @@ final class ChainSyncService {
         mapOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
                 guard let self = self else { return }
-                if refreshWhitelist, case let .success(changes) = mapOperation.result, let assetsURL = self.assetsUrl {
+                if !completesSync {
+                    self.completeIntermediatePass(result: mapOperation.result)
+                } else if refreshWhitelist, case let .success(changes) = mapOperation.result,
+                          let assetsURL = self.assetsUrl {
                     // Publish usable bundled nodes before starting optional remote
                     // metadata work. A stalled endpoint cannot delay cold boot.
                     self.eventCenter.notify(with: ChainSyncDidComplete(
                         newOrUpdatedChains: changes.newOrUpdatedItems,
                         removedChains: changes.removedItems
                     ))
-                    self.refreshWhitelist(from: assetsURL, bootstrapResult: mapOperation.result)
+                    self.beginWhitelistRefresh(from: assetsURL, bootstrapResult: mapOperation.result)
                 } else {
                     self.complete(result: mapOperation.result)
                 }
             }
         }
 
+        // After the pass before it, whichever thread asked for which.
+        passLock.lock()
+        if let lastPass {
+            repairOperation.addDependency(lastPass)
+        }
+        lastPass = mapOperation
         operationQueue.addOperations([
-            localFetchOperation, processingOperation, localSaveOperation, mapOperation
+            repairOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
         ], waitUntilFinished: false)
+        passLock.unlock()
     }
 
-    private func refreshWhitelist(from url: URL, bootstrapResult: Result<SyncChanges, Error>?) {
+    private func beginWhitelistRefresh(from url: URL, bootstrapResult: Result<SyncChanges, Error>?) {
+        mutex.lock()
+        isAwaitingWhitelist = true
+        // A request made during the pass that has just ended (it may have
+        // read the old value) is served now, not after the whitelist request.
+        if isSyncRequestedAgain {
+            isSyncRequestedAgain = false
+            executeSync(refreshWhitelist: false, completesSync: false)
+        }
+        mutex.unlock()
+
         let operation = dataFetchFactory.fetchData(from: url)
         operation.completionBlock = { [weak self] in
             guard let self = self else { return }
+            self.mutex.lock()
+            self.isAwaitingWhitelist = false
+            self.mutex.unlock()
             if let data = try? operation.extractNoCancellableResultData(),
-               (try? JSONDecoder().decode([Whitelist].self, from: data)) != nil {
+               let whitelist = self.whitelistStore.acceptRemote(data) {
                 // Fetch the current local chain again, preserving a node choice
                 // made while the optional HTTP request was in flight.
-                self.executeSync(whitelistData: data, refreshWhitelist: false)
+                self.executeSync(whitelist: whitelist, refreshWhitelist: false)
             } else {
                 self.complete(result: bootstrapResult)
             }
         }
         operationQueue.addOperation(operation)
+    }
+
+    /// The end of a pass that saved a new value during the whitelist request.
+    /// The sync it belongs to is still running, or has ended meanwhile.
+    private func completeIntermediatePass(result: Result<SyncChanges, Error>?) {
+        if case let .success(changes) = result {
+            eventCenter.notify(with: ChainSyncDidComplete(
+                newOrUpdatedChains: changes.newOrUpdatedItems,
+                removedChains: changes.removedItems
+            ))
+            return
+        }
+        // The value was not saved. Ask again: after the running sync, or now.
+        logger?.warning("Chain sync: a pass during the whitelist request failed; will sync again")
+        mutex.lock()
+        defer { mutex.unlock() }
+        if isSyncing {
+            isSyncRequestedAgain = true
+        } else {
+            if retryAttempt > 0 {
+                scheduler.cancel()
+            }
+            performSyncUpIfNeeded()
+        }
     }
 
     static func preparedChain(
@@ -204,15 +361,49 @@ final class ChainSyncService {
         typesURL: URL?,
         local: ChainModel?,
         assets: [AssetInfo],
-        whitelistData: Data?
+        whitelist: AssetWhitelist
     ) -> ChainModel {
         let matchingLocal = local?.chainId == chainId && local?.addressPrefix == addressPrefix ? local : nil
-        var availableNodes = nodes
+        // One node per URL: the store has a uniqueness constraint on the node
+        // URL, and the same URL can arrive under two names (bundled
+        // "SORA Ministry of Finance 2" and PI's "Sora" for mof2). Saving both
+        // failed every chain sync with a constraint conflict. Bundled names win.
+        var nodesByURL: [URL: ChainNodeModel] = [:]
         if SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix) {
-            availableNodes.formUnion(SoraNodeConnectionPolicy.bundledMainnetNodes)
+            for node in SoraNodeConnectionPolicy.bundledMainnetNodes {
+                nodesByURL[node.url] = node
+            }
         }
+        let orderedNodes = nodes.sorted {
+            ($0.url.absoluteString, $0.name) < ($1.url.absoluteString, $1.name)
+        }
+        for node in orderedNodes where nodesByURL[node.url] == nil {
+            nodesByURL[node.url] = node
+        }
+        // The uniqueness constraint covers custom nodes too. A user who added
+        // a node in an older release that 3.9.0 now bundles (for example
+        // ws.mof.sora.org when PI listed only mof2) keeps it as their custom
+        // node; it is not saved a second time as a default node. Connection
+        // candidates still include every bundled mainnet node.
+        let customNodes = matchingLocal?.customNodes
+        let customURLs = Set((customNodes ?? []).map(\.url))
+        for url in customURLs {
+            nodesByURL[url] = nil
+        }
+        var availableNodes = Set(nodesByURL.values)
         if availableNodes.isEmpty {
-            availableNodes = matchingLocal?.nodes ?? []
+            availableNodes = (matchingLocal?.nodes ?? []).filter {
+                !customURLs.contains($0.url)
+            }
+        }
+        // The selected node is saved into the same row as the default or
+        // custom node with its URL. Use that entry's name, so saving does not
+        // rename the row (for example back to PI's "Sora" for mof2) and the
+        // next sync does not see a changed chain again.
+        let selectedNode = matchingLocal?.selectedNode.map { selected in
+            availableNodes.first { $0.url == selected.url }
+                ?? customNodes?.first { $0.url == selected.url }
+                ?? selected
         }
         let chain = ChainModel(
             chainId: chainId,
@@ -224,16 +415,18 @@ final class ChainSyncService {
             icon: matchingLocal?.icon,
             options: matchingLocal?.options,
             externalApi: matchingLocal?.externalApi,
-            selectedNode: matchingLocal?.selectedNode,
-            customNodes: matchingLocal?.customNodes,
+            selectedNode: selectedNode,
+            customNodes: customNodes,
             iosMinAppVersion: matchingLocal?.iosMinAppVersion
         )
-        let whitelist = whitelistData.flatMap { try? JSONDecoder().decode([Whitelist].self, from: $0) }
+        // Fail closed: on-chain names and symbols can be chosen by anyone, so an asset
+        // is listed only when the whitelist admits it, including assets kept from the
+        // local store (they may have been saved unfiltered by an earlier build).
         let retainedAssets = assets.isEmpty ? (matchingLocal?.assets.compactMap { $0.asset } ?? []) : assets
         let chainAssets = retainedAssets.compactMap { originalAsset -> ChainAssetModel? in
+            guard whitelist.admits(assetId: originalAsset.assetId) else { return nil }
             var asset = originalAsset
-            if let whitelist = whitelist {
-                guard let listed = whitelist.first(where: { $0.assetId == asset.assetId }) else { return nil }
+            if let listed = whitelist.entry(for: asset.assetId) {
                 asset.icon = listed.icon
                 asset.name = listed.name
                 asset.symbol = listed.symbol
@@ -254,6 +447,9 @@ final class ChainSyncService {
         }
 
         isSyncing = false
+        // A failed sync is retried below, and the retry reads everything again.
+        let shouldSyncAgain = isSyncRequestedAgain
+        isSyncRequestedAgain = false
 
         switch result {
         case let .success(changes):
@@ -272,6 +468,10 @@ final class ChainSyncService {
             )
 
             eventCenter.notify(with: event)
+
+            if shouldSyncAgain {
+                performSyncUpIfNeeded()
+            }
         case let .failure(error):
             logger?.error("Chain synchronization failed")
 

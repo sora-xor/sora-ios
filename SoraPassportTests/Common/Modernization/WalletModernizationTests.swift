@@ -703,7 +703,7 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(current.secretChecks, saved.snapshot)
         XCTAssertEqual(current.phase, .databaseMigration)
         XCTAssertEqual(current.cause, .missingSecret)
-        XCTAssertTrue(current.userMessage.contains("manifest"))
+        XCTAssertEqual(current.userMessage, WalletUX.text("The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved."))
         XCTAssertFalse(current.summary.contains("synthetic-private-identifier"))
         let serialized = try XCTUnwrap(settings.string(for: SettingsKey.walletStartupDiagnostic.rawValue))
         XCTAssertLessThanOrEqual(serialized.utf8.count, 1_024)
@@ -924,24 +924,14 @@ final class WalletModernizationTests: XCTestCase {
             ),
             FileProtectionType.completeUntilFirstUserAuthentication
         )
-        let protectedRollbackResidue = try FileManager.default
-            .contentsOfDirectory(
-                at: rollbackDirectory,
-                includingPropertiesForKeys: nil,
-                options: []
-            ).filter {
-                $0.lastPathComponent.hasPrefix(".durable-")
-            }
-        XCTAssertEqual(protectedRollbackResidue.count, 1)
-        for residue in protectedRollbackResidue {
-            XCTAssertEqual(
-                try FileProtectionMetadata.protectionClass(
-                    at: residue,
-                    fileManager: .default
-                ),
-                FileProtectionType.completeUntilFirstUserAuthentication
-            )
-        }
+        // The failed replacement is rolled back and its helper files are
+        // removed: nothing but the restored file is left (audit I3).
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                atPath: rollbackDirectory.path
+            ),
+            ["existing.json"]
+        )
 
         let absentDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -980,24 +970,14 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: absentTarget.path)
         )
-        let protectedAbsentResidue = try FileManager.default
-            .contentsOfDirectory(
-                at: absentDirectory,
-                includingPropertiesForKeys: nil,
-                options: []
-            ).filter {
-                $0.lastPathComponent.hasPrefix(".durable-failed-")
-            }
-        XCTAssertEqual(protectedAbsentResidue.count, 1)
-        for residue in protectedAbsentResidue {
-            XCTAssertEqual(
-                try FileProtectionMetadata.protectionClass(
-                    at: residue,
-                    fileManager: .default
-                ),
-                FileProtectionType.complete
-            )
-        }
+        // The failed new file is withdrawn and removed: the directory is as
+        // it was before the write (audit I3).
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                atPath: absentDirectory.path
+            ),
+            []
+        )
     }
 
     func testDurableFileWriterRejectsSymlinkWithoutTouchingLegacyFile()
@@ -3890,7 +3870,10 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPendingTransactionStoresRejectInterruptedDurablePublicationEvidence()
+    /// Audit I3. The helper file of a journal write the process did not
+    /// survive is swept and never makes a store fail; any other unexpected
+    /// entry still does.
+    func testPendingTransactionStoresSweepAnInterruptedPublicationAndRejectOtherEntries()
         async throws
     {
         let directory = FileManager.default.temporaryDirectory
@@ -3914,14 +3897,38 @@ final class WalletModernizationTests: XCTestCase {
             .appendingPathComponent(
                 ".durable-00000000-0000-0000-0000-000000000000.tmp"
             )
-        try Data("unresolved publication evidence".utf8).write(
+        try Data("content of an interrupted write".utf8).write(
             to: interruptedPublication
         )
 
+        let nexusTransactions = try await nexusStore.all()
+        XCTAssertTrue(nexusTransactions.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: interruptedPublication.path
+            )
+        )
+        try Data("content of an interrupted write".utf8).write(
+            to: interruptedPublication
+        )
+        _ = try await polkamarktStore.all()
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: interruptedPublication.path
+            )
+        )
+
+        // A name the writer does not create is not swept and not ignored.
+        let unexpected = journalDirectory.appendingPathComponent(
+            ".durable-unknown-journal.tmp"
+        )
+        try Data("a journal this version does not know".utf8).write(
+            to: unexpected
+        )
         do {
             _ = try await nexusStore.all()
             XCTFail(
-                "Nexus deletion preflight accepted an interrupted journal publication"
+                "Nexus deletion preflight accepted an unexpected entry"
             )
         } catch {
             XCTAssertTrue(error is NexusToriiError)
@@ -3929,13 +3936,16 @@ final class WalletModernizationTests: XCTestCase {
         do {
             _ = try await polkamarktStore.all()
             XCTFail(
-                "Polkamarkt deletion preflight accepted an interrupted journal publication"
+                "Polkamarkt deletion preflight accepted an unexpected entry"
             )
         } catch {
             guard case PolkamarktRuntimeError.unavailable = error else {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: unexpected.path)
+        )
     }
 
     func testAllPendingTransactionJournalsShareTheProtectedNamespace()
@@ -4135,7 +4145,10 @@ final class WalletModernizationTests: XCTestCase {
                     polkamarktTransactions: [],
                     sora2Submissions: [unresolvedSora2],
                     walletId: walletId,
-                    soraAddress: soraAddress
+                    soraAddress: soraAddress,
+                    // Just after signing: the transaction may still be
+                    // entering the network.
+                    now: createdAt.addingTimeInterval(60)
                 ),
                 "SORA2 state \(state.rawValue) did not block deletion"
             ) { error in
@@ -5487,7 +5500,10 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: activePointer), pointerBefore)
     }
 
-    func testWalletNetworkStoreRejectsUnprunedCanonicalSnapshotSet()
+    /// Audit I3. One snapshot above the retained count is what an activation
+    /// leaves when the process dies before pruning: it is read and pruned.
+    /// More than one is not such a state and still fails.
+    func testWalletNetworkStorePrunesOneSurplusSnapshotAndRejectsMore()
         throws
     {
         let directory = FileManager.default.temporaryDirectory
@@ -5516,15 +5532,40 @@ final class WalletModernizationTests: XCTestCase {
             })
         )
         let bytes = try Data(contentsOf: originalSnapshot)
-        for _ in 0 ..< 8 {
-            try bytes.write(
-                to: walletDirectory.appendingPathComponent(
-                    "wallet-network-\(UUID().uuidString).json"
-                ),
-                options: .atomic
-            )
+        func snapshotNames() throws -> [String] {
+            try FileManager.default.contentsOfDirectory(
+                atPath: walletDirectory.path
+            ).filter { $0.hasPrefix("wallet-network-") }
+        }
+        func addSnapshots(_ count: Int) throws {
+            for _ in 0 ..< count {
+                try bytes.write(
+                    to: walletDirectory.appendingPathComponent(
+                        "wallet-network-\(UUID().uuidString).json"
+                    ),
+                    options: .atomic
+                )
+            }
         }
 
+        // Nine snapshots: read, and pruned back to eight with the active
+        // snapshot kept.
+        try addSnapshots(8)
+        XCTAssertEqual(try snapshotNames().count, 9)
+        XCTAssertEqual(try store.load(), snapshot)
+        XCTAssertEqual(try snapshotNames().count, 8)
+        XCTAssertTrue(
+            try snapshotNames().contains(originalSnapshot.lastPathComponent)
+        )
+        // An activation on top of nine first completes the pruning.
+        try addSnapshots(1)
+        try store.stageAndActivate(snapshot)
+        XCTAssertEqual(try store.load(), snapshot)
+        XCTAssertLessThanOrEqual(try snapshotNames().count, 8)
+
+        // Ten snapshots are not a state an interrupted activation leaves.
+        try addSnapshots(10 - (try snapshotNames().count))
+        XCTAssertEqual(try snapshotNames().count, 10)
         XCTAssertThrowsError(try store.load()) { error in
             guard
                 case WalletNetworkMigrationError
@@ -5533,6 +5574,7 @@ final class WalletModernizationTests: XCTestCase {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertEqual(try snapshotNames().count, 10)
     }
 
     func testWalletNetworkStoreBoundsSelectionAndNameSnapshots() throws {
@@ -6068,9 +6110,33 @@ final class WalletModernizationTests: XCTestCase {
             )?.address,
             second.address
         )
-        XCTAssertThrowsError(
+        // No selected row and no 2.x setting (or a stale one naming a removed
+        // account): the lowest order wins instead of locking the wallet.
+        XCTAssertEqual(
             try SelectedWalletSettings.resolveSelection(
                 accounts: [firstWithoutSelection, second],
+                legacySelectedAddress: nil
+            )?.address,
+            firstWithoutSelection.address
+        )
+        XCTAssertEqual(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [second, firstWithoutSelection],
+                legacySelectedAddress: makeLegacyAccount(address: "removed-account").address
+            )?.address,
+            firstWithoutSelection.address
+        )
+        // A stale setting with no accounts is ignored.
+        XCTAssertNil(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [],
+                legacySelectedAddress: second.address
+            )
+        )
+        // Duplicate identifiers are still corruption.
+        XCTAssertThrowsError(
+            try SelectedWalletSettings.resolveSelection(
+                accounts: [first, first],
                 legacySelectedAddress: nil
             )
         )
@@ -6567,7 +6633,10 @@ final class WalletModernizationTests: XCTestCase {
             Data(repeating: 1, count: 20),
             with: KeystoreTag.legacyEntropy.rawValue
         )
-        XCTAssertThrowsError(
+        // A read-only account (its retained material does not prove it) can
+        // still be removed on the user's confirmed request, but the global
+        // entropy that does not prove it is never removed with it.
+        XCTAssertFalse(
             try WalletExplicitRemovalIdentityPolicy.verify(
                 accounts: [prepared.account],
                 expectedAccount: prepared.account,
@@ -6727,7 +6796,7 @@ final class WalletModernizationTests: XCTestCase {
             corruptedSecret,
             with: KeystoreTag.secretKeyTagForAddress(expectedAddress)
         )
-        XCTAssertThrowsError(
+        XCTAssertFalse(
             try WalletExplicitRemovalIdentityPolicy.verify(
                 accounts: [prepared.account],
                 expectedAccount: prepared.account,
@@ -8577,7 +8646,7 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
     }
 
-    func testMissingCoreDataStoreWithOnlyScopedKeychainSecretFailsClosed() throws {
+    func testMissingCoreDataStoreWithKeychainOnlyIsReinstallButSettingsFailClosed() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer {
@@ -8615,17 +8684,16 @@ final class WalletModernizationTests: XCTestCase {
                 fileManager: .default
             )
 
-            XCTAssertTrue(migrator.requiresMigration())
-            XCTAssertThrowsError(try migrator.performMigration()) { error in
-                guard
-                    case UserStorageMigrationError.missingWalletStore = error
-                else {
-                    return XCTFail("Unexpected error: \(error)")
-                }
-            }
+            // Keychain-only evidence is a reinstall: onboarding offers to
+            // restore it. Nothing is created, written or deleted.
+            XCTAssertEqual(migrator.retainedWalletEvidenceKind(), .keychainOnly)
+            XCTAssertFalse(migrator.requiresMigration())
+            XCTAssertNoThrow(try migrator.performMigration())
             XCTAssertFalse(
                 FileManager.default.fileExists(atPath: storeURL.path)
             )
+            XCTAssertEqual(try keystore.allKeyIdentifiers(), [identifier])
+            XCTAssertEqual(try keystore.fetchKey(for: identifier), Data([0x01]))
         }
 
         let settingsOnlyStoreURL = directory
@@ -8743,7 +8811,9 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
-    func testMissingCoreDataStoreWithOnlyRetainedPinFailsClosed() throws {
+    func testMissingCoreDataStoreWithOnlyRetainedPinIsAReinstall() throws {
+        // iOS keeps Keychain items when the app is deleted. A PIN alone is the
+        // reinstall signature: no recovery marker, no store, PIN unchanged.
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer {
@@ -8759,25 +8829,25 @@ final class WalletModernizationTests: XCTestCase {
             Data([0x01]),
             with: KeystoreTag.pincode.rawValue
         )
+        let settings = InMemorySettingsManager()
         let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
             keystore: keystore,
-            settings: InMemorySettingsManager(),
+            settings: settings,
             fileManager: .default
         )
 
-        XCTAssertTrue(migrator.requiresMigration())
-        XCTAssertThrowsError(try migrator.performMigration()) { error in
-            guard case UserStorageMigrationError.missingWalletStore = error else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-        }
+        XCTAssertEqual(migrator.retainedWalletEvidenceKind(), .keychainOnly)
+        XCTAssertFalse(migrator.requiresMigration())
+        XCTAssertNoThrow(try migrator.performMigration())
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        XCTAssertEqual(try keystore.fetchKey(for: KeystoreTag.pincode.rawValue), Data([0x01]))
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
     }
 
-    func testEmptyCurrentStoreWithRetainedPinCannotBecomeNewWallet() throws {
+    func testEmptyCurrentStoreWithRetainedPinIsAReinstallAndStoreUnchanged() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer {
@@ -8813,7 +8883,25 @@ final class WalletModernizationTests: XCTestCase {
         )
 
         XCTAssertTrue(migrator.requiresMigration())
-        XCTAssertThrowsError(try migrator.performMigration()) { error in
+        XCTAssertNoThrow(try migrator.performMigration())
+        XCTAssertEqual(try Data(contentsOf: storeURL), originalStore)
+        XCTAssertEqual(try keystore.fetchKey(for: KeystoreTag.pincode.rawValue), Data([0x01]))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:
+            directory.appendingPathComponent("WalletMigrationSafety").path))
+
+        // The same empty store beside a retained wallet setting is still a
+        // lost inventory, never a new wallet.
+        let settings = InMemorySettingsManager()
+        settings.set(value: true, for: SettingsKey.hasMigrated.rawValue)
+        let durable = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: .default
+        )
+        XCTAssertThrowsError(try durable.performMigration()) { error in
             guard case UserStorageMigrationError.missingWalletStore = error else {
                 return XCTFail("Unexpected error: \(error)")
             }
@@ -9156,7 +9244,9 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testMigrationWithMissingSecretDoesNotActivateStore() throws {
+    func testMigrationWithMissingSecretActivatesAccountReadOnly() throws {
+        // Before 3.9.0 one keyless account blocked the whole wallet. It is now
+        // recorded read-only; nothing is written to the Keychain.
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer {
@@ -9165,27 +9255,27 @@ final class WalletModernizationTests: XCTestCase {
         let store = try makeWalletNetworkStore(baseURL: directory)
         let settings = InMemorySettingsManager()
         let account = makeLegacyAccount(address: "missing-secret")
+        let keystore = InMemoryKeychain()
         let migrator = makeWalletNetworkMigrator(
-            keystore: InMemoryKeychain(),
+            keystore: keystore,
             store: store,
             settings: settings
         )
 
-        XCTAssertThrowsError(
-            try migrator.migrate(
-                accounts: [account],
-                selectedAddress: account.address
-            )
-        ) { error in
-            guard
-                case WalletNetworkMigrationError.legacyIdentityMismatch =
-                    error
-            else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-        }
-        XCTAssertNil(try store.load())
-        XCTAssertEqual(settings.walletNetworkStoreVersion, 0)
+        try migrator.migrate(
+            accounts: [account],
+            selectedAddress: account.address
+        )
+        let snapshot = try XCTUnwrap(store.load())
+        XCTAssertEqual(snapshot.wallets.map(\.secretSource), [.signingUnavailable])
+        XCTAssertEqual(snapshot.accounts.map(\.networkId), [.sora2])
+        XCTAssertEqual(snapshot.accounts.first?.publicKey, account.publicKeyData)
+        XCTAssertEqual(snapshot.selectedWalletId, account.address)
+        XCTAssertEqual(settings.walletNetworkStoreVersion, WalletNetworkSnapshot.currentSchemaVersion)
+        XCTAssertEqual(try keystore.allKeyIdentifiers(), [])
+        // Repeating the migration is stable.
+        try migrator.migrate(accounts: [account], selectedAddress: account.address)
+        XCTAssertEqual(try store.load()?.wallets, snapshot.wallets)
     }
 
     func testReleasedMnemonicFormatsSurviveDatabaseAndNetworkUpgrade() throws {
@@ -9382,6 +9472,7 @@ final class WalletModernizationTests: XCTestCase {
     private func interruptedDatabaseStartup(
         directory: URL, accounts: [AccountItem], keys: InMemoryKeychain,
         settings: InMemorySettingsManager,
+        readOnlyAddresses: Set<String> = [],
         checkpoint: ((UserStorageMigrationCheckpoint) throws -> Void)? = nil,
         unresolvedAccountCommit: @escaping () throws -> Bool = { false }
     ) throws {
@@ -9406,8 +9497,13 @@ final class WalletModernizationTests: XCTestCase {
             let seed = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
             let payload = Data("restart-signing-qualification".utf8)
             let signature = try Sora2Ed25519SeedSigner.sign(payload, seed: seed)
-            try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
-                                             secretKey: seed, account: account)
+            if readOnlyAddresses.contains(account.address) {
+                XCTAssertThrowsError(try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                                                                      secretKey: seed, account: account))
+            } else {
+                try Sora2SignatureVerifier.verify(signature: signature, originalData: payload,
+                                                 secretKey: seed, account: account)
+            }
         }
         XCTAssertFalse(settings.walletMigrationRecoveryRequired)
     }
@@ -9573,6 +9669,35 @@ final class WalletModernizationTests: XCTestCase {
                     at: journalDirectory, includingPropertiesForKeys: nil).map { ($0, try Data(contentsOf: $0)) })
                 let networkBytes = try legacyActivationNetworkFiles(at: directory)
                 let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                if condition == "missingKey" || condition == "changedEntropy" {
+                    // The legacy entropy no longer proves the journal's account,
+                    // so this is resolved as an ordinary interrupted commit
+                    // (3.9.0): the account row is in Core Data, the commit is
+                    // completed, and the account is read-only. No key changes.
+                    XCTAssertTrue(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                        settings: settings, baseURL: directory,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+                    XCTAssertFalse(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                        storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        modelDirectory: UserStorageParams.modelDirectory, keystore: keys,
+                        settings: settings, baseURL: directory,
+                        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate), recoveryGate: gate))
+                    // The database-interruption marker is left to its own resolver.
+                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
+                    XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("UserDataModel.sqlite")), storeBytes)
+                    XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).unresolved().isEmpty)
+                    let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).load())
+                    XCTAssertEqual(snapshot.wallets.map(\.secretSource), [.signingUnavailable])
+                    XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)?.address,
+                                   account.address)
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originals.keys))
+                    for (tag, bytes) in originals { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    return
+                }
                 for _ in 0..<2 {
                     XCTAssertThrowsError(try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
                         storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
@@ -10370,7 +10495,7 @@ final class WalletModernizationTests: XCTestCase {
                 let originalKeys = try Dictionary(uniqueKeysWithValues: keys.allKeyIdentifiers().map {
                     ($0, try keys.fetchKey(for: $0))
                 })
-                for condition in ["valid", "activationRestart", "alteredBackup", "changedKey", "typedFailure", "newerBoundMarker"] {
+                for condition in ["valid", "activationRestart", "alteredBackup", "changedBackup", "changedKey", "typedFailure", "newerBoundMarker"] {
                     let directory = root.appendingPathComponent("failed-retry-\(condition)")
                     try FileManager.default.copyItem(at: installed, to: directory)
                     let retrySettings = InMemorySettingsManager()
@@ -10387,8 +10512,10 @@ final class WalletModernizationTests: XCTestCase {
                         var data = try Data(contentsOf: backup)
                         data[data.count - 1] ^= 1
                         try data.write(to: backup)
-                    } else if condition == "changedKey" {
+                    } else if condition == "changedBackup" {
                         try retryKeys.saveSeed(Data(repeating: 99, count: 32), address: accounts[0].address)
+                    } else if condition == "changedKey" {
+                        try retryKeys.saveSecretKey(Data(repeating: 99, count: 64), address: accounts[0].address)
                     } else if condition == "typedFailure" || condition == "newerBoundMarker" {
                         var journal = originalFailure
                         if condition == "typedFailure" {
@@ -10405,7 +10532,11 @@ final class WalletModernizationTests: XCTestCase {
                     let keyBytes = try Dictionary(uniqueKeysWithValues: retryKeys.allKeyIdentifiers().map {
                         ($0, try retryKeys.fetchKey(for: $0))
                     })
-                    if condition == "valid" || condition == "activationRestart" {
+                    let failureDataBeforeRetry = try Data(contentsOf: journalURL)
+                    // Every fixed failure code is retryable (§0.2), and one
+                    // account whose keys do not match no longer blocks the
+                    // others: it becomes read-only, its keys unchanged.
+                    if ["valid", "activationRestart", "typedFailure", "changedBackup", "changedKey"].contains(condition) {
                         if condition == "activationRestart" {
                             let journalGate = WalletRecoveryCapabilityGate(settings: retrySettings,
                                 unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false },
@@ -10429,12 +10560,20 @@ final class WalletModernizationTests: XCTestCase {
                                 XCTAssertThrowsError(try retryGate.requireMutableWalletAccess())
                             }))
                         let retained = attempt.appendingPathComponent("staging")
-                            .appendingPathComponent("recovery-failed-journal-\(Data(SHA256.hash(data: originalFailureData)).hex).json")
-                        XCTAssertEqual(try Data(contentsOf: retained), originalFailureData)
+                            .appendingPathComponent("recovery-failed-journal-\(Data(SHA256.hash(data: failureDataBeforeRetry)).hex).json")
+                        XCTAssertEqual(try Data(contentsOf: retained), failureDataBeforeRetry)
+                        let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                            recoveryGate: makeIsolatedRecoveryGate(settings: retrySettings)).load())
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == accounts[0].address }?.secretSource,
+                                       condition == "changedKey" ? .signingUnavailable :
+                                        (condition == "changedBackup" ? .legacySecret : .rawSeed), condition)
+                        XCTAssertEqual(snapshot.wallets.first { $0.id == accounts[1].address }?.secretSource,
+                                       .rawSeed, condition)
                         for _ in 0..<2 {
                             try interruptedDatabaseStartup(directory: directory, accounts: accounts,
-                                keys: retryKeys, settings: retrySettings)
-                            XCTAssertEqual(try Data(contentsOf: retained), originalFailureData)
+                                keys: retryKeys, settings: retrySettings,
+                                readOnlyAddresses: condition == "changedKey" ? [accounts[0].address] : [])
+                            XCTAssertEqual(try Data(contentsOf: retained), failureDataBeforeRetry)
                         }
                     } else {
                         XCTAssertThrowsError(try WalletStartupVerificationRecovery.recoverIfNeeded(
@@ -10585,6 +10724,40 @@ final class WalletModernizationTests: XCTestCase {
                             }
                         })
                 }
+                if condition == "accountJournal" {
+                    // Since 3.9.0 an interrupted ordinary import whose account
+                    // never reached Core Data is set aside (abandoned); no key
+                    // material is written or deleted, and startup completes.
+                    XCTAssertTrue(try recovery())
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    XCTAssertTrue(try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: clearGate)
+                        .unresolved().isEmpty)
+                    let journals = try WalletAccountCommitJournalStore(baseURL: directory, recoveryGate: clearGate)
+                        .journalsForLegacyRecovery()
+                    XCTAssertEqual(journals.map(\.stage), [.abandoned])
+                    for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(originalKeys.keys))
+                    try assertStoredAccounts(accounts, at: storeURL,
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                    return
+                }
+                if condition == "mismatchedKey" {
+                    // Since 3.9.0 an account whose stored keys do not match is
+                    // read-only; it no longer blocks the other accounts. Its
+                    // keys and the recorded snapshot stay exactly as they were.
+                    XCTAssertTrue(try recovery())
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    for (path, bytes) in originalFiles { XCTAssertEqual(try Data(contentsOf: path), bytes) }
+                    for (tag, bytes) in originalKeys { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
+                    XCTAssertEqual(try store.load()?.wallets, expected.wallets)
+                    XCTAssertEqual(try store.load()?.accounts, expected.accounts)
+                    XCTAssertThrowsError(try LegacySoraIdentityValidator.validate(address: accounts[0].address,
+                        publicKey: accounts[0].publicKeyData, cryptoType: accounts[0].cryptoType,
+                        networkType: accounts[0].networkType, derivationPath: nil, entropy: nil,
+                        rawSeed: keys.fetchSeedForAddress(accounts[0].address),
+                        secret: keys.fetchSecretKeyForAddress(accounts[0].address), recoveryGate: clearGate))
+                    return
+                }
                 if condition == "unrelatedMarker" {
                     XCTAssertFalse(try recovery())
                 } else {
@@ -10710,7 +10883,7 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testRetainedGlobalEntropyStartupPreservesConflictingEvidence() throws {
+    func testRetainedGlobalEntropyConflictsDegradeOneAccountOrFailClosed() throws {
         let entropy = Data(repeating: 0, count: 20)
         let original = try retainedEntropyAccount(entropy: entropy)
         let other = try retainedEntropyAccount(entropy: Data(repeating: 2, count: 20))
@@ -10763,6 +10936,43 @@ final class WalletModernizationTests: XCTestCase {
                 let marker = WalletMigrationRecoveryMarker.capture(settings)
                 let gate = legacyActivationRecoveryGate(at: directory, settings: settings)
                 let coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
+                if !["watchOnlyConflict", "newerMarker"].contains(condition) {
+                    // Since 3.9.0 an account whose retained material does not
+                    // prove it (or that has none) opens read-only instead of
+                    // blocking the wallet. Nothing in the Keychain changes.
+                    // "snapshot": the active snapshot lists only an account
+                    // the database does not have. It was removed by a version
+                    // that does not know the snapshot and is recorded as
+                    // removed (audit I3); the installed account is then a new
+                    // wallet in that snapshot, for which unsuffixed entropy
+                    // is never resolved, so it opens read-only as well.
+                    let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
+                        _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
+                            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
+                            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
+                            baseURL: directory, lifecycleCoordinator: coordinator)
+                    }, migration: {})
+                    XCTAssertEqual(outcome, .ready, condition)
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired, condition)
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys, condition)
+                    let snapshot = try XCTUnwrap(WalletNetworkStore(baseURL: directory,
+                        recoveryGate: makeIsolatedRecoveryGate()).load(), condition)
+                    let readOnly = condition == "missingAccount" ? other.address : account.address
+                    XCTAssertEqual(snapshot.wallets.first { $0.id == readOnly }?.secretSource,
+                                   .signingUnavailable, condition)
+                    XCTAssertEqual(snapshot.accounts.filter { $0.walletId == readOnly }.map(\.networkId),
+                                   [.sora2], condition)
+                    if condition == "snapshot" {
+                        XCTAssertEqual(snapshot.wallets.map(\.id), [account.address], condition)
+                    }
+                    if condition == "missingAccount" {
+                        try assertRetainedEntropySigner(account: account, entropy: entropy,
+                            snapshot: snapshot, keys: keys, settings: settings)
+                    }
+                    try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
+                        model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+                    return
+                }
                 var newerMarker: WalletMigrationRecoveryMarker?
                 var verifiedCheckpointFiles: [URL: Data]?
                 let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
@@ -10808,7 +11018,7 @@ final class WalletModernizationTests: XCTestCase {
                 try assertStoredAccounts(accounts, at: directory.appendingPathComponent("UserDataModel.sqlite"),
                     model: userStorageModel(named: UserStorageVersion.version2.rawValue))
                 XCTAssertEqual(settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue), account)
-                if condition != "snapshot" && condition != "newerMarker" {
+                if condition != "newerMarker" {
                     XCTAssertNil(try WalletNetworkStore(baseURL: directory,
                         recoveryGate: makeIsolatedRecoveryGate()).load(), condition)
                 }
@@ -10872,67 +11082,53 @@ final class WalletModernizationTests: XCTestCase {
                         XCTAssertNil(failure.secretChecks?.outcomes[.globalEntropy])
                         XCTAssertTrue(failingKeys.fetched.isEmpty)
                         XCTAssertFalse(failingKeys.checked.contains(KeystoreTag.legacyEntropy.rawValue))
-                        XCTAssertTrue(failure.userMessage.contains("Unlock this iPhone"))
+                        XCTAssertEqual(failure.userMessage, WalletUX.text("iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again."))
                         XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
                         XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
                     }
-                    XCTAssertEqual(WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
-                        _ = try WalletStartupVerificationRecovery.recoverIfNeeded(
-                            storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
-                            modelDirectory: UserStorageParams.modelDirectory, keystore: keys, settings: settings,
-                            baseURL: directory, lifecycleCoordinator: coordinator)
-                    }, migration: { XCTFail("An absent signing credential reached ordinary startup") }), .recoveryRequired)
-                    XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.phase, .databaseMigration)
-                    XCTAssertEqual(WalletStartupDiagnostic.current(settings)?.cause, .missingSecret)
-                    let diagnostic = try XCTUnwrap(WalletStartupDiagnostic.current(settings))
-                    let checks = try XCTUnwrap(diagnostic.secretChecks)
-                    XCTAssertEqual(checks.origin, .liveInventory)
-                    XCTAssertEqual(checks.schema, version == .version1 ? 1 : 2)
-                    XCTAssertEqual(checks.accountNumber, 1)
-                    XCTAssertEqual(checks.accountCount, 1)
-                    XCTAssertEqual(checks.cryptoType, Int(account.cryptoType.rawValue))
-                    XCTAssertEqual(checks.networkType, Int(account.networkType))
-                    XCTAssertTrue(checks.selectedPreferenceMatches)
-                    XCTAssertFalse(checks.watchOnly)
-                    for operation in [WalletSecretDiagnostics.Operation.scopedSecret, .scopedEntropy,
-                                      .scopedSeed, .scopedDerivation, .globalEntropy] {
-                        XCTAssertEqual(checks.outcomes[operation], .missing)
-                    }
-                    XCTAssertNil(checks.outcomes[.legacyIrohaKey])
-                    XCTAssertEqual(checks.fallback, .globalMissing)
-                    XCTAssertEqual(checks.snapshotPresent, false)
-                    XCTAssertNil(checks.failedOperation)
-                    XCTAssertNotNil(diagnostic.recordedAt)
-                    XCTAssertTrue(diagnostic.summary.contains("Attempted at:"))
-                    XCTAssertTrue(diagnostic.summary.contains("legacy_iroha_key=not_checked"))
-                    XCTAssertFalse(diagnostic.summary.contains(account.address))
-                    XCTAssertFalse(diagnostic.summary.contains(account.username))
-                    XCTAssertTrue(diagnostic.userMessage.contains("Restore existing wallet keys"))
+                    // Since 3.9.0 an account without keys no longer blocks
+                    // startup (new iPhone, removed items). It opens read-only;
+                    // the Keychain is not changed, and the user restores its
+                    // keys in the app without a recovery marker.
+                    let readOnly = try runRetainedEntropyStartup(directory: directory,
+                        keys: keys, settings: settings, accounts: [account])
+                    XCTAssertEqual(readOnly.wallets.first { $0.id == account.address }?.secretSource,
+                                   .signingUnavailable)
+                    XCTAssertEqual(readOnly.accounts.filter { $0.walletId == account.address }.map(\.networkId),
+                                   [.sora2])
+                    XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+                    XCTAssertNotEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
                     XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
-                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
-                    let candidates = try database.accountsForMissingKeyRecovery(baseURL: directory,
-                        lifecycleCoordinator: coordinator)
-                    XCTAssertEqual(candidates.map(\.address), [account.address])
-                    XCTAssertEqual(candidates.first?.publicKeyData, account.publicKeyData)
-                    XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
-                        mnemonic: mnemonic12, derivationPath: "", baseURL: directory,
-                        lifecycleCoordinator: coordinator))
+                    XCTAssertNil(try LegacySoraSecretResolver.resolve(account: account, keystore: keys))
+                    let readOnlyGate = legacyActivationRecoveryGate(at: directory, settings: settings)
+                    let readOnlyCoordinator = WalletLifecycleCoordinator(recoveryGate: readOnlyGate)
+                    let networkStore = try WalletNetworkStore(baseURL: directory, recoveryGate: readOnlyGate)
+                    XCTAssertThrowsError(try database.restoreKeysForReadOnlyAccount(address: account.address,
+                        mnemonic: mnemonic12, derivationPath: "", networkStore: networkStore,
+                        lifecycleCoordinator: readOnlyCoordinator))
                     XCTAssertEqual(try retainedEntropyKeyBytes(keys), originals)
-                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
                     let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
-                    try database.restoreMissingEntropy(address: account.address,
+                    try database.restoreKeysForReadOnlyAccount(address: account.address,
                         mnemonic: "  \n" + phrase.replacingOccurrences(of: " ", with: "  ") + "\n",
-                        derivationPath: "", baseURL: directory, lifecycleCoordinator: coordinator)
+                        derivationPath: "", networkStore: networkStore, lifecycleCoordinator: readOnlyCoordinator)
+                    // The phrase, then the derived seed and secret (add-only),
+                    // so App Store 3.8.6 can sign for the account too.
                     var expected = originals
+                    let restoredSeed = try retainedEntropySeed(entropy)
                     expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    expected[KeystoreTag.seedTagForAddress(account.address)] = restoredSeed
+                    expected[KeystoreTag.secretKeyTagForAddress(account.address)] = try SR25519KeypairFactory()
+                        .createKeypairFromSeed(restoredSeed, chaincodeList: []).privateKey().rawData()
                     XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
-                    XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
-                    XCTAssertThrowsError(try gate.requireMutableWalletAccess())
-                    XCTAssertTrue(try database.accountsForMissingKeyRecovery(baseURL: directory,
-                        lifecycleCoordinator: coordinator).isEmpty)
-                    XCTAssertThrowsError(try database.restoreMissingEntropy(address: account.address,
-                        mnemonic: phrase, derivationPath: "", baseURL: directory,
-                        lifecycleCoordinator: coordinator))
+                    // The restored source replaces the read-only placeholder.
+                    let restored = try XCTUnwrap(networkStore.load())
+                    XCTAssertNotEqual(restored.wallets.first { $0.id == account.address }?.secretSource,
+                                      .signingUnavailable)
+                    // Keys are present now: a second restore is refused, unchanged.
+                    XCTAssertThrowsError(try database.restoreKeysForReadOnlyAccount(address: account.address,
+                        mnemonic: phrase, derivationPath: "", networkStore: networkStore,
+                        lifecycleCoordinator: readOnlyCoordinator))
+                    XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
                     for _ in 0..<2 {
                         let snapshot = try runRetainedEntropyStartup(directory: directory,
                             keys: keys, settings: settings, accounts: [account])
@@ -11059,7 +11255,11 @@ final class WalletModernizationTests: XCTestCase {
             XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
             try database.restoreMissingEntropy(address: account.address, mnemonic: phrase,
                 derivationPath: path, baseURL: directory, lifecycleCoordinator: coordinator)
+            // The phrase, then the seed and secret derived with the retained
+            // path (hard junctions only, so the secret is deterministic).
             expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+            expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+            expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
             XCTAssertEqual(try retainedEntropyKeyBytes(keys), expected)
             XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
             for _ in 0..<2 {
@@ -11210,7 +11410,7 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     @MainActor
-    func testCloudBackupPresenterRejectsIdentityConflictsAndPreservesStoredDerivation() async throws {
+    func testCloudBackupPresenterUsesProvenKeychainSourcesAndPreservesStoredDerivation() async throws {
         let entropy = Data(repeating: 30, count: 16), otherEntropy = Data(repeating: 31, count: 16)
         let phrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy).toString()
         let otherPhrase = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: otherEntropy).toString()
@@ -11244,7 +11444,7 @@ final class WalletModernizationTests: XCTestCase {
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "profile backup loading ends")
             view.onHide = { ended.fulfill() }
-            if scenario == "valid" {
+            if scenario != "switched-account" {
                 let started = expectation(description: "verified profile backup payload")
                 cloud.onSave = { started.fulfill() }
                 presenter.backupAccount(with: "synthetic-password")
@@ -11265,14 +11465,15 @@ final class WalletModernizationTests: XCTestCase {
                 presenter.backupAccount(with: "synthetic-password")
             }
             await fulfillment(of: [ended], timeout: 10)
-            XCTAssertEqual(cloud.saves.count, scenario == "valid" ? 1 : 0)
-            XCTAssertEqual(wireframe.successes, scenario == "valid" ? 1 : 0)
-            XCTAssertEqual(wireframe.failures.count, scenario == "valid" ? 0 : 1)
+            XCTAssertEqual(cloud.saves.count, scenario != "switched-account" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, scenario != "switched-account" ? 1 : 0)
+            XCTAssertEqual(wireframe.failures.count, scenario != "switched-account" ? 0 : 1)
             XCTAssertEqual(view.hides, 1)
             XCTAssertEqual(try retainedEntropyKeyBytes(keys), originalKeys)
         }
         // Released Ed25519 JSON imports retain seed + public key, not only a
-        // 32-byte seed. Back up those exact bytes and reject either conflicting half.
+        // 32-byte seed. Rebuild a damaged redundant half in the export, while
+        // refusing a seed that cannot prove the account and preserving all tags.
         let edSeed = Data(repeating: 42, count: 32)
         let edPair = try Ed25519KeypairFactory().createKeypairFromSeed(edSeed, chaincodeList: [])
         let edPublic = edPair.publicKey().rawData()
@@ -11296,7 +11497,7 @@ final class WalletModernizationTests: XCTestCase {
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "retained Ed25519 backup completes")
             view.onHide = { ended.fulfill() }
-            if condition == "valid" {
+            if condition != "seed" {
                 let started = expectation(description: "retained Ed25519 backup prepared")
                 cloud.onSave = { started.fulfill() }
                 presenter.backupAccount(with: "synthetic-password")
@@ -11305,7 +11506,7 @@ final class WalletModernizationTests: XCTestCase {
                 let json = try XCTUnwrap(backup.json?.substrateJson).data(using: .utf8)!
                 let definition = try JSONDecoder().decode(KeystoreDefinition.self, from: json)
                 let exported = try KeystoreExtractor().extractFromDefinition(definition, password: "synthetic-password")
-                XCTAssertEqual(exported.secretKeyData, retainedSecret)
+                XCTAssertEqual(exported.secretKeyData, edSeed + edPublic)
                 XCTAssertEqual(exported.publicKeyData, edPublic)
                 XCTAssertNil(backup.passphrase)
                 XCTAssertEqual(backup.backupAccountType, [.json])
@@ -11314,8 +11515,8 @@ final class WalletModernizationTests: XCTestCase {
                 presenter.backupAccount(with: "synthetic-password")
             }
             await fulfillment(of: [ended], timeout: 10)
-            XCTAssertEqual(cloud.saves.count, condition == "valid" ? 1 : 0)
-            XCTAssertEqual(wireframe.successes, condition == "valid" ? 1 : 0)
+            XCTAssertEqual(cloud.saves.count, condition != "seed" ? 1 : 0)
+            XCTAssertEqual(wireframe.successes, condition != "seed" ? 1 : 0)
             XCTAssertEqual(try retainedEntropyKeyBytes(retainedKeys), original)
         }
     }
@@ -11435,11 +11636,20 @@ final class WalletModernizationTests: XCTestCase {
                     let database = self.missingKeyRecoveryMigrator(directory: directory, keys: keys, settings: settings)
                     try WalletCloudBackupRecoveryService.restore(data: payload, password: password,
                         account: account, migrator: database, baseURL: directory, lifecycleCoordinator: coordinator)
+                    // Every supplied source is added, then the derived seed
+                    // and secret (add-only), so App Store 3.8.6, which signs
+                    // only with `-secretKey`, can sign for the account too.
                     var expected = original
                     switch format {
-                    case "seed": expected[KeystoreTag.seedTagForAddress(account.address)] = seed
-                    case "json": expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
-                    default: expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                    case "seed":
+                        expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    case "json":
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
+                    default:
+                        expected[KeystoreTag.entropyTagForAddress(account.address)] = entropy
+                        expected[KeystoreTag.seedTagForAddress(account.address)] = seed
+                        expected[KeystoreTag.secretKeyTagForAddress(account.address)] = pair.privateKey().rawData()
                     }
                     XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), expected)
                     XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
@@ -11510,7 +11720,7 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testCloudRecoveryRejectsWrongPasswordConflictsAndMalformedSecretWithoutWrites() throws {
+    func testCloudRecoveryRejectsWrongIdentityAndUsesIndependentlyProvenFormats() throws {
         let entropy = Data(repeating: 20, count: 20)
         let account = try retainedEntropyAccount(entropy: entropy)
         let password = "synthetic-backup-password"
@@ -11543,15 +11753,32 @@ final class WalletModernizationTests: XCTestCase {
                 }
                 let payload = try JSONSerialization.data(withJSONObject: fields)
                 var newer: WalletMigrationRecoveryMarker?
-                XCTAssertThrowsError(try WalletCloudBackupRecoveryService.restore(data: payload,
-                    password: condition == "password" ? "wrong" : password, account: account, migrator: database,
-                    baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
-                        if condition == "newerMarker" {
-                            settings.walletMigrationRecoveryReason = "newer recovery evidence"
-                            newer = WalletMigrationRecoveryMarker.capture(settings)
-                        }
-                    }))
-                XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), original)
+                let restore = {
+                    try WalletCloudBackupRecoveryService.restore(data: payload,
+                        password: condition == "password" ? "wrong" : password, account: account, migrator: database,
+                        baseURL: directory, lifecycleCoordinator: coordinator, checkpoint: {
+                            if condition == "newerMarker" {
+                                settings.walletMigrationRecoveryReason = "newer recovery evidence"
+                                newer = WalletMigrationRecoveryMarker.capture(settings)
+                            }
+                        })
+                }
+                if ["crypto", "seed", "malformedCipher", "malformedScalar"].contains(condition) {
+                    // A stale sibling source is not authority to invalidate
+                    // another independently verified format in this backup.
+                    try restore()
+                    let restored = try XCTUnwrap(keys.fetchSecretKeyForAddress(account.address))
+                    try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                        publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                        networkType: account.networkType, secret: restored, recoveryGate: self.makeIsolatedRecoveryGate())
+                    if condition == "seed" {
+                        XCTAssertNotEqual(try keys.fetchSeedForAddress(account.address), Data(repeating: 9, count: 32))
+                    }
+                    XCTAssertFalse(try self.retainedEntropyKeyBytes(keys).isEmpty)
+                } else {
+                    XCTAssertThrowsError(try restore())
+                    XCTAssertEqual(try self.retainedEntropyKeyBytes(keys), original)
+                }
                 XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), newer ?? marker)
                 let text = WalletCloudBackupRecoveryError.userMessage(for:
                     NSError(domain: account.address, code: 1, userInfo: [NSLocalizedDescriptionKey: password]))
@@ -12061,7 +12288,14 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(settings.walletNetworkStoreVersion, 0)
     }
 
-    func testMigrationCannotDropPreviouslyInventoriedAccount() throws {
+    /// Audit I3 (L-4, FWD-2). An account the snapshot lists and the database
+    /// no longer has, while the database still has accounts, was removed by
+    /// a version that does not know the snapshot (App Store 3.8.6). It is
+    /// recorded as removed instead of stopping every account. A database
+    /// with no account at all beside a snapshot that lists wallets is not
+    /// that state and still stops. The 3.8.6 removal itself is replayed in
+    /// `WalletInterruptedWriteTests`.
+    func testMigrationRecordsAnAccountRemovedOutsideThisVersion() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer {
@@ -12097,18 +12331,135 @@ final class WalletModernizationTests: XCTestCase {
             store: store,
             settings: InMemorySettingsManager()
         )
+        func snapshotFiles() throws -> [String] {
+            try FileManager.default.contentsOfDirectory(
+                atPath: directory
+                    .appendingPathComponent("SORA", isDirectory: true)
+                    .appendingPathComponent("WalletNetworks", isDirectory: true)
+                    .path
+            ).filter { $0.hasPrefix("wallet-network-") }
+        }
 
-        XCTAssertThrowsError(
-            try migrator.migrate(accounts: [], selectedAddress: nil)
-        ) { error in
-            guard
-                case WalletNetworkMigrationError.legacyIdentityMismatch =
-                    error
-            else {
-                return XCTFail("Unexpected error: \(error)")
+        // No account row at all: the rows may have been lost. Neither the
+        // verification nor the activation takes that for a removal, and the
+        // snapshot (which still says a wallet existed) is not emptied.
+        let attempts: [() throws -> Void] = [
+            { _ = try migrator.verifiedSnapshot(accounts: [], selectedAddress: nil) },
+            { try migrator.migrate(accounts: [], selectedAddress: nil) },
+        ]
+        for attempt in attempts {
+            XCTAssertThrowsError(try attempt()) { error in
+                guard
+                    case WalletNetworkMigrationError.legacyIdentityMismatch =
+                        error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
             }
         }
         XCTAssertEqual(try store.load(), original)
+        XCTAssertEqual(try snapshotFiles().count, 1)
+
+        // The database has another account and not this one: removed in a
+        // version that does not know the snapshot. Verification alone
+        // writes nothing.
+        let remaining = makeLegacyAccount(address: "still-in-the-database")
+        let verified = try migrator.verifiedSnapshot(
+            accounts: [remaining],
+            selectedAddress: remaining.address
+        )
+        XCTAssertEqual(verified.wallets.map(\.id), [remaining.address])
+        XCTAssertEqual(try store.load(), original)
+
+        try migrator.migrate(
+            accounts: [remaining],
+            selectedAddress: remaining.address
+        )
+        let recorded = try XCTUnwrap(try store.load())
+        XCTAssertEqual(recorded.wallets.map(\.id), [remaining.address])
+        XCTAssertEqual(
+            recorded.accounts.map(\.walletId),
+            [remaining.address]
+        )
+        XCTAssertEqual(recorded.selectedWalletId, remaining.address)
+        // The snapshot that listed the account is kept beside the new ones.
+        XCTAssertGreaterThanOrEqual(try snapshotFiles().count, 2)
+        // A second run finds nothing more to record.
+        try migrator.migrate(
+            accounts: [remaining],
+            selectedAddress: remaining.address
+        )
+        XCTAssertEqual(try store.load(), recorded)
+    }
+
+    /// Audit I3. The display name is not part of a wallet's identity: it
+    /// follows the wallet database. A snapshot that still holds the earlier
+    /// name (a rename cut short between its two saves, or a rename in App
+    /// Store 3.8.6) is brought up to date by the next activation. Address,
+    /// public key and secret source stay as strict as before.
+    func testActivationBringsADisplayNameUpToDateAndNothingElse() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let account = makeLegacyAccount(address: "renamed-wallet")
+        func snapshot(
+            name: String,
+            source: WalletSecretSource = .watchOnly,
+            publicKey: Data? = nil
+        ) -> WalletNetworkSnapshot {
+            WalletNetworkSnapshot(
+                schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+                selectedWalletId: account.address,
+                wallets: [
+                    WalletIdentity(
+                        id: account.address,
+                        displayName: name,
+                        existingSoraAddress: account.address,
+                        secretSource: source
+                    )
+                ],
+                accounts: [
+                    NetworkAccount(
+                        walletId: account.address,
+                        networkId: .sora2,
+                        derivationVersion: 0,
+                        publicKey: publicKey ?? account.publicKeyData,
+                        address: account.address
+                    )
+                ],
+                createdAt: Date(timeIntervalSince1970: 1)
+            )
+        }
+        try store.stageAndActivate(snapshot(name: "Earlier name"))
+
+        try store.stageAndActivate(snapshot(name: "New name"))
+        XCTAssertEqual(
+            try store.load()?.wallets.map(\.displayName),
+            ["New name"]
+        )
+
+        // The source and the public key cannot change that way.
+        for rejected in [
+            snapshot(name: "New name", source: .legacySecret),
+            snapshot(name: "Another name", source: .rawSeed),
+            snapshot(
+                name: "New name",
+                publicKey: Data(repeating: 9, count: 32)
+            ),
+        ] {
+            XCTAssertThrowsError(try store.stageAndActivate(rejected)) {
+                guard
+                    case WalletNetworkMigrationError
+                        .snapshotVerificationFailed = $0
+                else {
+                    return XCTFail("Unexpected error: \($0)")
+                }
+            }
+        }
+        XCTAssertEqual(try store.load(), snapshot(name: "New name"))
     }
 
     func testCorruptActivePointerFailsClosedInsteadOfCreatingEmptyWallet() throws {
@@ -12207,11 +12558,15 @@ final class WalletModernizationTests: XCTestCase {
     func testProductionMutationFlagsFailClosedWhenUnset() {
         let settings = InMemorySettingsManager()
 
-        XCTAssertTrue(settings.nexusEnabled)
+        // Mutations always fail closed. Visibility without a stored value
+        // follows the line's policy: on for the Nexus line's testers, off
+        // until PI publishes it on the 3.9.x App Store line.
+        let visibleByDefault = ProductSurfacePolicy.optionalSurfacesDefaultOn
+        XCTAssertEqual(settings.nexusEnabled, visibleByDefault && ProductSurfacePolicy.showsNexusPortfolio)
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertTrue(settings.polkamarktEnabled)
+        XCTAssertEqual(settings.polkamarktEnabled, visibleByDefault && ProductSurfacePolicy.showsPolkamarkt)
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
-        XCTAssertTrue(settings.isTairaEnabled)
+        XCTAssertEqual(settings.isTairaEnabled, visibleByDefault && ProductSurfacePolicy.showsTairaSettings)
     }
 
     func testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline() {
@@ -12337,7 +12692,6 @@ final class WalletModernizationTests: XCTestCase {
                 string: "https://sorametrics.org/tx/%7Btransaction%7D"
             )!,
             substrateTypesUrl: URL(string: "https://example.org/types.json"),
-            soracard: false,
             nodes: [
                 PIMobileChainNode(
                     name: "SORA",
@@ -12357,9 +12711,17 @@ final class WalletModernizationTests: XCTestCase {
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
 
-        XCTAssertTrue(settings.nexusEnabled)
+        // Tester builds follow PI. An App Store build ships none of these
+        // surfaces, so there the flags stay off whatever PI sends.
+        XCTAssertEqual(
+            settings.nexusEnabled,
+            ProductSurfacePolicy.showsNexusPortfolio
+        )
         XCTAssertFalse(settings.nexusSendsEnabled)
-        XCTAssertTrue(settings.polkamarktEnabled)
+        XCTAssertEqual(
+            settings.polkamarktEnabled,
+            ProductSurfacePolicy.showsPolkamarkt
+        )
         XCTAssertFalse(settings.polkamarktMutationsEnabled)
         XCTAssertFalse(config.typedAccountBalancesAvailable)
         XCTAssertFalse(settings.isTairaEnabled)
@@ -12380,7 +12742,10 @@ final class WalletModernizationTests: XCTestCase {
             refreshToken:
                 ProductionRemoteCapabilitySession.shared.beginLiveRefresh()
         )
-        XCTAssertTrue(settings.isTairaEnabled)
+        XCTAssertEqual(
+            settings.isTairaEnabled,
+            ProductSurfacePolicy.showsTairaSettings
+        )
 
         settings.isTairaEnabled = false
         settings.set(
@@ -12482,7 +12847,6 @@ final class WalletModernizationTests: XCTestCase {
                 string: "https://sorametrics.org/tx/%7Btransaction%7D"
             )!,
             substrateTypesUrl: URL(string: "https://example.org/types.json"),
-            soracard: false,
             nodes: [
                 PIMobileChainNode(
                     name: "SORA",
@@ -12825,79 +13189,102 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPIResponseRequiresStablePreflightAndPostflightCheckpoint() throws {
+    /// PI indexes a block about every six seconds, so the health records
+    /// read before and after a response often differ. The response is then
+    /// attributed to the later checkpoint. Only a move backwards, or another
+    /// indexer, is rejected.
+    func testPIResponseFollowsAForwardCheckpointAndRejectsABackwardOne() throws {
         let now = 2_000_000
-        let health = PIHealth(
-            ok: true,
-            repositoryReady: true,
-            service: "polkaswap-indexer",
-            serviceId: "pi.soramitsu.io",
-            schemaVersion: 1,
-            ecosystem: "sora2",
-            chainId: "sora:mainnet",
-            network: "mainnet",
-            publicBaseUrl: PIIndexerClient.endpoint,
-            readOnly: true,
-            genesisHash: PIIndexerClient.soraMainnetGenesis,
-            latestIndexedBlock: 123,
-            latestIndexedBlockHash:
-                "0x1111111111111111111111111111111111111111111111111111111111111111",
-            latestIndexedAt: now,
-            workerAvailable: true,
-            workerReady: true,
-            workerReadinessReason: nil,
-            workerLifecycle: "running",
-            workerStartupComplete: true,
-            workerLatestFinalizedBlock: 125,
-            workerLatestIndexedBlock: 123,
-            workerLag: 2,
-            workerLastSuccessfulIndexTimestamp: now,
-            workerLastError: nil,
-            workerLastErrorTimestamp: nil
+        func health(
+            indexed: Int,
+            finalized: Int,
+            serviceId: String = "pi.soramitsu.io",
+            hash: String =
+                "0x1111111111111111111111111111111111111111111111111111111111111111"
+        ) -> PIHealth {
+            PIHealth(
+                ok: true,
+                repositoryReady: true,
+                service: "polkaswap-indexer",
+                serviceId: serviceId,
+                schemaVersion: 1,
+                ecosystem: "sora2",
+                chainId: "sora:mainnet",
+                network: "mainnet",
+                publicBaseUrl: PIIndexerClient.endpoint,
+                readOnly: true,
+                genesisHash: PIIndexerClient.soraMainnetGenesis,
+                latestIndexedBlock: indexed,
+                latestIndexedBlockHash: hash,
+                latestIndexedAt: now,
+                workerAvailable: true,
+                workerReady: true,
+                workerReadinessReason: nil,
+                workerLifecycle: "running",
+                workerStartupComplete: true,
+                workerLatestFinalizedBlock: finalized,
+                workerLatestIndexedBlock: indexed,
+                workerLag: finalized - indexed,
+                workerLastSuccessfulIndexTimestamp: now,
+                workerLastError: nil,
+                workerLastErrorTimestamp: nil
+            )
+        }
+        let before = health(indexed: 123, finalized: 125)
+
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: before
+            ),
+            before
+        )
+        // One block later: the response belongs to the later checkpoint.
+        let oneBlockLater = health(
+            indexed: 124,
+            finalized: 125,
+            hash: "0x2222222222222222222222222222222222222222222222222222222222222222"
+        )
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: oneBlockLater
+            ),
+            oneBlockLater
+        )
+        // Only the finalized head moved (it does so about three seconds
+        // before the indexed block): still the same indexed checkpoint.
+        let finalizedHeadMoved = health(indexed: 123, finalized: 126)
+        XCTAssertEqual(
+            try PIIndexerClient.settledResponseCheckpoint(
+                preflight: before,
+                postflight: finalizedHeadMoved
+            ),
+            finalizedHeadMoved
         )
 
-        XCTAssertNoThrow(
-            try PIIndexerClient.validateStableResponseCheckpoint(
-                preflight: health,
-                postflight: health
-            )
-        )
-        XCTAssertThrowsError(
-            try PIIndexerClient.validateStableResponseCheckpoint(
-                preflight: health,
-                postflight: PIHealth(
-                    ok: health.ok,
-                    repositoryReady: health.repositoryReady,
-                    service: health.service,
-                    serviceId: health.serviceId,
-                    schemaVersion: health.schemaVersion,
-                    ecosystem: health.ecosystem,
-                    chainId: health.chainId,
-                    network: health.network,
-                    publicBaseUrl: health.publicBaseUrl,
-                    readOnly: health.readOnly,
-                    genesisHash: health.genesisHash,
-                    latestIndexedBlock: 124,
-                    latestIndexedBlockHash: health.latestIndexedBlockHash,
-                    latestIndexedAt: health.latestIndexedAt,
-                    workerAvailable: health.workerAvailable,
-                    workerReady: health.workerReady,
-                    workerReadinessReason: health.workerReadinessReason,
-                    workerLifecycle: health.workerLifecycle,
-                    workerStartupComplete: health.workerStartupComplete,
-                    workerLatestFinalizedBlock: 125,
-                    workerLatestIndexedBlock: 124,
-                    workerLag: 1,
-                    workerLastSuccessfulIndexTimestamp:
-                        health.workerLastSuccessfulIndexTimestamp,
-                    workerLastError: health.workerLastError,
-                    workerLastErrorTimestamp:
-                        health.workerLastErrorTimestamp
+        let rejected: [PIHealth] = [
+            // Backwards.
+            health(indexed: 122, finalized: 125),
+            // Another service answered.
+            health(indexed: 124, finalized: 125, serviceId: "other.example"),
+            // The same height with another block.
+            health(
+                indexed: 123,
+                finalized: 125,
+                hash: "0x3333333333333333333333333333333333333333333333333333333333333333"
+            ),
+        ]
+        for after in rejected {
+            XCTAssertThrowsError(
+                try PIIndexerClient.settledResponseCheckpoint(
+                    preflight: before,
+                    postflight: after
                 )
-            )
-        ) { error in
-            guard case PIIndexerError.staleCheckpoint = error else {
-                return XCTFail("Unexpected error: \(error)")
+            ) { error in
+                guard case PIIndexerError.staleCheckpoint = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
             }
         }
     }
@@ -13650,7 +14037,7 @@ final class WalletModernizationTests: XCTestCase {
         let presentationAsset = try decoder.decode(
             PIAsset.self,
             from: Data(
-                #"{"id":"xor","priceChangeDay":-4.5,"priceChangeWeek":3,"volumeDayUSD":"999999999999999999999.1"}"#.utf8
+                #"{"id":"xor","priceUSD":"999999999999999999999.1","priceChangeDay":-4.5}"#.utf8
             )
         )
 
@@ -13660,17 +14047,20 @@ final class WalletModernizationTests: XCTestCase {
         )
         XCTAssertEqual(presentationAsset.priceChangeDay, -4.5)
         XCTAssertEqual(
-            presentationAsset.volumeDayUSD?.rawValue,
+            presentationAsset.priceUSD?.rawValue,
             "999999999999999999999.1"
         )
-        XCTAssertThrowsError(
-            try decoder.decode(
-                PIAsset.self,
-                from: Data(
-                    #"{"id":"xor","volumeDayUSD":1.5}"#.utf8
-                )
+        // The live PI sends `volumeDayUSD` and `volumeWeekUSD` as JSON
+        // numbers. The wallet does not read them, so a row that carries them
+        // decodes; it used to fail the whole asset catalog.
+        let liveShapedAsset = try decoder.decode(
+            PIAsset.self,
+            from: Data(
+                #"{"id":"xor","priceUSD":"5.4","volumeDayUSD":1.5,"volumeWeekUSD":0}"#.utf8
             )
         )
+        XCTAssertEqual(liveShapedAsset.priceUSD?.rawValue, "5.4")
+        XCTAssertNoThrow(try PIIndexerClient.validateAssets([liveShapedAsset]))
         XCTAssertThrowsError(try PIIndexerClient.validatePools([pool]))
         XCTAssertThrowsError(
             try PIIndexerClient.validateReferrerRewards(
@@ -17038,12 +17428,14 @@ final class WalletModernizationTests: XCTestCase {
             updatedAt: Date(timeIntervalSince1970: 3),
             state: .submissionUnknown
         )
+        let journalTime = Date(timeIntervalSince1970: 100)
         let journalOverlay = TransactionHistoryMergeManager
             .pendingJournalOverlay(
                 address: "sender",
                 submissions: [journal, journal],
                 visibleLocalItems: [],
-                remoteHashes: []
+                remoteHashes: [],
+                now: journalTime
             )
         XCTAssertEqual(journalOverlay.count, 1)
         XCTAssertEqual(journalOverlay.first?.txHash, "0x\(journalHash)")
@@ -17066,7 +17458,19 @@ final class WalletModernizationTests: XCTestCase {
                 address: "another-account",
                 submissions: [journal],
                 visibleLocalItems: [],
-                remoteHashes: []
+                remoteHashes: [],
+                now: journalTime
+            ).isEmpty
+        )
+        // An entry nobody could resolve for more than a week no longer
+        // claims to be pending.
+        XCTAssertTrue(
+            TransactionHistoryMergeManager.pendingJournalOverlay(
+                address: "sender",
+                submissions: [journal],
+                visibleLocalItems: [],
+                remoteHashes: [],
+                now: Date(timeIntervalSince1970: 2 + 8 * 24 * 3_600)
             ).isEmpty
         )
     }
@@ -18855,33 +19259,40 @@ final class WalletModernizationTests: XCTestCase {
             health: health(100),
             source: .live
         )
+        func collect(
+            second: PIReadQualification
+        ) async throws -> PIQualifiedRead<[String]> {
+            var page = 0
+            return try await client.collectQualifiedPagesRead(
+                pageSize: 1,
+                maximumPages: 2
+            ) { cursor in
+                defer { page += 1 }
+                return PIQualifiedRead(
+                    value: PIConnection<String>(
+                        nodes: [page == 0 ? "first" : "second"],
+                        edges: nil,
+                        pageInfo: PIPageInfo(
+                            hasNextPage: page == 0,
+                            hasPreviousPage: cursor != nil,
+                            startCursor: cursor,
+                            endCursor: page == 0 ? "next" : nil
+                        ),
+                        totalCount: 2
+                    ),
+                    qualification: page == 0 ? first : second
+                )
+            }
+        }
         let incompatible = [
+            // A cached page after a live one.
             PIReadQualification(health: health(100), source: .cache),
-            PIReadQualification(health: health(101), source: .live),
+            // The indexer went backwards between pages.
+            PIReadQualification(health: health(99), source: .live),
         ]
         for second in incompatible {
-            var page = 0
             do {
-                _ = try await client.collectQualifiedPages(
-                    pageSize: 1,
-                    maximumPages: 2
-                ) { cursor in
-                    defer { page += 1 }
-                    return PIQualifiedRead(
-                        value: PIConnection<String>(
-                            nodes: [page == 0 ? "first" : "second"],
-                            edges: nil,
-                            pageInfo: PIPageInfo(
-                                hasNextPage: page == 0,
-                                hasPreviousPage: cursor != nil,
-                                startCursor: cursor,
-                                endCursor: page == 0 ? "next" : nil
-                            ),
-                            totalCount: 2
-                        ),
-                        qualification: page == 0 ? first : second
-                    )
-                }
+                _ = try await collect(second: second)
                 XCTFail("PI composed pages from incompatible qualifications")
             } catch {
                 guard case PIIndexerError.staleCheckpoint = error else {
@@ -18889,6 +19300,27 @@ final class WalletModernizationTests: XCTestCase {
                 }
             }
         }
+
+        // The indexer moved forward between pages: normal progress. The
+        // result is attributed to the later checkpoint.
+        let later = PIReadQualification(health: health(101), source: .live)
+        let followed = try await collect(second: later)
+        XCTAssertEqual(followed.value, ["first", "second"])
+        XCTAssertEqual(followed.qualification, later)
+
+        // Two cached pages must carry one checkpoint.
+        XCTAssertThrowsError(
+            try PIIndexerClient.validatePageCheckpoint(
+                previous: PIReadQualification(
+                    health: health(100),
+                    source: .cache
+                ),
+                current: PIReadQualification(
+                    health: health(101),
+                    source: .cache
+                )
+            )
+        )
 
         let qualified = try await client.collectQualifiedPagesRead(
             pageSize: 1,
@@ -18970,7 +19402,7 @@ final class WalletModernizationTests: XCTestCase {
         }
     }
 
-    func testPICacheFallbackAllowsOnlyTransientTransportErrors() {
+    func testPICacheFallbackAllowsOnlyFailuresWherePIGaveNoAnswer() {
         XCTAssertTrue(
             PIIndexerClient.allowsOfflineTransportFallback(
                 URLError(.notConnectedToInternet)
@@ -18986,7 +19418,11 @@ final class WalletModernizationTests: XCTestCase {
                 URLError(.cancelled)
             )
         )
-        XCTAssertFalse(
+        // Review round 4 of in1-indexer: a TLS failure and a status from a
+        // proxy or firewall mean that PI gave no answer, like a timeout.
+        // The last good validated value is shown with its time; nothing
+        // is read from the other side. (They used to hide it.)
+        XCTAssertTrue(
             PIIndexerClient.allowsOfflineTransportFallback(
                 URLError(.serverCertificateUntrusted)
             )
@@ -18994,9 +19430,17 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertTrue(PIIndexerError.httpStatus(408).allowsOfflineFallback)
         XCTAssertTrue(PIIndexerError.httpStatus(429).allowsOfflineFallback)
         XCTAssertTrue(PIIndexerError.httpStatus(503).allowsOfflineFallback)
-        XCTAssertFalse(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        XCTAssertTrue(PIIndexerError.httpStatus(404).allowsOfflineFallback)
+        // PI's own refusal of the request is never hidden by older data.
+        XCTAssertFalse(PIIndexerError.httpStatus(400).allowsOfflineFallback)
         XCTAssertFalse(PIIndexerError.invalidResponse.allowsOfflineFallback)
         XCTAssertFalse(PIIndexerError.responseTooLarge.allowsOfflineFallback)
+        // PI answered but had no consistent fresh checkpoint: the last good
+        // value is better than nothing. Wrong data never qualifies.
+        XCTAssertTrue(PIIndexerError.staleCheckpoint.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidQuantity.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.invalidChainIdentity.allowsOfflineFallback)
+        XCTAssertFalse(PIIndexerError.graphQLErrors.allowsOfflineFallback)
     }
 
     func testValidatedPIHistoryCacheSurvivesRestartAndExpires()
@@ -19619,6 +20063,8 @@ final class WalletModernizationTests: XCTestCase {
             )
         }
 
+        // The Nexus line keeps its Release verifier (now run by CI, not as a
+        // build phase); it must keep the Polkamarkt parity gate.
         let releaseVerifierURL = fixtureURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -19684,6 +20130,8 @@ final class WalletModernizationTests: XCTestCase {
                 options: [.skipsHiddenFiles]
             )
             .filter { $0.pathExtension == "lproj" }
+        // 33 catalogs in the source tree: the Nexus line keeps akk and
+        // egy-Egyp, which the 3.9.x App Store line removed (31 there).
         XCTAssertEqual(localeDirectories.count, 33)
         for localeDirectory in localeDirectories {
             let strings = try String(
@@ -20111,7 +20559,8 @@ final class WalletModernizationTests: XCTestCase {
                 journalStore
             },
             lifecycleCoordinator: lifecycleCoordinator,
-            recoveryGate: recoveryGate
+            recoveryGate: recoveryGate,
+            keystore: keychain
         )
         let eventCenter = EventCenter(
             syncQueue: DispatchQueue(
@@ -20179,6 +20628,9 @@ final class WalletModernizationTests: XCTestCase {
                     },
                     lifecycleCoordinator: lifecycleCoordinator
                 )
+            },
+            initialPINAccounts: {
+                try WalletAccountAddresses.accounts(storageFacade: storageFacade)
             }
         )
         let presenter = LegacyUpgradeRootPresenterSpy()
@@ -20375,9 +20827,50 @@ final class WalletModernizationTests: XCTestCase {
             )
         }
 
+        // Downgrade safety (3.9.0): the upgraded account gets scoped copies,
+        // add-only, so App Store 3.8.6 (which deletes `seedEntropy` and
+        // requires `-secretKey`) cannot lose it. Every original item, the
+        // global entropy included, is byte-identical. The copies are added
+        // right after the upgrade when the lifecycle lease is free, otherwise
+        // by the next startup; run that startup step here (idempotent).
+        let upgradedSnapshot = try WalletNetworkStore(baseURL: directory, recoveryGate: recoveryGate).load()
+        if let backfillSnapshot = upgradedSnapshot,
+           let backfillAccount = backfillSnapshot.accounts.first(where: {
+               $0.walletId == expectedAddress && $0.networkId == .sora2
+           }) {
+            let upgraded = AccountItem(address: backfillAccount.address, cryptoType: .sr25519,
+                networkType: Chain.sora.addressType(), username: "", publicKeyData: backfillAccount.publicKey,
+                settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+            try LegacyGlobalEntropyScopedBackfill.run(accounts: [upgraded], snapshot: backfillSnapshot,
+                keystore: keychain, recoveryGate: recoveryGate)
+        }
+        let scopedCopies: Set<String> = upgradedSnapshot == nil ? [] : [
+            KeystoreTag.secretKeyTagForAddress(expectedAddress),
+            KeystoreTag.entropyTagForAddress(expectedAddress),
+            KeystoreTag.seedTagForAddress(expectedAddress),
+        ]
+        // The real selection singleton receives the same Keychain as its
+        // importer. This isolated fixture must do so too: the exact import
+        // journal grants initial PIN setup before any account row is inserted.
+        let setupTag = WalletOwnerPIN.setupPrefix + expectedAddress
+        let setupIntent = try JSONDecoder().decode(WalletOwnerPIN.SetupIntent.self,
+            from: keychain.fetchKey(for: setupTag))
+        XCTAssertEqual(setupIntent.account.address, expectedAddress)
+        XCTAssertEqual(setupIntent.account.publicKeyData, expectedPublicKey)
+        let commitURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+            at: directory.appendingPathComponent("SORA/WalletAccountCommits"),
+            includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("wallet-account-") })
+        let commitDecoder = JSONDecoder()
+        commitDecoder.dateDecodingStrategy = .iso8601
+        let setupCommit = try commitDecoder.decode(WalletAccountCommitJournal.self,
+            from: Data(contentsOf: commitURL))
+        XCTAssertEqual(setupIntent.operationID, setupCommit.id)
+        XCTAssertEqual(setupIntent.account.address, setupCommit.walletId)
+        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+        XCTAssertFalse(try keychain.checkKey(for: expectedAddress + WalletOwnerPIN.bindingSuffix))
         XCTAssertEqual(
             Set(try keychain.allKeyIdentifiers()),
-            originalIdentifiers
+            originalIdentifiers.union(scopedCopies).union([setupTag])
         )
         for (identifier, expectedValue) in originalValues {
             XCTAssertEqual(
@@ -20385,14 +20878,16 @@ final class WalletModernizationTests: XCTestCase {
                 expectedValue
             )
         }
-        for scopedTag in [
-            KeystoreTag.secretKeyTagForAddress(expectedAddress),
-            KeystoreTag.entropyTagForAddress(expectedAddress),
-            KeystoreTag.deriviationTagForAddress(expectedAddress),
-            KeystoreTag.seedTagForAddress(expectedAddress),
-        ] {
-            XCTAssertFalse(try keychain.checkKey(for: scopedTag))
-        }
+        XCTAssertFalse(try keychain.checkKey(for: KeystoreTag.deriviationTagForAddress(expectedAddress)))
+        guard upgradedSnapshot != nil else { return }
+        let globalEntropy = try XCTUnwrap(originalValues[KeystoreTag.legacyEntropy.rawValue])
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.entropyTagForAddress(expectedAddress)), globalEntropy)
+        let backfillSeed = try SeedFactory().deriveSeed(
+            from: IRMnemonicCreator(language: .english).mnemonic(fromEntropy: globalEntropy).toString(),
+            password: "").seed.miniSeed
+        XCTAssertEqual(try keychain.fetchKey(for: KeystoreTag.seedTagForAddress(expectedAddress)), backfillSeed)
+        let backfillSecret = try keychain.fetchKey(for: KeystoreTag.secretKeyTagForAddress(expectedAddress))
+        XCTAssertEqual(Data(SHA256.hash(data: backfillSecret)), expectedSecretDigest)
     }
 
     private func makeLegacyAccount(address label: String) -> AccountItem {
@@ -20641,6 +21136,7 @@ private final class LegacyUpgradeRootPresenterSpy:
         case localAuthentication
         case broken
         case pincodeSetup
+        case welcomeBack
     }
 
     private let lock = NSLock()
@@ -20671,6 +21167,10 @@ private final class LegacyUpgradeRootPresenterSpy:
 
     func didDecidePincodeSetup() {
         record(.pincodeSetup)
+    }
+
+    func didDecideWelcomeBack() {
+        record(.welcomeBack)
     }
 
     private func record(_ decision: Decision) {

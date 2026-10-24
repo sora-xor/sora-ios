@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import UIKit
 import RobinHood
 import SoraKeystore
 import SSFUtils
@@ -128,6 +129,7 @@ struct WalletStartupDiagnostic: Codable, Equatable {
         case networkSnapshot = "network_snapshot"
         case selectedAccount = "selected_account"
         case networkBootstrap = "network_bootstrap"
+        case pendingTransactions = "pending_transactions"
     }
 
     enum Cause: String, Codable {
@@ -188,24 +190,27 @@ struct WalletStartupDiagnostic: Codable, Equatable {
     }
 
     var userMessage: String {
+        if phase == .pendingTransactions {
+            return WalletUX.text("SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted.")
+        }
         switch cause {
         case .missingSecret, .keychainMissing:
             if secretChecks?.origin == .savedManifest {
-                return "The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved."
+                return WalletUX.text("The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved.")
             }
-            return "SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account."
+            return WalletUX.text("SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account.")
         case .emptySecret:
-            return "A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved."
+            return WalletUX.text("A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved.")
         case .keychainSystem:
-            if systemCode == -25308 { return "iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again." }
-            if systemCode == -34018 { return "iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced." }
-            return "iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation."
+            if systemCode == -25308 { return WalletUX.text("iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again.") }
+            if systemCode == -34018 { return WalletUX.text("iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced.") }
+            return WalletUX.text("iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation.")
         case .snapshotVerification, .inventoryMismatch, .legacyIdentityMismatch, .legacyUpgradeProof:
-            return "The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access."
+            return WalletUX.text("The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access.")
         case .missingStore, .unknownStore, .unavailableModel:
-            return "SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved."
-        case .insufficientStorage: return "SORA needs more free storage to retain a verified recovery copy before completing this upgrade."
-        default: return "SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved."
+            return WalletUX.text("SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved.")
+        case .insufficientStorage: return WalletUX.text("SORA needs more free storage to retain a verified recovery copy before completing this upgrade.")
+        default: return WalletUX.text("SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved.")
         }
     }
 
@@ -351,9 +356,39 @@ enum WalletStorageStartupOutcome: Equatable {
 }
 
 enum WalletStorageStartup {
+    /// Runs startup storage checks. A retryable failure (transient Keychain,
+    /// disk or journal error) is retried automatically, up to
+    /// `maximumAttempts` runs in total, before the recovery screen is shown.
+    /// Every retry is the same read-only verification a relaunch performs.
     static func run(
         settings: SettingsManagerProtocol,
         accountCommitRecovery: (() throws -> Void)? = nil,
+        maximumAttempts: Int = 3,
+        retryDelay: (Int) -> Void = { attempt in Thread.sleep(forTimeInterval: 0.3 * Double(attempt)) },
+        migration: () throws -> Void
+    ) -> WalletStorageStartupOutcome {
+        var outcome = runOnce(settings: settings, accountCommitRecovery: accountCommitRecovery,
+                              migration: migration)
+        var attempt = 1
+        while outcome == .recoveryRequired, accountCommitRecovery != nil, attempt < maximumAttempts {
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            // An interrupted database migration is retried too: its resume
+            // runs only after the retained backup, inventory and keys are
+            // proven again (product decision: 3 attempts before options).
+            guard marker.isRetryableStartupFailure || marker.isLegacyAccountCommitInterruption ||
+                marker.isDatabaseInterruption else { break }
+            retryDelay(attempt)
+            attempt += 1
+            Logger.shared.info("Wallet startup: automatic retry \(attempt) of \(maximumAttempts)")
+            outcome = runOnce(settings: settings, accountCommitRecovery: accountCommitRecovery,
+                              migration: migration)
+        }
+        return outcome
+    }
+
+    private static func runOnce(
+        settings: SettingsManagerProtocol,
+        accountCommitRecovery: (() throws -> Void)?,
         migration: () throws -> Void
     ) -> WalletStorageStartupOutcome {
         WalletStartupDiagnostic.retainSecretChecks(nil)
@@ -399,6 +434,181 @@ enum WalletStorageStartup {
             )
             return .recoveryRequired
         }
+    }
+}
+
+extension WalletStorageStartup {
+    struct Checks: Equatable {
+        let outcome: WalletStorageStartupOutcome
+        /// A wallet of the pre-account-model releases is waiting for its
+        /// explicit upgrade confirmation; no database was created.
+        let deferredForLegacyUpgrade: Bool
+    }
+
+    /// The wallet storage checks of one launch, in the order the app runs
+    /// them on its storage queue before it routes anywhere:
+    ///
+    /// 1. remove the hidden helper files a durable write leaves when the
+    ///    process dies inside it. They are not wallet data, and no check may
+    ///    fail because of them;
+    /// 2. resolve an interrupted startup verification and an interrupted
+    ///    account commit;
+    /// 3. migrate and verify the wallet database;
+    /// 4. check that the records of unfinished transactions can be read.
+    ///    Every send first records the transaction there. If they cannot be
+    ///    read, that is said now, on the recovery screen with its "set
+    ///    aside" action, instead of refusing every send later.
+    ///
+    /// `SplashInteractor` calls this with the defaults. The other parameters
+    /// exist so tests run this same sequence over an isolated installation.
+    static func runChecks(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        storeURL: URL = UserStorageParams.storageURL,
+        modelDirectory: String = UserStorageParams.modelDirectory,
+        applicationSupportURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        databaseMigrator: UserStorageMigrator? = nil,
+        fileManager: FileManager = .default,
+        sweepsHelperFiles: Bool = true,
+        retryDelay: ((Int) -> Void)? = nil
+    ) -> Checks {
+        if sweepsHelperFiles {
+            WalletInterruptedWriteCleanup.run(
+                storeURL: storeURL,
+                applicationSupportURL: applicationSupportURL,
+                fileManager: fileManager
+            )
+        }
+
+        let dbMigrator = databaseMigrator ?? UserStorageMigrator(
+            targetVersion: UserStorageParams.modelVersion,
+            storeURL: storeURL,
+            modelDirectory: modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: fileManager
+        )
+        let hasUnresolvedAccountCommit = {
+            try !WalletAccountCommitJournalStore(
+                fileManager: fileManager,
+                baseURL: applicationSupportURL,
+                recoveryGate: recoveryGate
+            ).unresolved().isEmpty
+        }
+//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
+        var deferredForLegacyUpgrade = false
+        let accountCommitRecovery: () throws -> Void = {
+            let paths: WalletLocalStateSetAside.Paths
+            if let applicationSupportURL {
+                paths = .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
+                              setAsideRootURL: storeURL.deletingLastPathComponent()
+                                .appendingPathComponent("WalletSetAside", isDirectory: true))
+            } else {
+                paths = try .production(fileManager: fileManager)
+            }
+            let returnLease = lifecycleCoordinator.acquire()
+            do {
+                try WalletPreservedGeneration.resume(paths: paths, settings: settings, keystore: keystore)
+                if try keystore.checkKey(for: WalletCredentialRepair.pendingTag) {
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let repairGate = WalletRecoveryCapabilityGate(settings: settings,
+                        unresolvedMigrationJournal: { dbMigrator.hasUnresolvedMigrationJournal() },
+                        unresolvedWalletCommitJournal: {
+                            try !WalletAccountCommitJournalStore(baseURL: applicationSupportURL).unresolved().isEmpty
+                        },
+                        migrationRecoveryMarker: marker.isDatabaseInterruption ? marker : nil,
+                        legacyAccountRecoveryMarker: marker.isLegacyAccountCommitInterruption ? marker : nil,
+                        startupVerificationMarker: marker.isRetryableStartupFailure ? marker : nil)
+                    let rows = WalletPreservedGeneration.exists(storeURL)
+                        ? try dbMigrator.preservedAccountInventory() : []
+                    try WalletCredentialRepair(keystore: keystore, settings: settings, recoveryGate: repairGate)
+                        .resumePending(accounts: rows)
+                }
+                returnLease.release()
+            } catch {
+                returnLease.release()
+                throw error
+            }
+            try WalletMissingDatabaseRecovery.preserveStaleMetadata(
+                settings: settings, keystore: keystore, paths: paths,
+                fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator)
+            try WalletStartupVerificationRecovery.recoverIfNeeded(
+                storeURL: storeURL,
+                modelDirectory: modelDirectory,
+                keystore: keystore,
+                settings: settings,
+                baseURL: applicationSupportURL,
+                lifecycleCoordinator: lifecycleCoordinator
+            )
+            try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: storeURL,
+                modelDirectory: modelDirectory,
+                keystore: keystore,
+                settings: settings,
+                baseURL: applicationSupportURL,
+                lifecycleCoordinator: lifecycleCoordinator,
+                recoveryGate: recoveryGate
+            )
+        }
+        let migration: () throws -> Void = {
+            guard try !hasUnresolvedAccountCommit() else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            if !settings.walletMigrationRecoveryRequired,
+               try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: fileManager.fileExists(atPath: storeURL.path),
+                keystore: keystore,
+                hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: try WalletNetworkStore(
+                    fileManager: fileManager,
+                    baseURL: applicationSupportURL,
+                    recoveryGate: recoveryGate
+                ).load()
+            ) {
+                // This pre-account-model state has retained legacy entropy
+                // and, in 1.x, its verified Iroha key. Do not create an
+                // empty replacement store; Root presents the explicit,
+                // journaled upgrade confirmation and verifies the resulting
+                // SORA identity while retaining the original Keychain entry.
+                deferredForLegacyUpgrade = true
+                return
+            }
+            try dbMigrator.migrateAtStartup(
+                lifecycleCoordinator: lifecycleCoordinator,
+                hasUnresolvedAccountCommit: hasUnresolvedAccountCommit
+            )
+            try WalletStartupDiagnostic.check(.pendingTransactions) {
+                try PendingTransactionRecords.requireReadable(
+                    baseURL: applicationSupportURL,
+                    fileManager: fileManager
+                )
+            }
+        }
+        let outcome: WalletStorageStartupOutcome
+        if let retryDelay {
+            outcome = run(
+                settings: settings,
+                accountCommitRecovery: accountCommitRecovery,
+                retryDelay: retryDelay,
+                migration: migration
+            )
+        } else {
+            outcome = run(
+                settings: settings,
+                accountCommitRecovery: accountCommitRecovery,
+                migration: migration
+            )
+        }
+        if outcome == .recoveryRequired {
+            do { try dbMigrator.preserveLegacyKeysDuringRecovery(lifecycleCoordinator: lifecycleCoordinator) }
+            catch { Logger.shared.warning("Wallet keys: recovery preservation deferred; original items kept") }
+        }
+        return Checks(
+            outcome: outcome,
+            deferredForLegacyUpgrade: deferredForLegacyUpgrade
+        )
     }
 }
 
@@ -464,22 +674,25 @@ enum WalletStartupVerificationRecovery {
         let store = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
         let fileManager = FileManager.default
         if !fileManager.fileExists(atPath: storeURL.path) {
-            let retainedPaths = [storeURL, URL(fileURLWithPath: storeURL.path + "-wal"),
-                URL(fileURLWithPath: storeURL.path + "-shm"),
-                storeURL.deletingLastPathComponent().appendingPathComponent("WalletMigrationSafety")]
-            guard !retainedPaths.contains(where: { (try? fileManager.attributesOfItem(atPath: $0.path)) != nil }),
-                  try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
-                    keystore: keystore, hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
-                    snapshot: store.load())
-            else { throw UserStorageMigrationError.missingWalletStore }
-            var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
-            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
-            let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
-            guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
-                throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+            let evidence = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+                storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
+                settings: settings, fileManager: fileManager, recoveryGate: gate,
+                loadWalletNetworkSnapshot: { try store.load() }).retainedWalletEvidenceKind()
+            guard evidence != .durable else { throw UserStorageMigrationError.missingWalletStore }
+            if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
+                keystore: keystore, hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: store.load()) {
+                var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+                defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+                let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+                guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+                    throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+                }
+                _ = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
+                // The existing explicit legacy-upgrade flow creates the first account.
             }
-            _ = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
-            // The existing explicit legacy-upgrade flow creates the first account.
+            // Otherwise only Keychain items survived (reinstall), or nothing
+            // did. Onboarding offers to restore them; nothing is changed here.
         } else {
             let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
                 storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
@@ -494,7 +707,18 @@ enum WalletStartupVerificationRecovery {
             let selected = try SelectedWalletSettings.resolveSelection(accounts: accounts,
                 legacySelectedAddress: settings.value(of: AccountItem.self,
                     for: SettingsKey.selectedAccount.rawValue)?.identifier)
-            guard !accounts.isEmpty, let selected else {
+            // An empty store with only Keychain items (or nothing) left is a
+            // reinstall or a removed-last-account state: onboarding handles it.
+            if accounts.isEmpty {
+                try checkpoint()
+                guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+                    throw UserStorageMigrationError.interruptedMigration
+                }
+                try gate.requireMutableWalletAccess()
+                try marker.clearAfterVerifiedStartup(settings)
+                return true
+            }
+            guard let selected else {
                 throw UserStorageMigrationError.selectedAccountMismatch
             }
             // The outer lease excludes normal lifecycle operations. The private
@@ -532,12 +756,13 @@ enum WalletStartupVerificationRecovery {
 final class SplashInteractor: SplashInteractorProtocol {
     weak var presenter: SplashPresenterProtocol!
     let settings: SettingsManagerProtocol
-    let socketService: WebSocketServiceProtocol
-    let configService: ConfigServiceProtocol
-    let reachabilityManager: ReachabilityManagerProtocol? = ReachabilityManager.shared
+    private let network: StartupNetworkCoordinating
+    private let genesisProvider: GenesisProviderProtocol
+    private let storageChecks: (() -> Void)?
     private let migrationStateLock = NSLock()
     private var didStartStorageMigration = false
     private var isAwaitingStorageRetry = false
+    private var protectedDataObserver: NSObjectProtocol?
     private let storageMigrationQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.name = "co.jp.soramitsu.sora.storage-migration"
@@ -546,18 +771,34 @@ final class SplashInteractor: SplashInteractorProtocol {
         return queue
     }()
 
+    /// - Parameter storageChecks: replaces the wallet storage checks of this
+    ///   run (tests of the startup order only).
     init(settings: SettingsManagerProtocol,
-         socketService: WebSocketServiceProtocol,
-         configService: ConfigServiceProtocol) {
+         network: StartupNetworkCoordinating = StartupNetworkCoordinator.shared,
+         genesisProvider: GenesisProviderProtocol = GenesisProvider(),
+         storageChecks: (() -> Void)? = nil) {
         self.settings = settings
-        self.socketService = socketService
-        self.configService = configService
+        self.network = network
+        self.genesisProvider = genesisProvider
+        self.storageChecks = storageChecks
     }
 
+    /// Starts the wallet storage checks and routing at once, as App Store
+    /// 3.8.6 does. Nothing here waits for the network: an existing wallet
+    /// reaches its PIN screen, and a wallet that needs attention reaches the
+    /// recovery screen, Welcome back or onboarding, with no node at all (dead
+    /// saved node, captive network, airplane mode). The remote configuration
+    /// and the on-chain asset list are requested in the background by
+    /// `StartupNetworkCoordinator` and applied when they arrive.
     func setup() {
-        configService.setupConfig { [weak self] in
-            self?.socketService.setup()
-            self?.loadGenesis()
+        let genesis = genesisProvider.load()
+        settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
+        Logger.shared.info("Runtime update gen: " + genesis)
+
+        network.startupDidBegin()
+
+        Task { @MainActor [weak self] in
+            self?.startChain()
         }
     }
 
@@ -570,55 +811,15 @@ final class SplashInteractor: SplashInteractorProtocol {
         isAwaitingStorageRetry = false
         migrationStateLock.unlock()
         storageMigrationQueue.addOperation { [weak self] in
-            self?.performStorageMigration()
+            self?.runStorageChecks()
         }
     }
 
-    private func loadGenesis() {
-        guard reachabilityManager?.isReachable ?? false else {
-            loadAssetsInfo(chainId: nil)
-            return
-        }
-
-        let provider = GenesisProvider(engine: socketService.connection!)
-        provider.load(completion: { [weak self] genesis in
-            self?.didLoadGenesis(genesis)
-        })
-    }
-
-    private func didLoadGenesis(_ genesis: String?) {
-        if let genesis = genesis {
-            self.settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
-            Logger.shared.info("Runtime update gen: " + genesis)
-        }
-        loadAssetsInfo(chainId: genesis)
-    }
-
-    private func loadAssetsInfo(chainId: String?) {
-        guard reachabilityManager?.isReachable ?? false else {
-            didLoadAssetsInfo([])
-            return
-        }
-        
-        let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
-        provider.load { [weak self] assetsInfo in
-            self?.didLoadAssetsInfo(assetsInfo)
-        }
-    }
-
-    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
-        Task {
-            AssetManager.networkAssets = assetsInfo
-
-            // Fiat prices and market-cap data are display-only and every consumer already loads
-            // them lazily through getPriceInfo(for:). A slow PI request must not hold wallet
-            // storage migration, recovery checks, or navigation on the splash screen.
-
-            socketService.throttle()
-
-            await MainActor.run {
-                self.startChain()
-            }
+    private func runStorageChecks() {
+        if let storageChecks {
+            storageChecks()
+        } else {
+            performStorageMigration()
         }
     }
 
@@ -636,61 +837,38 @@ final class SplashInteractor: SplashInteractorProtocol {
         Sora2PendingSubmissionRecoveryRuntime.shared
             .prepareForWalletStorageMigration()
 
+        // Wallet keys use WhenUnlockedThisDeviceOnly and the migration files
+        // use complete protection. Before the first unlock (for example a
+        // background or prewarmed launch) both are unreadable; wait instead of
+        // recording a failure.
+        guard UIApplication.shared.isProtectedDataAvailable else {
+            Logger.shared.info("Wallet storage: waiting for the device to be unlocked")
+            protectedDataObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                if let observer = self.protectedDataObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                    self.protectedDataObserver = nil
+                }
+                self.storageMigrationQueue.addOperation { [weak self] in
+                    self?.runStorageChecks()
+                }
+            }
+            return
+        }
+
         storageMigrationQueue.addOperation { [weak self] in
-            self?.performStorageMigration()
+            self?.runStorageChecks()
         }
     }
 
     private func performStorageMigration() {
-        let keychain = Keychain()
-        let dbMigrator = UserStorageMigrator(
-            targetVersion: UserStorageParams.modelVersion,
-            storeURL: UserStorageParams.storageURL,
-            modelDirectory: UserStorageParams.modelDirectory,
-            keystore: keychain,
-            settings: settings,
-            fileManager: FileManager.default
-        )
-//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
-        var deferredForLegacyUpgrade = false
-        let outcome = WalletStorageStartup.run(settings: settings, accountCommitRecovery: {
-            try WalletStartupVerificationRecovery.recoverIfNeeded(
-                storeURL: UserStorageParams.storageURL,
-                modelDirectory: UserStorageParams.modelDirectory,
-                keystore: keychain,
-                settings: self.settings
-            )
-            try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
-                storeURL: UserStorageParams.storageURL,
-                modelDirectory: UserStorageParams.modelDirectory,
-                keystore: keychain,
-                settings: self.settings
-            )
-        }) {
-            let unresolvedCommits =
-                try WalletAccountCommitJournalStore().unresolved()
-            guard unresolvedCommits.isEmpty else {
-                throw UserStorageMigrationError.interruptedMigration
-            }
-            if !settings.walletMigrationRecoveryRequired,
-               try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
-                storeExists: FileManager.default.fileExists(
-                    atPath: UserStorageParams.storageURL.path
-                ),
-                keystore: keychain,
-                hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
-                snapshot: try WalletNetworkStore().load()
-            ) {
-                // This pre-account-model state has retained legacy entropy
-                // and, in 1.x, its verified Iroha key. Do not create an
-                // empty replacement store; Root presents the explicit,
-                // journaled upgrade confirmation and verifies the resulting
-                // SORA identity while retaining the original Keychain entry.
-                deferredForLegacyUpgrade = true
-                return
-            }
-            try dbMigrator.migrateAtStartup()
-        }
+        let checks = WalletStorageStartup.runChecks(settings: settings, keystore: Keychain())
+        let outcome = checks.outcome
+        let deferredForLegacyUpgrade = checks.deferredForLegacyUpgrade
 
         switch outcome {
         case .needsStorageSpace:
@@ -709,6 +887,15 @@ final class SplashInteractor: SplashInteractorProtocol {
         }
 
         if deferredForLegacyUpgrade {
+            completeSplashOnMain()
+            return
+        }
+
+        // Do not create an empty replacement SQLite store just to decide
+        // between onboarding and Welcome back. This also leaves an empty live
+        // namespace eligible for the explicit preserved-generation return.
+        if !WalletPreservedGeneration.exists(UserStorageParams.storageURL) {
+            SelectedWalletSettings.shared.commitInternalValue(nil)
             completeSplashOnMain()
             return
         }
@@ -774,13 +961,16 @@ final class SplashInteractor: SplashInteractorProtocol {
             do {
                 let accounts = try operation.extractNoCancellableResultData()
                 let store = try WalletNetworkStore()
+                let keystore = Keychain()
                 try Self.initializeWalletNetworksIfNeeded(
                     accounts: accounts,
                     selectedAddress: selectedAccount?.address,
                     store: store,
-                    keystore: Keychain(),
+                    keystore: keystore,
                     settings: settings
                 )
+                Self.addScopedCopiesIfNeeded(accounts: accounts, store: store, keystore: keystore)
+                self.repairSelectionIfNeeded(accounts: accounts, selectedAccount: selectedAccount)
 
                 DispatchQueue.main.async {
                     // The lossless Core Data and wallet-network migrations are
@@ -790,13 +980,10 @@ final class SplashInteractor: SplashInteractorProtocol {
                         .markWalletStorageReadyAndResume()
                     Sora2PendingSubmissionRecoveryRuntime.shared
                         .markWalletStorageReadyAndResume()
-                    if selectedAccount != nil {
-                        ChainRegistryFacade.sharedRegistry.performHotBoot()
-                        Logger.shared.debug("Selected wallet restored")
-                    } else {
-                        ChainRegistryFacade.sharedRegistry.performColdBoot()
-                        Logger.shared.debug("No selected account")
-                    }
+                    Self.bootChainRegistry(
+                        hasSelectedAccount: selectedAccount != nil,
+                        network: self.network
+                    )
                     self.presenter.setupComplete()
                 }
             } catch {
@@ -818,12 +1005,87 @@ final class SplashInteractor: SplashInteractorProtocol {
         OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
     }
 
+    /// Boots the chain registry. Main thread only.
+    ///
+    /// The registry is created by its first use, and creating it reads the
+    /// app's window (UIKit, main thread only). The asset list and the remote
+    /// node list are loaded in the background and use the registry as soon as
+    /// the coordinator hears of the boot, on a queue of their own. So the
+    /// registry is created here first: the background work can then never be
+    /// the one that creates it.
+    static func bootChainRegistry(
+        hasSelectedAccount: Bool,
+        network: StartupNetworkCoordinating,
+        registry: () -> ChainRegistryProtocol = { ChainRegistryFacade.sharedRegistry }
+    ) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        let registry = registry()
+        // From here on the asset list and the remote node list reach the registry.
+        network.chainRegistryWillBoot()
+        if hasSelectedAccount {
+            registry.performHotBoot()
+            Logger.shared.debug("Selected wallet restored")
+        } else {
+            registry.performColdBoot()
+            Logger.shared.debug("No selected account")
+        }
+    }
+
+    /// Downgrade safety (see `LegacyGlobalEntropyScopedBackfill`). Best effort:
+    /// a failure is logged with a fixed code and retried at the next startup;
+    /// it never latches recovery.
+    static func addScopedCopiesIfNeeded(
+        accounts: [AccountItem],
+        store: WalletNetworkStore,
+        keystore: KeystoreProtocol,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) {
+        guard !accounts.isEmpty else { return }
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        do {
+            guard let snapshot = try store.load() else { return }
+            try LegacyGlobalEntropyScopedBackfill.run(
+                accounts: accounts,
+                snapshot: snapshot,
+                keystore: keystore,
+                recoveryGate: recoveryGate
+            )
+        } catch {
+            Logger.shared.warning(
+                "Wallet keys: scoped copies deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+            )
+        }
+    }
+
+    /// Core Data must hold exactly one selected row: App Store 3.8.6 reads
+    /// only that row, and signing requires the selection to be durable. Older
+    /// releases and interrupted writes can leave zero or several. Write the
+    /// resolved selection back (journal-free selection save; no key changes).
+    private func repairSelectionIfNeeded(accounts: [AccountItem], selectedAccount: AccountItem?) {
+        guard let selectedAccount,
+              SelectedWalletSettings.needsSelectionRepair(accounts: accounts) else { return }
+        let done = DispatchSemaphore(value: 0)
+        SelectedWalletSettings.shared.performSave(value: selectedAccount) { result in
+            if case let .failure(error) = result {
+                Logger.shared.warning(
+                    "Selected wallet repair deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+                )
+            }
+            done.signal()
+        }
+        done.wait()
+    }
+
     static func initializeWalletNetworksIfNeeded(
         accounts: [AccountItem],
         selectedAddress: String?,
         store: WalletNetworkStore,
         keystore: KeystoreProtocol,
-        settings: SettingsManagerProtocol
+        settings: SettingsManagerProtocol,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) throws {
         // On a clean install there is no wallet to activate. Creating an empty
         // snapshot here writes a retained-wallet marker before onboarding and
@@ -836,7 +1098,9 @@ final class SplashInteractor: SplashInteractorProtocol {
         try WalletNetworkModelMigrator(
             keystore: keystore,
             store: store,
-            settings: settings
+            settings: settings,
+            lifecycleCoordinator: lifecycleCoordinator,
+            recoveryGate: recoveryGate
         ).migrate(accounts: accounts, selectedAddress: selectedAddress)
     }
 }

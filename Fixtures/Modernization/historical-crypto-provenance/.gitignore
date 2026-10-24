@@ -1,0 +1,8 @@
+runtime/
+__pycache__/
+IrohaCrypto-*/
+*.log
+*.bin
+build-*-commands.json
+build-*-command.json
+shared-features-ada44b24-git-tree.json

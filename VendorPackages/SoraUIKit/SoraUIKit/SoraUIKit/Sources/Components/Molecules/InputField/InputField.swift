@@ -84,12 +84,20 @@ public final class InputField: UIView, Molecule {
 
     @available(*, unavailable)
     public override init(frame: CGRect) { fatalError("init(coder:) has not been implemented") }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        NeonInputStyle.layout(stackView)
+    }
 }
 
 private extension InputField {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        stackView.layer.cornerRadius = 28
+        // The focus glow is a shadow around `stackView`; clipping here cut
+        // it down to a strip under the field.
+        sora.clipsToBounds = false
+        stackView.layer.cornerRadius = 16
         stackView.layer.borderWidth = 1
 
         addSubview(stackView)

@@ -48,18 +48,28 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<true/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_ANALYTICS_STORAGE</key>
+	<true/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_STORAGE</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_USER_DATA</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+	<false/>
 	<key>GIDClientID</key>
 	<string>$(SORA_GOOGLE_TOKEN)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera is used to capture QR code</string>
+	<string>SORA Wallet uses the camera to scan QR codes.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID authenticates IrohaConnect wallet connections and signatures.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app require the access to Microphone to pass KYC</string>
+	<string>SORA Wallet uses Face ID to unlock your wallet and confirm sensitive actions.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SORA Wallet saves a QR code image to your photos when you choose Save Image.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Load photos from library</string>
+	<string>SORA Wallet reads a QR code from a photo you choose.</string>
 	<key>SoraMigrationEvidenceAuthorizationKeyId</key>
 	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID)</string>
 	<key>SoraMigrationEvidenceAuthorizationPublicKeyX963Base64</key>
@@ -106,6 +116,9 @@
 		<string>sora-Regular.otf</string>
 		<string>sora-SemiBold.otf</string>
 		<string>Sora-Light.otf</string>
+		<string>Inter-Regular.ttf</string>
+		<string>Inter-SemiBold.ttf</string>
+		<string>Inter-Bold.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
@@ -117,7 +130,7 @@
 			<array>
 				<dict>
 					<key>UISceneConfigurationName</key>
-					<string>Wallet</string>
+					<string>Default Configuration</string>
 					<key>UISceneDelegateClassName</key>
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
 				</dict>
@@ -131,7 +144,7 @@
 		<string>armv7</string>
 	</array>
 	<key>UIStatusBarStyle</key>
-	<string>UIStatusBarStyleLightContent</string>
+	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

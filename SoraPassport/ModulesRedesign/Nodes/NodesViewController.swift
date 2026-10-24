@@ -55,7 +55,7 @@ final class NodesViewController: SoramitsuViewController, AlertPresentable {
 
     /// Used to correction the distance to the top of the screen
     private var statusBarHeightCorrection: CGFloat {
-        UIApplication.shared.statusBarFrame.size.height + 10
+        UIApplication.shared.soraStatusBarHeight + 10
     }
 
     /// Used to correction the middle position of the pull-up controller
@@ -133,11 +133,18 @@ extension NodesViewController: NodesViewProtocol {
     private func setupNavbar() {
 
         let addButton = UIBarButtonItem(title: R.string.localizable.selectNodeAddNode(preferredLanguages: languages), style: .plain, target: self, action: #selector(editTapped))
-        addButton.setTitleTextAttributes([ .font: UIFont.systemFont(ofSize: 13, weight: .bold), .foregroundColor: UIColor(hex: "#EE2233")],
-                                          for: .normal)
+        // Styled by the bar appearance (`NeonChrome`): no red text on bars.
 
         self.navigationItem.rightBarButtonItem = addButton
 
+        // Opened from More, this screen is the root of a modal and could
+        // only be left by pulling it down. It gets a visible Close button
+        // there; pushed from the PIN screen it has the Back arrow.
+        if navigationController?.viewControllers.first === self, presentingViewController != nil {
+            addCloseButton(position: .left)
+            navigationItem.leftBarButtonItem?.accessibilityLabel =
+                R.string.localizable.commonClose(preferredLanguages: languages)
+        }
     }
 
     private func setupConstraints() {

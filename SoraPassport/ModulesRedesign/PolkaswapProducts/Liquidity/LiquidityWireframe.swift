@@ -48,6 +48,8 @@ enum LiquidityTransferInfoFactoryError: Swift.Error {
     case invalidAmounts
     case invalidPool
     case invalidTransactionType
+    /// The base asset is not the base of any DEX the app knows (for example KXOR).
+    case unknownDex
 }
 
 enum LiquidityFeeQualification {
@@ -106,6 +108,7 @@ enum LiquidityTransferInfoFactory {
             fee: fee,
             assetManager: assetManager
         )
+        let dex = try dexId(for: baseAssetId)
 
         return transferInfo(
             baseAssetId: baseAssetId,
@@ -117,7 +120,7 @@ enum LiquidityTransferInfoFactory {
                 TransactionContextKeys.firstAssetAmount: AmountDecimal(value: firstAssetAmount).stringValue,
                 TransactionContextKeys.secondAssetAmount: AmountDecimal(value: secondAssetAmount).stringValue,
                 TransactionContextKeys.slippage: slippageTolerance.contextValue,
-                TransactionContextKeys.dex: dexId(for: baseAssetId, assetManager: assetManager),
+                TransactionContextKeys.dex: dex,
                 TransactionContextKeys.shareOfPool: shareOfPool,
                 TransactionContextKeys.sbApy: apy
             ]
@@ -148,6 +151,7 @@ enum LiquidityTransferInfoFactory {
               totalIssuances > 0 else {
             throw LiquidityTransferInfoFactoryError.invalidPool
         }
+        let dex = try dexId(for: poolInfo.baseAssetId)
 
         return transferInfo(
             baseAssetId: poolInfo.baseAssetId,
@@ -163,7 +167,7 @@ enum LiquidityTransferInfoFactory {
                 TransactionContextKeys.shareOfPool: shareOfPool,
                 TransactionContextKeys.slippage: slippageTolerance.contextValue,
                 TransactionContextKeys.sbApy: apy,
-                TransactionContextKeys.dex: dexId(for: poolInfo.baseAssetId, assetManager: assetManager)
+                TransactionContextKeys.dex: dex
             ]
         )
     }
@@ -190,12 +194,14 @@ enum LiquidityTransferInfoFactory {
         }
     }
 
-    private static func dexId(
-        for baseAssetId: String,
-        assetManager: AssetManagerProtocol
-    ) -> String {
-        let isFeeAsset = assetManager.assetInfo(for: baseAssetId)?.isFeeAsset ?? false
-        return isFeeAsset || baseAssetId == WalletAssetId.kxor ? "0" : "1"
+    /// The DEX of the pool's base asset, as read from the chain (XOR and XSTUSD are always
+    /// known). An unknown base is refused rather than guessed: a wrong DEX id fails on
+    /// chain after the fee is charged.
+    private static func dexId(for baseAssetId: String) throws -> String {
+        guard let dexId = DexInfoService.shared.knownDexId(forBaseAssetId: baseAssetId) else {
+            throw LiquidityTransferInfoFactoryError.unknownDex
+        }
+        return String(dexId)
     }
 
     private static func transferInfo(

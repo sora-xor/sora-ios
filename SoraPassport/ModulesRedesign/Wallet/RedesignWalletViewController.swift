@@ -39,7 +39,8 @@ final class RedesignWalletViewController: SoramitsuViewController {
 
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        tableView.sora.backgroundColor = .custom(uiColor: .clear)
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
         tableView.sora.tableViewHeader = nil
         tableView.delaysContentTouches = true
@@ -71,13 +72,15 @@ final class RedesignWalletViewController: SoramitsuViewController {
 
         viewModel.reloadItem = { [weak self] items in
             DispatchQueue.main.async {
-                self?.tableView.reloadItems(items: items )
+                guard let self = self else { return }
+                Self.refresh(items: items, in: self.tableView)
             }
         }
         
         viewModel.setupItems = { [weak self] items in
             UIView.performWithoutAnimation {
                 self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+                self?.tableView.layoutIfNeeded()
             }
             
         }
@@ -85,7 +88,31 @@ final class RedesignWalletViewController: SoramitsuViewController {
         viewModel.fetchAssets { [weak self] items in
             UIView.performWithoutAnimation {
                 self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+                self?.tableView.layoutIfNeeded()
             }
+        }
+    }
+
+    // Live balance updates can arrive in a burst. Animating a transparent card
+    // reload retains outgoing cell snapshots and overlays several sets of rows.
+    static func refresh(items: [SoramitsuTableViewItemProtocol], in tableView: SoramitsuTableView) {
+        UIView.performWithoutAnimation {
+            for item in items {
+                for section in tableView.sora.sections {
+                    guard let row = section.rows.firstIndex(where: { $0.isEqual(item) }) else { continue }
+                    // Preserve the data source for future dequeues as well as
+                    // updating the visible cell. Most wallet items mutate in place.
+                    if section.rows[row] !== item { section.rows[row] = item }
+                    (tableView.cellForItem(item: item) as? SoramitsuTableViewCellProtocol)?
+                        .set(item: item, context: section.context)
+                    break
+                }
+            }
+            // Rebinding avoids UITableView's outgoing reload snapshots. Settle
+            // capability-driven height changes before leaving this scope.
+            tableView.beginUpdates()
+            tableView.endUpdates()
+            tableView.layoutIfNeeded()
         }
     }
 
@@ -93,10 +120,11 @@ final class RedesignWalletViewController: SoramitsuViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         tableView.reloadData()
+        viewModel.walletItems.compactMap { $0 as? AccountTableViewItem }.forEach { $0.refreshCapability() }
     }
 
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .bgPage
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
     }
 

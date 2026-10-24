@@ -1,5 +1,4 @@
 import Foundation
-import SSFQRService
 
 public protocol AddressQREncodable: QREncodable {}
 public protocol AddressQRDecodable: QRDecodable {}

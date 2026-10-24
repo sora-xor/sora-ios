@@ -32,12 +32,13 @@ import Foundation
 import UIKit
 
 protocol AccountExportRawSeedViewProtocol: ControllerBackedProtocol {
-    func set(rawSeed: String)
+    func set(rawSeed: String, derivationPath: String)
 }
 
 protocol AccountExportRawSeedPresenterProtocol: AnyObject {
     func exportRawSeed()
     func copyRawSeed()
+    func exportJSON()
 }
 
 protocol AccountExportRawSeedInteractorInputProtocol: AnyObject {
@@ -46,7 +47,7 @@ protocol AccountExportRawSeedInteractorInputProtocol: AnyObject {
 }
 
 protocol AccountExportRawSeedInteractorOutputProtocol: AnyObject {
-    func set(rawSeed: String)
+    func set(rawSeed: String, derivationPath: String)
 }
 
 protocol AccountExportRawSeedWireframeProtocol: AnyObject {

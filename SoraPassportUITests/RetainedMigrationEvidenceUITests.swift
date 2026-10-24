@@ -31,6 +31,9 @@ final class RetainedMigrationEvidenceUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Requires the protected physical-device controller and a production-IPA-derived installation; a rebuilt simulator app is not migration evidence")
+        #endif
     }
 
     func testExecuteAuthorizedRetainedMigrationCase() throws {

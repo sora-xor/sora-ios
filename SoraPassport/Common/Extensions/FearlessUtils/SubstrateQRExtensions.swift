@@ -31,7 +31,6 @@
 import SSFUtils
 import Foundation
 import IrohaCrypto
-import SSFQRService
 
 public struct SoraSubstrateQRInfo: Equatable {
     public let prefix: String

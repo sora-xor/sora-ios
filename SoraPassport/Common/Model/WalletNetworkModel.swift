@@ -168,11 +168,12 @@ enum FileProtectionMetadata {
     #endif
 }
 
-/// Admission for a terminal Core Data migration attempt. Durable publication
-/// can intentionally retain a hidden old or failed-new inode when cleanup or
-/// rollback cannot be proved. Such an entry is recovery evidence: it must make
-/// the attempt unresolved, never be deleted automatically, and never be
-/// ignored merely because the canonical journal decodes as `activated`.
+/// Admission for a terminal Core Data migration attempt: exactly the five
+/// expected entries, each of the expected kind. Any other entry makes the
+/// attempt unresolved, with one exception: the hidden files `DurableFileWriter`
+/// itself leaves beside a target when the process dies inside a write. Those
+/// are swept (or, while they cannot be swept, ignored) before the entries are
+/// compared, because the published files alone carry the attempt's state.
 enum WalletMigrationSafetyNamespaceAdmission {
     enum Failure: Error {
         case invalidAttemptNamespace
@@ -202,10 +203,10 @@ enum WalletMigrationSafetyNamespaceAdmission {
         guard try entryKindNoFollow(at: attemptURL) == mode_t(S_IFDIR) else {
             return false
         }
-        let entries = try fileManager.contentsOfDirectory(
-            at: attemptURL,
-            includingPropertiesForKeys: nil,
-            options: []
+        let entries = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: attemptURL,
+            fileManager: fileManager,
+            includingPropertiesForKeys: nil
         )
         guard
             entries.count == expectedActivatedAttemptRootNames.count,
@@ -256,6 +257,13 @@ enum WalletMigrationSafetyNamespaceAdmission {
 /// Existing targets are
 /// accepted only when they are regular files; their protection class and
 /// POSIX permissions are carried onto the replacement.
+///
+/// While a write runs, the target's directory also holds hidden helper files
+/// (see `LeftoverKind`). The published file is the only state: it always names
+/// either the complete old content or the complete new content. The helper
+/// files are removed before `write` returns, whether it succeeds or throws. A
+/// process that dies inside a write cannot remove them, so they are swept
+/// later (`sweepLeftovers`) and never count as wallet data or as evidence.
 enum DurableFileWriter {
     enum Failure: LocalizedError {
         case invalidTarget
@@ -281,6 +289,16 @@ enum DurableFileWriter {
         let permissions: mode_t
     }
 
+    /// The hidden names one write creates beside its target.
+    private struct HelperNames {
+        let temporary = ".durable-\(UUID().uuidString).tmp"
+        let rollback = ".durable-rollback-\(UUID().uuidString).anchor"
+        let safety = ".durable-rollback-\(UUID().uuidString).safety-anchor"
+        let withdrawn = ".durable-failed-\(UUID().uuidString).withdrawn"
+
+        var all: [String] { [temporary, rollback, safety, withdrawn] }
+    }
+
     static func write(
         _ data: Data,
         to targetURL: URL,
@@ -292,6 +310,10 @@ enum DurableFileWriter {
             containing: targetURL
         )
         defer { _ = Darwin.close(context.descriptor) }
+        // From here until this call returns, a sweep leaves this directory
+        // alone: the hidden names below belong to a write in progress.
+        let activeDirectory = try beginWrite(in: context.descriptor)
+        defer { endWrite(in: activeDirectory) }
 
         let originalState = try regularFileState(
             named: context.targetName,
@@ -323,9 +345,9 @@ enum DurableFileWriter {
             originalProtection = nil
         }
 
-        let temporaryName = ".durable-\(UUID().uuidString).tmp"
-        let rollbackName =
-            ".durable-rollback-\(UUID().uuidString).anchor"
+        let helperNames = HelperNames()
+        let temporaryName = helperNames.temporary
+        let rollbackName = helperNames.rollback
         let temporaryURL = context.directoryURL
             .appendingPathComponent(temporaryName)
         let rollbackURL = context.directoryURL
@@ -343,6 +365,18 @@ enum DurableFileWriter {
         var temporaryIdentity: FileIdentity?
         var rollbackIdentity: FileIdentity?
         var wasRenamed = false
+        // Declared before the defer below, so it runs after it: the last step
+        // of every exit, successful or not, removes the hidden names this
+        // call created and still finds. An I/O error inside a write therefore
+        // leaves nothing behind for a later directory check to trip over.
+        defer {
+            removeOwnHelperFiles(
+                helperNames,
+                preparedIdentity: temporaryIdentity,
+                originalIdentity: originalState?.identity,
+                context: context
+            )
+        }
         defer {
             _ = Darwin.close(descriptor)
             if !wasRenamed, let temporaryIdentity {
@@ -365,6 +399,7 @@ enum DurableFileWriter {
 
         let openedState = try regularDescriptorState(descriptor)
         temporaryIdentity = openedState.identity
+        try reach(.temporaryFileCreated, context)
         let permissions = originalState?.permissions ?? mode_t(0o600)
         guard Darwin.fchmod(descriptor, permissions) == 0 else {
             throw Failure.fileSystemFailure
@@ -403,6 +438,7 @@ enum DurableFileWriter {
 
         try writeAll(data, to: descriptor)
         try synchronize(descriptor)
+        try reach(.temporaryFileWritten, context)
 
         guard try regularFileState(
             named: temporaryName,
@@ -434,12 +470,13 @@ enum DurableFileWriter {
 
         // Keep the exact old inode under a random, exclusive hidden name until
         // the atomically published replacement has passed its final identity
-        // and protection checks. A failed rollback deliberately leaves this
-        // anchor untouched; it is recovery evidence, not an automatically
-        // discoverable/exportable backup. Once linkat succeeds, no defer path
-        // removes the anchor: a concurrent target change could make it the only
-        // remaining name for the original inode. Only committed-success cleanup
-        // or an identity-verified atomic rollback may consume it.
+        // and protection checks, so a failed publication can be rolled back
+        // to exactly the old file. The anchor is a helper, not a backup:
+        // committed-success cleanup or an identity-verified rollback consumes
+        // it, and the final cleanup of this call removes it otherwise, but
+        // only while the target still names a file this call knows (the old
+        // or the new one). After a concurrent change of the target it is left
+        // for the later sweep.
         if let originalState {
             guard
                 Darwin.linkat(
@@ -453,6 +490,7 @@ enum DurableFileWriter {
                 throw Failure.fileSystemFailure
             }
             rollbackIdentity = originalState.identity
+            try reach(.rollbackAnchorLinked, context)
             do {
                 guard
                     try regularFileState(
@@ -479,6 +517,7 @@ enum DurableFileWriter {
                     from: context.descriptor,
                     maximumDepth: 4
                 )
+                try reach(.rollbackAnchorSynchronized, context)
             } catch {
                 throw Failure.invalidTarget
             }
@@ -522,6 +561,7 @@ enum DurableFileWriter {
                     in: context.descriptor
                 )
                 do {
+                    try reach(.published, context)
                     guard
                         displacedIdentity == originalState.identity,
                         try regularFileState(
@@ -593,6 +633,7 @@ enum DurableFileWriter {
                     throw Failure.fileSystemFailure
                 }
                 wasRenamed = true
+                try reach(.published, context)
             }
             try afterAtomicPublication?(targetURL)
             try synchronize(context.descriptor)
@@ -600,6 +641,7 @@ enum DurableFileWriter {
                 from: context.descriptor,
                 maximumDepth: 4
             )
+            try reach(.publicationSynchronized, context)
             guard try regularFileState(
                 named: context.targetName,
                 in: context.descriptor
@@ -622,9 +664,10 @@ enum DurableFileWriter {
                 // The new target is already identity/protection verified and
                 // its publication is directory/ancestor synced. Anchor cleanup
                 // is therefore non-failing: an exact old anchor is removed
-                // best-effort, while any cleanup or sync failure leaves it in
-                // place and must not turn a committed write into an ambiguous
-                // thrown failure.
+                // best-effort, and a cleanup or sync failure must not turn a
+                // committed write into an ambiguous thrown failure. What this
+                // step cannot remove, the final cleanup of this call or the
+                // later sweep removes.
                 let didRemoveDisplacedOriginal =
                     discardRollbackAnchorAfterCommit(
                         rollbackName: temporaryName,
@@ -638,6 +681,9 @@ enum DurableFileWriter {
                         fileManager: fileManager
                     )
                 if didRemoveDisplacedOriginal {
+                    // Nothing after this point may throw: the write is
+                    // committed. The checkpoint is an observer only.
+                    try? reach(.displacedOriginalRemoved, context)
                     let didRemoveRollback =
                         discardRollbackAnchorAfterCommit(
                             rollbackName: rollbackName,
@@ -661,6 +707,7 @@ enum DurableFileWriter {
                     try restoreOriginalAfterFailedPublication(
                         rollbackName: rollbackName,
                         rollbackURL: rollbackURL,
+                        safetyName: helperNames.safety,
                         originalState: originalState,
                         publishedIdentity: temporaryIdentity,
                         displacedOriginalName: temporaryName,
@@ -672,13 +719,16 @@ enum DurableFileWriter {
                     )
                     rollbackIdentity = nil
                 } catch {
-                    // A failed rollback preserves at least one exact old-inode
-                    // name: rollbackName before the exchange, the displaced
-                    // original temporary name after publication, or the second
-                    // safety anchor created by the rollback routine.
+                    // The rollback could not be proved. The target names
+                    // either the old file or the complete new one, which is
+                    // exactly what a process death at this point would leave;
+                    // every caller already treats a thrown write as "may have
+                    // been published". The helper names are removed by the
+                    // final cleanup or the later sweep.
                 }
             } else if originalState == nil {
                 try? removeFailedNewPublication(
+                    withdrawnName: helperNames.withdrawn,
                     publishedIdentity: temporaryIdentity,
                     retainedProtection: retainedProtection,
                     context: context,
@@ -710,6 +760,7 @@ enum DurableFileWriter {
     private static func restoreOriginalAfterFailedPublication(
         rollbackName: String,
         rollbackURL: URL,
+        safetyName: String,
         originalState: FileState,
         publishedIdentity: FileIdentity?,
         displacedOriginalName: String,
@@ -719,8 +770,6 @@ enum DurableFileWriter {
         context: DirectoryContext,
         fileManager: FileManager
     ) throws {
-        let safetyName =
-            ".durable-rollback-\(UUID().uuidString).safety-anchor"
         let safetyURL = context.directoryURL
             .appendingPathComponent(safetyName)
         guard
@@ -764,6 +813,7 @@ enum DurableFileWriter {
         else {
             throw Failure.fileSystemFailure
         }
+        try reach(.safetyAnchorLinked, context)
         do {
             guard
                 try regularFileState(
@@ -836,6 +886,7 @@ enum DurableFileWriter {
             // wallet inode remains named by safetyName/displacedOriginalName.
             throw Failure.fileSystemFailure
         }
+        try reach(.rolledBack, context)
 
         guard
             try regularFileState(
@@ -1194,13 +1245,12 @@ enum DurableFileWriter {
     }
 
     private static func removeFailedNewPublication(
+        withdrawnName: String,
         publishedIdentity: FileIdentity?,
         retainedProtection: FileProtectionType,
         context: DirectoryContext,
         fileManager: FileManager
     ) throws {
-        let withdrawnName =
-            ".durable-failed-\(UUID().uuidString).withdrawn"
         let withdrawnURL = context.directoryURL.appendingPathComponent(
             withdrawnName
         )
@@ -1229,6 +1279,7 @@ enum DurableFileWriter {
             named: withdrawnName,
             in: context.descriptor
         )
+        try reach(.failedPublicationWithdrawn, context)
         guard withdrawnIdentity == publishedIdentity else {
             // The target changed between observation and withdrawal. Restore
             // that exact concurrent entry only when the target is still absent;
@@ -1297,6 +1348,392 @@ enum DurableFileWriter {
                 throw Failure.fileSystemFailure
             }
         }
+    }
+
+    // MARK: - Helper files of an interrupted write
+
+    /// The hidden names `write` creates beside its target. Each carries a
+    /// random UUID, so the four patterns identify this writer's files exactly.
+    enum LeftoverKind: Equatable {
+        /// `.durable-<UUID>.tmp`: the new content before publication, or the
+        /// old file displaced by the atomic exchange.
+        case temporary
+        /// `.durable-rollback-<UUID>.anchor`: a second name of the old file.
+        case rollbackAnchor
+        /// `.durable-rollback-<UUID>.safety-anchor`: a third name of the old
+        /// file, held while a failed publication is rolled back.
+        case safetyAnchor
+        /// `.durable-failed-<UUID>.withdrawn`: a new file taken back from its
+        /// target name after its publication failed.
+        case withdrawn
+    }
+
+    /// Classifies an entry name. Only the exact names `write` generates
+    /// match: fixed prefix, the canonical upper-case UUID, fixed suffix.
+    static func leftoverKind(ofEntryNamed name: String) -> LeftoverKind? {
+        func matches(prefix: String, suffix: String) -> Bool {
+            guard
+                name.hasPrefix(prefix),
+                name.hasSuffix(suffix),
+                name.utf8.count ==
+                    prefix.utf8.count + 36 + suffix.utf8.count
+            else {
+                return false
+            }
+            let identifier = String(
+                name.dropFirst(prefix.count).dropLast(suffix.count)
+            )
+            return UUID(uuidString: identifier)?.uuidString == identifier
+        }
+        if matches(prefix: ".durable-rollback-", suffix: ".safety-anchor") {
+            return .safetyAnchor
+        }
+        if matches(prefix: ".durable-rollback-", suffix: ".anchor") {
+            return .rollbackAnchor
+        }
+        if matches(prefix: ".durable-failed-", suffix: ".withdrawn") {
+            return .withdrawn
+        }
+        if matches(prefix: ".durable-", suffix: ".tmp") {
+            return .temporary
+        }
+        return nil
+    }
+
+    /// What a name that only this writer creates holds right now.
+    private enum LeftoverEntryState {
+        /// The name is not one of the writer's.
+        case notALeftoverName
+        /// A regular file: a helper file.
+        case helperFile
+        /// Nothing: the write that owned the name removed it a moment ago.
+        case gone
+        /// A link, a directory, or an entry that cannot be examined. The
+        /// writer creates regular files only, so this is not its own.
+        case foreign
+    }
+
+    private static func leftoverEntryState(at url: URL) -> LeftoverEntryState {
+        guard leftoverKind(ofEntryNamed: url.lastPathComponent) != nil else {
+            return .notALeftoverName
+        }
+        var status = stat()
+        var failure: Int32 = 0
+        let result = url.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else {
+                failure = EINVAL
+                return -1
+            }
+            let outcome = Darwin.lstat(path, &status)
+            if outcome != 0 {
+                failure = errno
+            }
+            return outcome
+        }
+        guard result == 0 else {
+            return failure == ENOENT ? .gone : .foreign
+        }
+        return (status.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG)
+            ? .helperFile
+            : .foreign
+    }
+
+    /// True for a regular file (not a link, not a directory) whose name only
+    /// this writer creates.
+    static func isLeftoverFile(at url: URL) -> Bool {
+        leftoverEntryState(at: url) == .helperFile
+    }
+
+    struct LeftoverSweep: Equatable {
+        /// Helper files removed by this sweep.
+        var removed = 0
+        /// Entries with a helper name that were left in place (not a regular
+        /// file, or the removal failed).
+        var kept = 0
+        /// A write is in progress in this directory in this process, so
+        /// nothing was touched. The next sweep takes care of it.
+        var deferredToActiveWrite = false
+    }
+
+    private struct DirectoryIdentity: Hashable {
+        let device: dev_t
+        let inode: ino_t
+    }
+
+    private static let activityLock = NSLock()
+    private static var activeWriteCounts: [DirectoryIdentity: Int] = [:]
+
+    private static func beginWrite(
+        in directoryDescriptor: Int32
+    ) throws -> DirectoryIdentity {
+        var status = stat()
+        guard Darwin.fstat(directoryDescriptor, &status) == 0 else {
+            throw Failure.invalidTarget
+        }
+        let identity = DirectoryIdentity(
+            device: status.st_dev,
+            inode: status.st_ino
+        )
+        // A sweep holds this lock for its whole run, so a write can never
+        // begin in a directory while that directory is being swept.
+        activityLock.lock()
+        activeWriteCounts[identity, default: 0] += 1
+        activityLock.unlock()
+        return identity
+    }
+
+    private static func endWrite(in identity: DirectoryIdentity) {
+        activityLock.lock()
+        if let count = activeWriteCounts[identity], count > 1 {
+            activeWriteCounts[identity] = count - 1
+        } else {
+            activeWriteCounts[identity] = nil
+        }
+        activityLock.unlock()
+    }
+
+    /// Removes the helper files an interrupted write left in `directoryURL`.
+    ///
+    /// Safe by construction:
+    /// - only regular files whose name matches `leftoverKind` are removed, so
+    ///   a published file (a journal, a snapshot, a pointer, a store copy) can
+    ///   never be removed;
+    /// - nothing is removed while a write is in progress in the same
+    ///   directory in this process, and no write can begin there during the
+    ///   sweep;
+    /// - a helper file is never the only copy of published state. `write`
+    ///   publishes with one atomic rename, so the target name holds the whole
+    ///   old file or the whole new file at every instant. A helper holds an
+    ///   extra name of the old file, the old file that was just replaced, or
+    ///   new content that was never published (the caller was not told it was
+    ///   saved).
+    ///
+    /// Never throws: a directory that cannot be read or an entry that cannot
+    /// be removed is reported, and the directory's own check then ignores the
+    /// helper names (`contentsIgnoringLeftovers`).
+    @discardableResult
+    static func sweepLeftovers(in directoryURL: URL) -> LeftoverSweep {
+        var result = LeftoverSweep()
+        let descriptor = Darwin.open(
+            directoryURL.path,
+            O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_DIRECTORY
+        )
+        guard descriptor >= 0 else {
+            return result
+        }
+        defer { _ = Darwin.close(descriptor) }
+        var status = stat()
+        guard
+            Darwin.fstat(descriptor, &status) == 0,
+            (status.st_mode & mode_t(S_IFMT)) == mode_t(S_IFDIR)
+        else {
+            return result
+        }
+        let identity = DirectoryIdentity(
+            device: status.st_dev,
+            inode: status.st_ino
+        )
+
+        activityLock.lock()
+        defer { activityLock.unlock() }
+        guard activeWriteCounts[identity] == nil else {
+            result.deferredToActiveWrite = true
+            return result
+        }
+        guard let names = entryNames(inDirectory: descriptor) else {
+            return result
+        }
+        for name in names where leftoverKind(ofEntryNamed: name) != nil {
+            var entry = stat()
+            guard
+                Darwin.fstatat(
+                    descriptor,
+                    name,
+                    &entry,
+                    AT_SYMLINK_NOFOLLOW
+                ) == 0
+            else {
+                if errno != ENOENT {
+                    result.kept += 1
+                }
+                continue
+            }
+            guard (entry.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG) else {
+                // The writer creates regular files only. Anything else with
+                // such a name is not its own and is left for the directory's
+                // strict check to judge.
+                result.kept += 1
+                continue
+            }
+            if Darwin.unlinkat(descriptor, name, 0) == 0 {
+                result.removed += 1
+            } else if errno != ENOENT {
+                result.kept += 1
+            }
+        }
+        if result.removed > 0 {
+            _ = Darwin.fsync(descriptor)
+        }
+        return result
+    }
+
+    /// The entries of a wallet directory as its strict check must see them:
+    /// the writer's helper files are swept first and, where a sweep cannot
+    /// remove them now (a write is in progress, or the removal failed),
+    /// left out of the result. Every other entry is returned unchanged, so
+    /// an unexpected name still fails the caller's check.
+    ///
+    /// A helper name that the listing saw and that is gone when it is
+    /// examined is left out too: a write of another file in this directory
+    /// finished in between and removed it. Only a link or a directory with
+    /// such a name is returned, for the caller's check to reject.
+    static func contentsIgnoringLeftovers(
+        of directoryURL: URL,
+        fileManager: FileManager,
+        includingPropertiesForKeys keys: [URLResourceKey]?
+    ) throws -> [URL] {
+        let entries = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: keys,
+            options: []
+        )
+        guard entries.contains(where: {
+            leftoverKind(ofEntryNamed: $0.lastPathComponent) != nil
+        }) else {
+            return entries
+        }
+        sweepLeftovers(in: directoryURL)
+        return try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: keys,
+            options: []
+        ).filter {
+            switch leftoverEntryState(at: $0) {
+            case .helperFile, .gone:
+                return false
+            case .notALeftoverName, .foreign:
+                return true
+            }
+        }
+    }
+
+    private static func entryNames(
+        inDirectory descriptor: Int32
+    ) -> [String]? {
+        let duplicate = Darwin.dup(descriptor)
+        guard duplicate >= 0 else {
+            return nil
+        }
+        guard let stream = Darwin.fdopendir(duplicate) else {
+            _ = Darwin.close(duplicate)
+            return nil
+        }
+        defer { _ = Darwin.closedir(stream) }
+        Darwin.rewinddir(stream)
+        var names: [String] = []
+        while let entry = Darwin.readdir(stream) {
+            let name = withUnsafePointer(to: &entry.pointee.d_name) {
+                $0.withMemoryRebound(
+                    to: CChar.self,
+                    capacity: Int(entry.pointee.d_namlen) + 1
+                ) { String(cString: $0) }
+            }
+            if name != ".", name != ".." {
+                names.append(name)
+            }
+        }
+        return names
+    }
+
+    /// Last step of every `write`: removes the hidden names this call created
+    /// and still finds. A name is removed only when it holds a file this call
+    /// knows:
+    /// - the file it created itself, under a hidden name. That file was not
+    ///   published, or it was published and taken back; the caller is told
+    ///   the write failed;
+    /// - the old file, while the target still names the old or the new file.
+    ///   Then the hidden name is an extra name of the published old file, or
+    ///   the old file that the new one has replaced.
+    /// Anything else (another writer changed the target, or the name holds an
+    /// unknown file) is left alone and is the later sweep's to judge.
+    private static func removeOwnHelperFiles(
+        _ names: HelperNames,
+        preparedIdentity: FileIdentity?,
+        originalIdentity: FileIdentity?,
+        context: DirectoryContext
+    ) {
+        // `try?` would not tell an absent target from an unreadable one.
+        let targetIdentity: FileIdentity?
+        do {
+            targetIdentity = try entryIdentity(
+                named: context.targetName,
+                in: context.descriptor
+            )
+        } catch {
+            return
+        }
+        let targetIsKnown = targetIdentity != nil &&
+            (targetIdentity == preparedIdentity ||
+                targetIdentity == originalIdentity)
+        var didRemove = false
+        for name in names.all {
+            guard
+                let state = try? regularFileState(
+                    named: name,
+                    in: context.descriptor
+                )
+            else {
+                continue
+            }
+            let holdsPrepared = preparedIdentity != nil &&
+                state.identity == preparedIdentity &&
+                targetIdentity != preparedIdentity
+            let holdsOriginal = originalIdentity != nil &&
+                state.identity == originalIdentity &&
+                targetIsKnown
+            guard holdsPrepared || holdsOriginal else {
+                continue
+            }
+            if Darwin.unlinkat(context.descriptor, name, 0) == 0 {
+                didRemove = true
+            }
+        }
+        if didRemove {
+            _ = Darwin.fsync(context.descriptor)
+        }
+    }
+
+    // MARK: - Checkpoints (tests)
+
+    /// The steps of a write, in order, at which a process death leaves a
+    /// different set of files.
+    enum Checkpoint: String, CaseIterable {
+        case temporaryFileCreated
+        case temporaryFileWritten
+        case rollbackAnchorLinked
+        case rollbackAnchorSynchronized
+        case published
+        case publicationSynchronized
+        case displacedOriginalRemoved
+        case safetyAnchorLinked
+        case rolledBack
+        case failedPublicationWithdrawn
+    }
+
+    #if DEBUG || WALLET_TESTING
+        /// Tests observe the directory at a checkpoint (to copy what a kill at
+        /// that instant leaves) or throw from it (an I/O error at that step).
+        /// Opt-in test host only; absent from ordinary Release builds.
+        static var checkpointObserver: ((Checkpoint, URL) throws -> Void)?
+    #endif
+
+    private static func reach(
+        _ checkpoint: Checkpoint,
+        _ context: DirectoryContext
+    ) throws {
+        #if DEBUG || WALLET_TESTING
+            try checkpointObserver?(checkpoint, context.directoryURL)
+        #endif
     }
 
     /// Makes a newly copied immutable backup durable before a journal can
@@ -1592,6 +2029,11 @@ enum WalletSecretSource: String, Codable {
     case rawSeed
     case legacySecret
     case watchOnly
+    /// The account row exists, but no signing material on this device proves
+    /// its address (keys missing, for example on a new iPhone, or keys that do
+    /// not match). The account stays visible and read-only; its Keychain items,
+    /// if any, are left untouched. Restoring its keys upgrades the source.
+    case signingUnavailable
 
     var supportsNexusDerivation: Bool {
         self == .mnemonicEntropy
@@ -1599,11 +2041,32 @@ enum WalletSecretSource: String, Codable {
 }
 
 enum WalletMnemonicWordPolicy {
+    /// Nexus derivation (new-network child accounts) uses 12 or 24 words only.
     static let userImportWordCounts: Set<Int> = [12, 24]
+    /// SORA2 import and restore accept every BIP39 length that released apps
+    /// created or imported.
     static let retainedSoraWordCounts: Set<Int> = [12, 15, 18, 21, 24]
+    /// Entropy lengths `IRMnemonicCreator.mnemonic(fromEntropy:)` accepts.
+    /// App Store 3.8.6 also imported 3/6/9-word phrases (4/8/12 bytes); those
+    /// entropy records are kept, but they are proven through the stored seed or
+    /// secret instead.
+    static let derivableEntropyByteCounts: Set<Int> = [16, 20, 24, 28, 32]
+    /// 3/6/9-word phrases App Store 3.8.6 accepted. They are never accepted
+    /// without a known identity; they are accepted only to restore a wallet
+    /// whose address is explicitly supplied, in a Google Drive backup, or
+    /// already in the wallet, and only after the phrase derives that address.
+    /// Such wallets are SORA2-only (`rawSeed`): the seed and secret are stored
+    /// beside the short entropy, as 3.8.6 did.
+    static let retainedShortWordCounts: Set<Int> = [3, 6, 9]
+    /// Every length a restore of a known address accepts.
+    static let knownAddressRestoreWordCounts = retainedSoraWordCounts.union(retainedShortWordCounts)
 
     static func isUserImportWordCount(_ count: Int) -> Bool {
         userImportWordCounts.contains(count)
+    }
+
+    static func isDerivableEntropy(_ entropy: Data) -> Bool {
+        derivableEntropyByteCounts.contains(entropy.count)
     }
 
     static func retainedSecretSource(
@@ -1658,6 +2121,16 @@ enum WalletAccountCommitStage: String, Codable {
     case coreDataCommitted
     case networkModelActivated
     case activated
+    /// An interrupted create or import whose account row never reached Core
+    /// Data, or whose row was removed afterwards by a version that knows no
+    /// journal (App Store 3.8.6). Nothing is deleted: any Keychain items it
+    /// wrote stay in place and a later import of the same phrase adopts them.
+    case abandoned
+
+    /// Activated and abandoned journals need no further recovery.
+    var isTerminal: Bool {
+        self == .activated || self == .abandoned
+    }
 }
 
 struct WalletAccountCommitJournal: Codable, Equatable {
@@ -1674,6 +2147,10 @@ struct WalletAccountCommitJournal: Codable, Equatable {
 /// Non-secret interruption journal for new/imported wallets. An unfinished
 /// record forces recovery; it is never interpreted as permission to delete
 /// Keychain or Core Data material.
+///
+/// The directory may hold journals only. The hidden helper files of a journal
+/// write that the process did not survive are not journals and are removed
+/// before the directory is read; any other unexpected entry still fails.
 final class WalletAccountCommitJournalStore {
     private static let lock = NSLock()
     private static let retainedActivatedJournals = 8
@@ -1737,7 +2214,7 @@ final class WalletAccountCommitJournalStore {
         guard
             existingJournals.count < Self.maximumJournalFiles,
             existingJournals.allSatisfy({
-                $0.stage == .activated
+                $0.stage.isTerminal
             })
         else {
             throw WalletNetworkMigrationError
@@ -1768,6 +2245,30 @@ final class WalletAccountCommitJournalStore {
         _ journal: WalletAccountCommitJournal,
         to stage: WalletAccountCommitStage
     ) throws -> WalletAccountCommitJournal {
+        try advance(journal, to: stage, rowRemovedOutsideThisVersion: false)
+    }
+
+    /// Closes a journal whose account row reached Core Data and is no longer
+    /// there while other accounts are: the account was removed afterwards by
+    /// a version that knows no journal (App Store 3.8.6, which runs over
+    /// this data again when a TestFlight build expires). Only the recovery
+    /// that read the database and found the row gone calls this. No key
+    /// material is read, written or deleted.
+    func abandonAfterRemovalOutsideThisVersion(
+        _ journal: WalletAccountCommitJournal
+    ) throws -> WalletAccountCommitJournal {
+        try advance(
+            journal,
+            to: .abandoned,
+            rowRemovedOutsideThisVersion: true
+        )
+    }
+
+    private func advance(
+        _ journal: WalletAccountCommitJournal,
+        to stage: WalletAccountCommitStage,
+        rowRemovedOutsideThisVersion: Bool
+    ) throws -> WalletAccountCommitJournal {
         try recoveryGate
             .requireAuthorizedLifecycleContinuation()
         Self.lock.lock()
@@ -1779,7 +2280,12 @@ final class WalletAccountCommitJournalStore {
                     $0.id == journal.id
                 }),
                 Self.journalsMatch(current, journal),
-                Self.canAdvance(from: current.stage, to: stage)
+                Self.canAdvance(
+                    from: current.stage,
+                    to: stage,
+                    rowRemovedOutsideThisVersion:
+                        rowRemovedOutsideThisVersion
+                )
             else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
@@ -1787,7 +2293,7 @@ final class WalletAccountCommitJournalStore {
             var next = current
             next.stage = stage
             next.updatedAt = Date()
-            if stage == .activated {
+            if stage.isTerminal {
                 // Cleanup completed evidence before the terminal transition.
                 // If cleanup fails, this journal remains unresolved. Any
                 // terminal error is also latched because an atomic replace
@@ -1797,11 +2303,11 @@ final class WalletAccountCommitJournalStore {
                 )
             }
             try writeUnlocked(next)
-            if stage == .activated {
+            if stage.isTerminal {
                 let verified = try loadUnlocked()
                 guard
                     verified.count <= Self.retainedActivatedJournals,
-                    verified.allSatisfy({ $0.stage == .activated }),
+                    verified.allSatisfy({ $0.stage.isTerminal }),
                     verified.contains(where: {
                         Self.journalsMatch($0, next)
                     })
@@ -1812,7 +2318,7 @@ final class WalletAccountCommitJournalStore {
             }
             return next
         } catch {
-            if stage == .activated {
+            if stage.isTerminal {
                 recoveryGate
                     .latchRecoveryAfterAmbiguousWalletCommit()
             }
@@ -1866,21 +2372,24 @@ final class WalletAccountCommitJournalStore {
     func unresolved() throws -> [WalletAccountCommitJournal] {
         Self.lock.lock()
         defer { Self.lock.unlock() }
-        return try loadUnlocked().filter { $0.stage != .activated }
+        return try loadUnlocked().filter { !$0.stage.isTerminal }
     }
 
     private func loadUnlocked() throws -> [WalletAccountCommitJournal] {
         try validateDirectory()
         let journalURLs: [URL]
         do {
-            journalURLs = try fileManager.contentsOfDirectory(
-                at: directoryURL,
+            // Helper files of a journal write that was cut short are swept
+            // (or ignored) here. Every caller holds the store lock, so no
+            // journal write of this store is in progress.
+            journalURLs = try DurableFileWriter.contentsIgnoringLeftovers(
+                of: directoryURL,
+                fileManager: fileManager,
                 includingPropertiesForKeys: [
                     .fileSizeKey,
                     .isRegularFileKey,
                     .isSymbolicLinkKey,
-                ],
-                options: []
+                ]
             )
         } catch {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
@@ -2082,7 +2591,7 @@ final class WalletAccountCommitJournalStore {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
         let activated = try loadUnlocked()
-            .filter { $0.stage == .activated }
+            .filter { $0.stage.isTerminal }
             .sorted { $0.updatedAt > $1.updatedAt }
         for journal in activated.dropFirst(
             maximumCount
@@ -2093,7 +2602,8 @@ final class WalletAccountCommitJournalStore {
 
     private static func canAdvance(
         from current: WalletAccountCommitStage,
-        to next: WalletAccountCommitStage
+        to next: WalletAccountCommitStage,
+        rowRemovedOutsideThisVersion: Bool
     ) -> Bool {
         let order: [WalletAccountCommitStage] = [
             .prepared,
@@ -2102,6 +2612,17 @@ final class WalletAccountCommitJournalStore {
             .networkModelActivated,
             .activated,
         ]
+        if next == .abandoned {
+            // Only a recovery that proved the account row never reached Core
+            // Data abandons a journal, or one that found the committed row
+            // removed again by a version that knows no journal. It writes no
+            // key material.
+            if rowRemovedOutsideThisVersion {
+                return [.coreDataCommitted, .networkModelActivated]
+                    .contains(current)
+            }
+            return [.prepared, .secretsPersisted].contains(current)
+        }
         guard
             let currentIndex = order.firstIndex(of: current),
             let nextIndex = order.firstIndex(of: next)
@@ -3035,14 +3556,26 @@ enum WalletRecoveryMigrationJournalProbe {
         let expectedLegacyEntries = Set(
             backupRecords.map(\.fileName)
         ).union(["backup-manifest.json"])
-        let legacyEntries = try fileManager.contentsOfDirectory(
-            at: legacyDirectory,
-            includingPropertiesForKeys: [
-                .isRegularFileKey,
-                .isSymbolicLinkKey,
-            ],
-            options: []
-        )
+        // The gate's check sweeps the helper files of an interrupted write
+        // of backup-manifest.json before it compares the entries. The export
+        // below only reads: it lists the directory as it is.
+        let legacyEntries = requiresActivatedState
+            ? try DurableFileWriter.contentsIgnoringLeftovers(
+                of: legacyDirectory,
+                fileManager: fileManager,
+                includingPropertiesForKeys: [
+                    .isRegularFileKey,
+                    .isSymbolicLinkKey,
+                ]
+            )
+            : try fileManager.contentsOfDirectory(
+                at: legacyDirectory,
+                includingPropertiesForKeys: [
+                    .isRegularFileKey,
+                    .isSymbolicLinkKey,
+                ],
+                options: []
+            )
         let retainedLegacyEntryNames = Set(
             legacyEntries.map(\.lastPathComponent)
         )
@@ -3063,9 +3596,10 @@ enum WalletRecoveryMigrationJournalProbe {
                 return nil
             }
         } else {
-            // Recovery export may use only the independently hashed canonical
-            // backup files while leaving bounded DurableFileWriter evidence
-            // untouched and excluded. Arbitrary unexpected entries still fail.
+            // Recovery export uses only the independently hashed canonical
+            // backup files. Helper files of an interrupted DurableFileWriter
+            // write are left untouched and excluded. Arbitrary unexpected
+            // entries still fail.
             guard excludedRecoveryEvidence.allSatisfy({
                 $0.hasPrefix(".durable-")
             }) else {
@@ -3243,11 +3777,27 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     private let settings: SettingsManagerProtocol
     private let unresolvedMigrationJournal: () -> Bool
     private let unresolvedWalletCommitJournal: () throws -> Bool
+    private let credentialRepairPending: () throws -> Bool
     private let stateLock = NSLock()
     private var didVerifyMigrationNamespace = false
     private let migrationRecoveryMarker: WalletMigrationRecoveryMarker?
     private let legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker?
     private let startupVerificationMarker: WalletMigrationRecoveryMarker?
+    private var addOnlyPreservationCheck: (() throws -> Void)?
+
+    /// Private to the add-only downgrade-preservation operation. Its marker
+    /// remains set and ordinary signing/authentication gates remain blocked.
+    static func forAddOnlyPreservation(settings: SettingsManagerProtocol,
+                                       marker: WalletMigrationRecoveryMarker) -> WalletRecoveryCapabilityGate {
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        gate.addOnlyPreservationCheck = {
+            guard marker.required, WalletMigrationRecoveryMarker.capture(settings) == marker else {
+                throw WalletNetworkMigrationError.walletRecoveryRequired
+            }
+        }
+        return gate
+    }
 
     init(
         settings: SettingsManagerProtocol,
@@ -3255,7 +3805,10 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         unresolvedWalletCommitJournal: @escaping () throws -> Bool,
         migrationRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
         legacyAccountRecoveryMarker: WalletMigrationRecoveryMarker? = nil,
-        startupVerificationMarker: WalletMigrationRecoveryMarker? = nil
+        startupVerificationMarker: WalletMigrationRecoveryMarker? = nil,
+        credentialRepairPending: @escaping () throws -> Bool = {
+            try Keychain().checkKey(for: WalletCredentialRepair.pendingTag)
+        }
     ) {
         self.settings = settings
         self.unresolvedMigrationJournal = unresolvedMigrationJournal
@@ -3264,10 +3817,24 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         self.migrationRecoveryMarker = migrationRecoveryMarker
         self.legacyAccountRecoveryMarker = legacyAccountRecoveryMarker
         self.startupVerificationMarker = startupVerificationMarker
+        self.credentialRepairPending = credentialRepairPending
     }
 
     func requireMutableWalletAccess() throws {
+        try requireMutableWalletAccess(allowPendingCredentialRepair: false)
+    }
+
+    /// A repair may resume its own durable intent, but never bypass another
+    /// migration or account transaction that is still using the same storage.
+    func requireCredentialRepairAccess() throws {
+        try requireMutableWalletAccess(allowPendingCredentialRepair: true)
+    }
+
+    private func requireMutableWalletAccess(allowPendingCredentialRepair: Bool) throws {
         try requireAuthorizedLifecycleContinuation()
+        guard try allowPendingCredentialRepair || !credentialRepairPending() else {
+            throw WalletCredentialRepair.Failure.persistenceFailed
+        }
 
         stateLock.lock()
         let shouldVerifyMigration = !didVerifyMigrationNamespace
@@ -3301,6 +3868,9 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
         // Close the race with another integrity check latching recovery while
         // the bounded journal probes above were running.
         try requireAuthorizedLifecycleContinuation()
+        guard try allowPendingCredentialRepair || !credentialRepairPending() else {
+            throw WalletCredentialRepair.Failure.persistenceFailed
+        }
     }
 
     /// Recheck used only after a lifecycle lease was fully recovery-gated
@@ -3308,6 +3878,7 @@ final class WalletRecoveryCapabilityGate: @unchecked Sendable {
     /// own expected in-flight commit journal, but a sticky recovery marker
     /// still aborts the next write phase.
     func requireAuthorizedLifecycleContinuation() throws {
+        if let addOnlyPreservationCheck { try addOnlyPreservationCheck(); return }
         if let startupVerificationMarker {
             try startupVerificationMarker.requireUnchangedForStartupVerification(settings)
             return
@@ -3885,6 +4456,18 @@ enum NexusKeyDerivation {
 /// Copy-on-write local store. Each snapshot remains immutable. Activation is
 /// a small atomic pointer write performed only after decoding and equality
 /// checks pass, so an interrupted upgrade continues to use the old snapshot.
+///
+/// An activation is three steps: write the new snapshot file, write the
+/// pointer, prune old snapshots. A process that dies between two steps leaves
+/// one of these states, and every later read completes it instead of failing:
+/// - hidden helper files of the file writer: swept, never read;
+/// - one snapshot more than the retained count (died before pruning): read
+///   as it is, and the oldest surplus snapshot is pruned;
+/// - a first snapshot without a pointer (died before the first pointer
+///   write): the pointer is written for that snapshot once it decodes and
+///   validates, exactly as the interrupted activation was about to do.
+/// Anything else that is unexpected (another file name, a snapshot that does
+/// not decode, a pointer whose digest does not match) still fails closed.
 final class WalletNetworkStore {
     struct LegacyFirstSnapshotEvidence {
         fileprivate let fileName: String
@@ -4219,11 +4802,83 @@ final class WalletNetworkStore {
         return activated
     }
 
+    /// Records wallets that the active snapshot still lists but the wallet
+    /// database no longer has.
+    ///
+    /// App Store 3.8.6 knows nothing about this snapshot: when it runs over
+    /// this data again (a TestFlight build expired, or any downgrade) and the
+    /// user removes an account there, only the database row goes. That was a
+    /// removal the user confirmed, in a version that had no way to record it
+    /// here. The snapshot follows the database, as it does after a removal in
+    /// this version. Nothing else changes: the remaining wallets keep their
+    /// identities, sources and children byte for byte, the Keychain is not
+    /// read or written, and the previous snapshot file stays among the
+    /// retained ones.
+    ///
+    /// - Parameter walletIds: wallets to drop; each must be in the active
+    ///   snapshot.
+    /// - Parameter remainingWalletIds: every other wallet of the active
+    ///   snapshot, as the caller's database inventory names them.
+    @discardableResult
+    func recordRemovalOutsideThisVersion(
+        walletIds: Set<String>,
+        remainingWalletIds: Set<String>
+    ) throws -> WalletNetworkSnapshot {
+        try recoveryGate
+            .requireAuthorizedLifecycleContinuation()
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+
+        guard let current = try loadUnlocked() else {
+            throw WalletNetworkMigrationError.missingSnapshot
+        }
+        let currentWalletIds = Set(current.wallets.map(\.id))
+        guard
+            !walletIds.isEmpty,
+            walletIds.isDisjoint(with: remainingWalletIds),
+            currentWalletIds == walletIds.union(remainingWalletIds)
+        else {
+            throw WalletNetworkMigrationError
+                .explicitRemovalInventoryMismatch
+        }
+        let remainingWallets = current.wallets.filter {
+            !walletIds.contains($0.id)
+        }
+        let nextSelectedWalletId: String?
+        if let selected = current.selectedWalletId,
+           !walletIds.contains(selected) {
+            nextSelectedWalletId = selected
+        } else {
+            nextSelectedWalletId = remainingWallets.first?.id
+        }
+        let next = WalletNetworkSnapshot(
+            schemaVersion: current.schemaVersion,
+            selectedWalletId: nextSelectedWalletId,
+            wallets: remainingWallets,
+            accounts: current.accounts.filter {
+                !walletIds.contains($0.walletId)
+            },
+            createdAt: Date()
+        )
+        try stageAndActivateUnlocked(next)
+        guard
+            let activated = try loadUnlocked(),
+            try snapshotsMatch(activated, next)
+        else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        return activated
+    }
+
     private func stageAndActivateUnlocked(_ snapshot: WalletNetworkSnapshot) throws {
         // Validate the complete private namespace before writing anything.
         // Existing orphaned or unexpected evidence must never be overwritten
         // and reinterpreted as a fresh wallet model.
         _ = try loadUnlocked()
+        // The read above prunes a surplus snapshot left by an interrupted
+        // activation on a best-effort basis. Before another snapshot is
+        // added the directory must be back within its bound.
+        try pruneSurplusSnapshotUnlocked()
         try validate(snapshot)
 
         let data = try encoder.encode(snapshot)
@@ -4350,6 +5005,84 @@ final class WalletNetworkStore {
         }
     }
 
+    /// Completes the pruning step of an activation that was interrupted
+    /// after its snapshot was written. The active snapshot is protected; of
+    /// the others the oldest is removed, as the interrupted call would have
+    /// done. No-op when the directory is within its bound.
+    private func pruneSurplusSnapshotUnlocked() throws {
+        let namespace = try validatedNamespaceUnlocked()
+        guard
+            namespace.snapshotURLs.count > Self.retainedSnapshotCount,
+            let pointerURL = namespace.pointerURL
+        else {
+            return
+        }
+        let pointer = try verifiedPointerUnlocked(
+            at: pointerURL,
+            in: namespace
+        )
+        try pruneSnapshotsUnlocked(
+            protecting: [pointer.fileName],
+            maximumCount: Self.retainedSnapshotCount
+        )
+    }
+
+    /// Writes the pointer a first activation did not live to write. Applies
+    /// only to the exact state that leaves: one snapshot file, no pointer.
+    /// The snapshot was decoded and validated by the namespace check; here it
+    /// also passes the same topology admission as any first activation. The
+    /// pointer is written last, so a second interruption leaves this same
+    /// state again.
+    private func rebuildMissingPointerUnlocked(
+        in namespace: NamespaceContents
+    ) throws {
+        guard
+            namespace.pointerURL == nil,
+            namespace.snapshotURLs.count == 1,
+            let snapshotURL = namespace.snapshotURLs.first
+        else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        let data = try readBoundedData(
+            at: snapshotURL,
+            maximumBytes: Self.maximumSnapshotBytes
+        )
+        let snapshot: WalletNetworkSnapshot
+        do {
+            snapshot = try decoder.decode(
+                WalletNetworkSnapshot.self,
+                from: data
+            )
+            try validate(snapshot)
+        } catch {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        try verifyTopologyAdmission(current: nil, proposed: snapshot)
+        let pointer = ActivePointer(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            fileName: snapshotURL.lastPathComponent,
+            sha256: Self.sha256(data)
+        )
+        let pointerData = try encoder.encode(pointer)
+        guard pointerData.count <= Self.maximumPointerBytes else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        do {
+            try DurableFileWriter.write(
+                pointerData,
+                to: directoryURL.appendingPathComponent("active.json"),
+                fileManager: fileManager,
+                protection: .completeUntilFirstUserAuthentication
+            )
+        } catch {
+            // Transient (for example a full disk). The next read tries again.
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        Logger.shared.info(
+            "Wallet network model: pointer of an interrupted first activation completed"
+        )
+    }
+
     private func pruneSnapshotsUnlocked(
         protecting protectedNames: Set<String>,
         maximumCount: Int
@@ -4462,6 +5195,14 @@ final class WalletNetworkStore {
     /// existing wallet, secret-source classification, SORA public key, or
     /// deterministic Nexus child can be removed or rewritten only through a
     /// separately verified explicit operation.
+    ///
+    /// The display name is not part of a wallet's identity. It is metadata
+    /// that follows the wallet database, as the selection does: a rename
+    /// saves the account row first and the snapshot second, and App Store
+    /// 3.8.6 saves only the row. A snapshot that still holds the earlier
+    /// name (the process died or the write failed between the two saves, or
+    /// the rename happened in 3.8.6) is brought up to date by the next
+    /// activation instead of failing every later start.
     private func verifyMonotonicActivation(
         current: WalletNetworkSnapshot,
         proposed: WalletNetworkSnapshot
@@ -4479,7 +5220,19 @@ final class WalletNetworkStore {
             proposedWallets.values.allSatisfy({ $0.count == 1 }),
             proposedAccounts.values.allSatisfy({ $0.count == 1 }),
             current.wallets.allSatisfy({ wallet in
-                proposedWallets[wallet.id]?.first == wallet
+                guard
+                    let proposedWallet = proposedWallets[wallet.id]?.first,
+                    proposedWallet.id == wallet.id,
+                    proposedWallet.existingSoraAddress ==
+                        wallet.existingSoraAddress
+                else {
+                    return false
+                }
+                // The only permitted rewrite of the source: a read-only
+                // placeholder whose keys were restored and proven gets its
+                // real source. The display name may differ (see above).
+                return proposedWallet.secretSource == wallet.secretSource ||
+                    wallet.secretSource == .signingUnavailable
             }),
             current.accounts.allSatisfy({ account in
                 proposedAccounts[account.id]?.first == account
@@ -4519,16 +5272,25 @@ final class WalletNetworkStore {
                 }
                 continue
             }
-            let expectedNetworkIds: Set<NetworkId>
-            if currentWallets[wallet.id]?.count == 1 {
-                expectedNetworkIds = Set(
+            if currentWallets[wallet.id]?.first?.secretSource.supportsNexusDerivation == true {
+                // Retained children stay. Newly admitted children are added
+                // when the phrase is on this device; a read-only wallet keeps
+                // exactly its retained children until its keys are restored.
+                let retainedNetworkIds = Set(
                     (currentAccounts[wallet.id] ?? []).map(\.networkId)
-                ).union(admissionPolicy.admittedWalletNetworkIds)
-            } else {
-                expectedNetworkIds = admissionPolicy
-                    .admittedWalletNetworkIds
+                )
+                guard
+                    retainedNetworkIds.isSubset(of: proposedNetworkIds),
+                    proposedNetworkIds.isSubset(
+                        of: retainedNetworkIds.union(admissionPolicy.admittedWalletNetworkIds)
+                    )
+                else {
+                    throw WalletNetworkMigrationError
+                        .snapshotVerificationFailed
+                }
+                continue
             }
-            guard proposedNetworkIds == expectedNetworkIds else {
+            guard proposedNetworkIds == admissionPolicy.admittedWalletNetworkIds else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
             }
@@ -4547,26 +5309,86 @@ final class WalletNetworkStore {
         return lhsData == rhsData
     }
 
+    /// - Parameter allowingTransitionalSnapshot: true only inside an
+    ///   activation, between its pointer write and its own pruning. A read
+    ///   outside that window that finds one snapshot too many is looking at
+    ///   an interrupted activation and prunes it.
     private func loadUnlocked(
         allowingTransitionalSnapshot: Bool = false
     ) throws -> WalletNetworkSnapshot? {
-        let namespace = try validatedNamespaceUnlocked()
+        var namespace = try validatedNamespaceUnlocked()
+        if namespace.pointerURL == nil, namespace.snapshotURLs.count == 1 {
+            // A first activation wrote its snapshot and did not live to
+            // write the pointer. Finish it; the caller then verifies the
+            // snapshot against the database and the keys as at any start.
+            try rebuildMissingPointerUnlocked(in: namespace)
+            namespace = try validatedNamespaceUnlocked()
+        }
         guard let pointerURL = namespace.pointerURL else {
-            // A new installation has an empty directory. Snapshot files
-            // without an active pointer instead prove that activation was
-            // interrupted or the pointer was lost; rebuilding over them would
-            // silently reinterpret recovery evidence as a fresh namespace.
+            // A new installation has an empty directory. Several snapshot
+            // files without a pointer are not a state an interrupted
+            // activation leaves; rebuilding over them would silently
+            // reinterpret recovery evidence as a fresh namespace.
             guard namespace.snapshotURLs.isEmpty else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
             }
             return nil
         }
-        let maximumSnapshots = Self.retainedSnapshotCount +
-            (allowingTransitionalSnapshot ? 1 : 0)
-        guard namespace.snapshotURLs.count <= maximumSnapshots else {
+        // One snapshot above the retained count is the state between an
+        // activation's snapshot write and its pruning. More is not.
+        guard
+            namespace.snapshotURLs.count <= Self.retainedSnapshotCount + 1
+        else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
+        let pointer = try verifiedPointerUnlocked(
+            at: pointerURL,
+            in: namespace
+        )
+        let snapshotData = try readBoundedData(
+            at: directoryURL.appendingPathComponent(pointer.fileName),
+            maximumBytes: Self.maximumSnapshotBytes
+        )
+        guard Self.sha256(snapshotData) == pointer.sha256 else {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        let snapshot: WalletNetworkSnapshot
+        do {
+            snapshot = try decoder.decode(
+                WalletNetworkSnapshot.self,
+                from: snapshotData
+            )
+            try validate(snapshot)
+        } catch {
+            throw WalletNetworkMigrationError.snapshotVerificationFailed
+        }
+        if !allowingTransitionalSnapshot,
+           namespace.snapshotURLs.count > Self.retainedSnapshotCount {
+            // Best effort: the active snapshot is already verified. If the
+            // surplus cannot be removed now, the next read or the next
+            // activation (which requires it) tries again.
+            do {
+                try pruneSnapshotsUnlocked(
+                    protecting: [pointer.fileName],
+                    maximumCount: Self.retainedSnapshotCount
+                )
+                Logger.shared.info(
+                    "Wallet network model: pruning of an interrupted activation completed"
+                )
+            } catch {
+                Logger.shared.warning(
+                    "Wallet network model: surplus snapshot kept (prune deferred)"
+                )
+            }
+        }
+        return snapshot
+    }
+
+    private func verifiedPointerUnlocked(
+        at pointerURL: URL,
+        in namespace: NamespaceContents
+    ) throws -> ActivePointer {
         let pointer: ActivePointer
         do {
             pointer = try decoder.decode(
@@ -4594,24 +5416,7 @@ final class WalletNetworkStore {
         else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
-        let snapshotData = try readBoundedData(
-            at: directoryURL.appendingPathComponent(pointer.fileName),
-            maximumBytes: Self.maximumSnapshotBytes
-        )
-        guard Self.sha256(snapshotData) == pointer.sha256 else {
-            throw WalletNetworkMigrationError.snapshotVerificationFailed
-        }
-        let snapshot: WalletNetworkSnapshot
-        do {
-            snapshot = try decoder.decode(
-                WalletNetworkSnapshot.self,
-                from: snapshotData
-            )
-            try validate(snapshot)
-        } catch {
-            throw WalletNetworkMigrationError.snapshotVerificationFailed
-        }
-        return snapshot
+        return pointer
     }
 
     private func validateDirectory() throws {
@@ -4640,14 +5445,17 @@ final class WalletNetworkStore {
         try validateDirectory()
         let entries: [URL]
         do {
-            entries = try fileManager.contentsOfDirectory(
-                at: directoryURL,
+            // Helper files of a snapshot or pointer write that was cut short
+            // are swept (or ignored) here. Every caller holds the store
+            // lock, so no write of this store is in progress.
+            entries = try DurableFileWriter.contentsIgnoringLeftovers(
+                of: directoryURL,
+                fileManager: fileManager,
                 includingPropertiesForKeys: [
                     .fileSizeKey,
                     .isRegularFileKey,
                     .isSymbolicLinkKey,
-                ],
-                options: []
+                ]
             )
         } catch {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
@@ -4887,6 +5695,41 @@ final class WalletNetworkStore {
 /// Nexus migration admits only eligible 12- or 24-word master phrases.
 /// Retained 15/18/21-word, raw-seed, secret-only, and watch-only wallets stay SORA2-only.
 enum LegacySoraIdentityValidator {
+    /// The already-derived secret is the signing authority. Auxiliary backup
+    /// records must never be parsed, re-derived or compared along this path.
+    static func validateSigningSecret(
+        address: String, publicKey: Data, cryptoType: CryptoType,
+        networkType: SNAddressType, secret: Data,
+        recoveryGate: WalletRecoveryCapabilityGate
+    ) throws {
+        try validate(address: address, publicKey: publicKey, cryptoType: cryptoType,
+                     networkType: networkType, derivationPath: nil, entropy: nil,
+                     rawSeed: nil, secret: secret, recoveryGate: recoveryGate)
+    }
+
+    static func publicKeyForSecret(address: String, networkType: SNAddressType,
+                                   cryptoType: CryptoType, secret: Data) throws -> Data {
+        guard hasValidSecretLength(secret, cryptoType: cryptoType) else {
+            throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+        }
+        switch cryptoType {
+        case .sr25519:
+            return try SS58AddressFactory().accountId(fromAddress: address, type: networkType)
+        case .ed25519:
+            return try Ed25519KeypairFactory().createKeypairFromSeed(secret.miniSeed, chaincodeList: []).publicKey().rawData()
+        case .ecdsa:
+            return try EcdsaKeypairFactory().createKeypairFromSeed(secret, chaincodeList: []).publicKey().rawData()
+        }
+    }
+
+    static func hasValidSecretLength(_ secret: Data, cryptoType: CryptoType) -> Bool {
+        switch cryptoType {
+        case .sr25519: return secret.count == 64
+        case .ed25519: return secret.count == 32 || secret.count == 64
+        case .ecdsa: return secret.count == 32
+        }
+    }
+
     static func validate(
         address: String,
         publicKey: Data,
@@ -4900,6 +5743,14 @@ enum LegacySoraIdentityValidator {
     ) throws {
         try recoveryGate
             .requireAuthorizedLifecycleContinuation()
+        guard publicKey.count == (cryptoType == .ecdsa ? 33 : 32),
+              secret.map({ hasValidSecretLength($0, cryptoType: cryptoType) }) != false,
+              rawSeed.map({ $0.count == 32 || $0.count == 64 }) != false else {
+            throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+        }
+        if let secret, cryptoType == .sr25519 {
+            try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: cryptoType, publicKey: publicKey)
+        }
         let publicAddress = try SS58AddressFactory().address(
             fromAccountId: publicKey,
             type: networkType
@@ -4919,7 +5770,20 @@ enum LegacySoraIdentityValidator {
 
         var sourceSeed: Data?
         defer { wipeSensitive(&sourceSeed) }
-        if let entropy {
+        // App Store 3.8.6 imported 3/6/9-word phrases and stored their 4/8/12
+        // byte entropy. That entropy cannot be expanded by the current mnemonic
+        // library. Keep it untouched and prove the account through its stored
+        // seed or secret instead. Without either, the account has no provable
+        // signing source on this device.
+        let provableEntropy: Data?
+        if let entropy, !entropy.isEmpty,
+           !WalletMnemonicWordPolicy.isDerivableEntropy(entropy),
+           rawSeed != nil || secret != nil {
+            provableEntropy = nil
+        } else {
+            provableEntropy = entropy
+        }
+        if let entropy = provableEntropy {
             guard !entropy.isEmpty else {
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
             }
@@ -4977,10 +5841,16 @@ enum LegacySoraIdentityValidator {
                     .deriveChildSeedFromParent(sourceSeed.miniSeed, chaincodeList: chaincodes)
             }
             defer { wipeSensitive(&expectedSecret) }
-            if let secret, expectedSecret != secret {
-                throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+            if let secret {
+                guard Self.storedSecret(secret, matches: expectedSecret, cryptoType: cryptoType) else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(address)
+                }
+                // Prove the stored secret itself with the signature challenge
+                // below. For sr25519 its nonce half may legitimately differ.
+                resolvedSecret = secret
+            } else {
+                resolvedSecret = expectedSecret
             }
-            resolvedSecret = expectedSecret
         }
 
         // Explicit watch-only accounts have no source from which a signing
@@ -5055,6 +5925,66 @@ enum LegacySoraIdentityValidator {
             signingSucceeded: true,
             behaviorPassed: true
         )
+    }
+
+    /// A stored secret matches a re-derived one when it encodes the same key.
+    ///
+    /// sr25519 secrets are 64 bytes: a 32-byte scalar and a 32-byte nonce.
+    /// Hard junctions derive both deterministically, but schnorrkel fills the
+    /// nonce of a soft junction (`/path`) from a random number generator, so
+    /// two derivations of the same soft path differ in bytes 32..<64. Compare
+    /// the scalar only; the caller then proves the stored 64 bytes with a
+    /// signature that verifies against the account public key.
+    /// ed25519 uses its first 32 seed bytes; its redundant public half is
+    /// reconstructed for export. Ecdsa scalars are compared in full.
+    static func storedSecret(_ stored: Data, matches expected: Data, cryptoType: CryptoType) -> Bool {
+        switch cryptoType {
+        case .sr25519:
+            guard stored.count == 64, expected.count == 64 else { return false }
+            return constantTimeEqual(Data(stored.prefix(32)), Data(expected.prefix(32)))
+        case .ed25519:
+            guard hasValidSecretLength(stored, cryptoType: cryptoType),
+                  hasValidSecretLength(expected, cryptoType: cryptoType) else { return false }
+            return constantTimeEqual(Data(stored.prefix(32)), Data(expected.prefix(32)))
+        case .ecdsa:
+            guard stored.count == 32, expected.count == 32 else { return false }
+            return constantTimeEqual(stored, expected)
+        }
+    }
+
+    static func constantTimeEqual(_ lhs: Data, _ rhs: Data) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        var difference: UInt8 = 0
+        for (left, right) in zip(lhs, rhs) { difference |= left ^ right }
+        return difference == 0
+    }
+
+    /// Errors that mean "this account's stored material does not prove its
+    /// address" (or cannot be decoded), as opposed to a transient Keychain,
+    /// file or recovery-gate failure that must be retried, never absorbed.
+    static func isAccountIdentityFailure(_ error: Error) -> Bool {
+        if error is KeystoreSystemError || error is KeystoreError ||
+            error is UserStorageMigrationError || error is DurableFileWriter.Failure ||
+            error is FileProtectionMetadata.Failure ||
+            error is WalletMigrationSafetyNamespaceAdmission.Failure {
+            return false
+        }
+        if let error = error as? WalletNetworkMigrationError {
+            switch error {
+            case .walletRecoveryRequired, .lifecycleMutationBusy, .snapshotVerificationFailed,
+                 .missingSnapshot, .missingSelectedWallet, .explicitRemovalTargetMissing,
+                 .explicitRemovalInventoryMismatch, .explicitRemovalSelectionMismatch:
+                return false
+            default:
+                return true
+            }
+        }
+        let system = error as NSError
+        if [NSCocoaErrorDomain, NSPOSIXErrorDomain, NSOSStatusErrorDomain, NSURLErrorDomain]
+            .contains(system.domain) {
+            return false
+        }
+        return true
     }
 
     private static func wipeSensitive(_ value: inout Data) {
@@ -5148,12 +6078,13 @@ final class WalletNetworkModelMigrator {
     private func migrateLocked(
         accounts: [AccountItem],
         selectedAddress: String?,
-        current: WalletNetworkSnapshot?,
+        current storedSnapshot: WalletNetworkSnapshot?,
         activate: Bool
     ) throws -> WalletNetworkSnapshot {
-        if let current {
+        var current = storedSnapshot
+        if let stored = storedSnapshot {
             guard
-                current.schemaVersion ==
+                stored.schemaVersion ==
                     WalletNetworkSnapshot.currentSchemaVersion
             else {
                 // A store written by an unknown/newer migration cannot be
@@ -5161,7 +6092,48 @@ final class WalletNetworkModelMigrator {
                 // inputs.
                 throw WalletNetworkMigrationError.snapshotVerificationFailed
             }
-            try verifyExistingSnapshot(current, against: accounts)
+            let removedWalletIds = try verifyExistingSnapshot(
+                stored,
+                against: accounts
+            )
+            if !removedWalletIds.isEmpty {
+                // A database with no account row at all beside a snapshot
+                // that lists wallets is not "an account was removed": the
+                // rows may have been lost (an interrupted removal of the
+                // last account in App Store 3.8.6, a damaged store). Emptying
+                // the snapshot here would also remove what tells the launch
+                // routing that a wallet existed. Stop as before; the
+                // recovery screen and the missing-database handling decide.
+                guard !accounts.isEmpty else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(
+                        stored.wallets.first(where: {
+                            removedWalletIds.contains($0.id)
+                        })?.existingSoraAddress ?? ""
+                    )
+                }
+                // The database still has accounts and no longer has these
+                // (removed in App Store 3.8.6 after this version ran). One
+                // removed account must not lock the others: record the
+                // removal and continue with the accounts the database has.
+                if activate {
+                    current = try store.recordRemovalOutsideThisVersion(
+                        walletIds: removedWalletIds,
+                        remainingWalletIds: Set(stored.wallets.map(\.id))
+                            .subtracting(removedWalletIds)
+                    )
+                    Logger.shared.info(
+                        "Wallet network model: \(removedWalletIds.count) account(s) removed outside this version recorded as removed"
+                    )
+                } else {
+                    // Verification only: compare against the snapshot as it
+                    // will be once the removal is recorded. Nothing is
+                    // written here.
+                    current = Self.snapshot(
+                        stored,
+                        withoutWallets: removedWalletIds
+                    )
+                }
+            }
         }
 
         let accountAddresses = Set(accounts.map(\.address))
@@ -5177,30 +6149,12 @@ final class WalletNetworkModelMigrator {
 
         var identities: [WalletIdentity] = []
         var networkAccounts: [NetworkAccount] = []
+        // Wallets whose Nexus children were copied from the active snapshot
+        // instead of being re-derived (no derivable phrase on this device).
+        var preservedChildWalletIds = Set<String>()
         for account in accounts.sorted(by: { $0.order < $1.order }) {
-            let scopedEntropyTag = KeystoreTag.entropyTagForAddress(
-                account.address
-            )
-            var entropy: Data?
-            if let current {
-                // The migrator's injected store is the authority for this
-                // lifecycle transaction. Never resolve a retained global
-                // entropy record through a separately loaded default store.
-                entropy = try keystore.fetchEntropyForAddress(
-                    account.address,
-                    activeSnapshot: current,
-                    recoveryGate: recoveryGate
-                )
-            } else {
-                // Scoped credentials take precedence. The migration-only
-                // fallback below proves any retained global entropy against
-                // this exact account before the first snapshot is activated.
-                entropy = try keystore.loadIfKeyExists(scopedEntropyTag)
-            }
-            var rawSeed = try keystore.fetchSeedForAddress(account.address)
-            var legacySecret = try keystore.fetchSecretKeyForAddress(
-                account.address
-            )
+            let walletId = account.address
+            let storedWallet = current?.wallets.first(where: { $0.id == walletId })
             let watchOnlyKey = "wallet.watchOnly.\(account.address)"
             guard
                 !settings.allKeys().contains(watchOnlyKey) ||
@@ -5212,30 +6166,17 @@ final class WalletNetworkModelMigrator {
             }
             let isExplicitWatchOnly =
                 settings.bool(for: watchOnlyKey) == true
-            if
-                current == nil,
-                entropy == nil,
-                rawSeed == nil,
-                legacySecret == nil,
-                !isExplicitWatchOnly
-            {
-                guard account.cryptoType == .sr25519,
-                      account.networkType == SNAddressType(chain: .sora) else {
-                    throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
-                }
-                entropy = try keystore.fetchLegacyEntropyBeforeNetworkActivation(
-                    for: account.address,
-                    recoveryGate: recoveryGate
-                )
-            }
-            defer {
-                Self.wipeSensitive(&entropy)
-                Self.wipeSensitive(&rawSeed)
-                Self.wipeSensitive(&legacySecret)
-            }
+
+            var material = try resolveSigningMaterial(
+                for: account,
+                current: current,
+                isExplicitWatchOnly: isExplicitWatchOnly
+            )
+            defer { material.wipe() }
+
             guard
                 !isExplicitWatchOnly ||
-                    (entropy == nil && rawSeed == nil && legacySecret == nil)
+                    (material.entropy == nil && material.rawSeed == nil && material.secret == nil)
             else {
                 // Preserve the explicit account type. Conflicting protected evidence must
                 // enter recovery instead of silently enabling signing for a watch-only wallet.
@@ -5243,49 +6184,48 @@ final class WalletNetworkModelMigrator {
                     account.address
                 )
             }
-            guard
-                entropy != nil ||
-                    rawSeed != nil ||
-                    legacySecret != nil ||
-                    isExplicitWatchOnly
-            else {
-                // Missing or unreadable signing material must never be
-                // reclassified as watch-only during an upgrade.
-                throw WalletNetworkMigrationError.legacyIdentityMismatch(
-                    account.address
-                )
-            }
-            let retainedMnemonicSource: WalletSecretSource?
-            if let entropy {
-                let wordCount = try IRMnemonicCreator(language: .english)
-                    .mnemonic(fromEntropy: entropy)
-                    .allWords()
-                    .count
-                guard
-                    let source = WalletMnemonicWordPolicy
-                        .retainedSecretSource(forWordCount: wordCount)
-                else {
-                    throw WalletNetworkMigrationError.legacyIdentityMismatch(
-                        account.address
-                    )
+            // A watch-only declaration and the recorded source must agree in
+            // both directions. This is a contradiction between two durable
+            // records (not missing keys), so it stays fail-closed.
+            if let storedSource = storedWallet?.secretSource {
+                let storedWatchOnly = storedSource == .watchOnly
+                let storedSigning = storedSource != .watchOnly && storedSource != .signingUnavailable
+                guard (!storedWatchOnly || isExplicitWatchOnly), (!storedSigning || !isExplicitWatchOnly) else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(account.address)
                 }
-                retainedMnemonicSource = source
-            } else {
-                retainedMnemonicSource = nil
             }
-            let source: WalletSecretSource = retainedMnemonicSource ?? (
-                rawSeed != nil
-                    ? .rawSeed
-                    : (legacySecret != nil ? .legacySecret : .watchOnly)
-            )
-            let walletId = account.address
 
-            try validateLegacyIdentity(
-                account,
-                entropy: entropy,
-                rawSeed: rawSeed,
-                secret: legacySecret
-            )
+            // Classify and prove this account. A missing or non-matching
+            // source makes only this account read-only; Keychain items are
+            // never changed. Transient Keychain or gate errors propagate.
+            var provenSource: WalletSecretSource?
+            if isExplicitWatchOnly {
+                try validateLegacyIdentity(account, entropy: nil, rawSeed: nil, secret: nil)
+                provenSource = .watchOnly
+            } else if material.hasAny {
+                do {
+                    let source = try Self.classify(material)
+                    try validateLegacyIdentity(
+                        account,
+                        entropy: material.entropy,
+                        rawSeed: material.rawSeed,
+                        secret: material.secret
+                    )
+                    provenSource = source
+                } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                    provenSource = nil
+                }
+            }
+
+            // The active snapshot records how a wallet was created. Keep that
+            // durable classification; only a read-only placeholder may be
+            // upgraded once its keys are restored.
+            let source: WalletSecretSource
+            if let storedWallet, storedWallet.secretSource != .signingUnavailable {
+                source = storedWallet.secretSource
+            } else {
+                source = provenSource ?? .signingUnavailable
+            }
 
             identities.append(
                 WalletIdentity(
@@ -5305,10 +6245,20 @@ final class WalletNetworkModelMigrator {
                 )
             )
 
+            let storedChildren = current?.accounts.filter {
+                $0.walletId == walletId && $0.networkId != .sora2
+            } ?? []
             guard
                 source.supportsNexusDerivation,
-                var derivationEntropy = entropy
+                provenSource?.supportsNexusDerivation == true,
+                var derivationEntropy = material.entropy
             else {
+                if !storedChildren.isEmpty {
+                    // No derivable phrase on this device now. Keep the
+                    // historical children exactly as recorded.
+                    networkAccounts.append(contentsOf: storedChildren)
+                    preservedChildWalletIds.insert(walletId)
+                }
                 continue
             }
             defer { Self.wipeSensitive(&derivationEntropy) }
@@ -5380,7 +6330,8 @@ final class WalletNetworkModelMigrator {
         if let current {
             try verifyExistingNexusChildren(
                 current,
-                against: snapshot
+                against: snapshot,
+                preservedChildWalletIds: preservedChildWalletIds
             )
         }
 
@@ -5408,6 +6359,95 @@ final class WalletNetworkModelMigrator {
 
     private static func wipeSensitive(_ value: inout Data) {
         value.resetBytes(in: value.startIndex ..< value.endIndex)
+    }
+
+    /// Signing material read for one account. Never written back.
+    private struct SigningMaterial {
+        var entropy: Data?
+        var rawSeed: Data?
+        var secret: Data?
+
+        var hasAny: Bool { entropy != nil || rawSeed != nil || secret != nil }
+
+        mutating func wipe() {
+            for keyPath in [\SigningMaterial.entropy, \SigningMaterial.rawSeed, \SigningMaterial.secret] {
+                if let count = self[keyPath: keyPath]?.count {
+                    self[keyPath: keyPath]?.resetBytes(in: 0 ..< count)
+                }
+                self[keyPath: keyPath] = nil
+            }
+        }
+    }
+
+    private func resolveSigningMaterial(
+        for account: AccountItem,
+        current: WalletNetworkSnapshot?,
+        isExplicitWatchOnly: Bool
+    ) throws -> SigningMaterial {
+        var material = SigningMaterial()
+        if isExplicitWatchOnly {
+            // Preserve the existing contradiction check: a watch-only label
+            // cannot silently acquire authority from retained private material.
+            material.secret = try keystore.fetchSecretKeyForAddress(account.address)
+            material.entropy = try keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+            material.rawSeed = try keystore.fetchSeedForAddress(account.address)
+            return material
+        }
+        material.secret = try keystore.fetchSecretKeyForAddress(account.address)
+        // Prove a present direct key first. A wrong direct key stays read-only;
+        // a valid auxiliary record must not hide a damaged signing key.
+        if let secret = material.secret {
+            do {
+                try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                    publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                    networkType: account.networkType, secret: secret, recoveryGate: recoveryGate)
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                return material
+            }
+        }
+        var backup = try WalletBackupMaterial.assess(for: account, recoveryGate: recoveryGate,
+            readEntropy: {
+                if let current {
+                    return try self.keystore.fetchEntropyForAddress(account.address,
+                        activeSnapshot: current, recoveryGate: self.recoveryGate)
+                }
+                if let scoped = try self.keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address)) {
+                    return scoped
+                }
+                if account.cryptoType == .sr25519, account.networkType == SNAddressType(chain: .sora) {
+                    return try self.keystore.fetchLegacyEntropyBeforeNetworkActivation(
+                        for: account.address, recoveryGate: self.recoveryGate)
+                }
+                return nil
+            }, readSeed: { try self.keystore.fetchSeedForAddress(account.address) },
+            readPath: { try self.keystore.fetchDeriviationForAddress(account.address) })
+        defer { backup.wipe() }
+        material.entropy = backup.entropy
+        material.rawSeed = backup.seed
+        if !material.hasAny, let error = backup.firstReadError,
+           !LegacySoraIdentityValidator.isAccountIdentityFailure(error) { throw error }
+
+        return material
+    }
+
+    /// The source the material can prove, before the identity check.
+    private static func classify(_ material: SigningMaterial) throws -> WalletSecretSource {
+        if let entropy = material.entropy,
+           WalletMnemonicWordPolicy.isDerivableEntropy(entropy) {
+            let wordCount = try IRMnemonicCreator(language: .english)
+                .mnemonic(fromEntropy: entropy)
+                .allWords()
+                .count
+            guard let source = WalletMnemonicWordPolicy
+                .retainedSecretSource(forWordCount: wordCount) else {
+                throw WalletNetworkMigrationError.invalidMnemonic
+            }
+            return source
+        }
+        // 3/6/9-word entropy (or no entropy): prove through seed or secret.
+        if material.rawSeed != nil { return .rawSeed }
+        if material.secret != nil { return .legacySecret }
+        throw WalletNetworkMigrationError.invalidMnemonic
     }
 
     private func verifyLegacyAccounts(
@@ -5443,10 +6483,20 @@ final class WalletNetworkModelMigrator {
         }
     }
 
+    /// Checks the active snapshot against the database inventory.
+    ///
+    /// - A wallet in both must have the same address and public key;
+    ///   otherwise `legacyIdentityMismatch`.
+    /// - A wallet in the snapshot whose row is gone is returned. This version
+    ///   always records a removal in the snapshot before it deletes the row,
+    ///   so such a wallet was removed by a version that does not know the
+    ///   snapshot (App Store 3.8.6). The caller records it as removed. Its
+    ///   Keychain items are not touched by either version's check.
+    /// - Returns: the ids of snapshot wallets that have no database row.
     private func verifyExistingSnapshot(
         _ snapshot: WalletNetworkSnapshot,
         against accounts: [AccountItem]
-    ) throws {
+    ) throws -> Set<String> {
         let currentByAddress = Dictionary(
             grouping: accounts,
             by: \.address
@@ -5463,22 +6513,50 @@ final class WalletNetworkModelMigrator {
         else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
+        var removedWalletIds = Set<String>()
         for legacy in storedSoraAccounts.values.compactMap(\.first) {
+            guard let current = currentByAddress[legacy.walletId]?.first else {
+                removedWalletIds.insert(legacy.walletId)
+                continue
+            }
             guard
-                let current = currentByAddress[legacy.walletId]?.first,
                 current.address == legacy.address,
                 current.publicKeyData == legacy.publicKey
             else {
-                // A previously inventoried account disappearing is never
-                // silently accepted as an upgrade-side deletion.
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(legacy.address)
             }
         }
+        // A wallet without a SORA2 account does not pass snapshot validation,
+        // but the removal must never leave such a wallet behind either.
+        for wallet in snapshot.wallets where currentByAddress[wallet.id] == nil {
+            removedWalletIds.insert(wallet.id)
+        }
+        return removedWalletIds
+    }
+
+    private static func snapshot(
+        _ snapshot: WalletNetworkSnapshot,
+        withoutWallets walletIds: Set<String>
+    ) -> WalletNetworkSnapshot {
+        let wallets = snapshot.wallets.filter { !walletIds.contains($0.id) }
+        let selected = snapshot.selectedWalletId.flatMap {
+            walletIds.contains($0) ? nil : $0
+        } ?? wallets.first?.id
+        return WalletNetworkSnapshot(
+            schemaVersion: snapshot.schemaVersion,
+            selectedWalletId: selected,
+            wallets: wallets,
+            accounts: snapshot.accounts.filter {
+                !walletIds.contains($0.walletId)
+            },
+            createdAt: snapshot.createdAt
+        )
     }
 
     private func verifyExistingNexusChildren(
         _ current: WalletNetworkSnapshot,
-        against expected: WalletNetworkSnapshot
+        against expected: WalletNetworkSnapshot,
+        preservedChildWalletIds: Set<String> = []
     ) throws {
         let currentWallets = Dictionary(
             grouping: current.wallets,
@@ -5508,7 +6586,10 @@ final class WalletNetworkModelMigrator {
         for wallet in current.wallets {
             guard
                 let expectedWallet = expectedWallets[wallet.id]?.first,
-                expectedWallet.secretSource == wallet.secretSource
+                expectedWallet.secretSource == wallet.secretSource ||
+                    // A read-only placeholder is upgraded once restored keys
+                    // prove the address.
+                    wallet.secretSource == .signingUnavailable
             else {
                 // The active snapshot is durable evidence of whether this
                 // wallet is signing-capable and which retained source owns its
@@ -5522,6 +6603,24 @@ final class WalletNetworkModelMigrator {
 
             let storedChildren = current.accounts.filter {
                 $0.walletId == wallet.id && $0.networkId != .sora2
+            }
+            if preservedChildWalletIds.contains(wallet.id) {
+                // No derivable phrase on this device: the children were
+                // copied unchanged and must be exactly the stored ones.
+                let copiedChildren = expected.accounts.filter {
+                    $0.walletId == wallet.id && $0.networkId != .sora2
+                }
+                guard
+                    copiedChildren.count == storedChildren.count,
+                    storedChildren.allSatisfy({ child in
+                        expectedAccounts[child.id]?.first == child
+                    })
+                else {
+                    throw WalletNetworkMigrationError.legacyIdentityMismatch(
+                        wallet.existingSoraAddress
+                    )
+                }
+                continue
             }
             if !wallet.secretSource.supportsNexusDerivation {
                 guard storedChildren.isEmpty else {
@@ -5566,6 +6665,12 @@ final class WalletNetworkModelMigrator {
         rawSeed: Data?,
         secret: Data?
     ) throws {
+        if let secret {
+            try LegacySoraIdentityValidator.validateSigningSecret(address: account.address,
+                publicKey: account.publicKeyData, cryptoType: account.cryptoType,
+                networkType: account.networkType, secret: secret, recoveryGate: recoveryGate)
+            return
+        }
         try LegacySoraIdentityValidator.validate(
             address: account.address,
             publicKey: account.publicKeyData,

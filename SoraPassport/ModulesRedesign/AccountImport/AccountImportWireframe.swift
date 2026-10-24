@@ -49,14 +49,16 @@ final class AccountImportWireframe: AccountImportWireframeProtocol {
                  sourceViewModel: InputViewModelProtocol,
                  usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?) {
+                 derivationPathViewModel: InputViewModelProtocol?,
+                 expectedAddress: String?) {
         guard let setupNameView = SetupAccountNameViewFactory.createViewForAccountImport(sourceType: sourceType,
                                                                                          cryptoType: cryptoType,
                                                                                          networkType: networkType,
                                                                                          sourceViewModel: sourceViewModel,
                                                                                          usernameViewModel: usernameViewModel,
                                                                                          passwordViewModel: passwordViewModel,
-                                                                                         derivationPathViewModel: derivationPathViewModel)?.controller else { return }
+                                                                                         derivationPathViewModel: derivationPathViewModel,
+                                                                                         expectedAddress: expectedAddress)?.controller else { return }
         view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
     }
 }

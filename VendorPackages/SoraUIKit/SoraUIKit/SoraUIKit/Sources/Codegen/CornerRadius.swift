@@ -1,6 +1,6 @@
 import UIKit
 
-// #codegen
+// Corner radius constants.
 public enum CornerRadius {
 	public static let M: CGFloat = 24
 	public static let ML: CGFloat = 28

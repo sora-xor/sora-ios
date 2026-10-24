@@ -46,16 +46,28 @@ class PinSetupInteractor {
     private(set) var secretManager: SecretStoreManagerProtocol
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
+    private let ownerPINKeystore: KeystoreProtocol
+    private let recoveryGate: WalletRecoveryCapabilityGate
+    private let authorization: WalletOwnerPIN.Authorization?
+    private let accounts: () throws -> [AccountItem]
 
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
          biometryAuth: BiometryAuthProtocol,
-         config: ApplicationConfigProtocol
+         config: ApplicationConfigProtocol,
+         ownerPINKeystore: KeystoreProtocol = Keychain(),
+         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+         authorization: WalletOwnerPIN.Authorization? = nil,
+         accounts: @escaping () throws -> [AccountItem] = { try WalletAccountAddresses.accounts() }
     ) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.config = config
+        self.ownerPINKeystore = ownerPINKeystore
+        self.authorization = authorization
+        self.accounts = accounts
+        self.recoveryGate = recoveryGate
     }
 
     private(set) var pincode: String?
@@ -79,20 +91,30 @@ class PinSetupInteractor {
 
     private func submitPincode() {
         guard state == .submitingPincode, let currentPincode = pincode else { return }
-        do {
-            try WalletRecoveryCapabilityGate.shared
-                .requireAuthorizedLifecycleContinuation()
-        } catch {
-            pincode = nil
-            state = .waitingPincode
-            presenter?.didReceiveConfigError(error)
-            return
-        }
-
-        secretManager.saveSecret(currentPincode,
-                                 for: KeystoreTag.pincode.rawValue,
-                                 completionQueue: DispatchQueue.main) { _ -> Void in
-                                    self.completeSetup()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result {
+                let lease = WalletLifecycleCoordinator.shared.acquire()
+                defer { lease.release() }
+                try self.recoveryGate.requireAuthorizedLifecycleContinuation()
+                let ownerPIN = WalletOwnerPIN(keystore: self.ownerPINKeystore, settings: self.settingsManager,
+                                             recoveryGate: self.recoveryGate)
+                let accounts = try self.accounts()
+                try ownerPIN.settleRebindings(currentAddresses: Set(accounts.map(\.address)))
+                if let authorization = self.authorization {
+                    try ownerPIN.rotate(to: currentPincode, authorization: authorization, accounts: accounts)
+                } else {
+                    try ownerPIN.setInitialPIN(currentPincode, accounts: accounts)
+                }
+            }
+            DispatchQueue.main.async {
+                switch result {
+                case .success: self.completeSetup()
+                case let .failure(error):
+                    self.pincode = nil
+                    self.state = .waitingPincode
+                    self.presenter?.didReceiveConfigError(error)
+                }
+            }
         }
     }
 

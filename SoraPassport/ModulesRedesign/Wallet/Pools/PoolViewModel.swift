@@ -46,6 +46,8 @@ struct PoolViewModel {
     var isFavorite: Bool
     var deltaArributedText: SoramitsuTextItem?
     var farmedRewardAssetsImages: [UIImage]
+    /// The price read for this row has finished; see `AssetViewModel`.
+    var priceLoadFinished = false
 
     init(identifier: String,
          title: String,

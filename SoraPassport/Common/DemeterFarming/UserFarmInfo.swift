@@ -116,4 +116,20 @@ struct Farm {
     let tvl: Decimal
     let apr: Decimal
     let depositFee: Decimal
+    /// False when the price of the pooled asset was not known: `tvl` is
+    /// then 0 only because it could not be computed.
+    var tvlIsKnown = true
+    /// False when the TVL or the price of the reward asset was not known.
+    var aprIsKnown = true
+
+    /// "$1.2M", or no text when the value is not known. Never "$0" for
+    /// want of a price.
+    func tvlText(suffix: String = "") -> String {
+        tvlIsKnown ? "$" + tvl.formatNumber() + suffix : ""
+    }
+
+    /// "12.3% APR", or no text when the rate is not known.
+    func aprText(suffix: String) -> String {
+        aprIsKnown ? "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")" + suffix : ""
+    }
 }

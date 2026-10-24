@@ -42,6 +42,9 @@ final class TransferableItem: NSObject {
     var frozenFiatAmount: String?
     var balanceData: BalanceData
     var service: TransferableItemService
+    /// The balance could not be read when the item was made; `balance` is
+    /// a placeholder. What holds now is `service.balanceUnavailable`.
+    let balanceUnavailable: Bool
     
     init(
         assetInfo: AssetInfo,
@@ -50,7 +53,8 @@ final class TransferableItem: NSObject {
         frozenAmount: Amount? = nil,
         frozenFiatAmount: String? = nil,
         service: TransferableItemService,
-        balanceData: BalanceData
+        balanceData: BalanceData,
+        balanceUnavailable: Bool = false
     ) {
         self.assetInfo = assetInfo
         self.fiat = fiat
@@ -59,7 +63,12 @@ final class TransferableItem: NSObject {
         self.frozenFiatAmount = frozenFiatAmount
         self.balanceData = balanceData
         self.service = service
-        self.service.setup(with: balanceData)
+        self.balanceUnavailable = balanceUnavailable
+        if balanceUnavailable {
+            self.service.setupUnavailable()
+        } else {
+            self.service.setup(with: balanceData)
+        }
     }
 }
 

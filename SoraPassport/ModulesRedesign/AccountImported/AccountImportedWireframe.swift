@@ -51,7 +51,7 @@ final class AccountImportedWireframe {
 extension AccountImportedWireframe: AccountImportedWireframeProtocol {
     @MainActor 
     func showSetupPinCode() {
-        let view = PinViewFactory.createRedesignPinSetupView()
+        let view = PinViewFactory.createPostImportPinView()
         
         let containerView = BlurViewController()
         containerView.isClosable = false

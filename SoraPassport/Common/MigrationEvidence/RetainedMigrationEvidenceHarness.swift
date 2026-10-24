@@ -33,6 +33,13 @@ enum RetainedMigrationEvidenceControlledFailure: Error {
     case rollbackAfterLiveStoreReplacement
 }
 
+// The harness can seal every kSecClassKey item and inject a rollback fault
+// into the live migration, and an unprovable evidence directory switches the
+// app to an evidence-only screen. App Store builds therefore compile it out:
+// only configurations that set SORA_MIGRATION_EVIDENCE_HARNESS (Debug, Dev,
+// Test and Staging through SORA_EVIDENCE_HARNESS_CONDITION, or an explicit
+// qualification build) contain it. Release builds get the inert stub below.
+#if SORA_MIGRATION_EVIDENCE_HARNESS
 final class RetainedMigrationEvidenceHarness {
     enum BootstrapDecision: Equatable {
         case inactive
@@ -41,24 +48,6 @@ final class RetainedMigrationEvidenceHarness {
     }
 
     static let shared = RetainedMigrationEvidenceHarness()
-
-    static let enrollmentArgument = "-SORA_MIGRATION_EVIDENCE_ENROLL_V3"
-    static let statusAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.status"
-    static let receiptShaAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.receiptSha256"
-    static let receiptBase64AccessibilityIdentifier =
-        "sora.migrationEvidence.v3.receiptBase64"
-    static let continueUpgradeAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.continueUpgrade"
-    static let recoveryAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.recovery"
-    static let recoveryExportAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.recoveryExport"
-    static let recoveryExportConfirmAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.recoveryExportConfirm"
-    static let recoveryExportSuccessAccessibilityIdentifier =
-        "sora.migrationEvidence.v3.recoveryExportSuccess"
 
     private static let bundleIdentifier = "co.jp.soramitsu.sora"
     private static let evidenceDirectoryName = "SoraWalletMigrationEvidence"
@@ -3246,4 +3235,75 @@ final class RetainedMigrationEvidenceViewController: UIViewController {
             label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
+}
+
+#else
+
+/// Inert stand-in compiled into App Store builds. It never reads the
+/// Keychain, files or launch arguments, and `bootstrap()` always reports
+/// `.inactive`, so the wallet UI always starts normally.
+final class RetainedMigrationEvidenceHarness {
+    enum BootstrapDecision: Equatable {
+        case inactive
+        case evidenceOnly
+        case authorized
+    }
+
+    static let shared = RetainedMigrationEvidenceHarness()
+
+    private init() {}
+
+    func bootstrap() -> BootstrapDecision {
+        .inactive
+    }
+
+    func installStatusSurface(in _: UIWindow) {}
+
+    func makeEvidenceOnlyViewController() -> UIViewController {
+        UIViewController()
+    }
+
+    func checkpoint(_: RetainedMigrationEvidenceCheckpoint) {}
+
+    func recordCredentialBehavior(
+        signingExpected _: Bool,
+        signingSucceeded _: Bool,
+        behaviorPassed _: Bool
+    ) {}
+
+    func observeApplicationRoute(
+        _: RetainedMigrationEvidenceApplicationRoute
+    ) {}
+
+    func recordRecoveryArchiveExport(_: URL) {}
+
+    func recordRollbackStoreBeforeReplacement(_: URL) {}
+
+    func injectRollbackAfterLiveStoreReplacement(_: URL) throws {}
+
+    func recordRollbackStoreRestoration(_: URL) {}
+}
+
+#endif
+
+/// Identifiers shared by the harness, the recovery screens and the
+/// migration-evidence UI tests. They exist in every build.
+extension RetainedMigrationEvidenceHarness {
+    static let enrollmentArgument = "-SORA_MIGRATION_EVIDENCE_ENROLL_V3"
+    static let statusAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.status"
+    static let receiptShaAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.receiptSha256"
+    static let receiptBase64AccessibilityIdentifier =
+        "sora.migrationEvidence.v3.receiptBase64"
+    static let continueUpgradeAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.continueUpgrade"
+    static let recoveryAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.recovery"
+    static let recoveryExportAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.recoveryExport"
+    static let recoveryExportConfirmAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.recoveryExportConfirm"
+    static let recoveryExportSuccessAccessibilityIdentifier =
+        "sora.migrationEvidence.v3.recoveryExportSuccess"
 }

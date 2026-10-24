@@ -33,6 +33,11 @@ final class SoramitsuStyle {
 		notifyObservers(with: .statusBar)
 	}
 
+	/// The effect policy changed; colours did not.
+	func applyEffects() {
+		notifyObservers(with: .effects)
+	}
+
 	func addPaletteObserver(_ observer: AnyObject, handler: @escaping (() -> Void)) {
 		if paletteObservers.object(forKey: observer) == nil {
 			paletteObservers.setObject([], forKey: observer)

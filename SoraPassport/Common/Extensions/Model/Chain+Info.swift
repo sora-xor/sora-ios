@@ -104,10 +104,6 @@ extension Chain {
         }
     }
 
-    func preparedWhiteListPath() -> String? {
-        return R.file.whitelistJson.path()
-    }
-
     func preparedDefaultTypeDefPath() -> String? {
         return R.file.runtimeDefaultJson.path()
     }

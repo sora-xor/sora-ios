@@ -115,17 +115,6 @@ public final class SoramitsuTextViewConfiguration<Type: SoramitsuTextView>: Sora
 			return
 		}
 
-		guard let text = text else {
-			owner?.attributedText = nil
-            if let dynamicTextStyle, let baseFont = font.attributes[.font] as? UIFont {
-                let scaledFont = UIFontMetrics(forTextStyle: dynamicTextStyle)
-                    .scaledFont(for: baseFont, compatibleWith: owner?.traitCollection)
-                owner?.font = scaledFont
-                owner?.typingAttributes[.font] = scaledFont
-            }
-			return
-		}
-
 		var attributes = font.attributes
         if let dynamicTextStyle, let baseFont = attributes[.font] as? UIFont {
             attributes[.font] = UIFontMetrics(forTextStyle: dynamicTextStyle)
@@ -138,13 +127,13 @@ public final class SoramitsuTextViewConfiguration<Type: SoramitsuTextView>: Sora
 		attributes[.foregroundColor] = style.palette.color(textColor)
 		attributes[.paragraphStyle] = paragraph
 
-		let attributedText = NSMutableAttributedString(string: text, attributes: attributes)
-
-		owner?.attributedText = attributedText
-        if dynamicTextStyle != nil {
-            owner?.font = attributes[.font] as? UIFont
-            owner?.typingAttributes = attributes
-        }
+		owner?.attributedText = text.map { NSAttributedString(string: $0, attributes: attributes) }
+        // Typed text gets these until `text` is set again, and text a keyboard is still composing
+        // (marked text) keeps them while it is composed. An empty view takes them from its font
+        // and colour.
+        owner?.font = attributes[.font] as? UIFont
+        owner?.textColor = attributes[.foregroundColor] as? UIColor
+        owner?.typingAttributes = attributes
 		owner?.linkTextAttributes = nil
 	}
 
