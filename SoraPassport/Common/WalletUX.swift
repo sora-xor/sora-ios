@@ -8,6 +8,8 @@ import SoraUIKit
 import UIKit
 
 enum WalletUX {
+    /// SORA Neon tokens for the theme being shown.
+    static var tokens: NeonTokens { NeonTokens.current }
     static var page: UIColor { SoramitsuUI.shared.theme.palette.color(.bgPage) }
     static var surface: UIColor { SoramitsuUI.shared.theme.palette.color(.bgSurface) }
     static var accent: UIColor { SoramitsuUI.shared.theme.palette.color(.accentPrimary) }
@@ -23,13 +25,111 @@ enum WalletUX {
             guard let path = bundle.path(forResource: locale, ofType: "lproj"),
                   let localized = Bundle(path: path) else { continue }
             let result = localized.localizedString(forKey: value, value: value, table: "Localizable")
-            if result != value { return result }
+            if !result.isEmpty && result != value { return result }
         }
         return value
     }
 
     static func format(_ value: String, _ arguments: CVarArg...) -> String {
         String(format: text(value), arguments: arguments)
+    }
+
+    /// Shown in place of an amount when the chain's answer for a balance
+    /// could not be read. Never "0": the funds are not gone.
+    static var balanceUnavailableText: String { text("Balance unavailable") }
+
+    /// Shown in place of a fiat total while no price is known.
+    static var priceUnavailableText: String { text("Price unavailable") }
+
+    /// A fiat total for display. Without prices the total is unknown, not
+    /// zero: a wallet that holds tokens must never read "$0" because the
+    /// price service could not be reached.
+    static func fiatTotalText(_ total: Decimal, pricesAvailable: Bool) -> String {
+        guard pricesAvailable else { return priceUnavailableText }
+        return "$" + (NumberFormatter.fiat.stringFromDecimal(total) ?? "")
+    }
+
+    /// "Prices as of 09:02" (with the date when it is not today): shown
+    /// next to a total valued with the last prices PI could give, while PI
+    /// cannot be read.
+    static func pricesAsOfText(
+        _ date: Date,
+        now: Date = Date(),
+        language: String? = nil,
+        calendar: Calendar = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        asOfText(
+            "Prices as of %@",
+            date,
+            now: now,
+            language: language,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
+
+    /// The same for the Activity list, when the indexer cannot be read and
+    /// the list is the one that was loaded last.
+    static func activityAsOfText(
+        _ date: Date,
+        now: Date = Date(),
+        language: String? = nil,
+        calendar: Calendar = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        asOfText(
+            "Activity as of %@. Newer transactions will appear when the list can be updated.",
+            date,
+            now: now,
+            language: language,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
+
+    private static func asOfText(
+        _ key: String,
+        _ date: Date,
+        now: Date,
+        language: String?,
+        calendar: Calendar,
+        timeZone: TimeZone
+    ) -> String {
+        var calendar = calendar
+        calendar.timeZone = timeZone
+        let formatter = DateFormatter()
+        formatter.locale = Locale(
+            identifier: language ?? LocalizationManager.shared.selectedLocalization
+        )
+        formatter.timeZone = timeZone
+        formatter.timeStyle = .short
+        formatter.dateStyle = calendar.isDate(date, inSameDayAs: now) ? .none : .medium
+        return String(
+            format: text(key, language: language),
+            formatter.string(from: date)
+        )
+    }
+
+    /// The fiat value of `amount` at `price`, or no text at all when the
+    /// price is not known. A missing price is never shown as "$0".
+    static func fiatText(amount: Decimal, price: Decimal?, prefix: String = "$") -> String {
+        guard let price else { return "" }
+        return prefix + (NumberFormatter.fiat.stringFromDecimal(amount * price) ?? "")
+    }
+
+    /// The same for a balance row, where a value below one cent reads
+    /// "<$0.01" and a real zero reads "$0".
+    static func balanceFiatText(amount: Decimal, price: Decimal?) -> String {
+        guard let price else { return "" }
+        return (amount * price).priceText()
+    }
+
+    /// How long a wallet total without prices waits before asking again:
+    /// 20 s, then twice as long each time, up to 5 minutes. The price
+    /// service applies its own backoff, so asking is cheap.
+    static func priceRetryDelay(afterFailures failures: Int) -> TimeInterval {
+        min(300, 20 * pow(2, Double(max(0, min(failures, 8)))))
     }
 
     static func contrast(_ first: UIColor, _ second: UIColor) -> CGFloat {
@@ -83,27 +183,32 @@ enum WalletUX {
         return label
     }
 
+    /// Button font: Sora SemiBold 16, scaled with Dynamic Type up to 26 pt.
+    static var buttonFont: UIFont {
+        UIFontMetrics(forTextStyle: .body).scaledFont(for: FontType.buttonM.font, maximumPointSize: 26)
+    }
+
+    /// `primary` is the neon CTA; otherwise a glass secondary button.
     static func button(_ title: String, primary: Bool = false, action: @escaping () -> Void) -> UIButton {
-        let button = UIButton(type: .system)
-        var configuration = primary ? UIButton.Configuration.filled() : .plain()
-        configuration.title = text(title)
-        configuration.baseBackgroundColor = accent
-        configuration.baseForegroundColor = primary ? surface : accent
-        configuration.cornerStyle = .capsule
-        configuration.titleAlignment = .center
-        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
-            var attributes = attributes
-            attributes.font = UIFontMetrics(forTextStyle: .headline).scaledFont(for: FontType.headline2.font)
-            return attributes
-        }
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18)
-        button.configuration = configuration
-        button.titleLabel?.numberOfLines = 0
-        button.titleLabel?.textAlignment = .center
-        button.titleLabel?.adjustsFontForContentSizeCategory = true
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+        button(title, style: primary ? .primary : .secondary, action: action)
+    }
+
+    static func button(_ title: String, style: WalletButtonStyle, action: @escaping () -> Void) -> UIButton {
+        let button = WalletNeonButton(style: style)
+        // Only the configuration title: callers update it later through
+        // `configuration?.title`, which a `setTitle(_:for:)` value would override.
+        button.configuration?.title = text(title)
         button.addAction(UIAction { _ in action() }, for: .touchUpInside)
         return button
+    }
+
+    /// Sets a fixed title on a configuration button and in its state table,
+    /// so `title(for: .normal)` reads it back.
+    static func setTitle(_ title: String, on button: UIButton) {
+        button.setTitle(title, for: .normal)
+        if button.configuration != nil {
+            button.configuration?.title = title
+        }
     }
 
     static func sendError(_ error: Error) -> String {
@@ -166,19 +271,25 @@ enum WalletUX {
     }
 }
 
-/// Shared native table treatment for portfolio and market destinations.
+/// Shared native table treatment for portfolio and market destinations:
+/// the aurora behind, glass rows (no blur in cells), Neon dividers.
 class WalletTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = WalletUX.page
-        view.tintColor = WalletUX.accent
+        view.tintColor = WalletUX.tokens.cyan
+        tableView.backgroundView = AuroraView(style: .standard)
+        tableView.separatorColor = WalletUX.tokens.divider
         tableView.estimatedRowHeight = 72
         tableView.rowHeight = UITableView.automaticDimension
     }
 
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        cell.backgroundColor = WalletUX.surface
-        cell.tintColor = WalletUX.accent
+        var background = tableView.style == .plain ? UIBackgroundConfiguration.listPlainCell()
+                                                   : UIBackgroundConfiguration.listGroupedCell()
+        background.backgroundColor = FxPolicy.current.opaqueGlass ? WalletUX.tokens.glassSolid : WalletUX.tokens.cardFill
+        cell.backgroundConfiguration = background
+        cell.tintColor = WalletUX.tokens.cyan
         if var content = cell.contentConfiguration as? UIListContentConfiguration {
             content.textProperties.color = WalletUX.foreground
             content.textProperties.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: FontType.textM.font)
@@ -520,5 +631,368 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         guard !received, let value = (metadataObjects.first as? AVMetadataMachineReadableCodeObject)?.stringValue else { return }
         received = true
         dismiss(animated: true) { [completion] in completion(value) }
+    }
+}
+
+// MARK: - SORA Neon buttons
+
+/// Spec §7.1. One `.primary` (or `.safe`) per screen.
+enum WalletButtonStyle {
+    /// Neon CTA: `cta.primary` gradient, ink label in dark, `glow.primary`.
+    case primary
+    /// Glass: `glass.fill`, hairline border, `text.primary` label.
+    case secondary
+    /// Text: `accent.cyan` label.
+    case tertiary
+    /// Safe Mode CTA (recovery, backup, upgrade): mint-to-cyan, static glow,
+    /// never pulses, never red.
+    case safe
+}
+
+/// A `UIButton.Configuration` button in the SORA Neon styles. Re-styles on
+/// theme changes and for disabled, pressed and reduced-effects states.
+final class WalletNeonButton: UIButton {
+    var neonStyle: WalletButtonStyle {
+        didSet {
+            if neonStyle != oldValue { setNeedsUpdateConfiguration() }
+        }
+    }
+    private var glowSpec: GlowSpec?
+    /// MINIMAL tier: a ring in the glow colour instead of the glow.
+    private var ring: NeonRingLayer?
+
+    init(style: WalletButtonStyle) {
+        neonStyle = style
+        super.init(frame: .zero)
+        var configuration: UIButton.Configuration = style == .tertiary ? .plain() : .filled()
+        configuration.cornerStyle = .capsule
+        configuration.titleAlignment = .center
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 15, leading: 20, bottom: 15, trailing: 20)
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = WalletUX.buttonFont
+            return attributes
+        }
+        self.configuration = configuration
+        configurationUpdateHandler = { button in
+            (button as? WalletNeonButton)?.applyNeonStyle()
+        }
+        titleLabel?.numberOfLines = 0
+        titleLabel?.textAlignment = .center
+        titleLabel?.adjustsFontForContentSizeCategory = true
+        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: style == .tertiary ? 44 : 52)
+        // Hidden arranged buttons must be able to collapse to zero height.
+        minimumHeight.priority = UILayoutPriority(999)
+        minimumHeight.isActive = true
+        layer.masksToBounds = false
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+
+    private func applyNeonStyle() {
+        guard var configuration else { return }
+        let tokens = WalletUX.tokens
+        let fx = FxPolicy.current
+        var background = configuration.background
+        background.customView = nil
+        background.strokeWidth = 0
+        background.strokeColor = nil
+        glowSpec = nil
+        switch neonStyle {
+        case .primary, .safe:
+            if isEnabled {
+                let fill = NeonGradientView()
+                fill.apply(neonStyle == .safe ? tokens.ctaSafe : tokens.ctaPrimary)
+                background.customView = fill
+                background.backgroundColor = .clear
+                configuration.baseBackgroundColor = .clear
+                configuration.baseForegroundColor = tokens.onAccent
+                glowSpec = neonStyle == .safe ? tokens.glowSafe : tokens.glowPrimary
+            } else {
+                background.backgroundColor = tokens.ctaDisabled
+                configuration.baseBackgroundColor = tokens.ctaDisabled
+                configuration.baseForegroundColor = tokens.textDisabled
+            }
+        case .secondary:
+            let fill = fx.opaqueGlass ? tokens.glassSolid : (isHighlighted ? tokens.glassFillPressed : tokens.glassFill)
+            background.backgroundColor = fill
+            configuration.baseBackgroundColor = fill
+            background.strokeColor = isEnabled ? tokens.hairline : .clear
+            background.strokeWidth = fx.highContrast ? 2 : 1
+            configuration.baseForegroundColor = isEnabled ? tokens.textPrimary : tokens.textDisabled
+        case .tertiary:
+            background.backgroundColor = isHighlighted ? tokens.cyan.withAlphaComponent(0.10) : .clear
+            configuration.baseForegroundColor = isEnabled ? tokens.link : tokens.textDisabled
+        }
+        configuration.background = background
+        self.configuration = configuration
+        applyGlow(fx: fx)
+        if !fx.reduceMotion, neonStyle != .tertiary {
+            let scale: CGFloat = isHighlighted ? 0.98 : 1
+            UIView.animate(withDuration: isHighlighted ? NeonMotion.press : NeonMotion.fast, delay: 0,
+                           options: [.allowUserInteraction, .beginFromCurrentState]) {
+                self.transform = CGAffineTransform(scaleX: scale, y: scale)
+            }
+        }
+    }
+
+    /// Glow at rest (pressed while highlighted), a ring in the MINIMAL tier,
+    /// nothing in a table or collection cell (spec §4.5, §10.3).
+    private func applyGlow(fx: FxPolicy) {
+        guard let glowSpec, fx.glows, !neonIsInsideListCell else {
+            layer.shadowOpacity = 0
+            ring?.removeFromSuperlayer()
+            ring = nil
+            return
+        }
+        if fx.tier == .minimal {
+            layer.shadowOpacity = 0
+            let ring = self.ring ?? NeonRingLayer()
+            if self.ring == nil {
+                layer.addSublayer(ring)
+                self.ring = ring
+            }
+            ring.apply(glowSpec)
+            ring.layout(around: bounds, cornerRadius: bounds.height / 2)
+            return
+        }
+        ring?.removeFromSuperlayer()
+        ring = nil
+        layer.applyNeonGlow(glowSpec, path: UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath,
+                            alpha: isHighlighted ? glowSpec.pressed : glowSpec.rest)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if layer.shadowOpacity > 0 {
+            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: bounds.height / 2).cgPath
+        }
+        ring?.layout(around: bounds, cornerRadius: bounds.height / 2)
+    }
+
+    /// Whether the button sits in a cell is only known once it is in a window.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, glowSpec != nil { setNeedsUpdateConfiguration() }
+    }
+}
+
+extension WalletNeonButton: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        if options.contains(.palette) || options.contains(.effects) { setNeedsUpdateConfiguration() }
+    }
+}
+
+// MARK: - Safe Mode kit (spec §7.17, §9.4)
+
+/// Building blocks for recovery, upgrade and other safety screens: the safe
+/// aurora (cyan and mint, no red), a shield emblem, calm type and Safe
+/// Mode buttons. Everything follows the app theme.
+enum WalletSafeMode {
+    /// Safe aurora behind a screen's content.
+    static func installBackdrop(in view: UIView) {
+        view.backgroundColor = WalletUX.page
+        let aurora = AuroraView(style: .safe)
+        aurora.frame = view.bounds
+        aurora.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.insertSubview(aurora, at: 0)
+    }
+
+    /// A glass circle with a mint ring and shield, and a static mint glow.
+    static func shieldEmblem(size: CGFloat = 72) -> UIView {
+        let tokens = WalletUX.tokens
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.isAccessibilityElement = false
+        let glow = GlowHostView()
+        glow.shape = .capsule
+        let disc = GlassView()
+        disc.shape = .capsule
+        disc.fill = .strong
+        disc.border = .safe
+        let icon = UIImageView(image: UIImage(systemName: "checkmark.shield",
+                                              withConfiguration: UIImage.SymbolConfiguration(pointSize: size * 0.42,
+                                                                                             weight: .semibold)))
+        icon.tintColor = tokens.success
+        icon.contentMode = .center
+        [glow, disc, icon].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+            NSLayoutConstraint.activate([
+                $0.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+                $0.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                $0.widthAnchor.constraint(equalToConstant: size),
+                $0.heightAnchor.constraint(equalToConstant: size)
+            ])
+        }
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: size),
+            container.heightAnchor.constraint(equalToConstant: size)
+        ])
+        glow.configure(tokens.glowSafe)
+        return container
+    }
+
+    /// Puts `content` in a vertical scroll view over the safe area (spec
+    /// §9.4: "The panel scrolls"). Content that fits is centred. Taller
+    /// content (large text sizes, small screens) starts at the top and every
+    /// part of it, including the last action, can be scrolled into view.
+    ///
+    /// The content is centred in the scroll view's content area, never on
+    /// its frame: frame-relative constraints are solved again on every
+    /// scroll and would drag the content along with the offset.
+    @discardableResult
+    static func installScrollingContent(
+        _ content: UIView,
+        in view: UIView,
+        insets: NSDirectionalEdgeInsets = NSDirectionalEdgeInsets(top: 32, leading: 24, bottom: 24, trailing: 24)
+    ) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        content.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(content)
+        let area = scrollView.contentLayoutGuide
+        let visible = scrollView.frameLayoutGuide
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: area.leadingAnchor, constant: insets.leading),
+            content.trailingAnchor.constraint(equalTo: area.trailingAnchor, constant: -insets.trailing),
+            content.widthAnchor.constraint(equalTo: visible.widthAnchor, constant: -(insets.leading + insets.trailing)),
+            content.topAnchor.constraint(greaterThanOrEqualTo: area.topAnchor, constant: insets.top),
+            content.bottomAnchor.constraint(lessThanOrEqualTo: area.bottomAnchor, constant: -insets.bottom),
+            content.centerYAnchor.constraint(equalTo: area.centerYAnchor),
+            // At least one screen tall (so short content is centred), and
+            // otherwise as short as the content allows.
+            area.heightAnchor.constraint(greaterThanOrEqualTo: visible.heightAnchor),
+            area.heightAnchor.constraint(equalTo: visible.heightAnchor).prioritized(UILayoutPriority(249)),
+        ])
+        return scrollView
+    }
+
+    /// Wraps the emblem so it sits centred in a vertical stack.
+    static func centered(_ view: UIView) -> UIView {
+        let row = UIView()
+        row.addSubview(view)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            view.centerXAnchor.constraint(equalTo: row.centerXAnchor),
+            view.topAnchor.constraint(equalTo: row.topAnchor, constant: 8),
+            view.bottomAnchor.constraint(equalTo: row.bottomAnchor, constant: -8)
+        ])
+        return row
+    }
+
+    /// Safe Mode title: `headline1`, `text.primary`, scales with Dynamic Type.
+    static func title(_ label: UILabel, _ text: String) {
+        label.text = text
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.font = UIFontMetrics(forTextStyle: .title2).scaledFont(for: FontType.headline1.font)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = WalletUX.tokens.textPrimary
+        label.accessibilityTraits.insert(.header)
+    }
+
+    /// Body copy: `paragraphM`, `text.secondary`.
+    static func body(_ label: UILabel, alignment: NSTextAlignment = .center) {
+        label.numberOfLines = 0
+        label.textAlignment = alignment
+        label.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: FontType.paragraphM.font)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = WalletUX.tokens.textSecondary
+    }
+
+    /// Small status or detail line: `textS`, `text.secondary`.
+    static func detail(_ label: UILabel, alignment: NSTextAlignment = .center) {
+        label.numberOfLines = 0
+        label.textAlignment = alignment
+        label.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: FontType.textS.font)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = WalletUX.tokens.textSecondary
+    }
+
+    /// Technical details (codes, versions): platform monospace, tertiary.
+    static func technical(_ label: UILabel) {
+        label.numberOfLines = 0
+        label.textAlignment = .natural
+        label.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: FontType.mono.font)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = WalletUX.tokens.textTertiary
+    }
+
+    /// A Safe Mode button replacing a plain system button. Keeps the title
+    /// set through `setTitle(_:for:)` (and tests that read it).
+    static func button(_ style: WalletButtonStyle, title: String) -> WalletNeonButton {
+        let button = WalletNeonButton(style: style)
+        WalletUX.setTitle(title, on: button)
+        return button
+    }
+}
+
+extension NSLayoutConstraint {
+    /// The same constraint with another priority (for inline activation).
+    func prioritized(_ priority: UILayoutPriority) -> NSLayoutConstraint {
+        self.priority = priority
+        return self
+    }
+}
+
+/// Covers an editable secret without discarding the user's in-progress import.
+/// The normal app lock remains responsible for authentication after backgrounding.
+final class WalletSensitiveScreenShield {
+    private weak var controller: UIViewController?
+    private let cover = UIView()
+    private var observers: [NSObjectProtocol] = []
+
+    init(controller: UIViewController) {
+        self.controller = controller
+        cover.accessibilityIdentifier = "wallet-secret-capture-shield"
+        cover.accessibilityViewIsModal = true
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.font = .preferredFont(forTextStyle: .body)
+        label.adjustsFontForContentSizeCategory = true
+        label.text = "SORA\n\n" + R.string.localizable.screenshotAlertText(preferredLanguages: .currentLocale)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        cover.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: cover.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(equalTo: cover.trailingAnchor, constant: -24),
+            label.centerYAnchor.constraint(equalTo: cover.centerYAnchor)
+        ])
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification,
+            object: nil, queue: .main) { [weak self] _ in self?.show() })
+        for name in [UIApplication.didBecomeActiveNotification, UIScreen.capturedDidChangeNotification] {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.refresh() })
+        }
+        refresh()
+    }
+
+    deinit { observers.forEach(NotificationCenter.default.removeObserver); cover.removeFromSuperview() }
+
+    func refresh() {
+        guard let controller else { return }
+        let captured = controller.view.window?.windowScene?.screen.isCaptured ?? UIScreen.main.isCaptured
+        if captured || UIApplication.shared.applicationState != .active { show() }
+        else { cover.removeFromSuperview() }
+    }
+
+    private func show() {
+        guard let view = controller?.viewIfLoaded else { return }
+        view.endEditing(true)
+        cover.backgroundColor = WalletUX.page
+        (cover.subviews.first as? UILabel)?.textColor = WalletUX.foreground
+        cover.frame = view.bounds
+        if cover.superview == nil { view.addSubview(cover) }
+        view.bringSubviewToFront(cover)
+        cover.layoutIfNeeded()
     }
 }

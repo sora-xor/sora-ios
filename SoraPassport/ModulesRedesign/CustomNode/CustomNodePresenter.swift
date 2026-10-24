@@ -115,6 +115,18 @@ extension CustomNodePresenter: CustomNodePresenterProtocol {
 extension CustomNodePresenter: CustomNodeInteractorOutputProtocol {
     func didReceive(error: AddConnectionError) {
         wireframe.hideActivityIndicator()
+        if case .noSigningRoute = error {
+            // The node is reachable but could not carry a send. Say what is
+            // missing instead of calling the address invalid.
+            view?.showAddressTextField(Sora2NodeSigningRoute.missingRouteFieldText)
+            present(
+                message: Sora2NodeSigningRoute.missingRouteMessage,
+                title: nil,
+                closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                from: view
+            )
+            return
+        }
         view?.showAddressTextField(R.string.localizable.selectNodeInvalidNode(preferredLanguages: .currentLocale))
     }
 

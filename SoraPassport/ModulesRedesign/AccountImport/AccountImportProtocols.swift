@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import UIKit
 import IrohaCrypto
 import SoraFoundation
 import RobinHood
@@ -38,6 +39,7 @@ protocol AccountImportViewProtocol: ControllerBackedProtocol {
     func setName(viewModel: InputViewModelProtocol)
     func setPassword(viewModel: InputViewModelProtocol)
     func setDerivationPath(viewModel: InputViewModelProtocol)
+    func setCryptoType(_ type: CryptoType, available: [CryptoType])
     func setUploadWarning(message: String)
     func dismissPresentedController()
     func resetFocus()
@@ -47,6 +49,7 @@ protocol AccountImportPresenterProtocol: AnyObject {
     func setup()
     func proceed()
     func activateURL(_ url: URL)
+    func selectCryptoType(_ type: CryptoType)
 }
 
 protocol AccountImportInteractorInputProtocol: AnyObject {
@@ -72,6 +75,7 @@ protocol AccountImportInteractorOutputProtocol: AnyObject {
 }
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
+    func requestKnownAddress(from view: AccountImportViewProtocol?, completion: @escaping (String?) -> Void)
     func proceed(from view: AccountImportViewProtocol?,
                  sourceType: AccountImportSource,
                  cryptoType: CryptoType,
@@ -79,7 +83,8 @@ protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, Web
                  sourceViewModel: InputViewModelProtocol,
                  usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?)
+                 derivationPathViewModel: InputViewModelProtocol?,
+                 expectedAddress: String?)
 }
 
 extension AccountImportInteractorInputProtocol {
@@ -93,5 +98,29 @@ extension AccountImportInteractorInputProtocol {
     
     func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)? = nil) {
         importAccountWithKeystore(request: request, completion: completion)
+    }
+}
+
+
+extension AccountImportWireframeProtocol {
+    func requestKnownAddress(from view: AccountImportViewProtocol?, completion: @escaping (String?) -> Void) {
+        guard let view else { completion(nil); return }
+        view.resetFocus()
+        let alert = UIAlertController(title: WalletUX.text("Restore a historical wallet"),
+            message: WalletUX.text("For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved."),
+            preferredStyle: .alert)
+        alert.addTextField {
+            $0.placeholder = WalletUX.text("SORA wallet address")
+            $0.autocapitalizationType = .none
+            $0.autocorrectionType = .no
+            $0.spellCheckingType = .no
+            $0.accessibilityIdentifier = "historical-wallet-known-address"
+        }
+        alert.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel) { _ in completion(nil) })
+        alert.addAction(UIAlertAction(title: WalletUX.text("Continue"), style: .default) { [weak alert] _ in
+            let address = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+            completion(address?.isEmpty == false ? address : nil)
+        })
+        view.controller.present(alert, animated: true)
     }
 }

@@ -4746,11 +4746,16 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
 }
 
 /// Nexus, Polkamarkt, and the SORA2 one-shot submission journal intentionally
-/// share one bounded namespace. A process can terminate after a crash-durable
-/// temporary file
-/// is synced but before it is renamed over the canonical journal. Treat any
-/// such orphan (or any other unexpected entry) as unresolved evidence rather
-/// than interpreting a missing canonical file as an empty transaction set.
+/// share one bounded namespace of three journal files.
+///
+/// Each journal is published by `DurableFileWriter` with one atomic rename, so
+/// a journal file always holds a complete old or a complete new transaction
+/// set. A process that dies inside a write leaves the writer's hidden helper
+/// files beside the journals. They are not journals and say nothing about
+/// what was submitted: the check sweeps them, and ignores them while a write
+/// of another journal in this folder is in progress. Any other unexpected
+/// entry still fails, because a journal under a name this version does not
+/// know must never be read as "no pending transactions".
 enum PendingTransactionJournalNamespace {
     enum Failure: Error {
         case invalidNamespace
@@ -4779,14 +4784,14 @@ enum PendingTransactionJournalNamespace {
             throw Failure.invalidNamespace
         }
 
-        let entries = try fileManager.contentsOfDirectory(
-            at: directoryURL,
+        let entries = try DurableFileWriter.contentsIgnoringLeftovers(
+            of: directoryURL,
+            fileManager: fileManager,
             includingPropertiesForKeys: [
                 .fileSizeKey,
                 .isRegularFileKey,
                 .isSymbolicLinkKey,
-            ],
-            options: []
+            ]
         )
         guard entries.count <= allowedJournalNames.count else {
             throw Failure.invalidNamespace
@@ -4854,6 +4859,43 @@ actor NexusPendingTransactionStore {
     }
 
     func all() throws -> [NexusPendingTransaction] {
+        try Self.readJournal(
+            directoryURL: directoryURL,
+            fileURL: fileURL,
+            fileManager: fileManager,
+            decoder: decoder
+        )
+    }
+
+    /// The read every Nexus action begins with, for the startup check of the
+    /// unfinished-transaction records (`PendingTransactionRecords`): it
+    /// throws exactly when `all()` would, so a journal this version cannot
+    /// read is reported on the recovery screen, with its "set aside" action,
+    /// instead of refusing every Nexus action later. Reads only; creates no
+    /// folder.
+    static func requireReadableJournal(
+        applicationSupportURL: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        let directoryURL = applicationSupportURL
+            .appendingPathComponent("SORA", isDirectory: true)
+            .appendingPathComponent("PendingTransactions", isDirectory: true)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        _ = try readJournal(
+            directoryURL: directoryURL,
+            fileURL: directoryURL.appendingPathComponent("nexus-v1.json"),
+            fileManager: fileManager,
+            decoder: decoder
+        )
+    }
+
+    private static func readJournal(
+        directoryURL: URL,
+        fileURL: URL,
+        fileManager: FileManager,
+        decoder: JSONDecoder
+    ) throws -> [NexusPendingTransaction] {
         do {
             try PendingTransactionJournalNamespace.validate(
                 directoryURL: directoryURL,
@@ -4937,9 +4979,9 @@ actor NexusPendingTransactionStore {
     func put(
         _ transaction: NexusPendingTransaction
     ) throws -> NexusPendingTransaction {
-        try validate(transaction, allowsReadOnlyHistoricalChain: false)
+        try Self.validate(transaction, allowsReadOnlyHistoricalChain: false)
         let durableTransaction = try canonicalizedForJournal(transaction)
-        try validate(
+        try Self.validate(
             durableTransaction,
             allowsReadOnlyHistoricalChain: false
         )
@@ -5200,7 +5242,7 @@ actor NexusPendingTransactionStore {
         return true
     }
 
-    private func validate(
+    private static func validate(
         _ transaction: NexusPendingTransaction,
         allowsReadOnlyHistoricalChain: Bool
     ) throws {

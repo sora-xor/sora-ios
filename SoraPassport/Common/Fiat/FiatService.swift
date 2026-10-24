@@ -38,6 +38,20 @@ struct PIExactFiatData: Equatable, Sendable {
     let priceUsd: PIQuantity?
 }
 
+extension PIAsset {
+    /// The asset's price as the screens use it. PI publishes a price of
+    /// exactly `0` for an asset it could not price (on 11 October 2026 that
+    /// included bridged ETH, which has liquidity and daily volume). That is
+    /// "no price", not "worth nothing": the holding gets no fiat text and
+    /// is left out of totals, like an asset PI has no price field for.
+    var fiatData: PIExactFiatData {
+        PIExactFiatData(
+            id: id,
+            priceUsd: priceUSD.flatMap { $0.isZero ? nil : $0 }
+        )
+    }
+}
+
 protocol FiatServiceObserverProtocol: AnyObject {
     func processFiat(data: [PIExactFiatData])
 }
@@ -50,28 +64,54 @@ struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
+/// Prices as a screen may show them.
+struct FiatSnapshot {
+    /// Empty when no price is known.
+    let data: [PIExactFiatData]
+    /// `nil` when the prices are current. Otherwise the time they date
+    /// from: PI could not be read since.
+    let asOf: Date?
+}
+
 actor FiatService: FiatServiceProtocol {
     static let shared = FiatService()
-    private let client = PIIndexerClient()
-    private var expiredDate = Date.distantPast
-    private var fiatData: [PIExactFiatData] = []
 
-    func getFiat() async -> [PIExactFiatData] {
-        if !fiatData.isEmpty, Date() < expiredDate {
-            return fiatData
+    private let catalog: () async throws -> PICatalogSnapshot<PIAsset>
+
+    /// Prices come from the shared asset catalog, which also feeds market
+    /// data: one walk of PI serves every screen, a failed walk is not
+    /// repeated before its backoff has passed, and the last good catalog is
+    /// shown meanwhile.
+    init(
+        catalog: @escaping () async throws -> PICatalogSnapshot<PIAsset> = {
+            try await PICatalogs.assets.snapshot()
         }
+    ) {
+        self.catalog = catalog
+    }
 
+    init(assets: @escaping () async throws -> [PIAsset]) {
+        self.init(catalog: {
+            PICatalogSnapshot(values: try await assets(), asOf: nil)
+        })
+    }
+
+    /// Empty when no price is known. Callers must show that as "price
+    /// unavailable", never as a value of zero. An unavailable price never
+    /// affects balances or authorizes a transaction.
+    func getFiat() async -> [PIExactFiatData] {
+        await getFiatSnapshot().data
+    }
+
+    func getFiatSnapshot() async -> FiatSnapshot {
         do {
-            let response = try await client.allAssets().map {
-                PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
-            }
-            fiatData = response
-            expiredDate = Date().addingTimeInterval(600)
-            return response
+            let catalog = try await catalog()
+            return FiatSnapshot(
+                data: catalog.values.map(\.fiatData),
+                asOf: catalog.asOf
+            )
         } catch {
-            // Preserve the last fully validated PI snapshot. An unavailable
-            // price must never affect balances or authorize a transaction.
-            return fiatData
+            return FiatSnapshot(data: [], asOf: nil)
         }
     }
 }

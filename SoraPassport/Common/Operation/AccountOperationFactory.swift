@@ -57,6 +57,9 @@ protocol AccountOperationFactoryProtocol {
 /// `persist`, so typing/scanning a candidate cannot mutate Keychain.
 final class PreparedAccount {
     let account: AccountItem
+    var completedInitialPINSetup: WalletCredentialRepair.InitialPINCompletion?
+    private var suppliedOwnershipProof: Bool
+    private var retainedOwnershipProof = false
 
     private let stateLock = NSLock()
     private var secretKey: Data
@@ -64,6 +67,7 @@ final class PreparedAccount {
     private var seed: Data?
     private var derivation: Data?
     private var isConsumed = false
+    private let recoveryGate: WalletRecoveryCapabilityGate
 
     init(
         account: AccountItem,
@@ -71,7 +75,8 @@ final class PreparedAccount {
         entropy: Data?,
         seed: Data?,
         derivationPath: String?,
-        recoveryGate: WalletRecoveryCapabilityGate = .shared
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        suppliedOwnershipProof: Bool = false
     ) throws {
         try LegacySoraIdentityValidator.validate(
             address: account.address,
@@ -85,53 +90,41 @@ final class PreparedAccount {
             recoveryGate: recoveryGate
         )
         self.account = account
+        self.suppliedOwnershipProof = suppliedOwnershipProof
         self.secretKey = secretKey
         self.entropy = entropy
         self.seed = seed
+        self.recoveryGate = recoveryGate
         derivation = derivationPath?.data(using: .utf8)
     }
 
+    /// Saves the account's secrets with add-only writes.
+    ///
+    /// iOS keeps Keychain items when the app is deleted, and older releases
+    /// left items behind when an account was removed. When a tag for this
+    /// address already exists, it is adopted only if it holds the same key
+    /// (for sr25519 secrets: the same scalar, see
+    /// `LegacySoraIdentityValidator.storedSecret`). Adopted items are never
+    /// rewritten. If any existing item differs, nothing is written at all and
+    /// `retainedKeyConflict` is thrown; the existing items stay as they are.
     func persist(to keystore: KeystoreProtocol) throws {
         stateLock.lock()
         guard !isConsumed else {
             stateLock.unlock()
             throw AccountCreateError.duplicated
         }
-        let optionalMaterial: [(String, Data)?] = [
-            Optional((
-                KeystoreTag.secretKeyTagForAddress(account.address),
-                secretKey
-            )),
-            entropy.map {
-                (KeystoreTag.entropyTagForAddress(account.address), $0)
-            },
-            derivation.map {
-                (
-                    KeystoreTag.deriviationTagForAddress(account.address),
-                    $0
-                )
-            },
-            seed.map {
-                (KeystoreTag.seedTagForAddress(account.address), $0)
-            },
-        ]
-        let material = optionalMaterial.compactMap { $0 }
         do {
-            guard try material.allSatisfy({
-                try !keystore.checkKey(for: $0.0)
-            }) else {
-                throw AccountCreateError.duplicated
-            }
+            let absent = try missingMaterialLocked(in: keystore)
             var written: [String] = []
             do {
-                for (tag, value) in material {
+                for (tag, value) in absent {
                     try keystore.addKey(value, with: tag)
                     written.append(tag)
                 }
             } catch {
-                // Every tag was proven absent under the lifecycle lease, so
-                // removing only tags written by this failed attempt cannot
-                // delete an installed wallet.
+                // Each of these tags was proven absent under the lifecycle
+                // lease, so removing only tags written by this failed attempt
+                // cannot delete an installed or adopted item.
                 for tag in written.reversed() {
                     try? keystore.deleteKey(for: tag)
                 }
@@ -144,6 +137,132 @@ final class PreparedAccount {
             stateLock.unlock()
             throw error
         }
+    }
+
+    /// Called under the same lifecycle lease as persistence, before creating
+    /// ownership metadata. A rejected import must leave no Keychain items.
+    func validatePersistence(to keystore: KeystoreProtocol) throws {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !isConsumed else { throw AccountCreateError.duplicated }
+        _ = try missingMaterialLocked(in: keystore)
+    }
+
+    /// Only freshly supplied, already-proven import material may authorize a
+    /// destructive repair. Retained discovery and an owner-PIN grant do not.
+    func credentialRepairMaterial() throws -> WalletCredentialRepair.Material {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !isConsumed, suppliedOwnershipProof else {
+            throw WalletCredentialRepair.Failure.suppliedMaterialRequired
+        }
+        return WalletCredentialRepair.Material(secret: secretKey, entropy: entropy,
+            seed: seed, derivation: derivation)
+    }
+
+    private func missingMaterialLocked(in keystore: KeystoreProtocol) throws -> [(String, Data)] {
+        let secretTag = KeystoreTag.secretKeyTagForAddress(account.address)
+        let derivationTag = KeystoreTag.deriviationTagForAddress(account.address)
+        // The writes are separate Keychain calls, and the process can die
+        // between any two. Their order makes every such state one that the
+        // next start completes by itself:
+        // - the path first: phrase or seed items written without it would
+        //   derive another address;
+        // - then the phrase and the seed, the items nothing else can derive,
+        //   in the order of `UserStorageMigrator.restoreWriteOrder`: the
+        //   first one written always proves the account by itself. That is
+        //   the phrase when it has 12 to 24 words, and the seed when the
+        //   phrase has 3, 6 or 9 words (a Google Drive backup made by App
+        //   Store 3.8.6): such an entropy cannot be expanded again, so an
+        //   account left with only that item would stay read-only, and a
+        //   second import would be refused because an item exists. An
+        //   account that has a proving item and no secret yet gets the
+        //   missing seed and secret from the startup backfill
+        //   (`LegacyGlobalEntropyScopedBackfill`);
+        // - the secret last. Written first, a kill after it would leave an
+        //   account that signs but never receives its phrase: the backfill
+        //   skips an account that has a secret, and a second import of the
+        //   same phrase is refused as a duplicate.
+        var material: [(String, Data)] = []
+        if let derivation {
+            material.append((derivationTag, derivation))
+        }
+        for (value, tag, _) in UserStorageMigrator.restoreWriteOrder(
+            address: account.address,
+            entropy: entropy,
+            rawSeed: seed,
+            secret: secretKey
+        ) {
+            if let value {
+                material.append((tag, value))
+            }
+        }
+        // A JSON-only import already proves the derived secret, so a
+        // retained path is unrelated auxiliary data and stays untouched.
+        // Phrase/seed writes still require a compatible path.
+        var existingSecret: Data? = try keystore.loadIfKeyExists(secretTag)
+        defer { if let count = existingSecret?.count { existingSecret?.resetBytes(in: 0..<count) } }
+        let adoptsWorkingSecret = existingSecret.map {
+            LegacySoraIdentityValidator.storedSecret($0, matches: secretKey, cryptoType: account.cryptoType)
+        } == true
+        if adoptsWorkingSecret, material.contains(where: { $0.0 != secretTag }) {
+            // Repair can fill gaps without overwriting older backup bytes.
+            // If their retained path differs, only the secret is compatible.
+            let retainedPath = try keystore.loadIfKeyExists(derivationTag)
+            if retainedPath != nil && retainedPath != derivation {
+                material = material.filter { $0.0 == secretTag }
+            }
+        } else if derivation == nil, entropy != nil || seed != nil,
+                  let retainedPath = try keystore.loadIfKeyExists(derivationTag), !retainedPath.isEmpty {
+            throw AccountCreateError.retainedKeyConflict
+        }
+        var absent: [(String, Data)] = []
+        for (tag, value) in material {
+            guard try keystore.checkKey(for: tag) else {
+                absent.append((tag, value))
+                continue
+            }
+            var retained = try keystore.fetchKey(for: tag)
+            defer { retained.resetBytes(in: retained.startIndex ..< retained.endIndex) }
+            let matches = tag == secretTag
+                ? LegacySoraIdentityValidator.storedSecret(
+                    retained, matches: value, cryptoType: account.cryptoType)
+                : LegacySoraIdentityValidator.constantTimeEqual(retained, value)
+            guard matches else {
+                if adoptsWorkingSecret && tag != secretTag { continue }
+                throw AccountCreateError.retainedKeyConflict
+            }
+        }
+        return absent
+    }
+
+    func restrictToRetainedOwnership(_ grant: WalletOwnerPIN.RetainedAuthorization?) {
+        suppliedOwnershipProof = false
+        retainedOwnershipProof = grant?.addresses.contains(account.address) == true
+    }
+
+    func prepareInitialPINSetup(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                               operationID: UUID) throws {
+        guard suppliedOwnershipProof || retainedOwnershipProof else { return }
+        try WalletOwnerPIN(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+            .prepareInitialSetup(account: account, operationID: operationID)
+    }
+
+    /// Called by the journaled insert only. Factories prove material supplied
+    /// for create/import; retained-wallet discovery deliberately has no grant.
+    func prepareOwnershipBinding(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                                 existingAccounts: [AccountItem]? = nil) throws {
+        let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+        let initialSetup: Bool
+        if let existingAccounts {
+            initialSetup = try existingAccounts.isEmpty || ownerPIN.requiresInitialSetup(accounts: existingAccounts)
+        } else { initialSetup = try ownerPIN.requiresInitialSetup(accounts: [account]) }
+        guard suppliedOwnershipProof, !initialSetup,
+              var pin = try keystore.loadIfKeyExists(KeystoreTag.pincode.rawValue) else { return }
+        defer { pin.resetBytes(in: 0..<pin.count) }
+        guard let value = String(data: pin, encoding: .utf8) else { throw WalletOwnerPIN.Failure.invalidPIN }
+        try WalletOwnerPIN(keystore: keystore, settings: settings, recoveryGate: recoveryGate)
+            .prepareRebinding(address: account.address, to: value, consumeSetupIntent: true)
     }
 
     func discard() {
@@ -255,7 +374,8 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                 derivationPath: request.derivationPath.isEmpty
                     ? nil
                     : request.derivationPath,
-                recoveryGate: self.recoveryGate
+                recoveryGate: self.recoveryGate,
+                suppliedOwnershipProof: true
             )
         }
     }
@@ -320,7 +440,8 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                 derivationPath: request.derivationPath.isEmpty
                     ? nil
                     : request.derivationPath,
-                recoveryGate: self.recoveryGate
+                recoveryGate: self.recoveryGate,
+                suppliedOwnershipProof: true
             )
         }
     }
@@ -377,7 +498,8 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                 entropy: nil,
                 seed: nil,
                 derivationPath: nil,
-                recoveryGate: self.recoveryGate
+                recoveryGate: self.recoveryGate,
+                suppliedOwnershipProof: true
             )
         }
     }

@@ -52,18 +52,27 @@ final class AccountExportRawSeedInteractor {
 
 extension AccountExportRawSeedInteractor: AccountExportRawSeedInteractorInputProtocol {
     func copyRawSeedToClipboard() {
-        UIPasteboard.general.string = rawSeed
+        guard !rawSeed.isEmpty else { return }
+        UIPasteboard.general.setItems([["public.utf8-plain-text": rawSeed]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }
 
     func exportRawSeed() {
         do {
-            guard let expectedSeedData = try keystore.fetchSeedForAddress(account.address) else { return }
+            rawSeed = ""
+            var backup = try WalletBackupMaterial.load(for: account, keystore: keystore)
+            defer { backup.wipe() }
+            guard let expectedSeedData = backup.seed else {
+                presenter.set(rawSeed: "", derivationPath: "")
+                return
+            }
             rawSeed = expectedSeedData.toHex(includePrefix: true)
-            presenter.set(rawSeed: rawSeed)
+            presenter.set(rawSeed: rawSeed, derivationPath: backup.derivationPath ?? "")
         } catch {
             // Never emit the address, Keychain identifier, or underlying error from a
             // secret-export path. The presenter keeps the existing no-value failure behavior.
-            // TODO: show error
+            rawSeed = ""
+            presenter.set(rawSeed: "", derivationPath: "")
             return
         }
     }

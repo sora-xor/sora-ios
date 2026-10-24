@@ -1,0 +1,66 @@
+{
+  "baseline": "ios-386-vectors.json",
+  "assertedEqualFields": [
+    "cryptoType",
+    "wordCount",
+    "entropyHex",
+    "phrase",
+    "derivationPath",
+    "seedHex",
+    "publicKeyHex",
+    "networkType",
+    "address",
+    "secretShape",
+    "chaincodes",
+    "childSeedHex",
+    "childSeedImportSameIdentity"
+  ],
+  "results": [
+    {
+      "fixture": "ios-386-vectors.json",
+      "identitySeedChaincodeAndScalarMatchCount": 20,
+      "fullSecretDifferenceCases": []
+    },
+    {
+      "fixture": "ios-fearless-26dfc128-vectors.json",
+      "identitySeedChaincodeAndScalarMatchCount": 20,
+      "fullSecretDifferenceCases": [
+        12,
+        14
+      ]
+    },
+    {
+      "fixture": "ios-fearless-c1d17ccf-vectors.json",
+      "identitySeedChaincodeAndScalarMatchCount": 20,
+      "fullSecretDifferenceCases": [
+        12,
+        14
+      ]
+    },
+    {
+      "fixture": "ios-fearless-e6aaeb17-vectors.json",
+      "identitySeedChaincodeAndScalarMatchCount": 20,
+      "fullSecretDifferenceCases": [
+        12,
+        14
+      ]
+    },
+    {
+      "fixture": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+      "identitySeedChaincodeAndScalarMatchCount": 20,
+      "fullSecretDifferenceCases": [
+        12,
+        14
+      ]
+    },
+    {
+      "fixture": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+      "identitySeedChaincodeAndScalarMatchCount": 20,
+      "fullSecretDifferenceCases": [
+        12,
+        14
+      ]
+    }
+  ],
+  "note": "Full sr25519 secret differences are randomized nonce halves on soft derivation cases. Scalar halves and identities agree."
+}

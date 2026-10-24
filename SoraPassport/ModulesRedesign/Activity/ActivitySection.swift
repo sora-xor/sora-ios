@@ -46,6 +46,7 @@ final class ActivitySection {
 enum ActivitySectionItem: Hashable {
     case activity(ActivityItem)
     case error(ActivityErrorItem)
+    case notice(ActivityNoticeItem)
     case space(SoramitsuTableViewSpacerItem)
 }
 

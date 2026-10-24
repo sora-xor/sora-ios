@@ -48,6 +48,18 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
                 }
                 .store(in: &cancellables)
 
+            item.service?.tvlUnavailablePublisher
+                .receive(on: DispatchQueue.main)
+                .removeDuplicates()
+                .filter { $0 }
+                .sink { [weak self] _ in
+                    // No price for this pool: end the placeholder and show
+                    // no value. A value that arrives later replaces this.
+                    self?.headerView.subtitleLabel.sora.text = ""
+                    self?.headerView.subtitleLabel.sora.loadingPlaceholder.type = .none
+                }
+                .store(in: &cancellables)
+
             item.service?.detailsPublisher
                 .receive(on: DispatchQueue.main)
                 .removeDuplicates()
@@ -108,7 +120,7 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
         button.sora.horizontalOffset = 0
         button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
                                                        fontData: FontType.buttonM ,
-                                                       textColor: .additionalPolkaswap,
+                                                       textColor: .additionalPolkaswapText,
                                                        alignment: .center)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswapContainer
@@ -234,7 +246,7 @@ extension PoolDetailsCell: CellProtocol {
         
         removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
         
-        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswap : .fgTertiary
+        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapText : .fgTertiary
         removeLiquidity.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
                                                                 fontData: FontType.buttonM ,
                                                                 textColor: titleColor,

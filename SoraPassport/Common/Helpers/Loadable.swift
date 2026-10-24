@@ -38,8 +38,7 @@ protocol Loadable {
 
 extension Loadable {
     mutating func showActivityIndicator() {
-        activityIndicatorWindow = UIWindow(frame: UIScreen.main.bounds)
-        activityIndicatorWindow?.windowScene = (UIApplication.shared.delegate as? AppDelegate)?.window?.windowScene
+        activityIndicatorWindow = UIWindow.makeSoraSceneWindow()
         activityIndicatorWindow?.windowLevel = UIWindow.Level.alert
         activityIndicatorWindow?.rootViewController = ActivityIndicatorViewController()
         activityIndicatorWindow?.isHidden = false

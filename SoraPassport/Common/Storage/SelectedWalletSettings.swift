@@ -64,6 +64,62 @@ protocol SelectedWalletSettingsProtocol: AnyObject {
     )
     func performSetup(completionClosure: @escaping (Result<AccountItem?, Error>) -> Void)
     func save(value: AccountItem)
+    /// True when importing `imported` restores the keys of `existing` (an
+    /// account already in the wallet) in place instead of being a duplicate.
+    /// The same rule `performInsertAndSelect` applies, so an import screen
+    /// can tell before it asks for a name.
+    func restoresKeysInPlace(existing: AccountItem, imported: AccountItem) throws -> Bool
+}
+
+extension SelectedWalletSettingsProtocol {
+    func restoresKeysInPlace(existing: AccountItem, imported: AccountItem) throws -> Bool { false }
+}
+
+/// An account already in the wallet takes an import of its own phrase, seed
+/// or backup as a key restore when none of its keys are on this device (a
+/// new iPhone restored from an iCloud backup, or keys never saved here), it
+/// is not watch-only, and the imported material derives the same public key
+/// and type. The material has already proved this address (`PreparedAccount`)
+/// and the restore is add-only. Anything else is a duplicate.
+enum WalletReadOnlyAccountKeyRestore {
+    static func applies(existing: AccountItem, imported: AccountItem,
+                        keystore: KeystoreProtocol?, settings: SettingsManagerProtocol?) throws -> Bool {
+        try applies(address: existing.address, publicKey: existing.publicKeyData,
+                    cryptoType: existing.cryptoType, networkType: existing.networkType,
+                    imported: imported, keystore: keystore, settings: settings)
+    }
+
+    static func applies(existing: ManagedAccountItem, imported: AccountItem,
+                        keystore: KeystoreProtocol?, settings: SettingsManagerProtocol?) throws -> Bool {
+        try applies(address: existing.address, publicKey: existing.publicKeyData,
+                    cryptoType: existing.cryptoType, networkType: existing.networkType,
+                    imported: imported, keystore: keystore, settings: settings)
+    }
+
+    private static func applies(address: String, publicKey: Data, cryptoType: CryptoType,
+                                networkType: SNAddressType, imported: AccountItem,
+                                keystore: KeystoreProtocol?, settings: SettingsManagerProtocol?) throws -> Bool {
+        guard let keystore,
+              address == imported.address,
+              publicKey == imported.publicKeyData,
+              cryptoType == imported.cryptoType,
+              networkType == imported.networkType,
+              settings?.allKeys().contains("wallet.watchOnly.\(imported.address)") != true
+        else { return false }
+        if try !keystore.hasScopedSigningMaterial(for: imported.address) { return true }
+        if var secret = try keystore.fetchSecretKeyForAddress(imported.address) {
+            defer { secret.resetBytes(in: secret.startIndex ..< secret.endIndex) }
+            do {
+                try LegacySoraIdentityValidator.validateSigningSecret(address: imported.address,
+                    publicKey: imported.publicKeyData, cryptoType: imported.cryptoType,
+                    networkType: imported.networkType, secret: secret, recoveryGate: .shared)
+                var backup = try WalletBackupMaterial.load(for: imported, keystore: keystore)
+                defer { backup.wipe() }
+                return backup.phraseStatus != .matching || backup.seedStatus != .matching
+            } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) { return false }
+        }
+        return false
+    }
 }
 
 enum SelectedWalletSettingsError: LocalizedError {
@@ -84,7 +140,10 @@ enum SelectedWalletSettingsError: LocalizedError {
 }
 
 private struct PreparedWalletInsertCommit {
-    let journal: WalletAccountCommitJournal
+    /// Nil when the keys of an existing read-only account were restored in
+    /// place: no row is inserted, so there is nothing to journal.
+    let journal: WalletAccountCommitJournal?
+    let existingWalletIds: [String]
     let accountsToSave: [ManagedAccountItem]
     let selectedAccount: AccountItem
 }
@@ -161,7 +220,8 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 )
                 throw error
             }
-        }
+        },
+        keystore: Keychain()
     )
 
     let operationQueue: OperationQueue
@@ -181,6 +241,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         () throws -> WalletAccountCommitJournalStore
     private let lifecycleCoordinator: WalletLifecycleCoordinator
     private let recoveryGate: WalletRecoveryCapabilityGate
+    /// Lets an import of an account that is already in the wallet but has no
+    /// keys on this device restore its keys in place. Without it such an
+    /// import reports `duplicated`, as before.
+    private let keystore: KeystoreProtocol?
 
     init(
         storageFacade: StorageFacadeProtocol,
@@ -202,8 +266,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 try WalletAccountCommitJournalStore()
             },
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
-        recoveryGate: WalletRecoveryCapabilityGate = .shared
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        keystore: KeystoreProtocol? = nil
     ) {
+        self.keystore = keystore
         self.operationQueue = operationQueue
         self.legacySettings = legacySettings
         self.walletNetworkSynchronizer = walletNetworkSynchronizer
@@ -217,6 +283,11 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         self.recoveryGate = recoveryGate
 
         super.init(storageFacade: storageFacade)
+    }
+
+    func restoresKeysInPlace(existing: AccountItem, imported: AccountItem) throws -> Bool {
+        try WalletReadOnlyAccountKeyRestore.applies(existing: existing, imported: imported,
+                                                    keystore: keystore, settings: legacySettings)
     }
 
     override func performSetup(completionClosure: @escaping (Result<AccountItem?, Error>) -> Void) {
@@ -254,6 +325,19 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         operationQueue.addOperation(operation)
     }
 
+    /// The selected account, resolved the same way at startup, in the
+    /// storage migrator and at runtime.
+    ///
+    /// - Exactly one selected row: that row (Core Data is authoritative after
+    ///   version 2; the 2.x UserDefaults value is never cleared and may be
+    ///   stale).
+    /// - No selected row (version 1 or an interrupted write): the account the
+    ///   2.x setting names, otherwise the lowest order, then address.
+    /// - Several selected rows: the one the setting names, otherwise the
+    ///   lowest order, then address. (App Store 3.8.6 took the first row.)
+    /// - No accounts: nil. A stale setting is ignored.
+    ///
+    /// Only duplicate identifiers (real corruption) throw.
     static func resolveSelection(
         accounts: [AccountItem],
         legacySelectedAddress: String?
@@ -261,31 +345,39 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         guard Set(accounts.map(\.identifier)).count == accounts.count else {
             throw SelectedWalletSettingsError.duplicateAccountIdentifiers
         }
-        let selectedAccounts = accounts.filter(\.isSelected)
-        guard selectedAccounts.count <= 1 else {
-            throw SelectedWalletSettingsError.multipleSelectedAccounts
-        }
-        if let selected = selectedAccounts.first {
-            // Core Data is authoritative after version 2. The retained
-            // UserDefaults value may legitimately be stale after a later
-            // account switch.
-            return selected
-        }
-        guard !accounts.isEmpty else {
-            guard legacySelectedAddress == nil else {
-                throw SelectedWalletSettingsError.missingSelectedAccount
-            }
+        guard let address = resolveSelection(
+            candidates: accounts.map { ($0.address, Int($0.order), $0.isSelected) },
+            legacySelectedAddress: legacySelectedAddress
+        ) else {
             return nil
         }
-        guard
-            let legacySelectedAddress,
-            let legacySelected = accounts.first(where: {
-                $0.identifier == legacySelectedAddress
-            })
-        else {
-            throw SelectedWalletSettingsError.missingSelectedAccount
+        return accounts.first(where: { $0.address == address })
+    }
+
+    static func resolveSelection(
+        candidates: [(address: String, order: Int, isSelected: Bool)],
+        legacySelectedAddress: String?
+    ) -> String? {
+        guard !candidates.isEmpty else { return nil }
+        let selected = candidates.filter(\.isSelected)
+        if selected.count == 1 {
+            return selected[0].address
         }
-        return legacySelected
+        let pool = selected.isEmpty ? candidates : selected
+        if let legacySelectedAddress,
+           pool.contains(where: { $0.address == legacySelectedAddress }) {
+            return legacySelectedAddress
+        }
+        return pool.min(by: { lhs, rhs in
+            lhs.order != rhs.order ? lhs.order < rhs.order : lhs.address < rhs.address
+        })?.address
+    }
+
+    /// True when Core Data does not hold exactly one selected row, so the
+    /// resolved selection should be written back (App Store 3.8.6 reads only
+    /// the selected row).
+    static func needsSelectionRepair(accounts: [AccountItem]) -> Bool {
+        !accounts.isEmpty && accounts.filter(\.isSelected).count != 1
     }
 
     override func performSave(
@@ -334,6 +426,8 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         )
         let lifecycleCoordinator = self.lifecycleCoordinator
         let recoveryGate = self.recoveryGate
+        let keystore = self.keystore
+        let legacySettings = self.legacySettings
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation(
                 using: lifecycleLease
@@ -351,24 +445,80 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                     .requireAuthorizedLifecycleContinuation()
                 let accounts = try accountsOperation
                     .extractNoCancellableResultData()
-                guard
-                    Set(accounts.map(\.address)).count == accounts.count,
-                    !accounts.contains(where: {
-                        $0.address == value.address
-                    })
-                else {
+                guard Set(accounts.map(\.address)).count == accounts.count else {
                     throw AccountCreateError.duplicated
                 }
-                let selectedAccounts = accounts.filter(\.isSelected)
-                guard
-                    (accounts.isEmpty && selectedAccounts.isEmpty) ||
-                        selectedAccounts.count == 1
-                else {
-                    throw selectedAccounts.isEmpty
-                        ? SelectedWalletSettingsError.missingSelectedAccount
-                        : SelectedWalletSettingsError
-                            .multipleSelectedAccounts
+                // Every currently selected row is deselected below, so zero
+                // or several selected rows (older releases, interrupted
+                // writes) are repaired by this insert.
+                func selectionChanges(selecting target: AccountItem) -> [ManagedAccountItem] {
+                    var changes = accounts.compactMap { account -> ManagedAccountItem? in
+                        guard account.isSelected, account.address != target.address else {
+                            return nil
+                        }
+                        return ManagedAccountItem(
+                            address: account.address,
+                            cryptoType: account.cryptoType,
+                            networkType: account.networkType,
+                            username: account.username,
+                            publicKeyData: account.publicKeyData,
+                            order: account.order,
+                            settings: account.settings,
+                            isSelected: false
+                        )
+                    }
+                    changes.append(
+                        ManagedAccountItem(
+                            address: target.address,
+                            cryptoType: target.cryptoType,
+                            networkType: target.networkType,
+                            username: target.username,
+                            publicKeyData: target.publicKeyData,
+                            order: target.order,
+                            settings: target.settings,
+                            isSelected: true
+                        )
+                    )
+                    return changes
                 }
+
+                if let existing = accounts.first(where: { $0.address == value.address }) {
+                    // The account is already in the wallet. When none of its
+                    // keys are on this device (a new iPhone restored from an
+                    // iCloud backup, or keys that were never saved here), the
+                    // imported phrase, seed or backup restores them in place:
+                    // add-only, after the material proved this address
+                    // (PreparedAccount). Otherwise it is a duplicate, as before.
+                    guard try WalletReadOnlyAccountKeyRestore.applies(
+                        existing: existing, imported: value,
+                        keystore: keystore, settings: legacySettings)
+                    else {
+                        throw AccountCreateError.duplicated
+                    }
+                    try persistSecrets()
+                    if let legacySettings, let keystore {
+                        try prepared.prepareOwnershipBinding(keystore: keystore, settings: legacySettings,
+                                                             existingAccounts: accounts.map(AccountItem.init(managedItem:)))
+                    }
+                    let selectedAccount = AccountItem(
+                        address: existing.address,
+                        cryptoType: existing.cryptoType,
+                        networkType: existing.networkType,
+                        username: existing.username,
+                        publicKeyData: existing.publicKeyData,
+                        settings: existing.settings,
+                        order: existing.order,
+                        isSelected: true
+                    )
+                    Logger.shared.info("Wallet keys: keys restored for an account that was read-only")
+                    return PreparedWalletInsertCommit(
+                        journal: nil,
+                        existingWalletIds: accounts.map(\.address),
+                        accountsToSave: selectionChanges(selecting: selectedAccount),
+                        selectedAccount: selectedAccount
+                    )
+                }
+
                 let nextOrder: Int16
                 if let maximumOrder = accounts.map(\.order).max() {
                     guard maximumOrder < Int16.max else {
@@ -398,45 +548,51 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 RetainedMigrationEvidenceHarness.shared.checkpoint(
                     .beforeSecretRetention
                 )
-                try persistSecrets()
-                journal = try journalStore.advance(
-                    journal,
-                    to: .secretsPersisted
-                )
+                do {
+                    // Check every retained item before writing an initial-PIN
+                    // claim. The claim still precedes all new secret writes.
+                    if let keystore { try prepared.validatePersistence(to: keystore) }
+                    if let legacySettings, let keystore {
+                        let ownerPIN = WalletOwnerPIN(keystore: keystore, settings: legacySettings,
+                                                      recoveryGate: recoveryGate)
+                        let current = accounts.map(AccountItem.init(managedItem:))
+                        if let completedSetup = prepared.completedInitialPINSetup {
+                            try completedSetup.validate(account: prepared.account, currentAccounts: current,
+                                keystore: keystore, settings: legacySettings, recoveryGate: recoveryGate)
+                        } else if try current.isEmpty || ownerPIN.requiresInitialSetup(accounts: current) {
+                            try prepared.prepareInitialPINSetup(keystore: keystore, settings: legacySettings,
+                                                                operationID: journal.id)
+                            WalletPendingPinSetup.begin(legacySettings)
+                        }
+                    }
+                    try persistSecrets()
+                    if let legacySettings, let keystore {
+                        try prepared.prepareOwnershipBinding(keystore: keystore, settings: legacySettings,
+                                                             existingAccounts: accounts.map(AccountItem.init(managedItem:)))
+                    }
+                    journal = try journalStore.advance(
+                        journal,
+                        to: .secretsPersisted
+                    )
+                } catch {
+                    // Nothing reached Core Data. Close the journal as
+                    // abandoned, so a refused or failed key write (for example
+                    // `retainedKeyConflict`, which writes nothing) does not
+                    // block the next import. Items already written stay and
+                    // are adopted by a later import. If the journal cannot be
+                    // closed, it stays unresolved and recovery handles it.
+                    if (try? journalStore.advance(journal, to: .abandoned)) != nil {
+                        Logger.shared.info("Wallet account commit: import stopped before Core Data")
+                    }
+                    throw error
+                }
                 RetainedMigrationEvidenceHarness.shared.checkpoint(
                     .afterSecretRetention
                 )
-                var accountsToSave = accounts.compactMap {
-                    account -> ManagedAccountItem? in
-                    guard account.isSelected else {
-                        return nil
-                    }
-                    return ManagedAccountItem(
-                        address: account.address,
-                        cryptoType: account.cryptoType,
-                        networkType: account.networkType,
-                        username: account.username,
-                        publicKeyData: account.publicKeyData,
-                        order: account.order,
-                        settings: account.settings,
-                        isSelected: false
-                    )
-                }
-                accountsToSave.append(
-                    ManagedAccountItem(
-                        address: selectedAccount.address,
-                        cryptoType: selectedAccount.cryptoType,
-                        networkType: selectedAccount.networkType,
-                        username: selectedAccount.username,
-                        publicKeyData: selectedAccount.publicKeyData,
-                        order: selectedAccount.order,
-                        settings: selectedAccount.settings,
-                        isSelected: true
-                    )
-                )
                 return PreparedWalletInsertCommit(
                     journal: journal,
-                    accountsToSave: accountsToSave,
+                    existingWalletIds: accounts.map(\.address),
+                    accountsToSave: selectionChanges(selecting: selectedAccount),
                     selectedAccount: selectedAccount
                 )
             }
@@ -465,38 +621,36 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 let accounts = try verifyOperation
                     .extractNoCancellableResultData()
                     .map(AccountItem.init(managedItem:))
+                let expectedAddresses = preparedCommit.journal == nil
+                    ? Set(preparedCommit.existingWalletIds)
+                    : Set(preparedCommit.existingWalletIds + [preparedCommit.selectedAccount.address])
                 guard
                     accounts.filter(\.isSelected) ==
                         [preparedCommit.selectedAccount],
                     Set(accounts.map(\.address)).count == accounts.count,
-                    Set(accounts.map(\.address)) ==
-                        Set(
-                            preparedCommit.journal
-                                .expectedExistingWalletIds +
-                                [preparedCommit.selectedAccount.address]
-                        )
+                    Set(accounts.map(\.address)) == expectedAddresses
                 else {
                     throw WalletNetworkMigrationError
                         .snapshotVerificationFailed
                 }
                 let journalStore =
                     try walletAccountCommitJournalStoreFactory()
-                var journal = try journalStore.advance(
-                    preparedCommit.journal,
-                    to: .coreDataCommitted
-                )
+                var journal = try preparedCommit.journal.map {
+                    try journalStore.advance($0, to: .coreDataCommitted)
+                }
                 RetainedMigrationEvidenceHarness.shared.checkpoint(
                     .afterCoreDataCommit
                 )
+                // Rebuilds and proves the network model. For keys restored
+                // in place, this replaces the read-only placeholder.
                 try walletNetworkSynchronizer?(
                     accounts,
                     preparedCommit.selectedAccount.address,
                     lifecycleLease
                 )
-                journal = try journalStore.advance(
-                    journal,
-                    to: .networkModelActivated
-                )
+                journal = try journal.map {
+                    try journalStore.advance($0, to: .networkModelActivated)
+                }
                 if let legacySettings = self?.legacySettings {
                     legacySettings.set(
                         value: preparedCommit.selectedAccount,
@@ -512,10 +666,16 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                             .snapshotVerificationFailed
                     }
                 }
-                _ = try journalStore.advance(
-                    journal,
-                    to: .activated
-                )
+                if let journal {
+                    _ = try journalStore.advance(
+                        journal,
+                        to: .activated
+                    )
+                }
+                if let legacySettings, let keystore {
+                    try WalletOwnerPIN(keystore: keystore, settings: legacySettings, recoveryGate: recoveryGate)
+                        .settleRebindings(currentAddresses: Set(accounts.map(\.address)))
+                }
                 self?.commitInternalValue(
                     preparedCommit.selectedAccount
                 )
@@ -607,21 +767,9 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
                 throw WalletNetworkMigrationError
                     .explicitRemovalTargetMissing(value.address)
             }
-            let selectedAccounts = accounts.filter(\.isSelected)
-            let isFirstWalletInsertion =
-                requiresFullIdentitySynchronization &&
-                accounts.count == 1 &&
-                selectedAccounts.isEmpty &&
-                !existingAccount.isSelected
-            guard
-                selectedAccounts.count == 1 ||
-                    isFirstWalletInsertion
-            else {
-                throw selectedAccounts.isEmpty
-                    ? SelectedWalletSettingsError.missingSelectedAccount
-                    : SelectedWalletSettingsError.multipleSelectedAccounts
-            }
-
+            // Zero or several selected rows (older releases, interrupted
+            // writes) are repaired: every selected row is deselected and the
+            // target is selected in the same save.
             var accountsToSave: [ManagedAccountItem] = accounts.compactMap {
                 account -> ManagedAccountItem? in
                 guard
@@ -1396,17 +1544,44 @@ final class WalletCloudBackupRecoveryService {
                         migrator: UserStorageMigrator, baseURL: URL? = nil,
                         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
                         checkpoint: () throws -> Void = {}) throws {
+        try withDecodedMaterial(data: data, password: password, account: account) { entropy, seed, secret, path in
+            try migrator.restoreMissingBackupMaterial(address: account.address, expectedAccount: account,
+                entropy: entropy, rawSeed: seed, secret: secret, derivationPath: path,
+                baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
+        }
+    }
+
+    /// Decryption proves a password, not the account. Each candidate is
+    /// independently checked by the same supplied-material preparation used
+    /// for a local phrase/seed/JSON; stale siblings cannot bless another key.
+    static func prepareForRepair(data: Data, password: String, account: AccountItem,
+                                 service: WalletCredentialRepair) throws -> PreparedAccount {
+        try withDecodedMaterial(data: data, password: password, account: account) { entropy, seed, secret, path in
+            if let entropy, WalletMnemonicWordPolicy.isDerivableEntropy(entropy),
+               let mnemonic = try? IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy) {
+                var phrase = mnemonic.toString()
+                defer { phrase.removeAll(keepingCapacity: false) }
+                if let candidate = try? service.prepare(account: account, source: .phrase, text: phrase,
+                                                        derivationPath: path, backupPassword: "") { return candidate }
+            }
+            if let seed,
+               let candidate = try? service.prepare(account: account, source: .seed, text: seed.toHex(),
+                                                     derivationPath: path, backupPassword: "") { return candidate }
+            if let secret { return try service.prepareDirectSecret(account: account, secret: secret) }
+            throw WalletCloudBackupRecoveryError.identityMismatch
+        }
+    }
+
+    private static func withDecodedMaterial<T>(data: Data, password: String, account: AccountItem,
+        body: (Data?, Data?, Data?, String) throws -> T) throws -> T {
         guard !data.isEmpty, data.count <= maximumBackupBytes,
               let backup = try? JSONDecoder().decode(Backup.self, from: data) else {
             throw WalletCloudBackupRecoveryError.invalidBackup
         }
         guard backup.address == account.address else { throw WalletCloudBackupRecoveryError.identityMismatch }
-        if let crypto = backup.cryptoType, !crypto.isEmpty {
-            guard crypto.lowercased() == account.cryptoType.typeString.lowercased() ||
-                    crypto == String(account.cryptoType.rawValue) else {
-                throw WalletCloudBackupRecoveryError.identityMismatch
-            }
-        }
+        // Older writers put the default crypto type here even for another
+        // account type. The account identity and each actual source, including
+        // the JSON's own encoding type, are authoritative.
         let encryption = EncryptionService()
         func decrypt(_ value: String?) throws -> String? {
             guard let value, !value.isEmpty else { return nil }
@@ -1417,12 +1592,23 @@ final class WalletCloudBackupRecoveryService {
             do { return try encryption.getDecrypted(from: value, password: password) }
             catch { throw WalletCloudBackupRecoveryError.incorrectPassword }
         }
-        guard let verifier = try decrypt(backup.keyVerifier), verifier == account.address else {
-            throw WalletCloudBackupRecoveryError.incorrectPassword
+        // App Store 3.8.6 backups have no key verifier. Their password is
+        // proven by the authenticated decryption of each secret below, and the
+        // restored material must derive this exact account before anything is
+        // written (restoreMissingBackupMaterial).
+        if let keyVerifier = backup.keyVerifier, !keyVerifier.isEmpty {
+            guard try decrypt(keyVerifier) == account.address else {
+                throw WalletCloudBackupRecoveryError.incorrectPassword
+            }
         }
-        var phrase = try decrypt(backup.encryptedMnemonicPhrase)
+        var firstSourceError: Error?
+        func readSource<T>(_ action: () throws -> T) -> T? {
+            do { return try action() }
+            catch { firstSourceError = firstSourceError ?? error; return nil }
+        }
+        var phrase = readSource { try decrypt(backup.encryptedMnemonicPhrase) } ?? nil
         defer { phrase = nil }
-        let path = try decrypt(backup.encryptedSubstrateDerivationPath) ?? ""
+        let path = (readSource { try decrypt(backup.encryptedSubstrateDerivationPath) } ?? nil) ?? ""
         var entropy: Data?
         var seed: Data?
         var secret: Data?
@@ -1431,29 +1617,26 @@ final class WalletCloudBackupRecoveryService {
             if let count = seed?.count { seed?.resetBytes(in: 0..<count) }
             if let count = secret?.count { secret?.resetBytes(in: 0..<count) }
         }
-        if let phrase, !phrase.isEmpty {
-            guard let mnemonic = try? IRMnemonicCreator(language: .english)
-                .mnemonic(fromList: phrase.split(whereSeparator: \.isWhitespace).joined(separator: " ")),
-                WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
-                throw WalletCloudBackupRecoveryError.invalidBackup
-            }
-            entropy = mnemonic.entropy()
+        if let phrase, !phrase.isEmpty,
+           var material = readSource({ try UserStorageMigrator.knownAddressPhraseMaterial(phrase, derivationPath: path) }) {
+            entropy = material.entropy
+            seed = material.rawSeed
+            material.wipe()
         }
-        if let seedString = try decrypt(backup.encryptedSeed?.substrateSeed), !seedString.isEmpty {
-            guard let decoded = try? Data(hexStringSSF: seedString), [32, 64].contains(decoded.count) else {
-                throw WalletCloudBackupRecoveryError.invalidBackup
-            }
-            seed = decoded
+        if let seedString = readSource({ try decrypt(backup.encryptedSeed?.substrateSeed) }) ?? nil, !seedString.isEmpty {
+            if let decoded = try? Data(hexStringSSF: seedString), [32, 64].contains(decoded.count) {
+                // This seed and the phrase entropy are independently proved by
+                // the migrator, so either can survive a stale sibling source.
+                seed = decoded
+            } else { firstSourceError = firstSourceError ?? WalletCloudBackupRecoveryError.invalidBackup }
         }
         if let json = backup.json?.substrateJson, !json.isEmpty {
-            secret = try extractJSONSecret(json, password: password, account: account)
+            secret = readSource { try extractJSONSecret(json, password: password, account: account) }
         }
         guard entropy != nil || seed != nil || secret != nil else {
-            throw WalletCloudBackupRecoveryError.unsupportedBackup
+            throw firstSourceError ?? WalletCloudBackupRecoveryError.unsupportedBackup
         }
-        try migrator.restoreMissingBackupMaterial(address: account.address, expectedAccount: account,
-            entropy: entropy, rawSeed: seed, secret: secret, derivationPath: path,
-            baseURL: baseURL, lifecycleCoordinator: lifecycleCoordinator, checkpoint: checkpoint)
+        return try body(entropy, seed, secret, path)
     }
 
     private static func checkedScrypt(_ data: Data) throws -> ScryptParameters {
@@ -1471,7 +1654,7 @@ final class WalletCloudBackupRecoveryService {
         return params
     }
 
-    private static func extractJSONSecret(_ json: String, password: String, account: AccountItem) throws -> Data {
+    static func extractJSONSecret(_ json: String, password: String, account: AccountItem) throws -> Data {
         guard let bytes = json.data(using: .utf8), bytes.count <= maximumBackupBytes,
               let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: bytes),
               let info = try? KeystoreInfoFactory().createInfo(from: definition),

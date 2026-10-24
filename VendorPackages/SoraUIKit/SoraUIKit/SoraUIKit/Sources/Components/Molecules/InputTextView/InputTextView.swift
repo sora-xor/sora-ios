@@ -54,12 +54,17 @@ public final class InputTextView: UIView, Molecule {
 
     @available(*, unavailable)
     public override init(frame: CGRect) { fatalError("init(coder:) has not been implemented") }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        NeonInputStyle.layout(stackView)
+    }
 }
 
 private extension InputTextView {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        stackView.layer.cornerRadius = 28
+        stackView.layer.cornerRadius = 16
         stackView.layer.borderWidth = 1
 
         addSubview(stackView)
@@ -94,7 +99,12 @@ extension InputTextView: UITextViewDelegate {
     }
     
     public func textViewDidChange(_ textView: UITextView) {
-        self.textView.sora.text = textView.text
+        // Rewriting the text while a keyboard composes (Japanese kana, Chinese pinyin) drops the
+        // marked range the keyboard still holds, so UIKit inserts the composition again or loses
+        // characters. UIKit calls this again when the composition is committed.
+        if textView.markedTextRange == nil {
+            self.textView.sora.text = textView.text
+        }
         delegate?.textViewDidChange(textView)
         let fixedWidth = textView.frame.size.width
         let newSize = textView.sizeThatFits(CGSize(width: fixedWidth, height: CGFloat.greatestFiniteMagnitude))

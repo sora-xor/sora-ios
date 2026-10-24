@@ -1427,6 +1427,7 @@
                     ]
                 },
                 "RefCount": "u32",
+                "Index": "u32",
                 "RequestStatus": {
                     "type": "enum",
                     "value_list": [

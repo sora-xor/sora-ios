@@ -277,7 +277,9 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(assetDetailsController)
+        let navigationController = SoraNavigationController(rootViewController: assetDetailsController)
+        navigationController.navigationBar.backgroundColor = .clear
+        containerView.add(navigationController)
         
         viewController?.present(containerView, animated: true)
     }
@@ -396,29 +398,31 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                   qrEncoder: WalletQREncoderProtocol,
                   sharingFactory: AccountShareFactoryProtocol,
                   marketCapService: MarketCapServiceProtocol) {
-        let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
-                                                  selectedAddress: selectedAddress,
-                                                  fiatService: fiatService,
-                                                  assetManager: assetManager,
-                                                  providerFactory: providerFactory,
-                                                  networkFacade: networkFacade,
-                                                  wireframe: InputAssetAmountWireframe(),
-                                                  assetsProvider: assetsProvider,
-                                                  qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory,
-                                                  marketCapService: marketCapService)
-        let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
-        viewModel.view = inputAmountController
-        
-        let navigationController = UINavigationController(rootViewController: inputAmountController)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
+        WalletAccountCapability.preflightSend(from: controller) { [self] in
+            let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
+                                                      selectedAddress: selectedAddress,
+                                                      fiatService: fiatService,
+                                                      assetManager: assetManager,
+                                                      providerFactory: providerFactory,
+                                                      networkFacade: networkFacade,
+                                                      wireframe: InputAssetAmountWireframe(),
+                                                      assetsProvider: assetsProvider,
+                                                      qrEncoder: qrEncoder,
+                                                      sharingFactory: sharingFactory,
+                                                      marketCapService: marketCapService)
+            let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
+            viewModel.view = inputAmountController
+
+            let navigationController = UINavigationController(rootViewController: inputAmountController)
+            navigationController.navigationBar.backgroundColor = .clear
+            navigationController.addCustomTransitioning()
+
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+            containerView.add(navigationController)
+
+            controller?.present(containerView, animated: true)
+        }
     }
     
     @MainActor

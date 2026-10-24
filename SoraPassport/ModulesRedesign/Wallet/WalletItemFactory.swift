@@ -101,6 +101,13 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         let accountItem: AccountTableViewItem = AccountTableViewItem(accountName: accountName)
+        accountItem.credentialAccount = currentAccount
+        accountItem.restoreKeysHandler = { [weak view] in
+            guard let controller = view?.controller, let currentAccount else { return }
+            Task { @MainActor in
+                WalletAccountCapability.presentRepair(account: currentAccount, from: controller)
+            }
+        }
         accountItem.sendHandler = { [weak walletViewModel] in
             Task { @MainActor in walletViewModel?.sendFromWallet() }
         }
@@ -133,6 +140,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             guard let accountItem = accountItem else { return }
             reloadItem?([accountItem])
         }
+        accountItem.refreshCapability()
 
         accountItem.accountHandler = { item in
             guard let view = view?.controller else { return }

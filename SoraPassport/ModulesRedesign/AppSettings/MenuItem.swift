@@ -39,7 +39,8 @@ class MenuItem: SoramitsuView {
         view.sora.backgroundColor = .bgSurface
         view.sora.axis = .horizontal
         view.sora.cornerRadius = .max
-        view.sora.distribution = .fillProportionally
+        view.sora.distribution = .fill
+        view.sora.alignment = .center
         view.layoutMargins = UIEdgeInsets(top: 16, left: 24, bottom: 16, right: 24)
         view.isLayoutMarginsRelativeArrangement = true
         view.spacing = 8
@@ -48,10 +49,14 @@ class MenuItem: SoramitsuView {
 
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byWordWrapping
         label.textAlignment = .left
         label.backgroundColor = .clear
         label.sora.font = FontType.textM
+        label.sora.dynamicTextStyle = .body
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.sora.textColor = .fgPrimary
         return label
     }()
@@ -71,7 +76,8 @@ class MenuItem: SoramitsuView {
 
     let switcher: UISwitch = {
         let switcher = UISwitch(frame: .zero)
-        switcher.onTintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+        // SORA Neon toggle: the on-track is cyan (spec §7.8).
+        switcher.onTintColor = NeonTokens.current.cyan
         return switcher
     }()
 
@@ -83,6 +89,7 @@ class MenuItem: SoramitsuView {
         setupSubviews()
         setupConstrains()
         setupGestureRecognizer()
+        SoramitsuUI.updates.addObserver(self)
     }
 
     private func setupSubviews() {
@@ -100,6 +107,14 @@ class MenuItem: SoramitsuView {
         arrow.widthAnchor == 24
         switcher.widthAnchor == 51
         horizontalStack.edgeAnchors == edgeAnchors
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if titleLabel.bounds.width > 0, titleLabel.preferredMaxLayoutWidth != titleLabel.bounds.width {
+            titleLabel.preferredMaxLayoutWidth = titleLabel.bounds.width
+            titleLabel.invalidateIntrinsicContentSize()
+        }
     }
 
     func addArrow() {
@@ -122,5 +137,14 @@ class MenuItem: SoramitsuView {
 
     @objc func didSwitch() {
         onSwitch?(switcher.isOn)
+    }
+}
+
+extension MenuItem: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette) else { return }
+        switcher.onTintColor = NeonTokens.current.cyan
+        arrow.image = R.image.iconSmallArrow()?.imageFlippedForRightToLeftLayoutDirection()
+            .tinted(with: SoramitsuUI.shared.theme.palette.color(.accentTertiary))
     }
 }

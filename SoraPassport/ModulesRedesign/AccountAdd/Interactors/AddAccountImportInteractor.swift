@@ -38,6 +38,7 @@ import SSFCloudStorage
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -45,9 +46,11 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol,
-         cloudStorage: CloudStorageServiceProtocol? = nil) {
+         cloudStorage: CloudStorageServiceProtocol? = nil,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.lifecycleCoordinator = lifecycleCoordinator
 
         super.init(accountOperationFactory: accountOperationFactory,
                    accountRepository: accountRepository,
@@ -62,7 +65,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         _ importOperation: BaseOperation<PreparedAccount>,
         completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
     ) {
-        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
+        let lifecycleCoordinator = self.lifecycleCoordinator
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()
         importOperation.addDependency(lifecycleOperation)
@@ -82,6 +85,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
             do {
                 let lifecycleLease = try leaseResult.get()
                 let prepared = try preparedResult.get()
+                if try self.requestExplicitCredentialRepairIfNeeded(prepared, lifecycleLease: lifecycleLease,
+                    eventCenter: selectionEventCenter, completion: completion) { return }
                 self.settings.performInsertAndSelect(
                     prepared: prepared,
                     persistSecrets: {
@@ -133,7 +138,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         _ importOperation: BaseOperation<PreparedAccount>,
         completion: ((Result<AccountItem?, Error>?) -> Void)?
     ) {
-        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
+        let lifecycleCoordinator = self.lifecycleCoordinator
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()
         importOperation.addDependency(lifecycleOperation)
@@ -159,12 +164,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     }
                     let result: Result<AccountItem?, Error>
                     do {
-                        if try checkOperation
-                            .extractNoCancellableResultData() != nil
-                        {
-                            throw AccountCreateError.duplicated
-                        }
-                        result = .success(prepared.account)
+                        result = .success(try self.existingAccountRequiringRepair(
+                            checkOperation.extractNoCancellableResultData(), prepared: prepared, selection: self.settings))
                     } catch {
                         result = .failure(error)
                     }

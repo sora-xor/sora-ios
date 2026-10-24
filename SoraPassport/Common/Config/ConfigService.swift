@@ -66,11 +66,32 @@ struct RemoteConfig {
 final class ConfigService {
     static let shared = ConfigService()
     private let operationManager: OperationManager = OperationManager()
-    var config: RemoteConfig = RemoteConfig()
+    private let configLock = NSLock()
+    private var storedConfig = RemoteConfig()
+
+    /// The bundled configuration until the remote one has been answered.
+    /// Startup does not wait for that answer, so it can be written while the
+    /// chain sync reads the node list: access is locked.
+    var config: RemoteConfig {
+        get {
+            configLock.lock()
+            defer { configLock.unlock() }
+            return storedConfig
+        }
+        set {
+            configLock.lock()
+            storedConfig = newValue
+            configLock.unlock()
+        }
+    }
 }
 
 extension ConfigService: ConfigServiceProtocol {
-    
+
+    /// Asks PI for the remote configuration. `completion` is called when the
+    /// request has ended, with or without an answer; this can take as long as
+    /// the request's own time limits allow, so nothing at launch may wait
+    /// for it (see `StartupNetworkCoordinator`).
     func setupConfig(completion: @escaping () -> Void) {
         let queryOperation = SubqueryConfigInfoOperation<SoraConfig>()
         
@@ -79,13 +100,18 @@ extension ConfigService: ConfigServiceProtocol {
                 completion()
                 return
             }
-            let nodes: Set<ChainNodeModel> = Set(response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address) else { return nil }
+            // The bundled nodes and type registry always stay. PI may add
+            // nodes at other URLs; a URL that is already bundled keeps its
+            // bundled entry.
+            let bundled = ApplicationConfig.shared.defaultChainNodes
+            let bundledURLs = Set(bundled.map(\.url))
+            let remote: [ChainNodeModel] = response.nodes.compactMap({ node in
+                guard let url = URL(string: node.address), !bundledURLs.contains(url) else { return nil }
                 return ChainNodeModel(url: url, name: node.name, apikey: nil)
-            }))
+            })
             self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
-                                       typesUrlString: response.substrateTypesUrl,
-                                       defaultNodes: nodes)
+                                       typesUrlString: ApplicationConfig.shared.commonTypesURL?.absoluteString,
+                                       defaultNodes: bundled.union(remote))
             completion()
         }
         

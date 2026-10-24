@@ -60,6 +60,12 @@ final class InconsistentStateMigrator: Migrating {
         self.keychain = keychain
     }
 
+    /// Logs a selected account that has no signing material on this device.
+    ///
+    /// It does not latch recovery or change any data: that account is
+    /// read-only here (signing reports `keysNotOnThisDevice`) and the user
+    /// can restore it with its phrase or backup. Every other account stays
+    /// usable. App Store 3.8.6 called `settings.removeAll()` here.
     func migrate() throws {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             return
@@ -76,18 +82,7 @@ final class InconsistentStateMigrator: Migrating {
             settings.bool(for: "wallet.watchOnly.\(selectedAccount.address)") == true
 
         if !hasSecretKey && !hasEntropy && !hasRawSeed && !isExplicitWatchOnly {
-            // Never convert an unreadable keychain state into a fresh-wallet
-            // state. That used to call removeAll(), which could log a user out
-            // and make a recoverable keychain/database mismatch look like data
-            // loss. Keep every legacy key and setting intact and route startup
-            // to the recovery-safe screen instead.
-            settings.setWalletMigrationRecovery(
-                reason: UserStorageMigrationError.privacySafeRecoveryDescription(
-                    for: WalletIntegrityError.selectedAccountSecretMissing(
-                        address: selectedAccount.address
-                    )
-                )
-            )
+            Logger.shared.warning("Selected wallet is read-only on this device: signing material unavailable")
             throw WalletIntegrityError.selectedAccountSecretMissing(address: selectedAccount.address)
         }
     }

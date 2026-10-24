@@ -88,11 +88,11 @@ final class SwapViewModel {
             checkBalances()
             
             let inputedFiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
-            let text = isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
-            let amountColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
-            let fiatColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
+            let text = shouldShowBalanceError ? R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale) : inputedFiatText
+            let amountColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgPrimary
+            let fiatColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgSecondary
             var state: InputFieldState = focusedField == .one ? .focused : .default
-            state = isEnoughtFirstAssetLiquidity ? state : .fail
+            state = shouldShowBalanceError ? .fail : state
             
             view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
             view?.updateFirstAsset(fiatText: text)
@@ -145,11 +145,11 @@ final class SwapViewModel {
             }
 
             let inputedFiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
-            let text = isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
-            let amountColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
-            let fiatColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
+            let text = shouldShowBalanceError ? R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale) : inputedFiatText
+            let amountColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgPrimary
+            let fiatColor: SoramitsuColor = shouldShowBalanceError ? .statusError : .fgSecondary
             var state: InputFieldState = focusedField == .one ? .focused : .default
-            state = isEnoughtFirstAssetLiquidity ? state : .fail
+            state = shouldShowBalanceError ? .fail : state
             
             view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
             view?.updateFirstAsset(fiatText: text)
@@ -239,8 +239,10 @@ final class SwapViewModel {
         }
     }
 
-    private var isEnoughtFirstAssetLiquidity: Bool {
-        hasSufficientSwapBalances()
+    private var shouldShowBalanceError: Bool {
+        // An empty amount is not a failed swap. Readiness still requires a
+        // positive amount, a current quote, fee and sufficient balances.
+        inputedFirstAmount > 0 && !hasSufficientSwapBalances()
     }
 
     private func hasSufficientSwapBalances() -> Bool {
@@ -299,14 +301,15 @@ final class SwapViewModel {
         lpServiceFee: LPFeeServiceProtocol,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
         warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
-        marketCapService: MarketCapServiceProtocol
+        marketCapService: MarketCapServiceProtocol,
+        feeProvider: FeeProviderProtocol = FeeProvider()
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
         self.wireframe = wireframe
         self.assetManager = assetManager
         self.detailsFactory = detailsFactory
-        self.feeProvider = FeeProvider()
+        self.feeProvider = feeProvider
         self.interactor = interactor
         self.networkFacade = networkFacade
         self.selectedTokenId = selectedTokenId
@@ -576,13 +579,20 @@ extension SwapViewModel {
                        dexId: UInt32 = 0,
                        completion: (() -> Void)? = nil) {
         
-        Task { [weak self] in
+        // Review depends on the quote and the fee. Prices only decorate the
+        // amounts: they are read on the side and filled in when they arrive,
+        // so a slow or failed price read never holds Review back.
+        loadFiatData()
+
+        // On the main actor, like the price task beside it: the two change
+        // the same texts and details and must not do so at the same time.
+        Task { @MainActor [weak self] in
             guard let self else { return }
-            async let fiatData = fiatService?.getFiat() ?? []
-            async let fee = feeProvider.getFee(for: .swap)
-            let results = await (fiatData: fiatData, fee: fee)
-            self.fiatData = results.fiatData
-            self.fee = results.fee
+            let fee = await self.feeProvider.getFee(for: .swap)
+            // The balances are read again on every update, as they were
+            // when the prices were set at this point.
+            self.updateAssetsBalance()
+            self.fee = fee
             
             self.quote = quote
             self.quoteParams = params
@@ -600,25 +610,52 @@ extension SwapViewModel {
                                                                         quote: quote) else { return }
             self.amounts = amounts
             
-            let amount = self.swapVariant == .desiredInput ? self.inputedFirstAmount : self.inputedSecondAmount
-            let route = self.quote?.route.compactMap({ self.assetManager?.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
-            
             self.slippageLimit = self.swapVariant == .desiredInput
                 ? self.slippageTolerance.minimumAmount(for: amounts.toAmount)
                 : self.slippageTolerance.maximumAmount(for: amounts.toAmount)
             self.updateWarningModel()
-            self.details = self.detailsFactory.createSwapViewModels(fromAsset: fromAsset,
-                                                                    toAsset: toAsset,
-                                                                    slippage: self.slippageTolerance,
-                                                                    amount: amount,
-                                                                    quote: amounts,
-                                                                    direction: self.swapVariant,
-                                                                    fiatData: self.fiatData,
-                                                                    swapFee: self.fee,
-                                                                    route: route ?? "",
-                                                                    viewModel: self)
+            self.details = self.makeDetails(fromAsset: fromAsset, toAsset: toAsset, amounts: amounts)
             self.view?.update(isNeedLoadingState: false)
             completion?()
+        }
+    }
+
+    private func makeDetails(fromAsset: AssetInfo, toAsset: AssetInfo, amounts: SwapQuoteAmounts) -> [DetailViewModel] {
+        let amount = swapVariant == .desiredInput ? inputedFirstAmount : inputedSecondAmount
+        let route = quote?.route.compactMap({ assetManager?.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
+        return detailsFactory.createSwapViewModels(fromAsset: fromAsset,
+                                                   toAsset: toAsset,
+                                                   slippage: slippageTolerance,
+                                                   amount: amount,
+                                                   quote: amounts,
+                                                   direction: swapVariant,
+                                                   fiatData: fiatData,
+                                                   swapFee: fee,
+                                                   route: route ?? "",
+                                                   viewModel: self)
+    }
+
+    /// Reads the prices beside the quote. When they differ from the ones in
+    /// use, the fiat texts and the details already on screen are worked out
+    /// again; nothing else depends on them.
+    private func loadFiatData() {
+        Task { @MainActor [weak self] in
+            let loaded = await self?.fiatService?.getFiat() ?? []
+            guard let self, loaded != self.fiatData else { return }
+            // Setting the prices also renews the balance texts and the fiat
+            // text of the first amount.
+            self.fiatData = loaded
+            let secondFiatText = self.setupInputedFiatText(from: self.inputedSecondAmount, assetId: self.secondAssetId)
+            self.view?.updateSecondAsset(fiatText: secondFiatText)
+
+            guard !self.details.isEmpty,
+                  let amounts = self.amounts,
+                  let params = self.quoteParams,
+                  params.fromAssetId == self.firstAssetId,
+                  params.toAssetId == self.secondAssetId,
+                  let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId),
+                  let toAsset = self.assetManager?.assetInfo(for: self.secondAssetId) else { return }
+            self.details = self.makeDetails(fromAsset: fromAsset, toAsset: toAsset, amounts: amounts)
         }
     }
     

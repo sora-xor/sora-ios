@@ -1,7 +1,6 @@
 import Foundation
 import IrohaCrypto
 import SSFModels
-import SSFQRService
 import SSFUtils
 
 open class AddressQRDecoder: AddressQRDecodable {

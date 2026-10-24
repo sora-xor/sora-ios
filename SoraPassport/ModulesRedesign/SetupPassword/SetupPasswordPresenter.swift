@@ -185,34 +185,11 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             guard crypto.lowercased() == account.cryptoType.typeString.lowercased() ||
                 crypto == String(account.cryptoType.rawValue) else { throw WalletCloudBackupWriteError.invalidBackup }
         }
-        let path = try keystore.fetchDeriviationForAddress(account.address) ?? ""
-        if let suppliedPath = backupAccount.substrateDerivationPath, !suppliedPath.isEmpty, suppliedPath != path {
-            throw WalletCloudBackupWriteError.invalidBackup
-        }
-        var entropy = try keystore.fetchEntropyForAddress(account.address)
-        var rawSeed = try keystore.fetchSeedForAddress(account.address)
-        var secret = try keystore.fetchSecretKeyForAddress(account.address)
-        defer {
-            let entropyCount = entropy?.count ?? 0, seedCount = rawSeed?.count ?? 0, secretCount = secret?.count ?? 0
-            entropy?.resetBytes(in: 0..<entropyCount)
-            rawSeed?.resetBytes(in: 0..<seedCount)
-            secret?.resetBytes(in: 0..<secretCount)
-        }
-        if let suppliedPhrase = backupAccount.passphrase,
-           !suppliedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
-                fromList: suppliedPhrase.split(whereSeparator: \.isWhitespace).joined(separator: " "))
-            let suppliedEntropy = mnemonic.entropy()
-            guard entropy == nil || entropy == suppliedEntropy else { throw WalletCloudBackupWriteError.invalidBackup }
-            entropy = suppliedEntropy
-        }
-        if let rawSeed, rawSeed.count != 32 && rawSeed.count != 64 { throw WalletCloudBackupWriteError.invalidBackup }
-        if let secret { try WalletCloudBackupRecoveryService.validateSecretEncoding(secret, cryptoType: account.cryptoType, publicKey: account.publicKeyData) }
-        guard entropy != nil || rawSeed != nil || secret != nil else { throw WalletCloudBackupWriteError.invalidBackup }
-        try LegacySoraIdentityValidator.validate(address: account.address,
-            publicKey: account.publicKeyData, cryptoType: account.cryptoType, networkType: account.networkType,
-            derivationPath: path.isEmpty ? nil : path, entropy: entropy, rawSeed: rawSeed, secret: secret,
-            recoveryGate: recoveryGate)
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore, recoveryGate: recoveryGate)
+        defer { backup.wipe() }
+        let path = backup.derivationStatus == .matching ? (backup.derivationPath ?? "") : ""
+        let entropy = backup.entropy
+        let rawSeed = backup.seed
         var prepared = backupAccount
         prepared.address = account.address
         prepared.cryptoType = account.cryptoType.typeString

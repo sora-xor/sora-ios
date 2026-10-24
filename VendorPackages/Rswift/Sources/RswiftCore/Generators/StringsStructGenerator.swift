@@ -253,11 +253,8 @@ struct StringsStructGenerator: ExternalOnlyStructGenerator {
       doesThrow: false,
       returnType: Type._String,
       body: """
-        guard let preferredLanguages = preferredLanguages else {
-          return \(values.swiftCode(bundle: "hostingBundle"))
-        }
-
-        guard let (_, bundle) = localeBundle(tableName: "\(values.tableName)", preferredLanguages: preferredLanguages) else {
+        let languages = preferredLanguages ?? hostingBundle.preferredLocalizations
+        guard let (_, bundle) = localeBundle(tableName: "\(values.tableName)", key: "\(values.key.escapedStringLiteral)", preferredLanguages: languages) else {
           return "\(values.key.escapedStringLiteral)"
         }
 
@@ -297,12 +294,8 @@ struct StringsStructGenerator: ExternalOnlyStructGenerator {
       doesThrow: false,
       returnType: Type._String,
       body: """
-        guard let preferredLanguages = preferredLanguages else {
-          let format = \(values.swiftCode(bundle: "hostingBundle"))
-          return String(format: format, locale: applicationLocale, \(args))
-        }
-
-        guard let (locale, bundle) = localeBundle(tableName: "\(values.tableName)", preferredLanguages: preferredLanguages) else {
+        let languages = preferredLanguages ?? hostingBundle.preferredLocalizations
+        guard let (locale, bundle) = localeBundle(tableName: "\(values.tableName)", key: "\(values.key.escapedStringLiteral)", preferredLanguages: languages) else {
           return "\(values.key.escapedStringLiteral)"
         }
 

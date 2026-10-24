@@ -37,6 +37,16 @@ protocol RuntimeSyncServiceProtocol {
     func register(chain: ChainModel, with connection: ChainConnection)
     func unregister(chainId: ChainModel.Id)
     func apply(version: RuntimeVersion, for chainId: ChainModel.Id)
+    /// Like `apply`, but re-downloads the metadata even when a copy for the
+    /// same spec version is stored (used when signing found that copy differs
+    /// from what the live node runs). The stored copy is replaced only after
+    /// the download passes admission. A replacement that is already running
+    /// or scheduled for this version is left alone, and its retries keep
+    /// replacing.
+    func applyReplacingCachedMetadata(
+        version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    )
 
     func hasChain(with chainId: ChainModel.Id) -> Bool
     func isChainSyncing(_ chainId: ChainModel.Id) -> Bool
@@ -74,10 +84,16 @@ final class RuntimeSyncService {
     let operationQueue: OperationQueue
     let dataHasher: StorageHasher
     let logger: LoggerProtocol?
+    let liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache
+    let metadataEngine: (JSONRPCEngine) -> JSONRPCEngine
 
     private(set) var knownChains: [ChainModel.Id: SyncInfo] = [:]
     private(set) var syncingChains: [ChainModel.Id: CompoundOperationWrapper<SyncResult>] = [:]
     private(set) var retryAttempts: [ChainModel.Id: RetryAttempt] = [:]
+    /// Runtime versions whose stored metadata must be downloaded again even
+    /// though a copy for that spec version exists. Every sync of that version
+    /// (first attempt, retries, `apply`) replaces until one succeeds.
+    private(set) var metadataReplacements: [ChainModel.Id: RuntimeVersion] = [:]
     private var mutex = NSLock()
     private var retryScheduler: Scheduler?
 
@@ -89,7 +105,11 @@ final class RuntimeSyncService {
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
         maxConcurrentSyncRequests: Int = 8,
         dataHasher: StorageHasher = .twox256,
-        logger: LoggerProtocol? = nil
+        logger: LoggerProtocol? = nil,
+        liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared,
+        metadataEngine: @escaping (JSONRPCEngine) -> JSONRPCEngine = {
+            Sora2BoundedHTTPJSONRPCEngine.wrapping($0)
+        }
     ) {
         self.repository = repository
         self.filesOperationFactory = filesOperationFactory
@@ -98,11 +118,24 @@ final class RuntimeSyncService {
         self.eventCenter = eventCenter
         self.dataHasher = dataHasher
         self.logger = logger
+        self.liveRuntimeIdentityCache = liveRuntimeIdentityCache
+        self.metadataEngine = metadataEngine
 
         let operationQueue = OperationQueue()
         operationQueue.maxConcurrentOperationCount = maxConcurrentSyncRequests
         operationQueue.qualityOfService = .userInitiated
         self.operationQueue = operationQueue
+    }
+
+    private static func isSameRuntime(
+        _ lhs: RuntimeVersion?,
+        _ rhs: RuntimeVersion?
+    ) -> Bool {
+        guard let lhs, let rhs else {
+            return false
+        }
+        return lhs.specVersion == rhs.specVersion &&
+            lhs.transactionVersion == rhs.transactionVersion
     }
 
     private func performSync(
@@ -113,6 +146,10 @@ final class RuntimeSyncService {
         guard let syncInfo = knownChains[chainId] else {
             return
         }
+        let replacingCachedMetadata = Self.isSameRuntime(
+            metadataReplacements[chainId],
+            newVersion
+        )
 
         let chainTypesSyncWrapper: CompoundOperationWrapper<String>?
         if shouldSyncTypes {
@@ -143,7 +180,8 @@ final class RuntimeSyncService {
             createMetadataSyncOperation(
                 for: chainId,
                 runtimeVersion: $0,
-                connection: syncInfo.connection
+                connection: syncInfo.connection,
+                replacingCachedMetadata: replacingCachedMetadata
             )
         }
 
@@ -203,6 +241,14 @@ final class RuntimeSyncService {
         }
 
         syncingChains[result.chainId] = nil
+
+        if case .success = result.metadataSyncResult,
+           Self.isSameRuntime(
+               metadataReplacements[result.chainId],
+               result.runtimeVersion
+           ) {
+            metadataReplacements[result.chainId] = nil
+        }
 
         addRetryRequestIfNeeded(for: result)
 
@@ -317,24 +363,40 @@ final class RuntimeSyncService {
     private func createMetadataSyncOperation(
         for chainId: ChainModel.Id,
         runtimeVersion: RuntimeVersion,
-        connection: JSONRPCEngine
+        connection: JSONRPCEngine,
+        replacingCachedMetadata: Bool = false
     ) -> CompoundOperationWrapper<Void> {
         let localMetadataOperation = repository.fetchOperation(
             by: chainId,
             options: RepositoryFetchOptions()
         )
 
-        let metadataConnection: JSONRPCEngine =
-            ReviewedSoraRuntimeSnapshotAdmission
-                .isReviewedSoraChain(chainId)
-            ? Sora2BoundedHTTPJSONRPCEngine.wrapping(connection)
+        let isReviewedSoraChain = ReviewedSoraRuntimeSnapshotAdmission
+            .isReviewedSoraChain(chainId)
+        let metadataConnection: JSONRPCEngine = isReviewedSoraChain
+            ? metadataEngine(connection)
             : connection
+        let proofs = liveRuntimeIdentityCache
         let remoteMetadaOperation = JSONRPCOperation<[String], String>(
             engine: metadataConnection,
             method: RPCMethod.getRuntimeMetadata
         )
+        // The node the download is addressed to. A proof is recorded for
+        // it only when the connection still points at it afterwards.
+        let nodeBeforeDownload = NSLock()
+        var downloadNode: String?
 
         remoteMetadaOperation.configurationBlock = {
+            nodeBeforeDownload.lock()
+            downloadNode = Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                for: connection.url
+            )
+            nodeBeforeDownload.unlock()
+            guard !replacingCachedMetadata else {
+                // The stored copy is never deleted here; it is replaced only
+                // after the downloaded bytes pass admission below.
+                return
+            }
             do {
                 let currentItem = try localMetadataOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -392,6 +454,27 @@ final class RuntimeSyncService {
             } catch let error as RuntimeSyncServiceError where error == .skipMetadataUnchanged {
                 return
             }
+            // Saved bytes came from the connected node and declare exactly
+            // this runtime version, so they are that node's live metadata.
+            // Signing on that node then needs only its runtime version.
+            nodeBeforeDownload.lock()
+            let node = downloadNode
+            nodeBeforeDownload.unlock()
+            if isReviewedSoraChain,
+               let node,
+               node == Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                   for: connection.url
+               ),
+               let hexMetadata = try? remoteMetadaOperation
+                .extractNoCancellableResultData(),
+               let rawMetadata = try? Data(hexStringSSF: hexMetadata) {
+                proofs.recordAdmittedMetadata(
+                    rawMetadata,
+                    node: node,
+                    specVersion: runtimeVersion.specVersion,
+                    transactionVersion: runtimeVersion.transactionVersion
+                )
+            }
         }
 
         filterOperation.addDependency(saveMetadataOperation)
@@ -409,6 +492,19 @@ final class RuntimeSyncService {
         }
 
         retryAttempts[chainId] = nil
+    }
+
+    /// A sync that replaces the stored metadata for `version` is running, or
+    /// its retry is scheduled.
+    private func isReplacing(
+        _ version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    ) -> Bool {
+        guard Self.isSameRuntime(metadataReplacements[chainId], version) else {
+            return false
+        }
+        return syncingChains[chainId] != nil ||
+            Self.isSameRuntime(retryAttempts[chainId]?.runtimeVersion, version)
     }
 }
 
@@ -461,6 +557,7 @@ extension RuntimeSyncService: RuntimeSyncServiceProtocol {
 
         clearOperations(for: chainId)
         knownChains[chainId] = nil
+        metadataReplacements[chainId] = nil
     }
 
     func apply(version: RuntimeVersion, for chainId: ChainModel.Id) {
@@ -469,6 +566,38 @@ extension RuntimeSyncService: RuntimeSyncServiceProtocol {
         defer {
             mutex.unlock()
         }
+
+        if !Self.isSameRuntime(metadataReplacements[chainId], version) {
+            // A replacement requested for an earlier runtime is obsolete.
+            metadataReplacements[chainId] = nil
+        }
+
+        clearOperations(for: chainId)
+
+        performSync(for: chainId, shouldSyncTypes: true, newVersion: version)
+    }
+
+    func applyReplacingCachedMetadata(
+        version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    ) {
+        mutex.lock()
+
+        defer {
+            mutex.unlock()
+        }
+
+        guard knownChains[chainId] != nil else {
+            return
+        }
+
+        // Signing asks again on every failed attempt. Restarting would cancel
+        // the download in progress and reset the retry backoff.
+        guard !isReplacing(version, for: chainId) else {
+            return
+        }
+
+        metadataReplacements[chainId] = version
 
         clearOperations(for: chainId)
 

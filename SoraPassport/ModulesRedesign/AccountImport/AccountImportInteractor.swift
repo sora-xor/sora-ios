@@ -49,7 +49,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
          eventCenter: EventCenterProtocol,
          cloudStorage: CloudStorageServiceProtocol? = nil,
          allowedMnemonicWordCounts: Set<Int> =
-             WalletMnemonicWordPolicy.userImportWordCounts,
+             WalletMnemonicWordPolicy.retainedSoraWordCounts,
          preparedAccountPersistence:
              ((PreparedAccount) throws -> Void)? = nil,
          lifecycleCoordinator: WalletLifecycleCoordinator = .shared
@@ -96,6 +96,8 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
             do {
                 let lifecycleLease = try leaseResult.get()
                 let prepared = try preparedResult.get()
+                if try self.requestExplicitCredentialRepairIfNeeded(prepared, lifecycleLease: lifecycleLease,
+                    eventCenter: selectionEventCenter, completion: completion) { return }
                 self.settings.performInsertAndSelect(
                     prepared: prepared,
                     persistSecrets: {
@@ -163,11 +165,13 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                 let checkOperation = self.accountRepository.fetchOperation(by: accountItem.address,
                                                                            options: RepositoryFetchOptions())
                 checkOperation.completionBlock = {
+                    let result = Result<AccountItem?, Error> {
+                        try self.existingAccountRequiringRepair(checkOperation.extractNoCancellableResultData(),
+                            prepared: prepared, selection: self.settings)
+                    }
                     prepared.discard()
                     lifecycleLease?.release()
-                    DispatchQueue.main.async {
-                        completion?(checkOperation.result)
-                    }
+                    DispatchQueue.main.async { completion?(result) }
                 }
                 
                 operationManager.enqueue(operations: [checkOperation], in: .sync)

@@ -69,24 +69,29 @@ extension SecuredPresentable {
             return
         }
 
-        let blurView = UIVisualEffectView()
-        blurView.effect = UIBlurEffect(style: .regular)
-        blurView.translatesAutoresizingMaskIntoConstraints = false
-        presentationView.addSubview(blurView)
-
+        // Install synchronously before UIKit snapshots an inactive wallet.
+        // Blur is insufficient protection for words and large PIN digits.
+        let cover = UIView()
+        cover.backgroundColor = WalletUX.page
+        cover.accessibilityIdentifier = "wallet-private-app-switcher-cover"
+        cover.translatesAutoresizingMaskIntoConstraints = false
+        presentationView.addSubview(cover)
+        let logo = UILabel()
+        logo.text = "SORA"
+        logo.font = UIFont.systemFont(ofSize: 28, weight: .semibold)
+        logo.textColor = WalletUX.foreground
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        cover.addSubview(logo)
         NSLayoutConstraint.activate([
-            blurView.heightAnchor.constraint(equalTo: presentationView.heightAnchor),
-            blurView.widthAnchor.constraint(equalTo: presentationView.widthAnchor),
-            blurView.centerXAnchor.constraint(equalTo: presentationView.centerXAnchor),
-            blurView.centerYAnchor.constraint(equalTo: presentationView.centerYAnchor)
-            ])
-
-        self.securityView = blurView
-
-        if animated {
-            let transitionAnimator = TransitionAnimator(type: .reveal)
-            transitionAnimator.animate(view: blurView, completionBlock: nil)
-        }
+            cover.leadingAnchor.constraint(equalTo: presentationView.leadingAnchor),
+            cover.trailingAnchor.constraint(equalTo: presentationView.trailingAnchor),
+            cover.topAnchor.constraint(equalTo: presentationView.topAnchor),
+            cover.bottomAnchor.constraint(equalTo: presentationView.bottomAnchor),
+            logo.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
+            logo.centerYAnchor.constraint(equalTo: cover.centerYAnchor)
+        ])
+        presentationView.layoutIfNeeded()
+        self.securityView = cover
     }
 
     func unsecurePresentingView() {

@@ -200,29 +200,31 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                                  firstAssetAmount: Decimal,
                                  fee: Decimal,
                                  assetsProvider: AssetProviderProtocol?) {
-        let viewModel = ConfirmSendingViewModel(wireframe: ConfirmWireframe(),
-                                                fiatService: fiatService,
-                                                assetManager: assetManager,
-                                                detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                                assetId: assetId,
-                                                recipientAddress: recipientAddress,
-                                                firstAssetAmount: firstAssetAmount,
-                                                transactionType: .outgoing,
-                                                fee: fee,
-                                                walletService: walletService,
-                                                assetsProvider: assetsProvider)
-        let view = ConfirmViewController(viewModel: viewModel)
-        viewModel.view = view
-        
-        let navigationController = UINavigationController(rootViewController: view)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
+        WalletAccountCapability.preflightSend(from: controller) { [self] in
+            let viewModel = ConfirmSendingViewModel(wireframe: ConfirmWireframe(),
+                                                    fiatService: fiatService,
+                                                    assetManager: assetManager,
+                                                    detailsFactory: DetailViewModelFactory(assetManager: assetManager),
+                                                    assetId: assetId,
+                                                    recipientAddress: recipientAddress,
+                                                    firstAssetAmount: firstAssetAmount,
+                                                    transactionType: .outgoing,
+                                                    fee: fee,
+                                                    walletService: walletService,
+                                                    assetsProvider: assetsProvider)
+            let view = ConfirmViewController(viewModel: viewModel)
+            viewModel.view = view
+
+            let navigationController = UINavigationController(rootViewController: view)
+            navigationController.navigationBar.backgroundColor = .clear
+            navigationController.addCustomTransitioning()
+
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+            containerView.add(navigationController)
+
+            controller?.present(containerView, animated: true)
+        }
     }
 
     @MainActor
@@ -269,28 +271,30 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                   qrEncoder: WalletQREncoderProtocol,
                   sharingFactory: AccountShareFactoryProtocol,
                   marketCapService: MarketCapServiceProtocol) {
-        let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
-                                                  selectedAddress: selectedAddress,
-                                                  fiatService: fiatService,
-                                                  assetManager: assetManager,
-                                                  providerFactory: providerFactory,
-                                                  networkFacade: networkFacade,
-                                                  wireframe: InputAssetAmountWireframe(),
-                                                  assetsProvider: assetsProvider,
-                                                  qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory,
-                                                  marketCapService: marketCapService)
-        let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
-        viewModel.view = inputAmountController
-        
-        let navigationController = UINavigationController(rootViewController: inputAmountController)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
+        WalletAccountCapability.preflightSend(from: controller) { [self] in
+            let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
+                                                      selectedAddress: selectedAddress,
+                                                      fiatService: fiatService,
+                                                      assetManager: assetManager,
+                                                      providerFactory: providerFactory,
+                                                      networkFacade: networkFacade,
+                                                      wireframe: InputAssetAmountWireframe(),
+                                                      assetsProvider: assetsProvider,
+                                                      qrEncoder: qrEncoder,
+                                                      sharingFactory: sharingFactory,
+                                                      marketCapService: marketCapService)
+            let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
+            viewModel.view = inputAmountController
+
+            let navigationController = UINavigationController(rootViewController: inputAmountController)
+            navigationController.navigationBar.backgroundColor = .clear
+            navigationController.addCustomTransitioning()
+
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+            containerView.add(navigationController)
+
+            controller?.present(containerView, animated: true)
+        }
     }
 }

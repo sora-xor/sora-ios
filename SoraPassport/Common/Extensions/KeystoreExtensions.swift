@@ -45,6 +45,17 @@ enum KeystoreTag: String, CaseIterable {
 }
 
 extension KeystoreProtocol {
+    /// A PIN, username or derivation-path label alone is not a wallet key.
+    /// Enumeration failures propagate: an inaccessible Keychain is never a
+    /// fresh installation. Presence, including malformed bytes, is enough to
+    /// preserve the retained-wallet route without making a signing claim.
+    func hasRetainedWalletKeys() throws -> Bool {
+        try allKeyIdentifiers().contains { identifier in
+            identifier == KeystoreTag.legacyEntropy.rawValue || identifier == "privateKey" ||
+                ["-secretKey", "-entropy", "-seed"].contains { identifier.hasSuffix($0) }
+        }
+    }
+
     func hasRetainedWalletMaterial() throws -> Bool {
         let scopedWalletSuffixes = [
             "-secretKey",
@@ -78,13 +89,23 @@ extension KeystoreProtocol {
                 KeystoreTag.secretKeyTagForAddress(address),
                 KeystoreTag.entropyTagForAddress(address),
                 KeystoreTag.deriviationTagForAddress(address),
-                KeystoreTag.seedTagForAddress(address)
+                KeystoreTag.seedTagForAddress(address),
+                address + WalletOwnerPIN.bindingSuffix,
+                address + WalletOwnerPIN.throttleSuffix,
+                WalletOwnerPIN.rebindPrefix + address,
+                WalletOwnerPIN.setupPrefix + address
             ]
         )
     }
 
-    func deleteEntropy(for address: String) throws {
-        try deleteKeyIfExists(for: KeystoreTag.entropyTagForAddress(address))
+
+    /// True when the address has any scoped item a signer can use:
+    /// `-entropy`, `-seed` or `-secretKey` (a `-deriv` item alone is not one).
+    /// Read-only; no secret is loaded.
+    func hasScopedSigningMaterial(for address: String) throws -> Bool {
+        try checkKey(for: KeystoreTag.entropyTagForAddress(address)) ||
+            checkKey(for: KeystoreTag.seedTagForAddress(address)) ||
+            checkKey(for: KeystoreTag.secretKeyTagForAddress(address))
     }
 
     func loadIfKeyExists(_ tag: String) throws -> Data? {
@@ -186,6 +207,8 @@ extension KeystoreProtocol {
     /// Prove the unsuffixed record against the exact retained SORA address here,
     /// using the released default sr25519 derivation. This is a read-only
     /// migration path: it never creates a scoped key or infers a new identity.
+    /// (Scoped copies are added later, add-only and only after the account is
+    /// active, by `LegacyGlobalEntropyScopedBackfill`.)
     func fetchLegacyEntropyBeforeNetworkActivation(
         for address: String,
         recoveryGate: WalletRecoveryCapabilityGate,
@@ -260,7 +283,8 @@ extension KeystoreProtocol {
 
         // The oldest installations retained one unsuffixed entropy record.
         // Resolve it only through an already activated, exact SORA2 identity;
-        // never copy it into a new Keychain tag or guess its owner.
+        // never guess its owner. This resolver itself never writes; the
+        // add-only scoped copies come from `LegacyGlobalEntropyScopedBackfill`.
         diagnostic?.snapshot.snapshotPresent = snapshot != nil
         guard let snapshot else {
             diagnostic?.snapshot.fallback = .noSnapshot

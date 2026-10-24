@@ -44,22 +44,46 @@ final class ServiceCoordinator {
     let eventCenter: EventCenterProtocol
     let subscriptionsFactory: WebSocketSubscriptionFactoryProtocol
     let migrationService: MigrationServiceProtocol
+    private let network: StartupNetworkCoordinating
+    private let chainRegistry: () -> ChainRegistryProtocol
     private(set) var subscriptions: [WebSocketSubscribing]?
 
+    /// - Parameters:
+    ///   - network: told when `setup` starts the chain registry.
+    ///   - chainRegistry: the app's chain registry. It is created by its
+    ///     first use, which has to be on the main thread.
     init(eventCenter: EventCenterProtocol,
          subscriptionsFactory: WebSocketSubscriptionFactoryProtocol,
-         migrationService: MigrationServiceProtocol) {
+         migrationService: MigrationServiceProtocol,
+         network: StartupNetworkCoordinating = StartupNetworkCoordinator.shared,
+         chainRegistry: @escaping () -> ChainRegistryProtocol = { ChainRegistryFacade.sharedRegistry }) {
         self.eventCenter = eventCenter
         self.subscriptionsFactory = subscriptionsFactory
         self.migrationService = migrationService
+        self.network = network
+        self.chainRegistry = chainRegistry
 
         eventCenter.add(observer: self, dispatchIn: .main)
     }
 
-    private func setup(chainRegistry: ChainRegistryProtocol) {
-        let chainRegistry = ChainRegistryFacade.sharedRegistry
-        chainRegistry.subscribeToChians()
-        chainRegistry.syncUp()
+    /// Starts the chain registry for the wallet that is being opened.
+    ///
+    /// Startup has usually booted the registry already, and this only syncs
+    /// it again. A startup that ended at the 1.x upgrade screen has not: the
+    /// wallet that opens after the upgrade is then the first to start it.
+    /// The asset list and the remote node list are loaded in the background
+    /// and reach the registry only once they are told that it has been
+    /// started. They were told by startup alone, so a wallet opened after a
+    /// 1.x upgrade never asked for its asset list and stayed empty until the
+    /// app was closed. As in `SplashInteractor.bootChainRegistry`, the
+    /// registry is created first (the caller is on the main thread), then
+    /// the background work is told, then the registry is started.
+    private func startChainRegistry() -> ChainRegistryProtocol {
+        let registry = chainRegistry()
+        network.chainRegistryWillBoot()
+        registry.subscribeToChians()
+        registry.syncUp()
+        return registry
     }
 
     private func updateWebSocketSettings() {
@@ -103,7 +127,7 @@ final class ServiceCoordinator {
 
     @MainActor
     private func updateSora2PendingRecoveryReadiness() {
-        let registry = ChainRegistryFacade.sharedRegistry
+        let registry = chainRegistry()
         guard
             registry.getConnection(for: Chain.sora.genesisHash()) != nil,
             registry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil
@@ -120,8 +144,8 @@ final class ServiceCoordinator {
 extension ServiceCoordinator: ServiceCoordinatorProtocol {
     func updateOnAccountChange() {
         self.subscriptions = nil
-        let chainRegistry = ChainRegistryFacade.sharedRegistry
-        self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
+        let registry = chainRegistry()
+        self.setupSubscriptions(connection: registry.getConnection(for: Chain.sora.genesisHash()))
         Task { @MainActor in
             self.updateSora2PendingRecoveryReadiness()
         }
@@ -139,17 +163,16 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
     }
 
     func setup() {
-        let chainRegistry = ChainRegistryFacade.sharedRegistry
-        setup(chainRegistry: chainRegistry)
+        let registry = startChainRegistry()
 
-        self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
+        self.setupSubscriptions(connection: registry.getConnection(for: Chain.sora.genesisHash()))
         Task { @MainActor in
             self.updateSora2PendingRecoveryReadiness()
         }
     }
 
     func throttle() {
-        ChainRegistryFacade.sharedRegistry.chainsUnsubscribe(self)
+        chainRegistry().chainsUnsubscribe(self)
         Task { @MainActor in
             Sora2PendingSubmissionRecoveryRuntime.shared
                 .markChainUnavailable()

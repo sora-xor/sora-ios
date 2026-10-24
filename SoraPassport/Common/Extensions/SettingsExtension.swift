@@ -148,16 +148,69 @@ struct WalletMigrationRecoveryMarker: Equatable, Codable {
         ].contains(reason ?? "")
     }
 
-    /// Older builds collapsed non-storage errors into this fixed reason. The
-    /// marker is only cleared after startup independently proves the installed
-    /// database, selected account, signing material and network identities.
+    /// Prefix and suffix of `UserStorageMigrationError.privacySafeRecoveryDescription`.
+    static let startupFailureReasonPrefix = "Wallet storage could not be verified safely ("
+    static let startupFailureReasonSuffix = "). Existing wallet data and recovery copies were preserved."
+
+    /// Every fixed startup code except `interrupted_migration`, which has its
+    /// own journal resolver. A retry only re-runs read-only verification; only a
+    /// complete proof clears the marker, by compare-and-set.
+    static let retryableStartupFailureCodes: Set<String> = [
+        "unexpected_failure",
+        "missing_wallet_secret",
+        "empty_wallet_secret",
+        "backup_verification_failed",
+        "account_inventory_mismatch",
+        "selected_account_mismatch",
+        "missing_wallet_store",
+        "unknown_store_version",
+        "unavailable_model",
+        "incomplete_migration_path",
+        "insufficient_storage",
+    ]
+
+    /// Gate latches caused by a journal that could not be read or a terminal
+    /// journal write that could not be read back. Both are usually transient
+    /// (locked device, I/O). Startup verification re-proves every journal.
+    static let retryableJournalReadReasons: Set<String> = [
+        "The wallet account commit journal could not be verified. Existing wallet material was preserved.",
+        "A terminal wallet account commit could not be verified. Existing wallet material was preserved.",
+    ]
+
+    /// The fixed code inside a privacy-safe startup reason, if the reason has
+    /// exactly that format.
+    var startupFailureCode: String? {
+        guard let reason,
+              reason.hasPrefix(Self.startupFailureReasonPrefix),
+              reason.hasSuffix(Self.startupFailureReasonSuffix),
+              reason.count > Self.startupFailureReasonPrefix.count + Self.startupFailureReasonSuffix.count
+        else { return nil }
+        let code = String(reason.dropFirst(Self.startupFailureReasonPrefix.count)
+            .dropLast(Self.startupFailureReasonSuffix.count))
+        guard !code.isEmpty, code.allSatisfy({ $0 == "_" || ("a"..."z").contains($0) }) else { return nil }
+        return code
+    }
+
+    /// Markers that startup may retry. Transient Keychain, disk and journal
+    /// failures must never become a permanent lockout.
+    var isRetryableStartupFailure: Bool {
+        guard required, generation == reasonGeneration, !isDatabaseInterruption,
+              !isLegacyAccountCommitInterruption else { return false }
+        if let code = startupFailureCode {
+            return Self.retryableStartupFailureCodes.contains(code)
+        }
+        return Self.retryableJournalReadReasons.contains(reason ?? "")
+    }
+
+    /// Kept for existing callers: a retryable startup failure. The marker is
+    /// only cleared after startup independently proves the installed database,
+    /// selected account, signing material and network identities.
     var isStartupVerificationFailure: Bool {
-        required && generation == reasonGeneration && reason ==
-            "Wallet storage could not be verified safely (unexpected_failure). Existing wallet data and recovery copies were preserved."
+        isRetryableStartupFailure
     }
 
     func requireUnchangedForStartupVerification(_ settings: SettingsManagerProtocol) throws {
-        guard isStartupVerificationFailure, Self.capture(settings) == self else {
+        guard isRetryableStartupFailure, Self.capture(settings) == self else {
             throw WalletNetworkMigrationError.walletRecoveryRequired
         }
     }
@@ -540,10 +593,18 @@ extension SettingsManagerProtocol {
         set { set(value: newValue, for: SettingsKey.walletNetworkStoreVersion.rawValue) }
     }
 
-    /// Taira is on by default for the tester release. Once the user changes
+    /// Without a choice or a PI remote default, Taira follows
+    /// `ProductSurfacePolicy.optionalSurfacesDefaultOn` (on for the Nexus
+    /// line's testers, off on the 3.9.x App Store line). Once the user changes
     /// this value, future remote defaults must not override their choice.
     var isTairaEnabled: Bool {
         get {
+            // An App Store build does not ship Taira. Neither a remote
+            // default nor a choice made in a tester build turns it on there;
+            // the stored choice is kept for a build that does ship it.
+            guard ProductSurfacePolicy.showsTairaSettings else {
+                return false
+            }
             switch atomicTairaExplicitPreference {
             case .enabled:
                 return true
@@ -563,7 +624,7 @@ extension SettingsManagerProtocol {
                 case let .value(remoteDefault):
                     return remoteDefault
                 case .absent:
-                    return true
+                    return ProductSurfacePolicy.optionalSurfacesDefaultOn
                 case .malformed:
                     return false
                 }
@@ -587,8 +648,16 @@ extension SettingsManagerProtocol {
         }
     }
 
+    /// Follows PI's `nexusAvailable` once stored, otherwise
+    /// `ProductSurfacePolicy.optionalSurfacesDefaultOn`, and is always off in
+    /// a build that does not ship the Nexus portfolio, whatever an earlier
+    /// build stored.
     var nexusEnabled: Bool {
-        get { bool(for: SettingsKey.nexusEnabled.rawValue) ?? true }
+        get {
+            ProductSurfacePolicy.showsNexusPortfolio &&
+                (bool(for: SettingsKey.nexusEnabled.rawValue)
+                    ?? ProductSurfacePolicy.optionalSurfacesDefaultOn)
+        }
         set { set(value: newValue, for: SettingsKey.nexusEnabled.rawValue) }
     }
 
@@ -613,8 +682,16 @@ extension SettingsManagerProtocol {
         return nexusSendsEnabled
     }
 
+    /// Follows PI's `polkamarktVisible` once stored, otherwise
+    /// `ProductSurfacePolicy.optionalSurfacesDefaultOn`, and is always off in
+    /// a build that does not ship Polkamarkt, whatever an earlier build
+    /// stored.
     var polkamarktEnabled: Bool {
-        get { bool(for: SettingsKey.polkamarktEnabled.rawValue) ?? true }
+        get {
+            ProductSurfacePolicy.showsPolkamarkt &&
+                (bool(for: SettingsKey.polkamarktEnabled.rawValue)
+                    ?? ProductSurfacePolicy.optionalSurfacesDefaultOn)
+        }
         set { set(value: newValue, for: SettingsKey.polkamarktEnabled.rawValue) }
     }
 
@@ -632,11 +709,21 @@ extension SettingsManagerProtocol {
         set { set(value: newValue, for: SettingsKey.polkamarktMutationsEnabled.rawValue) }
     }
 
+    /// Stores what PI's `mobileConfig` says about optional features.
+    ///
+    /// In an App Store build the flags for Taira, Polkamarkt and Nexus are
+    /// first masked to off (`ProductSurfacePolicy.admitted`), so nothing PI
+    /// sends can store them as on or publish their mutation authority.
     @discardableResult
     func applyPIMobileConfig(
-        _ config: PIMobileConfig,
-        refreshToken: ProductionRemoteCapabilitySession.RefreshToken
+        _ remoteConfig: PIMobileConfig,
+        refreshToken: ProductionRemoteCapabilitySession.RefreshToken,
+        isAppStoreBuild: Bool = ProductSurfacePolicy.isAppStoreBuild
     ) -> Bool {
+        let config = ProductSurfacePolicy.admitted(
+            remoteConfig,
+            isAppStoreBuild: isAppStoreBuild
+        )
         let capabilitySession = ProductionRemoteCapabilitySession.shared
         return capabilitySession.publishFreshConfig(
             refreshToken,
@@ -761,6 +848,67 @@ final class ProductionRemoteCapabilitySession: @unchecked Sendable {
         }
         stateLock.unlock()
         return permitted
+    }
+}
+
+/// Which optional product surfaces a build may show at all. On the App Store
+/// line (3.9.x) Release (`F_RELEASE`) builds hide the Taira testnet switch,
+/// Polkamarkt prediction markets and the Nexus network portfolio, and do not
+/// accept IrohaConnect links, whatever PI or stored settings say. Other
+/// builds keep them for testers; PI and stored settings still decide there.
+///
+/// It applies at UI entry points and to the feature flags themselves: a build
+/// that hides the surfaces masks PI's flags before storing them (`admitted`)
+/// and reads the stored ones as off. It must not change runtime, key,
+/// migration or network-admission policy (`NexusNetworkAdmissionPolicy`):
+/// hiding a surface never touches Nexus or Taira journals or keys.
+enum ProductSurfacePolicy {
+    /// This is the SORA Nexus (`modernize`) line. Its Release builds go to
+    /// Nexus testers through TestFlight and ship Taira, Polkamarkt, the Nexus
+    /// portfolio and IrohaConnect in every configuration, as this line did
+    /// before the 3.9.x App Store line was merged into it. Set this to false
+    /// to get the App Store line's behaviour (and remove the IrohaConnect URL
+    /// type from Info.plist, which `register-irohaconnect-url-schemes.sh`
+    /// then adds back for non-Release builds only).
+    static let shipsOptionalSurfacesInRelease = true
+
+    #if F_RELEASE
+    static let isAppStoreBuild = !shipsOptionalSurfacesInRelease
+    #else
+    static let isAppStoreBuild = false
+    #endif
+    static let showsTairaSettings = !isAppStoreBuild
+    static let showsPolkamarkt = !isAppStoreBuild
+    static let showsNexusPortfolio = !isAppStoreBuild
+    static let acceptsIrohaConnect = !isAppStoreBuild
+
+    /// What an install shows before it has a stored choice or a PI value.
+    /// The Nexus line keeps its tester default (Taira, Nexus and Polkamarkt
+    /// on); the App Store line starts with them off until PI publishes them.
+    static let optionalSurfacesDefaultOn = shipsOptionalSurfacesInRelease
+
+    /// PI's `mobileConfig` as this build may act on it. The production PI
+    /// can publish `nexusAvailable`, `polkamarktVisible` and
+    /// `tairaDefaultVisible` as true; an App Store build ships none of those
+    /// surfaces, so there every optional flag is off. Node, explorer and
+    /// type-registry fields are not feature flags and pass through.
+    static func admitted(
+        _ config: PIMobileConfig,
+        isAppStoreBuild: Bool = Self.isAppStoreBuild
+    ) -> PIMobileConfig {
+        guard isAppStoreBuild else {
+            return config
+        }
+        return PIMobileConfig(
+            blockExplorerUrl: config.blockExplorerUrl,
+            substrateTypesUrl: config.substrateTypesUrl,
+            nodes: config.nodes,
+            nexusAvailable: false,
+            nexusSendsAvailable: false,
+            polkamarktVisible: false,
+            polkamarktMutationsAvailable: false,
+            tairaDefaultVisible: false
+        )
     }
 }
 

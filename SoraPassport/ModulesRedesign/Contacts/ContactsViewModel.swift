@@ -255,14 +255,14 @@ final class ContactsViewModel: NSObject {
     
     @objc private func performSearch() {
         isWaitingSearch = false
-
-        searchOperation = walletService.search(for: searchPattern, runCompletionIn: .main) { [weak self] (result) in
+        let pattern = searchPattern
+        searchOperation = walletService.search(for: pattern, runCompletionIn: .main) { [weak self] (result) in
 
             guard let strongSelf = self else {
                 return
             }
 
-            if !strongSelf.isWaitingSearch {}
+            guard strongSelf.searchPattern == pattern else { return }
 
             if let result = result {
                 self?.searchOperation = nil
@@ -294,6 +294,7 @@ extension ContactsViewModel: ContactsViewModelProtocol {
         
         guard !pattern.isEmpty else {
             cancelSearch()
+            setupItems?(recentContantsItems)
             return
         }
 

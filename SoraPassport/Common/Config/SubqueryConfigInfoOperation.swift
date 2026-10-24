@@ -88,7 +88,7 @@ public final class SubqueryConfigInfoOperation<ResultType>: PIAsyncOperation<Res
             genesis: checkedHealth.genesisHash ?? PIIndexerClient.soraMainnetGenesis,
             joinUrl: "",
             substrateTypesUrl: config.substrateTypesUrl?.absoluteString ?? "",
-            soracard: config.soracard,
+            soracard: false,
             currencies: []
         )
         guard let result = legacy as? ResultType else {

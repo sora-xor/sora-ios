@@ -8,11 +8,15 @@ public final class InputAssetField: UIControl, Molecule {
 
     public let sora: InputAssetFieldConfiguration<InputAssetField>
 
-    let containerView: SoramitsuView = {
-        let view = SoramitsuView()
-        view.sora.cornerRadius = .max
-        view.sora.backgroundColor = .bgSurface
-        view.sora.borderWidth = 1
+    /// The amount card. A plain view on purpose, like the chrome host of
+    /// `InputField` and `InputTextView`: the field's configuration is the
+    /// only writer of its fill, border and focus glow (`NeonInputStyle`).
+    /// As a Soramitsu view it had a configuration of its own that answered
+    /// the same style updates in no defined order, and when it came second
+    /// it put back the palette fill, cleared the border colour and removed
+    /// the focus glow.
+    let containerView: UIView = {
+        let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -82,11 +86,20 @@ public final class InputAssetField: UIControl, Molecule {
 
     @available(*, unavailable)
     public override init(frame: CGRect) { fatalError("init(coder:) has not been implemented") }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        NeonInputStyle.layout(containerView)
+    }
 }
 
 private extension InputAssetField {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
+        // The focus glow is a shadow around the card, which fills this
+        // control. Clipping here left only the four corners of the glow.
+        // The content sits 16 pt inside the card, so nothing overflows.
+        sora.clipsToBounds = false
         
         sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.textField.becomeFirstResponder()
@@ -126,6 +139,10 @@ private extension InputAssetField {
             inputedFiatAmountLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             inputedFiatAmountLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
         ])
+
+        // The input chrome from the first display on, not only after the
+        // first focus.
+        sora.updateView()
     }
 }
 

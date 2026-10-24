@@ -65,7 +65,7 @@ final class SupplyPoolView: SoramitsuView {
     private lazy var supplyLiquidity: SoramitsuButton = {
         let attributedText = SoramitsuTextItem(text: R.string.localizable.commonSupplyLiquidityTitle(preferredLanguages: .currentLocale),
                                                fontData: FontType.buttonM,
-                                               textColor: .additionalPolkaswap,
+                                               textColor: .additionalPolkaswapText,
                                                alignment: .center)
         let button = SoramitsuButton()
         button.sora.attributedText = attributedText

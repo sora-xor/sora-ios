@@ -121,7 +121,12 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let presenter = MainTabBarPresenter()
         
-        let wireframe = MainTabBarWireframe(walletContext: walletContext)
+        // The tabs above were built from this list, in this same pass on the
+        // main thread.
+        let wireframe = MainTabBarWireframe(
+            walletContext: walletContext,
+            isBuiltWithoutAssets: (assetManager.getAssetList() ?? []).isEmpty
+        )
         
         view.presenter = presenter
         presenter.view = view
@@ -635,7 +640,10 @@ extension MainTabBarViewFactory {
             searchViewModel: searchViewModel
         )
         view.showPredictionMarkets = { [weak view] in
-            guard SettingsManager.shared.polkamarktEnabled else { return }
+            guard
+                ProductSurfacePolicy.showsPolkamarkt,
+                SettingsManager.shared.polkamarktEnabled
+            else { return }
             let markets = PolkamarktViewController(walletContext: walletContext)
             markets.localizationManager = LocalizationManager.shared
             markets.hidesBottomBarWhenPushed = true
@@ -725,7 +733,7 @@ private extension MainTabBarViewFactory {
     
     static func createNetworkStatusPresenter(localizationManager: LocalizationManagerProtocol = LocalizationManager.shared)
     -> NetworkAvailabilityLayerInteractorOutputProtocol? {
-        guard let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable else {
+        guard let window = UIApplication.shared.soraStatusPresentableWindow else {
             return nil
         }
         

@@ -70,7 +70,8 @@ final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtoc
     }
 
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .bgPage
+        // Clear: the tab bar controller draws the aurora behind every tab.
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         soramitsuView.addSubview(tableView)
         
         tableView.register(MoreMenuCell.self, forCellReuseIdentifier: "MoreMenuCell")

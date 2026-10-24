@@ -61,10 +61,6 @@ public final class SoramitsuButton: UIControl, Molecule {
         return view
     }()
 
-    private var shapePath: UIBezierPath {
-        return UIBezierPath(rect: self.bounds)
-    }
-
     private var size: SoramitsuButtonSize = .large
 
     init(style: SoramitsuStyle, size: SoramitsuButtonSize, type: SoramitsuButtonType = .filled(.primary)) {
@@ -80,11 +76,33 @@ public final class SoramitsuButton: UIControl, Molecule {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Neon CTA fill (spec §8.4): only for primary and swap CTAs.
+    private var gradientLayer: CAGradientLayer?
+    /// Neon glow: a sublayer, so resetting the button's own shadow never removes it.
+    private var glowLayer: CALayer?
+    /// MINIMAL-tier stand-in for the glow (spec §4.0, §4.5).
+    private var ringLayer: NeonRingLayer?
+    private(set) var neonVariant: NeonVariant?
+    /// The label colour chosen by `updateView`, also applied to a caller's
+    /// attributed title on neon and disabled buttons.
+    private var titleColor: UIColor?
+
+    enum NeonVariant {
+        case primary
+        case swap
+    }
+
     override public func layoutSubviews() {
         super.layoutSubviews()
+        layoutNeonLayers()
+    }
 
-        guard case .bleached = type else { return }
-        applyShadowPath()
+    /// A glow is never drawn in a table or collection cell; that is only
+    /// known once the button is in a window.
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, sora.glows, neonVariant != nil else { return }
+        applyNeonLayers(tokens: sora.supportsPaletteMode ? .current : .light)
     }
 
     public override var isEnabled: Bool {
@@ -92,6 +110,36 @@ public final class SoramitsuButton: UIControl, Molecule {
             updateView()
         }
     }
+
+    public override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            let pressed = isHighlighted && isEnabled && neonVariant != nil
+            if let variant = neonVariant {
+                let tokens: NeonTokens = sora.supportsPaletteMode ? .current : .light
+                let spec = variant == .swap ? tokens.glowSwap : tokens.glowPrimary
+                glowLayer?.shadowOpacity = pressed ? spec.pressed : spec.rest
+            }
+            // Only the press scale this button applied itself is animated and
+            // always released, even if the tap disabled the button. A
+            // transform set by the caller is left alone.
+            if pressed, !UIAccessibility.isReduceMotionEnabled {
+                appliesPressScale = true
+                UIView.animate(withDuration: NeonMotion.press, delay: 0,
+                               options: [.allowUserInteraction, .beginFromCurrentState]) {
+                    self.transform = CGAffineTransform(scaleX: 0.98, y: 0.98)
+                }
+            } else if appliesPressScale {
+                appliesPressScale = false
+                UIView.animate(withDuration: NeonMotion.fast, delay: 0,
+                               options: [.allowUserInteraction, .beginFromCurrentState]) {
+                    self.transform = .identity
+                }
+            }
+        }
+    }
+
+    private var appliesPressScale = false
 
     func pressedAnimation() {
         UIView.animate(withDuration: 0.3,
@@ -110,6 +158,9 @@ public final class SoramitsuButton: UIControl, Molecule {
     }
 
     func updateView() {
+        let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
+        let tokens: NeonTokens = sora.supportsPaletteMode ? .current : .light
+
         if case .outlined = type {
             layer.borderWidth = 1
         }
@@ -118,26 +169,196 @@ public final class SoramitsuButton: UIControl, Molecule {
             sora.shadow = .default
         }
 
-        let palette = sora.supportsPaletteMode ? sora.style.palette : LightPalette()
+        // A border the caller set wins over the type's border.
+        if let custom = sora.borderColor {
+            layer.borderColor = palette.color(custom).cgColor
+        } else {
+            let borderColor = isEnabled ? palette.color(type.tintColor)
+                : (type.disabledBorderColor.map { _ in tokens.hairline } ?? palette.color(type.tintColor))
+            layer.borderColor = borderColor.cgColor
+        }
 
-        let borderColor = palette.color((isEnabled ? type.tintColor : type.disabledBorderColor) ?? .fgPrimary).cgColor
-        layer.borderColor = borderColor
+        let explicit = sora.explicitBackgroundColor
+        neonVariant = isEnabled ? Self.neonVariant(for: type, explicitBackground: explicit) : nil
 
-        let soraBackgroundColor = isEnabled ? type.enabledBackgroundColor : type.disabledBackgroundColor
-        let backgroundColor = isEnabled ? palette.color(soraBackgroundColor) : palette.color(soraBackgroundColor).withAlphaComponent(0.04)
-        sora.backgroundColor = .custom(uiColor: backgroundColor)
+        let backgroundColor: UIColor
+        let textColor: UIColor
+        if !isEnabled {
+            switch type {
+            case .filled, .bleached, .tonal: backgroundColor = tokens.ctaDisabled
+            case .outlined, .text: backgroundColor = .clear
+            }
+            textColor = tokens.textDisabled
+        } else if neonVariant != nil {
+            backgroundColor = .clear
+            textColor = tokens.onAccent
+        } else {
+            // Keep a background the caller chose (it used to be reset to
+            // the type's colour on every theme change or enable toggle).
+            let fill = explicit ?? type.enabledBackgroundColor
+            backgroundColor = palette.color(fill)
+            if case .filled = type, Self.isSurface(fill, palette: palette) {
+                // A filled button drawn on a surface or container colour:
+                // the ink/white "on accent" label would vanish there.
+                textColor = palette.color(sora.explicitTintColor ?? .fgPrimary)
+            } else {
+                textColor = palette.color(type.tintColor)
+            }
+        }
+        self.backgroundColor = backgroundColor
 
-        let soraColor = isEnabled ? type.tintColor : type.disabledTintColor
-        let textColor = isEnabled ? palette.color(soraColor) : palette.color(soraColor).withAlphaComponent(0.12)
-        let mainColor = isEnabled ? palette.color(soraColor) : palette.color(soraColor).withAlphaComponent(0.12)
-
-        leftImageView.tintColor = mainColor
+        // Images keep a tint the caller chose (they used to take the label
+        // colour after every theme change).
+        let imageTint: UIColor
+        if isEnabled, neonVariant == nil, let explicitTint = sora.explicitTintColor {
+            imageTint = palette.color(explicitTint)
+        } else {
+            imageTint = textColor
+        }
+        leftImageView.tintColor = imageTint
         titleLabel.sora.textColor = .custom(uiColor: textColor)
-        rightImageView.tintColor = mainColor
+        rightImageView.tintColor = imageTint
+        titleColor = textColor
+        refreshAttributedTitle()
 
         titleLabel.sora.font = size.font
 
-        pressingView.sora.backgroundColor = .custom(uiColor: palette.color(type.pressedSublayerColor).withAlphaComponent(0.12))
+        let pressedColor: UIColor = neonVariant != nil
+            ? UIColor.black.withAlphaComponent(tokens.isDark ? 0.08 : 0.10)
+            : palette.color(type.pressedSublayerColor).withAlphaComponent(0.12)
+        pressingView.sora.backgroundColor = .custom(uiColor: pressedColor)
+
+        applyNeonLayers(tokens: tokens)
+    }
+
+    /// Shows the caller's attributed title. On a neon fill or a disabled
+    /// button its colours are replaced by the label colour: ink on neon in
+    /// dark, white in light, `text.disabled` when disabled (spec §2.6-1,
+    /// §7.1). Elsewhere the caller's colours are kept.
+    func refreshAttributedTitle() {
+        guard let source = sora.attributedText else { return }
+        guard let titleColor, neonVariant != nil || !isEnabled else {
+            titleLabel.sora.attributedText = source
+            return
+        }
+        let recoloured = NSMutableAttributedString(attributedString: source.attributedString)
+        recoloured.addAttribute(.foregroundColor, value: titleColor,
+                                range: NSRange(location: 0, length: recoloured.length))
+        titleLabel.sora.attributedText = recoloured
+    }
+
+    /// Page, surface, container or transparent fills (not an accent fill).
+    static func isSurface(_ color: SoramitsuColor, palette: Palette) -> Bool {
+        switch color {
+        case .bgPage, .bgSurface, .bgSurfaceVariant,
+             .accentPrimaryContainer, .accentSecondaryContainer, .accentTertiaryContainer,
+             .statusSuccessContainer, .statusWarningContainer, .statusErrorContainer, .statusInfoContainer,
+             .additionalPolkaswapContainer:
+            return true
+        case let .custom(uiColor):
+            return uiColor.cgColor.alpha < 0.5
+        default:
+            return false
+        }
+    }
+
+    static func neonVariant(for type: SoramitsuButtonType, explicitBackground: SoramitsuColor?) -> NeonVariant? {
+        guard case let .filled(style) = type else { return nil }
+        switch explicitBackground {
+        case nil:
+            return style == .primary ? .primary : nil
+        case .accentPrimary?:
+            return .primary
+        case .additionalPolkaswap?:
+            return .swap
+        default:
+            return nil
+        }
+    }
+
+    private func applyNeonLayers(tokens: NeonTokens) {
+        guard let variant = neonVariant else {
+            gradientLayer?.removeFromSuperlayer()
+            gradientLayer = nil
+            removeGlow()
+            return
+        }
+        let gradient = variant == .swap ? tokens.ctaSwap : tokens.ctaPrimary
+        let glow = variant == .swap ? tokens.glowSwap : tokens.glowPrimary
+        let fx = FxPolicy.current
+
+        let fill = gradientLayer ?? CAGradientLayer()
+        if gradientLayer == nil {
+            layer.insertSublayer(fill, at: 0)
+            gradientLayer = fill
+        }
+        fill.colors = gradient.cgColors
+        fill.locations = gradient.nsLocations
+        fill.startPoint = CGPoint(x: 0, y: 0.5)
+        fill.endPoint = CGPoint(x: 1, y: 0.5)
+
+        // Opt-in, one screen CTA per screen, never in a list (spec §4.5).
+        let showsGlow = sora.glows && fx.glows && !neonIsInsideListCell
+        if showsGlow, fx.tier != .minimal {
+            ringLayer?.removeFromSuperlayer()
+            ringLayer = nil
+            let halo = glowLayer ?? CALayer()
+            if glowLayer == nil {
+                layer.insertSublayer(halo, at: 0)
+                glowLayer = halo
+            }
+            halo.shadowColor = glow.color.cgColor
+            halo.shadowOpacity = isHighlighted ? glow.pressed : glow.rest
+            halo.shadowRadius = glow.blur / 2
+            halo.shadowOffset = CGSize(width: 0, height: glow.offsetY)
+        } else if showsGlow {
+            // MINIMAL tier: a ring in the glow colour instead of the blur.
+            glowLayer?.removeFromSuperlayer()
+            glowLayer = nil
+            let ring = ringLayer ?? NeonRingLayer()
+            if ringLayer == nil {
+                layer.addSublayer(ring)
+                ringLayer = ring
+            }
+            ring.apply(glow)
+        } else {
+            removeGlow()
+        }
+        applyClipping()
+        layoutNeonLayers()
+    }
+
+    private func removeGlow() {
+        glowLayer?.removeFromSuperlayer()
+        glowLayer = nil
+        ringLayer?.removeFromSuperlayer()
+        ringLayer = nil
+    }
+
+    /// The glow and the ring are drawn outside the button, so it must not clip.
+    func applyClipping() {
+        if glowLayer != nil || ringLayer != nil {
+            clipsToBounds = false
+        }
+    }
+
+    private func layoutNeonLayers() {
+        guard gradientLayer != nil || glowLayer != nil || ringLayer != nil else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let radius = layer.cornerRadius
+        if let fill = gradientLayer {
+            fill.frame = bounds
+            fill.cornerRadius = radius
+            fill.cornerCurve = .continuous
+            fill.masksToBounds = true
+        }
+        if let halo = glowLayer {
+            halo.frame = bounds
+            halo.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
+        }
+        ringLayer?.layout(around: bounds, cornerRadius: radius)
+        CATransaction.commit()
     }
 }
 
@@ -145,6 +366,7 @@ private extension SoramitsuButton {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerRadius = size.height / 2
+        layer.cornerCurve = .continuous
         pressingView.layer.cornerRadius = size.height / 2
         
         addSubview(pressingView)
@@ -177,16 +399,6 @@ private extension SoramitsuButton {
 
             heightAnchor.constraint(equalToConstant: size.height)
         ])
-    }
-
-    func applyShadowPath() {
-        layer.shadowColor = UIColor(red: 153 / 255.0, green: 153 / 255.0, blue: 153 / 255.0, alpha: 0.24).cgColor
-        layer.shadowOpacity = 1
-        layer.shadowOffset = CGSize(width: 0.0, height: 10.0)
-        layer.shadowRadius = size.height / 2
-        layer.shouldRasterize = true
-        layer.rasterizationScale = UIScreen.main.scale
-        layer.shadowPath = UIBezierPath(rect: bounds).cgPath
     }
 }
 

@@ -1,0 +1,951 @@
+[
+  {
+    "tag": "1.3.3",
+    "commit": "5f10a893e3c8e63862366013305214ca44e01460",
+    "cryptoDependencies": [
+      "- IrohaCrypto (0.2.6)",
+      "- SoraCrypto (0.1.2):",
+      "- IrohaCrypto",
+      "- SoraCrypto",
+      "IrohaCrypto: 4eb85b5edbf7667b5ffcef1b5104357f18ca8e81",
+      "SoraCrypto: de324b661fb330ce8d80ff1be1351c6af4d420d5"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 1df65a808cb9401ec23182d21be9a9e2a428d5ca\n    :git: https://github.com/soramitsu/Capital-iOS.git",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.2.6"
+  },
+  {
+    "tag": "1.4.6",
+    "commit": "45a6bf573ff522720117eb127a9105ea3de634c3",
+    "cryptoDependencies": [
+      "- IrohaCrypto (0.2.6)",
+      "- SoraCrypto (0.1.2):",
+      "- IrohaCrypto",
+      "- SoraCrypto",
+      "IrohaCrypto: 4eb85b5edbf7667b5ffcef1b5104357f18ca8e81",
+      "SoraCrypto: de324b661fb330ce8d80ff1be1351c6af4d420d5"
+    ],
+    "packagePins": [],
+    "activeWalletCryptoFamily": "IrohaCrypto-0.2.6"
+  },
+  {
+    "tag": "1.5.1",
+    "commit": "08d9c82e404919ec8b2b9833a39401a4b35163b6",
+    "cryptoDependencies": [
+      "- IrohaCrypto (0.2.6)",
+      "- SoraCrypto (0.1.2):",
+      "- SoraFoundation (0.4.0):",
+      "- SoraFoundation/DateProcessing (0.4.0):",
+      "- SoraFoundation/Localization (0.4.0):",
+      "- SoraFoundation/NotificationHandlers (0.4.0)",
+      "- SoraFoundation/QueryProcessing (0.4.0)",
+      "- SoraFoundation/Timer (0.4.0):",
+      "- IrohaCrypto",
+      "- SoraCrypto",
+      "- SoraFoundation (~> 0.4.0)",
+      "IrohaCrypto: 4eb85b5edbf7667b5ffcef1b5104357f18ca8e81",
+      "SoraCrypto: de324b661fb330ce8d80ff1be1351c6af4d420d5"
+    ],
+    "packagePins": [],
+    "activeWalletCryptoFamily": "IrohaCrypto-0.2.6"
+  },
+  {
+    "tag": "3.0.1",
+    "commit": "7a2e56289f638e81612cf8fdacf63009dcb16881",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: c1d17ccfbd8217612fdb56e588b1dec9cbe23bf5\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/paywings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.0.0.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: 5d52d1bd627e8f19e7fdaba0836d02d3441bba54\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui.git\n    :tag: 1.0.1\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.1.0",
+    "commit": "ccd665730d3e6e9511b1db81de6ebbe4d2163da9",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.1):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: f6422d909cb57a85cd5784b3f399aead69b26a6b"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: e6aaeb177713793c18902d45e4e8264b8734665b\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: 311939bc40aff65371f9494cbd1a5a8c88e0bc49\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui.git\n    :tag: 1.0.2\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.2.0",
+    "commit": "cb66244db535afd2c80f455a0cc2f7f34b13f004",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.14):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 3254af5db8930b8c4bdaa94d9e3a51596afafc79"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: e6aaeb177713793c18902d45e4e8264b8734665b\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: 9af56f33a40d735f426f89e82c27b2056205fb4c\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui.git\n    :tag: 1.0.2\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.3.0",
+    "commit": "99730d4d10972c06691bdad664ff508b928b4d22",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.22):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 121326605c2cb1f87c0178980d7d26bb3485f750"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.1.0\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui.git\n    :tag: 1.0.2\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.4.0",
+    "commit": "d30ce10fae037bc1cfeb946671bb7150ee490ff0",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.22):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 121326605c2cb1f87c0178980d7d26bb3485f750"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.2.0\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui.git\n    :tag: 1.1.1\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.5.0",
+    "commit": "b316e8e1790e43859655776ab25ab4f8b820e002",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.22):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 121326605c2cb1f87c0178980d7d26bb3485f750"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.3.0\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.1\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.6.0",
+    "commit": "a71876e56daf2d57c02f270058adc69614b62181",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.22):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 121326605c2cb1f87c0178980d7d26bb3485f750"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: bc3a2f7d1d485dd874b9a868f12fe1cb29a442bb\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.1\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.6.1",
+    "commit": "5e3d0dfd21da6b180ce08bbac219ec699d502d67",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.22):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 121326605c2cb1f87c0178980d7d26bb3485f750"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.3.0\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.1\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.7.0",
+    "commit": "79ca151e4f4a662767c3539c4fc6eb1cd772b068",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.25):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 23462bb3e6521a73d616c288a90eab409dcc573c"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.3.1\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.4\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.7.1",
+    "commit": "146a55415e8c4b88040c9f3b21bfd58de485cdae",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.25):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 23462bb3e6521a73d616c288a90eab409dcc573c"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: 0503095e43bfdf530adb9f48272fbb4fdac20a19\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.4\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-FearlessUtils"
+  },
+  {
+    "tag": "3.8.0",
+    "commit": "25a23d12e088243af3151ece1a568f2ece118d40",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.31):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.3.1\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.5\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-SSFUtils-0.1.31",
+    "SSFModelsVersion": "0.1.31",
+    "note": "App SigningWrapper/KeypairFactory imports SSFUtils; FearlessUtils still present in lock is not the active wallet implementation."
+  },
+  {
+    "tag": "3.8.1",
+    "commit": "2c342cb0d517112224408055148a1b49d5eff47c",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.31):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: bdc0abf48f84bd4273f677ffc29bf68627bcb637\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.5\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-SSFUtils-0.1.31",
+    "SSFModelsVersion": "0.1.31",
+    "note": "App SigningWrapper/KeypairFactory imports SSFUtils; FearlessUtils still present in lock is not the active wallet implementation."
+  },
+  {
+    "tag": "3.8.2",
+    "commit": "4bb5a6bdd6917754bc1347c0f126c33094cfb4d9",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.31):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: bdc0abf48f84bd4273f677ffc29bf68627bcb637\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.5\n  Starscream:\n    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461\n    :git: https://github.com/soramitsu/fearless-starscream.git\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-SSFUtils-0.1.31",
+    "SSFModelsVersion": "0.1.31",
+    "note": "App SigningWrapper/KeypairFactory imports SSFUtils; FearlessUtils still present in lock is not the active wallet implementation."
+  },
+  {
+    "tag": "3.8.3",
+    "commit": "54ec8d4b3a44eb9f6f789c3abc035f5d8727258f",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.31):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: 5739c2078ff4c1734fbd29d8b3ee043b44da91b0\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.11\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-SSFUtils-0.1.31",
+    "SSFModelsVersion": "0.1.31",
+    "note": "App SigningWrapper/KeypairFactory imports SSFUtils; FearlessUtils still present in lock is not the active wallet implementation."
+  },
+  {
+    "tag": "3.8.4",
+    "commit": "b1a24cd9f4babe6803e46270e5158619b51ad779",
+    "cryptoDependencies": [
+      "- FearlessUtils (0.14.0):",
+      "- IrohaCrypto (0.9.0):",
+      "- IrohaCrypto/BIP39 (0.9.0):",
+      "- IrohaCrypto/blake2 (0.9.0)",
+      "- IrohaCrypto/Common (0.9.0)",
+      "- IrohaCrypto/ed25519 (0.9.0):",
+      "- IrohaCrypto/Iroha (0.9.0):",
+      "- IrohaCrypto/Scrypt (0.9.0):",
+      "- IrohaCrypto/secp256k1 (0.9.0):",
+      "- IrohaCrypto/sr25519 (0.9.0):",
+      "- IrohaCrypto/ss58 (0.9.0):",
+      "- scrypt.c (0.1.1)",
+      "- secp256k1.c (0.1.2)",
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SSFUtils (0.1.31):",
+      "- TweetNacl (1.0.2)",
+      "- FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, branch `feature/fearless-utils-for-sora`)",
+      "- IrohaCrypto (~> 0.9.0)",
+      "- SoraFoundation",
+      "- SSFUtils (= 0.1.31)",
+      "FearlessUtils: 29225af385d297526e802d5218fa111763ff10de",
+      "IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3",
+      "SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76"
+    ],
+    "packagePins": [],
+    "podCheckoutOptions": "CommonWallet:\n    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137\n    :git: https://github.com/soramitsu/Capital-iOS.git\n  FearlessUtils:\n    :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c\n    :git: https://github.com/soramitsu/fearless-utils-iOS.git\n  IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: 5739c2078ff4c1734fbd29d8b3ee043b44da91b0\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.11\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "IrohaCrypto-0.9.0-SSFUtils-0.1.31",
+    "SSFModelsVersion": "0.1.32",
+    "note": "App SigningWrapper/KeypairFactory imports SSFUtils; FearlessUtils still present in lock is not the active wallet implementation."
+  },
+  {
+    "tag": "3.8.5",
+    "commit": "f13508bf7ad2932564e27ab7d40b27e1fcf18b11",
+    "cryptoDependencies": [
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SoraFoundation"
+    ],
+    "packagePins": [
+      {
+        "identity": "bigint",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/attaswift/BigInt.git",
+        "state": {
+          "revision": "793a7fac0bfc318e85994bf6900652e827aef33e",
+          "version": "5.4.1"
+        }
+      },
+      {
+        "identity": "cryptoswift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/krzyzanowskim/CryptoSwift.git",
+        "state": {
+          "revision": "678d442c6f7828def400a70ae15968aef67ef52d",
+          "version": "1.8.3"
+        }
+      },
+      {
+        "identity": "secp256k1.swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/Boilertalk/secp256k1.swift.git",
+        "state": {
+          "revision": "cd187c632fb812fd93711a9f7e644adb7e5f97f0",
+          "version": "0.1.7"
+        }
+      },
+      {
+        "identity": "shared-features-spm",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/soramitsu/shared-features-spm",
+        "state": {
+          "revision": "ada44b24433a44a68c65fafc6414575454db3786"
+        }
+      },
+      {
+        "identity": "tweetnacl-swiftwrap",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/bitmark-inc/tweetnacl-swiftwrap",
+        "state": {
+          "revision": "f8fd111642bf2336b11ef9ea828510693106e954",
+          "version": "1.1.0"
+        }
+      }
+    ],
+    "packageResolvedPath": "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+    "podCheckoutOptions": "IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.6.0\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.12\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "shared-features-spm-ada44b24"
+  },
+  {
+    "tag": "3.8.6",
+    "commit": "354f176c38fed32e27a52b9024746bde7f889e71",
+    "cryptoDependencies": [
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SoraFoundation"
+    ],
+    "packagePins": [
+      {
+        "identity": "bigint",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/attaswift/BigInt.git",
+        "state": {
+          "revision": "793a7fac0bfc318e85994bf6900652e827aef33e",
+          "version": "5.4.1"
+        }
+      },
+      {
+        "identity": "cryptoswift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/krzyzanowskim/CryptoSwift.git",
+        "state": {
+          "revision": "678d442c6f7828def400a70ae15968aef67ef52d",
+          "version": "1.8.3"
+        }
+      },
+      {
+        "identity": "secp256k1.swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/Boilertalk/secp256k1.swift.git",
+        "state": {
+          "revision": "cd187c632fb812fd93711a9f7e644adb7e5f97f0",
+          "version": "0.1.7"
+        }
+      },
+      {
+        "identity": "shared-features-spm",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/soramitsu/shared-features-spm",
+        "state": {
+          "revision": "ada44b24433a44a68c65fafc6414575454db3786"
+        }
+      },
+      {
+        "identity": "tweetnacl-swiftwrap",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/bitmark-inc/tweetnacl-swiftwrap",
+        "state": {
+          "revision": "f8fd111642bf2336b11ef9ea828510693106e954",
+          "version": "1.1.0"
+        }
+      }
+    ],
+    "packageResolvedPath": "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+    "podCheckoutOptions": "IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :git: https://github.com/sora-xor/sora-card-ios\n    :tag: 1.6.0\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.12\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "shared-features-spm-ada44b24"
+  },
+  {
+    "tag": "3.8.7",
+    "commit": "b890dd5c5b64e336f6f6510cf1284b54ab7e6edb",
+    "cryptoDependencies": [
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SoraFoundation"
+    ],
+    "packagePins": [
+      {
+        "identity": "bigint",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/attaswift/BigInt.git",
+        "state": {
+          "revision": "793a7fac0bfc318e85994bf6900652e827aef33e",
+          "version": "5.4.1"
+        }
+      },
+      {
+        "identity": "cryptoswift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/krzyzanowskim/CryptoSwift.git",
+        "state": {
+          "revision": "678d442c6f7828def400a70ae15968aef67ef52d",
+          "version": "1.8.3"
+        }
+      },
+      {
+        "identity": "secp256k1.swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/Boilertalk/secp256k1.swift.git",
+        "state": {
+          "revision": "cd187c632fb812fd93711a9f7e644adb7e5f97f0",
+          "version": "0.1.7"
+        }
+      },
+      {
+        "identity": "shared-features-spm",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/soramitsu/shared-features-spm",
+        "state": {
+          "revision": "ada44b24433a44a68c65fafc6414575454db3786"
+        }
+      },
+      {
+        "identity": "tweetnacl-swiftwrap",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/bitmark-inc/tweetnacl-swiftwrap",
+        "state": {
+          "revision": "f8fd111642bf2336b11ef9ea828510693106e954",
+          "version": "1.1.0"
+        }
+      }
+    ],
+    "packageResolvedPath": "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+    "podCheckoutOptions": "IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: a051e65146d3312f04d3e09063d83a9f907ea799\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.13\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "shared-features-spm-ada44b24"
+  },
+  {
+    "tag": "3.8.8",
+    "commit": "fe9016cdc2dec6391c47e6d4f36c8abc80c81ca8",
+    "cryptoDependencies": [
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SoraFoundation"
+    ],
+    "packagePins": [
+      {
+        "identity": "bigint",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/attaswift/BigInt.git",
+        "state": {
+          "revision": "793a7fac0bfc318e85994bf6900652e827aef33e",
+          "version": "5.4.1"
+        }
+      },
+      {
+        "identity": "cryptoswift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/krzyzanowskim/CryptoSwift.git",
+        "state": {
+          "revision": "678d442c6f7828def400a70ae15968aef67ef52d",
+          "version": "1.8.3"
+        }
+      },
+      {
+        "identity": "secp256k1.swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/Boilertalk/secp256k1.swift.git",
+        "state": {
+          "revision": "cd187c632fb812fd93711a9f7e644adb7e5f97f0",
+          "version": "0.1.7"
+        }
+      },
+      {
+        "identity": "shared-features-spm",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/soramitsu/shared-features-spm",
+        "state": {
+          "revision": "ada44b24433a44a68c65fafc6414575454db3786"
+        }
+      },
+      {
+        "identity": "tweetnacl-swiftwrap",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/bitmark-inc/tweetnacl-swiftwrap",
+        "state": {
+          "revision": "f8fd111642bf2336b11ef9ea828510693106e954",
+          "version": "1.1.0"
+        }
+      }
+    ],
+    "packageResolvedPath": "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+    "podCheckoutOptions": "IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: a051e65146d3312f04d3e09063d83a9f907ea799\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.13\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "shared-features-spm-ada44b24"
+  },
+  {
+    "tag": "3.8.9",
+    "commit": "fe9016cdc2dec6391c47e6d4f36c8abc80c81ca8",
+    "cryptoDependencies": [
+      "- SoraFoundation (1.0.0):",
+      "- SoraFoundation/DateProcessing (1.0.0):",
+      "- SoraFoundation/Localization (1.0.0):",
+      "- SoraFoundation/NotificationHandlers (1.0.0)",
+      "- SoraFoundation/NumberProcessing (1.0.0)",
+      "- SoraFoundation/QueryProcessing (1.0.0)",
+      "- SoraFoundation/Timer (1.0.0):",
+      "- SoraFoundation/ViewModel (1.0.0)",
+      "- SoraFoundation"
+    ],
+    "packagePins": [
+      {
+        "identity": "bigint",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/attaswift/BigInt.git",
+        "state": {
+          "revision": "793a7fac0bfc318e85994bf6900652e827aef33e",
+          "version": "5.4.1"
+        }
+      },
+      {
+        "identity": "cryptoswift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/krzyzanowskim/CryptoSwift.git",
+        "state": {
+          "revision": "678d442c6f7828def400a70ae15968aef67ef52d",
+          "version": "1.8.3"
+        }
+      },
+      {
+        "identity": "secp256k1.swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/Boilertalk/secp256k1.swift.git",
+        "state": {
+          "revision": "cd187c632fb812fd93711a9f7e644adb7e5f97f0",
+          "version": "0.1.7"
+        }
+      },
+      {
+        "identity": "shared-features-spm",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/soramitsu/shared-features-spm",
+        "state": {
+          "revision": "ada44b24433a44a68c65fafc6414575454db3786"
+        }
+      },
+      {
+        "identity": "tweetnacl-swiftwrap",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/bitmark-inc/tweetnacl-swiftwrap",
+        "state": {
+          "revision": "f8fd111642bf2336b11ef9ea828510693106e954",
+          "version": "1.1.0"
+        }
+      }
+    ],
+    "packageResolvedPath": "SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+    "podCheckoutOptions": "IdensicMobileSDK:\n    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\n  Kingfisher:\n    :commit: d0494dd78f7adf2d3526fdf3267176553020c041\n    :git: https://github.com/onevcat/Kingfisher\n  SCard:\n    :commit: a051e65146d3312f04d3e09063d83a9f907ea799\n    :git: https://github.com/sora-xor/sora-card-ios\n  SoraUIKit:\n    :git: https://github.com/soramitsu/ios-ui\n    :tag: 1.1.13\n  Starscream:\n    :git: https://github.com/soramitsu/fearless-starscream.git\n    :tag: 4.0.9\n  SVGKit:\n    :git: https://github.com/SVGKit/SVGKit.git\n    :tag: 3.0.0",
+    "activeWalletCryptoFamily": "shared-features-spm-ada44b24"
+  }
+]

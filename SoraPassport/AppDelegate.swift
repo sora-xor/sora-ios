@@ -31,111 +31,234 @@
 import UIKit
 #if !NO_FIREBASE
 import FirebaseCore
+import FirebaseAnalytics
 #endif
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
+import SoraKeystore
 
-@UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+@main
+final class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    // Compatibility reference for existing wireframes. SceneDelegate owns the
-    // single application window and attaches it to the connected UIWindowScene.
+    /// The process-wide root window. It is created once by
+    /// `attachRootWindow(to:)` and reached by many presenters through
+    /// `UIApplication.shared.delegate?.window`.
     var window: UIWindow?
-    private var migrationEvidenceDecision =
-        RetainedMigrationEvidenceHarness.BootstrapDecision.inactive
+
+    private var migrationEvidenceDecision: RetainedMigrationEvidenceHarness.BootstrapDecision = .inactive
+    private var hasEnteredBackground = false
+    private var detachedSceneWindows: [UIWindow] = []
+    private weak var detachedKeyWindow: UIWindow?
 
     var isUnitTesting: Bool {
         return ProcessInfo.processInfo.arguments.contains("-UNITTEST")
     }
 
+    /// External URLs and universal links are routed only to the wallet UI,
+    /// never to the migration-evidence screen or to a unit-test host.
+    var acceptsExternalRoutes: Bool {
+        window != nil && migrationEvidenceDecision != .evidenceOnly
+    }
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        migrationEvidenceDecision = RetainedMigrationEvidenceHarness.shared.bootstrap()
-        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else {
+        if !isUnitTesting { applyFreshInstallAppearance() }
+        migrationEvidenceDecision =
+            RetainedMigrationEvidenceHarness.shared.bootstrap()
+        if migrationEvidenceDecision == .evidenceOnly {
             return true
         }
 
-        #if !NO_FIREBASE
-        FirebaseApp.configure()
-        #endif
-        setupLanguage()
+        if !isUnitTesting {
+            #if !NO_FIREBASE
+            FirebaseApp.configure()
+            // Metrics remain available, but wallet activity is never eligible for ads.
+            // Repeat at startup because persisted SDK consent overrides plist defaults.
+            Analytics.setConsent([
+                .adStorage: .denied,
+                .adUserData: .denied,
+                .adPersonalization: .denied
+            ])
+            Analytics.setUserProperty("false", forName: AnalyticsUserPropertyAllowAdPersonalizationSignals)
+            #endif
+
+            setupLanguage()
+        }
+
         return true
     }
 
-    /// Called only after UIKit connects the scene. Migration authorization has
-    /// already run before any wallet, settings, or presentation work starts.
-    func makeWindow(in windowScene: UIWindowScene) -> UIWindow {
+    /// A missing theme key also means an existing user's System choice.
+    /// Only an otherwise empty installation may receive the new default.
+    private func applyFreshInstallAppearance() {
+        guard let identifier = Bundle.main.bundleIdentifier else { return }
+        let manager = FileManager.default
+        let directories = [FileManager.SearchPathDirectory.documentDirectory, .applicationSupportDirectory]
+            .compactMap { manager.urls(for: $0, in: .userDomainMask).first }
+        guard directories.count == 2 else { return }
+        Self.applyFreshInstallAppearance(defaults: .standard, identifier: identifier,
+            storageDirectories: directories,
+            keychainIsEmpty: { (try? Keychain().allKeyIdentifiers().isEmpty) == true })
+    }
+
+    static func applyFreshInstallAppearance(defaults: UserDefaults, identifier: String,
+                                           storageDirectories: [URL], keychainIsEmpty: () -> Bool) {
+        let marker = "sora.neon.appearance-default-reviewed"
+        guard !defaults.bool(forKey: marker), !storageDirectories.isEmpty else { return }
+        let domain = defaults.persistentDomain(forName: identifier) ?? [:]
+        let ignored = Set(["AppleLanguages", "AppleLocale"])
+        let hasPreferences = domain.keys.contains { !ignored.contains($0) }
+        let manager = FileManager.default
+        var hasFiles = false
+        for url in storageDirectories {
+            if manager.fileExists(atPath: url.path) {
+                hasFiles = hasFiles || ((try? manager.contentsOfDirectory(atPath: url.path).isEmpty) != true)
+            }
+        }
+        // Do not write even an appearance marker into retained settings: an
+        // interrupted upgrade may need to compare them with its saved snapshot.
+        guard !hasPreferences && !hasFiles else { return }
+        // Never interpret locked, unreadable or retained Keychain data as new.
+        guard keychainIsEmpty() else { return }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        defaults.set(true, forKey: marker)
+    }
+
+    // MARK: - Scene life cycle
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        Self.sceneConfiguration(for: connectingSceneSession.role)
+    }
+
+    /// Only the device's own interactive application scene hosts the wallet
+    /// (the application role, or the Assistive Access application role on
+    /// iOS 26+). Any other role (AirPlay mirroring, a USB-C/HDMI display)
+    /// gets no delegate, so the system mirrors the phone screen and never
+    /// moves the wallet's windows there or sends that scene's life-cycle
+    /// events to the app.
+    static func sceneConfiguration(for role: UISceneSession.Role) -> UISceneConfiguration {
+        guard role.isSoraWalletScene else {
+            return UISceneConfiguration(name: nil, sessionRole: role)
+        }
+
+        let configuration = UISceneConfiguration(
+            name: "Default Configuration",
+            sessionRole: role
+        )
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
+    }
+
+    /// Shows the app's UI in `windowScene` and returns the root window, or nil
+    /// for a unit-test host.
+    ///
+    /// The root window and the Splash flow are created at most once per
+    /// process: creating Splash starts wallet storage migration, so a scene
+    /// that reconnects gets the existing windows moved to it instead.
+    func attachRootWindow(to windowScene: UIWindowScene) -> UIWindow? {
+        guard windowScene.session.role.isSoraWalletScene else {
+            return nil
+        }
+
+        if let window {
+            reattachWindows(rootWindow: window, to: windowScene)
+            return window
+        }
+
         if migrationEvidenceDecision == .evidenceOnly {
             let evidenceWindow = UIWindow(windowScene: windowScene)
             evidenceWindow.backgroundColor = .systemBackground
             evidenceWindow.rootViewController =
-                RetainedMigrationEvidenceHarness.shared.makeEvidenceOnlyViewController()
+                RetainedMigrationEvidenceHarness.shared
+                    .makeEvidenceOnlyViewController()
             window = evidenceWindow
-            RetainedMigrationEvidenceHarness.shared.installStatusSurface(in: evidenceWindow)
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: evidenceWindow)
+            evidenceWindow.makeKeyAndVisible()
             return evidenceWindow
         }
 
-        if isUnitTesting {
-            let testWindow = UIWindow(windowScene: windowScene)
-            testWindow.rootViewController = UIViewController()
-            window = testWindow
-            return testWindow
+        guard !isUnitTesting else {
+            return nil
         }
 
+        // The device appearance is known once the scene is connected. Read it
+        // before the first screen is built, then make system UI (alerts,
+        // keyboards, sheets, Liquid Glass) follow the in-app theme.
+        SoramitsuUI.shared.refreshSystemTheme()
         let rootWindow = SoraWindow(windowScene: windowScene)
+        SoramitsuUI.shared.applyInterfaceStyle(to: rootWindow)
         rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
         window = rootWindow
+
         SplashPresenterFactory.createSplashPresenter(with: rootWindow)
+
         if migrationEvidenceDecision == .authorized {
-            RetainedMigrationEvidenceHarness.shared.installStatusSurface(in: rootWindow)
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: rootWindow)
         }
+
+        rootWindow.makeKeyAndVisible()
         return rootWindow
     }
 
-    func applicationWillEnterForeground(_ application: UIApplication) {
-        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else {
+    func sceneDidDisconnect(_ scene: UIScene) {
+        guard let windowScene = scene as? UIWindowScene,
+              windowScene.session.role.isSoraWalletScene else {
+            return
+        }
+        // Keep the app's own windows (root, PIN lock, loading and toast
+        // overlays) so a later scene shows them unchanged. UIKit's private
+        // windows (keyboard, text effects) belong to the old scene.
+        detachedKeyWindow = windowScene.keyWindow
+        detachedSceneWindows = windowScene.windows.filter { candidate in
+            candidate === window ||
+                candidate is SoraWindow ||
+                candidate is SilentWindow ||
+                type(of: candidate) == UIWindow.self
+        }
+    }
+
+    func sceneWillEnterForeground() {
+        // UIKit also calls this when the scene first connects. Match the old
+        // applicationWillEnterForeground, which ran only after a background.
+        guard !isUnitTesting, hasEnteredBackground else {
             return
         }
         resumePendingNexusTransactions()
     }
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else { return }
+    func sceneDidEnterBackground() {
+        hasEnteredBackground = true
         IrohaConnectCoordinator.shared.applicationDidEnterBackground()
     }
 
-    func application(
-        _ app: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else { return false }
-        if IrohaConnectCoordinator.shared.handle(url, in: window) {
-            return true
+    private func reattachWindows(rootWindow: UIWindow, to windowScene: UIWindowScene) {
+        let detachedWindows = detachedSceneWindows
+        let previousKeyWindow = detachedKeyWindow
+        detachedSceneWindows = []
+        detachedKeyWindow = nil
+
+        if rootWindow.windowScene !== windowScene {
+            rootWindow.windowScene = windowScene
         }
-        return GIDSignIn.sharedInstance.handle(url)
-    }
+        for detached in detachedWindows where detached !== rootWindow && detached.windowScene !== windowScene {
+            detached.windowScene = windowScene
+        }
 
-    func application(_ application: UIApplication,
-                     continue userActivity: NSUserActivity,
-                     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        guard migrationEvidenceDecision != .evidenceOnly, !isUnitTesting else { return false }
-        if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        rootWindow.makeKeyAndVisible()
 
-            if IrohaConnectCoordinator.shared.handle(url, in: window) {
-                return true
-            }
-
-            let isHandled = DeepLinkService.shared.handle(url: url)
-
-            if !isHandled {
-                Logger.shared.warning("Can't continue activity for url \(url)")
-            }
-
-            return isHandled
-        } else {
-            return false
+        // A PIN lock or loading window that was key stays key and on top.
+        if let previousKeyWindow,
+           previousKeyWindow !== rootWindow,
+           previousKeyWindow.windowScene === windowScene,
+           !previousKeyWindow.isHidden {
+            previousKeyWindow.makeKey()
         }
     }
 

@@ -292,21 +292,50 @@ public enum L10n {
 
 extension L10n {
 
+    // These legacy keys are still used by transfer and QR scanning, but are
+    // absent from the shipped English Localizable.strings catalog.
+    private static let activeEnglishFallbacks: [String: String] = [
+        "amount.error.asset": "Sorry, we couldn't find asset information you want to send. Please, try again later.",
+        "amount.error.balance": "Sorry, balance checking request failed. Please, try again later.",
+        "amount.error.transfer": "Sorry, we couldn't contact transfer provider. Please, try again later.",
+        "invoice_scan.error.camera_restricted_previously": "Unfortunately, you denied access to camera previously. Would you like to allow access now?",
+        "invoice_scan.error.camera_title": "Camera Access",
+        "invoice_scan.error.extract_fail": "Can't extract receiver's data",
+        "invoice_scan.error.gallery_restricted_previously": "Unfortunately, you denied access to photos previously. Would you like to allow access now?",
+        "invoice_scan.error.gallery_title": "Photos Access",
+        "invoice_scan.error.match": "You can't send to yourself",
+        "invoice_scan.error.no_internet": "Please, check internet connection",
+        "invoice_scan.error.user_not_found": "Can't find a user from QR"
+    ]
+
     fileprivate static func localize(_ key: String, _ args: CVarArg...) -> String {
-        let format = getFormat(for: key, localization: sharedLanguage.rawValue)
+        let format = getFormat(for: key, localization: sharedLanguage.rawValue,
+                               bundle: Bundle(for: BundleLoadHelper.self))
         return String(format: format, arguments: args)
     }
 
-    fileprivate static func getFormat(for key: String, localization: String) -> String {
-        let bundle = Bundle(for: BundleLoadHelper.self)
+    static func getFormat(for key: String, localization: String, bundle: Bundle) -> String {
+        var checked = Set<String>()
+        let languages = [localization, Locale(identifier: localization).languageCode, "en"]
+            .compactMap { $0 }
+        let missingValue = UUID().uuidString
 
-        guard
-            let path = bundle.path(forResource: localization, ofType: "lproj"),
-            let langBundle = Bundle(path: path) else {
-                return ""
+        for language in languages {
+            guard checked.insert(language).inserted,
+                  let path = bundle.path(forResource: language, ofType: "lproj"),
+                  let langBundle = Bundle(path: path) else {
+                continue
+            }
+
+            let value = langBundle.localizedString(forKey: key,
+                                                    value: missingValue,
+                                                    table: "Localizable")
+            if value != missingValue && !value.isEmpty {
+                return value
+            }
         }
 
-        return NSLocalizedString(key, tableName: nil, bundle: langBundle, value: "", comment: "")
+        return activeEnglishFallbacks[key] ?? ""
     }
 
 }

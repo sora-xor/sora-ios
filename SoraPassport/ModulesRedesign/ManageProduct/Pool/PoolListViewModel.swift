@@ -102,6 +102,7 @@ final class PoolListViewModel {
     let farmingService: DemeterFarmingServiceProtocol
     let feeProvider: FeeProviderProtocol
     let updateHandler: ((UpdatedSection) -> Void)?
+    private var pricesObservation: PIPricesObservation?
 
     init(poolsService: PoolsServiceInputProtocol,
          assetManager: AssetManagerProtocol,
@@ -145,6 +146,16 @@ extension PoolListViewModel: PoolListViewModelProtocol {
 
         let pools = poolsService?.getAccountPools() ?? []
         loaded(pools: pools)
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Value the pools again when that read
+        // ends. Not while the list is being edited or searched: building
+        // it again would undo what the user is doing.
+        pricesObservation = PIPricesObservation { [weak self] in
+            guard let self, self.mode == .view, !self.isActiveSearch else { return }
+            let pools = self.poolItems.map(\.poolInfo)
+            guard !pools.isEmpty else { return }
+            self.loaded(pools: pools)
+        }
     }
     
     func viewdismissed() {
