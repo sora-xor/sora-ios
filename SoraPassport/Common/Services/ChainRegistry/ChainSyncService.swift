@@ -207,12 +207,20 @@ final class ChainSyncService {
         whitelistData: Data?
     ) -> ChainModel {
         let matchingLocal = local?.chainId == chainId && local?.addressPrefix == addressPrefix ? local : nil
-        var availableNodes = nodes
+        // CDChainNode.url is unique. The indexer and the bundled list can name
+        // the same URL differently ("Sora" vs a bundled name for mof2), and a
+        // second entry for one URL made every chain save fail, so the wallet
+        // never got a connection. Keep one node per URL; bundled names win.
+        var candidates = Array(nodes)
         if SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix) {
-            availableNodes.formUnion(SoraNodeConnectionPolicy.bundledMainnetNodes)
+            candidates = SoraNodeConnectionPolicy.bundledMainnetNodes + candidates
         }
+        var availableNodes = uniqueByURL(candidates)
         if availableNodes.isEmpty {
-            availableNodes = matchingLocal?.nodes ?? []
+            availableNodes = uniqueByURL(Array(matchingLocal?.nodes ?? []))
+        }
+        let customNodes = matchingLocal?.customNodes.map { custom in
+            uniqueByURL(custom.filter { node in !availableNodes.contains { $0.url == node.url } })
         }
         let chain = ChainModel(
             chainId: chainId,
@@ -225,7 +233,7 @@ final class ChainSyncService {
             options: matchingLocal?.options,
             externalApi: matchingLocal?.externalApi,
             selectedNode: matchingLocal?.selectedNode,
-            customNodes: matchingLocal?.customNodes,
+            customNodes: customNodes,
             iosMinAppVersion: matchingLocal?.iosMinAppVersion
         )
         let whitelist = whitelistData.flatMap { try? JSONDecoder().decode([Whitelist].self, from: $0) }
@@ -244,6 +252,11 @@ final class ChainSyncService {
         }
         chain.assets = Set(chainAssets)
         return chain
+    }
+
+    static func uniqueByURL<S: Sequence>(_ nodes: S) -> Set<ChainNodeModel> where S.Element == ChainNodeModel {
+        var seen = Set<URL>()
+        return Set(nodes.filter { seen.insert($0.url).inserted })
     }
 
     private func complete(result: Result<SyncChanges, Error>?) {
@@ -273,7 +286,7 @@ final class ChainSyncService {
 
             eventCenter.notify(with: event)
         case let .failure(error):
-            logger?.error("Chain synchronization failed")
+            logger?.error("Chain synchronization failed: \(error)")
 
             let event = ChainSyncDidFail(error: error)
             eventCenter.notify(with: event)

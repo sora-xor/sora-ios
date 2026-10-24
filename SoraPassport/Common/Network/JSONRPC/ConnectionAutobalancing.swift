@@ -53,9 +53,12 @@ extension ConnectionRank {
 /// Only the known SORA mainnet identity receives the bundled mainnet fallbacks.
 enum SoraNodeConnectionPolicy {
     static let mainnetGenesis = "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5"
+    /// The nodes polkaswap.io uses (its env.json DEFAULT_NETWORKS) and the one
+    /// the Polkaswap indexer's mobile config advertises, named as polkaswap.io
+    /// names them.
     static let bundledMainnetNodes = [
-        ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "SORA Ministry of Finance", apikey: nil),
-        ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "SORA Ministry of Finance 2", apikey: nil),
+        ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "SORA Parliament Ministry of Finance #1", apikey: nil),
+        ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "SORA Parliament Ministry of Finance #2", apikey: nil),
     ]
 
     static func isMainnet(chainId: String, addressPrefix: UInt16) -> Bool {
