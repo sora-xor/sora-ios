@@ -5721,3 +5721,161 @@ private final class PINTestDefaults: SettingsManagerProtocol {
     func removeValue(for key: String) { defaults.removeObject(forKey: key); defaults.synchronize() }
     func removeAll() { defaults.removePersistentDomain(forName: name); defaults.synchronize() }
 }
+
+// MARK: - States left by the modernize line's earlier builds
+
+/// The modernize line shipped internal TestFlight builds 2026101302 and
+/// 2026101303 before it had per-wallet PIN ownership, and the interim
+/// recovery-exits build renamed Keychain copies and moved files aside. These
+/// tests pin what this line does with the states those builds leave behind
+/// after the app is deleted and installed again.
+final class WalletRecoveryConvergenceTests: XCTestCase {
+    private func files(under folder: URL) throws -> [String: Data] {
+        let paths = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey])?
+            .compactMap { $0 as? URL } ?? []
+        var result: [String: Data] = [:]
+        for url in paths where (try url.resourceValues(forKeys: [.isRegularFileKey])).isRegularFile == true {
+            result[String(url.path.dropFirst(folder.path.count))] = try Data(contentsOf: url)
+        }
+        return result
+    }
+
+    /// 2026101302/03 wrote the App Store 3.8.6 item set and the app PIN, and no
+    /// `-ownerPin` binding. After a reinstall the wallet is found, but only its
+    /// phrase or Drive backup restores it; the PIN item alone proves nothing.
+    func testAWalletWithoutAnOwnerBindingNeedsItsPhraseAfterAReinstall() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try device.keychain.base.addKey(Data("123456".utf8), with: KeystoreTag.pincode.rawValue)
+        let retained = try device.keychain.bytes()
+
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+        let state = WalletRecoveryStateProbe.welcomeBack(keystore: device.keychain, settings: device.settings)
+        XCTAssertEqual(state, .welcomeBack(adoptableWallets: 0, walletsWithPhrase: 0, retainedPinUsable: false))
+        XCTAssertTrue(state.options.canRestoreFromPhrase)
+        XCTAssertTrue(state.options.canRestoreFromDrive)
+        XCTAssertTrue(state.options.canSetUpDeviceAgain)
+        XCTAssertFalse(state.options.canRestoreExistingKeys)
+        XCTAssertThrowsError(try WalletRetainedPinGate.verify("123456", keystore: device.keychain,
+                                                             settings: device.settings)) {
+            XCTAssertEqual($0 as? WalletRetainedPinGate.Failure, .noRetainedPin)
+        }
+        XCTAssertEqual(try device.keychain.bytes(), retained)
+
+        // The phrase restores it in place: every retained item is adopted.
+        let imported = try device.importPhrase(phrase12, into: try device.selectedWalletSettings())
+        XCTAssertEqual(imported.address, account.address)
+        XCTAssertFalse(device.keychain.changedExistingItems)
+        for (tag, bytes) in retained { XCTAssertEqual(try device.keychain.fetchKey(for: tag), bytes, tag) }
+    }
+
+    /// The reporting iPhone after its reinstall: Keychain items, and in the new
+    /// install's settings only the marker and diagnostic 2026101303 latched
+    /// (database_migration / missing_wallet_store).
+    func testTheMarkerAndDiagnosticLatchedBy2026101303LeadToWelcomeBack() throws {
+        let device = try Installation()
+        try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try device.keychain.base.addKey(Data("123456".utf8), with: KeystoreTag.pincode.rawValue)
+        device.settings.setWalletMigrationRecovery(reason: UserStorageMigrationError
+            .privacySafeRecoveryDescription(for: UserStorageMigrationError.missingWalletStore))
+        WalletStartupDiagnostic.record(UserStorageMigrationError.missingWalletStore, phase: .databaseMigration,
+                                       settings: device.settings)
+        XCTAssertNotNil(WalletStartupDiagnostic.current(device.settings))
+        let retained = try device.keychain.bytes()
+
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+        XCTAssertEqual(try device.keychain.bytes(), retained)
+    }
+
+    /// The interim recovery-exits build kept verified copies of live items as
+    /// `retired.<archive>.<tag>.retired`, PIN attempts as `pincodeAttempts`,
+    /// and moved files to Application Support/SORA/WalletRecoveryArchive.
+    /// None of them is read as a wallet, and none is changed or removed.
+    func testInterimRecoveryBuildLeftoversStayAndChangeNoRouting() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.phraseImport(phrase12, keystore: device.keychain.base)
+        try device.keychain.base.addKey(Data("123456".utf8), with: KeystoreTag.pincode.rawValue)
+        let archive = "20261024T061500Z-0a1b2c3d"
+        for tag in try device.keychain.base.allKeyIdentifiers() {
+            try device.keychain.base.addKey(try device.keychain.base.fetchKey(for: tag),
+                                            with: "retired.\(archive).\(tag).retired")
+        }
+        try device.keychain.base.addKey(Data(#"{"failures":2}"#.utf8), with: "pincodeAttempts")
+        let archived = device.directory.appendingPathComponent("SORA/WalletRecoveryArchive/\(archive)", isDirectory: true)
+        try FileManager.default.createDirectory(at: archived.appendingPathComponent("CoreData", isDirectory: true),
+                                                withIntermediateDirectories: true)
+        try Data("archived database".utf8).write(to: archived.appendingPathComponent("CoreData/UserDataModel.sqlite"))
+        try Data(#"{"archiveId":"\#(archive)"}"#.utf8).write(to: archived.appendingPathComponent("manifest.json"))
+        let retained = try device.keychain.bytes()
+        let archivedFiles = try files(under: archived)
+
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+        let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain,
+                                                                      recoveryGate: device.isolatedGate())
+        XCTAssertEqual(inventory.adoptable.map(\.address), [account.address])
+        XCTAssertEqual(inventory.unprovableAddressCount, 0)
+        XCTAssertEqual(try device.keychain.bytes(), retained)
+        XCTAssertEqual(try files(under: archived), archivedFiles)
+    }
+
+    /// A wallet set up on this line (import, then PIN setup) is bound to its
+    /// PIN. After a delete and reinstall Welcome back offers it, only that PIN
+    /// restores it, and the restored wallet keeps that PIN and its keys.
+    func testAWalletSetUpOnThisLineIsRestoredAfterAReinstallOnlyWithItsOwnPIN() throws {
+        let first = try Installation()
+        let account = try first.importPhrase(phrase12, into: try first.selectedWalletSettings())
+        try WalletOwnerPIN(keystore: first.keychain, settings: first.settings, recoveryGate: first.isolatedGate())
+            .setInitialPIN("246810", accounts: [account])
+        XCTAssertEqual(try WalletOwnerPIN.boundAddresses(keystore: first.keychain), [account.address])
+
+        // Delete and install again: only the Keychain survives.
+        let device = try Installation()
+        for (tag, bytes) in try first.keychain.bytes() { try device.keychain.base.addKey(bytes, with: tag) }
+        let before = try device.keychain.bytes()
+        XCTAssertEqual(try device.startup(), .ready)
+        XCTAssertFalse(device.settings.walletMigrationRecoveryRequired)
+        XCTAssertEqual(try device.rootDecision(selected: nil), [.welcomeBack])
+        let state = WalletRecoveryStateProbe.welcomeBack(keystore: device.keychain, settings: device.settings)
+        XCTAssertEqual(state, .welcomeBack(adoptableWallets: 1, walletsWithPhrase: 1, retainedPinUsable: true))
+        XCTAssertTrue(state.options.canRestoreExistingKeys)
+
+        // As WalletRetainedWalletRestoreFlow does for Welcome back.
+        let owner = WalletOwnerPIN(keystore: device.keychain, settings: device.settings,
+                                   recoveryGate: device.isolatedGate())
+        let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain,
+                                                                      recoveryGate: device.isolatedGate())
+        let addresses = Set(inventory.adoptable.map(\.address))
+        XCTAssertEqual(addresses, [account.address])
+        XCTAssertThrowsError(try owner.authorizeRetained("135790", addresses: addresses)) {
+            XCTAssertEqual($0 as? WalletRetainedPinGate.Failure, .incorrectPin(attemptsBeforeWait: 2))
+        }
+        XCTAssertTrue(try device.keychain.checkKey(for: account.address + WalletOwnerPIN.throttleSuffix))
+        let grant = try owner.authorizeRetained("246810", addresses: addresses)
+        let result = RetainedKeychainWalletDiscovery.restore(
+            inventory.adoptable, keystore: device.keychain,
+            selectedWalletSettings: try device.selectedWalletSettings(),
+            lifecycleCoordinator: device.coordinator, recoveryGate: device.isolatedGate(),
+            prepareOwnership: { try owner.prepareRebinding(address: $0.address, to: "246810") },
+            ownershipAuthorization: grant)
+        XCTAssertTrue(result.failedAddresses.isEmpty, String(describing: result.firstError))
+        XCTAssertEqual(result.restored.map(\.address), [account.address])
+        try owner.settleRebindings(currentAddresses: [account.address])
+        try owner.setInitialPIN("246810", accounts: result.restored)
+
+        let after = try device.keychain.bytes()
+        XCTAssertEqual(after[KeystoreTag.pincode.rawValue], Data("246810".utf8))
+        XCTAssertEqual(Set(after.keys), Set(before.keys))
+        for tag in [KeystoreTag.secretKeyTagForAddress(account.address), KeystoreTag.entropyTagForAddress(account.address),
+                    KeystoreTag.seedTagForAddress(account.address)] {
+            XCTAssertEqual(after[tag], before[tag], tag)
+        }
+        XCTAssertEqual(try WalletOwnerPIN.boundAddresses(keystore: device.keychain), [account.address])
+        XCTAssertEqual(try owner.verifyRetained("246810", addresses: [account.address]), [account.address])
+    }
+}
