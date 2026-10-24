@@ -38,7 +38,6 @@ final class AccountTableViewItem: NSObject {
     var accountName: String
     var accountHandler: ((AccountTableViewItem) -> Void)?
     var sendHandler: (() -> Void)?
-    var networkHandler: (() -> Void)?
     var scanQRHandler: (() -> Void)?
     var updateHandler: (() -> Void)?
     var credentialAccount: AccountItem?

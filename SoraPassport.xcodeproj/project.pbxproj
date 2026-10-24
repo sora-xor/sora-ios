@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0DEA03F512288C06CDE6E09 /* WalletNetworkDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */; };
+		C0DEB6069DE37CC47595A758 /* WalletNetworkDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */; };
+		C0DEA3D98CD8BE1FB4E11F4E /* WalletNetworkPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE67B14569B2010F032736 /* WalletNetworkPickerViewController.swift */; };
+		C0DE1ACE08630D1D9E9A60B3 /* WalletNetworkPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE67B14569B2010F032736 /* WalletNetworkPickerViewController.swift */; };
+		C0DE0B6FAB536CF768E63227 /* WalletNetworkDirectoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEDF4CF9CA9B475582994F /* WalletNetworkDirectoryTests.swift */; };
 		A77B00000000000000000004 /* TairaFaucetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77B00000000000000000005 /* TairaFaucetService.swift */; };
 		A77A00000000000000000001 /* NexusTransferCodec in Frameworks */ = {isa = PBXBuildFile; productRef = A77A00000000000000000002 /* NexusTransferCodec */; };
 		A77A00000000000000000004 /* TairaTransactionSigning.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77A00000000000000000005 /* TairaTransactionSigning.swift */; };
@@ -2505,6 +2510,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkDirectory.swift; sourceTree = "<group>"; };
+		C0DE67B14569B2010F032736 /* WalletNetworkPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkPickerViewController.swift; sourceTree = "<group>"; };
+		C0DEDF4CF9CA9B475582994F /* WalletNetworkDirectoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkDirectoryTests.swift; sourceTree = "<group>"; };
 		A77B00000000000000000005 /* TairaFaucetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TairaFaucetService.swift; sourceTree = "<group>"; };
 		A77A00000000000000000005 /* TairaTransactionSigning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TairaTransactionSigning.swift; sourceTree = "<group>"; };
 		A10000F10000000000000002 /* SceneLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLifecycleTests.swift; sourceTree = "<group>"; };
@@ -3992,6 +4000,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C0DE0F682EF0D11E52896A42 /* Networks */ = {
+			isa = PBXGroup;
+			children = (
+				C0DE67B14569B2010F032736 /* WalletNetworkPickerViewController.swift */,
+			);
+			path = Networks;
+			sourceTree = "<group>";
+		};
 		0200347821C8DA59001A6A53 /* Reachability */ = {
 			isa = PBXGroup;
 			children = (
@@ -4019,6 +4035,7 @@
 		A10000220000000000000001 /* Modernization */ = {
 			isa = PBXGroup;
 			children = (
+				C0DEDF4CF9CA9B475582994F /* WalletNetworkDirectoryTests.swift */,
 				A66B00012F5B000000000110 /* IrohaConnectTests.swift */,
 				B66B00012F5B000000000110 /* WalletUXTests.swift */,
 				CD101226F004000000000001 /* SimulatorReleased23AccountMapper.swift */,
@@ -4549,6 +4566,7 @@
 		029879242181E3780085E605 /* Model */ = {
 			isa = PBXGroup;
 			children = (
+				C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */,
 				A10000150000000000000001 /* NexusWalletService.swift */,
 				A77B00000000000000000005 /* TairaFaucetService.swift */,
 				A77A00000000000000000005 /* TairaTransactionSigning.swift */,
@@ -5752,6 +5770,7 @@
 		36ADDDA728EC7F790080A41C /* Wallet */ = {
 			isa = PBXGroup;
 			children = (
+				C0DE0F682EF0D11E52896A42 /* Networks */,
 				364BA322293FC0170099CB0D /* Acccount */,
 				B261D91A2ACD804B00B434EE /* Backup */,
 				B27FFC402A52A568006D4C19 /* Friends */,
@@ -7967,6 +7986,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0DEA03F512288C06CDE6E09 /* WalletNetworkDirectory.swift in Sources */,
+				C0DEA3D98CD8BE1FB4E11F4E /* WalletNetworkPickerViewController.swift in Sources */,
 				A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */,
 				A66B00012F5B000000000003 /* IrohaConnectSession.swift in Sources */,
 				A66B00012F5B000000000005 /* IrohaConnectUI.swift in Sources */,
@@ -9078,6 +9099,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0DE0B6FAB536CF768E63227 /* WalletNetworkDirectoryTests.swift in Sources */,
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
 				A10000F00000000000000003 /* SceneLifecycleTests.swift in Sources */,
 				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
@@ -9191,6 +9213,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0DEB6069DE37CC47595A758 /* WalletNetworkDirectory.swift in Sources */,
+				C0DE1ACE08630D1D9E9A60B3 /* WalletNetworkPickerViewController.swift in Sources */,
 				A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */,
 				A66B00012F5B000000000004 /* IrohaConnectSession.swift in Sources */,
 				A66B00012F5B000000000006 /* IrohaConnectUI.swift in Sources */,

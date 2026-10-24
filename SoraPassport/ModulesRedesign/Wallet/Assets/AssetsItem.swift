@@ -29,9 +29,26 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import UIKit
 import SoraUIKit
 
 import RobinHood
+
+/// XOR on a network other than SORA2, drawn as one more row of the assets
+/// list. Its title carries the network's name, so one list shows everything
+/// the wallet holds, as wallets like Exodus do.
+struct NetworkAssetRow: Equatable {
+    let account: NetworkAccount
+    /// "SORA · Taira". A row on the main network has no network label.
+    let title: String
+    /// "50 XOR", "Address ready" for a network that is not live yet, or empty
+    /// while the balance loads.
+    let amount: String
+    let tag: WalletNetworkTag?
+    let icon: UIImage?
+    /// Rows on the main network come before the SORA2 rows.
+    let isMain: Bool
+}
 
 final class AssetsItem: NSObject {
 
@@ -42,6 +59,10 @@ final class AssetsItem: NSObject {
     var expandButtonHandler: (() -> Void)?
     var arrowButtonHandler: (() -> Void)?
     var assetHandler: ((String) -> Void)?
+    var networkRows: [NetworkAssetRow] = []
+    /// The network label of SORA2 rows: none while SORA2 is the main network.
+    var sora2RowLabel: String?
+    var networkRowHandler: ((NetworkAccount) -> Void)?
     let assetProvider: AssetProviderProtocol
     var service: AssetsItemService?
 

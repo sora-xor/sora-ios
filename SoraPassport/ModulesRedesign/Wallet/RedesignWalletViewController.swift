@@ -121,6 +121,8 @@ final class RedesignWalletViewController: SoramitsuViewController {
         navigationController?.setNavigationBarHidden(true, animated: animated)
         tableView.reloadData()
         viewModel.walletItems.compactMap { $0 as? AccountTableViewItem }.forEach { $0.refreshCapability() }
+        // Settings (the Taira switch) or the selected account may have changed.
+        viewModel.refreshNetworkRows()
     }
 
     private func setupView() {

@@ -1411,3 +1411,21 @@
 "Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here." = "Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here.";
 "Couldn’t open backup" = "Couldn’t open backup";
 "Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN." = "Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN.";
+
+/* One wallet, networks as labels */
+"Main" = "Main";
+"Coming soon" = "Coming soon";
+"Testnet" = "Testnet";
+"Receive on" = "Receive on";
+"Send on" = "Send on";
+"Each network has its own address. Share the address of the network the sender uses." = "Each network has its own address. Share the address of the network the sender uses.";
+"The recipient needs an address on the network you choose." = "The recipient needs an address on the network you choose.";
+"Sending on %@ starts when the network launches." = "Sending on %@ starts when the network launches.";
+"Sending on %@ is paused right now." = "Sending on %@ is paused right now.";
+"Address ready" = "Address ready";
+"XOR on %@" = "XOR on %@";
+"Networks" = "Networks";
+"XOR on each network" = "XOR on each network";
+"Copy receive address" = "Copy receive address";
+"Copy address" = "Copy address";
+"Open explorer" = "Open explorer";

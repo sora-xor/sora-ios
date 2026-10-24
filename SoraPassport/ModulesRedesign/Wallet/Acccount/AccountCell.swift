@@ -39,7 +39,6 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         guard let self, let item = self.accountItem else { return }
         item.accountHandler?(item)
     }
-    private lazy var networkButton = WalletUX.button("SORA2 · Change network") { [weak self] in self?.accountItem?.networkHandler?() }
     private lazy var sendButton = WalletUX.button("Send", primary: true) { [weak self] in self?.accountItem?.sendHandler?() }
     private lazy var receiveButton = WalletUX.button("Receive") { [weak self] in self?.accountItem?.scanQRHandler?() }
     private let capabilityReason = UILabel()
@@ -56,7 +55,9 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        let stack = UIStackView(arrangedSubviews: [accountButton, networkButton, capabilityBadge, capabilityReason, restoreKeysButton, actions])
+        // One wallet: Send and Receive ask which network only when there is a
+        // choice, so the account card has no network switch.
+        let stack = UIStackView(arrangedSubviews: [accountButton, capabilityBadge, capabilityReason, restoreKeysButton, actions])
         stack.axis = .vertical
         stack.spacing = 4
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -102,7 +103,6 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         accountButton.configuration?.image = UIImage(systemName: "chevron.down")
         accountButton.configuration?.imagePlacement = .trailing
         accountButton.configuration?.imagePadding = 8
-        networkButton.contentHorizontalAlignment = .leading
         actions.distribution = .fillEqually
         actions.spacing = 12
         actions.addArrangedSubview(sendButton)
@@ -186,9 +186,5 @@ final class AccountCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol 
         restoreKeysButton.isHidden = !item.capability.canRestore
         updateRestoreWidth(contentView.bounds.width)
         sendButton.accessibilityHint = item.capability.reason
-        networkButton.isHidden = !(
-            ProductSurfacePolicy.showsNexusPortfolio &&
-                SettingsManager.shared.nexusEnabled
-        )
     }
 }
