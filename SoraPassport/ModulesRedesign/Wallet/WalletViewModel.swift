@@ -99,6 +99,10 @@ final class RedesignWalletViewModel {
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
     let assetsViewModelService: AssetsItemService
+    /// `portfolioView` (off in Release builds): the portfolio replaces the account header and the
+    /// Assets card. Without it the home is exactly what it was.
+    let portfolioEnabled: Bool
+    var portfolioHome: PortfolioHome?
 
     /// The selected wallet's accounts on other networks, shown as XOR rows in
     /// the assets list. Never another wallet's: see `refreshNetworkRows()`.
@@ -126,8 +130,10 @@ final class RedesignWalletViewModel {
          editViewService: EditViewServiceProtocol,
          poolsViewModelService: PoolsItemService,
          assetsViewModelService: AssetsItemService,
-         marketCapService: MarketCapServiceProtocol) {
+         marketCapService: MarketCapServiceProtocol,
+         portfolioEnabled: Bool = PortfolioFeature.isEnabled) {
         self.wireframe = wireframe
+        self.portfolioEnabled = portfolioEnabled
         self.accountId = accountId
         self.address = address
         self.providerFactory = providerFactory
@@ -233,6 +239,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(editViewItem)
         }
         
+        if let portfolioHome {
+            items = portfolioHome.compose(replacing: items)
+        }
+
         setupItems?(items)
     }
 
@@ -310,6 +320,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                           poolsService: poolsService,
                                                                                           editViewService: editViewService)
         items.append(editViewItem)
+
+        preparePortfolio(account: accountItem)
         
         return items
     }
