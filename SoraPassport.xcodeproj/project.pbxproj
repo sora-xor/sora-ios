@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1DFC12069C74C19CCE21F43C /* PortfolioCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA593B7A6E10E209C460A3B9 /* PortfolioCaptureTests.swift */; };
 		17FCB60240CFDB552E7571CB /* PortfolioWalletIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60750E1FA43D71E744D8000F /* PortfolioWalletIntegration.swift */; };
 		8E4FA9AD7AA902DA316271ED /* PortfolioWalletIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60750E1FA43D71E744D8000F /* PortfolioWalletIntegration.swift */; };
 		0A4FF41DCF2E8FB4B3D92B45 /* PortfolioOtherNetworksCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB46F779496ED5C5C27BEC /* PortfolioOtherNetworksCell.swift */; };
@@ -2574,6 +2575,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CA593B7A6E10E209C460A3B9 /* PortfolioCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioCaptureTests.swift; sourceTree = "<group>"; };
 		60750E1FA43D71E744D8000F /* PortfolioWalletIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioWalletIntegration.swift; sourceTree = "<group>"; };
 		D0AB46F779496ED5C5C27BEC /* PortfolioOtherNetworksCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioOtherNetworksCell.swift; sourceTree = "<group>"; };
 		D481C396EB757D2878786EF6 /* PortfolioWalletHomeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioWalletHomeTests.swift; sourceTree = "<group>"; };
@@ -4108,6 +4110,7 @@
 				1650CA6C7E5B5E31FFBE566D /* PortfolioSnapshotBuilderTests.swift */,
 				33B81B57FECAA3C824A84CF3 /* parallax-vectors.json */,
 				D481C396EB757D2878786EF6 /* PortfolioWalletHomeTests.swift */,
+				CA593B7A6E10E209C460A3B9 /* PortfolioCaptureTests.swift */,
 			);
 			path = Portfolio;
 			sourceTree = "<group>";
@@ -9279,6 +9282,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1DFC12069C74C19CCE21F43C /* PortfolioCaptureTests.swift in Sources */,
 				FCB838411751EBC773419D14 /* PortfolioWalletHomeTests.swift in Sources */,
 				050996BF9C6A89601AC9064D /* PortfolioSnapshotBuilderTests.swift in Sources */,
 				6BEAD00320D65DAB84C3872E /* PortfolioPresenterTests.swift in Sources */,
