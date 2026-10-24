@@ -102,5 +102,55 @@ extension AccountData {
     var total: BigUInt { free + reserved }
     var frozen: BigUInt { reserved + locked }
     var locked: BigUInt { max(miscFrozen, feeFrozen) }
-    var available: BigUInt { free - locked }
+    var available: BigUInt { free > locked ? free - locked : 0 }
+
+    /// Decodes `System.Account` balances in both layouts SORA2 has used.
+    /// Up to runtime 119 the balances pallet stored `free, reserved,
+    /// misc_frozen, fee_frozen`. Runtime 124 (May 2026) and later store
+    /// `free, reserved, frozen, flags`, where `frozen` is the amount that
+    /// free plus reserved may not drop below. Without this, every XOR
+    /// balance read as zero and the send flow could not read the
+    /// recipient's account.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: BalancesLayoutKeys.self)
+        let free = try container.decode(StringCodable<BigUInt>.self, forKey: .free).wrappedValue
+        let reserved = try container.decode(StringCodable<BigUInt>.self, forKey: .reserved).wrappedValue
+        if container.contains(.miscFrozen) || container.contains(.feeFrozen) {
+            self.init(
+                free: free,
+                reserved: reserved,
+                miscFrozen: try container.decode(StringCodable<BigUInt>.self, forKey: .miscFrozen).wrappedValue,
+                feeFrozen: try container.decode(StringCodable<BigUInt>.self, forKey: .feeFrozen).wrappedValue
+            )
+        } else {
+            let locked = BalancesLayoutKeys.lockedFreeBalance(
+                free: free,
+                reserved: reserved,
+                frozen: try container.decode(StringCodable<BigUInt>.self, forKey: .frozen).wrappedValue
+            )
+            self.init(free: free, reserved: reserved, miscFrozen: locked, feeFrozen: locked)
+        }
+    }
+}
+
+/// Keys of the balances pallet's account data in its old
+/// (`miscFrozen`/`feeFrozen`) and current (`frozen`/`flags`) layouts.
+enum BalancesLayoutKeys: String, CodingKey {
+    case free
+    case reserved
+    case miscFrozen
+    case feeFrozen
+    case frozen
+
+    /// The part of `free` that cannot be moved under the current layout:
+    /// `frozen` applies to free plus reserved, so only what is not covered by
+    /// the reserved balance locks free balance, and never more than `free`.
+    static func lockedFreeBalance(
+        free: BigUInt,
+        reserved: BigUInt,
+        frozen: BigUInt
+    ) -> BigUInt {
+        let untouchable = frozen > reserved ? frozen - reserved : 0
+        return min(untouchable, free)
+    }
 }
