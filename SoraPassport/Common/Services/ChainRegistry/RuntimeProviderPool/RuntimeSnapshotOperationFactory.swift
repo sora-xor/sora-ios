@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import BigInt
 import Foundation
 import CryptoKit
 import SSFUtils
@@ -38,15 +39,97 @@ enum RuntimeSnapshotFactoryError: Error {
     case unreviewedSoraRuntime
 }
 
+/// The runtime identity that SORA2 metadata declares about itself in its
+/// `System.Version` constant (`sp_version::RuntimeVersion`).
+///
+/// SORA2 mainnet upgrades its runtime often (130 → 132 → 133 within three
+/// weeks in 2026). The app therefore never pins one runtime version or one
+/// metadata hash. Instead it binds metadata bytes to the runtime version they
+/// declare, and binds both to what the connected node reports as live.
+struct Sora2RuntimeIdentity: Equatable {
+    static let reviewedSpecName = "sora-substrate"
+    /// The oldest SORA2 runtime this app was reviewed against. A lower value
+    /// is a rollback or a different chain and is never admitted.
+    static let minimumSpecVersion: UInt32 = 130
+
+    let specName: String
+    let specVersion: UInt32
+    let transactionVersion: UInt32
+
+    /// Reads `System.Version` from decoded metadata. The SCALE layout is
+    /// `spec_name: String, impl_name: String, authoring_version: u32,
+    /// spec_version: u32, impl_version: u32, apis: Vec<([u8; 8], u32)>,
+    /// transaction_version: u32, ...`.
+    static func declared(by metadata: RuntimeMetadata) throws -> Sora2RuntimeIdentity {
+        guard
+            let constant = metadata.getConstant(
+                in: "System",
+                constantName: "Version"
+            )
+        else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+        do {
+            let decoder = try ScaleDecoder(data: constant.value)
+            let specName = try String(scaleDecoder: decoder)
+            _ = try String(scaleDecoder: decoder)
+            _ = try UInt32(scaleDecoder: decoder)
+            let specVersion = try UInt32(scaleDecoder: decoder)
+            _ = try UInt32(scaleDecoder: decoder)
+            let apiCount = try BigUInt(scaleDecoder: decoder)
+            guard apiCount <= 4_096 else {
+                throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+            }
+            let apiBytes = Int(apiCount) * 12
+            if apiBytes > 0 {
+                _ = try decoder.read(count: apiBytes)
+                try decoder.confirm(count: apiBytes)
+            }
+            let transactionVersion = try UInt32(scaleDecoder: decoder)
+            return Sora2RuntimeIdentity(
+                specName: specName,
+                specVersion: specVersion,
+                transactionVersion: transactionVersion
+            )
+        } catch {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+    }
+
+    /// Accepts metadata only when it declares a SORA2 runtime at or above the
+    /// reviewed floor and exactly the spec and transaction versions it is
+    /// stored or used under.
+    static func requireDeclaredIdentity(
+        of metadata: RuntimeMetadata,
+        specVersion: UInt32,
+        transactionVersion: UInt32
+    ) throws {
+        let declared = try declared(by: metadata)
+        guard
+            declared.specName == reviewedSpecName,
+            declared.specVersion >= minimumSpecVersion,
+            declared.specVersion == specVersion,
+            declared.transactionVersion > 0,
+            declared.transactionVersion == transactionVersion
+        else {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+    }
+}
+
 enum ReviewedSoraRuntimeSnapshotAdmission {
     static let maximumMetadataBytes = 4 * 1024 * 1024
     static let maximumTypeRegistryBytes = 512 * 1024
     static let reviewedCommonTypesBytes = 122_551
-    static let reviewedChainTypesBytes = 136_939
+    /// `runtime-sora.json`. 3.9.0 adds `"Index": "u32"`: runtime 133 renamed
+    /// the nonce type to `Nonce`, and the extrinsic encoder still looks up
+    /// `Index` (`KnownType.index`). Compact encoding is width-independent, so
+    /// the bytes are unchanged for every earlier runtime.
+    static let reviewedChainTypesBytes = 136_971
     static let reviewedCommonTypesSHA256 =
         "2bd6d5a58ceaecb5a1ac05f089e1269288d884ae8b768527d58ae217434bf580"
     static let reviewedChainTypesSHA256 =
-        "9ced79bb14808bd5e56145e834807e54cc5c623023b768bb415773035388ae92"
+        "7a96f47ac89a9db709744e21f0672e8cd535a483bff33eb6952e9537c79d4363"
 
     static func isReviewedSoraChain(_ chainId: ChainModel.Id) -> Bool {
         guard
@@ -62,6 +145,12 @@ enum ReviewedSoraRuntimeSnapshotAdmission {
         return normalizedChainId == reviewedChainId
     }
 
+    /// Admits SORA2 mainnet metadata for any live runtime at or above the
+    /// reviewed floor. Chain identity stays pinned (genesis), and the bytes
+    /// must declare exactly the spec and transaction versions they are stored
+    /// under, so a runtime upgrade is picked up without an app update while a
+    /// mismatched or foreign blob is rejected. Signing additionally compares
+    /// the metadata with the live node (`Sora2LiveRuntimeValidator`).
     static func validate(
         chainId: ChainModel.Id,
         item: RuntimeMetadataItem
@@ -73,19 +162,29 @@ enum ReviewedSoraRuntimeSnapshotAdmission {
             let normalizedRequestedChain =
                 PolkamarktTransactionHash.normalized(chainId),
             normalizedItemChain == normalizedRequestedChain,
-            item.version == PolkamarktRuntimeContract.specVersion,
-            item.txVersion ==
-                PolkamarktRuntimeContract.transactionVersion,
+            item.version >= Sora2RuntimeIdentity.minimumSpecVersion,
+            item.txVersion > 0,
             !item.metadata.isEmpty,
-            item.metadata.count <= maximumMetadataBytes,
-            PolkamarktRuntimeContract.rawMetadataSHA256(item.metadata) ==
-                PolkamarktRuntimeContract.metadataFileSHA256
+            item.metadata.count <= maximumMetadataBytes
         else {
             throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
         }
+        let metadata: RuntimeMetadata
+        do {
+            metadata = try RuntimeMetadata(
+                scaleDecoder: try ScaleDecoder(data: item.metadata)
+            )
+        } catch {
+            throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+        }
+        try Sora2RuntimeIdentity.requireDeclaredIdentity(
+            of: metadata,
+            specVersion: item.version,
+            transactionVersion: item.txVersion
+        )
     }
 
-    /// SORA2 runtime-130 is admitted with the exact checked-in SORA override
+    /// SORA2 mainnet is admitted with the exact checked-in SORA override
     /// registry. A remotely supplied chain model cannot switch the reviewed
     /// signer to common-only or mixed type resolution.
     static func validateTypeRegistryUsage(
@@ -377,39 +476,17 @@ final class RuntimeSnapshotFactory {
             guard let ownTypes = ownTypes else {
                 throw RuntimeSnapshotFactoryError.unexpectedError
             }
-            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
-                chainId: self.chainId,
-                data: ownTypes
-            )
 
             guard let runtimeMetadataItem = try runtimeMetadataOperation
                 .extractNoCancellableResultData() else {
                 throw RuntimeSnapshotFactoryError.unexpectedError
             }
-            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+
+            return try Self.makeOwnTypesSnapshot(
                 chainId: self.chainId,
-                item: runtimeMetadataItem
-            )
-
-            let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
-            let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-
-            // TODO: think about it
-            let json: JSON = .dictionaryValue(["types": .dictionaryValue([:])])
-            let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
-                try JSONEncoder().encode(json),
-                versioningData: ownTypes,
-                runtimeMetadata: runtimeMetadata,
-                usedRuntimePaths: [:]
-            )
-
-            return RuntimeSnapshot(
-                localCommonHash: nil,
-                localChainHash: try dataHasher.hash(data: ownTypes).toHex(),
-                typeRegistryCatalog: catalog,
-                specVersion: runtimeMetadataItem.version,
-                txVersion: runtimeMetadataItem.txVersion,
-                metadata: runtimeMetadata
+                runtimeMetadataItem: runtimeMetadataItem,
+                ownTypes: ownTypes,
+                dataHasher: dataHasher
             )
         }
 
@@ -418,6 +495,53 @@ final class RuntimeSnapshotFactory {
         dependencies.forEach { snapshotOperation.addDependency($0) }
 
         return CompoundOperationWrapper(targetOperation: snapshotOperation, dependencies: dependencies)
+    }
+}
+
+extension RuntimeSnapshotFactory {
+    /// Builds a runtime snapshot from admitted metadata and the chain's own
+    /// type registry (the bundled `runtime-sora.json` for SORA2). The runtime
+    /// provider and the live-network signing test both use this, so the test
+    /// encodes extrinsics with exactly the code the app uses.
+    static func makeOwnTypesSnapshot(
+        chainId: ChainModel.Id,
+        runtimeMetadataItem: RuntimeMetadataItem,
+        ownTypes: Data,
+        dataHasher: StorageHasher
+    ) throws -> RuntimeSnapshot {
+        try ReviewedSoraRuntimeSnapshotAdmission.validateTypeRegistryUsage(
+            chainId: chainId,
+            typesUsage: .onlyOwn
+        )
+        try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+            chainId: chainId,
+            data: ownTypes
+        )
+        try ReviewedSoraRuntimeSnapshotAdmission.validate(
+            chainId: chainId,
+            item: runtimeMetadataItem
+        )
+
+        let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
+        let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
+
+        // TODO: think about it
+        let json: JSON = .dictionaryValue(["types": .dictionaryValue([:])])
+        let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
+            try JSONEncoder().encode(json),
+            versioningData: ownTypes,
+            runtimeMetadata: runtimeMetadata,
+            usedRuntimePaths: [:]
+        )
+
+        return RuntimeSnapshot(
+            localCommonHash: nil,
+            localChainHash: try dataHasher.hash(data: ownTypes).toHex(),
+            typeRegistryCatalog: catalog,
+            specVersion: runtimeMetadataItem.version,
+            txVersion: runtimeMetadataItem.txVersion,
+            metadata: runtimeMetadata
+        )
     }
 }
 

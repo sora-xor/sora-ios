@@ -37,6 +37,13 @@ protocol RuntimeSyncServiceProtocol {
     func register(chain: ChainModel, with connection: ChainConnection)
     func unregister(chainId: ChainModel.Id)
     func apply(version: RuntimeVersion, for chainId: ChainModel.Id)
+    /// Like `apply`, but re-downloads the metadata even when a copy for the
+    /// same spec version is stored (used when signing found that copy differs
+    /// from what the live node runs).
+    func applyReplacingCachedMetadata(
+        version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    )
 
     func hasChain(with chainId: ChainModel.Id) -> Bool
     func isChainSyncing(_ chainId: ChainModel.Id) -> Bool
@@ -108,7 +115,8 @@ final class RuntimeSyncService {
     private func performSync(
         for chainId: ChainModel.Id,
         shouldSyncTypes: Bool,
-        newVersion: RuntimeVersion? = nil
+        newVersion: RuntimeVersion? = nil,
+        replacingCachedMetadata: Bool = false
     ) {
         guard let syncInfo = knownChains[chainId] else {
             return
@@ -143,7 +151,8 @@ final class RuntimeSyncService {
             createMetadataSyncOperation(
                 for: chainId,
                 runtimeVersion: $0,
-                connection: syncInfo.connection
+                connection: syncInfo.connection,
+                replacingCachedMetadata: replacingCachedMetadata
             )
         }
 
@@ -317,7 +326,8 @@ final class RuntimeSyncService {
     private func createMetadataSyncOperation(
         for chainId: ChainModel.Id,
         runtimeVersion: RuntimeVersion,
-        connection: JSONRPCEngine
+        connection: JSONRPCEngine,
+        replacingCachedMetadata: Bool = false
     ) -> CompoundOperationWrapper<Void> {
         let localMetadataOperation = repository.fetchOperation(
             by: chainId,
@@ -335,6 +345,11 @@ final class RuntimeSyncService {
         )
 
         remoteMetadaOperation.configurationBlock = {
+            guard !replacingCachedMetadata else {
+                // The stored copy is never deleted here; it is replaced only
+                // after the downloaded bytes pass admission below.
+                return
+            }
             do {
                 let currentItem = try localMetadataOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -473,6 +488,26 @@ extension RuntimeSyncService: RuntimeSyncServiceProtocol {
         clearOperations(for: chainId)
 
         performSync(for: chainId, shouldSyncTypes: true, newVersion: version)
+    }
+
+    func applyReplacingCachedMetadata(
+        version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    ) {
+        mutex.lock()
+
+        defer {
+            mutex.unlock()
+        }
+
+        clearOperations(for: chainId)
+
+        performSync(
+            for: chainId,
+            shouldSyncTypes: true,
+            newVersion: version,
+            replacingCachedMetadata: true
+        )
     }
 
     func hasChain(with chainId: ChainModel.Id) -> Bool {
