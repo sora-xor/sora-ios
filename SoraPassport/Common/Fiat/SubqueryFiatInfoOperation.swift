@@ -39,7 +39,7 @@ public final class SubqueryFiatInfoOperation<ResultType>: PIAsyncOperation<Resul
     }
 
     override public func execute() async throws -> ResultType {
-        let values = try await client.allAssets().map { asset in
+        let values = try await client.allAssetMarketData().map { asset in
             PIExactFiatData(
                 id: asset.id,
                 priceUsd: asset.priceUSD

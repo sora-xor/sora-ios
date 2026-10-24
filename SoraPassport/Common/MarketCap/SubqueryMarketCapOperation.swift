@@ -101,12 +101,12 @@ public final class SubqueryMarketCapInfoOperation<ResultType>: PIAsyncOperation<
     }
 
     override public func execute() async throws -> ResultType {
-        // Admission must precede `allAssets()`: an empty, duplicate, or
+        // Admission must precede the catalog walk: an empty, duplicate, or
         // unbounded production request must never turn into a full-catalog
         // network fetch.
         let requested = try PIMarketCapCatalogValidator
             .validatedRequestedAssetIDs(assetIds)
-        let assets = try await client.allAssets()
+        let assets = try await client.allAssetMarketData()
             .filter { requested.contains($0.id) }
         try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
             requestedAssetIDs: assetIds,
