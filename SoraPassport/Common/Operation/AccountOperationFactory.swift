@@ -117,21 +117,32 @@ final class PreparedAccount {
         ]
         let material = optionalMaterial.compactMap { $0 }
         do {
-            guard try material.allSatisfy({
-                try !keystore.checkKey(for: $0.0)
-            }) else {
-                throw AccountCreateError.duplicated
+            // A record that already holds exactly these bytes is this
+            // account's own retained material, for example after its database
+            // was lost or the app was reinstalled; reuse it. A record with
+            // different bytes under the same tag is never replaced.
+            var missing: [(String, Data)] = []
+            for (tag, value) in material {
+                guard try keystore.checkKey(for: tag) else {
+                    missing.append((tag, value))
+                    continue
+                }
+                var existing = try keystore.fetchKey(for: tag)
+                defer { existing.resetBytes(in: existing.startIndex ..< existing.endIndex) }
+                guard existing == value else {
+                    throw AccountCreateError.duplicated
+                }
             }
             var written: [String] = []
             do {
-                for (tag, value) in material {
+                for (tag, value) in missing {
                     try keystore.addKey(value, with: tag)
                     written.append(tag)
                 }
             } catch {
-                // Every tag was proven absent under the lifecycle lease, so
-                // removing only tags written by this failed attempt cannot
-                // delete an installed wallet.
+                // Only tags proven absent under the lifecycle lease were
+                // written, so removing those written by this failed attempt
+                // cannot delete an installed wallet or a reused record.
                 for tag in written.reversed() {
                     try? keystore.deleteKey(for: tag)
                 }
