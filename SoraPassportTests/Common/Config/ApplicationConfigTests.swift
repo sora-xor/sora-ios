@@ -292,15 +292,21 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertEqual(saved.nodes, chain.nodes)
         XCTAssertEqual(saved.customNodes, chain.customNodes)
 
-        // A chain holding two entries for one URL breaks CDChainNode.url's
-        // uniqueness constraint; that save failure left the wallet without a
-        // connection.
+        // A chain holding two entries for one URL used to fail every save on
+        // CDChainNode.url's uniqueness constraint, which left the wallet
+        // without a connection. The chain mapper now reuses the row that has
+        // the URL, so such a chain saves with one row per URL.
         let duplicated = ChainModel(
             chainId: SoraNodeConnectionPolicy.mainnetGenesis, name: "SORA",
             nodes: Set(SoraNodeConnectionPolicy.bundledMainnetNodes + [indexerNode]), addressPrefix: 69,
             icon: nil, selectedNode: nil, customNodes: nil, iosMinAppVersion: nil
         )
-        XCTAssertThrowsError(try savedChains([duplicated]))
+        let savedDuplicate = try XCTUnwrap(try savedChains([duplicated]).first)
+        XCTAssertEqual(Set(savedDuplicate.nodes.map(\.url)).count, savedDuplicate.nodes.count)
+        XCTAssertEqual(
+            Set(savedDuplicate.nodes.map(\.url)),
+            Set(SoraNodeConnectionPolicy.bundledMainnetNodes.map(\.url))
+        )
     }
 
     /// Uniqueness constraints are enforced by SQLite stores only.
