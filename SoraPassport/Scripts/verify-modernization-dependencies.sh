@@ -110,7 +110,13 @@ if not isinstance(target_ids, list) or len(target_ids) != len(set(target_ids)):
 
 expected_target_names = {"SoraPassport", "SoraPassportDev"}
 expected_input_paths = ["$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"]
-expected_script = '/bin/sh "$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh"\n'
+# 3.9.x runs the IrohaConnect URL-scheme script in the same phase, and
+# set -e makes a failure of either script fail the phase (60ebe419).
+expected_script = (
+    'set -e\n'
+    '/bin/sh "$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh"\n'
+    '/bin/sh "$PROJECT_DIR/SoraPassport/Scripts/register-irohaconnect-url-schemes.sh"\n'
+)
 observed = {}
 for target_id in target_ids:
     target = require_object(target_id, "PBXProject target")
@@ -1262,6 +1268,7 @@ fiat_operation="${root}/SoraPassport/Common/Fiat/SubqueryFiatInfoOperation.swift
 apy_service="${root}/SoraPassport/Common/APY/APYService.swift"
 apy_operation="${root}/SoraPassport/Common/Network/Subquery/Pools/SubqueryApyInfoOperation.swift"
 signing_wrapper="${root}/SoraPassport/Common/Crypto/SigningWrapper.swift"
+wallet_key_safety="${root}/SoraPassport/Common/Migration/WalletKeySafety.swift"
 signing_protocol="${root}/SoraPassport/Common/Crypto/SigningWrapperProtocol.swift"
 ed25519_seed_signer="${root}/VendorPackages/shared-features-spm/Sources/IrohaCrypto/Classes/ed25519/EDSeedSigner.m"
 ed25519_legacy_signer="${root}/VendorPackages/shared-features-spm/Sources/IrohaCrypto/Classes/ed25519/EDSigner.m"
@@ -1271,6 +1278,7 @@ iroha_signing_decorator="${root}/SoraPassport/Common/Crypto/IRSigningDecorator.s
 extrinsic_service="${root}/SoraPassport/Common/Services/ExtrinsicService.swift"
 account_create="${root}/SoraPassport/ModulesRedesign/AccountCreate/AccountCreateInteractor.swift"
 account_import="${root}/SoraPassport/ModulesRedesign/AccountImport/BaseAccountImportInteractor.swift"
+account_import_interactor="${root}/SoraPassport/ModulesRedesign/AccountImport/AccountImportInteractor.swift"
 account_import_commit="${root}/SoraPassport/ModulesRedesign/AccountImport/AccountImportInteractor.swift"
 account_import_factory="${root}/SoraPassport/ModulesRedesign/AccountImport/AccountImportViewFactory.swift"
 account_confirm="${root}/SoraPassport/ModulesRedesign/AccountConfirm/AccountConfirmInteractor.swift"
@@ -1287,6 +1295,7 @@ root_interactor="${root}/SoraPassport/ModulesRedesign/Root/RootInteractor.swift"
 root_wireframe="${root}/SoraPassport/ModulesRedesign/Root/RootWireframe.swift"
 pin_setup="${root}/SoraPassport/ModulesRedesign/Pincode/PinSetup/PinSetupInteractor.swift"
 local_auth="${root}/SoraPassport/ModulesRedesign/Pincode/LocalAuthentification/LocalAuthInteractor.swift"
+wallet_owner_pin="${root}/SoraPassport/Common/Migration/WalletOwnerPIN.swift"
 polkaswap_slippage="${root}/SoraPassport/ModulesRedesign/PolkaswapProducts/Common/SlippageTolerance/SlippageToleranceView.swift"
 polkaswap_accessory="${root}/SoraPassport/ModulesRedesign/PolkaswapProducts/Common/AccessoryView/InputAccessoryView.swift"
 polkaswap_swap="${root}/SoraPassport/ModulesRedesign/PolkaswapProducts/Swap/SwapViewModel.swift"
@@ -2100,8 +2109,7 @@ for swiftpm_manifest in \
     "${xnetworking_manifest}" \
     "${rswift_manifest}" \
     "${google_signin_manifest}" \
-    "${google_api_manifest}" \
-    "${jose_manifest}"
+    "${google_api_manifest}"
 do
     if [ ! -f "${swiftpm_manifest}" ] ||
        [ -L "${swiftpm_manifest}" ]; then
@@ -2120,9 +2128,13 @@ if /usr/bin/grep -E \
     exit 1
 fi
 
-if ! /usr/bin/grep -Fq '.library(name: "JOSESwift", type: .static, targets: ["JOSESwift"])' "${jose_manifest}" ||
-   /usr/bin/grep -Fq '.library(name: "JOSESwift", type: .dynamic' "${jose_manifest}"; then
-    echo "error: JOSESwift must remain statically linked so archived apps have no unembedded runtime dependency"
+# 3.9.x removed the unused JOSESwift (7520a9f6) and SoraDocuments (2e901e32)
+# packages. Nothing may link them again without a review of this gate.
+if [ -e "${jose_manifest}" ] ||
+   [ -e "${root}/VendorPackages/SoraDocuments/Package.swift" ] ||
+   /usr/bin/grep -Fq 'JOSESwift' "${project}" ||
+   /usr/bin/grep -Fq 'SoraDocuments' "${project}"; then
+    echo "error: removed JOSESwift or SoraDocuments package is referenced again"
     exit 1
 fi
 
@@ -2263,9 +2275,9 @@ project_vendored_local_count="$(
 )"
 if [ "${project_remote_package_count}" != "14" ] ||
    [ "${project_exact_requirement_count}" != "${project_remote_package_count}" ] ||
-   [ "${project_local_package_count}" != "11" ] ||
+   [ "${project_local_package_count}" != "10" ] ||
    [ "${project_vendored_local_count}" != "${project_local_package_count}" ] ||
-   ! /usr/bin/grep -Fq 'relativePath = VendorPackages/JOSESwift;' "${project}" ||
+   ! /usr/bin/grep -Fq 'relativePath = VendorPackages/NexusTransferCodec;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/google-api-objectivec-client-for-rest";' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SSFStorageQueryKit;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SoraWalletBinary;' "${project}" ||
@@ -2273,7 +2285,6 @@ if [ "${project_remote_package_count}" != "14" ] ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SoraUIKit;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/FireMock;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SoraFoundation;' "${project}" ||
-   ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SoraDocuments;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/GoogleSignIn-iOS";' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/shared-features-spm";' "${project}"; then
     echo "error: Xcode package references contain a dynamic requirement or local substitution"
@@ -2281,7 +2292,7 @@ if [ "${project_remote_package_count}" != "14" ] ||
 fi
 
 for reviewed_local_package in \
-    VendorPackages/JOSESwift \
+    VendorPackages/NexusTransferCodec \
     VendorPackages/google-api-objectivec-client-for-rest \
     VendorPackages/SSFStorageQueryKit \
     VendorPackages/SoraWalletBinary \
@@ -2289,7 +2300,6 @@ for reviewed_local_package in \
     VendorPackages/SoraUIKit \
     VendorPackages/FireMock \
     VendorPackages/SoraFoundation \
-    VendorPackages/SoraDocuments \
     VendorPackages/GoogleSignIn-iOS \
     VendorPackages/shared-features-spm
 do
@@ -3933,8 +3943,7 @@ if ! /usr/bin/grep -Fq 'Logger.shared.debug("Pool reserves account resolved")' "
     exit 1
 fi
 
-if ! /usr/bin/grep -Fq 'Logger.shared.debug("Asset info keys loaded")' "${assets_info_integration_tests}" ||
-   ! /usr/bin/grep -Fq 'Logger.shared.debug("Asset info catalog loaded")' "${assets_info_integration_tests}" ||
+if ! /usr/bin/grep -Fq 'Logger.shared.debug("Asset info catalog loaded")' "${assets_info_integration_tests}" ||
    ! /usr/bin/grep -Fq 'Logger.shared.debug("Asset info response received")' "${assets_info_integration_tests}" ||
    ! /usr/bin/grep -Fq 'Logger.shared.debug("Pool account balance response received")' "${json_rpc_pool_integration_tests}" ||
    ! /usr/bin/grep -Fq 'Logger.shared.debug("Account pools response received")' "${json_rpc_pool_integration_tests}" ||
@@ -3973,13 +3982,13 @@ if ! /usr/bin/grep -Fq "enum DurableFileWriter" "${wallet_network_model}" ||
    [ "$(/usr/bin/grep -Fc 'Darwin.linkat(' "${wallet_network_model}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'protectOrRemoveHiddenFailedPublication(' "${wallet_network_model}")" -lt 5 ] ||
    [ "$(/usr/bin/grep -Fc 'removeHiddenFailedPublicationIfExact(' "${wallet_network_model}")" -ne 2 ] ||
-   ! /usr/bin/grep -Fq "Once linkat succeeds, no defer path" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "only while the target still names a file this call knows" "${wallet_network_model}" ||
    [ "$(/usr/bin/grep -Fc 'restoreOriginalAfterFailedPublication(' "${wallet_network_model}")" -ne 2 ] ||
    [ "$(/usr/bin/grep -Fc 'discardRollbackAnchorAfterCommit(' "${wallet_network_model}")" -ne 5 ] ||
    [ "$(/usr/bin/grep -Fc 'reverseRejectedAtomicSwap(' "${wallet_network_model}")" -ne 3 ] ||
    ! /usr/bin/grep -Fq "Anchor cleanup" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "must not turn a committed write into an ambiguous" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "preserves at least one exact old-inode" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "committed write into an ambiguous thrown failure" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "either the old file or the complete new one" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "intended protection class durably re-established" "${wallet_network_model}" ||
    ! /usr/bin/awk '
        /^[[:space:]]+static func write\(/ && !in_write { in_write = 1 }
@@ -4013,7 +4022,7 @@ if ! /usr/bin/grep -Fq "enum DurableFileWriter" "${wallet_network_model}" ||
    ' "${wallet_network_model}" ||
    ! /usr/bin/awk '
        /private static func restoreOriginalAfterFailedPublication\(/ && !in_restore { in_restore = 1 }
-       in_restore && /safety-anchor/ && stage == 0 { stage = 1 }
+       in_restore && /safetyName/ && stage == 0 { stage = 1 }
        in_restore && /Darwin\.linkat\(/ && stage == 1 { stage = 2 }
        in_restore && /synchronizeAncestorDirectoryEntries\(/ && stage == 2 { stage = 3 }
        in_restore && /UInt32\(RENAME_SWAP\)/ && stage == 3 { stage = 4 }
@@ -4045,7 +4054,7 @@ if ! /usr/bin/grep -Fq "enum DurableFileWriter" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "XCTAssertEqual(protectionAfter, protectionBefore)" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "didWeakenExistingPublicationOnDisk" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "didWeakenAbsentPublicationOnDisk" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq 'hasPrefix(".durable-failed-")' "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "The failed new file is withdrawn and removed: the directory is as" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq '$0.hasPrefix(".durable-")' "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testDurableFileWriterRejectsSymlinkWithoutTouchingLegacyFile" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testNexusPendingJournalUsesCrashDurableProtectedPublication" "${modernization_tests}" ||
@@ -4082,7 +4091,7 @@ if ! /usr/bin/grep -Fq "func allKeyIdentifiers() throws -> [String]" "${keystore
    ! /usr/bin/grep -Fq 'return ["-wal", "-shm", "-journal"].allSatisfy' "${storage_migrator}" ||
    ! /usr/bin/grep -Fq "if pathExistsNoFollow(migrationSafetyDirectory())" "${storage_migrator}" ||
    ! /usr/bin/grep -Fq 'for suffix in ["-wal", "-shm", "-journal"]' "${storage_migrator}" ||
-   ! /usr/bin/grep -Fq "testMissingCoreDataStoreWithOnlyScopedKeychainSecretFailsClosed" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testMissingCoreDataStoreWithKeychainOnlyIsReinstallButSettingsFailClosed" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "KeystoreTag.legacyUsername.rawValue" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "legacyIdentitySettings" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "retainedSettings.hasRetainedWalletSettings()" "${modernization_tests}" ||
@@ -4136,7 +4145,7 @@ if ! /usr/bin/grep -Fq "private static let lock = NSLock()" "${wallet_network_mo
    ! /usr/bin/grep -Fq "countOperation.addDependency(forgetOperation)" "${account_options}" ||
    ! /usr/bin/grep -Fq "guard try WalletNetworkStore().load() == networkSnapshot" "${account_options}" ||
    ! /usr/bin/grep -Fq "verifyAndCommitExplicitRemovalMetadata(" "${account_options}" ||
-   ! /usr/bin/grep -Fq "WalletExplicitRemovalIdentityPolicy.verify(" "${account_options}" ||
+   ! /usr/bin/grep -Fq "WalletExplicitRemovalIdentityPolicy.plan(" "${account_options}" ||
    ! /usr/bin/grep -Fq "LegacySoraIdentityValidator.validate(" "${account_options}" ||
    ! /usr/bin/grep -Fq "activeSnapshot: snapshot," "${account_options}" ||
    ! /usr/bin/grep -Fq "activeSnapshot: current," "${wallet_network_model}" ||
@@ -4149,7 +4158,7 @@ if ! /usr/bin/grep -Fq "private static let lock = NSLock()" "${wallet_network_mo
    ! /usr/bin/grep -Fq "lifecycleLease: lifecycleLease" "${account_options}" ||
    ! /usr/bin/grep -Fq "try keystore.deleteWalletMaterial(for: address)" "${account_options}" ||
    ! /usr/bin/grep -Fq "testWalletDeletionPreflightBlocksEveryUnresolvedMutation" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq "testPendingTransactionStoresRejectInterruptedDurablePublicationEvidence" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testPendingTransactionStoresSweepAnInterruptedPublicationAndRejectOtherEntries" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testAllPendingTransactionJournalsShareTheProtectedNamespace" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "let unresolvedNexusStates: [NexusPendingState]" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq ".committedPendingReconciliation" "${modernization_tests}" ||
@@ -4185,9 +4194,9 @@ if ! /usr/bin/grep -Fq "rawSeed == mnemonicSeed" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "defer { wipeSensitive(&sourceSeed) }" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "defer { wipeSensitive(&expectedSecret) }" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "defer { wipeSensitive(&signingSecret) }" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "Self.wipeSensitive(&entropy)" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "Self.wipeSensitive(&rawSeed)" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "Self.wipeSensitive(&legacySecret)" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "defer { material.wipe() }" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq 'for keyPath in [\SigningMaterial.entropy, \SigningMaterial.rawSeed, \SigningMaterial.secret]' "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "self[keyPath: keyPath]?.resetBytes(in: 0 ..< count)" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "phrase.removeAll(keepingCapacity: false)" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "child.privateKey.resetBytes(" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "child.chainCode.resetBytes(" "${wallet_network_model}" ||
@@ -4301,7 +4310,7 @@ if [ ! -f "${recovery_gate_tests}" ] ||
    ! /usr/bin/grep -Fq "testWalletNetworkStoreRejectsAndWillNotActivateOverNamespaceEvidence" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletNetworkStoreRejectsUnexpectedEntryBesideActiveSnapshot" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletNetworkStoreRejectsMalformedRetainedSnapshotBesideActive" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq "testWalletNetworkStoreRejectsUnprunedCanonicalSnapshotSet" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testWalletNetworkStorePrunesOneSurplusSnapshotAndRejectsMore" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletNetworkStoreGenericActivationCannotRemoveOrRewriteIdentity" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletAccountCommitJournalRejectsUnexpectedNamespaceEntries" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletAccountCommitJournalWillNotAdvanceBesideUnexpectedEvidence" "${modernization_tests}" ||
@@ -4309,9 +4318,16 @@ if [ ! -f "${recovery_gate_tests}" ] ||
    ! /usr/bin/grep -Fq "testWalletAccountCommitJournalPrunesBeforeTerminalActivation" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletAccountCommitJournalNormalizesMalformedCanonicalEntry" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "requireAuthorizedLifecycleContinuation()" "${pin_setup}" ||
-   ! /usr/bin/grep -Fq "secretManager.saveSecret(" "${pin_setup}" ||
-   ! /usr/bin/grep -Fq "requireAuthorizedLifecycleContinuation()" "${local_auth}" ||
-   ! /usr/bin/grep -Fq "secretManager.saveSecret(" "${local_auth}" ||
+   ! /usr/bin/grep -Fq "try ownerPIN.setInitialPIN(currentPincode, accounts: accounts)" "${pin_setup}" ||
+   ! /usr/bin/grep -Fq "try ownerPIN.rotate(to: currentPincode, authorization: authorization, accounts: accounts)" "${pin_setup}" ||
+   ! /usr/bin/grep -Fq "try self.ownerPIN.rotate(to: pin, authorization: authorization, accounts: self.accounts())" "${local_auth}" ||
+   ! /usr/bin/grep -Fq "let lease = WalletLifecycleCoordinator.shared.acquire()" "${local_auth}" ||
+   ! /usr/bin/awk '
+       /private func proven\(/ { in_proven = 1 }
+       in_proven && /try recoveryGate\.requireAuthorizedLifecycleContinuation\(\)/ { gated = 1 }
+       in_proven && /^    }$/ { in_proven = 0 }
+       END { exit(gated ? 0 : 1) }
+   ' "${wallet_owner_pin}" ||
    ! /usr/bin/grep -Fq "options: []" "${storage_migrator}" ||
    /usr/bin/grep -Fq "skipsHiddenFiles" "${storage_migrator}" ||
    ! /usr/bin/grep -Fq ".durable-migrator-root-residue.safety-anchor" "${modernization_tests}" ||
@@ -4440,9 +4456,11 @@ if ! /usr/bin/grep -Fq "protocol LifecycleSigningWrapperProtocol" "${signing_pro
    ! /usr/bin/grep -Fq "defer { wipeSensitive(&directSecret) }" "${signing_wrapper}" ||
    ! /usr/bin/grep -Fq "defer { wipeSensitive(&sourceSeed) }" "${signing_wrapper}" ||
    ! /usr/bin/grep -Fq "phrase.removeAll(keepingCapacity: false)" "${signing_wrapper}" ||
-   ! /usr/bin/grep -Fq "secret = nil" "${signing_wrapper}" ||
-   ! /usr/bin/grep -Fq "entropy = nil" "${signing_wrapper}" ||
-   ! /usr/bin/grep -Fq "rawSeed = nil" "${signing_wrapper}" ||
+   ! /usr/bin/grep -Fq "defer { backup.wipe() }" "${signing_wrapper}" ||
+   ! /usr/bin/grep -Fq "value?.resetBytes(in: 0 ..< count)" "${signing_wrapper}" ||
+   ! /usr/bin/grep -Fq "        value = nil" "${signing_wrapper}" ||
+   ! /usr/bin/grep -Fq "if let count = entropy?.count { entropy?.resetBytes(in: 0..<count) }" "${wallet_key_safety}" ||
+   ! /usr/bin/grep -Fq "if let count = seed?.count { seed?.resetBytes(in: 0..<count) }" "${wallet_key_safety}" ||
    ! /usr/bin/grep -Fq "final class PreparedExtrinsicSubmission" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "final class CancellableCallRelay" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "final class MutableSignedTransportPayload" "${extrinsic_service}" ||
@@ -4473,7 +4491,8 @@ if ! /usr/bin/grep -Fq "protocol LifecycleSigningWrapperProtocol" "${signing_pro
    ! /usr/bin/grep -Fq "case let .failedBeforeTransport(error)" "${polkamarkt_runtime}" ||
    ! /usr/bin/grep -Fq "final class Sora2PendingSubmissionStore" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "let stageOperation = ClosureOperation<StagedExtrinsicInfo>" "${extrinsic_service}" ||
-   ! /usr/bin/grep -Fq "try self.validateSora2SigningRuntime(factory)" "${extrinsic_service}" ||
+   [ "$(/usr/bin/grep -Fc "try self.validateLiveSora2SigningRuntime(" "${extrinsic_service}")" -lt 4 ] ||
+   ! /usr/bin/grep -Fq "try Sora2LiveRuntimeValidator.validate(" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "case unsupportedRuntimeMetadata" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "PolkamarktRuntimeContract.signingMetadataSHA256(" "${extrinsic_service}" ||
    ! /usr/bin/grep -Fq "static func signingMetadataSHA256(" "${polkamarkt_runtime}" ||
@@ -4508,14 +4527,15 @@ if ! /usr/bin/grep -Fq "protocol LifecycleSigningWrapperProtocol" "${signing_pro
    ! /usr/bin/grep -Fq "normalizedItemChain == normalizedRequestedChain" "${runtime_snapshot_factory}" ||
    ! /usr/bin/grep -Fq "static let maximumTypeRegistryBytes = 512 * 1024" "${runtime_snapshot_factory}" ||
    ! /usr/bin/grep -Fq '"2bd6d5a58ceaecb5a1ac05f089e1269288d884ae8b768527d58ae217434bf580"' "${runtime_snapshot_factory}" ||
-   ! /usr/bin/grep -Fq '"9ced79bb14808bd5e56145e834807e54cc5c623023b768bb415773035388ae92"' "${runtime_snapshot_factory}" ||
+   ! /usr/bin/grep -Fq '"7a96f47ac89a9db709744e21f0672e8cd535a483bff33eb6952e9537c79d4363"' "${runtime_snapshot_factory}" ||
+   ! /usr/bin/grep -Fq 'static let reviewedChainTypesBytes = 136_971' "${runtime_snapshot_factory}" ||
    [ "$(sha256_file "${runtime_default_types}")" != "2bd6d5a58ceaecb5a1ac05f089e1269288d884ae8b768527d58ae217434bf580" ] ||
-   [ "$(sha256_file "${runtime_sora_types}")" != "9ced79bb14808bd5e56145e834807e54cc5c623023b768bb415773035388ae92" ] ||
+   [ "$(sha256_file "${runtime_sora_types}")" != "7a96f47ac89a9db709744e21f0672e8cd535a483bff33eb6952e9537c79d4363" ] ||
    [ "$(/usr/bin/wc -c < "${runtime_default_types}" | /usr/bin/tr -d '[:space:]')" != "122551" ] ||
-   [ "$(/usr/bin/wc -c < "${runtime_sora_types}" | /usr/bin/tr -d '[:space:]')" != "136939" ] ||
+   [ "$(/usr/bin/wc -c < "${runtime_sora_types}" | /usr/bin/tr -d '[:space:]')" != "136971" ] ||
    [ "$(/usr/bin/grep -Fc 'ReviewedSoraRuntimeSnapshotAdmission.validate(' "${runtime_snapshot_factory}")" -ne 3 ] ||
    [ "$(/usr/bin/grep -Fc 'ReviewedSoraRuntimeSnapshotAdmission.validate(' "${runtime_hot_snapshot_factory}")" -ne 3 ] ||
-   [ "$(/usr/bin/grep -Fc '.validateTypeRegistryUsage(' "${runtime_snapshot_factory}")" -ne 3 ] ||
+   [ "$(/usr/bin/grep -Fc '.validateTypeRegistryUsage(' "${runtime_snapshot_factory}")" -ne 4 ] ||
    [ "$(/usr/bin/grep -Fc '.validateTypeRegistryUsage(' "${runtime_hot_snapshot_factory}")" -ne 3 ] ||
    [ "$(/usr/bin/grep -Fc 'validateChainTypes(' "${runtime_snapshot_factory}")" -lt 3 ] ||
    [ "$(/usr/bin/grep -Fc 'validateChainTypes(' "${runtime_hot_snapshot_factory}")" -ne 2 ] ||
@@ -4524,7 +4544,8 @@ if ! /usr/bin/grep -Fq "protocol LifecycleSigningWrapperProtocol" "${signing_pro
    ! /usr/bin/grep -Fq "usesReviewedSoraBundle: true" "${chain_registry_factory}" ||
    ! /usr/bin/grep -Fq "loadReviewedCommonTypes()" "${common_types_sync_service}" ||
    ! /usr/bin/grep -Fq "? .onlyOwn" "${runtime_provider}" ||
-   ! /usr/bin/grep -Fq "Sora2BoundedHTTPJSONRPCEngine.wrapping(connection)" "${runtime_sync_service}" ||
+   ! /usr/bin/grep -Fq "Sora2BoundedHTTPJSONRPCEngine.wrapping(\$0)" "${runtime_sync_service}" ||
+   ! /usr/bin/grep -Fq "? metadataEngine(connection)" "${runtime_sync_service}" ||
    ! /usr/bin/grep -Fq "ReviewedSoraRuntimeSnapshotAdmission.isReviewedSoraChain(" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq '"not-a-chain-hash"' "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(" "${modernization_tests}" ||
@@ -4581,9 +4602,10 @@ if ! /usr/bin/grep -Fq "protocol LifecycleSigningWrapperProtocol" "${signing_pro
 	   ! /usr/bin/grep -Fq "final class Sora2PendingSubmissionReconciler" "${extrinsic_service}" ||
 	   ! /usr/bin/grep -Fq "func reconcileStatusOnly() async throws" "${extrinsic_service}" ||
 	   ! /usr/bin/grep -Fq "maximumWitnessesPerPass = 16" "${extrinsic_service}" ||
-	   ! /usr/bin/grep -Fq "ordered.prefix(Self.maximumWitnessesPerPass)" "${extrinsic_service}" ||
+	   ! /usr/bin/grep -Fq "let scanned = Array(toScan.prefix(Self.maximumWitnessesPerPass))" "${extrinsic_service}" ||
 	   ! /usr/bin/grep -Fq "canonicalExtrinsicHashes(" "${extrinsic_service}" ||
-	   ! /usr/bin/grep -Fq "authoritativeExecutionResult(" "${extrinsic_service}" ||
+	   ! /usr/bin/grep -Fq "private func executionResult(" "${extrinsic_service}" ||
+	   ! /usr/bin/grep -Fq "at inclusion: Inclusion," "${extrinsic_service}" ||
 	   ! /usr/bin/grep -Fq "A pre-expiry absence is not terminal" "${extrinsic_service}" ||
 	   ! /usr/bin/grep -Fq "private static let requestTimeoutSeconds = 30" "${polkamarkt_runtime}" ||
 	   ! /usr/bin/grep -Fq "PolkamarktRPCOperationRelay" "${polkamarkt_runtime}" ||
@@ -4598,7 +4620,7 @@ if ! /usr/bin/grep -Fq "protocol LifecycleSigningWrapperProtocol" "${signing_pro
 	   ! /usr/bin/grep -Fq "Sora2PendingSubmissionRecoveryRuntime.shared" "${app_delegate}" ||
 	   ! /usr/bin/grep -Fq "Sora2PendingSubmissionRecoveryRuntime.shared" "${splash_interactor}" ||
 	   ! /usr/bin/grep -Fq "updateSora2PendingRecoveryReadiness()" "${service_coordinator}" ||
-	   ! /usr/bin/grep -Fq '!$0.isPrunable' "${account_options}" ||
+	   ! /usr/bin/grep -Fq '$0.mayStillEnterChain(now: now)' "${account_options}" ||
 	   ! /usr/bin/grep -Fq "return witness.isPrunable" "${polkamarkt_runtime}" ||
 	   ! /usr/bin/grep -Fq "finalizedHeight: 191" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq ".finalizedFailure" "${modernization_tests}" ||
@@ -4755,7 +4777,8 @@ if /usr/bin/grep -Fq "newAccountOperation" "${account_factory}" ||
    ! /usr/bin/grep -Fq "final class PreparedAccount" "${account_factory}" ||
    ! /usr/bin/grep -Fq "LegacySoraIdentityValidator.validate(" "${account_factory}" ||
    ! /usr/bin/grep -Fq "func persistPreparedAccount(" "${account_factory}" ||
-   ! /usr/bin/grep -Fq "try !keystore.checkKey" "${account_factory}" ||
+   ! /usr/bin/grep -Fq "let absent = try missingMaterialLocked(in: keystore)" "${account_factory}" ||
+   ! /usr/bin/grep -Fq "throw AccountCreateError.retainedKeyConflict" "${account_factory}" ||
    ! /usr/bin/grep -Fq "testPreparedSeedImportValidationDoesNotWriteKeychain" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testPreparedAccountRejectsMismatchedPrivateAndPublicMaterial" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "testWalletAccountCommitJournalRequiresOrderedActivation" "${modernization_tests}"; then
@@ -4764,8 +4787,9 @@ if /usr/bin/grep -Fq "newAccountOperation" "${account_factory}" ||
 fi
 
 if ! /usr/bin/grep -Fq "co.jp.soramitsu.sora.storage-migration" "${splash_interactor}" ||
-   ! /usr/bin/grep -Fq "WalletAccountCommitJournalStore().unresolved()" "${splash_interactor}" ||
-   ! /usr/bin/grep -Fq "try dbMigrator.migrateAtStartup()" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "WalletAccountCommitJournalStore(baseURL: applicationSupportURL).unresolved()" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "try dbMigrator.migrateAtStartup(" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "WalletStorageStartup.runChecks(settings: settings, keystore: Keychain())" "${splash_interactor}" ||
    ! /usr/bin/grep -Fq "let lease = lifecycleCoordinator.acquire()" "${storage_migrator}" ||
    ! /usr/bin/grep -Fq "defer { lease.release() }" "${storage_migrator}" ||
    ! /usr/bin/grep -Fq "guard try !hasUnresolvedAccountCommit()" "${storage_migrator}" ||
@@ -4775,9 +4799,9 @@ if ! /usr/bin/grep -Fq "co.jp.soramitsu.sora.storage-migration" "${splash_intera
 fi
 
 if /usr/bin/grep -Fq "stopped before changing anything" "${root_wireframe}" ||
-   ! /usr/bin/grep -Fq "It did not delete, replace, log out, or recreate any account." "${root_wireframe}" ||
-   ! /usr/bin/grep -Fq "Backup and export help" "${root_wireframe}" ||
-   ! /usr/bin/grep -Fq "Do not delete or reinstall SORA." "${root_wireframe}" ||
+   ! /usr/bin/grep -Fq "SORA could not verify the wallet for this operation. Your existing wallet data has been kept." "${root_wireframe}" ||
+   ! /usr/bin/grep -Fq "Recovery export help" "${root_wireframe}" ||
+   ! /usr/bin/grep -Fq "Recovery never deletes wallet keys from this iPhone's Keychain." "${root_wireframe}" ||
    ! /usr/bin/grep -Fq "Never send anyone your phrase, seed, private key, or PIN." "${root_wireframe}"; then
     echo "error: wallet recovery route lacks accurate preservation and protected backup/export assistance"
     exit 1
@@ -4791,8 +4815,11 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "case legacyMnemonicEntropy" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "source.supportsNexusDerivation" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "guard WalletMnemonicWordPolicy.isUserImportWordCount(words.count)" "${wallet_network_model}" ||
-   [ "$(/usr/bin/grep -Fc "allowedMnemonicWordCounts.contains(mnemonic.allWords().count)" "${account_import}")" -lt 2 ] ||
-   ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.userImportWordCounts" "${account_import}" ||
+   [ "$(/usr/bin/grep -Fc "allowedMnemonicWordCounts.contains(mnemonic.allWords().count)" "${account_import}")" -lt 1 ] ||
+   ! /usr/bin/grep -Fq "guard allowedMnemonicWordCounts.contains(count) ||" "${account_import}" ||
+   ! /usr/bin/grep -Fq "(WalletMnemonicWordPolicy.retainedShortWordCounts.contains(count) &&" "${account_import}" ||
+   ! /usr/bin/grep -Fq "expected?.isEmpty == false) else {" "${account_import}" ||
+   ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.retainedSoraWordCounts) {" "${account_import}" ||
    [ "$(/usr/bin/grep -Fc ".retainedSoraWordCounts" "${account_import_factory}")" -ne 1 ] ||
    ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.retainedSoraWordCounts" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "WalletMnemonicWordPolicy.userImportWordCounts" "${modernization_tests}" ||
@@ -4802,14 +4829,14 @@ if ! /usr/bin/grep -Fq "randomMnemonic(.entropy256)" "${account_create}" ||
    ! /usr/bin/grep -Fq "testVersionOneMigrationPreservesSamePublicKeyOnDifferentNetworks" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "func fetchLegacyEntropyBeforeNetworkActivation(" "${keystore_extensions}" ||
    ! /usr/bin/grep -Fq "return try keystore.fetchLegacyEntropyBeforeNetworkActivation(" "${storage_migrator}" ||
+   ! /usr/bin/grep -Fq "isExplicitWatchOnly: isExplicitWatchOnly" "${wallet_network_model}" ||
    ! /usr/bin/awk '
-       /private func migrateLocked\(/ { in_migrate = 1 }
-       in_migrate && /let isExplicitWatchOnly =/ && stage == 0 { stage = 1 }
-       in_migrate && /legacySecret == nil,/ && stage == 1 { stage = 2 }
-       in_migrate && /!isExplicitWatchOnly/ && stage == 2 { stage = 3 }
-       in_migrate && /fetchLegacyEntropyBeforeNetworkActivation\(/ && stage == 3 { stage = 4 }
-       in_migrate && /private static func wipeSensitive\(/ { in_migrate = 0 }
-       END { exit(stage == 4 ? 0 : 1) }
+       /private func resolveSigningMaterial\(/ { in_resolve = 1 }
+       in_resolve && /if isExplicitWatchOnly \{/ && stage == 0 { stage = 1 }
+       in_resolve && /return material/ && stage == 1 { stage = 2 }
+       in_resolve && /fetchLegacyEntropyBeforeNetworkActivation\(/ && stage == 2 { stage = 3 }
+       in_resolve && /private static func classify\(/ { in_resolve = 0 }
+       END { exit(stage == 3 ? 0 : 1) }
    ' "${wallet_network_model}"; then
     echo "error: new-wallet 24-word policy, public 12/24 import, or retained 15/18/21-word SORA2-only compatibility is not enforced"
     exit 1
@@ -4865,19 +4892,19 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq 'of: #"^(?:0|[1-9][0-9]*)$"#' "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq "try PIMarketCapLiquidityValidator" "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq "enum PIMarketCapCatalogValidator" "${market_cap_operation}" ||
-	   ! /usr/bin/grep -Fq "static let maximumRequestedAssetCount = 2_000" "${market_cap_operation}" ||
+	   ! /usr/bin/grep -Fq "static let maximumRequestedAssetCount = 10_000" "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq "static let maximumAssetIDBytes = 256" "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq "requested.count == requestedAssetIDs.count" "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq "!CharacterSet.controlCharacters.contains(\$0)" "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq ".validatedRequestedAssetIDs(assetIds)" "${market_cap_operation}" ||
 	   ! /usr/bin/grep -Fq "requireExactRequestedCoverage(" "${market_cap_operation}" ||
-	   ! /usr/bin/grep -Fq "PIIndexerClient(endpoint: baseUrl)" "${market_cap_operation}" ||
+	   ! /usr/bin/grep -Fq "try PIIndexerClient.validateProductionEndpoint(baseUrl)" "${market_cap_operation}" ||
 	   ! /usr/bin/awk '
 	       /override public func execute\(\) async throws/ { in_execute = 1 }
 	       in_execute && /\.validatedRequestedAssetIDs\(assetIds\)/ {
 	           admitted = 1
 	       }
-	       in_execute && /client\.allAssets\(\)/ {
+	       in_execute && /try await catalog\(\)/ {
 	           saw_network = 1
 	           if (!admitted) { exit 1 }
 	       }
@@ -4890,9 +4917,9 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "liquidity: liquidity" "${market_cap_service}" ||
 	   ! /usr/bin/grep -Fq "guard result.count == response.count else" "${market_cap_service}" ||
 	   ! /usr/bin/grep -Fq ".validatedRequestedAssetIDs(assetIds)) != nil" "${market_cap_service}" ||
-	   ! /usr/bin/grep -Fq "marketCapInfos.update(with: newValue)" "${market_cap_service}" ||
-	   ! /usr/bin/grep -Fq "let cacheExpired = expiredDate < Date()" "${market_cap_service}" ||
-	   ! /usr/bin/grep -Fq "let findAssetIds = cacheExpired" "${market_cap_service}" ||
+	   ! /usr/bin/grep -Fq "try await PICatalogs.assets.values()" "${market_cap_service}" ||
+	   /usr/bin/grep -Fq "marketCapInfos" "${market_cap_service}" ||
+	   ! /usr/bin/grep -Fq "actor PICatalogStore<Node>" "${pi_client}" ||
 	   /usr/bin/grep -Fq "BigUInt(info.liquidity) ??" "${market_cap_service}" ||
 	   ! /usr/bin/awk '
 	       /let liquidity = Decimal\.fromSubstrateAmount\(/ {
@@ -4907,22 +4934,23 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ' "${market_cap_service}" ||
 	   ! /usr/bin/grep -Fq "struct PIExactFiatData" "${fiat_service}" ||
 	   ! /usr/bin/grep -Fq "actor FiatService: FiatServiceProtocol" "${fiat_service}" ||
-	   ! /usr/bin/grep -Fq "try await client.allAssets()" "${fiat_service}" ||
+	   ! /usr/bin/grep -Fq "try await PICatalogs.assets.snapshot()" "${fiat_service}" ||
+	   ! /usr/bin/grep -Fq "priceUsd: priceUSD.flatMap { \$0.isZero ? nil : \$0 }" "${fiat_service}" ||
 	   /usr/bin/grep -Fq "withCheckedContinuation" "${fiat_service}" ||
-	   ! /usr/bin/grep -Fq "priceUsd: asset.priceUSD" "${fiat_operation}" ||
-	   ! /usr/bin/grep -Fq "PIIndexerClient(endpoint: baseUrl)" "${fiat_operation}" ||
+	   ! /usr/bin/grep -Fq "try await PICatalogs.assets.values().map(\\.fiatData)" "${fiat_operation}" ||
+	   ! /usr/bin/grep -Fq "try PIIndexerClient.validateProductionEndpoint(baseUrl)" "${fiat_operation}" ||
 	   /usr/bin/grep -Fq "KotlinDouble" "${fiat_operation}" ||
 	   ! /usr/bin/grep -Fq "actor APYService" "${apy_service}" ||
-	   ! /usr/bin/grep -Fq "private var catalogRefresh: CatalogRefresh?" "${apy_service}" ||
+	   ! /usr/bin/grep -Fq "try await PICatalogs.pools.values()" "${apy_service}" ||
 	   ! /usr/bin/grep -Fq "if let flight = requestFlights[key]" "${apy_service}" ||
-	   ! /usr/bin/grep -Fq "try await client.allPoolXYKs()" "${apy_service}" ||
-	   ! /usr/bin/grep -Fq "return hasValidatedSnapshot ? apy : nil" "${apy_service}" ||
+	   ! /usr/bin/grep -Fq "guard let catalog = await loadCatalog(), !catalog.isEmpty else {" "${apy_service}" ||
+	   ! /usr/bin/grep -Fq "A validated empty catalog is a value, not \`nil\`." "${apy_service}" ||
 	   ! /usr/bin/grep -Fq "withTaskCancellationHandler(" "${apy_service}" ||
 	   ! /usr/bin/grep -Fq "gate.resume(returning: nil)" "${apy_service}" ||
 	   /usr/bin/grep -Fq "SubqueryApyInfoOperation" "${apy_service}" ||
 	   ! /usr/bin/grep -Fq "struct PIExactApyInfo" "${apy_operation}" ||
 	   ! /usr/bin/grep -Fq "sbApy: pool.strategicBonusApy" "${apy_operation}" ||
-	   ! /usr/bin/grep -Fq "PIIndexerClient(endpoint: baseUrl)" "${apy_operation}" ||
+	   ! /usr/bin/grep -Fq "try PIIndexerClient.validateProductionEndpoint(baseUrl)" "${apy_operation}" ||
 	   /usr/bin/grep -Fq "KotlinDouble" "${apy_operation}" ||
 	   ! /usr/bin/grep -Fq "testPIFiatAndApyAdaptersPreserveExactWireValues" "${modernization_tests}" ||
    [ "$(/usr/bin/grep -Fc 'PIQuantity.maximumWireBytes' "${nexus_service}")" -lt 3 ] ||
@@ -4936,7 +4964,8 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
    ! /usr/bin/grep -Fq "let health: PIHealth?" "${pi_client}" ||
    ! /usr/bin/grep -Fq "var cacheIdentity = Data(endpoint.absoluteString.utf8)" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "health(requireLive: true)" "${pi_client}" ||
-	   ! /usr/bin/grep -Fq "validateStableResponseCheckpoint(" "${pi_client}" ||
+	   ! /usr/bin/grep -Fq "static func settledResponseCheckpoint(" "${pi_client}" ||
+	   ! /usr/bin/grep -Fq "static func validatePageCheckpoint(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "let postflightHealth = try await health(requireLive: true)" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validateResponseHeights(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validateConnectionPage(" "${pi_client}" ||
@@ -4956,7 +4985,8 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "accuracySummary { accuracyPercent }" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validateAssets(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "let priceChangeDay: Double?" "${pi_client}" ||
-	   ! /usr/bin/grep -Fq "let volumeDayUSD: PIQuantity?" "${pi_client}" ||
+	   ! /usr/bin/grep -Fq "PI serves \`volumeDayUSD\` and" "${pi_client}" ||
+	   /usr/bin/grep -Fq "let volumeDayUSD:" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validatePools(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validateReferrerRewards(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "func allReferrerRewards(" "${pi_client}" ||
@@ -4971,7 +5001,7 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validatedPendingTransactionHashes(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "func qualifiedHistoryByTransactionHashes(" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "validateAccountHistory(" "${pi_client}" ||
-	   ! /usr/bin/grep -Fq '"or": [' "${pi_client}" ||
+	   ! /usr/bin/grep -Fq 'filter["or"] = [' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq '["address": ["equalTo": address]]' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq '["dataFrom": ["equalTo": address]]' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq '["dataTo": ["equalTo": address]]' "${pi_client}" ||
@@ -5013,10 +5043,10 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq '$0.blockHash.flatMap(' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "qualification: PIReadQualification(" "${pi_client}" ||
    ! /usr/bin/grep -Fq "guard let health = entry.health" "${pi_client}" ||
-   ! /usr/bin/grep -Fq "if let expectedQualification" "${pi_client}" ||
+   ! /usr/bin/grep -Fq "if let previous = expectedQualification {" "${pi_client}" ||
    ! /usr/bin/grep -Fq "PIHistoryCheckpointValidator.validate(" "${pi_history_operation}" ||
 	   ! /usr/bin/grep -Fq "PIHistoryPageValidator.validate(" "${pi_history_operation}" ||
-	   ! /usr/bin/grep -Fq "client.qualifiedHistoryPage(" "${pi_history_operation}" ||
+	   ! /usr/bin/grep -Fq "client.qualifiedHistoryPageWithCoverage(" "${pi_history_operation}" ||
 	   /usr/bin/grep -Fq "offset: offset" "${pi_history_operation}" ||
 	   /usr/bin/grep -Fq '$offset' "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "for currentPage in 1 ... page" "${pi_client}" ||
@@ -5084,7 +5114,7 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
    ! /usr/bin/grep -Fq "testPIHistoryRejectsIncoherentPageMetadataAndDuplicateIDs" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "testPIPaginationRejectsMixedCacheSourceOrCheckpoint" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "testPIPaginationRejectsOverlappingItemIdentities" "${modernization_tests}" ||
-	   ! /usr/bin/grep -Fq "testPIResponseRequiresStablePreflightAndPostflightCheckpoint" "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq "testPIResponseFollowsAForwardCheckpointAndRejectsABackwardOne" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "testPIResponseRowsCannotExceedAttributedCheckpoint" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "testPIReturnedPolkamarktRowsAreBoundToRequestedIdentity" "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq "testPIPendingLookupRequiresBoundedUniqueCanonicalHashes" "${modernization_tests}" ||
@@ -5101,7 +5131,7 @@ if ! /usr/bin/grep -Fq "static let maximumWireBytes = 4_096" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq ".isSymbolicLinkKey" "${pi_history_operation}" ||
    ! /usr/bin/grep -Fq "liveError.allowsOfflineFallback" "${pi_client}" ||
    ! /usr/bin/grep -Fq "Self.allowsOfflineTransportFallback(liveError)" "${pi_client}" ||
-   ! /usr/bin/grep -Fq "testPICacheFallbackAllowsOnlyTransientTransportErrors" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testPICacheFallbackAllowsOnlyFailuresWherePIGaveNoAnswer" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "values.count <= pageSize" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "(1 ... 100).contains(maximumPages)" "${pi_client}" ||
 	   ! /usr/bin/grep -Fq "seenItemIdentities.insert" "${pi_client}" ||
@@ -5887,11 +5917,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "236" ] ||
+    if [ "${modernization_test_count}" != "237" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 262 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 263 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -6084,15 +6114,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "236" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 236 test methods"
+if [ "${modernization_test_count}" != "237" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 237 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 262 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 262-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 263 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 263-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(
@@ -6683,7 +6713,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
    ! /usr/bin/grep -Fq 'markWalletStorageReadyAndResume()' "${splash_interactor}" ||
    ! /usr/bin/grep -Fq 'NexusTransactionRuntime.shared' "${nexus_ui}" ||
    ! /usr/bin/grep -Fq 'resumePendingNexusTransactions()' "${app_delegate}" ||
-   ! /usr/bin/grep -Fq 'func applicationWillEnterForeground' "${app_delegate}" ||
+   ! /usr/bin/grep -Fq 'func sceneWillEnterForeground()' "${app_delegate}" ||
    ! /usr/bin/grep -Fq 'URLQueryItem(name: "scope", value: "global")' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'status.hasAuthoritativeGlobalResolution' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'while cursor.hasMore' "${nexus_service}" ||
@@ -6778,7 +6808,7 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq 'isCanonicalRouteID($0, maximum: UInt64(UInt32.max))' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'isCanonicalRouteID($0, maximum: UInt64.max)' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'requiresFanout: requiresFanout' "${nexus_service}" ||
-	   [ "$(/usr/bin/grep -Fc 'requiresFanout: true' "${nexus_service}")" -lt 4 ] ||
+	   [ "$(/usr/bin/grep -Fc 'requiresFanout: true' "${nexus_service}")" -lt 3 ] ||
 	   ! /usr/bin/grep -Fq 'Self.responseAcceptHeader(for: url)' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'struct NexusAssetDefinition: Decodable, Equatable' "${nexus_service}" ||
 	   ! /usr/bin/grep -Fq 'case aliasBinding = "alias_binding"' "${nexus_service}" ||
@@ -7216,7 +7246,7 @@ if /usr/bin/grep -Fq "createSilentImportInteractor" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "performLegacyWalletUpgrade" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "shouldDeferStorageMigration" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "LegacyWalletUpgradePolicy.shouldDeferStorageMigration" "${splash_interactor}" ||
-   ! /usr/bin/grep -Fq "keystore: keychain" "${splash_interactor}" ||
+   ! /usr/bin/grep -Fq "storeExists: fileManager.fileExists(atPath: storeURL.path)," "${splash_interactor}" ||
    ! /usr/bin/grep -Fq "legacyIrohaKeyVerified: Bool = false" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "verifyLegacyIrohaKeyIfPresent(entropy: entropy)" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "verifyLegacyIrohaKeyIfPresent(entropy: legacyEntropy)" "${keystore_extensions}" ||
@@ -7227,7 +7257,7 @@ if /usr/bin/grep -Fq "createSilentImportInteractor" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "expectedDisplayName" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "LegacyWalletUpgradeSecretRetention" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "activeSnapshot: current" "${wallet_network_model}" ||
-   ! /usr/bin/grep -Fq "entropy = try keystore.loadIfKeyExists(scopedEntropyTag)" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "if let scoped = try self.keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address)) {" "${wallet_network_model}" ||
    ! /usr/bin/grep -Fq "prepared.discard()" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "scopedTags.allSatisfy" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "let expectedNetworks: Set<NetworkId>" "${root_interactor}" ||
@@ -7236,7 +7266,7 @@ if /usr/bin/grep -Fq "createSilentImportInteractor" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "legacyUpgradeInteractorFactory" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "if legacyUpgradeSelectedAccount() == nil" "${root_interactor}" ||
    /usr/bin/grep -Fq "if !settings.hasSelectedAccount" "${root_interactor}" ||
-   ! /usr/bin/grep -Fq "preparedAccountPersistence" "${account_import}" ||
+   ! /usr/bin/grep -Fq "private let preparedAccountPersistence: (PreparedAccount) throws -> Void" "${account_import_interactor}" ||
    ! /usr/bin/grep -Fq "lifecycleCoordinator: WalletLifecycleCoordinator = .shared" "${account_import_commit}" ||
    ! /usr/bin/grep -Fq "consumeWithoutPersisting(" "${account_import_factory}" ||
    ! /usr/bin/grep -Fq "walletAccountCommitJournalStoreFactory" "${selected_wallet_settings}" ||
@@ -7259,8 +7289,8 @@ if /usr/bin/grep -Fq "createSilentImportInteractor" "${root_interactor}" ||
    ! /usr/bin/grep -Fq "migratedSnapshot.accounts.map" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "secretOnlySnapshot" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq ".legacySecret" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq "Continue protected upgrade" "${root_wireframe}" ||
-   ! /usr/bin/grep -Fq "original Keychain entry will not be deleted or replaced" "${root_wireframe}"; then
+   ! /usr/bin/grep -Fq 'continueButton = WalletSafeMode.button(.safe, title: WalletUX.text("Upgrade wallet"))' "${root_wireframe}" ||
+   ! /usr/bin/grep -Fq "The original Keychain entry is not deleted or replaced in this release." "${root_wireframe}"; then
     echo "error: legacy wallet upgrade is not explicit, journaled, and lossless"
     exit 1
 fi

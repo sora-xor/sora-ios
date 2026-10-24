@@ -496,9 +496,18 @@ class VendoredBinaryQualificationTests(unittest.TestCase):
         verifier = load_verifier()
         left = verifier.inventory_tree(verifier.ARTIFACTS[3][1], "left sorawallet")
         right = verifier.inventory_tree(verifier.ARTIFACTS[5][1], "right sorawallet")
+        # 3.9.x (e6584e45) gave only the embedded copy (SoraWalletBinary) its
+        # own privacy manifest; every other file, the binaries and dSYMs
+        # included, is the same in both copies.
+        privacy = {
+            "ios-arm64/sorawallet.framework/PrivacyInfo.xcprivacy",
+            "ios-arm64_x86_64-simulator/sorawallet.framework/PrivacyInfo.xcprivacy",
+        }
+        self.assertTrue(privacy.issubset(right))
+        self.assertFalse(privacy.intersection(left))
         self.assertEqual(
             {path: value[0] for path, value in left.items()},
-            {path: value[0] for path, value in right.items()},
+            {path: value[0] for path, value in right.items() if path not in privacy},
         )
 
 
