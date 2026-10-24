@@ -99,7 +99,7 @@ final class RedesignWalletViewModel {
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
     let assetsViewModelService: AssetsItemService
-    /// `portfolioView` (off in Release builds): the portfolio replaces the account header and the
+    /// `portfolioView` (on in every build): the portfolio replaces the account header and the
     /// Assets card. Without it the home is exactly what it was.
     let portfolioEnabled: Bool
     var portfolioHome: PortfolioHome?
