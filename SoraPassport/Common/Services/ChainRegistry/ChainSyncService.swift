@@ -237,6 +237,20 @@ final class ChainSyncService {
             iosMinAppVersion: matchingLocal?.iosMinAppVersion
         )
         let whitelist = whitelistData.flatMap { try? JSONDecoder().decode([Whitelist].self, from: $0) }
+        // Every launch first saves the chain without waiting for the whitelist.
+        // Rebuilding the assets from bare network metadata then replaced the
+        // icons and names the last whitelisted sync stored, and the wallet
+        // showed no icons. Keep the stored assets until a whitelist arrives.
+        if whitelist == nil, let storedAssets = matchingLocal?.assets, !storedAssets.isEmpty {
+            chain.assets = Set(storedAssets.compactMap { stored in
+                stored.asset.map {
+                    ChainAssetModel(assetId: stored.assetId, staking: stored.staking,
+                                    purchaseProviders: stored.purchaseProviders,
+                                    type: stored.type, asset: $0, chain: chain)
+                }
+            })
+            return chain
+        }
         let retainedAssets = assets.isEmpty ? (matchingLocal?.assets.compactMap { $0.asset } ?? []) : assets
         let chainAssets = retainedAssets.compactMap { originalAsset -> ChainAssetModel? in
             var asset = originalAsset

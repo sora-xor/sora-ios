@@ -2220,6 +2220,67 @@ final class PIIndexerClient {
         }
     }
 
+    /// USD prices, liquidity and daily change for display; they never affect
+    /// balances or signing. One live health read binds the walk to the
+    /// reviewed indexer and a fresh checkpoint, but the pages are not pinned
+    /// to one block. PI indexes a SORA block every 6 seconds and a pinned
+    /// page needs three requests, so the ten-page `allAssets` walk never
+    /// finished and the wallet never showed a price.
+    func allAssetMarketData(
+        pageSize: Int = 100,
+        maximumPages: Int = 20
+    ) async throws -> [PIAsset] {
+        _ = try await health(requireLive: true)
+        return try await collectPagesCore(
+            pageSize: pageSize,
+            maximumPages: maximumPages,
+            requireQualification: false,
+            itemIdentity: { $0.id }
+        ) { after in
+            PIQualifiedRead(
+                value: try await self.assetMarketDataPage(
+                    first: pageSize,
+                    after: after
+                ),
+                qualification: nil
+            )
+        }.value
+    }
+
+    private func assetMarketDataPage(
+        first: Int,
+        after: String?
+    ) async throws -> PIConnection<PIAsset> {
+        try validate(pageSize: first)
+        try Self.validateCursor(after)
+        struct Payload: Decodable { let assets: PIConnection<PIAsset> }
+        let payload: Payload = try await execute(
+            operationName: "MobileAssetMarketData",
+            query: """
+            query MobileAssetMarketData($first: Int!, $after: Cursor) {
+              assets(first: $first, after: $after, orderBy: [ID_ASC]) {
+                nodes { id priceUSD liquidity priceChangeDay }
+                pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
+                totalCount
+              }
+            }
+            """,
+            variables: compact(["first": first, "after": after]),
+            cachePolicy: .none,
+            checkpointBound: false,
+            validateResponse: { payload, _ in
+                try Self.validateConnectionPage(
+                    payload.assets,
+                    requestedSize: first,
+                    hasPriorPage: after != nil,
+                    itemIdentity: { $0.id }
+                )
+                try Self.validateAssets(payload.assets.values)
+            }
+        )
+        return payload.assets
+    }
+
     func poolXYKs(
         first: Int = 100,
         after: String? = nil
@@ -3103,6 +3164,7 @@ final class PIIndexerClient {
         query: String,
         variables: [String: Any] = [:],
         cachePolicy: CachePolicy,
+        checkpointBound: Bool = true,
         validateResponse: (Payload, PIReadQualification?) throws -> Void = { _, _ in }
     ) async throws -> Payload {
         try await executeQualified(
@@ -3110,15 +3172,20 @@ final class PIIndexerClient {
             query: query,
             variables: variables,
             cachePolicy: cachePolicy,
+            checkpointBound: checkpointBound,
             validateResponse: validateResponse
         ).value
     }
 
+    /// `checkpointBound: false` skips the per-request health preflight and
+    /// postflight and returns no qualification. Only display reads that do
+    /// their own health check may pass it (`allAssetMarketData`).
     private func executeQualified<Payload: Decodable>(
         operationName: String,
         query: String,
         variables: [String: Any] = [:],
         cachePolicy: CachePolicy,
+        checkpointBound: Bool = true,
         validateResponse: (Payload, PIReadQualification?) throws -> Void = { _, _ in }
     ) async throws -> PIQualifiedRead<Payload> {
         // Legacy operation adapters still pass their configured base URL into this client. The
@@ -3144,7 +3211,7 @@ final class PIIndexerClient {
 
         do {
             let liveHealth: PIHealth?
-            if operationName != "MobileHealth" {
+            if operationName != "MobileHealth" && checkpointBound {
                 // A cached health record is not sufficient to authorize fresh
                 // indexed data because its finalized checkpoint may be stale.
                 // If the live preflight is unreachable, the outer operation

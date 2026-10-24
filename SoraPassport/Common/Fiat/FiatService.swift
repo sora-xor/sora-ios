@@ -62,7 +62,7 @@ actor FiatService: FiatServiceProtocol {
         }
 
         do {
-            let response = try await client.allAssets().map {
+            let response = try await client.allAssetMarketData().map {
                 PIExactFiatData(id: $0.id, priceUsd: $0.priceUSD)
             }
             fiatData = response

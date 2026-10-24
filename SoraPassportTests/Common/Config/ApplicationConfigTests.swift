@@ -194,6 +194,28 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertNil(different.customNodes)
     }
 
+    func testChainSyncKeepsWhitelistIconsUntilAFreshWhitelistArrives() {
+        // Each launch first saves the chain before the whitelist download
+        // finishes. Building it from bare network assets dropped the icons
+        // the last whitelisted sync stored.
+        var listed = AssetInfo.xor
+        listed.icon = "data:image/svg+xml;base64,PHN2Zy8+"
+        let local = configuredChain()
+        local.assets = [ChainAssetModel(assetId: listed.assetId, type: .normal, asset: listed, chain: local)]
+
+        let val = AssetInfo(id: WalletAssetId.val.rawValue, symbol: "VAL", chainId: "", precision: 18,
+                            icon: nil, displayName: nil, visible: true)
+
+        let bootstrap = ChainSyncService.preparedChain(
+            chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
+            typesURL: nil, local: local, assets: [.xor, val], whitelistData: nil
+        )
+
+        XCTAssertEqual(bootstrap.assets.map { $0.assetId }, [listed.assetId])
+        XCTAssertEqual(bootstrap.assets.first?.asset.icon, listed.icon)
+        XCTAssertTrue(bootstrap.assets.allSatisfy { $0.chain === bootstrap })
+    }
+
     func testChainSyncSavesOneNodePerURLWhenTheIndexerNamesABundledNodeDifferently() throws {
         // The Polkaswap indexer's mobile config names mof2 "Sora", while the
         // bundled list names it after the Parliament Ministry of Finance.
