@@ -561,6 +561,14 @@ final class SplashInteractor: SplashInteractorProtocol {
         }
     }
 
+    /// Storage checks and routing only, for an in-process restart after the
+    /// network bootstrap (config, genesis, asset metadata) already ran.
+    func verifyWalletStorage() {
+        Task { @MainActor [weak self] in
+            self?.startChain()
+        }
+    }
+
     func retryStorageMigration() {
         migrationStateLock.lock()
         guard isAwaitingStorageRetry else {

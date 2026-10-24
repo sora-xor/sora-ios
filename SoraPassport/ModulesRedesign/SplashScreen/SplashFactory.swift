@@ -47,7 +47,10 @@ protocol SplashViewProtocol: AnyObject {
 }
 
 final class SplashPresenterFactory {
-    static func createSplashPresenter(with window: SoraWindow) {
+    /// `reusingNetworkBootstrap` reruns only the wallet storage checks and
+    /// routing. Recovery uses it after this process already finished the
+    /// network bootstrap: a second bootstrap session stalls in asset loading.
+    static func createSplashPresenter(with window: SoraWindow, reusingNetworkBootstrap: Bool = false) {
         let presenter = SplashPresenter(window: window)
         let interactor = SplashInteractor(settings: SettingsManager.shared,
                                           socketService: WebSocketService.shared,
@@ -61,7 +64,11 @@ final class SplashPresenterFactory {
 
         interactor.presenter = presenter
 
-        interactor.setup()
+        if reusingNetworkBootstrap {
+            interactor.verifyWalletStorage()
+        } else {
+            interactor.setup()
+        }
         window.rootViewController = view
     }
 }

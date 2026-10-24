@@ -71,6 +71,26 @@ enum FailureAuthCount: Int {
     }
 }
 
+/// PIN attempts are also kept in the Keychain. Settings are deleted with the
+/// app but Keychain items are not, so reinstalling SORA to reach a restored
+/// wallet's PIN screen cannot reset the attempt count or an active wait.
+struct PinAttemptRecord: Codable, Equatable {
+    static let keystoreTag = "pincodeAttempts"
+
+    var failures: Int
+    var blockedUntil: Int?
+
+    static func load(from keystore: KeystoreProtocol) -> PinAttemptRecord? {
+        guard let data = try? keystore.loadIfKeyExists(keystoreTag) else { return nil }
+        return try? JSONDecoder().decode(Self.self, from: data)
+    }
+
+    func save(to keystore: KeystoreProtocol) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        try? keystore.saveKey(data, with: Self.keystoreTag)
+    }
+}
+
 class LocalAuthInteractor {
 
     enum LocalAuthState {
@@ -86,9 +106,12 @@ class LocalAuthInteractor {
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
     private(set) var locale: Locale
+    private let attemptStore: KeystoreProtocol
     private var failCounter: Int = 0 {
         didSet {
             settingsManager.failInputPinCount = failCounter
+            var record = PinAttemptRecord(failures: failCounter, blockedUntil: nil)
+            defer { record.save(to: attemptStore) }
 
             let failCount = FailureAuthCount(rawValue: failCounter) ?? .unknown
 
@@ -105,6 +128,7 @@ class LocalAuthInteractor {
             let date = Date().addingTimeInterval(blockTimeInterval)
             
             settingsManager.inputBlockTimeInterval = Int(date.timeIntervalSince1970)
+            record.blockedUntil = Int(date.timeIntervalSince1970)
             presenter?.blockUserInputUntil(date: date)
         }
     }
@@ -112,12 +136,17 @@ class LocalAuthInteractor {
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
          biometryAuth: BiometryAuthProtocol,
-         locale: Locale) {
+         locale: Locale,
+         attemptStore: KeystoreProtocol = Keychain()) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.locale = locale
-        self.failCounter = settingsManager.failInputPinCount ?? 0
+        self.attemptStore = attemptStore
+        self.failCounter = max(
+            settingsManager.failInputPinCount ?? 0,
+            PinAttemptRecord.load(from: attemptStore)?.failures ?? 0
+        )
     }
 
     private(set) var state = LocalAuthState.waitingPincode {
@@ -190,7 +219,11 @@ class LocalAuthInteractor {
 
 extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
     func getInputBlockDate() -> Date? {
-        guard let timeInterval = settingsManager.inputBlockTimeInterval else { return nil }
+        let blockedUntil = [
+            settingsManager.inputBlockTimeInterval,
+            PinAttemptRecord.load(from: attemptStore)?.blockedUntil,
+        ].compactMap { $0 }.max()
+        guard let timeInterval = blockedUntil else { return nil }
         return Date(timeIntervalSince1970: TimeInterval(timeInterval))
     }
 

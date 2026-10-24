@@ -23,6 +23,7 @@
 		B66B00012F5B000000000006 /* WalletUX.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000103 /* WalletUX.swift */; };
 		A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66B00012F5B000000000110 /* IrohaConnectTests.swift */; };
 		B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66B00012F5B000000000110 /* WalletUXTests.swift */; };
+		8F11DE192951190F1B5192CA /* WalletRecoveryExitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB3B4F0A986439C2EE62500 /* WalletRecoveryExitsTests.swift */; };
 		A66F00012F5D000000000001 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */; };
 		A66F00012F5D000000000002 /* NotoSansEgyptianHieroglyphs-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000101 /* NotoSansEgyptianHieroglyphs-Regular.ttf */; };
 		A66F00012F5D000000000003 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
@@ -104,6 +105,7 @@
 		02623EE92179AD390011250E /* RootInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EE82179AD390011250E /* RootInteractor.swift */; };
 		02623EEB2179AD440011250E /* RootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEA2179AD440011250E /* RootPresenter.swift */; };
 		02623EED2179AD4F0011250E /* RootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEC2179AD4F0011250E /* RootWireframe.swift */; };
+		501E0B186204650F4F5ED0BF /* WalletRecoveryExits.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21D5BC08696ABB1576A2019 /* WalletRecoveryExits.swift */; };
 		02623EEF2179AD5B0011250E /* RootProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEE2179AD5B0011250E /* RootProtocol.swift */; };
 		02623EF32179B0080011250E /* RootPresenterFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EF22179B0080011250E /* RootPresenterFactory.swift */; };
 		02623EFB2179D0E10011250E /* ControllerBackedProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EFA2179D0E10011250E /* ControllerBackedProtocol.swift */; };
@@ -2690,6 +2692,7 @@
 		EC8DF49B881C3439C3A9CE2E /* TotalRewardsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3661C9D42850BF2500660434 /* TotalRewardsCell.swift */; };
 		EC976BA5EA828CE4353C5C87 /* ServiceUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0298792E2181FCB80085E605 /* ServiceUnit.swift */; };
 		ECE7242CBEDD0B6BEFF2143C /* RootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEC2179AD4F0011250E /* RootWireframe.swift */; };
+		4EA00B07706D1B878D192D35 /* WalletRecoveryExits.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21D5BC08696ABB1576A2019 /* WalletRecoveryExits.swift */; };
 		ED08DD7581D5550F299770F5 /* NetworkMockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208CECE217E76E30043FCD7 /* NetworkMockManager.swift */; };
 		ED0FA049EC068A3A961C5980 /* AccountCreatePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197A29EDC5CA00B3E3BF /* AccountCreatePresenter.swift */; };
 		ED1FBCB936ECF2E8173EEBD4 /* OnboardingRootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */; };
@@ -2825,6 +2828,7 @@
 		B66B00012F5B000000000103 /* WalletUX.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUX.swift; sourceTree = "<group>"; };
 		A66B00012F5B000000000110 /* IrohaConnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectTests.swift; sourceTree = "<group>"; };
 		B66B00012F5B000000000110 /* WalletUXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUXTests.swift; sourceTree = "<group>"; };
+		EDB3B4F0A986439C2EE62500 /* WalletRecoveryExitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExitsTests.swift; sourceTree = "<group>"; };
 		A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletMigrationRetainedDeviceEvidenceTests.swift; sourceTree = "<group>"; };
 		A10000150000000000000001 /* NexusWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWalletService.swift; sourceTree = "<group>"; };
 		A10000160000000000000001 /* PolkamarktRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktRuntime.swift; sourceTree = "<group>"; };
@@ -2896,6 +2900,7 @@
 		02623EE82179AD390011250E /* RootInteractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootInteractor.swift; sourceTree = "<group>"; };
 		02623EEA2179AD440011250E /* RootPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootPresenter.swift; sourceTree = "<group>"; };
 		02623EEC2179AD4F0011250E /* RootWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootWireframe.swift; sourceTree = "<group>"; };
+		C21D5BC08696ABB1576A2019 /* WalletRecoveryExits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExits.swift; sourceTree = "<group>"; };
 		02623EEE2179AD5B0011250E /* RootProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootProtocol.swift; sourceTree = "<group>"; };
 		02623EF22179B0080011250E /* RootPresenterFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootPresenterFactory.swift; sourceTree = "<group>"; };
 		02623EFA2179D0E10011250E /* ControllerBackedProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerBackedProtocol.swift; sourceTree = "<group>"; };
@@ -4516,6 +4521,7 @@
 			children = (
 				A66B00012F5B000000000110 /* IrohaConnectTests.swift */,
 				B66B00012F5B000000000110 /* WalletUXTests.swift */,
+				EDB3B4F0A986439C2EE62500 /* WalletRecoveryExitsTests.swift */,
 				A10000210000000000000001 /* WalletModernizationTests.swift */,
 				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
 				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
@@ -4876,6 +4882,7 @@
 				02623EEA2179AD440011250E /* RootPresenter.swift */,
 				02623EE82179AD390011250E /* RootInteractor.swift */,
 				02623EEC2179AD4F0011250E /* RootWireframe.swift */,
+				C21D5BC08696ABB1576A2019 /* WalletRecoveryExits.swift */,
 				02623EF22179B0080011250E /* RootPresenterFactory.swift */,
 			);
 			path = Root;
@@ -9106,6 +9113,7 @@
 				104BD29F25694381007719DF /* Localizable.swift in Sources */,
 				84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */,
 				02623EED2179AD4F0011250E /* RootWireframe.swift in Sources */,
+				501E0B186204650F4F5ED0BF /* WalletRecoveryExits.swift in Sources */,
 				9441FB2D25CAE65D00775559 /* KeystoreImportService.swift in Sources */,
 				84CD3AEA232A5ED00076E056 /* RemoteEnviroment.swift in Sources */,
 				36E350032BA090D3005A44BC /* TransferPresenterError.swift in Sources */,
@@ -10158,6 +10166,7 @@
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
 				A10000F00000000000000003 /* SceneLifecycleTests.swift in Sources */,
 				B66B00012F5B000000000010 /* WalletUXTests.swift in Sources */,
+				8F11DE192951190F1B5192CA /* WalletRecoveryExitsTests.swift in Sources */,
 				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
 				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
 				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
@@ -10408,6 +10417,7 @@
 				63B2C68295CB03A8F2DADF91 /* Localizable.swift in Sources */,
 				22763254F0F4E4A143348E7C /* BaseService.swift in Sources */,
 				ECE7242CBEDD0B6BEFF2143C /* RootWireframe.swift in Sources */,
+				4EA00B07706D1B878D192D35 /* WalletRecoveryExits.swift in Sources */,
 				8E46F986FD1F64BD3415F36C /* KeystoreImportService.swift in Sources */,
 				63C97072CCEBFF9251297BAC /* RemoteEnviroment.swift in Sources */,
 				151F18EA7EFAC2E43DB3D219 /* TransferPresenterError.swift in Sources */,
