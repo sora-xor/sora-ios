@@ -198,10 +198,22 @@ final class WalletNetworkPickerViewController: WalletTableViewController {
             cell.accessoryView = tagView
         }
         cell.selectionStyle = choice.isAvailable ? .default : .none
-        cell.contentView.alpha = choice.isAvailable ? 1 : 0.5
         cell.accessibilityIdentifier = "wallet.network-choice.\(choice.network.id.rawValue)"
         cell.accessibilityTraits = choice.isAvailable ? .button : [.button, .notEnabled]
         return cell
+    }
+
+    override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        super.tableView(tableView, willDisplay: cell, forRowAt: indexPath)
+        // The base table styles every row as enabled: a network that cannot be
+        // used for this action must read as unavailable.
+        guard !choices[indexPath.row].isAvailable else { return }
+        if var content = cell.contentConfiguration as? UIListContentConfiguration {
+            content.textProperties.color = WalletUX.secondary
+            content.secondaryTextProperties.color = WalletUX.secondary
+            cell.contentConfiguration = content
+        }
+        cell.accessoryView?.alpha = 0.5
     }
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
