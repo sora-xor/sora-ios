@@ -7,6 +7,39 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		15B113F64305B4A8983D646E /* PortfolioModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8368AD1CBEF58CB8EB1C2EC0 /* PortfolioModels.swift */; };
+		97414946E87834C1F7E4B4EB /* PortfolioModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8368AD1CBEF58CB8EB1C2EC0 /* PortfolioModels.swift */; };
+		3DCB2514539F00FCE6C2C378 /* PortfolioFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A690FF7C0F6FB4ECBC6F7B1 /* PortfolioFormat.swift */; };
+		9448FFA59E7E1CC01DEC16ED /* PortfolioFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A690FF7C0F6FB4ECBC6F7B1 /* PortfolioFormat.swift */; };
+		1D4454100DAB516D777D57E5 /* PortfolioPolicies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488217F14C1A91FB042082A4 /* PortfolioPolicies.swift */; };
+		8383079208749D5980209BE7 /* PortfolioPolicies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488217F14C1A91FB042082A4 /* PortfolioPolicies.swift */; };
+		AC5963A779BA47C83CF55402 /* PortfolioAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A765A3036C8B160FD16BC686 /* PortfolioAggregator.swift */; };
+		E5C3E3224BB1E78548E20D3E /* PortfolioAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A765A3036C8B160FD16BC686 /* PortfolioAggregator.swift */; };
+		19A73F4C9E3B62C25864237E /* PortfolioAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CDF7ABF99E8E81B32137CA /* PortfolioAllocation.swift */; };
+		8DB13BC7F64A409A45123075 /* PortfolioAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CDF7ABF99E8E81B32137CA /* PortfolioAllocation.swift */; };
+		93BFBF97A389F8B8D8B3769C /* PortfolioTiltMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD65BFA64BA9D1922F44D08D /* PortfolioTiltMath.swift */; };
+		7312B583A9378E7C19854BB1 /* PortfolioTiltMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD65BFA64BA9D1922F44D08D /* PortfolioTiltMath.swift */; };
+		3571848163677D807C014B0B /* PortfolioStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F633BDD1DA80FC6B9FF5173 /* PortfolioStrings.swift */; };
+		E7E8978672A6855C11596FFA /* PortfolioStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F633BDD1DA80FC6B9FF5173 /* PortfolioStrings.swift */; };
+		465E455A4153517FB7CF067A /* PortfolioPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA550BB5C7BE3666BB53199 /* PortfolioPresentation.swift */; };
+		BD65EBB9B11F54E84C680AA0 /* PortfolioPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA550BB5C7BE3666BB53199 /* PortfolioPresentation.swift */; };
+		5B50AC1F9FED0E4210BAF0E8 /* PortfolioDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = F906D077B36225288B9C9D38 /* PortfolioDetail.swift */; };
+		F3E56544900835E720D63412 /* PortfolioDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = F906D077B36225288B9C9D38 /* PortfolioDetail.swift */; };
+		5BEB66BB92B0E9EC99166FE4 /* PortfolioViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9900BD018D89E2E65A601606 /* PortfolioViewModel.swift */; };
+		741434B27E5D655166D29805 /* PortfolioViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9900BD018D89E2E65A601606 /* PortfolioViewModel.swift */; };
+		8320CA01B60B6DAC820BED9C /* PortfolioHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 618FEE754B8D6B6563CE1B1B /* PortfolioHandoff.swift */; };
+		AB2F7AF752215125B5532F8E /* PortfolioHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 618FEE754B8D6B6563CE1B1B /* PortfolioHandoff.swift */; };
+		0AF3C050C67FEF956CE0EEC0 /* PortfolioSampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1E6416A800A78C50BE9656 /* PortfolioSampleData.swift */; };
+		C2D065A00B0C73E0DAB7C389 /* PortfolioSampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1E6416A800A78C50BE9656 /* PortfolioSampleData.swift */; };
+		72D48C4531BD07B1E254958E /* PortfolioBalanceReaders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0037D5FC6B68171BD85A84AD /* PortfolioBalanceReaders.swift */; };
+		F829FD54C9DEB58D064FF134 /* PortfolioBalanceReaders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0037D5FC6B68171BD85A84AD /* PortfolioBalanceReaders.swift */; };
+		ED6D1FB274E31F8045DD7414 /* PortfolioDataSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE9E47BA86C35CFF468A894 /* PortfolioDataSources.swift */; };
+		30D76D5C3CF998A4D4F2162D /* PortfolioDataSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE9E47BA86C35CFF468A894 /* PortfolioDataSources.swift */; };
+		2B63DE59EADC00727644FBAC /* PortfolioTiltMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FFC7C58D10BFD6ED9FC1712 /* PortfolioTiltMathTests.swift */; };
+		FBEA46B47B37258E25704362 /* PortfolioAggregatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D05A8360144C8C29CCD08D2 /* PortfolioAggregatorTests.swift */; };
+		6BEAD00320D65DAB84C3872E /* PortfolioPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33F1B41D1EE9EFE379B0891 /* PortfolioPresenterTests.swift */; };
+		050996BF9C6A89601AC9064D /* PortfolioSnapshotBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1650CA6C7E5B5E31FFBE566D /* PortfolioSnapshotBuilderTests.swift */; };
+		F59E9197F7F4FC5DC4D09B00 /* parallax-vectors.json in Resources */ = {isa = PBXBuildFile; fileRef = 33B81B57FECAA3C824A84CF3 /* parallax-vectors.json */; };
 		C0DEA03F512288C06CDE6E09 /* WalletNetworkDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */; };
 		C0DEB6069DE37CC47595A758 /* WalletNetworkDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */; };
 		C0DEA3D98CD8BE1FB4E11F4E /* WalletNetworkPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE67B14569B2010F032736 /* WalletNetworkPickerViewController.swift */; };
@@ -2510,6 +2543,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8368AD1CBEF58CB8EB1C2EC0 /* PortfolioModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioModels.swift; sourceTree = "<group>"; };
+		5A690FF7C0F6FB4ECBC6F7B1 /* PortfolioFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioFormat.swift; sourceTree = "<group>"; };
+		488217F14C1A91FB042082A4 /* PortfolioPolicies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioPolicies.swift; sourceTree = "<group>"; };
+		A765A3036C8B160FD16BC686 /* PortfolioAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioAggregator.swift; sourceTree = "<group>"; };
+		F2CDF7ABF99E8E81B32137CA /* PortfolioAllocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioAllocation.swift; sourceTree = "<group>"; };
+		CD65BFA64BA9D1922F44D08D /* PortfolioTiltMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioTiltMath.swift; sourceTree = "<group>"; };
+		0F633BDD1DA80FC6B9FF5173 /* PortfolioStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioStrings.swift; sourceTree = "<group>"; };
+		7AA550BB5C7BE3666BB53199 /* PortfolioPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioPresentation.swift; sourceTree = "<group>"; };
+		F906D077B36225288B9C9D38 /* PortfolioDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioDetail.swift; sourceTree = "<group>"; };
+		9900BD018D89E2E65A601606 /* PortfolioViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioViewModel.swift; sourceTree = "<group>"; };
+		618FEE754B8D6B6563CE1B1B /* PortfolioHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioHandoff.swift; sourceTree = "<group>"; };
+		1F1E6416A800A78C50BE9656 /* PortfolioSampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioSampleData.swift; sourceTree = "<group>"; };
+		0037D5FC6B68171BD85A84AD /* PortfolioBalanceReaders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioBalanceReaders.swift; sourceTree = "<group>"; };
+		2FE9E47BA86C35CFF468A894 /* PortfolioDataSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioDataSources.swift; sourceTree = "<group>"; };
+		6FFC7C58D10BFD6ED9FC1712 /* PortfolioTiltMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioTiltMathTests.swift; sourceTree = "<group>"; };
+		3D05A8360144C8C29CCD08D2 /* PortfolioAggregatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioAggregatorTests.swift; sourceTree = "<group>"; };
+		B33F1B41D1EE9EFE379B0891 /* PortfolioPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioPresenterTests.swift; sourceTree = "<group>"; };
+		1650CA6C7E5B5E31FFBE566D /* PortfolioSnapshotBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioSnapshotBuilderTests.swift; sourceTree = "<group>"; };
+		33B81B57FECAA3C824A84CF3 /* parallax-vectors.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = parallax-vectors.json; sourceTree = "<group>"; };
 		C0DE41B9B4A515410ED2F1A6 /* WalletNetworkDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkDirectory.swift; sourceTree = "<group>"; };
 		C0DE67B14569B2010F032736 /* WalletNetworkPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkPickerViewController.swift; sourceTree = "<group>"; };
 		C0DEDF4CF9CA9B475582994F /* WalletNetworkDirectoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkDirectoryTests.swift; sourceTree = "<group>"; };
@@ -4000,6 +4052,39 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F9AC0BBFD79960A6EAD492B0 /* Portfolio */ = {
+			isa = PBXGroup;
+			children = (
+				6FFC7C58D10BFD6ED9FC1712 /* PortfolioTiltMathTests.swift */,
+				3D05A8360144C8C29CCD08D2 /* PortfolioAggregatorTests.swift */,
+				B33F1B41D1EE9EFE379B0891 /* PortfolioPresenterTests.swift */,
+				1650CA6C7E5B5E31FFBE566D /* PortfolioSnapshotBuilderTests.swift */,
+				33B81B57FECAA3C824A84CF3 /* parallax-vectors.json */,
+			);
+			path = Portfolio;
+			sourceTree = "<group>";
+		};
+		9EB736B62646293CB8A1A4B5 /* Portfolio */ = {
+			isa = PBXGroup;
+			children = (
+				8368AD1CBEF58CB8EB1C2EC0 /* PortfolioModels.swift */,
+				5A690FF7C0F6FB4ECBC6F7B1 /* PortfolioFormat.swift */,
+				488217F14C1A91FB042082A4 /* PortfolioPolicies.swift */,
+				A765A3036C8B160FD16BC686 /* PortfolioAggregator.swift */,
+				F2CDF7ABF99E8E81B32137CA /* PortfolioAllocation.swift */,
+				CD65BFA64BA9D1922F44D08D /* PortfolioTiltMath.swift */,
+				0F633BDD1DA80FC6B9FF5173 /* PortfolioStrings.swift */,
+				7AA550BB5C7BE3666BB53199 /* PortfolioPresentation.swift */,
+				F906D077B36225288B9C9D38 /* PortfolioDetail.swift */,
+				9900BD018D89E2E65A601606 /* PortfolioViewModel.swift */,
+				618FEE754B8D6B6563CE1B1B /* PortfolioHandoff.swift */,
+				1F1E6416A800A78C50BE9656 /* PortfolioSampleData.swift */,
+				0037D5FC6B68171BD85A84AD /* PortfolioBalanceReaders.swift */,
+				2FE9E47BA86C35CFF468A894 /* PortfolioDataSources.swift */,
+			);
+			path = Portfolio;
+			sourceTree = "<group>";
+		};
 		C0DE0F682EF0D11E52896A42 /* Networks */ = {
 			isa = PBXGroup;
 			children = (
@@ -4019,6 +4104,7 @@
 		0208CEB7217E5CBB0043FCD7 /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				F9AC0BBFD79960A6EAD492B0 /* Portfolio */,
 				A10000220000000000000001 /* Modernization */,
 				84C0A50E240BAE6C0097D9AB /* Crypto */,
 				84EBF58523C90E9E00E609FF /* DataProvider */,
@@ -5770,6 +5856,7 @@
 		36ADDDA728EC7F790080A41C /* Wallet */ = {
 			isa = PBXGroup;
 			children = (
+				9EB736B62646293CB8A1A4B5 /* Portfolio */,
 				C0DE0F682EF0D11E52896A42 /* Networks */,
 				364BA322293FC0170099CB0D /* Acccount */,
 				B261D91A2ACD804B00B434EE /* Backup */,
@@ -7719,6 +7806,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F59E9197F7F4FC5DC4D09B00 /* parallax-vectors.json in Resources */,
 				945A576525DE8541003E4023 /* runtimeTestMetadata in Resources */,
 				1A4D0E010000000000000003 /* PIIndexerFixtures in Resources */,
 				CD1012269012000000000012 /* HistoricalCrypto in Resources */,
@@ -7986,6 +8074,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED6D1FB274E31F8045DD7414 /* PortfolioDataSources.swift in Sources */,
+				72D48C4531BD07B1E254958E /* PortfolioBalanceReaders.swift in Sources */,
+				0AF3C050C67FEF956CE0EEC0 /* PortfolioSampleData.swift in Sources */,
+				8320CA01B60B6DAC820BED9C /* PortfolioHandoff.swift in Sources */,
+				5BEB66BB92B0E9EC99166FE4 /* PortfolioViewModel.swift in Sources */,
+				5B50AC1F9FED0E4210BAF0E8 /* PortfolioDetail.swift in Sources */,
+				465E455A4153517FB7CF067A /* PortfolioPresentation.swift in Sources */,
+				3571848163677D807C014B0B /* PortfolioStrings.swift in Sources */,
+				93BFBF97A389F8B8D8B3769C /* PortfolioTiltMath.swift in Sources */,
+				19A73F4C9E3B62C25864237E /* PortfolioAllocation.swift in Sources */,
+				AC5963A779BA47C83CF55402 /* PortfolioAggregator.swift in Sources */,
+				1D4454100DAB516D777D57E5 /* PortfolioPolicies.swift in Sources */,
+				3DCB2514539F00FCE6C2C378 /* PortfolioFormat.swift in Sources */,
+				15B113F64305B4A8983D646E /* PortfolioModels.swift in Sources */,
 				C0DEA03F512288C06CDE6E09 /* WalletNetworkDirectory.swift in Sources */,
 				C0DEA3D98CD8BE1FB4E11F4E /* WalletNetworkPickerViewController.swift in Sources */,
 				A66B00012F5B000000000001 /* IrohaConnectProtocol.swift in Sources */,
@@ -9099,6 +9201,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				050996BF9C6A89601AC9064D /* PortfolioSnapshotBuilderTests.swift in Sources */,
+				6BEAD00320D65DAB84C3872E /* PortfolioPresenterTests.swift in Sources */,
+				FBEA46B47B37258E25704362 /* PortfolioAggregatorTests.swift in Sources */,
+				2B63DE59EADC00727644FBAC /* PortfolioTiltMathTests.swift in Sources */,
 				C0DE0B6FAB536CF768E63227 /* WalletNetworkDirectoryTests.swift in Sources */,
 				A66B00012F5B000000000010 /* IrohaConnectTests.swift in Sources */,
 				A10000F00000000000000003 /* SceneLifecycleTests.swift in Sources */,
@@ -9213,6 +9319,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				30D76D5C3CF998A4D4F2162D /* PortfolioDataSources.swift in Sources */,
+				F829FD54C9DEB58D064FF134 /* PortfolioBalanceReaders.swift in Sources */,
+				C2D065A00B0C73E0DAB7C389 /* PortfolioSampleData.swift in Sources */,
+				AB2F7AF752215125B5532F8E /* PortfolioHandoff.swift in Sources */,
+				741434B27E5D655166D29805 /* PortfolioViewModel.swift in Sources */,
+				F3E56544900835E720D63412 /* PortfolioDetail.swift in Sources */,
+				BD65EBB9B11F54E84C680AA0 /* PortfolioPresentation.swift in Sources */,
+				E7E8978672A6855C11596FFA /* PortfolioStrings.swift in Sources */,
+				7312B583A9378E7C19854BB1 /* PortfolioTiltMath.swift in Sources */,
+				8DB13BC7F64A409A45123075 /* PortfolioAllocation.swift in Sources */,
+				E5C3E3224BB1E78548E20D3E /* PortfolioAggregator.swift in Sources */,
+				8383079208749D5980209BE7 /* PortfolioPolicies.swift in Sources */,
+				9448FFA59E7E1CC01DEC16ED /* PortfolioFormat.swift in Sources */,
+				97414946E87834C1F7E4B4EB /* PortfolioModels.swift in Sources */,
 				C0DEB6069DE37CC47595A758 /* WalletNetworkDirectory.swift in Sources */,
 				C0DE1ACE08630D1D9E9A60B3 /* WalletNetworkPickerViewController.swift in Sources */,
 				A66B00012F5B000000000002 /* IrohaConnectProtocol.swift in Sources */,

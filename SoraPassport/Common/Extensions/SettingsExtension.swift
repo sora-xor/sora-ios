@@ -882,6 +882,15 @@ enum ProductSurfacePolicy {
     static let showsNexusPortfolio = !isAppStoreBuild
     static let acceptsIrohaConnect = !isAppStoreBuild
 
+    /// The portfolio view (`portfolioView`): on in every non-production configuration
+    /// (Debug, Dev, Test, Staging), off in Release, the TestFlight and App Store builds of
+    /// both lines, whatever `shipsOptionalSurfacesInRelease` says. This one constant flips it.
+    #if F_RELEASE
+    static let showsPortfolioView = false
+    #else
+    static let showsPortfolioView = true
+    #endif
+
     /// What an install shows before it has a stored choice or a PI value.
     /// The Nexus line keeps its tester default (Taira, Nexus and Polkamarkt
     /// on); the App Store line starts with them off until PI publishes them.
