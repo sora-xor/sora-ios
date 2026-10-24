@@ -1,3 +1,4 @@
+import CoreData
 import XCTest
 import Foundation
 import SSFUtils
@@ -271,6 +272,72 @@ class ApplicationConfigTests: XCTestCase {
             store.nodeState(store.sync(afterResync, piNodes: [piMof2])),
             store.nodeState(afterResync)
         )
+    }
+
+    func testChainSyncSavesOneNodePerURLWhenTheIndexerNamesABundledNodeDifferently() throws {
+        // The Polkaswap indexer's mobile config names mof2 "Sora", while the
+        // bundled list names it differently. A custom node at a bundled URL
+        // stays the user's custom node and is not saved again as a default.
+        let indexerNode = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
+        let customCopy = ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "My node", apikey: nil)
+        let chain = ChainSyncService.preparedChain(
+            chainId: SoraNodeConnectionPolicy.mainnetGenesis, addressPrefix: 69, name: "SORA",
+            nodes: [indexerNode], typesURL: nil, local: configuredChain(custom: [customCopy]),
+            assets: [], whitelist: .empty
+        )
+
+        XCTAssertEqual(chain.nodes, [SoraNodeConnectionPolicy.bundledMainnetNodes[1]])
+        XCTAssertEqual(chain.customNodes, [customCopy])
+        let saved = try XCTUnwrap(try savedChains([chain]).first)
+        XCTAssertEqual(saved.nodes, chain.nodes)
+        XCTAssertEqual(saved.customNodes, chain.customNodes)
+
+        // A chain holding two entries for one URL breaks CDChainNode.url's
+        // uniqueness constraint; that save failure left the wallet without a
+        // connection.
+        let duplicated = ChainModel(
+            chainId: SoraNodeConnectionPolicy.mainnetGenesis, name: "SORA",
+            nodes: Set(SoraNodeConnectionPolicy.bundledMainnetNodes + [indexerNode]), addressPrefix: 69,
+            icon: nil, selectedNode: nil, customNodes: nil, iosMinAppVersion: nil
+        )
+        XCTAssertThrowsError(try savedChains([duplicated]))
+    }
+
+    /// Uniqueness constraints are enforced by SQLite stores only.
+    private final class TemporaryChainStore: SoraPassport.StorageFacadeProtocol {
+        let databaseService: CoreDataServiceProtocol
+
+        init(directory: URL) {
+            let settings = CoreDataPersistentSettings(databaseDirectory: directory,
+                                                      databaseName: "SubstrateDataModel.sqlite",
+                                                      incompatibleModelStrategy: .removeStore)
+            databaseService = CoreDataService(configuration: CoreDataServiceConfiguration(
+                modelURL: Bundle.main.url(forResource: "SubstrateDataModel", withExtension: "momd")!,
+                storageType: .persistent(settings: settings)
+            ))
+        }
+
+        func createRepository<T, U>(filter: NSPredicate?,
+                                    sortDescriptors: [NSSortDescriptor],
+                                    mapper: AnyCoreDataMapper<T, U>) -> CoreDataRepository<T, U>
+        where T: Identifiable, U: NSManagedObject {
+            CoreDataRepository(databaseService: databaseService, mapper: mapper,
+                               filter: filter, sortDescriptors: sortDescriptors)
+        }
+    }
+
+    private func savedChains(_ chains: [ChainModel]) throws -> [ChainModel] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ChainStore-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let repository = ChainRepositoryFactory(storageFacade: TemporaryChainStore(directory: directory))
+            .createRepository()
+        let save = repository.saveOperation({ chains }, { [] })
+        let fetch = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        fetch.addDependency(save)
+        OperationQueue().addOperations([save, fetch], waitUntilFinished: true)
+        try save.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        return try fetch.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
     }
 
     private func configuredChain(

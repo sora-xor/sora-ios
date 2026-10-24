@@ -473,7 +473,7 @@ final class ChainSyncService {
                 performSyncUpIfNeeded()
             }
         case let .failure(error):
-            logger?.error("Chain synchronization failed")
+            logger?.error("Chain synchronization failed: \(error)")
 
             let event = ChainSyncDidFail(error: error)
             eventCenter.notify(with: event)
