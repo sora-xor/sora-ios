@@ -7317,6 +7317,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EDD2178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassport" */;
 			buildPhases = (
+				A10000300000000000000001 /* Verify production modernization dependencies */,
 				02623F072179DCD20011250E /* R.swift */,
 				02623EB12178C0910011250E /* Sources */,
 				02623EB22178C0910011250E /* Frameworks */,
@@ -7483,6 +7484,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 45F0D71C7E3BA236C78D011F /* Build configuration list for PBXNativeTarget "SoraPassportDev" */;
 			buildPhases = (
+				A10000310000000000000001 /* Verify production modernization dependencies */,
 				5F91C0BC049A27D6337875B7 /* R.swift */,
 				8B57AD25632A35C3CE446E7C /* Sources */,
 				71EEB59B262183D4175AFDEC /* Frameworks */,
@@ -7754,6 +7756,112 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A10000300000000000000001 /* Verify production modernization dependencies */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/minamoto-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-candidate.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-advancement.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-controller-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/taira-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/iroha-production-send-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-README.md",
+				"$(PROJECT_DIR)/SoraPassport/Configs/ModernizationDependencies.conf",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-production-rollout-contract.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/run-ios-release-tests.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-modernization-dependencies.sh",
+				"$(PROJECT_DIR)/SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/GoogleSignIn-iOS/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/google-api-objectivec-client-for-rest/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/shared-features-spm/Package.swift",
+			);
+			name = "Verify production modernization dependencies";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${PROJECT_DIR}/SoraPassport/Scripts/verify-modernization-dependencies.sh\"\n";
+		};
+		A10000310000000000000001 /* Verify production modernization dependencies */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/minamoto-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-candidate.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-advancement.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-controller-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/taira-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/iroha-production-send-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-README.md",
+				"$(PROJECT_DIR)/SoraPassport/Configs/ModernizationDependencies.conf",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-production-rollout-contract.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/run-ios-release-tests.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-modernization-dependencies.sh",
+				"$(PROJECT_DIR)/SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/GoogleSignIn-iOS/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/google-api-objectivec-client-for-rest/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/shared-features-spm/Package.swift",
+			);
+			name = "Verify production modernization dependencies";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${PROJECT_DIR}/SoraPassport/Scripts/verify-modernization-dependencies.sh\"\n";
+		};
 		02623F072179DCD20011250E /* R.swift */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;

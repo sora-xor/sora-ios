@@ -177,12 +177,10 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             "source is not the exact clean pushed revision",
         ):
             self.assertIn(marker, verifier)
-        jose_manifest = (ROOT / "VendorPackages" / "JOSESwift" / "Package.swift").read_text(
-            encoding="utf-8"
-        )
         self.assertTrue(hasattr(DELIVERY_MODULE, "verify_app_runtime_dependency_closure"))
-        self.assertIn('type: .static, targets: ["JOSESwift"]', jose_manifest)
-        self.assertNotIn('type: .dynamic, targets: ["JOSESwift"]', jose_manifest)
+        # 3.9.x removed the unused JOSESwift package (7520a9f6), the one
+        # vendored library this check used to require to link statically.
+        self.assertFalse((ROOT / "VendorPackages" / "JOSESwift" / "Package.swift").exists())
 
     def test_runtime_dependency_closure_rejects_missing_framework(self) -> None:
         with tempfile.TemporaryDirectory(
