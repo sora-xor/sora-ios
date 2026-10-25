@@ -265,7 +265,6 @@ def load_manifest(
             "Fixtures/Modernization/ios-production-signing-identity-qualification-README.md"
         ),
         PurePosixPath("Fixtures/Modernization/production-rollout-README.md"),
-        PurePosixPath(".github/workflows/ios_modernization.yml"),
         PurePosixPath(
             "SoraPassport/Configs/ios-migration-candidate-export-options.plist"
         ),
@@ -323,8 +322,6 @@ def load_manifest(
             "SoraPassport/Scripts/verify-ios-release-reproducibility-package.py"
         ),
         PurePosixPath("SoraPassport/Scripts/verify-production-rollout.sh"),
-        PurePosixPath("Jenkinsfile.migration-evidence"),
-        PurePosixPath("Jenkinsfile.production-promotion"),
         PurePosixPath("SoraPassport/Scripts/run-ios-production-promotion.py"),
         PurePosixPath("SoraPassport/Scripts/test-ios-production-promotion.py"),
         PurePosixPath(

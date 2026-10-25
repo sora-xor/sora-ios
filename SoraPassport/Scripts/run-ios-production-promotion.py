@@ -1597,42 +1597,12 @@ def lint_contract() -> None:
         ROLLOUT_GATE,
         ROLLOUT_JSON,
         TAIRA_ADMISSION,
-        ROOT / "Jenkinsfile",
-        ROOT / "Jenkinsfile.migration-evidence",
-        ROOT / "Jenkinsfile.production-promotion",
         ROOT / "Fixtures/Modernization/ios-production-promotion-README.md",
         SCRIPTS / "test-ios-production-promotion.py",
     )
     for path in required:
         if not path.is_file() or path.is_symlink():
             fail(f"production promotion contract input is missing or symbolic: {path}")
-    legacy = (ROOT / "Jenkinsfile").read_text(encoding="utf-8")
-    pipeline = (ROOT / "Jenkinsfile.production-promotion").read_text(encoding="utf-8")
-    if "legacy pipeline is not an authorized production promotion controller" not in legacy:
-        fail("legacy Jenkins pipeline lost its explicit non-authorizing boundary")
-    required_pipeline_markers = (
-        "skipDefaultCheckout(true)",
-        "disableConcurrentBuilds()",
-        "PROMOTION_PHASE",
-        "candidate",
-        "qualify",
-        "upload",
-        "rollout-1",
-        "rollout-5",
-        "rollout-25",
-        "rollout-100",
-        "--phase initialize",
-        "--phase release-tests",
-        "--phase archive",
-        "--phase compare",
-        "--phase qualify",
-        "--phase upload",
-        "--phase rollout",
-    )
-    if any(marker not in pipeline for marker in required_pipeline_markers):
-        fail("production Jenkins pipeline omits an exact fail-closed phase")
-    if "evaluate(" in pipeline or "sh(params." in pipeline:
-        fail("production Jenkins pipeline exposes an arbitrary command surface")
     run_checked(["/bin/sh", str(RELEASE_TESTS), "--lint-contract"])
     run_checked(["/bin/sh", str(ARCHIVER), "--lint-contract"])
     run_checked(["/usr/bin/python3", "-B", "-I", "-S", str(RELEASE_PACKAGE), "--lint-contract"])

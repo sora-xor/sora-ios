@@ -36,9 +36,9 @@ done
 if [ "$CONFIGURATION" = "Release" ]; then
   # Google Drive backups made by App Store 3.8.6 are visible only to the same
   # OAuth client. 3.8.6 took GIDClientID and its URL scheme from the
-  # SORA_GOOGLE_TOKEN_DEV / SORA_GOOGLE_URL_SCHEME_DEV build settings (a
-  # Jenkins credential, despite the name). Release uses exactly those
-  # settings; any other source would silently switch the OAuth client.
+  # SORA_GOOGLE_TOKEN_DEV / SORA_GOOGLE_URL_SCHEME_DEV build settings.
+  # Release keeps those historical names and values; any other source
+  # would silently switch the OAuth client.
   google_token="${SORA_GOOGLE_TOKEN_DEV:-}"
   google_url_scheme="${SORA_GOOGLE_URL_SCHEME_DEV:-}"
   for other in "${SORA_GOOGLE_TOKEN:-}" "${SORA_IOS_GOOGLE_TOKEN_PROD:-}"; do

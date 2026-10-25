@@ -49,3 +49,38 @@ recovery, and scene-bound overlay windows, for iOS 27 launch compatibility.
 Validation on 2026-10-13 passed the integrated Debug build, 54 focused iOS 27 app/lifecycle
 tests, and nine portable codec tests. A normal launch with Xcode-equivalent simulator
 entitlements reached account creation/import on a clean iOS 27 simulator.
+
+## Local build and test
+
+Jenkins and GitHub Actions are retired. Run validation on the local build machine
+with an installed Xcode 26 or 27 and a matching iOS simulator. Use the same Xcode
+version for validation and release archives, and retain the local results.
+
+```sh
+xcodebuild -version
+/bin/sh SoraPassport/Scripts/verify-modernization-dependencies.sh --lint-ios-migration-release-source-gate
+xcodebuild test -project SoraPassport.xcodeproj -scheme SoraPassport \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+  -only-testing:SoraPassportTests -onlyUsePackageVersionsFromResolvedFile \
+  -parallel-testing-enabled NO
+
+```
+
+Choose an available simulator name if yours differs. Debug simulator signing uses
+Xcode's local ad-hoc identity so tests can access Keychain.
+
+For the complete Release suite, use the existing local wrapper with fresh output
+paths outside the checkout:
+
+```sh
+release_test_root="$(mktemp -d /private/tmp/sora-local-release-tests.XXXXXX)"
+chmod 700 "${release_test_root}"
+/bin/sh SoraPassport/Scripts/run-ios-release-tests.sh --test \
+  --destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest,arch=arm64' \
+  --derived-data-path "${release_test_root}/DerivedData" \
+  --result-bundle-path "${release_test_root}/Release.xcresult"
+```
+
+These commands do not upload or publish a release. See [the release checklist](docs/release-3.9.0/RELEASE-CHECKLIST.md)
+for archive, signing, and physical-device checks.

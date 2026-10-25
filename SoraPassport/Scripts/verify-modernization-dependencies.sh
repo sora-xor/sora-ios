@@ -395,8 +395,6 @@ run_ios_migration_release_source_gate() {
     ios_gate_signing_identity="${root}/SoraPassport/Scripts/verify-ios-production-signing-identity.py"
     ios_gate_release_test_runner="${root}/SoraPassport/Scripts/run-ios-release-tests.sh"
     ios_gate_production_promotion="${root}/SoraPassport/Scripts/run-ios-production-promotion.py"
-    ios_gate_production_promotion_pipeline="${root}/Jenkinsfile.production-promotion"
-    ios_gate_ci_workflow="${root}/.github/workflows/ios_modernization.yml"
     ios_gate_projector_suite="${root}/SoraPassport/Scripts/test-ios-migration-test-host-derivation.py"
     ios_gate_clone_suite="${root}/SoraPassport/Scripts/test-ios-migration-installable-clone.py"
     ios_gate_controller_suite="${root}/SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py"
@@ -441,8 +439,6 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_signing_identity}" \
         "${ios_gate_release_test_runner}" \
         "${ios_gate_production_promotion}" \
-        "${ios_gate_production_promotion_pipeline}" \
-        "${ios_gate_ci_workflow}" \
         "${ios_gate_projector_suite}" \
         "${ios_gate_clone_suite}" \
         "${ios_gate_controller_suite}" \
@@ -475,14 +471,6 @@ run_ios_migration_release_source_gate() {
 
     if ! verify_google_signin_info_plist_phase_dependencies "${ios_gate_project}"; then
         echo "error: Google Sign-In Info.plist build-order dependency drifted" >&2
-        return 1
-    fi
-    if ! /usr/bin/grep -Fq "credentialsId: 'ios-keychain-credentials'" "${ios_gate_production_promotion_pipeline}" ||
-       ! /usr/bin/grep -Fq "usernameVariable: 'IOS_SIGNING_KEYCHAIN_PATH'" "${ios_gate_production_promotion_pipeline}" ||
-       ! /usr/bin/grep -Fq "passwordVariable: 'IOS_SIGNING_KEYCHAIN_PASSWORD'" "${ios_gate_production_promotion_pipeline}" ||
-       ! /usr/bin/grep -Fq '/usr/bin/security unlock-keychain' "${ios_gate_production_promotion_pipeline}" ||
-       ! /usr/bin/grep -Fq '/usr/bin/security lock-keychain' "${ios_gate_production_promotion_pipeline}"; then
-        echo "error: protected iOS production signing keychain binding drifted" >&2
         return 1
     fi
     if ! verify_reachability_listener_synchronization "${ios_gate_reachability_manager}"; then
@@ -531,7 +519,7 @@ run_ios_migration_release_source_gate() {
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 15 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
     run_exact_ios_migration_suite "${ios_gate_signing_identity_suite}" 10 production-signing-identity || return 1
-    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 20 production-promotion-controller || return 1
+    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 18 production-promotion-controller || return 1
 
     for ios_gate_shell in \
         "${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh" \
@@ -718,19 +706,6 @@ run_ios_migration_release_source_gate() {
         echo "error: iOS independently reproduced Release package gate is fail-open" >&2
         return 1
     fi
-    if ! /usr/bin/grep -Fq 'pull_request:' "${ios_gate_ci_workflow}" ||
-       /usr/bin/grep -Fq 'pull_request_target:' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'permissions:' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'contents: read' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'Modernization Source Contract' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'Full Release XCTest Closure' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq -- '--lint-ios-migration-release-source-gate' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'run-ios-release-tests.sh' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'SoraPassport-Release-${{ github.sha }}' "${ios_gate_ci_workflow}" ||
-       ! /usr/bin/grep -Fq 'if-no-files-found: error' "${ios_gate_ci_workflow}"; then
-        echo "error: iOS pull-request modernization closure workflow is absent or fail-open" >&2
-        return 1
-    fi
     if /usr/bin/grep -Fq 'extractedAppRawTreeSha256' "${ios_gate_harness}" ||
        /usr/bin/grep -Fq 'extractedAppRawTreeSha256' "${ios_gate_controller}" ||
        /usr/bin/grep -Fq 'Simulator' "${ios_gate_evidence_scheme}" ||
@@ -741,7 +716,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 20 production-promotion tests, 13 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 18 production-promotion tests, 13 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
@@ -1125,7 +1100,6 @@ production_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPas
 unit_test_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportTests.xcscheme"
 release_xcconfig="${root}/SoraPassport/Configs/SoraPassport.release.xcconfig"
 production_info_plist="${root}/SoraPassport/Info.plist"
-ci_pipeline="${root}/Jenkinsfile"
 xnetworking_manifest="${root}/VendorPackages/shared-features-spm/Package.swift"
 rswift_manifest="${root}/VendorPackages/Rswift/Package.swift"
 google_signin_manifest="${root}/VendorPackages/GoogleSignIn-iOS/Package.swift"
@@ -1164,7 +1138,6 @@ migration_collector_validator="${root}/SoraPassport/Scripts/collect-ios-migratio
 migration_collector_json_validator="${root}/SoraPassport/Scripts/collect-ios-migration-evidence.py"
 migration_collector_harness="${root}/SoraPassport/Scripts/test-ios-migration-evidence-collector.py"
 migration_collection_runner="${root}/SoraPassport/Scripts/run-ios-migration-evidence-collection.sh"
-migration_collection_pipeline="${root}/Jenkinsfile.migration-evidence"
 migration_evidence_builder="${root}/SoraPassport/Scripts/build-ios-migration-evidence-candidate.sh"
 migration_candidate_archiver="${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh"
 internal_testflight_uploader="${root}/SoraPassport/Scripts/upload-ios-internal-testflight.sh"
@@ -2016,70 +1989,6 @@ then
     exit 1
 fi
 
-require_reviewed_sha1 \
-    "Jenkins shared-library revision" \
-    "${JENKINS_LIBRARY_REVISION:-}"
-require_reviewed_sha1 \
-    "Jenkins shared-library tree" \
-    "${JENKINS_LIBRARY_TREE_OBJECT:-}"
-require_reviewed_sha1 \
-    "Jenkins shared-library last iOS source revision" \
-    "${JENKINS_LIBRARY_LAST_IOS_SOURCE_REVISION:-}"
-for jenkins_library_blob in \
-    "${JENKINS_LIBRARY_IOS_APP_PIPELINE_BLOB:-}" \
-    "${JENKINS_LIBRARY_IOS_PARAMS_BLOB:-}" \
-    "${JENKINS_LIBRARY_IOS_FASTFILE_BLOB:-}" \
-    "${JENKINS_LIBRARY_IOS_GEMFILE_BLOB:-}" \
-    "${JENKINS_LIBRARY_IOS_MAIN_PIPELINE_BLOB:-}"
-do
-    require_reviewed_sha1 "Jenkins shared-library reviewed blob" "${jenkins_library_blob}"
-done
-for jenkins_library_sha256 in \
-    "${JENKINS_LIBRARY_IOS_APP_PIPELINE_SHA256:-}" \
-    "${JENKINS_LIBRARY_IOS_PARAMS_SHA256:-}" \
-    "${JENKINS_LIBRARY_IOS_FASTFILE_SHA256:-}" \
-    "${JENKINS_LIBRARY_IOS_GEMFILE_SHA256:-}" \
-    "${JENKINS_LIBRARY_IOS_MAIN_PIPELINE_SHA256:-}"
-do
-    require_reviewed_sha256 \
-        "Jenkins shared-library reviewed source" \
-        "${jenkins_library_sha256}"
-done
-
-if [ "${JENKINS_LIBRARY_REPOSITORY:-}" != "https://github.com/soramitsu/jenkins-library.git" ] ||
-   [ "${JENKINS_LIBRARY_DEFAULT_BRANCH:-}" != "master" ] ||
-   [ "${JENKINS_LIBRARY_DEFAULT_BRANCH_PROTECTED:-}" != "false" ] ||
-   [ "${JENKINS_LIBRARY_SOURCE_REVIEW_STATUS:-}" != "source-qualified" ] ||
-   [ "${JENKINS_LIBRARY_COMMIT_VERIFICATION:-}" != "github-valid" ] ||
-   [ "${JENKINS_LIBRARY_REVISION:-}" != "65079bbe356bca4a3d5a1964e360498735afa1f0" ] ||
-   [ "${JENKINS_LIBRARY_TREE_OBJECT:-}" != "d48928bf7706be3fd7d6bb37aae43593c3ba5100" ] ||
-   [ "${JENKINS_LIBRARY_LAST_IOS_SOURCE_REVISION:-}" != "0ca60fc620f80471f643ce7d9afe7f9f615b9626" ] ||
-   [ "${JENKINS_LIBRARY_IOS_APP_PIPELINE_BLOB:-}" != "3bae5f60c7f54ba5ad85152485bd4fdc4a199bed" ] ||
-   [ "${JENKINS_LIBRARY_IOS_APP_PIPELINE_SHA256:-}" != "7ad468a15c3bc361315b34fe2376a161e406419f51e47c41506fa4008e60a41a" ] ||
-   [ "${JENKINS_LIBRARY_IOS_PARAMS_BLOB:-}" != "8a30884cb08c4f135d7c0ef98f7485ae47144f06" ] ||
-   [ "${JENKINS_LIBRARY_IOS_PARAMS_SHA256:-}" != "0a660c3ca2a13000443a99aa0fe582ca04c6d9fd6d2b5004b6ce5ca06f47619d" ] ||
-   [ "${JENKINS_LIBRARY_IOS_FASTFILE_BLOB:-}" != "247fec2da393632f0c84835bf9e47d316beebb53" ] ||
-   [ "${JENKINS_LIBRARY_IOS_FASTFILE_SHA256:-}" != "2edde0b8c367caf0de553417384089cad01b9d1aec947cff90ada6c69e1ffaaf" ] ||
-   [ "${JENKINS_LIBRARY_IOS_GEMFILE_BLOB:-}" != "9565262c3d04813065a83c8616c9c2b5ec2fb9a7" ] ||
-   [ "${JENKINS_LIBRARY_IOS_GEMFILE_SHA256:-}" != "f1b125ebdd02c1b7d3b2fc832bdbfdeea55a595c0d413ce7138d728dcee4422e" ] ||
-   [ "${JENKINS_LIBRARY_IOS_MAIN_PIPELINE_BLOB:-}" != "b42fc38ec57a091f46c8190a467fb7e374d0dccf" ] ||
-   [ "${JENKINS_LIBRARY_IOS_MAIN_PIPELINE_SHA256:-}" != "a3623df5c044cd2a2188818745b9b58462c2f31e2b3342f0531ea1486fd7cc5e" ]; then
-    echo "error: iOS production CI dependency provenance drifted"
-    exit 1
-fi
-
-expected_jenkins_library_declaration="@Library('jenkins-library@${JENKINS_LIBRARY_REVISION}') _"
-if [ ! -f "${ci_pipeline}" ] ||
-   [ -L "${ci_pipeline}" ] ||
-   ! /usr/bin/grep -Fxq "${expected_jenkins_library_declaration}" "${ci_pipeline}" ||
-   ! /usr/bin/grep -Fq "appTests: true" "${ci_pipeline}" ||
-   /usr/bin/grep -Fq "appTests: false" "${ci_pipeline}" ||
-   ! /usr/bin/grep -Fq "new org.ios.AppPipeline(" "${ci_pipeline}" ||
-   ! /usr/bin/grep -Fq "pipeline.runPipeline('sora')" "${ci_pipeline}"; then
-    echo "error: iOS production CI or its immutable shared-library revision is incomplete"
-    exit 1
-fi
-
 require_reviewed_sha1 "IrohaSwift upstream revision" "${IROHA_SWIFT_REVISION:-}"
 
 if [ "${IROHA_SWIFT_UPSTREAM_TAG:-}" != "v2.0.0-rc.2.1-fearless-mobile-sdk.3" ] ||
@@ -2371,8 +2280,6 @@ if [ ! -f "${migration_collector_validator}" ] ||
    [ -L "${migration_collector_harness}" ] ||
    [ ! -f "${migration_collection_runner}" ] ||
    [ -L "${migration_collection_runner}" ] ||
-   [ ! -f "${migration_collection_pipeline}" ] ||
-   [ -L "${migration_collection_pipeline}" ] ||
    [ ! -f "${migration_evidence_builder}" ] ||
    [ -L "${migration_evidence_builder}" ] ||
    [ ! -f "${migration_candidate_archiver}" ] ||
@@ -2538,13 +2445,7 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    ! /usr/bin/grep -Fq 'buildConfiguration = "Release"' "${migration_evidence_scheme}" ||
    /usr/bin/grep -Fq 'Simulator' "${migration_evidence_scheme}" ||
    /usr/bin/grep -Fq 'buildForArchiving = "YES"' "${migration_evidence_scheme}" ||
-   [ "$(/usr/bin/grep -Fc 'WalletMigrationRetainedDeviceEvidenceTests/testEmit' "${migration_evidence_scheme}")" -ne 3 ] ||
-   ! /usr/bin/grep -Fq '/usr/bin/diff -rq "${first}" "${second}"' "${migration_collection_pipeline}" ||
-   [ "$(/usr/bin/grep -Fc 'ios-migration-' "${migration_collection_pipeline}")" -lt 5 ] ||
-   /usr/bin/grep -Fq -- '--verify-qualified' "${migration_collection_pipeline}" ||
-   /usr/bin/grep -Fq 'PRIVATE_KEY' "${migration_collection_pipeline}" ||
-   /usr/bin/grep -Fq 'verify-ios-migration-promotion-ipa' "${migration_collection_pipeline}" ||
-   /usr/bin/grep -Fq 'QUALIFICATION_SEQUENCE_NUMBER' "${migration_collection_pipeline}"; then
+   [ "$(/usr/bin/grep -Fc 'WalletMigrationRetainedDeviceEvidenceTests/testEmit' "${migration_evidence_scheme}")" -ne 3 ]; then
     echo "error: authenticated raw-bound iOS migration boundary is missing or fail-open"
     exit 1
 fi
@@ -3820,7 +3721,6 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq 'delayed-authorization' "${rollout_regression_harness}" ||
    [ "$(/usr/bin/grep -Fc '/bin/sh "${rollout_validator}" --lint-templates >/dev/null' "${dependency_verifier}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc '/usr/bin/python3 -I -S "${rollout_regression_harness}" >/dev/null' "${dependency_verifier}")" -lt 2 ] ||
-   /usr/bin/grep -Fq "PRODUCTION_ROLLOUT_TARGET_PERCENT" "${ci_pipeline}" ||
    /usr/bin/grep -Fq 'shellScript = "/bin/sh \"${PROJECT_DIR}/SoraPassport/Scripts/verify-production-rollout.sh\"' "${project}" ||
    [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/production-rollout-candidate.blocked.json' "${project}")" -lt 2 ] ||
    [ "$(/usr/bin/grep -Fc 'Fixtures/Modernization/production-rollout-advancement.blocked.json' "${project}")" -lt 2 ] ||

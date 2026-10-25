@@ -646,12 +646,10 @@ class CollectorContractTests(unittest.TestCase):
             len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 263
         )
 
-    def test_collection_job_cannot_promote_or_sign(self) -> None:
+    def test_collection_runner_cannot_promote_or_sign(self) -> None:
         runner = (
             ROOT / "SoraPassport/Scripts/run-ios-migration-evidence-collection.sh"
         ).read_text(encoding="utf-8")
-        job = (ROOT / "Jenkinsfile.migration-evidence").read_text(encoding="utf-8")
-        combined = runner + "\n" + job
         for forbidden in (
             "--verify-qualified",
             "withCredentials",
@@ -659,7 +657,7 @@ class CollectorContractTests(unittest.TestCase):
             "IOS_MIGRATION_QUALIFICATION_DEVICE_EVIDENCE_PRODUCER_PRIVATE_KEY=",
             "IOS_MIGRATION_QUALIFICATION_INDEPENDENT_REVIEWER_PRIVATE_KEY=",
         ):
-            self.assertNotIn(forbidden, combined)
+            self.assertNotIn(forbidden, runner)
         for marker in (
             "IOS_MIGRATION_QUALIFICATION_SEQUENCE_NUMBER",
             "IOS_MIGRATION_QUALIFICATION_RECEIPT_REVIEWER_SIGNATURE_PATH",
@@ -670,14 +668,6 @@ class CollectorContractTests(unittest.TestCase):
             "--collect",
         ):
             self.assertIn(marker, runner)
-        self.assertEqual(
-            job.count("run-ios-migration-evidence-collection.sh"),
-            2,
-        )
-        self.assertIn('/usr/bin/diff -rq "${first}" "${second}"', job)
-        self.assertIn("archiveArtifacts(", job)
-        for artifact in COLLECTOR.OUTPUT_NAMES.values():
-            self.assertEqual(job.count(artifact), 1)
 
 
 if __name__ == "__main__":

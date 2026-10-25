@@ -1,8 +1,8 @@
 # Production rollout qualification v3
 
 The staged-rollout validator's no-argument qualification mode is a post-export promotion gate. It
-is not itself an Xcode build phase, and the current Jenkins pipeline is not a reviewed release
-controller. A missing target is an error, not a successful no-op. Ordinary builds call its
+is not itself an Xcode build phase. Invoke it explicitly from the controlled local release
+environment. A missing target is an error, not a successful no-op. Ordinary builds call its
 non-promoting template mode:
 
 ```sh
@@ -191,7 +191,7 @@ metadata decoding; those facts must be proven in the guarded producer runs bound
 review before that fixture hash is approved.
 
 Android and iOS Release environments must use the same protected qualified-fixture pin. Android
-production CI must check out a protected exact iOS source revision, while iOS Release CI must supply
+production validation must use a protected exact iOS source revision, while iOS Release validation must supply
 `POLKAMARKT_ANDROID_SOURCE_ROOT`, `POLKAMARKT_ANDROID_SOURCE_REVISION`, and
 `POLKAMARKT_ANDROID_FIXTURE_PATH` for a protected exact Android checkout. Both gates compare the
 sibling fixture byte-for-byte; missing sibling provenance fails closed.

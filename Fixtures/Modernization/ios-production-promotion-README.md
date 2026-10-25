@@ -1,36 +1,37 @@
 # iOS production promotion controller
 
-`Jenkinsfile.production-promotion` is the only checked-in pipeline authorized to compose the
-protected iOS production release systems. The legacy `Jenkinsfile` and
-`Jenkinsfile.migration-evidence` remain non-authorizing. Repository code owns no App Store
+`SoraPassport/Scripts/run-ios-production-promotion.py` is a local, explicit release
+controller. Jenkins and hosted CI are not used. Repository code owns no App Store
 credential, retained-device identity, funded account, private key, signature, trust decision,
 sequence allocation, qualification receipt, or rollout receipt.
 
-The Jenkins job must run on the dedicated `mac-sora-production-controller` label with a pre-existing
-current-user-owned mode-0700 `IOS_PRODUCTION_WORK_ROOT`. It accepts only one exact source revision,
-one explicit build number, one fixed Release-test destination, and one phase:
+Run each phase from the controlled release workstation with owner-only state outside the
+checkout. Each phase validates the preceding state; a local build or test result does not
+itself authorize upload or rollout:
 
-- `candidate` creates two physically distinct clean checkouts of the exact revision, authenticates
-  every external controller, queries the current App Store Connect build-number lower bound, runs
-  the source gate and complete Release suite in both checkouts, creates the primary archive exactly
-  once and the independent reproduction exactly once, then compares them. The explicit build number
-  must be strictly greater than the fresh controller observation.
-- `qualify` invokes the protected retained-device authority on the unchanged primary IPA, requires
-  the existing verifier to authenticate the real schema-v8 receipt against those exact bytes, seals
-  the independently reproduced package, and repeats post-archive admission.
-- `upload` repeats package and post-archive admission, passes only the admitted IPA and its digest to
-  the pinned App Store controller, then authenticates the returned artifact receipt/signature against
-  the independently pinned rollout trust root and the actual IPA.
-- `rollout-1`, `rollout-5`, `rollout-25`, and `rollout-100` must run in that exact order. Each phase
-  re-hashes the same IPA, build manifests, equivalence receipt, sealed package, artifact receipt, and
-  signature before and after `verify-production-rollout.sh`. Only after that strict gate succeeds may
-  the pinned distribution controller apply the cohort. Targets after 1% therefore inherit the
-  existing validator's complete signed predecessor replay, fresh PI receipt/checkpoints, external
-  telemetry/distribution attestations, and minimum 172800-second dwell checks without rebuilding.
+- `initialize` binds two physically distinct clean checkouts of one exact source revision,
+  authenticates the external controllers, and checks the explicit build number against App Store
+  Connect. Use one mode-0600 state file beneath a current-user-owned mode-0700 directory.
+- `release-tests` and `archive` run for each role, `primary` and `reproduction`. Archive each
+  role once, then use `compare` to verify the independent reproduction.
+- `qualify` invokes the retained-device authority on the unchanged primary IPA, authenticates
+  its receipt, seals the reproduced package, and repeats post-archive admission.
+- `upload` repeats package admission and submits only the admitted IPA to the pinned App Store
+  controller, then authenticates the returned artifact receipt and signature.
+- `rollout` requires the targets 1, 5, 25, and 100 in that order. Each step verifies the same
+  artifacts and signed rollout authority before and after the distribution mutation, including
+  predecessor evidence and dwell checks. It never rebuilds the candidate.
+
+The script's usage message lists the exact arguments for each phase. To validate the local
+controller without building or publishing anything:
+
+```sh
+python3 SoraPassport/Scripts/run-ios-production-promotion.py --lint-contract
+```
 
 ## Protected executable contract
 
-The job configuration—not source parameters—must provide all six values:
+The controlled local release environment must provide all six values:
 
 ```text
 IOS_PRODUCTION_APP_STORE_CONTROLLER_PATH
@@ -42,7 +43,7 @@ IOS_PRODUCTION_DISTRIBUTION_CONTROLLER_SHA256
 ```
 
 Every path must be canonical, absolute, external to this repository, a unique regular executable,
-owned by the job user or root, and not group/world writable. Each SHA-256 is independently protected.
+owned by the release user or root, and not group/world writable. Each SHA-256 is independently protected.
 The controller records device/inode/size/mtime/digest at initialization and rejects missing pins,
 symlinks, path rebinding, content drift, or pin drift before and after every external invocation. It
 executes fixed argv arrays directly; arbitrary command strings, shell evaluation, and plugin-provided
@@ -63,7 +64,7 @@ controller signature and strict `sora-ios-production-artifact-identity-v2` proje
 creates or modifies either output.
 
 `upload-exact-ipa` must be idempotent for the SHA-256 key derived from the exact bundle identifier,
-build number, and IPA digest. If App Store Connect accepted the build but Jenkins was interrupted
+build number, and IPA digest. If App Store Connect accepted the build but the local controller was interrupted
 before its local state write, a retry with fresh artifact-output paths must query and authenticate
 that already-present identical build and emit fresh signed artifact outputs. It must never upload
 different bytes under that build, increment/reuse another build implicitly, or trigger a rebuild.

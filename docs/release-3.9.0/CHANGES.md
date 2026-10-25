@@ -1,5 +1,9 @@
 # SORA Wallet iOS 3.9.0: changes
 
+The historical CI entries below are superseded: Jenkins and hosted workflows were
+removed on 2026-10-25. Use the local validation commands in `README.md` and the
+current release checklist.
+
 ## TestFlight visual corrections
 
 Loading placeholders follow the selected theme, and loading changes no longer

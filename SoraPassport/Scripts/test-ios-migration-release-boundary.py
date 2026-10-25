@@ -46,7 +46,6 @@ SCHEME = (
 )
 CONTRACT = ROOT / "Fixtures/Modernization/ios-migration-qualification-contract-v1.json"
 EXPORT_OPTIONS = ROOT / "SoraPassport/Configs/ios-migration-candidate-export-options.plist"
-CI_WORKFLOW = ROOT / ".github/workflows/ios_modernization.yml"
 REACHABILITY_MANAGER = (
     ROOT
     / "VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network"
@@ -901,7 +900,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 20 production-promotion tests, 13 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 18 production-promotion tests, 13 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
@@ -911,7 +910,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             ("ios_gate_sanitizer_suite", 6),
             ("ios_gate_collector_suite", 16),
             ("ios_gate_boundary_suite", 15),
-            ("ios_gate_production_promotion_suite", 20),
+            ("ios_gate_production_promotion_suite", 18),
         ):
             self.assertIn(
                 f'run_exact_ios_migration_suite "${{{suite}}}" {expected}',
@@ -1165,8 +1164,6 @@ fi
         manifest = json.loads(CONTRACT.read_text(encoding="utf-8"))
         paths = manifest["paths"]
         for relative in (
-            ".github/workflows/ios_modernization.yml",
-            "Jenkinsfile.production-promotion",
             "Fixtures/Modernization/ios-production-promotion-README.md",
             "SoraPassport/Scripts/build-ios-migration-evidence-candidate.sh",
             "SoraPassport/Scripts/archive-ios-migration-candidate.sh",
@@ -1197,19 +1194,6 @@ fi
             "SoraPassportUITests/RetainedMigrationEvidenceUITests.swift",
         ):
             self.assertIn(relative, paths)
-        workflow = CI_WORKFLOW.read_text(encoding="utf-8")
-        for marker in (
-            "pull_request:",
-            "contents: read",
-            "Modernization Source Contract",
-            "Full Release XCTest Closure",
-            "--lint-ios-migration-release-source-gate",
-            "run-ios-release-tests.sh",
-            "actions/upload-artifact@v4",
-            "if-no-files-found: error",
-        ):
-            self.assertIn(marker, workflow)
-        self.assertNotIn("pull_request_target:", workflow)
         qualifier = QUALIFIER.read_text(encoding="utf-8")
         self.assertIn("--verify-qualified-ipa", qualifier)
         self.assertIn("verify_qualified_ipa", qualifier)
