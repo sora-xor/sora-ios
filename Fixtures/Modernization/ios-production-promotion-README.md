@@ -9,6 +9,10 @@ Run each phase from the controlled release workstation with owner-only state out
 checkout. Each phase validates the preceding state; a local build or test result does not
 itself authorize upload or rollout:
 
+Run one phase at a time per state file and wait for each invocation to finish, including
+the primary and reproduction steps. The controller does not lock the state file across
+invocations; concurrent commands can overwrite each other's recorded progress.
+
 - `initialize` binds two physically distinct clean checkouts of one exact source revision,
   authenticates the external controllers, and checks the explicit build number against App Store
   Connect. Use one mode-0600 state file beneath a current-user-owned mode-0700 directory.
