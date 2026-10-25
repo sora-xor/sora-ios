@@ -60,7 +60,7 @@ let package = Package(
     .package(
       name: "GoogleUtilities",
       url: "https://github.com/google/GoogleUtilities.git",
-      .exact("8.1.0")),
+      .exact("8.1.5")),
   ],
   targets: [
     .target(

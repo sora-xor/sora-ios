@@ -103,6 +103,18 @@ secure_sha256() {
     /usr/bin/printf '%s\n' "${result}"
 }
 
+secure_receipt_hashes() {
+    require_absolute_path "$1" "$3"
+    require_absolute_path "$2" "$3 signature"
+    result="$(/usr/bin/python3 -I -S "${rollout_json_validator}" hash-pair \
+        "$1" "${maximum_json_bytes}" "$2" "${maximum_signature_bytes}")" ||
+        fail "$3 payload or signature is not a stable regular non-symlink file"
+    is_lower_hex_64 "${result%% *}" && is_lower_hex_64 "${result#* }" &&
+        [ "${result}" = "${result%% *} ${result#* }" ] ||
+        fail "$3 payload/signature SHA-256 pair is invalid"
+    /usr/bin/printf '%s\n' "${result}"
+}
+
 validate_templates() {
     for source_path in \
         "${json_validator}" \
@@ -298,12 +310,10 @@ verify_signature() {
     signature="$2"
     key="$3"
     label="$4"
-    before_payload="$(secure_sha256 "${payload}" "${maximum_json_bytes}" "${label}")"
-    before_signature="$(secure_sha256 "${signature}" "${maximum_signature_bytes}" "${label} signature")"
+    before_hashes="$(secure_receipt_hashes "${payload}" "${signature}" "${label}")"
     secure_openssl dgst -sha256 -verify "${key}" -signature "${signature}" "${payload}" >/dev/null 2>&1 ||
         fail "${label} detached P-256 signature is invalid"
-    [ "$(secure_sha256 "${payload}" "${maximum_json_bytes}" "${label}")" = "${before_payload}" ] &&
-        [ "$(secure_sha256 "${signature}" "${maximum_signature_bytes}" "${label} signature")" = "${before_signature}" ] ||
+    [ "$(secure_receipt_hashes "${payload}" "${signature}" "${label}")" = "${before_hashes}" ] ||
         fail "${label} changed during signature verification"
 }
 

@@ -32,7 +32,7 @@ class ApplicationConfigTests: XCTestCase {
 
         let nodes = ApplicationConfig.shared.defaultChainNodes
         XCTAssertEqual(Set(nodes.map { $0.url.absoluteString }),
-                       ["wss://ws.mof.sora.org", "wss://mof2.sora.org"])
+                       ["wss://mof2.sora.org"])
         XCTAssertTrue(nodes.allSatisfy { $0.apikey == nil && $0.url.scheme == "wss" })
     }
 
@@ -82,9 +82,9 @@ class ApplicationConfigTests: XCTestCase {
     }
 
     func testNodeFailoverTriesEveryCandidateBeforeOneOutageAlert() throws {
-        let mainnet = configuredChain()
+        let mainnet = configuredChain(custom: [additionalNode])
         let nodes = SoraNodeConnectionPolicy.candidates(for: mainnet)
-        XCTAssertEqual(nodes.map { $0.url.absoluteString }, ["wss://ws.mof.sora.org", "wss://mof2.sora.org"])
+        XCTAssertEqual(nodes.map { $0.url.absoluteString }, ["wss://mof2.sora.org", additionalNode.url.absoluteString])
         var failover = NodeConnectionFailover()
         let first = failover.failed(url: nodes[0].url, candidates: nodes)
         XCTAssertEqual(first.nextNode, nodes[1])
@@ -115,11 +115,11 @@ class ApplicationConfigTests: XCTestCase {
     func testConnectionPoolPreservesActiveFallbackUntilUserChangesPreference() throws {
         let factory = NodeTestConnectionFactory()
         let pool = ConnectionPool(connectionFactory: factory)
-        let chain = configuredChain()
+        let chain = configuredChain(custom: [additionalNode])
         let first = try pool.setupConnection(for: chain)
         XCTAssertEqual(first.url, SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
         // The same subscribed engine has moved temporarily to its fallback.
-        first.reconnect(url: SoraNodeConnectionPolicy.bundledMainnetNodes[1].url)
+        first.reconnect(url: additionalNode.url)
         XCTAssertTrue(first === (try pool.setupConnection(for: chain)))
         XCTAssertEqual(factory.createdURLs.count, 1)
         XCTAssertNil(chain.selectedNode)
@@ -134,7 +134,7 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertEqual(factory.createdURLs.count, 1)
         XCTAssertEqual(explicitlyChanged.selectedNode, custom)
         let ignored = try pool.setupConnection(for: chain, ignoredUrl: SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
-        XCTAssertEqual(ignored.url, SoraNodeConnectionPolicy.bundledMainnetNodes[1].url)
+        XCTAssertEqual(ignored.url, additionalNode.url)
         XCTAssertThrowsError(try pool.setupConnection(for: configuredChain(chainId: "other-genesis")))
     }
 
@@ -144,7 +144,7 @@ class ApplicationConfigTests: XCTestCase {
         let releaseWhitelist = DispatchSemaphore(value: 0)
         let fetchFactory = NodeTestDataFactory {
             XCTAssertEqual(repository.snapshot.count, 1)
-            XCTAssertGreaterThanOrEqual(repository.snapshot.first?.nodes.count ?? 0, 2)
+            XCTAssertGreaterThanOrEqual(repository.snapshot.first?.nodes.count ?? 0, 1)
             requestedWhitelist.fulfill()
             return ClosureOperation {
                 _ = releaseWhitelist.wait(timeout: .now() + 5)
@@ -190,7 +190,7 @@ class ApplicationConfigTests: XCTestCase {
             chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
             typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
         )
-        XCTAssertEqual(cold.nodes.count, 2)
+        XCTAssertEqual(cold.nodes.count, 1)
         XCTAssertEqual(cold.assets.count, 1)
         let different = ChainSyncService.preparedChain(
             chainId: "other-genesis", addressPrefix: 42, name: "Other", nodes: [],
@@ -209,7 +209,7 @@ class ApplicationConfigTests: XCTestCase {
             chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [renamedMof2, extra],
             typesURL: nil, local: nil, assets: [.xor], whitelist: .empty
         )
-        XCTAssertEqual(merged.nodes.count, 3)
+        XCTAssertEqual(merged.nodes.count, 2)
         XCTAssertEqual(Set(merged.nodes.map(\.url)).count, merged.nodes.count)
         XCTAssertEqual(
             merged.nodes.first { $0.url == renamedMof2.url }?.name,
@@ -222,13 +222,13 @@ class ApplicationConfigTests: XCTestCase {
     /// (a custom node at a URL 3.9.0 bundles, a selected node under PI's
     /// name) must save again without a constraint conflict, and the next sync
     /// must see no change.
-    func testChainSyncSavesCustomAndSelectedNodesFromOlderReleases() throws {
+    func testChainSyncDropsCompromisedCustomNodeFromOlderRelease() throws {
         let store = try ChainTestStore()
         defer { store.remove() }
         let piMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
-        let bundledMof2 = SoraNodeConnectionPolicy.bundledMainnetNodes[1]
+        let bundledMof2 = SoraNodeConnectionPolicy.bundledMainnetNodes[0]
         let customMof = ChainNodeModel(
-            url: SoraNodeConnectionPolicy.bundledMainnetNodes[0].url, name: "My node", apikey: nil
+            url: URL(string: "wss://ws.mof.sora.org")!, name: "My node", apikey: nil
         )
 
         // 3.8.6 saved PI's mof2 as "Sora" and selected it; PI did not list
@@ -237,7 +237,7 @@ class ApplicationConfigTests: XCTestCase {
 
         let upgraded = store.sync(try store.stored(), piNodes: [piMof2])
         XCTAssertEqual(upgraded.nodes, [bundledMof2])
-        XCTAssertEqual(upgraded.customNodes, [customMof])
+        XCTAssertTrue(upgraded.customNodes?.isEmpty ?? true)
         XCTAssertEqual(upgraded.selectedNode, bundledMof2)
         XCTAssertNoThrow(try store.save(upgraded))
         let afterUpgrade = try store.stored()
@@ -255,9 +255,9 @@ class ApplicationConfigTests: XCTestCase {
     func testChainSyncReusesAStandaloneSelectedNodeRow() throws {
         let store = try ChainTestStore()
         defer { store.remove() }
-        let piMof2 = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
+        let piMof2 = additionalNode
         let bundledMof = SoraNodeConnectionPolicy.bundledMainnetNodes[0]
-        let bundledMof2 = SoraNodeConnectionPolicy.bundledMainnetNodes[1]
+        let bundledMof2 = additionalNode
         let standalone = ChainNodeModel(url: bundledMof.url, name: "Old name", apikey: nil)
 
         try store.save(store.legacyChain(nodes: [piMof2], selected: standalone, custom: nil))
@@ -279,14 +279,14 @@ class ApplicationConfigTests: XCTestCase {
         // bundled list names it differently. A custom node at a bundled URL
         // stays the user's custom node and is not saved again as a default.
         let indexerNode = ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil)
-        let customCopy = ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "My node", apikey: nil)
+        let customCopy = ChainNodeModel(url: indexerNode.url, name: "My node", apikey: nil)
         let chain = ChainSyncService.preparedChain(
             chainId: SoraNodeConnectionPolicy.mainnetGenesis, addressPrefix: 69, name: "SORA",
             nodes: [indexerNode], typesURL: nil, local: configuredChain(custom: [customCopy]),
             assets: [], whitelist: .empty
         )
 
-        XCTAssertEqual(chain.nodes, [SoraNodeConnectionPolicy.bundledMainnetNodes[1]])
+        XCTAssertTrue(chain.nodes.isEmpty)
         XCTAssertEqual(chain.customNodes, [customCopy])
         let saved = try XCTUnwrap(try savedChains([chain]).first)
         XCTAssertEqual(saved.nodes, chain.nodes)
@@ -344,6 +344,50 @@ class ApplicationConfigTests: XCTestCase {
         OperationQueue().addOperations([save, fetch], waitUntilFinished: true)
         try save.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
         return try fetch.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+    }
+
+    private var additionalNode: ChainNodeModel {
+        ChainNodeModel(url: URL(string: "wss://fallback.example")!, name: "Test fallback", apikey: nil)
+    }
+
+    func testBundledSchemaFetchReadsTheReviewedResourceWithoutURLSession() throws {
+        let url = try XCTUnwrap(ApplicationConfig.shared.commonTypesURL)
+        let expected = try Data(contentsOf: url)
+        let operation = DataOperationFactory().fetchData(from: url)
+        operation.start()
+        let actual = try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        XCTAssertEqual(actual, expected)
+    }
+
+    func testSchemasStayBundledAndRemoteSchemasCannotOverrideThem() throws {
+        let bundled = try XCTUnwrap(ApplicationConfig.shared.commonTypesURL)
+        XCTAssertTrue(bundled.isFileURL)
+        XCTAssertEqual(bundled.lastPathComponent, "runtime-sora.json")
+        XCTAssertNil(ApplicationConfig.shared.nodesURL)
+        XCTAssertEqual(Chain.sora.typeDefNetworkFileURL(), bundled)
+        XCTAssertEqual(RemoteConfig().typesURL, bundled)
+        XCTAssertNil(RemoteConfig(typesUrlString: "https://unreviewed.example/types.json").typesURL)
+        XCTAssertNil(RemoteConfig(typesUrlString: "file:///tmp/types.json").typesURL)
+    }
+
+    func testCompromisedNodesCannotReturnThroughSavedOrRemoteConfiguration() throws {
+        for host in ["ws.mof.sora.org", "MOF.SORA.ORG", "mof3.sora.org.", "207.254.29.218"] {
+            let url = try XCTUnwrap(URL(string: "wss://\(host)"))
+            let node = ChainNodeModel(url: url, name: "Rejected", apikey: nil)
+            XCTAssertFalse(SoraNodeConnectionPolicy.isAllowedEndpoint(url))
+            XCTAssertTrue(RemoteConfig(defaultNodes: [node]).defaultNodes.isEmpty)
+            let saved = configuredChain(selected: node, custom: [node])
+            XCTAssertFalse(SoraNodeConnectionPolicy.candidates(for: saved).contains { $0.url == url })
+            XCTAssertThrowsError(try Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(for: url))
+            let prepared = ChainSyncService.preparedChain(
+                chainId: saved.chainId, addressPrefix: 69, name: "SORA", nodes: [node],
+                typesURL: nil, local: saved, assets: [], whitelist: .empty
+            )
+            XCTAssertNil(prepared.selectedNode)
+            XCTAssertTrue(prepared.customNodes?.isEmpty ?? true)
+            XCTAssertFalse(prepared.nodes.contains { $0.url == url })
+        }
+        XCTAssertTrue(SoraNodeConnectionPolicy.isAllowedEndpoint(additionalNode.url))
     }
 
     private func configuredChain(

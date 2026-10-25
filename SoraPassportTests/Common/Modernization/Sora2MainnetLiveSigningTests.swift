@@ -28,7 +28,18 @@ import XCTest
 /// rejection (bad signature, bad proof, stale or future transaction, invalid
 /// call) fails the test.
 final class Sora2MainnetLiveSigningTests: XCTestCase {
-    private static let node = URL(string: "wss://ws.mof.sora.org")!
+    private static var node: URL {
+        URL(string: ProcessInfo.processInfo.environment["SORA_LIVE_NETWORK_NODE"] ?? "wss://unconfigured.invalid")!
+    }
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        guard let endpoint = ProcessInfo.processInfo.environment["SORA_LIVE_NETWORK_NODE"],
+              let url = URL(string: endpoint), url.scheme == "wss",
+              SoraNodeConnectionPolicy.isAllowedEndpoint(url) else {
+            throw XCTSkip("Select an approved node with TEST_RUNNER_SORA_LIVE_NETWORK_NODE; no live node is selected by default.")
+        }
+    }
     private static let xorAssetId =
         "0x0200000000000000000000000000000000000000000000000000000000000000"
 
@@ -549,7 +560,7 @@ final class Sora2MainnetLiveSigningTests: XCTestCase {
         }
         XCTAssertTrue(
             prunedOnConnectedNode,
-            "ws.mof.sora.org answered for a block 2,000 behind: it no longer prunes state"
+            "The selected test node answered for a block 2,000 behind; this scenario requires a pruned node"
         )
     }
 

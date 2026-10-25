@@ -900,7 +900,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 18 production-promotion tests, 13 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (94 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 25 production-promotion tests, 13 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
@@ -910,7 +910,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             ("ios_gate_sanitizer_suite", 6),
             ("ios_gate_collector_suite", 16),
             ("ios_gate_boundary_suite", 15),
-            ("ios_gate_production_promotion_suite", 18),
+            ("ios_gate_production_promotion_suite", 25),
         ):
             self.assertIn(
                 f'run_exact_ios_migration_suite "${{{suite}}}" {expected}',

@@ -84,3 +84,13 @@ chmod 700 "${release_test_root}"
 
 These commands do not upload or publish a release. See [the release checklist](docs/release-3.9.0/RELEASE-CHECKLIST.md)
 for archive, signing, and physical-device checks.
+
+The local source dependency audit is available before release review:
+
+```sh
+python3 SoraPassport/Scripts/test-swiftpm-advisories.py
+python3 SoraPassport/Scripts/audit-swiftpm-advisories.py --output /absolute/path/swiftpm-advisories.json
+```
+
+It checks immutable SwiftPM source revisions; vendored source and native binaries
+retain their separate qualification requirements. An incomplete scan fails.

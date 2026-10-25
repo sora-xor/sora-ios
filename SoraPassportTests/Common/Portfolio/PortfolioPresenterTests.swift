@@ -144,7 +144,7 @@ final class PortfolioPresenterTests: XCTestCase {
         XCTAssertEqual(rows.map(\.title), ["SORA2", "SORA Nexus", "Taira"],
                        "WalletNetworkDirectory order: main, mainnets not live yet, testnets")
         XCTAssertEqual(rows.map(\.tag), [.network(.main), .network(.comingSoon), .network(.testnet)])
-        XCTAssertEqual(rows[1].subtitle, "Address ready", "A network that is not live yet only has an address")
+        XCTAssertEqual(rows[1].subtitle, WalletUX.text("Address ready"), "A network that is not live yet only has an address")
         let live = render(snapshot(live: [.sora2, .minamoto, .taira]), lens: .networks).list.rows
         XCTAssertNil(live.first { $0.key == PortfolioNetwork.minamoto.rawValue }?.tag, "A live mainnet has no tag")
     }

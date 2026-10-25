@@ -37,6 +37,12 @@ protocol DataOperationFactoryProtocol {
 
 final class DataOperationFactory: DataOperationFactoryProtocol {
     func fetchData(from url: URL) -> BaseOperation<Data> {
+        // The reviewed schema is a bundled file in every build configuration.
+        // URLSession does not load file URLs; admit only this exact bundle resource.
+        if url.isFileURL, url == ApplicationConfig.shared.commonTypesURL {
+            return ClosureOperation { try Data(contentsOf: url, options: .mappedIfSafe) }
+        }
+
         let requestFactory = BlockNetworkRequestFactory {
             var request = URLRequest(url: url)
             request.httpMethod = HttpMethod.get.rawValue
