@@ -85,7 +85,7 @@ final class PortfolioCaptureTests: XCTestCase {
             host.scrollToTop()
             host.home.viewModel.selectLens(.tokens)
             try await settle()
-            // XOR on other networks: the Assets card's network rows, under the portfolio list.
+            // XOR on other networks, under the portfolio list.
             host.homeController.scroll(toShow: host.home.otherNetworksItem)
             try await capture(name("other-networks"))
             host.scrollToTop()
@@ -290,8 +290,6 @@ final class PortfolioCaptureHomeController: SoramitsuViewController {
     let home: PortfolioHome
     private let tableView = SoramitsuTableView()
     private var binding: PortfolioTableBinding?
-    /// Held here as the Wallet tab's view model holds it; the portfolio only keeps a weak reference.
-    private var assets: AssetsItem?
 
     private let variant: PortfolioSampleData.Variant
 
@@ -324,20 +322,17 @@ final class PortfolioCaptureHomeController: SoramitsuViewController {
         binding = PortfolioTableBinding(home: home, tableView: tableView, host: self)
         let friends = FriendsItem()
         let edit = EditViewItem()
-        let assets = Self.assetsCard(variant: variant)
-        self.assets = assets
-        tableView.sora.sections = [SoramitsuTableViewSection(rows: home.compose(replacing: [assets, friends, edit]))]
+        home.otherNetworksItem.rows = Self.networkRows(variant: variant)
+        tableView.sora.sections = [SoramitsuTableViewSection(rows: home.items + [friends, edit])]
     }
 
-    /// The Wallet tab's Assets card as the portfolio finds it: only its XOR rows on other networks
-    /// are shown (on a card of their own), here the sample's selected wallet on SORA Nexus and Taira.
-    private static func assetsCard(variant: PortfolioSampleData.Variant) -> AssetsItem {
-        let item = AssetsItem(title: "Assets", assetProvider: PortfolioCaptureAssetProvider(), service: nil)
+    /// The selected wallet's XOR rows on SORA Nexus and Taira.
+    private static func networkRows(variant: PortfolioSampleData.Variant) -> [NetworkAssetRow] {
         let snapshot = PortfolioSampleData.snapshot(variant, icon: PortfolioSampleDataSource.icon)
         let directory = snapshot.directory
         let main = snapshot.mainNetwork.networkId
         let icon = RemoteSerializer.shared.image(with: PortfolioSampleDataSource.icon(PortfolioSampleData.xor.id) ?? "")
-        item.networkRows = [PortfolioNetwork.minamoto, .taira].compactMap { network in
+        return [PortfolioNetwork.minamoto, .taira].compactMap { network in
             guard let address = snapshot.selectedWallet?.addresses[network] else { return nil }
             let amount = snapshot.holdings.first {
                 $0.walletId == PortfolioSampleData.mainId && $0.network == network
@@ -347,12 +342,11 @@ final class PortfolioCaptureHomeController: SoramitsuViewController {
                                          address: address)
             return NetworkAssetRow(account: account,
                                    title: directory.rowLabel(for: network.networkId, main: main).map { "XOR · \($0)" } ?? "XOR",
-                                   // While the first read runs the Assets card has no amount yet.
+                                   // While the first read runs there is no amount yet.
                                    amount: variant == .loading ? "" : PortfolioFormat.amount(amount, symbol: "XOR"),
                                    tag: directory.tag(for: network.networkId, main: main),
-                                   icon: icon, isMain: false)
+                                   icon: icon)
         }
-        return item
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -437,6 +431,8 @@ final class PortfolioCaptureRouter: PortfolioHandoffRouting {
         return true
     }
 
+    func showManageAssets(from controller: UIViewController) { handoffs.append("manage-assets") }
+
     func showManageWallets(from controller: UIViewController) {
         handoffs.append("manage")
     }
@@ -508,11 +504,4 @@ final class PortfolioCaptureSwapPresentation: LiquidityViewModelProtocol {
     func reviewButtonTapped() {}
     func recalculate(field: FocusedField) {}
     func didSelect(variant: Decimal) {}
-}
-
-/// No balances: the capture's Assets card only carries the network rows.
-final class PortfolioCaptureAssetProvider: AssetProviderProtocol {
-    func getBalances(with assetIds: [String]) -> [BalanceData] { [] }
-    func add(observer: AssetProviderObserverProtocol) {}
-    func remove(observer: AssetProviderObserverProtocol) {}
 }

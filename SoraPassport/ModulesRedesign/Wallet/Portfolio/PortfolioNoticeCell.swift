@@ -4,11 +4,18 @@
 import SoraUIKit
 import UIKit
 
-/// The selected account's key warning (watch-only, missing or invalid keys, a pending repair),
-/// kept on the portfolio home under the hero with the account header's own text and Restore action.
+/// The selected account's key warning (watch-only, missing or invalid keys, a pending repair), on
+/// the portfolio home under the hero, with Restore keys where a restore can help.
 final class PortfolioNoticeItem: NSObject {
-    private(set) weak var account: AccountTableViewItem?
-    fileprivate var onChange: (() -> Void)?
+    /// The account the Wallet tab shows.
+    var account: AccountItem?
+    private(set) var capability: WalletAccountCapability.State = .checking
+    var onRestore: (() -> Void)?
+    /// After a capability change; true when the notice comes or goes rather than changes its text.
+    var onCapabilityChange: ((Bool) -> Void)?
+    private var probeGeneration = UUID()
+
+    var isShown: Bool { Self.needsNotice(capability) }
 
     static func needsNotice(_ state: WalletAccountCapability.State) -> Bool {
         switch state {
@@ -17,9 +24,22 @@ final class PortfolioNoticeItem: NSObject {
         }
     }
 
-    func bind(_ account: AccountTableViewItem) {
-        self.account = account
-        onChange?()
+    /// Checks the account's signing keys again (`WalletAccountCapability.probe`, read-only).
+    /// Only the latest check counts.
+    func refreshCapability() {
+        guard let account else { return }
+        let generation = UUID()
+        probeGeneration = generation
+        WalletAccountCapability.probe(account: account) { [weak self] state in
+            guard let self, self.probeGeneration == generation else { return }
+            self.setCapability(state)
+        }
+    }
+
+    func setCapability(_ state: WalletAccountCapability.State) {
+        let wasShown = isShown
+        capability = state
+        onCapabilityChange?(wasShown != isShown)
     }
 }
 
@@ -39,7 +59,7 @@ final class PortfolioNoticeCell: SoramitsuTableViewCell, SoramitsuTableViewCellP
     private let badge = UILabel.portfolio(FontType.textBoldS, .subheadline, lines: 0, maximum: 26)
     private let reason = UILabel.portfolio(FontType.paragraphS, .subheadline, lines: 0, maximum: 28)
     private lazy var restore = PortfolioPrimaryButton(title: WalletUX.text("Restore keys for this account")) {
-        [weak self] in self?.item?.account?.restoreKeysHandler?()
+        [weak self] in self?.item?.onRestore?()
     }
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -78,14 +98,12 @@ final class PortfolioNoticeCell: SoramitsuTableViewCell, SoramitsuTableViewCellP
 
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
         guard let item = item as? PortfolioNoticeItem else { return }
-        self.item?.onChange = nil
         self.item = item
-        item.onChange = { [weak self] in self?.reload() }
         reload()
     }
 
     private func reload() {
-        guard let state = item?.account?.capability else { return }
+        guard let state = item?.capability else { return }
         let tokens = PortfolioTheme.tokens
         card.apply()
         card.backgroundColor = tokens.warningContainer.withAlphaComponent(PortfolioTheme.isDark ? 0.7 : 1)

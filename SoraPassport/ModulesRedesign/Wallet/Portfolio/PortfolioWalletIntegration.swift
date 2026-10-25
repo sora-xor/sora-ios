@@ -13,12 +13,19 @@ import UIKit
 final class PortfolioHome {
     let viewModel: PortfolioViewModel
     let heroItem = PortfolioHeroItem()
+    let noticeItem = PortfolioNoticeItem()
     let lensItem = PortfolioLensItem()
     let listItem = PortfolioListItem()
+    let otherNetworksItem = PortfolioOtherNetworksItem()
     private(set) var coordinator: PortfolioCoordinator?
     private let dataSource: PortfolioDataSource
 
-    var items: [SoramitsuTableViewItemProtocol] { [heroItem, lensItem, listItem] }
+    /// The top of the Wallet tab, above its other cards: the hero, the selected account's key
+    /// warning while it cannot sign, the lens and list, then XOR on other networks.
+    var items: [SoramitsuTableViewItemProtocol] {
+        let notice: [SoramitsuTableViewItemProtocol] = noticeItem.isShown ? [noticeItem] : []
+        return [heroItem] + notice + [lensItem, listItem, otherNetworksItem]
+    }
 
     init(dataSource: PortfolioDataSource, preferences: PortfolioPreferences = PortfolioPreferences()) {
         self.dataSource = dataSource
@@ -96,49 +103,11 @@ final class PortfolioHome {
         coordinator?.renderDidChange()
     }
 
-    // MARK: Composition
-
-    let noticeItem = PortfolioNoticeItem()
-    let otherNetworksItem = PortfolioOtherNetworksItem()
-    /// Whether the last composition showed the account's key warning.
-    private(set) var noticeShown = false
-
-    /// The home with the portfolio: the hero takes the place of the account header and the lens
-    /// and list take the place of the Assets card, whose rows for XOR on other networks stay in a
-    /// card of their own under the list. Every other card keeps its place and its own rules. A
-    /// selected account that cannot sign keeps its warning, under the hero.
-    func compose(replacing items: [SoramitsuTableViewItemProtocol]) -> [SoramitsuTableViewItemProtocol] {
-        var result: [SoramitsuTableViewItemProtocol] = [heroItem]
-        noticeShown = false
-        if let account = items.compactMap({ $0 as? AccountTableViewItem }).first,
-           PortfolioNoticeItem.needsNotice(account.capability) {
-            noticeItem.bind(account)
-            result.append(noticeItem)
-            noticeShown = true
-        }
-        result.append(lensItem)
-        result.append(listItem)
-        if let assets = items.compactMap({ $0 as? AssetsItem }).first {
-            otherNetworksItem.source = assets
-            result.append(otherNetworksItem)
-        }
-        result += items.filter { !($0 is AccountTableViewItem) && !($0 is AssetsItem) }
-        return result
-    }
-
-    /// The Wallet tab reloads its Assets card when the network rows change. With the portfolio that
-    /// card is not on screen, so the reload goes to the card that shows those rows.
-    func reloadTargets(for items: [SoramitsuTableViewItemProtocol]) -> [SoramitsuTableViewItemProtocol] {
-        items.map { item in
-            guard let assets = item as? AssetsItem else { return item }
-            otherNetworksItem.source = assets
-            return otherNetworksItem
-        }
-    }
-
     // MARK: Lifecycle
 
     func viewWillAppear() {
+        // Keys may have been restored or removed while the tab was away.
+        noticeItem.refreshCapability()
         viewModel.viewWillAppear()
     }
 
@@ -327,7 +296,7 @@ final class PortfolioWalletRouter: PortfolioHandoffRouting {
         self.wallet = wallet
     }
 
-    /// The account card's Send: it asks for the network when the wallet has a choice.
+    /// The Wallet tab's Send: it asks for the network when the wallet has a choice.
     func showSend(from controller: UIViewController) {
         wallet?.sendFromWallet()
     }
@@ -370,7 +339,7 @@ final class PortfolioWalletRouter: PortfolioHandoffRouting {
         controller.present(containerView, animated: true)
     }
 
-    /// The account card's Receive: it asks for the network when the wallet has a choice.
+    /// The Wallet tab's Receive: it asks for the network when the wallet has a choice.
     func showReceive(from controller: UIViewController) {
         wallet?.receive(showSora2Receive: { [weak self, weak controller] in
             guard let self, let controller else { return }
@@ -441,32 +410,41 @@ final class PortfolioWalletRouter: PortfolioHandoffRouting {
     func showManageWallets(from controller: UIViewController) {
         wallet?.wireframe?.showManageAccount(on: controller) {}
     }
+
+    func showManageAssets(from controller: UIViewController) {
+        wallet?.showFullListAssets()
+    }
 }
 
 extension RedesignWalletViewModel {
-    /// Creates the portfolio home once per Wallet tab and keeps the account's key warning current.
+    /// Connects the portfolio home to the Wallet tab: its sheets and hand-offs, the selected
+    /// account's key warning and the network pages of XOR on other networks.
     @MainActor
-    func preparePortfolio(account: SoramitsuTableViewItemProtocol) {
-        guard portfolioEnabled else { return }
-        if portfolioHome == nil {
-            portfolioHome = PortfolioHome(dataSource: PortfolioHome.makeDataSource(assetManager: assetManager))
-        }
-        if let home = portfolioHome, home.coordinator == nil, let controller = view?.controller {
+    func preparePortfolio() {
+        let home = portfolioHome
+        if home.coordinator == nil, let controller = view?.controller {
             home.attach(host: controller, router: PortfolioWalletRouter(wallet: self), switcher: PortfolioAccountSwitcher())
         }
-        guard let account = account as? AccountTableViewItem else { return }
-        let reload = account.updateHandler
-        account.updateHandler = { [weak self, weak account] in
-            reload?()
-            guard let self, let account else { return }
+        let account = SelectedWalletSettings.shared.currentAccount
+        home.noticeItem.account = account
+        home.noticeItem.onRestore = { [weak self] in
+            guard let controller = self?.view?.controller, let account else { return }
             Task { @MainActor in
-                guard let home = self.portfolioHome else { return }
-                if home.noticeShown != PortfolioNoticeItem.needsNotice(account.capability) {
+                WalletAccountCapability.presentRepair(account: account, from: controller)
+            }
+        }
+        home.noticeItem.onCapabilityChange = { [weak self] showsOrHides in
+            Task { @MainActor in
+                guard let self else { return }
+                if showsOrHides {
                     self.updateItems()
                 } else {
-                    home.noticeItem.bind(account)
+                    self.reloadItem?([self.portfolioHome.noticeItem])
                 }
             }
+        }
+        home.otherNetworksItem.onOpen = { [weak self] account in
+            Task { @MainActor in self?.openNetwork(account: account) }
         }
     }
 }

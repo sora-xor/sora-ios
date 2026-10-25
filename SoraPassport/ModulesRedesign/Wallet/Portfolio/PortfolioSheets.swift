@@ -298,6 +298,7 @@ final class PortfolioWalletsSheet: PortfolioSheetViewController {
     var onSelect: ((PortfolioScope) -> Void)?
     var onRefresh: (() -> Void)?
     var onManage: (() -> Void)?
+    var onManageAssets: (() -> Void)?
 
     override func buildContent() {
         for entry in entries {
@@ -321,6 +322,15 @@ final class PortfolioWalletsSheet: PortfolioSheetViewController {
         manage.configuration = configuration
         manage.contentHorizontalAlignment = .leading
         contentStack.addArrangedSubview(manage)
+        let assets = UIButton(type: .system, primaryAction: UIAction { [weak self] _ in self?.onManageAssets?() })
+        configuration.attributedTitle = AttributedString(PortfolioStrings.text("Manage selected wallet's assets"), attributes: AttributeContainer([
+            .font: PortfolioTheme.font(FontType.textBoldS, .subheadline, maximum: 26),
+            .foregroundColor: PortfolioTheme.tokens.link
+        ]))
+        assets.configuration = configuration
+        assets.contentHorizontalAlignment = .leading
+        assets.accessibilityIdentifier = "portfolio.manage-assets"
+        contentStack.addArrangedSubview(assets)
     }
 }
 

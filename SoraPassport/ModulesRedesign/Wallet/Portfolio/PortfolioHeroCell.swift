@@ -447,16 +447,21 @@ final class PortfolioPrimaryButton: UIControl {
         label.text = title
         label.textAlignment = .center
         label.numberOfLines = 0
+        let minimumHeight = heightAnchor.constraint(greaterThanOrEqualToConstant: 52)
+        let verticalInset = content.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 12)
+        // A hidden arranged button must yield to UIStackView's required zero-height constraint.
+        minimumHeight.priority = UILayoutPriority(999)
+        verticalInset.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
             gradient.leadingAnchor.constraint(equalTo: leadingAnchor),
             gradient.trailingAnchor.constraint(equalTo: trailingAnchor),
             gradient.topAnchor.constraint(equalTo: topAnchor),
             gradient.bottomAnchor.constraint(equalTo: bottomAnchor),
-            heightAnchor.constraint(greaterThanOrEqualToConstant: 52),
+            minimumHeight,
             content.centerXAnchor.constraint(equalTo: centerXAnchor),
             content.centerYAnchor.constraint(equalTo: centerYAnchor),
             content.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 20),
-            content.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 12)
+            verticalInset
         ])
         addTarget(self, action: #selector(tapped), for: .touchUpInside)
         isAccessibilityElement = true

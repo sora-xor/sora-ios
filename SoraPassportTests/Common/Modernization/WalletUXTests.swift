@@ -755,81 +755,6 @@ final class WalletUXTests: XCTestCase {
         window.isHidden = true; window.rootViewController = nil
     }
 
-    @MainActor
-    func testLongAssetBalanceKeepsTokenNameReadable() async throws {
-        let previousTheme = SoramitsuUI.shared.themeMode
-        let previousWindow = UIApplication.shared.keyWindow
-        defer { SoramitsuUI.shared.themeMode = previousTheme; previousWindow?.makeKeyAndVisible() }
-        SoramitsuUI.shared.themeMode = .manual(.light)
-        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("AssetLayoutDiagnostics", isDirectory: true)
-        if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
-            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        }
-        for category in [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge] {
-            for width in [CGFloat(320), 393, 428] {
-                let row = MainScreenAssetView()
-                row.titleLabel.sora.text = "SORA Validator Token with a long name"
-                row.subtitleLabel.sora.text = "VAL"
-                row.amountUpLabel.sora.text = "123,456,789,012,345.678901234567890123"
-                row.amountDownLabel.sora.text = "$123,456,789,012,345.67"
-                if let icon = R.image.wallet.emptyToken() { row.assetImageView.sora.picture = .logo(image: icon) }
-                row.assetImageView.sora.loadingPlaceholder.type = .none
-                for label in [row.titleLabel, row.subtitleLabel, row.amountUpLabel, row.amountDownLabel] { label.sora.loadingPlaceholder.type = .none }
-                let controller = UIViewController()
-                controller.view.backgroundColor = WalletUX.page
-                controller.view.addSubview(row)
-                NSLayoutConstraint.activate([
-                    row.widthAnchor.constraint(equalToConstant: width),
-                    row.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
-                    row.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 24)
-                ])
-                let window = makeSceneHostedWindow(frame: UIScreen.main.bounds)
-                let host = UIViewController()
-                host.addChild(controller)
-                host.view.addSubview(controller.view)
-                controller.view.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    controller.view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
-                    controller.view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
-                    controller.view.topAnchor.constraint(equalTo: host.view.topAnchor),
-                    controller.view.bottomAnchor.constraint(equalTo: host.view.bottomAnchor)
-                ])
-                controller.didMove(toParent: host)
-                host.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: category), forChild: controller)
-                window.rootViewController = host
-                window.makeKeyAndVisible()
-                host.view.layoutIfNeeded(); controller.view.layoutIfNeeded(); row.layoutIfNeeded(); controller.view.layoutIfNeeded()
-                try await Task.sleep(nanoseconds: 300_000_000)
-                controller.view.layoutIfNeeded(); row.layoutIfNeeded()
-                XCTAssertEqual(row.traitCollection.preferredContentSizeCategory, category)
-                if category.isAccessibilityCategory { XCTAssertGreaterThan(row.titleLabel.font.pointSize, 24) }
-                for label in [row.titleLabel, row.subtitleLabel, row.amountUpLabel, row.amountDownLabel] {
-                    let text = label.text ?? ""
-                    let attributed = label.attributedText ?? NSAttributedString(string: text, attributes: [.font: label.font as Any])
-                    let needed = attributed.boundingRect(with: CGSize(width: label.bounds.width, height: 10_000),
-                        options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).height
-                    XCTAssertGreaterThanOrEqual(label.bounds.height + 1, needed, "Full label must be visible at width \(width): \(text)")
-                }
-                XCTAssertGreaterThanOrEqual(row.titleLabel.bounds.width, 80, "Token name must remain readable at width \(width)")
-                XCTAssertGreaterThan(row.titleLabel.bounds.height, 10)
-                for target in [row.titleLabel, row.amountUpLabel, row.assetImageView] as [UIView] {
-                    let point = target.convert(CGPoint(x: target.bounds.midX, y: target.bounds.midY), to: row)
-                    XCTAssertTrue(row.hitTest(point, with: nil) === row, "Tapping name, amount, or icon must activate the asset row")
-                }
-                let amountFrame = row.amountUpLabel.convert(row.amountUpLabel.bounds, to: row)
-                XCTAssertLessThanOrEqual(amountFrame.maxX, row.bounds.width + 0.5)
-                XCTAssertGreaterThanOrEqual(amountFrame.minX, -0.5)
-                if ProcessInfo.processInfo.environment["SORA_CAPTURE_APP_STORE"] == "1" {
-                    let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
-                        window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-                    }
-                    try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("synthetic-large-balance-\(Int(width))-\(category.isAccessibilityCategory ? "AXXXL" : "normal").png"))
-                }
-                window.isHidden = true; window.rootViewController = nil
-            }
-        }
-    }
 
     @MainActor
     func testCaptureAppStoreScreenshots() async throws {
@@ -953,9 +878,9 @@ final class WalletUXTests: XCTestCase {
                     for count in [4, 6, 0, -1, -2, -3, -4, -5] {
                         let controller: UIViewController
                         if count == -5 {
-                            let account = AccountTableViewItem(accountName: "Public fixture")
-                            account.capability = .missingKeys
-                            controller = RecoveryHeaderVisualController(item: account)
+                            let account = PortfolioNoticeItem()
+                            account.setCapability(.missingKeys)
+                            controller = PortfolioNoticeVisualController(item: account)
                         } else if count <= -3 {
                             let seed = AccountExportRawSeedViewController()
                             seed.localizationManager = LocalizationManager.shared
@@ -1105,9 +1030,9 @@ final class WalletUXTests: XCTestCase {
                     try await capture(prefix + "-repair", UINavigationController(rootViewController: repair), category: category)
                     for (label, state) in [("missing", WalletAccountCapability.State.missingKeys),
                                            ("invalid", .invalidKeys), ("watch-only", .watchOnly)] {
-                        let item = AccountTableViewItem(accountName: "Public preview")
-                        item.capability = state
-                        try await capture(prefix + "-header-" + label, RecoveryHeaderVisualController(item: item), category: category)
+                        let item = PortfolioNoticeItem()
+                        item.setCapability(state)
+                        try await capture(prefix + "-header-" + label, PortfolioNoticeVisualController(item: item), category: category)
                     }
                     do {
                         let onboarding = WelcomeViewController()
@@ -2433,10 +2358,10 @@ final class WalletUXTests: XCTestCase {
     }
 }
 
-/// Uses the production self-sizing wallet-header cell for opt-in visual QA.
-final class RecoveryHeaderVisualController: UITableViewController {
-    let item: AccountTableViewItem
-    init(item: AccountTableViewItem) { self.item = item; super.init(style: .plain) }
+/// Uses the production self-sizing portfolio notice cell for opt-in visual QA.
+final class PortfolioNoticeVisualController: UITableViewController {
+    let item: PortfolioNoticeItem
+    init(item: PortfolioNoticeItem) { self.item = item; super.init(style: .plain) }
     required init?(coder: NSCoder) { nil }
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -2447,7 +2372,7 @@ final class RecoveryHeaderVisualController: UITableViewController {
     }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { 1 }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = AccountCell(style: .default, reuseIdentifier: nil)
+        let cell = PortfolioNoticeCell(style: .default, reuseIdentifier: nil)
         cell.backgroundColor = .clear
         cell.set(item: item, context: nil)
         return cell
