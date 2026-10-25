@@ -2912,6 +2912,99 @@ final class WalletKeySafetyTests: XCTestCase {
         XCTAssertFalse(device.keychain.changedExistingItems)
     }
 
+    @MainActor
+    private func makeWelcomeBackWindow() -> (window: UIWindow, cleanup: () -> Void) {
+        let previousWindow = UIApplication.shared.keyWindow
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: UIScreen.main.bounds)
+        }
+        window.frame = UIScreen.main.bounds
+        return (window, {
+            window.isHidden = true
+            window.rootViewController = nil
+            window.windowScene = nil
+            previousWindow?.makeKeyAndVisible()
+            UIView.setAnimationsEnabled(animationsWereEnabled)
+        })
+    }
+
+    private func welcomeBackDescendants(_ view: UIView) -> [UIView] {
+        [view] + view.subviews.flatMap(welcomeBackDescendants)
+    }
+
+    @MainActor
+    func testCancelledWelcomeBackRestoreDoesNotChangeTheNextSetupDestination() throws {
+        for identifier in ["wallet-welcome-back-phrase", "wallet-welcome-back-drive"] {
+            let (window, cleanup) = makeWelcomeBackWindow()
+            defer { cleanup() }
+            let settings = InMemorySettingsManager()
+            var onboardingCount = 0
+            var restoreRequests: [Bool] = []
+            let controller = WalletWelcomeBackViewController(
+                keystore: InMemoryKeychain(), settings: settings,
+                onContinueToOnboarding: { onboardingCount += 1 },
+                onWalletsRestored: { XCTFail("No retained-wallet restore was chosen") },
+                onRestore: { restoreRequests.append($0) })
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.loadViewIfNeeded()
+            controller.apply(WalletRecoveryState.welcomeBack(
+                adoptableWallets: 1, walletsWithPhrase: 1, retainedPinUsable: true).options)
+            let button = try XCTUnwrap(welcomeBackDescendants(controller.view).first {
+                $0.accessibilityIdentifier == identifier
+            } as? UIButton)
+            button.sendActions(for: .touchUpInside)
+            let prompt = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
+            XCTAssertTrue(prompt.actions.contains { $0.style == .cancel })
+            XCTAssertEqual(onboardingCount, 0)
+            XCTAssertTrue(restoreRequests.isEmpty)
+            XCTAssertFalse(WalletPendingPinSetup.isPending(settings))
+            // Cancel has no side effects. Dismiss the prompt without selecting
+            // either continuation, then exercise confirmed new-device setup's
+            // normal onboarding entry point without another retained-wallet prompt.
+            prompt.dismiss(animated: false)
+            spinRunLoop { controller.presentedViewController == nil }
+            XCTAssertNil(controller.presentedViewController)
+            controller.apply(WalletRecoveryState.welcomeBack(
+                adoptableWallets: 0, walletsWithPhrase: 0, retainedPinUsable: false).options)
+            controller.leaveForOnboarding()
+            spinRunLoop { onboardingCount > 0 || !restoreRequests.isEmpty }
+            XCTAssertEqual(onboardingCount, 1, identifier)
+            XCTAssertTrue(restoreRequests.isEmpty, "A cancelled restore cannot replace new wallet setup")
+            XCTAssertTrue(WalletPendingPinSetup.isPending(settings))
+        }
+    }
+
+    @MainActor
+    func testWelcomeBackExplicitRestoreChoicesKeepTheirDestination() throws {
+        for (identifier, drive) in [("wallet-welcome-back-phrase", false), ("wallet-welcome-back-drive", true)] {
+            let (window, cleanup) = makeWelcomeBackWindow()
+            defer { cleanup() }
+            let settings = InMemorySettingsManager()
+            var restoreRequests: [Bool] = []
+            let controller = WalletWelcomeBackViewController(
+                keystore: InMemoryKeychain(), settings: settings,
+                onContinueToOnboarding: { XCTFail("An explicit restore must open the chosen import") },
+                onWalletsRestored: { XCTFail("No retained-wallet restore was chosen") },
+                onRestore: { restoreRequests.append($0) })
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.loadViewIfNeeded()
+            let button = try XCTUnwrap(welcomeBackDescendants(controller.view).first {
+                $0.accessibilityIdentifier == identifier
+            } as? UIButton)
+            button.sendActions(for: .touchUpInside)
+            spinRunLoop { !restoreRequests.isEmpty }
+            XCTAssertEqual(restoreRequests, [drive])
+            XCTAssertTrue(WalletPendingPinSetup.isPending(settings))
+        }
+    }
+
     /// The 1.x upgrade confirmation and its import completion reach the Root
     /// module after launch routing has returned.
     func testLegacyUpgradeConfirmationRunsTheUpgradeAfterLaunchRoutingReturns() throws {

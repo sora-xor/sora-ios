@@ -1637,7 +1637,6 @@ final class WalletWelcomeBackViewController: UIViewController {
     private let onContinueToOnboarding: () -> Void
     private let onWalletsRestored: () -> Void
     private let onRestore: ((Bool) -> Void)?
-    private var requestedRestore: Bool?
     private let earlierDataButton = WalletSafeMode.button(.secondary, title: WalletUX.text("Use the earlier wallet data again"))
     private let restoreFoundButton = WalletSafeMode.button(.safe,
                                                            title: WalletUX.text("Restore wallets found on this iPhone"))
@@ -1776,8 +1775,8 @@ final class WalletWelcomeBackViewController: UIViewController {
         guard !isBusy else { return }
         WalletPreservedDataRestoration.present(on: self, onRestored: onWalletsRestored)
     }
-    @objc private func restorePhrase() { requestedRestore = false; leaveForOnboarding() }
-    @objc private func restoreDrive() { requestedRestore = true; leaveForOnboarding() }
+    @objc private func restorePhrase() { leaveForOnboarding(restoreFromDrive: false) }
+    @objc private func restoreDrive() { leaveForOnboarding(restoreFromDrive: true) }
 
     @objc private func continueToOnboarding() {
         guard !isBusy else { return }
@@ -1795,7 +1794,9 @@ final class WalletWelcomeBackViewController: UIViewController {
 
     /// Setup is marked before import. Ownership bindings stay independent of
     /// the current app PIN; no earlier PIN value is copied or trusted.
-    func leaveForOnboarding() {
+    func leaveForOnboarding(restoreFromDrive: Bool? = nil) {
+        // The destination belongs to this choice. Cancelling its confirmation
+        // must not send a later "Set up this iPhone again" choice to restore.
         let proceed: () -> Void = { [weak self] in
             guard let self else { return }
             self.setBusy(true)
@@ -1809,10 +1810,10 @@ final class WalletWelcomeBackViewController: UIViewController {
                     self.setBusy(false)
                     switch result {
                     case .success:
-                        if let drive = self.requestedRestore, let onRestore = self.onRestore { onRestore(drive) }
+                        if let drive = restoreFromDrive, let onRestore = self.onRestore { onRestore(drive) }
                         else { self.onContinueToOnboarding() }
                     case .failure:
-                        self.showEarlierPinNotKept()
+                        self.showEarlierPinNotKept(restoreFromDrive: restoreFromDrive)
                     }
                 }
             }
@@ -1835,13 +1836,13 @@ final class WalletWelcomeBackViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func showEarlierPinNotKept() {
+    private func showEarlierPinNotKept(restoreFromDrive: Bool?) {
         let alert = UIAlertController(
             title: WalletUX.text("Could not prepare wallet setup"),
             message: WalletUX.text("SORA could not prepare the new wallet setup. The earlier wallet keys and their ownership PIN protection are unchanged. Try again, or restore the wallets first."),
             preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: WalletUX.text("Try again"), style: .default) { [weak self] _ in
-            self?.leaveForOnboarding()
+            self?.leaveForOnboarding(restoreFromDrive: restoreFromDrive)
         })
         if options.canRestoreExistingKeys {
             alert.addAction(UIAlertAction(title: WalletUX.text("Restore them now"), style: .default) { [weak self] _ in

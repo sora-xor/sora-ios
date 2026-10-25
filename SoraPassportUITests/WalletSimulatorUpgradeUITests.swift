@@ -240,6 +240,12 @@ final class WalletSimulatorUpgradeUITests: XCTestCase {
                 XCTAssertTrue(app.otherElements["MainViewAccessibilityId"].waitForExistence(timeout: 10))
                 enterPIN()
                 if let phrase = env["SORA_SIMULATOR_PUBLIC_PHRASE"] {
+                    // Backup words stay hidden after authorization until the
+                    // user explicitly reveals them. Exercise that real action
+                    // using only the harness's public fixture phrase.
+                    let reveal = app.buttons["wallet-backup-reveal"]
+                    XCTAssertTrue(reveal.waitForExistence(timeout: 10), app.debugDescription)
+                    reveal.tap()
                     let last = try XCTUnwrap(phrase.split(separator: " ").last.map(String.init))
                     XCTAssertTrue(app.staticTexts[last].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
                 }
