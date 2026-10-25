@@ -34,11 +34,11 @@ import UIKit
 
 struct InputAccessoryVariant {
     let displayValue: String
-    let value: Float
+    let value: Decimal
 }
 
 protocol InputAccessoryViewDelegate: AnyObject {
-    func didSelect(variant: Float)
+    func didSelect(variant: Decimal)
 }
 
 final class InputAccessoryView: SoramitsuView {
@@ -47,6 +47,10 @@ final class InputAccessoryView: SoramitsuView {
 
     public var variants: [InputAccessoryVariant] = [] {
         didSet {
+            stackView.arrangedSubviews.forEach {
+                stackView.removeArrangedSubview($0)
+                $0.removeFromSuperview()
+            }
             variants.enumerated().forEach { (index, variant) in
                 let button = SoramitsuButton()
                 button.translatesAutoresizingMaskIntoConstraints = false
@@ -65,7 +69,7 @@ final class InputAccessoryView: SoramitsuView {
                     let separatorView = SoramitsuView()
                     separatorView.widthAnchor.constraint(equalToConstant: 1).isActive = true
                     separatorView.heightAnchor.constraint(equalToConstant: 25).isActive = true
-                    separatorView.sora.backgroundColor = .custom(uiColor: UIColor(hex: "#b1b5bb"))
+                    separatorView.sora.backgroundColor = .fgOutline
                     stackView.addArrangedSubview(separatorView)
                 }
             }
@@ -94,7 +98,7 @@ final class InputAccessoryView: SoramitsuView {
 
     private func setup() {
         clipsToBounds = false
-        sora.backgroundColor = .custom(uiColor: UIColor(hex: "#d3d1d8"))
+        sora.backgroundColor = .bgSurface
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
     }

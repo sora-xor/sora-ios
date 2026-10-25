@@ -41,6 +41,7 @@ enum ImportAccountError: Error {
 
 class BaseAccountImportInteractor {
     weak var presenter: AccountImportInteractorOutputProtocol!
+    var credentialRepairFlow: WalletMissingAccountRepairFlow?
 
     private(set) lazy var jsonDecoder = JSONDecoder()
     private(set) lazy var mnemonicCreator = IRMnemonicCreator()
@@ -52,6 +53,7 @@ class BaseAccountImportInteractor {
     let supportedNetworks: [Chain]
     let defaultNetwork: Chain
     let cloudStorage: CloudStorageServiceProtocol?
+    let allowedMnemonicWordCounts: Set<Int>
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -59,7 +61,15 @@ class BaseAccountImportInteractor {
          keystoreImportService: KeystoreImportServiceProtocol,
          supportedNetworks: [Chain],
          defaultNetwork: Chain,
-         cloudStorage: CloudStorageServiceProtocol?) {
+         cloudStorage: CloudStorageServiceProtocol?,
+         allowedMnemonicWordCounts: Set<Int> =
+             WalletMnemonicWordPolicy.retainedSoraWordCounts) {
+        precondition(
+            !allowedMnemonicWordCounts.isEmpty &&
+                allowedMnemonicWordCounts.isSubset(
+                    of: WalletMnemonicWordPolicy.retainedSoraWordCounts
+                )
+        )
         self.accountOperationFactory = accountOperationFactory
         self.accountRepository = accountRepository
         self.operationManager = operationManager
@@ -67,6 +77,44 @@ class BaseAccountImportInteractor {
         self.supportedNetworks = supportedNetworks
         self.defaultNetwork = defaultNetwork
         self.cloudStorage = cloudStorage
+        self.allowedMnemonicWordCounts = allowedMnemonicWordCounts
+    }
+
+
+    /// Missing keys use the existing add-only import and PIN-setup transaction.
+    /// Only conflicting retained material needs the extra repair/PIN screen.
+    func existingAccountRequiringRepair(_ existing: AccountItem?, prepared: PreparedAccount,
+                                        selection: SelectedWalletSettingsProtocol) throws -> AccountItem? {
+        guard let existing else { return nil }
+        guard WalletCredentialRepair.sameIdentity(existing, prepared.account) else { throw AccountCreateError.duplicated }
+        if try selection.restoresKeysInPlace(existing: existing, imported: prepared.account) { return nil }
+        if let flow = credentialRepairFlow, try flow.requiresExplicitRepair(prepared) { return existing }
+        throw AccountCreateError.duplicated
+    }
+
+    /// Called under the normal import lease, before journals or secrets change.
+    /// Consent is asynchronous, so release that lease and revalidate in the
+    /// repair service after the user has supplied their PIN.
+    func requestExplicitCredentialRepairIfNeeded(_ prepared: PreparedAccount,
+        lifecycleLease: WalletLifecycleLease, eventCenter: EventCenterProtocol,
+        completion: ((Result<AccountItem, Error>?) -> Void)?) throws -> Bool {
+        guard let flow = credentialRepairFlow, try flow.requiresExplicitRepair(prepared) else { return false }
+        lifecycleLease.release()
+        Task { @MainActor [weak self] in
+            flow.begin(prepared) { result in
+                switch result {
+                case .success(let account):
+                    eventCenter.notify(with: SelectedAccountChanged(), completionOnMain: { [weak self] in
+                        self?.presenter?.didCompleteAccountImport()
+                        completion?(.success(account))
+                    })
+                case .failure(let error):
+                    if !(error is CancellationError) { self?.presenter?.didReceiveAccountImport(error: error) }
+                    completion?(.failure(error))
+                }
+            }
+        }
+        return true
     }
 
     private func setupKeystoreImportObserver() {
@@ -102,45 +150,113 @@ class BaseAccountImportInteractor {
         presenter.didReceiveAccountImport(metadata: metadata)
     }
 
-    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {}
+    func importAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
+    ) {}
     
-    func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {}
+    func validateAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?
+    ) {}
     
+    /// Imports a decrypted Google Drive backup. Whatever the backup holds
+    /// (phrase, seed or JSON), the derived account must be the address the
+    /// backup was saved for. That check runs before any Keychain write.
+    /// App Store 3.8.6 backups have no key verifier, so this is what proves
+    /// that the restored keys belong to the backup.
     private func importAccount(_ account: OpenBackupAccount, password: String) {
-        let backupAccountTypes = account.backupAccountType ?? []
+        var candidates: [BaseOperation<PreparedAccount>] = []
+        let cryptoType = CryptoType(type: account.cryptoType ?? "SR25519")
+        if let phrase = account.passphrase, !phrase.isEmpty,
+           let mnemonic = try? mnemonicCreator.mnemonic(fromList: phrase),
+           allowedMnemonicWordCounts.contains(mnemonic.allWords().count) ||
+               WalletMnemonicWordPolicy.retainedShortWordCounts.contains(mnemonic.allWords().count) {
+            let request = AccountCreationRequest(username: account.name ?? "", type: .sora,
+                derivationPath: account.substrateDerivationPath ?? "", cryptoType: cryptoType)
+            candidates.append(accountOperationFactory.prepareAccountOperation(request: request, mnemonic: mnemonic))
+        }
+        if let seed = account.encryptedSeed?.substrateSeed, !seed.isEmpty {
+            candidates.append(accountOperationFactory.prepareAccountOperation(request:
+                AccountImportSeedRequest(seed: seed, username: account.name ?? "", networkType: .sora,
+                    derivationPath: account.substrateDerivationPath ?? "", cryptoType: cryptoType)))
+        }
+        if let json = account.json?.substrateJson, !json.isEmpty {
+            // The JSON's encoding has its real crypto type. Historical Drive
+            // metadata sometimes incorrectly said SR25519 for other types.
+            let jsonCrypto = json.data(using: .utf8).flatMap {
+                try? JSONDecoder().decode(KeystoreDefinition.self, from: $0)
+            }.flatMap { try? AccountImportJsonFactory().createInfo(from: $0).cryptoType } ?? cryptoType
+            candidates.append(accountOperationFactory.prepareAccountOperation(request:
+                AccountImportKeystoreRequest(keystore: json, password: password, username: account.name ?? "",
+                    networkType: .sora, cryptoType: jsonCrypto)))
+        }
+        importAccountUsingOperation(Self.firstMatchingAddress(account.address, candidates: candidates), completion: nil)
+    }
 
-        if backupAccountTypes.contains(.passphrase) {
-            let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
-                                                       username: account.name ?? "",
-                                                       networkType: .sora,
-                                                       derivationPath: account.substrateDerivationPath ?? "",
-                                                       cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            importAccountWithMnemonic(request: request)
-            return
+    /// Try backup formats in order without writing. A stale phrase/seed cannot
+    /// prevent a proven JSON from restoring the saved address. Gate and I/O
+    /// failures still propagate rather than being reclassified as bad backups.
+    static func firstMatchingAddress(
+        _ expectedAddress: String, candidates: [BaseOperation<PreparedAccount>]
+    ) -> BaseOperation<PreparedAccount> {
+        ClosureOperation {
+            var firstError: Error?
+            for candidate in candidates {
+                do {
+                    candidate.start()
+                    let prepared = try candidate.extractNoCancellableResultData()
+                    guard prepared.account.address == expectedAddress else {
+                        prepared.discard()
+                        throw AccountCreateError.backupIdentityMismatch
+                    }
+                    return prepared
+                } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
+                    firstError = firstError ?? error
+                }
+            }
+            throw firstError ?? ImportAccountError.unexpectedError
         }
-        
-        
-        if  backupAccountTypes.contains(.seed) {
-            let request = AccountImportSeedRequest(seed: account.encryptedSeed?.substrateSeed ?? "",
-                                                   username: account.name ?? "",
-                                                   networkType: .sora,
-                                                   derivationPath: account.substrateDerivationPath ?? "",
-                                                   cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            importAccountWithSeed(request: request)
-            return
-        }
-        
-        if let substrateJson = account.json?.substrateJson {
-            let request = AccountImportKeystoreRequest(keystore: substrateJson,
-                                                       password: password,
-                                                       username: account.name ?? "",
-                                                       networkType: .sora,
-                                                       cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
-            importAccountWithKeystore(request: request)
+    }
 
+    /// A short historical phrase restores a user-supplied identity. Merely
+    /// accepting the word count would silently create a different wallet after
+    /// a typo or missing path. Both validation and final import use this check.
+    func prepareMnemonic(_ request: AccountImportMnemonicRequest) throws -> BaseOperation<PreparedAccount> {
+        let expected = request.expectedAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+            throw AccountCreateError.invalidMnemonicFormat
         }
-        
-        presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)
+        let count = mnemonic.allWords().count
+        guard allowedMnemonicWordCounts.contains(count) ||
+                (WalletMnemonicWordPolicy.retainedShortWordCounts.contains(count) &&
+                    expected?.isEmpty == false) else {
+            throw AccountCreateError.invalidMnemonicFormat
+        }
+        let operation = accountOperationFactory.prepareAccountOperation(
+            request: AccountCreationRequest(username: request.username, type: request.networkType,
+                derivationPath: request.derivationPath, cryptoType: request.cryptoType), mnemonic: mnemonic)
+        if let expected {
+            return Self.requireAddress(expected, of: operation)
+        }
+        return operation
+    }
+
+    /// Runs the preparation, then refuses an account whose address differs
+    /// from the backup's. The prepared secrets are wiped, never persisted.
+    static func requireAddress(
+        _ expectedAddress: String,
+        of operation: BaseOperation<PreparedAccount>
+    ) -> BaseOperation<PreparedAccount> {
+        ClosureOperation {
+            operation.start()
+            let prepared = try operation.extractNoCancellableResultData()
+            guard prepared.account.address == expectedAddress else {
+                prepared.discard()
+                throw AccountCreateError.backupIdentityMismatch
+            }
+            return prepared
+        }
     }
 }
 
@@ -151,56 +267,44 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
 
     func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
-            presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
-            return
+        do {
+            importAccountUsingOperation(try prepareMnemonic(request), completion: completion)
+        } catch {
+            presenter?.didReceiveAccountImport(error: error)
+            completion?(.failure(error))
         }
-
-        let creationRequest = AccountCreationRequest(username: request.username,
-                                                     type: request.networkType,
-                                                     derivationPath: request.derivationPath,
-                                                     cryptoType: request.cryptoType)
-
-        let accountOperation = accountOperationFactory.newAccountOperation(request: creationRequest,
-                                                                           mnemonic: mnemonic)
-
-        importAccountUsingOperation(accountOperation, completion: completion)
     }
 
     func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
 
     func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
-            presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
-            return
+        do {
+            validateAccountUsingOperation(try prepareMnemonic(request), completion: completion)
+        } catch {
+            if let completion { completion(.failure(error)) }
+            else { presenter?.didReceiveAccountImport(error: error) }
         }
-        
-        let creationRequest = AccountCreationRequest(username: request.username,
-                                                     type: request.networkType,
-                                                     derivationPath: request.derivationPath,
-                                                     cryptoType: request.cryptoType)
-        
-        let operation = accountOperationFactory.newAccountOperation(request: creationRequest,
-                                                                    mnemonic: mnemonic)
-        
-        validateAccountUsingOperation(operation, completion: completion)
     }
-    
+
     func validateAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         validateAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         validateAccountUsingOperation(operation, completion: completion)
     }
 
@@ -215,13 +319,13 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
     
     func importBackedupAccount(request: AccountImportBackedupRequest) {
-        cloudStorage?.importBackupAccount(account: request.account, password: request.password) { [weak self] result in
-            guard let self = self else { return }
-            switch result {
-            case .success(let account):
-                self.importAccount(account, password: request.password)
-            case .failure(let error):
-                self.presenter.didReceiveAccountImport(error: error)
+        Task { [weak self] in
+            guard let cloudStorage = self?.cloudStorage else { return }
+            do {
+                let account = try await cloudStorage.importBackup(account: request.account, password: request.password)
+                self?.importAccount(account, password: request.password)
+            } catch {
+                self?.presenter.didReceiveAccountImport(error: error)
             }
         }
     }

@@ -33,22 +33,23 @@ import SoraKeystore
 
 protocol SplashPresenterProtocol: AnyObject {
     func setupComplete()
+    func storageSpaceRequired()
 }
 
 protocol SplashInteractorProtocol: AnyObject {
     func setup()
+    func retryStorageMigration()
 }
 
 protocol SplashViewProtocol: AnyObject {
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void)
+    func showStorageSpaceRetry(onRetry: @escaping () -> Void)
 }
 
 final class SplashPresenterFactory {
     static func createSplashPresenter(with window: SoraWindow) {
         let presenter = SplashPresenter(window: window)
-        let interactor = SplashInteractor(settings: SettingsManager.shared,
-                                          socketService: WebSocketService.shared,
-                                          configService: ConfigService.shared)
+        let interactor = SplashInteractor(settings: SettingsManager.shared)
         let wireframe = SplashWireframe()
         let view = SplashViewController()
         view.presenter = presenter

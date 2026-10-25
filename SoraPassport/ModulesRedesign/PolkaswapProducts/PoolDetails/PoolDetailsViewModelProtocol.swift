@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
+
 import UIKit
 
 typealias PoolDetailsDataSource = UITableViewDiffableDataSource<PoolDetailsSection, PoolDetailsSectionItem>
@@ -42,7 +42,6 @@ protocol PoolDetailsViewProtocol: ControllerBackedProtocol {}
 protocol PoolDetailsViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { get }
     func viewDidLoad()
-    func reload()
     var dismiss: (() -> Void)? { get set }
     func apyInfoButtonTapped()
     func infoButtonTapped(with type: Liquidity.TransactionLiquidityType)

@@ -28,64 +28,121 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import RobinHood
 import sorawallet
 import Foundation
 
-public final class SubqueryMarketCapInfoOperation<ResultType>: BaseOperation<ResultType> {
+enum PIMarketCapLiquidityValidator {
+    static func validatedWireValue(_ quantity: PIQuantity?) throws -> String {
+        guard
+            let rawValue = quantity?.rawValue,
+            rawValue.range(
+                of: #"^(?:0|[1-9][0-9]*)$"#,
+                options: .regularExpression
+            ) != nil
+        else {
+            throw PIIndexerError.invalidQuantity
+        }
+        return rawValue
+    }
+}
 
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SoraWalletBlockExplorerInfo
-    private let baseUrl: URL
+enum PIMarketCapCatalogValidator {
+    /// As many assets as the catalog walk can return
+    /// (`PIIndexerClient.maximumCatalogPages` pages of 100).
+    static let maximumRequestedAssetCount = 10_000
+    static let maximumAssetIDBytes = 256
+
+    static func validatedRequestedAssetIDs(
+        _ requestedAssetIDs: [String]
+    ) throws -> Set<String> {
+        let requested = Set(requestedAssetIDs)
+        guard
+            (1 ... maximumRequestedAssetCount).contains(
+                requestedAssetIDs.count
+            ),
+            requested.count == requestedAssetIDs.count,
+            requestedAssetIDs.allSatisfy({ assetID in
+                !assetID.isEmpty &&
+                    assetID.utf8.count <= maximumAssetIDBytes &&
+                    assetID == assetID.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ) &&
+                    assetID.unicodeScalars.allSatisfy({
+                        !CharacterSet.controlCharacters.contains($0)
+                    })
+            })
+        else {
+            throw PIIndexerError.invalidResponse
+        }
+        return requested
+    }
+
+    static func requireExactRequestedCoverage(
+        requestedAssetIDs: [String],
+        returnedAssetIDs: [String]
+    ) throws {
+        let requested = try validatedRequestedAssetIDs(requestedAssetIDs)
+        let returned = Set(returnedAssetIDs)
+        guard
+            returned.count == returnedAssetIDs.count,
+            returned == requested
+        else {
+            throw PIIndexerError.invalidResponse
+        }
+    }
+}
+
+public final class SubqueryMarketCapInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
     private let assetIds: [String]
+    private let baseUrl: URL
+    private let catalog: () async throws -> [PIAsset]
 
-    public init(baseUrl: URL, assetIds: [String]) {
-        self.baseUrl = baseUrl
+    public convenience init(baseUrl: URL, assetIds: [String]) {
+        // The same catalog read that serves fiat prices: opening the wallet
+        // walks PI once, not once per service.
+        self.init(baseUrl: baseUrl, assetIds: assetIds) {
+            try await PICatalogs.assets.values()
+        }
+    }
+
+    init(
+        baseUrl: URL,
+        assetIds: [String],
+        catalog: @escaping () async throws -> [PIAsset]
+    ) {
         self.assetIds = assetIds
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
-
+        self.baseUrl = baseUrl
+        self.catalog = catalog
         super.init()
     }
 
-    override public func main() {
-        super.main()
-
-        if isCancelled {
-            return
-        }
-
-        if result != nil {
-            return
-        }
-
-        let semaphore = DispatchSemaphore(value: 0)
-
-        var optionalCallResult: Result<ResultType, Swift.Error>?
-
-        DispatchQueue.main.async {
-
-            let timestamp = Int64((Date() - TimeInterval(60*60*24)).timeIntervalSince1970)
-            
-            self.subQueryClient.getAssetsInfo(tokenIds: self.assetIds, timestamp: timestamp, completionHandler: { [self] requestResult, error in
-
-                if let data = requestResult as? ResultType {
-                    optionalCallResult = .success(data)
+    override public func execute() async throws -> ResultType {
+        // Admission must precede the catalog read: an empty, duplicate, or
+        // unbounded production request must never turn into a full-catalog
+        // network fetch.
+        let requested = try PIMarketCapCatalogValidator
+            .validatedRequestedAssetIDs(assetIds)
+        // The shared catalog reads the reviewed production PI only.
+        try PIIndexerClient.validateProductionEndpoint(baseUrl)
+        let assets = try await catalog()
+            .filter { requested.contains($0.id) }
+        try PIMarketCapCatalogValidator.requireExactRequestedCoverage(
+            requestedAssetIDs: assetIds,
+            returnedAssetIDs: assets.map(\.id)
+        )
+        let values = try assets.map { asset in
+            AssetsInfo(
+                tokenId: asset.id,
+                liquidity: try PIMarketCapLiquidityValidator
+                    .validatedWireValue(asset.liquidity),
+                hourDelta: asset.priceChangeDay.map {
+                    KotlinDouble(value: $0)
                 }
-
-                semaphore.signal()
-
-                result = optionalCallResult
-            })
+            )
         }
-
-        semaphore.wait()
+        guard let result = values as? ResultType else {
+            throw PIIndexerError.invalidResponse
+        }
+        return result
     }
 }

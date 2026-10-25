@@ -29,30 +29,39 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import SoraUIKit
 
-final class EditFarmItem: NSObject {
+final class EditFarmItem: ItemProtocol {
     
-    var viewModel: EditFarmViewModelProtocol
-    var detailsViewModel: [DetailViewModel] = []
-    var stakedValue: Float
-    var isNeedInitialization: Bool = true
+    let sharePercentage: Decimal
+    let stakedSelection: FarmShareSelection
+    
+    let stakeFeeAmount: Decimal
+    
+    weak var service: EditFarmItemService?
+    
     var onConfirm: (() -> Void)?
+    var feeInfoHandler: (() -> Void)?
+    var networkFeeHandler: (() -> Void)?
 
-    init(viewModel: EditFarmViewModelProtocol,
-         detailsViewModel: [DetailViewModel],
-         stakedValue: Float) {
-        self.viewModel = viewModel
-        self.detailsViewModel = detailsViewModel
-        self.stakedValue = stakedValue
+    init(
+        sharePercentage: Decimal,
+        stakedSelection: FarmShareSelection,
+        stakeFeeAmount: Decimal,
+        service: EditFarmItemService?
+    ) {
+        self.sharePercentage = sharePercentage
+        self.stakedSelection = stakedSelection
+        self.stakeFeeAmount = stakeFeeAmount
+        self.service = service
     }
 }
 
-extension EditFarmItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { PoolDetailsCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
+extension EditFarmItem: Hashable {
+    static func == (lhs: EditFarmItem, rhs: EditFarmItem) -> Bool {
+        lhs.stakedSelection == rhs.stakedSelection
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(stakedSelection)
+    }
 }
-

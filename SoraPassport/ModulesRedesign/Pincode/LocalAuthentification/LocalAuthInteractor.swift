@@ -86,6 +86,9 @@ class LocalAuthInteractor {
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
     private(set) var locale: Locale
+    private let ownerPIN: WalletOwnerPIN
+    private let accounts: () throws -> [AccountItem]
+    private var authorization: WalletOwnerPIN.Authorization?
     private var failCounter: Int = 0 {
         didSet {
             settingsManager.failInputPinCount = failCounter
@@ -112,11 +115,16 @@ class LocalAuthInteractor {
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
          biometryAuth: BiometryAuthProtocol,
-         locale: Locale) {
+         locale: Locale,
+         ownerPINKeystore: KeystoreProtocol = Keychain(),
+         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+         accounts: @escaping () throws -> [AccountItem] = { try WalletAccountAddresses.accounts() }) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.locale = locale
+        self.ownerPIN = WalletOwnerPIN(keystore: ownerPINKeystore, settings: settingsManager, recoveryGate: recoveryGate)
+        self.accounts = accounts
         self.failCounter = settingsManager.failInputPinCount ?? 0
     }
 
@@ -169,23 +177,28 @@ class LocalAuthInteractor {
         state = .waitingPincode
     }
 
-    private func processStored(pin: String?) {
-        guard state == .checkingPincode else {
-            return
-        }
-
-        if pincode == pin {
+    private func processAuthorization(_ result: Result<WalletOwnerPIN.Authorization, Error>) {
+        guard state == .checkingPincode else { return }
+        pincode = nil
+        switch result {
+        case let .success(authorization):
+            self.authorization = authorization
             state = .completed
-            pincode = nil
-            presenter?.didCompleteAuth()
             failCounter = 0
-        } else {
+            presenter?.didCompleteAuth()
+        case let .failure(error):
             state = .waitingPincode
-            pincode = nil
-            presenter?.didEnterWrongPincode()
-            failCounter += 1
+            if case let .locked(until)? = error as? WalletRetainedPinGate.Failure {
+                presenter?.blockUserInputUntil(date: until)
+            } else if error is WalletRetainedPinGate.Failure || error as? WalletOwnerPIN.Failure == .authenticationRequired {
+                presenter?.didEnterWrongPincode()
+                failCounter += 1
+            } else {
+                presenter?.didUnexpectedFail()
+            }
         }
     }
+
 }
 
 extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
@@ -199,43 +212,71 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
     }
     
     func getPinCodeCount() {
-        secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
-                                 completionQueue: DispatchQueue.main
-        ) { [weak self] (secret: SecretDataRepresentable?) -> Void in
-            self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 6) 
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try self.ownerPIN.prepareAuthentication(currentAccounts: self.accounts)
+                self.secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
+                    completionQueue: DispatchQueue.main) { [weak self] secret in
+                    self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 0)
+                }
+            } catch {
+                DispatchQueue.main.async { self.presenter?.didUnexpectedFail() }
+            }
         }
     }
 
     func startAuth(completion: (() -> Void)?) {
         guard state == .waitingPincode else { return }
-
         state = .checkingBiometry
-        performBiometryAuth(completion: completion)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try self.ownerPIN.prepareAuthentication(currentAccounts: self.accounts)
+                self.secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
+                    completionQueue: DispatchQueue.main) { [weak self] secret in
+                    guard let self, self.state == .checkingBiometry else { return }
+                    // Upgrading a four-digit PIN requires its actual entry.
+                    guard secret?.toUTF8String()?.count == 6 else {
+                        self.state = .waitingPincode
+                        return
+                    }
+                    self.performBiometryAuth(completion: completion)
+                }
+            } catch {
+                DispatchQueue.main.async { self.state = .unexpectedFail; self.presenter?.didUnexpectedFail() }
+            }
+        }
     }
 
     func process(pin: String) {
         guard state == .waitingPincode || state == .checkingBiometry else { return }
-
-        self.pincode = pin
-
         state = .checkingPincode
-
-        secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
-                                 completionQueue: DispatchQueue.main
-        ) { [weak self] (secret: SecretDataRepresentable?) -> Void in
-            self?.processStored(pin: secret?.toUTF8String())
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result {
+                try self.ownerPIN.authenticateCurrent(pin, currentAccounts: { (try? self.accounts()) ?? [] })
+            }
+            DispatchQueue.main.async { self.processAuthorization(result) }
         }
     }
-    
+
     func updatePin(pin: String, completion: (() -> Void)?) {
-        self.pincode = pin
-        
-        guard let currentPincode = pincode else { return }
-        
-        secretManager.saveSecret(currentPincode,
-                                 for: KeystoreTag.pincode.rawValue,
-                                 completionQueue: DispatchQueue.main) { _ -> Void in
-            completion?()
+        guard let authorization else { presenter?.didUnexpectedFail(); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result {
+                let lease = WalletLifecycleCoordinator.shared.acquire()
+                defer { lease.release() }
+                try self.ownerPIN.rotate(to: pin, authorization: authorization, accounts: self.accounts())
+            }
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self.authorization = nil
+                    completion?()
+                case .failure:
+                    self.pincode = nil
+                    self.state = .unexpectedFail
+                    self.presenter?.didUnexpectedFail()
+                }
+            }
         }
     }
 }

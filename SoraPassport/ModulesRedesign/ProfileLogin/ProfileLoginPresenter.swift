@@ -42,11 +42,13 @@ protocol ProfileLoginPresenterProtocol: AnyObject {
 final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationPresentable {
     weak var view: ProfileLoginView?
 
+    @MainActor
     func reload() {
         let model = createModel()
         view?.update(model: model)
     }
 
+    @MainActor
     private func createModel() -> ProfileLoginModel {
         var sections: [SoramitsuTableViewSection] = []
         sections.append(firstSection())
@@ -54,6 +56,7 @@ final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationP
                              sections: sections)
     }
 
+    @MainActor
     private func firstSection() -> SoramitsuTableViewSection {
         var items: [AppSettingsItem] = []
         let pin = AppSettingsItem(title: R.string.localizable.changePin(preferredLanguages: languages),
@@ -79,30 +82,30 @@ final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationP
         return SoramitsuTableViewSection(rows: [card])
     }
 
+    @MainActor
     private func showPin() {
-        guard let view = view else { return }
-        authorize(animated: true, cancellable: true, inView: nil) { (isAuthorized) in
-            if isAuthorized {
-                
-                let view: UIViewController?
-                let auhorizeView = PinViewFactory.createRedesignPinEditView()
-                view = BlurViewController()
-                view?.modalPresentationStyle = .overFullScreen
-                view?.add(auhorizeView?.controller)
-
-                guard let pinView = view else {
-                    return
+        guard let controller = UIApplication.shared.keyWindow?.rootViewController?.topModalViewController else { return }
+        WalletPinPrompt.present(on: controller, message: WalletUX.text("Enter your current app PIN to change it.")) { pin in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = Result {
+                    let ownerPIN = WalletOwnerPIN(keystore: Keychain(), settings: SettingsManager.shared)
+                    return try ownerPIN.authenticateCurrent(pin, currentAccounts: { try WalletAccountAddresses.accounts() })
                 }
-                pinView.hidesBottomBarWhenPushed = true
-                pinView.modalTransitionStyle = .crossDissolve
-                pinView.modalPresentationStyle = .overFullScreen
-
-                guard let presentingController = UIApplication.shared.keyWindow?
-                    .rootViewController?.topModalViewController else {
-                    return
+                DispatchQueue.main.async {
+                    switch result {
+                    case let .success(authorization):
+                        guard let editor = PinViewFactory.createRedesignPinEditView(authorization: authorization) else { return }
+                        let view = BlurViewController()
+                        view.modalPresentationStyle = .overFullScreen
+                        view.add(editor.controller)
+                        controller.present(view, animated: false)
+                    case let .failure(error):
+                        let alert = UIAlertController(title: WalletUX.text("PIN not changed"),
+                            message: WalletPinPrompt.message(for: error), preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
+                        controller.present(alert, animated: true)
+                    }
                 }
-
-                presentingController.present(pinView, animated: false)
             }
         }
     }
@@ -117,6 +120,7 @@ extension ProfileLoginPresenter: Localizable {
         localizationManager?.preferredLocalizations
     }
 
+    @MainActor
     func applyLocalization() {
         let model = createModel()
         view?.update(model: model)

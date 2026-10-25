@@ -58,6 +58,7 @@ final class ChangeAccountWireframe: ChangeAccountWireframeProtocol, Authorizatio
         view.present(navigationController, animated: true)
     }
 
+    @MainActor
     func showStart(from view: UIViewController, completion: @escaping () -> Void) {
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
@@ -79,6 +80,7 @@ final class ChangeAccountWireframe: ChangeAccountWireframeProtocol, Authorizatio
         }
     }
 
+    @MainActor
     func showExportAccounts(accounts: [AccountItem], from controller: UIViewController) {
 
         let warning = AccountWarningViewController(warningType: .json)

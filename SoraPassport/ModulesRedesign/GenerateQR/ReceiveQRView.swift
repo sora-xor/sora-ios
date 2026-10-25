@@ -29,7 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 struct ReceiveQRViewModel {
     let name: String
@@ -48,8 +49,9 @@ final class ReceiveQRView: SoramitsuView {
         didSet {
             guard let viewModel = viewModel else { return }
             accountAddress.sora.text = viewModel.address
+            accountContainerView.accessibilityLabel = [viewModel.name, viewModel.address].filter { !$0.isEmpty }.joined(separator: ", ")
             accountImageView.image = try? generator.generateFromAddress(viewModel.address)
-                .imageWithFillColor(.white,
+                .imageWithFillColor(UIColor.white,
                                     size: CGSize(width: 40.0, height: 40.0),
                                     contentScale: UIScreen.main.scale)
             
@@ -62,14 +64,19 @@ final class ReceiveQRView: SoramitsuView {
 
     private let qrContainerView: SoramitsuView = {
         var view = SoramitsuView()
-        view.sora.backgroundColor = .bgSurface
+        view.sora.backgroundColor = .custom(uiColor: .white)
+        view.sora.material = .solid
         view.sora.cornerRadius = .max
         view.sora.shadow = .small
+        view.semanticContentAttribute = .forceLeftToRight
         return view
     }()
     
     private let qrImageView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
+        imageView.layer.magnificationFilter = .nearest
+        imageView.layer.minificationFilter = .nearest
+        imageView.isAccessibilityElement = false
         return imageView
     }()
     
@@ -78,6 +85,8 @@ final class ReceiveQRView: SoramitsuView {
         view.sora.backgroundColor = .bgSurface
         view.sora.cornerRadius = .max
         view.sora.shadow = .small
+        view.isAccessibilityElement = true
+        view.accessibilityTraits = .button
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel?.accountTapHandler?()
         }
@@ -115,8 +124,10 @@ final class ReceiveQRView: SoramitsuView {
     private let accountAddress: SoramitsuLabel = {
         var label = SoramitsuLabel()
         label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.textS
-        label.sora.numberOfLines = 2
+        label.sora.font = FontType.mono
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
+        label.semanticContentAttribute = .forceLeftToRight
         label.isUserInteractionEnabled = false
         label.setContentCompressionResistancePriority(.required, for: .vertical)
         return label
@@ -194,7 +205,7 @@ final class ReceiveQRView: SoramitsuView {
             accountContainerView.topAnchor.constraint(equalTo: qrContainerView.bottomAnchor, constant: 16),
             accountContainerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             accountContainerView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            accountContainerView.heightAnchor.constraint(equalToConstant: 88),
+            accountContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 88),
             
             accountImageView.heightAnchor.constraint(equalToConstant: 40),
             accountImageView.widthAnchor.constraint(equalToConstant: 40),
@@ -203,18 +214,18 @@ final class ReceiveQRView: SoramitsuView {
             
             mainStackView.leadingAnchor.constraint(equalTo: accountImageView.trailingAnchor, constant: 8),
             mainStackView.trailingAnchor.constraint(equalTo: accountContainerView.trailingAnchor, constant: -16),
-            mainStackView.topAnchor.constraint(greaterThanOrEqualTo: accountContainerView.topAnchor, constant: 8),
+            mainStackView.topAnchor.constraint(equalTo: accountContainerView.topAnchor, constant: 16),
             mainStackView.centerYAnchor.constraint(equalTo: accountContainerView.centerYAnchor),
             
             shareButton.topAnchor.constraint(equalTo: accountContainerView.bottomAnchor, constant: 15),
             shareButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             shareButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            shareButton.heightAnchor.constraint(equalToConstant: 56),
+            shareButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
             
             scanQrButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 15),
             scanQrButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             scanQrButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            scanQrButton.heightAnchor.constraint(equalToConstant: 56),
+            scanQrButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
             scanQrButton.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }

@@ -30,7 +30,8 @@
 
 import SoraUIKit
 import Anchorage
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 final class BackupedAccountCell: SoramitsuTableViewCell {
     private let generator = PolkadotIconGenerator()
@@ -75,7 +76,7 @@ extension BackupedAccountCell: SoramitsuTableViewCellProtocol {
         accountView.topConstraint?.constant = item.config.topOffset
         accountView.bottomConstraint?.constant = item.config.bottomOffset
         accountView.accountImageView.image = try? generator.generateFromAddress(item.accountAddress)
-            .imageWithFillColor(.white,
+            .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
     }

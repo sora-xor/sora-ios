@@ -36,10 +36,25 @@ import Anchorage
 final class AccountExportRawSeedViewController: SoramitsuViewController, ControllerBackedProtocol {
 
     var presenter: AccountExportRawSeedPresenterProtocol!
+    private var hasSeed = false
+    private var rawSeed = ""
+    private var revealed = false
+    private var hideTimer: Timer?
+    private let scrollView = UIScrollView()
+    private lazy var revealButton: WalletNeonButton = {
+        let button = WalletSafeMode.button(.secondary, title: R.string.localizable.commonShow(preferredLanguages: .currentLocale))
+        button.accessibilityIdentifier = "wallet-raw-seed-reveal"
+        button.addTarget(self, action: #selector(toggleReveal), for: .touchUpInside)
+        return button
+    }()
+    private var backupPath = ""
+    private let pathLabel = UILabel()
+    private let copyPathButton = WalletSafeMode.button(.tertiary, title: WalletUX.text("Copy derivation path"))
 
     private var containerView: SoramitsuView = {
         SoramitsuView().then {
             $0.sora.backgroundColor = .bgSurface
+            $0.sora.material = .solid
             $0.sora.cornerRadius = .max
             $0.layer.masksToBounds = true
             $0.sora.shadow = .default
@@ -58,6 +73,7 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
     private var titleLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
             $0.sora.font = FontType.textM
+            $0.sora.dynamicTextStyle = .body
             $0.sora.textColor = .fgPrimary
             $0.numberOfLines = 0
         }
@@ -65,7 +81,10 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
 
     private var descriptionLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
-            $0.sora.font = FontType.paragraphBoldM
+            $0.sora.font = FontType.mono
+            $0.sora.dynamicTextStyle = .body
+            $0.sora.lineBreakMode = .byCharWrapping
+            $0.accessibilityIdentifier = "wallet-raw-seed-value"
             $0.sora.textColor = .fgPrimary
             $0.numberOfLines = 0
         }
@@ -81,13 +100,58 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
+        soramitsuView.sora.backgroundColor = .bgPage
         configure()
+        [UIApplication.willResignActiveNotification, UIScreen.capturedDidChangeNotification,
+         UIApplication.userDidTakeScreenshotNotification].forEach {
+            NotificationCenter.default.addObserver(self, selector: #selector(hideSeed), name: $0, object: nil)
+        }
         presenter.exportRawSeed()
     }
 
-    func set(rawSeed: String) {
-        descriptionLabel.sora.text = rawSeed
+    func set(rawSeed: String, derivationPath: String) {
+        backupPath = derivationPath
+        self.rawSeed = rawSeed
+        hasSeed = !rawSeed.isEmpty
+        hideSeed()
+    }
+
+    deinit { hideTimer?.invalidate(); NotificationCenter.default.removeObserver(self) }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        hideSeed()
+        super.viewWillDisappear(animated)
+    }
+
+    @objc private func toggleReveal() {
+        if revealed { hideSeed(); return }
+        guard hasSeed, UIApplication.shared.applicationState == .active,
+              !(view.window?.windowScene?.screen.isCaptured ?? UIScreen.main.isCaptured) else { return }
+        revealed = true
+        updateVisibility()
+        hideTimer?.invalidate()
+        let timer = Timer(timeInterval: 60, repeats: false) { [weak self] _ in self?.hideSeed() }
+        hideTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    @objc private func hideSeed() {
+        revealed = false
+        hideTimer?.invalidate(); hideTimer = nil
+        updateVisibility()
+    }
+
+    private func updateVisibility() {
+        descriptionLabel.sora.text = hasSeed ? (revealed ? rawSeed : nil) : WalletUX.text(
+            "No matching raw seed is available on this iPhone. Use JSON export to back up a verified signing key.")
+        descriptionLabel.isHidden = hasSeed && !revealed
+        pathLabel.text = revealed ? WalletUX.text("Also save this derivation path:") + "\n" + backupPath : nil
+        pathLabel.isHidden = !revealed || backupPath.isEmpty
+        copyPathButton.isHidden = !revealed || backupPath.isEmpty
+        copyButton.isEnabled = !hasSeed || revealed
+        copyButton.sora.title = hasSeed ? R.string.localizable.copyToClipboard(preferredLanguages: languages) : WalletUX.text("Export JSON")
+        revealButton.isHidden = !hasSeed
+        revealButton.setTitle(revealed ? R.string.localizable.commonHide(preferredLanguages: .currentLocale) : R.string.localizable.commonShow(preferredLanguages: .currentLocale), for: .normal)
     }
 
     private func configure() {
@@ -96,27 +160,56 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
         navigationItem.title = R.string.localizable.commonRawSeed(preferredLanguages: languages)
         titleLabel.sora.text = R.string.localizable.mnemonicText(preferredLanguages: languages)
 
-        view.addSubview(containerView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
 
+        pathLabel.numberOfLines = 0
+        pathLabel.textColor = .label
+        pathLabel.font = .preferredFont(forTextStyle: .body)
+        pathLabel.adjustsFontForContentSizeCategory = true
+        copyPathButton.tintColor = WalletUX.tokens.cyan
+        pathLabel.isHidden = true
+        copyPathButton.setTitle(WalletUX.text("Copy derivation path"), for: .normal)
+        copyPathButton.addTarget(self, action: #selector(copyPath), for: .touchUpInside)
+        copyPathButton.isHidden = true
         stackView.removeArrangedSubviews()
         containerView.addSubview(stackView)
         stackView.addArrangedSubviews([
             titleLabel,
+            revealButton,
             descriptionLabel,
-            copyButton
+            copyButton,
+            pathLabel,
+            copyPathButton
         ])
-        containerView.do {
-            $0.horizontalAnchors == view.horizontalAnchors + 16
-            $0.topAnchor == view.soraSafeTopAnchor
-        }
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+        ])
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
             $0.verticalAnchors == containerView.verticalAnchors + 24
         }
     }
 
+    @objc private func copyPath() {
+        guard revealed, !backupPath.isEmpty else { return }
+        UIPasteboard.general.setItems([["public.utf8-plain-text": backupPath]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
+    }
+
     @objc
     private func copyTapped(){
+        guard hasSeed else { presenter.exportJSON(); return }
+        guard revealed else { return }
         copyButton.sora.title = R.string.localizable.commonCopied(preferredLanguages: .currentLocale)
         presenter.copyRawSeed()
     }
@@ -128,7 +221,7 @@ extension AccountExportRawSeedViewController: Localizable {
     }
 
     func applyLocalization() {
-        copyButton.sora.title = R.string.localizable.copyToClipboard(preferredLanguages: languages)
+        if isViewLoaded { updateVisibility() }
     }
 }
 

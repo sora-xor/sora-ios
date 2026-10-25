@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 import SoraUIKit
 import SoraFoundation
 import IrohaCrypto
@@ -46,40 +46,40 @@ final class ExploreItemFactory {
 
 extension ExploreItemFactory {
     
-    func createExploreAssetViewModel(with assetId: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
+    func createExploreAssetViewModel(
+        with assetId: String,
+        price: Decimal?,
+        deltaPrice: LoadingState<SoramitsuAttributedText?>,
+        marketCap: LoadingState<String>
+    ) -> ExploreAssetViewModel? {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
-
-        let isRightToLeft = localizationManager.isRightToLeft
+        
         let fiatText = price.priceText()
-        let marketCapText = "$" + marketCap.formatNumber()
         
-        var deltaArributedText: SoramitsuTextItem?
-        if let deltaPrice {
-            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")%"
-            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")"
-            let deltaColor: SoramitsuColor = deltaPrice > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: isRightToLeft ? deltaTextReversed : deltaText,
-                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
-                                                                                       textColor: deltaColor,
-                                                                                       alignment: isRightToLeft ? .left : .right))
-        }
-        
-        return ExploreAssetViewModel(assetId: assetId,
-                                     symbol: assetInfo.symbol,
-                                     title: assetInfo.name,
-                                     price: fiatText,
-                                     marketCap: marketCapText,
-                                     icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
-                                     deltaPrice: deltaArributedText)
+        return ExploreAssetViewModel(
+            assetId: assetId,
+            symbol: assetInfo.symbol,
+            title: assetInfo.name,
+            price: fiatText,
+            marketCap: marketCap,
+            icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+            deltaPrice: deltaPrice
+        )
     }
 
-    func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil) -> ExplorePoolViewModel {
+    /// - Parameter apyLoaded: The APY read has finished. Without a rate to
+    ///   show, the cell then ends its loading placeholder instead of
+    ///   shimmering for good.
+    func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil, apyLoaded: Bool = false) -> ExplorePoolViewModel {
         let baseAssetInfo = assetManager.assetInfo(for: pool.baseAssetId)
         let targetAssetInfo = assetManager.assetInfo(for: pool.targetAssetId)
 
-        let tvl = "$" + pool.tvl.formatNumber()
+        // The pool list is valued after the price read has finished. Without
+        // a price the value is unknown: the cell shows nothing there, neither
+        // "$0" nor a loading placeholder that never ends.
+        let tvl: String? = pool.tvlIsKnown ? "$" + pool.tvl.formatNumber() : ""
         let apyString = localizationManager.isRightToLeft ? "%\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "") APY" : "\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "")% APY"
-        let apyText: String? = apy != nil ? apyString : nil
+        let apyText: String? = apy != nil ? apyString : (apyLoaded ? "" : nil)
         
         let title = localizationManager.isRightToLeft ? "\(targetAssetInfo?.symbol ?? "??")-\(baseAssetInfo?.symbol ?? "??")" : "\(baseAssetInfo?.symbol ?? "??")-\(targetAssetInfo?.symbol ?? "??")"
         

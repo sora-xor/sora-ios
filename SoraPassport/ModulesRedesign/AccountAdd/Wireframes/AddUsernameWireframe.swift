@@ -56,12 +56,12 @@ final class AddUsernameWireframe: UsernameSetupWireframeProtocol {
                                                                   animated: true)
     }
     
-    func showPinCode(from view: UsernameSetupViewProtocol?) {
-        let view = PinViewFactory.createRedesignPinSetupView()
+    @MainActor func showPinCode(from view: UsernameSetupViewProtocol?) {
+        let pinView = PinViewFactory.createPostImportPinView()
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(view?.controller)
+        containerView.add(pinView?.controller)
         
         view?.controller.present(containerView, animated: true)
     }

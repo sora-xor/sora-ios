@@ -75,6 +75,10 @@ final class AccountOptionsPresenter {
             view?.hideLoading()
             
             if isCurrentAccountBackedup {
+                var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
+                backupedAccountAddresses.append(account?.address ?? "")
+                ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
+                
                 backupState = .backedUp
                 showAlert(about: account)
                 return
@@ -176,11 +180,23 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
 
     func close() {
-        wireframe.back(from: self.view)
+        wireframe.dismissAfterDeletion(from: view)
     }
 
     func restart() {
         wireframe.showRoot()
+    }
+
+    func accountDeletionBlocked(message: String) {
+        view?.hideLoading()
+        view?.present(
+            message: message,
+            title: "Account deletion paused",
+            closeAction: R.string.localizable.commonOk(
+                preferredLanguages: .currentLocale
+            ),
+            from: view
+        )
     }
     
     func copyToClipboard() {

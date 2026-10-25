@@ -1,0 +1,21 @@
+{
+  "scope": "Additional original386dependency fixtures; existing122 fixed vectors unchanged",
+  "wordCounts": [
+    15,
+    18,
+    21,
+    24
+  ],
+  "cryptoTypes": [
+    "sr25519",
+    "ed25519",
+    "ecdsa"
+  ],
+  "vectorCount": 12,
+  "sha256": "6f9cd55a91ce5fa1a2f46622a2deac5c938cb6f21e09eff65fa9b3d78d6776b9",
+  "generatorSHA256": "231fb863b3ec47e6082e7b106a6733fedd56d08d8f9ae62b7ac0e63bc84e8706",
+  "compileCommandSource": "build-386-commands.json: finalswiftccommand withgenerate_386_longswiftandbinary substituted",
+  "originalDependencyProvenance": "provenance.json shared-features-spm-ada44b24",
+  "runtimeAccommodations": "Same previously verified original native libraries and Swift/ObjC dependencies; only generator case list changed",
+  "verification": "Generator signs/verifies, encrypts/decrypts and checks identity for each vector before saving JSON; raw original scrypt binary stdout is not text."
+}

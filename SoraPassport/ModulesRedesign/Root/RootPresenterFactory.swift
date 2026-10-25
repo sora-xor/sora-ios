@@ -37,10 +37,9 @@ final class RootPresenterFactory: RootPresenterFactoryProtocol {
 
         AppearanceFactory.applyGlobalAppearance()
 
-        let presenter = RootPresenter()
-        let wireframe = RootWireframe()
         let keychain = Keychain()
         let settings = SettingsManager.shared
+        let wireframe = RootWireframe(keystore: keychain, settings: settings)
 
         NetworkAvailabilityLayerService.shared.setup(with: view,
                                                      localizationManager: LocalizationManager.shared,
@@ -58,11 +57,23 @@ final class RootPresenterFactory: RootPresenterFactoryProtocol {
                                         securityLayerInteractor: SecurityLayerService.sharedInteractor,
                                         networkAvailabilityLayerInteractor: networkAvailabilityInteractor)
 
+        return createPresenter(with: view, interactor: interactor, wireframe: wireframe)
+    }
+
+    /// Wires the module and keeps it alive on the window (`rootModule`)
+    /// until the next startup replaces it. Without that, the presenter was
+    /// released as soon as launch routing returned, and the actions on
+    /// Welcome back and the 1.x upgrade confirmation did nothing.
+    static func createPresenter(with view: SoraWindow,
+                                interactor: RootInteractor,
+                                wireframe: RootWireframeProtocol) -> RootPresenterProtocol {
+        let presenter = RootPresenter()
         presenter.view = view
         presenter.wireframe = wireframe
         presenter.interactor = interactor
 
         interactor.presenter = presenter
+        view.rootModule = presenter
 
         return presenter
     }

@@ -31,7 +31,7 @@
 import Foundation
 import SoraFoundation
 import SoraKeystore
-import CommonWallet
+
 
 final class FriendsViewFactory: FriendsViewFactoryProtocol {
     static func createView(walletContext: CommonWalletContextProtocol,

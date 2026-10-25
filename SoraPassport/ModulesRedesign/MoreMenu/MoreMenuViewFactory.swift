@@ -32,7 +32,7 @@ import UIKit
 import RobinHood
 import SoraKeystore
 import SoraFoundation
-import CommonWallet
+
 
 final class MoreMenuViewFactory {
     static func createView(

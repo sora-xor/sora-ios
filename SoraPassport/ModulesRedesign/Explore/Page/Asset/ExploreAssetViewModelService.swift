@@ -31,50 +31,112 @@
 import Foundation
 import Combine
 import BigInt
+import SoraUIKit
 
 final class ExploreAssetViewModelService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let itemFactory: ExploreItemFactory
     private let assetInfos: [AssetInfo]
+    private let priceInfoService: PriceInfoServiceProtocol
+    
+    @Published var viewModels: [ExploreAssetViewModel] = {
+        let serialNumbers = Array(1...20)
+        let shimmersAssetItems = serialNumbers.map {
+            ExploreAssetViewModel(
+                assetId: nil,
+                symbol: nil,
+                title: nil,
+                price: nil,
+                serialNumber: String($0),
+                marketCap: .loading,
+                icon: nil,
+                deltaPrice: .loading
+            )
+        }
+        return shimmersAssetItems
+    }()
     
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
         itemFactory: ExploreItemFactory,
-        assetInfos: [AssetInfo]
+        assetInfos: [AssetInfo],
+        priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared
     ) {
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.itemFactory = itemFactory
         self.assetInfos = assetInfos
+        self.priceInfoService = priceInfoService
     }
     
     func setup() async -> [ExploreAssetViewModel] {
         
         let assetIds = assetInfos.map { $0.assetId }
-        let result = await PriceInfoService.shared.getPriceInfo(for: assetIds)
-        
+        let result = await priceInfoService.getPriceInfo(for: assetIds)
+
+        // An asset without a price has no known market cap. It sorts last
+        // and shows neither a price nor a market cap, never "$0".
+        let prices = Self.prices(from: result.fiatData)
         let assetMarketCap = result.marketCapInfo.compactMap { asset in
-            let price = result.fiatData.first { asset.assetId == $0.id }?.priceUsd?.decimalValue ?? 0
-            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * price, oldPrice: asset.hourDelta)
+            let price = prices[asset.assetId]
+            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * (price ?? 0), oldPrice: asset.hourDelta)
         }.sorted { $0.marketCap > $1.marketCap }
         
         var fullListAssets = assetMarketCap.compactMap { marketCap in
-            let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
-            let deltaPrice: Decimal? = marketCap.oldPrice > 0 ? (price / marketCap.oldPrice - 1) * 100 : nil
-            return self.itemFactory.createExploreAssetViewModel(with: marketCap.tokenId,
-                                                                price: price,
-                                                                deltaPrice: deltaPrice,
-                                                                marketCap: marketCap.marketCap)
+            let price = prices[marketCap.tokenId]
+            
+            let marketCapText: LoadingState<String> = price == nil
+                ? .error
+                : .loaded("$" + marketCap.marketCap.formatNumber())
+            
+            let deltaArributedText = LoadingState.loaded(marketCap.oldPrice.priceDeltaAttributedText())
+            
+            return self.itemFactory.createExploreAssetViewModel(
+                with: marketCap.tokenId,
+                price: price,
+                deltaPrice: deltaArributedText,
+                marketCap: marketCapText
+            )
         }
         
         (0..<fullListAssets.count).forEach { fullListAssets[$0].serialNumber += "\($0 + 1)" }
         
         if fullListAssets.isEmpty {
-            return await setup()
+            return assetViewModels(from: assetInfos, result: result)
         } else {
+            viewModels = fullListAssets
             return fullListAssets
         }
+    }
+    
+    static func prices(from fiatData: [PIExactFiatData]) -> [String: Decimal] {
+        var prices: [String: Decimal] = [:]
+        for item in fiatData {
+            if let price = item.priceUsd?.decimalValue {
+                prices[item.id] = price
+            }
+        }
+        return prices
+    }
+
+    private func assetViewModels(from assetInfos: [AssetInfo], result: PriceInfo) -> [ExploreAssetViewModel] {
+
+        let prices = Self.prices(from: result.fiatData)
+        var fullListAssets = assetInfos.sorted { $0.name.lowercased() < $1.name.lowercased() }.compactMap { assetInfo in
+            // `nil` without a price: the row then shows no price at all.
+            let price = prices[assetInfo.assetId]
+
+            return self.itemFactory.createExploreAssetViewModel(
+                with: assetInfo.assetId,
+                price: price,
+                deltaPrice: .error,
+                marketCap: .error
+            )
+        }
+        
+        (0..<fullListAssets.count).forEach { fullListAssets[$0].serialNumber += "\($0 + 1)" }
+        return fullListAssets
     }
 }

@@ -43,7 +43,12 @@ final class SilentWindow: UIWindow {
 
     init(root: SilentViewController) {
         self.root = root
-        super.init(frame: UIScreen.main.bounds)
+        // A window without a scene is never displayed in a scene-based app.
+        if let windowScene = UIApplication.shared.soraWindowScene {
+            super.init(windowScene: windowScene)
+        } else {
+            super.init(frame: UIScreen.main.bounds)
+        }
         rootViewController = root
 
         isHidden = false

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "contractId": "sora-ios-production-rollout-controller-trust-v1",
+  "status": "blocked",
+  "releaseEnabled": false,
+  "controllerId": null,
+  "signatureAlgorithm": "ecdsa-p256-sha256",
+  "publicKeySha256": null,
+  "blockingReasons": [
+    "No reviewed production rollout controller public key has been supplied by the authorized release system."
+  ]
+}

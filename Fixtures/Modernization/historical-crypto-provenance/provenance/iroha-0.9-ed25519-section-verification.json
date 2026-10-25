@@ -1,0 +1,797 @@
+{
+  "sourceArchive": "runtime/fearless-build/IrohaCrypto-0.9.0/ed25519Imp/libed25519_sha2.a",
+  "sourceSHA256": "3a568f77be9806f448d387483fa19bebb00a02a624e9c39c7fa6deb53116f623",
+  "adaptation": "Only existing Mach-O platform/minimum-version metadata is replaced in place with macOS 13.0; no algorithm edits",
+  "objects": [
+    {
+      "name": "add_scalar.o",
+      "metadataChanges": [
+        {
+          "offset": 1224,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 600,
+          "sha256": "37f29099594e3d7f1a789449544fa03cab40e9c35ff93e6d0b006270ca0c06d6"
+        },
+        {
+          "section": "__TEXT,__const",
+          "length": 32,
+          "sha256": "01d0fabd251fcbbe2b93b4b927b26ad2a1a99077152e45ded1e678afa45dbec5"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 8080,
+          "sha256": "e852a00e4a5cd785a4ccb2a89548976f826d38cea85a13aae8026e85b0993b9d"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 548,
+          "sha256": "04054c8cf5950b17de7c35d913a48e3fb0dfc6f4ed1a4cd48a4c06b0309e86ca"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 175,
+          "sha256": "e7b84dff2ee7a8cf0b3a9af09bfdfd5dad0b51c9c1a2a46c09079753401b7e4b"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 683,
+          "sha256": "070f297e9257605682ea8ad00d75e62a5693bacf8d9b0afd838938c820d6868b"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 60,
+          "sha256": "e6a76581f24f62463c295f5290bc6d76d410af5e1967743a37db770a5b529985"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 474,
+          "sha256": "29aac4b26ecbb480fd2fe9b2155083f3604feec0fb098931f0523e65c1721399"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 32,
+          "sha256": "d1c068f58c4f55532f440e4ddc7ea895579a78b3601d22008c0420d12695697f"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 766,
+          "sha256": "524b63525d942463dcde0e930e241abddc9d8988231686c6968030c5382d8bb3"
+        }
+      ]
+    },
+    {
+      "name": "fe.o",
+      "metadataChanges": [
+        {
+          "offset": 1144,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 18264,
+          "sha256": "267068a3a3dc7cc1b3f51b05fe1f974aaf78b89136e0f29723b987f30ed9be95"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 101408,
+          "sha256": "59ac6e298d760a82d68b42a61ed75e57868f90840f9af5ca9b93ce71918996ce"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 1935,
+          "sha256": "7949d5e8eed56b3bf2ef4cf15fd6802e1d2888ead4b216a77b22d8e0e3032002"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 231,
+          "sha256": "b10c8903146943f2b37629b979e34e837c43fd6c67315228e7c2a40e22971092"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 10362,
+          "sha256": "144f16af666321598d3eb09df5fcf55aca472af17b7adaf3a91e75f1ec3a614a"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 552,
+          "sha256": "1b96f9c0d5be71165ba65ffe4210c2534a563ed0745fdb2cd95daef5b739c4cf"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 350,
+          "sha256": "785cd4983e5a2b2c741c7caaf94c7758983bb58489382860f7825b9d8e496e05"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 640,
+          "sha256": "2cc06649737e5cc007e4bdfd3f543132be5bd32971b9f02c511d725bcdf71aa8"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 13081,
+          "sha256": "c12933ef9db1e8cb538d196a78f6238fd248fc522b943af08029df41a7794172"
+        }
+      ]
+    },
+    {
+      "name": "ge.o",
+      "metadataChanges": [
+        {
+          "offset": 1224,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 7064,
+          "sha256": "b9281190a3351d2b0d6e2cc696e1edd107541a8ec3316aba1ddd169cad4f8a87"
+        },
+        {
+          "section": "__TEXT,__const",
+          "length": 31800,
+          "sha256": "520104be5997431fd6332dc9688b6940012dbcd176ea40487d13ed96edcf7036"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 73648,
+          "sha256": "17cd7ce3cf10d190bb3ac9c848e2818831b46ac2552e33581a688196d536c8f2"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 792,
+          "sha256": "3db8cc2a64a4cead1c92a869a44da8996835caf5f244c582b8c845bec01156a8"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 334,
+          "sha256": "f20afcc24741c06f8d7b47f8f932f587d9996fa13c901b3d293bc08b62b002ed"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 2534,
+          "sha256": "36b12f952cc70c350d54740ffe3a80fb7c931bdcadcd37070831897fd2f9a589"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 732,
+          "sha256": "a8bf02bb6a8cd2440354b52225a0b03a61912c6eed7545f7684f0b3ef117db8b"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 443,
+          "sha256": "c64c571eade4af43bf0102560b99e2d20a4a8178c726e93c435b9de1f6e078c1"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 704,
+          "sha256": "fa953a1298488f6dfdd701fbd150a0e5556dd13eeba6bf3c8e39459e81c40bb5"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 3852,
+          "sha256": "9a9a20d8b1c909eaf690ccc644ac0ad2028c23e9f9b339e62abb60005580d075"
+        }
+      ]
+    },
+    {
+      "name": "key_exchange.o",
+      "metadataChanges": [
+        {
+          "offset": 1144,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 872,
+          "sha256": "47181754e403faa2ee31bfa180ce2a2edf82c1056105aea0e7a63ee73676b388"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 7984,
+          "sha256": "5dc005c958b465bd12a47c2ddeeed5e6eeb911cc426051ec542610472174d88c"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 396,
+          "sha256": "13dcb1841134926ebea3130e031ece627a9ae15a570a0f750d3adb7cfa9896e5"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 136,
+          "sha256": "09984c4cc4af4eaab7859907b0eca36307834396d4ee28993c70c728d8ad6f1c"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 370,
+          "sha256": "1ec316fd5b56da1e7380496b059245e170e6ea923762395fd8ba4416c3d3c38c"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 60,
+          "sha256": "746293693d2ed1d6331cf43fb2f68302d891564ed238522d2cfe6a097ac4a5a9"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 226,
+          "sha256": "b23c0e7ea5f3b144c44cdada6573160a35ac09338a5dc1afef6c09ec3f9f073d"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 32,
+          "sha256": "8815501f378a0488d0d149d955b2615fe147617bf8b75428e84e1183b3e3b927"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 447,
+          "sha256": "8c8c48605c775072375a25ac53606f60702c3d229f85bfa98aa65869819a01b0"
+        }
+      ]
+    },
+    {
+      "name": "keypair.o",
+      "metadataChanges": [
+        {
+          "offset": 1144,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 188,
+          "sha256": "7ea9056dc9f556684de0d839d9aed669dc4ee0708c46e0302e8f51e90c21aafc"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 5024,
+          "sha256": "26efdf3683e0f55e8f57e7f935f9057a9df15dd08c1f9a5c1192ed0744ca7409"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 375,
+          "sha256": "7f8a30869c88765cb3f498adb2bdf339276b7553a8d4837a5556a1a8fbd3b138"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 162,
+          "sha256": "60c1461feefacd90ba10c74ea0f0a43ba81c4177db2fc1b67eb04ac07386399b"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 319,
+          "sha256": "bdef902daf41bdf1df4e7f0563075900477e0c50982854e69f042bfe0e6f5459"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 88,
+          "sha256": "f8527d1c8ff6a42157867e79c11a6d0a769caa3ba147bf2eb9e14b52b1e0cc34"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 226,
+          "sha256": "3bb24b79ea2fa737e91338a9d49bcf05439b220139ecaf7c81a1652dee8560f9"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 64,
+          "sha256": "1644c0570d4f1abd41d963e2901f9ede914cc701079d173615c35a637059769b"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 298,
+          "sha256": "30e990f62574f1faa45b8202ded247eb6b49eeb5189c6761d764e4d36dd10c3b"
+        }
+      ]
+    },
+    {
+      "name": "sc.o",
+      "metadataChanges": [
+        {
+          "offset": 1144,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 14444,
+          "sha256": "2c397348800a1df907fa072a20fa3e92dfdecead5090e429e1f4cdc14c5b6600"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 52272,
+          "sha256": "023ef251600b27733d4d1a7bfc4b517ee970b05b3ea8e912c57bc33130f377f5"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 715,
+          "sha256": "0cddba66ffb637e84edbe6948aae9c599c0e96c3cf47cfa34770ce0989dbc7e8"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 181,
+          "sha256": "8146778be0d58e27c6cb341bc303eb1896e93ebe7fb8621fa8442e15c7df01b8"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 2261,
+          "sha256": "1f95a1139f7ea021c65a095157cbfa3f7651ab4902bc4e2444ef7eca8dd1e2bc"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 144,
+          "sha256": "38704cdd61cf656314a8c5caf70b5a93119d48b089ebec63d4e835b59d97f785"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 195,
+          "sha256": "c3f2a2877313086f82a0ea70a1d6df4d59e8d865a0065b165bd3712886874fb9"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 128,
+          "sha256": "445b8dfdc4134989f5cd4f245cda4bc1e4c59a76573883aaba44ac20dd1e1fe6"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 9836,
+          "sha256": "51d9eca8dccd46f58305be5c2eb5882b1f4842024ec58a64f78b341e50641514"
+        }
+      ]
+    },
+    {
+      "name": "seed.o",
+      "metadataChanges": [
+        {
+          "offset": 1224,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 120,
+          "sha256": "4db8d1f1de311112a4e0d8820097cc03579944a0e31c46a99521f48a35d82eb0"
+        },
+        {
+          "section": "__TEXT,__cstring",
+          "length": 16,
+          "sha256": "ae1edf8f84f737117028757c427e55d13d82ac276668ea972d427c4f8a257e7c"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 5504,
+          "sha256": "9a704cadb8e774299f31bfc9021ac65e339942b3862b3a8486ce460edeefee14"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 508,
+          "sha256": "d970e3491260f9a57ab05ca0737dc1db1981c9e190e5662c2b064ac593a4c205"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 196,
+          "sha256": "7fcfd150e816edbd4b4a3b96da63c262a8435491e7b54c7af297b7092ea343da"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 619,
+          "sha256": "a23195f51f2f67068889e397d049d0ac3284efe35616bb41fa6bba96b38de15e"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 60,
+          "sha256": "d3d6d3acf1e642bf702ac5d8bf84da6195b58e1e074bec3b833204c69e70b3ab"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 412,
+          "sha256": "3ceeec7901d419dc91c72a6a04a5bb0c215c3ca87f24db9d87925a519b052262"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 32,
+          "sha256": "bd0b033ea5f4bbe1bd8b39532b410e3118c681f94a26fe5d5e20c5d0e5bb54c7"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 490,
+          "sha256": "894857cb796c4c8e2f7866285b8d8770e51843eb83c04636b55c68fcb43ea8e8"
+        }
+      ]
+    },
+    {
+      "name": "sha512.o",
+      "metadataChanges": [
+        {
+          "offset": 1224,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 5828,
+          "sha256": "fb0171ee1044eae6e7d917ba56dc3ab63a808e391495a6c48087f416c4913e14"
+        },
+        {
+          "section": "__TEXT,__const",
+          "length": 640,
+          "sha256": "125cf2084d7eec18dc9795be4baa221655c0eabab89e90a74fb0370378a60293"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 19696,
+          "sha256": "f851f0bd318053b12394d605e2d8df208f4449a0481e0555340c5c2035ebfcc7"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 515,
+          "sha256": "ae3600def42dcd2c70cb386cdc5a65f0e851ce7f7c1f0e397ca8530c85a15dbe"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 260,
+          "sha256": "fbc835e9e3fcbb56b6dd49b5fda0ad823250767259d39247c656a5c9158a2531"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 708,
+          "sha256": "91182e7d4e240e14a55b0f9bf8a6b5cc1227f48674b16e3d2c3a10edcec1c184"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 200,
+          "sha256": "120152950f8e990baf9bbab7d0a656a88b86029cc8ad4a25da2f904831987a1a"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 319,
+          "sha256": "1edefbfff7c988b705e5643712791a11c736cf9f2cbe855c18f7489ff9643de3"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 160,
+          "sha256": "befd68c4dafa6e8e73a6b603ee988bda3e4beefbb2ddfb2bfb16476279b2dff2"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 1337,
+          "sha256": "06a6854193096707df6dd2167c27016b462dc7feb115cc0a1973ee52ec161d40"
+        }
+      ]
+    },
+    {
+      "name": "sign.o",
+      "metadataChanges": [
+        {
+          "offset": 1144,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 376,
+          "sha256": "ddb28393f7c95b91b977d5d40b131201231220d0d530b6ea69977b70f51b3b3a"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 6000,
+          "sha256": "0c4e680f48b707695d0f0dd8572b249fc350964da36e898d7fbeb2601871d358"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 487,
+          "sha256": "725b1a8c90256c0ce75833576b60b00b25054e676ff94a37865095ec43916262"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 175,
+          "sha256": "285bd73708e102843861b991ce5242f8744887661b012abc5e95f8339797a1a4"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 473,
+          "sha256": "6eff2a9d5f43ccba1639ebaef149a7943c82271991dd2ca9b5e038d4f499b5f7"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 60,
+          "sha256": "6972cebde58696cf4d408f378cfc6eae350feb54236e286bc04ce80f05d4bbac"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 412,
+          "sha256": "2ccf1251c6296224dbe7197f3545927c6e90b5fbb2d57d324b0dea6e121945e8"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 32,
+          "sha256": "8914d0c8ad7f73deff2a356fc36a3d550e36d6410702aadc34e7a586f9b64448"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 604,
+          "sha256": "085fd196ac46e9aad702ffa968cdb0a37128a6c4c79cb4b20e7fcbe57b088753"
+        }
+      ]
+    },
+    {
+      "name": "verify.o",
+      "metadataChanges": [
+        {
+          "offset": 1144,
+          "before": "25000000100000000000090000050d00",
+          "after": "240000001000000000000d0000000d00"
+        }
+      ],
+      "unchangedSections": [
+        {
+          "section": "__TEXT,__text",
+          "length": 1416,
+          "sha256": "c28a9f20d395625aa0e58ab4701ebb8ed0c66b661257e21360c290ce5ab4046f"
+        },
+        {
+          "section": "__LLVM,__bitcode",
+          "length": 9552,
+          "sha256": "52d1ccfde5345c27b5b8b41cac374d672488341c61ebb3b188c7a3216e312135"
+        },
+        {
+          "section": "__LLVM,__cmdline",
+          "length": 139,
+          "sha256": "a4c7094a84203e7ea2b884d967ecad178b63a1a97d1c7e768a8dc417e360ba36"
+        },
+        {
+          "section": "__DWARF,__debug_str",
+          "length": 512,
+          "sha256": "c5ab1d49e0ccac3c1fbed1bebf323ad6591825f50c4e90037abb08f4ed1f452f"
+        },
+        {
+          "section": "__DWARF,__debug_abbrev",
+          "length": 198,
+          "sha256": "d1f5553d75893fc647e24a079d6c0ae09a960565c60f07d734c5805cd75f230c"
+        },
+        {
+          "section": "__DWARF,__debug_info",
+          "length": 604,
+          "sha256": "ba166531ea508ee9e8acdd510c43bf938d84e1093b0762875d33702f8738663d"
+        },
+        {
+          "section": "__DWARF,__debug_macinfo",
+          "length": 1,
+          "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        },
+        {
+          "section": "__DWARF,__apple_names",
+          "length": 88,
+          "sha256": "3872074c1a5abed8191dfd1662d2c40d14508a8f218937783dbd4ac8c8754f27"
+        },
+        {
+          "section": "__DWARF,__apple_objc",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_namespac",
+          "length": 36,
+          "sha256": "0b3bc23bfd0e08003945e9a8c2da35d138e3804ebc517ae6b975f2e75f726eec"
+        },
+        {
+          "section": "__DWARF,__apple_types",
+          "length": 443,
+          "sha256": "59959a1d9a2c9d4d8343f8021da61ef7795baf798044fe831b1f7625e5859d11"
+        },
+        {
+          "section": "__LD,__compact_unwind",
+          "length": 64,
+          "sha256": "a46931656b275bbaf76c91d89ea9274cee02a7e68d8d50d2443ae8a8b0624b07"
+        },
+        {
+          "section": "__DWARF,__debug_line",
+          "length": 702,
+          "sha256": "8b154231db6071198f5a055c5150ad44d0ae7b086fd7ea42e8475c7508bb9c24"
+        }
+      ]
+    }
+  ]
+}

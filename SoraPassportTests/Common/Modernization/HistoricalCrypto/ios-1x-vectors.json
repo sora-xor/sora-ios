@@ -1,0 +1,41 @@
+{
+  "upstreamKDFKnownAnswerPassed" : true,
+  "vectors" : [
+    {
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "entropyHex" : "0000000000000000000000000000000000000000",
+      "family" : "IrohaCrypto-0.2.6",
+      "id" : "ios-1x-15words",
+      "notes" : "Legacy Iroha identity, not a Substrate identity; new-chain migration must be tested separately.",
+      "password" : "",
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address",
+      "phraseExportRoundTrip" : true,
+      "project" : "SORA",
+      "publicKeyHex" : "5225e4708131c7c6c599e3b811ca3f8d97db3d5f418453cd6dbd9837b08015f6",
+      "purpose" : "iroha keypair",
+      "scheme" : "legacy-iroha-ed25519",
+      "secretKeyHex" : "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84",
+      "signatureHex" : "cf18ab0331a0d8c1bd486e20c9f6071a67a9c330399d20427f3dd7279f73864708cd19aa44772e55f65d3be21ddf38df9ef10820b9d7438345d097147dc7df07",
+      "signatureVerified" : true,
+      "ss58Address" : null
+    },
+    {
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "entropyHex" : "0000000000000000000000000000000000000000",
+      "family" : "IrohaCrypto-0.2.6",
+      "id" : "ios-1x-15words-password",
+      "notes" : "Legacy Iroha identity, not a Substrate identity; new-chain migration must be tested separately.",
+      "password" : "public-fixture-password",
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address",
+      "phraseExportRoundTrip" : true,
+      "project" : "SORA",
+      "publicKeyHex" : "5b38dbeabe9bc1157f25a593fec826ada5e2694e63df1da8ba552813e33b6459",
+      "purpose" : "iroha keypair",
+      "scheme" : "legacy-iroha-ed25519",
+      "secretKeyHex" : "257d81226ae93e2238f8f499ddaf0ef79e1f786f8c1b7071319350e7b718643a",
+      "signatureHex" : "2f0fd3ea7edec3d426160d003452cd5150759700767db1547f038600e26a82f5f9b8d7ba4b2225550de17a8b2a8f224389e7926ce28d74880485727795c08e0b",
+      "signatureVerified" : true,
+      "ss58Address" : null
+    }
+  ]
+}

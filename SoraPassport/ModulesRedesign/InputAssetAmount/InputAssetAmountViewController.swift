@@ -31,7 +31,8 @@
 import Foundation
 import UIKit
 import SoraUIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 protocol InputAssetAmountViewProtocol: ControllerBackedProtocol, Warningable {
     func updateFirstAsset(balance: String)
@@ -61,10 +62,11 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         return stackView
     }()
 
-    private let scrollView: SoramitsuScrollView = {
+    private lazy var scrollView: SoramitsuScrollView = {
         let scrollView = SoramitsuScrollView()
         scrollView.sora.keyboardDismissMode = .onDrag
         scrollView.sora.showsVerticalScrollIndicator = false
+        scrollView.delegate = self
         return scrollView
     }()
     
@@ -119,6 +121,8 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         button.sora.title = R.string.localizable.review(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswap
+        // The one screen-level CTA here: static glow, no pulse (spec §4.5).
+        button.sora.glows = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel.reviewButtonTapped()
         }
@@ -240,9 +244,11 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
     }
     
     func updateRecipientView(with address: String) {
-        recipientView.contactView.accountTitle.sora.text = address
-        recipientView.contactView.accountImageView.image = try? generator.generateFromAddress(address)
-            .imageWithFillColor(.white,
+        recipientView.contactView.accountTitle.sora.text = address.isEmpty
+            ? R.string.localizable.selectRecipient(preferredLanguages: .currentLocale) : address
+        recipientView.contactView.accountImageView.image = address.isEmpty
+            ? UIImage(systemName: "person.crop.circle") : try? generator.generateFromAddress(address)
+            .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
     }

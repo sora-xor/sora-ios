@@ -30,6 +30,7 @@
 
 import Foundation
 import SSFUtils
+import SSFStorageQueryKitFixed
 
 extension StorageUpdateData {
     func decodeUpdatedData<V: ScaleDecodable>(for key: String) throws -> V? {

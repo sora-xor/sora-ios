@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+import UIKit
 import SSFCloudStorage
 
 typealias AccountImportedDataSource = UITableViewDiffableDataSource<AccountImportedSection, AccountImportedSectionItem>
@@ -49,5 +49,5 @@ protocol AccountImportedViewModelProtocol: AnyObject {
 protocol AccountImportedWireframeProtocol {
     func showSetupPinCode()
     func showBackepedAccounts(accounts: [OpenBackupAccount])
-    func dissmiss(completion: (() -> Void)?)
+    func dismiss(completion: (() -> Void)?)
 }

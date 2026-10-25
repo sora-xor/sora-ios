@@ -33,7 +33,7 @@ import UIKit
 import SoraUIKit
 
 protocol ConfirmViewProtocol: ControllerBackedProtocol {
-    func dissmiss(competion: (() -> Void)?)
+    func dismiss(competion: (() -> Void)?)
 }
 
 final class ConfirmViewController: SoramitsuViewController {
@@ -93,6 +93,11 @@ final class ConfirmViewController: SoramitsuViewController {
         viewModel.viewDidLoad()
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        viewModel.viewWillDisappear()
+        super.viewWillDisappear(animated)
+    }
+
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
@@ -110,7 +115,7 @@ final class ConfirmViewController: SoramitsuViewController {
 
 extension ConfirmViewController: ConfirmViewProtocol {
     
-    func dissmiss(competion: (() -> Void)?) {
+    func dismiss(competion: (() -> Void)?) {
         dismiss(animated: true, completion: competion)
     }
 }

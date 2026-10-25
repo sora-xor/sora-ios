@@ -54,11 +54,3 @@ func createRandomParentInfo() -> ParentInfoData {
         timestamp: Int64(Date().timeIntervalSince1970)
     )
 }
-
-func createRandomActivatedInvitationsData() -> ActivatedInvitationsData {
-    let length = (0..<10).randomElement()!
-    let invitedUsers = (0..<length).map { _ in createRandomInvitedUserData() }
-
-    return ActivatedInvitationsData(invitedUsers: invitedUsers,
-                                    parentInfo: createRandomParentInfo())
-}

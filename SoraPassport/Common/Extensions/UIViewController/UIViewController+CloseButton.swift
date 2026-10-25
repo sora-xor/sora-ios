@@ -43,6 +43,7 @@ extension UIViewController {
                                      style: .plain,
                                      target: self,
                                      action: #selector(close))
+        closeButton.accessibilityLabel = R.string.localizable.commonClose(preferredLanguages: nil)
         
         switch position {
         case .right: navigationItem.rightBarButtonItem = closeButton

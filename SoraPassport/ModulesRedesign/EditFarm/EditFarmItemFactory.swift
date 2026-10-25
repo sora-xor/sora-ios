@@ -30,30 +30,35 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import sorawallet
 import SSFUtils
 import SoraFoundation
 
 final class EditFarmItemFactory {
-    func createEditFarmItem(farm: Farm,
-                            userFarmInfo: UserFarm?,
-                            poolInfo: PoolInfo,
-                            sharePercentage: Decimal,
-                            fee: Decimal,
-                            stakedValue: Float,
-                            detailsFactory: DetailViewModelFactoryProtocol,
-                            viewModel: EditFarmViewModelProtocol) -> EditFarmItem {
-        let detailsViewModel = detailsFactory.createStakeViewModels(with: farm,
-                                                                    userFarmInfo: userFarmInfo,
-                                                                    poolInfo: poolInfo,
-                                                                    sharePercentage: sharePercentage,
-                                                                    fee: fee,
-                                                                    viewModel: viewModel)
+
+    func createEditFarmItem(
+        stakeFeeAmount: Decimal,
+        sharePercentage: Decimal,
+        stakedSelection: FarmShareSelection,
+        viewModel: EditFarmViewModelProtocol,
+        service: EditFarmItemService?
+    ) -> EditFarmItem {
         
-        let editFarmItem = EditFarmItem(viewModel: viewModel,
-                                        detailsViewModel: detailsViewModel,
-                                        stakedValue: stakedValue)
+        let editFarmItem = EditFarmItem(
+            sharePercentage: sharePercentage,
+            stakedSelection: stakedSelection,
+            stakeFeeAmount: stakeFeeAmount,
+            service: service
+        )
+        
+        editFarmItem.feeInfoHandler = { [weak viewModel] in
+            viewModel?.feeInfoButtonTapped()
+        }
+        
+        editFarmItem.networkFeeHandler = { [weak viewModel] in
+            viewModel?.networkFeeInfoButtonTapped()
+        }
         
         editFarmItem.onConfirm = { [weak viewModel] in
             viewModel?.confirmButtonTapped()
@@ -62,4 +67,3 @@ final class EditFarmItemFactory {
         return editFarmItem
     }
 }
-

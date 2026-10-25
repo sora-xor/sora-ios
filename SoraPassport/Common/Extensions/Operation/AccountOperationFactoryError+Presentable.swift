@@ -36,11 +36,14 @@ extension AccountOperationFactoryError: ErrorContentConvertible {
         let message: String
 
         switch self {
-//        case .decryption:
-//            title = R.string.localizable
-//                .accountImportKeystoreDecryptionErrorTitle(preferredLanguages: locale?.rLanguages)
-//            message = R.string.localizable
-//                .accountImportKeystoreDecryptionErrorMessage(preferredLanguages: locale?.rLanguages)
+        case .invalidKeystore:
+            return AccountCreateError.invalidKeystore.toErrorContent(for: locale)
+        case .decryption:
+            title = WalletUX.text("Couldn’t open backup", language: locale?.rLanguages?.first)
+            message = WalletUX.text(
+                "Check the password you used when you saved this JSON backup. The backup password is separate from your app PIN.",
+                language: locale?.rLanguages?.first
+            )
         default:
             title = R.string.localizable
                 .commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)

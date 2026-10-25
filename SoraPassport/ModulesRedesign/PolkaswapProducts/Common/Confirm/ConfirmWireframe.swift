@@ -31,7 +31,7 @@
 import Foundation
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 
 protocol ConfirmWireframeProtocol: AlertPresentable {
@@ -48,7 +48,7 @@ final class ConfirmWireframe {
 
 extension ConfirmWireframe: ConfirmWireframeProtocol {    
     func showActivityIndicator() {
-        activityIndicatorWindow = UIWindow(frame: UIScreen.main.bounds)
+        activityIndicatorWindow = UIWindow.makeSoraSceneWindow()
         activityIndicatorWindow?.windowLevel = UIWindow.Level.alert
         activityIndicatorWindow?.rootViewController = ActivityIndicatorViewController()
         activityIndicatorWindow?.isHidden = false
@@ -60,7 +60,7 @@ extension ConfirmWireframe: ConfirmWireframeProtocol {
         activityIndicatorWindow = nil
     }
     
-    func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol, completion: (() -> Void)?) {
+    @MainActor func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol, completion: (() -> Void)?) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount, let aseetList = assetManager.getAssetList() else { return }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,

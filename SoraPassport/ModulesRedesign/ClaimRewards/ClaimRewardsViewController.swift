@@ -63,7 +63,7 @@ final class ClaimRewardsViewController: SoramitsuViewController {
             case .claim(let item):
                 let cell: ClaimRewardsCell? = tableView.dequeueReusableCell(withIdentifier: "ClaimRewardsCell",
                                                                         for: indexPath) as? ClaimRewardsCell
-                cell?.set(item: item, context: nil)
+                cell?.set(item: item)
                 return cell ?? UITableViewCell()
             }
         }
@@ -116,7 +116,11 @@ final class ClaimRewardsViewController: SoramitsuViewController {
     }
 }
 
-extension ClaimRewardsViewController: ClaimRewardsViewProtocol {}
+extension ClaimRewardsViewController: ClaimRewardsViewProtocol {
+    func dismiss(competion: (() -> Void)?) {
+        dismiss(animated: true, completion: competion)
+    }
+}
 
 extension ClaimRewardsViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {

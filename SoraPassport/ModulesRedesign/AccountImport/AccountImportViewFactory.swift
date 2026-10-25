@@ -63,6 +63,8 @@ final class AccountImportViewFactory {
         
         let wireframe = AccountImportWireframe(localizationManager: localizationManager)
 
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.interactor = interactor
@@ -74,9 +76,13 @@ final class AccountImportViewFactory {
         return view
     }
 
-    static func createSilentImportInteractor() -> AccountImportInteractorInputProtocol? {
+    static func createLegacyUpgradeInteractor(
+        keystore: KeystoreProtocol,
+        settings legacySettings: SettingsManagerProtocol,
+        expectedEntropyDigest: Data,
+        expectedDisplayName: String
+    ) -> AccountImportInteractorInputProtocol? {
         let keystoreImportService = KeystoreImportService(logger: Logger.shared)
-        let keystore = Keychain()
         let settings = SelectedWalletSettings.shared
         let accountOperationFactory = AccountOperationFactory(keystore: keystore)
 
@@ -88,7 +94,24 @@ final class AccountImportViewFactory {
                                                  operationManager: OperationManagerFacade.sharedManager,
                                                  settings: settings,
                                                  keystoreImportService: keystoreImportService,
-                                                 eventCenter: EventCenter.shared)
+                                                 eventCenter: EventCenter.shared,
+                                                 allowedMnemonicWordCounts:
+                                                     WalletMnemonicWordPolicy
+                                                     .retainedSoraWordCounts,
+                                                 preparedAccountPersistence: {
+                                                     prepared in
+                                                     try LegacyWalletUpgradeSecretRetention
+                                                         .consumeWithoutPersisting(
+                                                             prepared,
+                                                             keystore: keystore,
+                                                             settings:
+                                                                 legacySettings,
+                                                             expectedEntropyDigest:
+                                                                 expectedEntropyDigest,
+                                                             expectedDisplayName:
+                                                                 expectedDisplayName
+                                                         )
+                                                 })
         return interactor
     }
     
@@ -119,6 +142,8 @@ final class AccountImportViewFactory {
 
         let wireframe = AddImportedWireframe(localizationManager: localizationManager)
    
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.interactor = interactor
@@ -158,6 +183,8 @@ final class AccountImportViewFactory {
 
         let wireframe = AddImportedWireframe(localizationManager: localizationManager)
    
+        interactor.credentialRepairFlow = WalletMissingAccountRepairFlow(controller: view.controller,
+            keystore: keystore, selection: SelectedWalletSettings.shared)
         view.presenter = presenter
         presenter.view = view
         presenter.interactor = interactor

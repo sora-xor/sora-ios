@@ -29,14 +29,23 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+
 
 struct CoingeckoPriceData: Codable, Equatable {
     let usdPrice: Decimal
     let usdDayChange: Decimal?
+    let lastUpdatedAt: Int64?
+
+    func isUsable(at now: Date = Date()) -> Bool {
+        // An HTTP success can contain a delisted token's zero or stale quote.
+        guard !usdPrice.isNaN, usdPrice > 0, let lastUpdatedAt else { return false }
+        let age = now.timeIntervalSince1970 - TimeInterval(lastUpdatedAt)
+        return age >= -60 && age <= 15 * 60
+    }
 
     enum CodingKeys: String, CodingKey {
         case usdPrice = "usd"
         case usdDayChange = "usd_24h_change"
+        case lastUpdatedAt = "last_updated_at"
     }
 }

@@ -1,0 +1,88 @@
+import UIKit
+
+public final class InputAssetFieldConfiguration<Type: InputAssetField>: SoramitsuControlConfiguration<Type> {
+    public var state: InputFieldState = .default {
+        didSet {
+            updateView()
+        }
+    }
+
+    public var assetImage: UIImage? {
+        didSet {
+            owner?.assetImageView.image = assetImage
+        }
+    }
+    
+    public var assetSymbol: String? {
+        didSet {
+            owner?.choiceButton.sora.attributedText = SoramitsuTextItem(text: assetSymbol ?? "",
+                                                                        fontData: FontType.displayS,
+                                                                        textColor: .fgPrimary,
+                                                                        alignment: .left)
+        }
+    }
+    
+    public var assetArrow: UIImage? {
+        didSet {
+            owner?.choiceButton.sora.rightImage = assetArrow
+        }
+    }
+    
+    public var fullFiatText: String? {
+        didSet {
+            owner?.fullFiatAmountLabel.sora.text = fullFiatText
+        }
+    }
+
+    public var text: String? {
+        didSet {
+            owner?.textField.sora.attributedText = SoramitsuTextItem(text: text ?? "",
+                                                                     fontData: FontType.displayS,
+                                                                     textColor: .fgPrimary,
+                                                                     alignment: .right)
+        }
+    }
+    
+    public var inputedFiatAmountText: String? {
+        didSet {
+            owner?.inputedFiatAmountLabel.sora.text = inputedFiatAmountText
+        }
+    }
+    
+    public var assetChoiceHandler: (() -> Void)? {
+        didSet {
+            owner?.choiceButton.sora.addHandler(for: .touchUpInside, handler: assetChoiceHandler)
+            owner?.assetImageView.isUserInteractionEnabled = true
+            owner?.assetImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(choice)))
+        }
+    }
+
+    private var textObservation: NSKeyValueObservation?
+
+    init(style: SoramitsuStyle, state: InputFieldState) {
+        self.state = state
+        super.init(style: style)
+    }
+
+    public override func styleDidChange(options: UpdateOptions) {
+        super.styleDidChange(options: options)
+
+        // The chrome (fill, border, focus glow) depends on both.
+        if options.contains(.palette) || options.contains(.effects) {
+            updateView()
+        }
+    }
+    
+    @objc private func choice() {
+        assetChoiceHandler?()
+    }
+
+    /// Fill, border and focus glow of the amount card (spec §7.5). This is
+    /// their only writer.
+    func updateView() {
+        guard let owner else { return }
+        // The amount card keeps the card radius; it is a hero input (spec §8.11).
+        NeonInputStyle.apply(to: owner.containerView, state: state, isEnabled: true,
+                             cornerRadius: style.radii.radius(.max, size: owner.containerView.bounds.size))
+    }
+}

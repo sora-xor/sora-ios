@@ -34,7 +34,7 @@ import RobinHood
 import sorawallet
 
 protocol SubqueryPoolsFactoryProtocol {
-    func getStrategicBonusAPYOperation() -> BaseOperation<[SbApyInfo]>
+    func getStrategicBonusAPYOperation() -> BaseOperation<[PIExactApyInfo]>
 }
 
 final class SubqueryPoolsFactory {
@@ -48,7 +48,7 @@ final class SubqueryPoolsFactory {
 }
 
 extension SubqueryPoolsFactory: SubqueryPoolsFactoryProtocol {
-    func getStrategicBonusAPYOperation() -> BaseOperation<[SbApyInfo]> {
-        return SubqueryApyInfoOperation<[SbApyInfo]>(baseUrl: self.url)
+    func getStrategicBonusAPYOperation() -> BaseOperation<[PIExactApyInfo]> {
+        return SubqueryApyInfoOperation<[PIExactApyInfo]>(baseUrl: self.url)
     }
 }

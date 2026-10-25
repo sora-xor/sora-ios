@@ -29,9 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-
 import RobinHood
-import CommonWallet
 
 protocol AssetProviderObserverProtocol: AnyObject {
     func processBalance(data: [BalanceData])
@@ -39,9 +37,19 @@ protocol AssetProviderObserverProtocol: AnyObject {
 
 
 protocol AssetProviderProtocol: AnyObject {
+    /// Balances that were read. An asset whose balance could not be read
+    /// has no entry here (it is never reported as zero); see
+    /// `unavailableBalanceAssetIds(among:)`.
     func getBalances(with assetIds: [String]) -> [BalanceData]
+    /// The assets among `assetIds` whose balance the last read could not
+    /// give. They are shown as "Balance unavailable".
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String>
     func add(observer: AssetProviderObserverProtocol)
     func remove(observer: AssetProviderObserverProtocol)
+}
+
+extension AssetProviderProtocol {
+    func unavailableBalanceAssetIds(among _: [String]) -> Set<String> { [] }
 }
 
 struct AssetProviderObserver {
@@ -49,15 +57,71 @@ struct AssetProviderObserver {
 }
 
 final class AssetProvider {
+    /// How long after a read that left a balance out the next read is
+    /// asked for, and how many times. Then the next balance event, start
+    /// or screen asks again.
+    static let retryDelays: [TimeInterval] = [5, 15, 45, 120, 300]
+
     private var balanceData: [BalanceData] = []
+    private var unavailableAssetIds: Set<String> = []
     private let balanceProvider: SingleValueProvider<[BalanceData]>?
     private var observers: [AssetProviderObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.balance.provider")
+    /// `balanceData` and `unavailableAssetIds` are written on the main
+    /// queue (where the provider delivers) and read from any.
+    private let stateLock = NSLock()
+    private let refresh: () -> Void
+    private let retryDelays: [TimeInterval]
+    private let schedule: (TimeInterval, @escaping () -> Void) -> Void
+    /// The last read left a balance out, or failed as a whole.
+    private var readIsIncomplete = false
+    private var retryStep = 0
+    /// Each chain of retries has a number; a timer of an earlier chain
+    /// does nothing.
+    private var retryChain = 0
+    private var retryScheduled = false
     
-    init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
-        balanceProvider = try? providerFactory.createBalanceDataProvider(for: assetInfos, onlyVisible: false)
+    convenience init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
+        self.init(assetInfos: assetInfos) { assets in
+            try? providerFactory.createBalanceDataProvider(for: assets, onlyVisible: false)
+        }
+    }
+
+    /// - Parameter makeBalanceProvider: creates the provider that loads and
+    ///   caches the balances of `assetInfos`. It is not called for an empty
+    ///   list.
+    ///
+    /// Startup does not wait for the on-chain asset list, so a wallet can be
+    /// built before any list exists. Such a wallet has no balance to load. It
+    /// used to load "no balances" all the same and save that over the
+    /// account's cached balances: every provider of an account shares one
+    /// cache entry. The tabs that were built again when the list arrived then
+    /// read that empty answer, and the wallet showed no asset until the next
+    /// launch. Without a list nothing is loaded and nothing is saved; the
+    /// asset rows keep their loading state.
+    init(assetInfos: [AssetInfo], makeBalanceProvider: ([AssetInfo]) -> SingleValueProvider<[BalanceData]>?) {
+        balanceProvider = assetInfos.isEmpty ? nil : makeBalanceProvider(assetInfos)
+        let provider = balanceProvider
+        refresh = { provider?.refresh() }
+        retryDelays = Self.retryDelays
+        schedule = { delay, work in
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
         setupBalanceDataProvider()
         EventCenter.shared.add(observer: self)
+    }
+
+    /// For tests: what the balance provider delivers is passed to
+    /// `receive(_:)` and `receiveReadFailure()` directly.
+    init(
+        refresh: @escaping () -> Void,
+        retryDelays: [TimeInterval] = AssetProvider.retryDelays,
+        schedule: @escaping (TimeInterval, @escaping () -> Void) -> Void
+    ) {
+        balanceProvider = nil
+        self.refresh = refresh
+        self.retryDelays = retryDelays
+        self.schedule = schedule
     }
     
     func setupBalanceDataProvider() {
@@ -65,8 +129,7 @@ final class AssetProvider {
             guard let change = changes.first else { return }
             switch change {
             case .insert(let items), .update(let items):
-                self?.balanceData = items
-                self?.notify()
+                self?.receive(items)
             default:
                 break
             }
@@ -76,13 +139,119 @@ final class AssetProvider {
         balanceProvider?.addObserver(self,
                                     deliverOn: .main,
                                     executing: changesBlock,
-                                    failing: { (error: Error) in },
+                                    failing: { [weak self] (_: Error) in
+                                        self?.receiveReadFailure()
+                                    },
                                     options: options)
+    }
+
+    /// One read of the balances arrived (main queue).
+    func receive(_ items: [BalanceData]) {
+        stateLock.lock()
+        let merged = AssetProvider.merge(previous: balanceData, items: items)
+        balanceData = merged.balances
+        unavailableAssetIds = merged.unavailable
+        stateLock.unlock()
+        notify()
+        readEnded(incomplete: merged.incomplete)
+    }
+
+    /// A read failed as a whole (main queue). The balances shown stay.
+    func receiveReadFailure() {
+        readEnded(incomplete: true)
+    }
+}
+
+extension AssetProvider {
+    /// Separates the balances that were read from the assets whose balance
+    /// could not be read, so no consumer can take the latter for a number.
+    static func split(_ items: [BalanceData]) -> (balances: [BalanceData], unavailable: Set<String>) {
+        let merged = merge(previous: [], items: items)
+        return (merged.balances, merged.unavailable)
+    }
+
+    /// What the provider holds after one read.
+    ///
+    /// - An asset that was read has its balance.
+    /// - An asset whose request got no answer this time (a timeout, a
+    ///   dropped connection) keeps the balance of the read before, if there
+    ///   was one: a missing answer says nothing new about it. Without an
+    ///   earlier value it is unavailable.
+    /// - An asset whose answer arrived and was not understood is
+    ///   unavailable: the value held before is no longer known to be
+    ///   right.
+    ///
+    /// `incomplete` is true when either happened, so the read is asked for
+    /// again.
+    static func merge(
+        previous: [BalanceData],
+        items: [BalanceData]
+    ) -> (balances: [BalanceData], unavailable: Set<String>, incomplete: Bool) {
+        var balances: [BalanceData] = []
+        var unavailable = Set<String>()
+        var incomplete = false
+        for item in items {
+            guard item.isUnavailable else {
+                balances.append(item)
+                continue
+            }
+            incomplete = true
+            if item.balanceWasNotRead,
+               let kept = previous.first(where: { $0.identifier == item.identifier }) {
+                balances.append(kept)
+            } else {
+                unavailable.insert(item.identifier)
+            }
+        }
+        return (balances, unavailable, incomplete)
+    }
+
+    /// Follows a read that left something out with further reads, a
+    /// bounded number of times, so a row does not stay at "Balance
+    /// unavailable" (or at an earlier value) until the account's XOR next
+    /// changes. A complete read ends the asking.
+    private func readEnded(incomplete: Bool) {
+        readIsIncomplete = incomplete
+        guard incomplete else {
+            retryChain += 1
+            retryStep = 0
+            retryScheduled = false
+            return
+        }
+        scheduleRetryIfNeeded()
+    }
+
+    private func scheduleRetryIfNeeded() {
+        guard readIsIncomplete, !retryScheduled, retryDelays.indices.contains(retryStep) else {
+            return
+        }
+        let delay = retryDelays[retryStep]
+        retryStep += 1
+        retryScheduled = true
+        let chain = retryChain
+        schedule(delay) { [weak self] in
+            guard let self, self.retryChain == chain else { return }
+            self.retryScheduled = false
+            guard self.readIsIncomplete else { return }
+            self.refresh()
+            // A read that brings the same values again is not delivered,
+            // so the next try does not wait for an answer to this one.
+            self.scheduleRetryIfNeeded()
+        }
     }
 }
 
 extension AssetProvider: AssetProviderProtocol {
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return unavailableAssetIds.intersection(assetIds)
+    }
+
     func getBalances(with assetIds: [String]) -> [BalanceData] {
+        stateLock.lock()
+        let balanceData = self.balanceData
+        stateLock.unlock()
         var balances: [BalanceData] = []
         
         for id in assetIds {
@@ -118,7 +287,10 @@ extension AssetProvider: AssetProviderProtocol {
                     continue
                 }
 
-                observer.processBalance(data: self.balanceData)
+                self.stateLock.lock()
+                let balanceData = self.balanceData
+                self.stateLock.unlock()
+                observer.processBalance(data: balanceData)
             }
         }
     }
@@ -126,6 +298,15 @@ extension AssetProvider: AssetProviderProtocol {
 
 extension AssetProvider: EventVisitorProtocol {
     func processBalanceChanged(event: WalletBalanceChanged) {
-        balanceProvider?.refresh()
+        refresh()
+        // If the read before left a balance out, this event starts the
+        // asking again from its first delay.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.readIsIncomplete else { return }
+            self.retryChain += 1
+            self.retryStep = 0
+            self.retryScheduled = false
+            self.scheduleRetryIfNeeded()
+        }
     }
 }

@@ -30,32 +30,31 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 import SSFUtils
 
 final class ClaimRewardsViewFactory {
     static func createView(farm: Farm,
                            poolInfo: PoolInfo,
-                           poolsService: PoolsServiceInputProtocol?,
                            fiatService: FiatServiceProtocol?,
-                           assetManager: AssetManagerProtocol,
-                           providerFactory: BalanceProviderFactory,
-                           operationFactory: WalletNetworkOperationFactoryProtocol?,
                            assetsProvider: AssetProviderProtocol?,
-                           marketCapService: MarketCapServiceProtocol,
-                           farmingService: DemeterFarmingServiceProtocol,
-                           detailsFactory: DetailViewModelFactoryProtocol) -> ClaimRewardsViewController? {
-        let viewModel = ClaimRewardsViewModel(farm: farm,
-                                              poolInfo: poolInfo,
-                                              poolsService: poolsService,
-                                              fiatService: fiatService,
-                                              assetManager: assetManager,
-                                              providerFactory: providerFactory,
-                                              operationFactory: operationFactory,
-                                              assetsProvider: assetsProvider,
-                                              marketCapService: marketCapService,
-                                              farmingService: farmingService,
-                                              detailsFactory: detailsFactory)
+                           detailsFactory: DetailViewModelFactoryProtocol,
+                           feeProvider: FeeProviderProtocol,
+                           walletService: WalletServiceProtocol,
+                           assetManager: AssetManagerProtocol) -> ClaimRewardsViewController? {
+        let service = ClaimRewardsService(feeProvider: feeProvider)
+        
+        let viewModel = ClaimRewardsViewModel(
+            farm: farm,
+            poolInfo: poolInfo,
+            fiatService: fiatService,
+            assetsProvider: assetsProvider,
+            detailsFactory: detailsFactory,
+            service: service,
+            walletService: walletService,
+            wireframe: ConfirmTransactionWireframe(),
+            assetManager: assetManager
+        )
         
         let view = ClaimRewardsViewController(viewModel: viewModel)
         viewModel.view = view
@@ -63,8 +62,3 @@ final class ClaimRewardsViewFactory {
         return view
     }
 }
-
-
-
-
-

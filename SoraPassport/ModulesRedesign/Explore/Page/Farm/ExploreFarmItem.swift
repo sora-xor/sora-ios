@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import BigInt
 
@@ -50,9 +50,11 @@ struct ExploreFarmViewModel: Hashable {
 
 final class ExploreFarmItem: ItemProtocol {
 
+    let serialNumber: String
     let farmViewModel: ExploreFarmViewModel
 
-    init(farmViewModel: ExploreFarmViewModel) {
+    init(serialNumber: String, farmViewModel: ExploreFarmViewModel) {
+        self.serialNumber = serialNumber
         self.farmViewModel = farmViewModel
     }
 }

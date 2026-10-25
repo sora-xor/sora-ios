@@ -30,7 +30,7 @@
 
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import SoraFoundation
 import sorawallet
@@ -49,13 +49,12 @@ final class ConfirmSwapViewModel {
     var secondAssetId: String
     var firstAssetAmount: Decimal
     var secondAssetAmount: Decimal
-    var slippageTolerance: Float
+    var slippageTolerance: PolkaswapSlippage
     var details: [DetailViewModel]
     var amounts: SwapQuoteAmounts
     let market: LiquiditySourceType
     let walletService: WalletServiceProtocol
     let fee: Decimal
-    var lpFee: Decimal
     var swapVariant: SwapVariant
     var minMaxValue: Decimal
     private var dexId: UInt32
@@ -86,27 +85,22 @@ final class ConfirmSwapViewModel {
     
     private var firstAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
         didSet {
-            // check if balance is enough
-            if firstAssetAmount > firstAssetBalance.balance.decimalValue {
-                isEnoughtBalance = false
-                return
-            }
-
-            // check if exchanging from XOR, and have not enough XOR to pay the fee
-            if let fromAsset = assetManager.assetInfo(for: firstAssetId),
-               fromAsset.isFeeAsset,
-               firstAssetAmount + fee > firstAssetBalance.balance.decimalValue {
-                isEnoughtBalance = false
-                return
-            }
-
-            isEnoughtBalance = true
+            updateBalanceAvailability()
         }
     }
     
-    private var secondAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0))
+    private var secondAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
+        didSet {
+            updateBalanceAvailability()
+        }
+    }
+    private var feeAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
+        didSet {
+            updateBalanceAvailability()
+        }
+    }
     private lazy var detailsFactory = DetailViewModelFactory(assetManager: assetManager)
-    private let fiatData: [FiatData]
+    private let fiatData: [PIExactFiatData]
     var title: String? {
         return nil
     }
@@ -123,7 +117,7 @@ final class ConfirmSwapViewModel {
         eventCenter: EventCenterProtocol,
         firstAssetAmount: Decimal,
         secondAssetAmount: Decimal,
-        slippageTolerance: Float,
+        slippageTolerance: PolkaswapSlippage,
         details: [DetailViewModel],
         market: LiquiditySourceType,
         amounts: SwapQuoteAmounts,
@@ -132,11 +126,10 @@ final class ConfirmSwapViewModel {
         swapVariant: SwapVariant,
         minMaxValue: Decimal,
         dexId: UInt32,
-        lpFee: Decimal,
         interactor: PolkaswapMainInteractorInputProtocol,
         quoteParams: PolkaswapMainInteractorQuoteParams,
         assetsProvider: AssetProviderProtocol?,
-        fiatData: [FiatData]
+        fiatData: [PIExactFiatData]
     ) {
         self.firstAssetId = firstAssetId
         self.secondAssetId = secondAssetId
@@ -153,7 +146,6 @@ final class ConfirmSwapViewModel {
         self.swapVariant = swapVariant
         self.minMaxValue = minMaxValue
         self.dexId = dexId
-        self.lpFee = lpFee
         self.interactor = interactor
         self.quoteParams = quoteParams
         self.assetsProvider = assetsProvider
@@ -170,6 +162,82 @@ final class ConfirmSwapViewModel {
         if !self.secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [self.secondAssetId]).first {
             self.secondAssetBalance = secondAssetBalance
         }
+
+        if let feeAssetId = assetManager.getAssetList()?.first(where: { $0.isFeeAsset })?.assetId,
+           let feeAssetBalance = assetsProvider?.getBalances(with: [feeAssetId]).first {
+            self.feeAssetBalance = feeAssetBalance
+        }
+    }
+
+    private func updateBalanceAvailability() {
+        let maximumSpend = swapVariant == .desiredOutput
+            ? minMaxValue
+            : firstAssetAmount
+        guard fee > 0,
+              !firstAssetId.isEmpty,
+              !secondAssetId.isEmpty,
+              firstAssetId != secondAssetId,
+              maximumSpend > 0,
+              maximumSpend <= firstAssetBalance.balance.decimalValue,
+              let fromAsset = assetManager.assetInfo(for: firstAssetId),
+              let toAsset = assetManager.assetInfo(for: secondAssetId),
+              let feeAsset = assetManager.getAssetList()?.first(where: { $0.isFeeAsset }) else {
+            isEnoughtBalance = false
+            return
+        }
+
+        if fromAsset.isFeeAsset {
+            guard fromAsset.assetId == feeAsset.assetId,
+                  maximumSpend + fee <= firstAssetBalance.balance.decimalValue else {
+                isEnoughtBalance = false
+                return
+            }
+            isEnoughtBalance = true
+            return
+        }
+
+        if toAsset.isFeeAsset {
+            let guaranteedReceive = swapVariant == .desiredInput
+                ? minMaxValue
+                : secondAssetAmount
+            guard toAsset.assetId == feeAsset.assetId,
+                  guaranteedReceive > 0,
+                  secondAssetBalance.balance.decimalValue + guaranteedReceive >= fee else {
+                isEnoughtBalance = false
+                return
+            }
+            isEnoughtBalance = true
+            return
+        }
+
+        guard feeAssetBalance.identifier == feeAsset.assetId,
+              feeAssetBalance.balance.decimalValue >= fee else {
+            isEnoughtBalance = false
+            return
+        }
+        isEnoughtBalance = true
+    }
+
+    private func hasCurrentExactQuote() -> Bool {
+        guard fee > 0,
+              !firstAssetId.isEmpty,
+              !secondAssetId.isEmpty,
+              firstAssetId != secondAssetId,
+              assetManager.assetInfo(for: firstAssetId) != nil,
+              assetManager.assetInfo(for: secondAssetId) != nil,
+              amounts.fromAmount > 0,
+              amounts.toAmount > 0 else {
+            return false
+        }
+        let expectedLimit = swapVariant == .desiredInput
+            ? slippageTolerance.minimumAmount(for: amounts.toAmount)
+            : slippageTolerance.maximumAmount(for: amounts.toAmount)
+        let amountsMatch = swapVariant == .desiredInput
+            ? firstAssetAmount == amounts.fromAmount
+                && secondAssetAmount == amounts.toAmount
+            : firstAssetAmount == amounts.toAmount
+                && secondAssetAmount == amounts.fromAmount
+        return amountsMatch && minMaxValue == expectedLimit
     }
 }
  
@@ -222,7 +290,9 @@ extension ConfirmSwapViewModel {
                                                   operationImageName: "Wallet/swapArrow")
         
         let symbol = swapVariant == .desiredInput ? "\(secondAsset?.symbol ?? "")" : "\(firstAsset.symbol)"
-        let amount = swapVariant == .desiredInput ? amounts.toAmount * (1 - Decimal(Double(slippageTolerance)) / 100.0) : amounts.toAmount * (1 + Decimal(Double(slippageTolerance)) / 100.0)
+        let amount = swapVariant == .desiredInput
+            ? slippageTolerance.minimumAmount(for: amounts.toAmount)
+            : slippageTolerance.maximumAmount(for: amounts.toAmount)
         
         let amountText = NumberFormatter.cryptoAssets.stringFromDecimal(amount) ?? ""
         let minMaxAmountText =  "\(amountText) \(symbol)"
@@ -242,7 +312,7 @@ extension ConfirmSwapViewModel {
         
         let detailItem = ConfirmDetailsItem(detailViewModels: details)
         
-        let slipageItem = ConfirmOptionsItem(toleranceText: "\(slippageTolerance)%", market: market)
+        let slipageItem = ConfirmOptionsItem(toleranceText: slippageTolerance.displayValue, market: market)
         
         let buttonText = SoramitsuTextItem(text: R.string.localizable.commonConfirm(preferredLanguages: .currentLocale),
                                            fontData: FontType.buttonM,
@@ -265,6 +335,12 @@ extension ConfirmSwapViewModel {
     }
     
     func submit() {
+        updateBalanceAvailability()
+        guard isEnoughtBalance, hasCurrentExactQuote() else {
+            isEnoughtBalance = false
+            return
+        }
+
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
                                                    type: "fee",
@@ -274,8 +350,7 @@ extension ConfirmSwapViewModel {
                                                    maxValue: nil,
                                                    context: nil)
         let networkFee = Fee(value: AmountDecimal(value: fee), feeDescription: networkFeeDescription)
-        let lpFee = Fee(value: AmountDecimal(value: lpFee), feeDescription: networkFeeDescription)
-        
+
         let amount = AmountDecimal(value: firstAssetAmount)
         let sourceAsset = firstAssetId
         let estimatedAmount = AmountDecimal(value: secondAssetAmount)
@@ -286,11 +361,11 @@ extension ConfirmSwapViewModel {
                                         amount: amount,
                                         asset: sourceAsset,
                                         details: "",
-                                        fees: [networkFee, lpFee],
+                                        fees: [networkFee],
                                         context: [TransactionContextKeys.transactionType: TransactionType.swap.rawValue,
                                                   TransactionContextKeys.estimatedAmount: estimatedAmount.stringValue,
                                                   TransactionContextKeys.marketType: market.rawValue,
-                                                  TransactionContextKeys.slippage: String(slippageTolerance),
+                                                  TransactionContextKeys.slippage: slippageTolerance.contextValue,
                                                   TransactionContextKeys.desire: swapVariant.rawValue,
                                                   TransactionContextKeys.minMaxValue: AmountDecimal(value: minMaxValue).stringValue,
                                                   TransactionContextKeys.dex: "\(dexId)"
@@ -316,8 +391,8 @@ extension ConfirmSwapViewModel {
             txHash = hex.toHex(includePrefix: true)
         }
         let base = TransactionBase(txHash: txHash,
-                                   blockHash: "",
-                                   fee: Amount(value: fee),
+                                   blockHash: "", 
+                                   fee: Amount(value: fee * pow(10, 18)),
                                    status: status,
                                    timestamp: "\(Date().timeIntervalSince1970)")
         
@@ -326,12 +401,11 @@ extension ConfirmSwapViewModel {
                                    toTokenId: secondAssetId,
                                    fromAmount:  Amount(value: firstAssetAmount),
                                    toAmount:  Amount(value: secondAssetAmount),
-                                   market: market,
-                                   lpFee: Amount(value: lpFee))
+                                   market: market)
         
         eventCenter.notify(with: NewTransactionCreatedEvent(item: swapTransaction))
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
-            self?.view?.dissmiss(competion: {})
+            self?.view?.dismiss(competion: {})
         }
     }
     
@@ -357,14 +431,15 @@ extension ConfirmSwapViewModel {
         }
         self.amounts = amounts
         self.dexId = dexId
-        self.lpFee = amounts.lpAmount
         
         let route = quote.route.compactMap({ self.assetManager.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
         
-        minMaxValue = amounts.toAmount * (1 - Decimal(Double(slippageTolerance)) / 100.0)
+        minMaxValue = swapVariant == .desiredInput
+            ? slippageTolerance.minimumAmount(for: amounts.toAmount)
+            : slippageTolerance.maximumAmount(for: amounts.toAmount)
         details = detailsFactory.createSwapViewModels(fromAsset: fromAsset,
                                                       toAsset: toAsset,
-                                                      slippage: Decimal(Double(slippageTolerance)),
+                                                      slippage: slippageTolerance,
                                                       amount: amounts.fromAmount,
                                                       quote: amounts,
                                                       direction: swapVariant,
@@ -394,6 +469,7 @@ extension ConfirmSwapViewModel {
 
             items.compactMap { $0 as? ConfirmAssetsItem }.first?.firstAssetImageModel.amountText = firstAmountText
         }
+        updateBalanceAvailability()
 
         reloadItems?(items)
         completion?()
@@ -407,21 +483,7 @@ extension ConfirmSwapViewModel: PolkaswapMainInteractorOutputProtocol {
             return
         }
         
-        updateDetails(params: params, quote: quote, dexId: dexId) { [weak self] in
-            guard let self = self else { return }
-            // check if exchanging to XOR, we'll receive enough XOR to pay nework fee from it
-            if let toAsset = self.assetManager.assetInfo(for: self.secondAssetId),
-               toAsset.isFeeAsset {
-                let xorAmount = self.swapVariant == .desiredInput ? self.minMaxValue : self.amounts.toAmount
-                let xorAmountFuture = self.secondAssetBalance.balance.decimalValue + xorAmount
-                guard xorAmountFuture > self.fee else {
-                    self.isEnoughtBalance = false
-                    return
-                }
-            }
-
-            self.isEnoughtBalance = true
-        }
+        updateDetails(params: params, quote: quote, dexId: dexId)
     }
     
     func didUpdatePoolSubscription() {

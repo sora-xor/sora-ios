@@ -30,24 +30,24 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 
 final class HeaderActivityDetailsItem: NSObject {
 
     let typeText: String
     let typeTransactionImage: UIImage?
     let actionTransactionImage: UIImage?
-    let firstAssetImageViewModel: WalletImageViewModelProtocol?
-    let secondAssetImageViewModel: WalletImageViewModelProtocol?
-    let firstBalanceText: NSAttributedString
+    let firstAssetImageViewModel: UIImage?
+    let secondAssetImageViewModel: UIImage?
+    var firstBalanceText: NSAttributedString
     let secondBalanceText: NSAttributedString?
     var details: [DetailViewModel]
 
     init(typeText: String,
          typeTransactionImage: UIImage?,
          actionTransactionImage: UIImage? = nil,
-         firstAssetImageViewModel: WalletImageViewModelProtocol?,
-         secondAssetImageViewModel: WalletImageViewModelProtocol? = nil,
+         firstAssetImageViewModel: UIImage?,
+         secondAssetImageViewModel: UIImage? = nil,
          firstBalanceText: NSAttributedString,
          secondBalanceText: NSAttributedString? = nil,
          details: [DetailViewModel]) {

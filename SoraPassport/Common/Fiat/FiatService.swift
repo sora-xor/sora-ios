@@ -29,110 +29,89 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import RobinHood
-import sorawallet
 
-protocol FiatServiceObserverProtocol: AnyObject {
-    func processFiat(data: [FiatData])
+/// Native exact PI price model. This deliberately does not expose a KMM
+/// `KotlinDouble`; the decimal wire value stays intact until a UI formatter
+/// requests `PIQuantity.decimalValue`.
+struct PIExactFiatData: Equatable, Sendable {
+    let id: String
+    let priceUsd: PIQuantity?
 }
 
-protocol FiatServiceProtocol: AnyObject {
-    func getFiat(completion: @escaping ([FiatData]) -> Void)
-    func getFiat() async -> [FiatData]
-    func add(observer: FiatServiceObserverProtocol)
-    func remove(observer: FiatServiceObserverProtocol)
+extension PIAsset {
+    /// The asset's price as the screens use it. PI publishes a price of
+    /// exactly `0` for an asset it could not price (on 11 October 2026 that
+    /// included bridged ETH, which has liquidity and daily volume). That is
+    /// "no price", not "worth nothing": the holding gets no fiat text and
+    /// is left out of totals, like an asset PI has no price field for.
+    var fiatData: PIExactFiatData {
+        PIExactFiatData(
+            id: id,
+            priceUsd: priceUSD.flatMap { $0.isZero ? nil : $0 }
+        )
+    }
+}
+
+protocol FiatServiceObserverProtocol: AnyObject {
+    func processFiat(data: [PIExactFiatData])
+}
+
+protocol FiatServiceProtocol: Actor {
+    func getFiat() async -> [PIExactFiatData]
 }
 
 struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
-final class FiatService {
-    static let shared = FiatService()
-    private let operationManager: OperationManager = OperationManager()
-    private var expiredDate: Date = Date()
-    private var fiatData: [FiatData] = []
-    private var observers: [FiatServiceObserver] = []
-    private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.fiat.service")
-    private var task: Task<Void, Swift.Error>?
-
-    private func updateFiatData() async -> [FiatData] {
-        return await withCheckedContinuation { continuation in
-            let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-            
-            queryOperation.completionBlock = { [weak self] in
-                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                self.fiatData = response
-                self.expiredDate = Date().addingTimeInterval(600)
-                self.notify()
-                continuation.resume(returning: response)
-            }
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
-        }
-    }
+/// Prices as a screen may show them.
+struct FiatSnapshot {
+    /// Empty when no price is known.
+    let data: [PIExactFiatData]
+    /// `nil` when the prices are current. Otherwise the time they date
+    /// from: PI could not be read since.
+    let asOf: Date?
 }
 
-extension FiatService: FiatServiceProtocol {
-    
-    func getFiat(completion: @escaping ([FiatData]) -> Void) {
-        task?.cancel()
-        task = Task {
-            guard expiredDate < Date() || fiatData.isEmpty else {
-                completion(fiatData)
-                return
-            }
+actor FiatService: FiatServiceProtocol {
+    static let shared = FiatService()
 
-            let fiatData = await updateFiatData()
-            completion(fiatData)
-        }
-    }
-    
-    func getFiat() async -> [FiatData] {
-        return await withCheckedContinuation { continuation in
-            task?.cancel()
-            task = Task {
-                guard expiredDate < Date() || fiatData.isEmpty else {
-                    continuation.resume(with: .success(fiatData))
-                    return
-                }
-                
-                let fiatData = await self.updateFiatData()
-                continuation.resume(with: .success(fiatData))
-            }
-        }
-    }
-    
-    func add(observer: FiatServiceObserverProtocol) {
-        syncQueue.async {
-            self.observers = self.observers.filter { $0.observer != nil }
+    private let catalog: () async throws -> PICatalogSnapshot<PIAsset>
 
-            if !self.observers.contains(where: { $0.observer === observer }) {
-                self.observers.append(FiatServiceObserver(observer: observer))
-            }
+    /// Prices come from the shared asset catalog, which also feeds market
+    /// data: one walk of PI serves every screen, a failed walk is not
+    /// repeated before its backoff has passed, and the last good catalog is
+    /// shown meanwhile.
+    init(
+        catalog: @escaping () async throws -> PICatalogSnapshot<PIAsset> = {
+            try await PICatalogs.assets.snapshot()
         }
+    ) {
+        self.catalog = catalog
     }
 
-    func remove(observer: FiatServiceObserverProtocol) {
-        syncQueue.async {
-            self.observers = self.observers.filter { $0.observer != nil && $0.observer !== observer }
-        }
+    init(assets: @escaping () async throws -> [PIAsset]) {
+        self.init(catalog: {
+            PICatalogSnapshot(values: try await assets(), asOf: nil)
+        })
     }
-    
-    func notify() {
-        syncQueue.async {
-            self.observers = self.observers.filter { $0.observer != nil }
 
-            for wrapper in self.observers {
-                guard let observer = wrapper.observer else {
-                    continue
-                }
+    /// Empty when no price is known. Callers must show that as "price
+    /// unavailable", never as a value of zero. An unavailable price never
+    /// affects balances or authorizes a transaction.
+    func getFiat() async -> [PIExactFiatData] {
+        await getFiatSnapshot().data
+    }
 
-                observer.processFiat(data: self.fiatData)
-            }
+    func getFiatSnapshot() async -> FiatSnapshot {
+        do {
+            let catalog = try await catalog()
+            return FiatSnapshot(
+                data: catalog.values.map(\.fiatData),
+                asOf: catalog.asOf
+            )
+        } catch {
+            return FiatSnapshot(data: [], asOf: nil)
         }
     }
 }

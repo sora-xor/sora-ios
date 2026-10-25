@@ -33,6 +33,7 @@ import SoraKeystore
 import SSFUtils
 import IrohaCrypto
 import TweetNacl
+import SSFModels
 
 protocol KeystoreExportWrapperProtocol {
     func export(account: AccountItem, password: String?) throws -> Data
@@ -65,10 +66,19 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
     }
 
     private func export(account: AccountItem, password: String?) throws -> KeystoreDefinition {
-        guard let secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {
+        guard var secretKey = try LegacySoraSecretResolver.resolve(
+            account: account,
+            keystore: keystore
+        ) else {
             throw KeystoreExportWrapperError.missingSecretKey
         }
 
+        defer { secretKey.resetBytes(in: secretKey.startIndex ..< secretKey.endIndex) }
+        // Historical ed25519 JSON stored seed + public key. Only the seed is
+        // authoritative; rebuild the redundant half without rewriting Keychain.
+        if account.cryptoType == .ed25519 {
+            secretKey = Data(secretKey.prefix(32)) + account.publicKeyData
+        }
         let addressType = try ss58Factory.type(fromAddress: account.address)
 
         var builder = KeystoreBuilder()
@@ -79,10 +89,13 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
             builder = builder.with(genesisHash: genesisHashData.toHex(includePrefix: true))
         }
 
-        let keystoreData = KeystoreData(address: account.address,
-                                        secretKeyData: secretKey,
-                                        publicKeyData: account.publicKeyData,
-                                        cryptoType: account.cryptoType.utilsType)
+        let cryptoType = SSFModels.CryptoType.init(onChainType: account.cryptoType.rawValue) ?? .sr25519
+        let keystoreData = KeystoreData(
+            address: account.address,
+            secretKeyData: secretKey,
+            publicKeyData: account.publicKeyData,
+            cryptoType: cryptoType
+        )
 
         let definition = try builder.build(from: keystoreData, password: password, isEthereum: false)
 

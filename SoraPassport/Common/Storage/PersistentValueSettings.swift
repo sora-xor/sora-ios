@@ -43,7 +43,7 @@ class PersistentValueSettings<T> {
 
     private let mutex = NSLock()
 
-    var internalValue: T?
+    private var internalValue: T?
 
     var value: T? {
         mutex.lock()
@@ -55,6 +55,16 @@ class PersistentValueSettings<T> {
     }
 
     var hasValue: Bool { value != nil }
+
+    /// Commits only the in-memory snapshot under the lock. The lock is never
+    /// held across repository, Keychain, network, or completion-queue work.
+    /// Holding it across asynchronous lifecycle acquisition creates a
+    /// mutex→lifecycle inversion with signing's lifecycle→selection read.
+    func commitInternalValue(_ value: T?) {
+        mutex.lock()
+        internalValue = value
+        mutex.unlock()
+    }
 
     func performSetup(completionClosure _: @escaping (Result<T?, Error>) -> Void) {
         fatalError("Function must be implemented in subclass")
@@ -68,14 +78,10 @@ class PersistentValueSettings<T> {
         runningCompletionIn queue: DispatchQueue?,
         completionClosure: ((Result<T?, Error>) -> Void)?
     ) {
-        mutex.lock()
-
         performSetup { result in
             if case let .success(newValue) = result {
-                self.internalValue = newValue
+                self.commitInternalValue(newValue)
             }
-
-            self.mutex.unlock()
 
             if let closure = completionClosure {
                 dispatchInQueueWhenPossible(queue) {
@@ -94,14 +100,10 @@ class PersistentValueSettings<T> {
         runningCompletionIn queue: DispatchQueue?,
         completionClosure: ((Result<T, Error>) -> Void)?
     ) {
-        mutex.lock()
-
         performSave(value: value) { result in
             if case let .success(newValue) = result {
-                self.internalValue = newValue
+                self.commitInternalValue(newValue)
             }
-
-            self.mutex.unlock()
 
             if let closure = completionClosure {
                 dispatchInQueueWhenPossible(queue) {

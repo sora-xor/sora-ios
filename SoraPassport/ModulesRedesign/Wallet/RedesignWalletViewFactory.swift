@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 
 final class RedesignWalletViewFactory {
     static func createView(providerFactory: BalanceProviderFactory,
@@ -48,11 +48,12 @@ final class RedesignWalletViewFactory {
                            assetsProvider: AssetProviderProtocol,
                            walletContext: CommonWalletContextProtocol,
                            poolsViewModelService: PoolsItemService,
-                           assetsViewModelService: AssetsItemService,
                            marketCapService: MarketCapServiceProtocol,
-                           editViewService: EditViewServiceProtocol) -> RedesignWalletViewController {
+                           editViewService: EditViewServiceProtocol,
+                           feeProvider: FeeProviderProtocol) -> RedesignWalletViewController {
         
-        let viewModel = RedesignWalletViewModel(wireframe: RedesignWalletWireframe(),
+        let wireframe = RedesignWalletWireframe(feeProvider: feeProvider)
+        let viewModel = RedesignWalletViewModel(wireframe: wireframe,
                                                 providerFactory: providerFactory,
                                                 assetManager: assetManager,
                                                 fiatService: fiatService,
@@ -70,7 +71,6 @@ final class RedesignWalletViewFactory {
                                                 walletContext: walletContext,
                                                 editViewService: editViewService,
                                                 poolsViewModelService: poolsViewModelService,
-                                                assetsViewModelService: assetsViewModelService,
                                                 marketCapService: marketCapService)
         
         let view = RedesignWalletViewController(viewModel: viewModel)

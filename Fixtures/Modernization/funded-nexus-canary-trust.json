@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "contractId": "sora-ios-funded-nexus-canary-trust-v1",
+  "platform": "ios",
+  "assessedAt": "2026-08-08",
+  "status": "blocked",
+  "signatureAlgorithm": "ecdsa-p256-sha256",
+  "ledgerStoreId": null,
+  "authorities": {
+    "releaseOperator": {
+      "role": "release-operator",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    },
+    "independentApprover": {
+      "role": "independent-approver",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    },
+    "independentReviewer": {
+      "role": "independent-reviewer",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    },
+    "consumptionLedger": {
+      "role": "approval-consumption-ledger",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    }
+  },
+  "blockingReasons": [
+    "No reviewed funded-canary authority keys or append-only consumption ledger have been supplied by the authorized release system."
+  ]
+}

@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 
 final class PooledItem: NSObject {
 

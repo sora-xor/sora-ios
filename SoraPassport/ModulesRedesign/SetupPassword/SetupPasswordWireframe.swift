@@ -43,6 +43,7 @@ final class SetupPasswordWireframe {
 }
 
 extension SetupPasswordWireframe: SetupPasswordWireframeProtocol {
+    @MainActor
     func showSetupPinCode() {
         let view = PinViewFactory.createRedesignPinSetupView()
         

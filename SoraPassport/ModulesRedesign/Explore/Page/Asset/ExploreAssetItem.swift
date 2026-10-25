@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import BigInt
 
@@ -40,19 +40,50 @@ struct ExploreAssetLiquidity {
     let oldPrice: Decimal
 }
 
+enum LoadingState<T> {
+    case loaded(T)
+    case loading
+    case error
+    
+    var value: T? {
+        if case .loaded(let value) = self { return value }
+        return nil
+    }
+    
+    var shimmerType: SoramitsuLoadingPlaceholderType {
+        switch self {
+        case .error, .loaded:
+            return .none
+        case .loading:
+            return .shimmer
+        }
+    }
+}
+
 struct ExploreAssetViewModel: Hashable {
+    /// Two rows are the same only when they show the same thing, so the
+    /// list redraws a row whose price arrived or changed.
     static func == (lhs: ExploreAssetViewModel, rhs: ExploreAssetViewModel) -> Bool {
-        lhs.assetId == rhs.assetId && lhs.serialNumber == rhs.serialNumber
+        lhs.assetId == rhs.assetId &&
+            lhs.symbol == rhs.symbol &&
+            lhs.title == rhs.title &&
+            lhs.price == rhs.price &&
+            lhs.serialNumber == rhs.serialNumber &&
+            lhs.marketCap.value == rhs.marketCap.value &&
+            lhs.icon == rhs.icon &&
+            lhs.deltaPrice.value??.attributedString.string ==
+                rhs.deltaPrice.value??.attributedString.string
     }
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(assetId)
         hasher.combine(symbol)
         hasher.combine(title)
+        hasher.combine(price)
         hasher.combine(serialNumber)
-        hasher.combine(marketCap)
+        hasher.combine(marketCap.value)
         hasher.combine(icon)
-        hasher.combine(deltaPrice?.attributedString.string)
+        hasher.combine(deltaPrice.value??.attributedString.string)
     }
     
     var assetId: String?
@@ -60,16 +91,19 @@ struct ExploreAssetViewModel: Hashable {
     var title: String?
     var price: String?
     var serialNumber: String = ""
-    var marketCap: String?
+    var marketCap: LoadingState<String> = .loading
     var icon: UIImage?
-    var deltaPrice: SoramitsuAttributedText?
+    var deltaPrice: LoadingState<SoramitsuAttributedText?> = .loading
 }
 
 final class ExploreAssetItem: ItemProtocol {
 
+    let serialNumber: String
     let assetViewModel: ExploreAssetViewModel
 
-    init(assetViewModel: ExploreAssetViewModel) {
+    init(serialNumber: String,
+         assetViewModel: ExploreAssetViewModel) {
+        self.serialNumber = serialNumber
         self.assetViewModel = assetViewModel
     }
 }

@@ -28,61 +28,45 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import RobinHood
 import sorawallet
 import Foundation
 
-public final class SubqueryReferralRewardsOperation<ResultType>: BaseOperation<ResultType> {
-
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SoraWalletBlockExplorerInfo
+public final class SubqueryReferralRewardsOperation<ResultType>: PIAsyncOperation<ResultType> {
     private let address: String
-    private let baseUrl: URL
     private let count: Int
+    private let client = PIIndexerClient()
 
     public init(address: String, count: Int = 1000, baseUrl: URL) {
-        self.baseUrl = baseUrl
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
         self.address = address
         self.count = count
-
         super.init()
     }
 
-    override public func main() {
-        super.main()
-
-        if isCancelled {
-            return
+    override public func execute() async throws -> ResultType {
+        let limit = min(max(count, 1), 2_000)
+        let pageSize = min(100, limit)
+        let maximumPages = (limit + pageSize - 1) / pageSize
+        let rewards = try await client.allReferrerRewards(
+            address: address,
+            pageSize: pageSize,
+            maximumPages: maximumPages
+        ).map { reward in
+            guard
+                let referral = reward.referral,
+                let amount = reward.amount
+            else {
+                throw PIIndexerError.invalidResponse
+            }
+            return ReferrerReward(
+                referral: referral,
+                amount: amount.rawValue
+            )
         }
 
-        if result != nil {
-            return
+        let legacy = ReferrerRewardsInfo(rewards: rewards)
+        guard let result = legacy as? ResultType else {
+            throw PIIndexerError.invalidResponse
         }
-
-        let semaphore = DispatchSemaphore(value: 0)
-
-        DispatchQueue.main.async {
-            self.subQueryClient.getReferrerRewards(address: self.address, completionHandler: { [self] requestResult, error in
-                guard let data = requestResult as? ResultType else { return }
-
-                if isCancelled {
-                    return
-                }
-                semaphore.signal()
-
-                result = .success(data)
-            })
-        }
-
-        semaphore.wait()
+        return result
     }
 }
