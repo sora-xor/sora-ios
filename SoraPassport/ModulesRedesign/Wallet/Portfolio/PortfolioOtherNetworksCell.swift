@@ -4,18 +4,28 @@
 import SoraUIKit
 import UIKit
 
-/// "XOR on other networks": the selected wallet's XOR rows on networks other than SORA2, exactly as
-/// the Wallet tab's Assets card lists them (`AssetsItem.networkRows`, filled by
-/// `refreshNetworkRows`). The portfolio replaces that card, so this one keeps the rows, and the
-/// network pages they open, below the portfolio list. Without rows it takes no space.
-final class PortfolioOtherNetworksItem: NSObject {
-    /// The Wallet tab's Assets card, which owns the rows and their handler.
-    weak var source: AssetsItem?
+/// XOR on a network other than SORA2: one row of "XOR on other networks".
+struct NetworkAssetRow: Equatable {
+    let account: NetworkAccount
+    /// "SORA · Taira". A row on the main network has no network label.
+    let title: String
+    /// "50 XOR", "Address ready" for a network that is not live yet, or empty
+    /// while the balance loads.
+    let amount: String
+    let tag: WalletNetworkTag?
+    let icon: UIImage?
+}
 
-    var rows: [NetworkAssetRow] { source?.networkRows ?? [] }
+/// "XOR on other networks": the selected wallet's XOR rows on networks other than SORA2, under the
+/// portfolio list, each opening that network's page. The Wallet tab fills the rows
+/// (`RedesignWalletViewModel.refreshNetworkRows`). Without rows it takes no space.
+final class PortfolioOtherNetworksItem: NSObject {
+    var rows: [NetworkAssetRow] = []
+    /// Opens the network's page (`RedesignWalletViewModel.openNetwork(account:)`).
+    var onOpen: ((NetworkAccount) -> Void)?
 
     func open(_ account: NetworkAccount) {
-        source?.networkRowHandler?(account)
+        onOpen?(account)
     }
 }
 
@@ -117,8 +127,8 @@ final class PortfolioOtherNetworksCell: SoramitsuTableViewCell, SoramitsuTableVi
     }
 }
 
-/// One row as the Assets card draws it: XOR's icon, "XOR · SORA Nexus", the amount (or "Address
-/// ready"), and the network's tag where the row has no value to show.
+/// One row: XOR's icon, "XOR · SORA Nexus", the amount (or "Address ready"), and the network's tag
+/// where the row has no value to show.
 final class PortfolioNetworkAssetRowView: UIControl {
     var onTap: (() -> Void)?
 

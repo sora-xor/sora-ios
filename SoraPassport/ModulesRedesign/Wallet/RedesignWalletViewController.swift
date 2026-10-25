@@ -54,7 +54,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
     }()
 
     let viewModel: RedesignWalletViewModel
-    /// The portfolio's table glue; nil when `portfolioView` is off.
+    /// The portfolio's table glue, from `viewDidLoad`.
     private var portfolioBinding: PortfolioTableBinding?
 
     init(viewModel: RedesignWalletViewModel) {
@@ -75,9 +75,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
         viewModel.reloadItem = { [weak self] items in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                // With the portfolio, the Assets card's network rows are on a card of their own.
-                Self.refresh(items: self.viewModel.portfolioHome?.reloadTargets(for: items) ?? items,
-                             in: self.tableView)
+                Self.refresh(items: items, in: self.tableView)
             }
         }
         
@@ -96,9 +94,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
             }
         }
 
-        if let portfolioHome = viewModel.portfolioHome {
-            portfolioBinding = PortfolioTableBinding(home: portfolioHome, tableView: tableView, host: self)
-        }
+        portfolioBinding = PortfolioTableBinding(home: viewModel.portfolioHome, tableView: tableView, host: self)
     }
 
     // Live balance updates can arrive in a burst. Animating a transparent card
@@ -128,9 +124,8 @@ final class RedesignWalletViewController: SoramitsuViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         tableView.reloadData()
-        viewModel.walletItems.compactMap { $0 as? AccountTableViewItem }.forEach { $0.refreshCapability() }
         portfolioBinding?.safeAreaDidChange()
-        viewModel.portfolioHome?.viewWillAppear()
+        viewModel.portfolioHome.viewWillAppear()
         // Settings (the Taira switch) or the selected account may have changed.
         viewModel.refreshNetworkRows()
     }
@@ -138,12 +133,12 @@ final class RedesignWalletViewController: SoramitsuViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         portfolioBinding?.safeAreaDidChange()
-        viewModel.portfolioHome?.viewDidAppear()
+        viewModel.portfolioHome.viewDidAppear()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        viewModel.portfolioHome?.viewDidDisappear()
+        viewModel.portfolioHome.viewDidDisappear()
     }
 
     override func viewSafeAreaInsetsDidChange() {
@@ -159,9 +154,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
     private func setupConstraints() {
         // The portfolio's sky runs under the status bar.
         NSLayoutConstraint.activate([
-            viewModel.portfolioEnabled
-                ? tableView.topAnchor.constraint(equalTo: view.topAnchor)
-                : tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 40)

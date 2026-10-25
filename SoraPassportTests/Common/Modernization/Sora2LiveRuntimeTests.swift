@@ -2679,70 +2679,6 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertEqual(WalletUX.balanceUnavailableText, WalletUX.text("Balance unavailable"))
     }
 
-    /// The wallet list through its production service. An asset whose
-    /// balance could not be read keeps its row, which says "Balance
-    /// unavailable" and shows no amount and no value, and the total says it
-    /// leaves that balance out. Before the fix the row read "0 XOR".
-    func testWalletListShowsBalanceUnavailableInsteadOfZero() async throws {
-        let val = "0x0200040000000000000000000000000000000000000000000000000000000000"
-        let assets = [
-            AssetInfo(id: Self.xorAssetId, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true),
-            AssetInfo(id: val, symbol: "VAL", chainId: "", precision: 18, icon: nil, displayName: "SORA Validator Token", visible: true),
-        ]
-        let manager = BalanceListAssetManager(assets: assets)
-        // What the real provider holds after a read in which XOR was not
-        // understood and VAL was.
-        let split = AssetProvider.split([
-            BalanceData.unavailable(identifier: Self.xorAssetId),
-            BalanceData(identifier: val, balance: AmountDecimal(value: 5)),
-        ])
-        let provider = BalanceListAssetProvider(balances: split.balances, unavailable: split.unavailable)
-        let prices = BalanceListPrices()
-        let service = AssetsItemService(
-            marketCapService: prices,
-            fiatService: nil,
-            assetViewModelsFactory: AssetViewModelFactory(walletAssets: assets, assetManager: manager, fiatService: nil),
-            assetManager: manager,
-            assetProvider: provider,
-            priceInfoService: prices
-        )
-        service.setup()
-        // The first rows are drawn at once, before any price.
-        XCTAssertEqual(service.assetViewModels.map(\.identifier), [Self.xorAssetId, val])
-        for _ in 0 ..< 400 where service.priceNoteText.isEmpty {
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
-        XCTAssertEqual(service.assetViewModels.map(\.identifier), [Self.xorAssetId, val])
-        let xorRow = try XCTUnwrap(service.assetViewModels.first)
-        XCTAssertEqual(xorRow.subtitle, WalletUX.balanceUnavailableText)
-        XCTAssertFalse(xorRow.subtitle.contains("0"))
-        XCTAssertEqual(xorRow.fiatText, "")
-        XCTAssertTrue(xorRow.priceLoadFinished)
-        let valRow = try XCTUnwrap(service.assetViewModels.last)
-        XCTAssertTrue(valRow.subtitle.contains("5"))
-        XCTAssertTrue(valRow.subtitle.contains("VAL"))
-        let noteKey = "This total does not include balances that could not be read"
-        XCTAssertEqual(service.priceNoteText, WalletUX.text(noteKey))
-        XCTAssertEqual(WalletUX.text(noteKey, language: "en"), noteKey)
-        XCTAssertNotEqual(WalletUX.text(noteKey, language: "ja"), noteKey)
-
-        // Once the balance is read again the row and the note are ordinary.
-        provider.set(
-            balances: [
-                BalanceData(identifier: Self.xorAssetId, balance: AmountDecimal(value: 2)),
-                BalanceData(identifier: val, balance: AmountDecimal(value: 5)),
-            ],
-            unavailable: []
-        )
-        service.setup()
-        for _ in 0 ..< 400 where !service.priceNoteText.isEmpty {
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
-        XCTAssertEqual(service.priceNoteText, "")
-        XCTAssertNotEqual(service.assetViewModels.first?.subtitle, WalletUX.balanceUnavailableText)
-        XCTAssertEqual(service.assetViewModels.count, 2)
-    }
-
     // MARK: - Custom nodes and the HTTPS signing route (S-6)
 
     /// A custom node is checked for the HTTPS JSON-RPC route that signing
@@ -4823,15 +4759,6 @@ private final class BalanceListAssetProvider: AssetProviderProtocol {
 
     func add(observer _: AssetProviderObserverProtocol) {}
     func remove(observer _: AssetProviderObserverProtocol) {}
-}
-
-/// No prices and no market data: the wallet list is about balances here.
-private final class BalanceListPrices: PriceInfoServiceProtocol, MarketCapServiceProtocol {
-    func getPriceInfo(for _: [String]) async -> PriceInfo {
-        PriceInfo(fiatData: [], marketCapInfo: [])
-    }
-
-    func getMarketCap(for _: [String]) async -> Set<MarketCapInfo> { [] }
 }
 
 // MARK: - Review round 6 test doubles

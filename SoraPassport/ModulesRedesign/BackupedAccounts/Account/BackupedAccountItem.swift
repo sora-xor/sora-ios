@@ -55,7 +55,7 @@ final class BackupedAccountItem: NSObject {
 
 extension BackupedAccountItem: SoramitsuTableViewItemProtocol {
     var cellType: AnyClass {
-        AccountCell.self
+        BackupedAccountCell.self
     }
 
     var backgroundColor: SoramitsuColor {

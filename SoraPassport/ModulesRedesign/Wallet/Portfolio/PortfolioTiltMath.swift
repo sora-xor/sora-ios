@@ -57,7 +57,7 @@ enum PortfolioTilt {
 
     /// Parallax moves only when every condition holds.
     struct Gate: Equatable {
-        /// The portfolio flag is on (the reference calls this the Full effects tier).
+        /// The Full effects tier (`FxPolicy`).
         var enabled: Bool
         /// `UIAccessibility.isReduceMotionEnabled`.
         var reduceMotion: Bool

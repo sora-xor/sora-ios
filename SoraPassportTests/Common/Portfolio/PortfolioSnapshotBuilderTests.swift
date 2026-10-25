@@ -63,10 +63,7 @@ final class PortfolioSnapshotBuilderTests: XCTestCase {
         XCTAssertEqual(PortfolioAggregator.summary(snapshot, scope: .allWallets).total, 210)
     }
 
-    func testPortfolioIsOnInEveryConfiguration() {
-        // The flag has no configuration branch: Release, TestFlight and App Store builds show it too.
-        XCTAssertTrue(ProductSurfacePolicy.showsPortfolioView)
-        XCTAssertTrue(PortfolioFeature.isEnabled)
+    func testDebugInputsStayOutOfReleaseBuilds() {
         #if F_RELEASE
         XCTAssertFalse(PortfolioFeature.allowsDebugInjection, "Release builds never take the sample or an injected tilt")
         #else

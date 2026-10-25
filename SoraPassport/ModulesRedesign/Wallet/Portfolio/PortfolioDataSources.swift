@@ -5,11 +5,7 @@ import Foundation
 import RobinHood
 import SoraKeystore
 
-/// `portfolioView` (portfolio spec §2): on in every configuration, Release included.
-/// The one constant lives with the app's other optional surfaces (`ProductSurfacePolicy`).
 enum PortfolioFeature {
-    static var isEnabled: Bool { ProductSurfacePolicy.showsPortfolioView }
-
     /// Debug inputs (the sample portfolio, an injected tilt) exist only outside Release builds.
     static var allowsDebugInjection: Bool {
         #if F_RELEASE

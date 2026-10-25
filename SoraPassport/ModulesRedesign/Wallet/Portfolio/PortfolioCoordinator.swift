@@ -21,6 +21,8 @@ protocol PortfolioHandoffRouting: AnyObject {
     func showNetwork(_ network: PortfolioNetwork, send: Bool, from controller: UIViewController) -> Bool
     /// The app's account list (add, import, rename, select).
     func showManageWallets(from controller: UIViewController)
+    /// The selected wallet's full asset list and visibility settings.
+    func showManageAssets(from controller: UIViewController)
 }
 
 /// Switches the selected wallet the way the account picker does.
@@ -120,6 +122,12 @@ final class PortfolioCoordinator {
             sheet?.dismiss(animated: true) {
                 guard let self, let presenter = self.presenter else { return }
                 self.router.showManageWallets(from: presenter)
+            }
+        }
+        sheet.onManageAssets = { [weak self, weak sheet] in
+            sheet?.dismiss(animated: true) {
+                guard let self, let presenter = self.presenter else { return }
+                self.router.showManageAssets(from: presenter)
             }
         }
         sheet.present(from: presenter)

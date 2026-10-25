@@ -172,26 +172,15 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
-        
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: FiatService.shared)
-        
-        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                                       fiatService: FiatService.shared,
-                                                       assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetManager: assetManager,
-                                                       assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-        
+
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
-        
+
         let poolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
                                               networkFacade: walletContext.networkOperationFactory,
                                               polkaswapNetworkFacade: polkaswapContext,
                                               config: ApplicationConfig.shared)
         farmingService.poolsService = poolsService
-        
+
         let poolViewModelsfactory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                            fiatService: FiatService.shared)
@@ -211,9 +200,8 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
-                                                                    accountSettings: accountSettings, 
+                                                                    accountSettings: accountSettings,
                                                                     farmingService: farmingService,
                                                                     feeProvider: feeProvider,
                                                                     localizationManager: localizationManager) else {
@@ -260,18 +248,7 @@ extension MainTabBarViewFactory {
         
         let assetInfos = assetManager.getAssetList() ?? []
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
-        
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: FiatService.shared)
-        
-        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                                       fiatService: FiatService.shared,
-                                                       assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetManager: assetManager,
-                                                       assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-        
+
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
             return nil
         }
@@ -300,10 +277,9 @@ extension MainTabBarViewFactory {
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
-                                                                    accountSettings: accountSettings, 
-                                                                    farmingService: farmingService, 
+                                                                    accountSettings: accountSettings,
+                                                                    farmingService: farmingService,
                                                                     feeProvider: feeProvider) else {
             return nil
         }
@@ -359,7 +335,6 @@ extension MainTabBarViewFactory {
                                                poolsService: PoolsServiceInputProtocol,
                                                assetsProvider: AssetProviderProtocol,
                                                poolsViewModelService: PoolsItemService,
-                                               assetsViewModelService: AssetsItemService,
                                                editViewService: EditViewServiceProtocol,
                                                accountSettings: WalletAccountSettingsProtocol,
                                                farmingService: DemeterFarmingServiceProtocol,
@@ -415,7 +390,6 @@ extension MainTabBarViewFactory {
                                                                     assetsProvider: assetsProvider,
                                                                     walletContext: walletContext,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     marketCapService: marketCapService,
                                                                     editViewService: editViewService, 
                                                                     feeProvider: feeProvider)

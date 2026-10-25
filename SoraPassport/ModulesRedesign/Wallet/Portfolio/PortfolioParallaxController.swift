@@ -9,8 +9,8 @@ import UIKit
 /// reference (`reference/ios/TiltParallaxController.swift`). Only the transforms of the supplied
 /// layer views change; labels, rows and balances never move. Nothing runs while the phone is still:
 /// the display link starts on input and stops once the value has settled, and the sensor stops
-/// whenever a gate closes (flag off, Reduce Motion, Low Power or reduced effects, app inactive,
-/// surface off screen). Layers move opposite to the tilt and nearer layers move more.
+/// whenever a gate closes (Reduce Motion, Low Power or reduced effects, app inactive, surface off
+/// screen). Layers move opposite to the tilt and nearer layers move more.
 final class PortfolioParallaxController {
     struct Layer {
         let view: UIView
@@ -32,7 +32,6 @@ final class PortfolioParallaxController {
     var onRender: ((CGFloat, CGFloat) -> Void)?
 
     private let layers: [Layer]
-    private let enabled: () -> Bool
     private let manager = CMMotionManager()
     private var baseline = PortfolioTilt.Baseline()
     private var smooth = PortfolioTilt.Smooth2D(tauMs: PortfolioTilt.Constants.phoneSmoothTauMs)
@@ -46,9 +45,8 @@ final class PortfolioParallaxController {
     /// A fixed deflection injected for screenshots in non-production builds.
     private var injected: (x: Double, y: Double)?
 
-    init(layers: [Layer], enabled: @escaping () -> Bool = { PortfolioFeature.isEnabled }) {
+    init(layers: [Layer]) {
         self.layers = layers
-        self.enabled = enabled
     }
 
     deinit {
@@ -59,7 +57,7 @@ final class PortfolioParallaxController {
 
     var gate: PortfolioTilt.Gate {
         let fx = FxPolicy.current
-        return PortfolioTilt.Gate(enabled: enabled() && fx.tier == .full,
+        return PortfolioTilt.Gate(enabled: fx.tier == .full,
                                   reduceMotion: fx.reduceMotion,
                                   lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
                                   hidden: !appActive,
