@@ -56,7 +56,9 @@ class BaseAccountConfirmInteractor {
         self.operationManager = operationManager
     }
 
-    func createAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>) {}
+    func createAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>
+    ) {}
 }
 
 extension BaseAccountConfirmInteractor: AccountConfirmInteractorInputProtocol {
@@ -72,14 +74,18 @@ extension BaseAccountConfirmInteractor: AccountConfirmInteractorInputProtocol {
             return
         }
 
-        let operation = accountOperationFactory.newAccountOperation(request: request,
-                                                                    mnemonic: mnemonic)
+        let operation = accountOperationFactory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
         createAccountUsingOperation(operation)
     }
 
     func skipConfirmation() {
-        let operation = accountOperationFactory.newAccountOperation(request: request,
-                                                                    mnemonic: mnemonic)
+        let operation = accountOperationFactory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
         createAccountUsingOperation(operation)
     }
 }

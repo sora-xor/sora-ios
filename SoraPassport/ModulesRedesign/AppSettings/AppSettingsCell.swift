@@ -98,3 +98,99 @@ extension AppSettingsCell: SoramitsuTableViewCellProtocol {
     }
 }
 
+final class AppAppearanceCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol {
+    private let title = SoramitsuLabel()
+    let selector = UISegmentedControl()
+    private var onSelect: ((Int) -> Void)?
+    private let choicesStack = UIStackView()
+    private let controlsStack = UIStackView()
+    private var choices: [UIButton] = []
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        title.sora.font = FontType.eyebrow
+        title.sora.dynamicTextStyle = .caption1
+        title.sora.textColor = .fgSecondary
+        title.sora.numberOfLines = 0
+        selector.translatesAutoresizingMaskIntoConstraints = false
+        selector.accessibilityIdentifier = "AppearanceThemeSelector"
+        selector.addTarget(self, action: #selector(selectionChanged), for: .valueChanged)
+        contentView.addSubview(title)
+        controlsStack.axis = .vertical
+        controlsStack.translatesAutoresizingMaskIntoConstraints = false
+        choicesStack.axis = .vertical
+        choicesStack.spacing = 8
+        controlsStack.addArrangedSubview(selector)
+        controlsStack.addArrangedSubview(choicesStack)
+        contentView.addSubview(controlsStack)
+        NSLayoutConstraint.activate([
+            title.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
+            title.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -32),
+            title.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            controlsStack.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 12),
+            controlsStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            controlsStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            selector.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
+            controlsStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+        guard let item = item as? AppAppearanceItem else { return }
+        title.sora.text = item.title
+        selector.removeAllSegments()
+        choicesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        choices = []
+        for (index, choice) in item.choices.enumerated() {
+            selector.insertSegment(withTitle: choice, at: index, animated: false)
+            let button = UIButton(type: .system)
+            button.tag = index
+            button.tintColor = NeonTokens.current.cyan
+            button.setTitleColor(NeonTokens.current.textPrimary, for: .normal)
+            button.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: 24, weight: .regular), forImageIn: .normal)
+            button.setTitle(choice, for: .normal)
+            button.titleLabel?.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 16, weight: .semibold))
+            button.titleLabel?.adjustsFontForContentSizeCategory = true
+            button.titleLabel?.numberOfLines = 0
+            button.contentHorizontalAlignment = .leading
+            button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+            button.accessibilityTraits = index == item.selectedIndex ? [.button, .selected] : .button
+            button.setImage(index == item.selectedIndex ? UIImage(systemName: "checkmark.circle.fill") : UIImage(systemName: "circle"), for: .normal)
+            button.addTarget(self, action: #selector(choicePressed(_:)), for: .touchUpInside)
+            choicesStack.addArrangedSubview(button)
+            choices.append(button)
+        }
+        selector.selectedSegmentIndex = item.selectedIndex
+        selector.accessibilityLabel = item.title
+        let font = UIFontMetrics(forTextStyle: .body).scaledFont(
+            for: UIFont.systemFont(ofSize: 15, weight: .semibold), maximumPointSize: 20)
+        selector.setTitleTextAttributes([.font: font], for: .normal)
+        onSelect = item.onSelect
+        updateChoiceLayout()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateChoiceLayout()
+    }
+
+    private func updateChoiceLayout() {
+        let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        let shown: UIView = large ? choicesStack : selector
+        let hidden: UIView = large ? selector : choicesStack
+        if hidden.superview === controlsStack {
+            controlsStack.removeArrangedSubview(hidden)
+            hidden.removeFromSuperview()
+        }
+        if shown.superview !== controlsStack { controlsStack.addArrangedSubview(shown) }
+    }
+
+    @objc private func choicePressed(_ sender: UIButton) { onSelect?(sender.tag) }
+    @objc private func selectionChanged() { onSelect?(selector.selectedSegmentIndex) }
+}
+

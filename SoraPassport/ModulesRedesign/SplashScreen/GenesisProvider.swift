@@ -28,43 +28,23 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import SSFUtils
-import RobinHood
+import Foundation
 
 protocol GenesisProviderProtocol {
-    func load(completion: @escaping (String?) -> Void)
+    /// The genesis hash that identifies the SORA network for this installation.
+    func load() -> String
 }
 
-final class GenesisProvider: GenesisProviderProtocol {
-    let engine: JSONRPCEngine
-    let operationQueue = OperationQueue()
-
-    init(engine: JSONRPCEngine) {
-        self.engine = engine
-    }
-
-    func load(completion: @escaping (String?) -> Void) {
-        let genesisOperation = createGenesisOperation()
-
-        genesisOperation.completionBlock = {
-            let genesis = try? genesisOperation.extractResultData()
-            completion(genesis)
-        }
-
-        operationQueue.addOperations([genesisOperation], waitUntilFinished: true)
-    }
-
-    private func createGenesisOperation() -> BaseOperation<String> {
-#if F_RELEASE
-        return JSONRPCListOperation<String>.createWithResult(Chain.sora.genesisHash())
-#else
-        var currentBlock = 0
-        let param = Data(Data(bytes: &currentBlock, count: MemoryLayout<UInt32>.size).reversed())
-            .toHex(includePrefix: true)
-
-        return JSONRPCListOperation<String>(engine: engine,
-                                            method: RPCMethod.getBlockHash,
-                                            parameters: [param])
-#endif
+/// Answers the genesis hash locally, in every build configuration: the hash
+/// saved by an earlier launch, or SORA mainnet's.
+///
+/// Release builds have always done this (genesis pinning). Other builds used
+/// to ask the launch node for block 0 and waited up to 10 seconds for it,
+/// which held up wallet startup whenever that node was unreachable. Startup
+/// must not depend on a node, and the nodes bundled with the app are SORA
+/// mainnet nodes in every build configuration.
+struct GenesisProvider: GenesisProviderProtocol {
+    func load() -> String {
+        Chain.sora.genesisHash()
     }
 }

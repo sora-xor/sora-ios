@@ -31,9 +31,7 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
 import SoraFoundation
-import SCard
 
 protocol RedesignWalletWireframeProtocol: AlertPresentable {
     func showFullListAssets(on controller: UIViewController?,
@@ -67,26 +65,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                            marketCapService: MarketCapServiceProtocol,
                            farmingService: DemeterFarmingServiceProtocol,
                            updateHandler: ((UpdatedSection) -> Void)?)
-    
-    func showAssetDetails(on viewController: UIViewController?,
-                          assetInfo: AssetInfo,
-                          assetManager: AssetManagerProtocol,
-                          fiatService: FiatServiceProtocol,
-                          assetViewModelFactory: AssetViewModelFactory,
-                          poolsService: PoolsServiceInputProtocol,
-                          poolViewModelsFactory: PoolViewModelFactory,
-                          providerFactory: BalanceProviderFactory,
-                          networkFacade: WalletNetworkOperationFactoryProtocol?,
-                          accountId: String,
-                          address: String,
-                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
-                          qrEncoder: WalletQREncoderProtocol,
-                          sharingFactory: AccountShareFactoryProtocol,
-                          referralFactory: ReferralsOperationFactoryProtocol,
-                          assetsProvider: AssetProviderProtocol,
-                          marketCapService: MarketCapServiceProtocol,
-                          farmingService: DemeterFarmingServiceProtocol)
-    
+
     func showPoolDetails(on viewController: UIViewController?,
                          poolInfo: PoolInfo,
                          assetManager: AssetManagerProtocol,
@@ -98,10 +77,6 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                          marketCapService: MarketCapServiceProtocol,
                          farmingService: DemeterFarmingServiceProtocol)
 
-    func showSoraCard(on viewController: UIViewController?,
-                      address: AccountAddress,
-                      balanceProvider: RobinHood.SingleValueProvider<[CommonWallet.BalanceData]>?)
-    
     func showManageAccount(on view: UIViewController, completion: @escaping () -> Void)
     
     func showGenerateQR(on controller: UIViewController?,
@@ -114,7 +89,6 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                         assetsProvider: AssetProviderProtocol?,
                         networkFacade: WalletNetworkOperationFactoryProtocol,
                         providerFactory: BalanceProviderFactory,
-                        feeProvider: FeeProviderProtocol,
                         isScanQRShown: Bool,
                         marketCapService: MarketCapServiceProtocol,
                         closeHandler: (() -> Void)?)
@@ -145,16 +119,14 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
 }
 
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
-
-    func showSoraCard(
-        on viewController: UIViewController?,
-        address: AccountAddress,
-        balanceProvider: SingleValueProvider<[BalanceData]>?
-    ) {
-        guard let viewController else { return }
-        SCard.shared?.start(in: viewController)
+    
+    let feeProvider: FeeProviderProtocol
+    
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
     }
 
+    @MainActor
     func showFullListAssets(on controller: UIViewController?,
                             assetManager: AssetManagerProtocol,
                             fiatService: FiatServiceProtocol,
@@ -172,6 +144,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                             marketCapService: MarketCapServiceProtocol,
                             farmingService: DemeterFarmingServiceProtocol,
                             updateHandler: ((UpdatedSection) -> Void)?) {
+        let wireframe = AssetListWireframe(feeProvider: feeProvider)
         let viewModel = ManageAssetListViewModel(assetViewModelFactory: assetViewModelFactory,
                                                  fiatService: fiatService,
                                                  assetManager: assetManager,
@@ -186,7 +159,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                  referralFactory: referralFactory,
                                                  assetsProvider: assetsProvider,
                                                  marketCapService: marketCapService,
-                                                 farmingService: farmingService,
+                                                 farmingService: farmingService, 
+                                                 wireframe: wireframe,
                                                  updateHandler: updateHandler)
         
         let assetListController = ProductListViewController(viewModel: viewModel)
@@ -202,6 +176,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showFullListPools(on controller: UIViewController?,
                            poolsService: PoolsServiceInputProtocol,
                            networkFacade: WalletNetworkOperationFactoryProtocol,
@@ -223,7 +198,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                           operationFactory: operationFactory,
                                           assetsProvider: assetsProvider,
                                           marketCapService: marketCapService,
-                                          farmingService: farmingService,
+                                          farmingService: farmingService, 
+                                          feeProvider: feeProvider,
                                           updateHandler: updateHandler)
         
         poolsService.appendDelegate(delegate: viewModel)
@@ -240,51 +216,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showAssetDetails(on viewController: UIViewController?,
-                          assetInfo: AssetInfo,
-                          assetManager: AssetManagerProtocol,
-                          fiatService: FiatServiceProtocol,
-                          assetViewModelFactory: AssetViewModelFactory,
-                          poolsService: PoolsServiceInputProtocol,
-                          poolViewModelsFactory: PoolViewModelFactory,
-                          providerFactory: BalanceProviderFactory,
-                          networkFacade: WalletNetworkOperationFactoryProtocol?,
-                          accountId: String,
-                          address: String,
-                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
-                          qrEncoder: WalletQREncoderProtocol,
-                          sharingFactory: AccountShareFactoryProtocol,
-                          referralFactory: ReferralsOperationFactoryProtocol,
-                          assetsProvider: AssetProviderProtocol,
-                          marketCapService: MarketCapServiceProtocol,
-                          farmingService: DemeterFarmingServiceProtocol) {
-        guard let assetDetailsController = AssetDetailsViewFactory.createView(assetInfo: assetInfo,
-                                                                              assetManager: assetManager,
-                                                                              fiatService: fiatService,
-                                                                              assetViewModelFactory: assetViewModelFactory,
-                                                                              poolsService: poolsService,
-                                                                              poolViewModelsFactory: poolViewModelsFactory,
-                                                                              providerFactory: providerFactory,
-                                                                              networkFacade: networkFacade,
-                                                                              accountId: accountId,
-                                                                              address: address,
-                                                                              polkaswapNetworkFacade: polkaswapNetworkFacade,
-                                                                              qrEncoder: qrEncoder,
-                                                                              sharingFactory: sharingFactory,
-                                                                              referralFactory: referralFactory,
-                                                                              assetsProvider: assetsProvider,
-                                                                              marketCapService: marketCapService,
-                                                                              farmingService: farmingService) else {
-            return
-        }
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(assetDetailsController)
-        
-        viewController?.present(containerView, animated: true)
-    }
-    
+    @MainActor
     func showPoolDetails(on viewController: UIViewController?,
                          poolInfo: PoolInfo,
                          assetManager: AssetManagerProtocol,
@@ -303,7 +235,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService,
-                                                                             farmingService: farmingService,
+                                                                             farmingService: farmingService, 
+                                                                             feeProvider: feeProvider,
                                                                              dismissHandler: nil) else {
             return
         }
@@ -321,6 +254,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         viewController?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showManageAccount(on view: UIViewController, completion: @escaping () -> Void) {
         guard let changeAccountView = ChangeAccountViewFactory.changeAccountViewController(with: completion) else {
             return
@@ -336,6 +270,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         view.present(containerView, animated: true)
     }
     
+    @MainActor
     func showGenerateQR(on controller: UIViewController?,
                         accountId: String,
                         address: String,
@@ -346,7 +281,6 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                         assetsProvider: AssetProviderProtocol?,
                         networkFacade: WalletNetworkOperationFactoryProtocol,
                         providerFactory: BalanceProviderFactory,
-                        feeProvider: FeeProviderProtocol,
                         isScanQRShown: Bool,
                         marketCapService: MarketCapServiceProtocol,
                         closeHandler: (() -> Void)?) {
@@ -384,6 +318,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showSend(on controller: UIViewController?,
                   selectedTokenId: String?,
                   selectedAddress: String,
@@ -395,31 +330,34 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                   qrEncoder: WalletQREncoderProtocol,
                   sharingFactory: AccountShareFactoryProtocol,
                   marketCapService: MarketCapServiceProtocol) {
-        let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
-                                                  selectedAddress: selectedAddress,
-                                                  fiatService: fiatService,
-                                                  assetManager: assetManager,
-                                                  providerFactory: providerFactory,
-                                                  networkFacade: networkFacade,
-                                                  wireframe: InputAssetAmountWireframe(),
-                                                  assetsProvider: assetsProvider,
-                                                  qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory,
-                                                  marketCapService: marketCapService)
-        let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
-        viewModel.view = inputAmountController
-        
-        let navigationController = UINavigationController(rootViewController: inputAmountController)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
+        WalletAccountCapability.preflightSend(from: controller) { [self] in
+            let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
+                                                      selectedAddress: selectedAddress,
+                                                      fiatService: fiatService,
+                                                      assetManager: assetManager,
+                                                      providerFactory: providerFactory,
+                                                      networkFacade: networkFacade,
+                                                      wireframe: InputAssetAmountWireframe(),
+                                                      assetsProvider: assetsProvider,
+                                                      qrEncoder: qrEncoder,
+                                                      sharingFactory: sharingFactory,
+                                                      marketCapService: marketCapService)
+            let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
+            viewModel.view = inputAmountController
+
+            let navigationController = UINavigationController(rootViewController: inputAmountController)
+            navigationController.navigationBar.backgroundColor = .clear
+            navigationController.addCustomTransitioning()
+
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+            containerView.add(navigationController)
+
+            controller?.present(containerView, animated: true)
+        }
     }
     
+    @MainActor
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol,
                              assetManager: AssetManagerProtocol) {
@@ -443,6 +381,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller.present(containerView, animated: true)
     }
     
+    @MainActor
     func showEditView(from view: RedesignWalletViewProtocol?,
                       poolsService: PoolsServiceInputProtocol,
                       editViewService: EditViewServiceProtocol,
@@ -465,6 +404,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller.present(containerView, animated: true)
     }
     
+    @MainActor
     func showAccountOptions(from view: RedesignWalletViewProtocol?,
                             account: AccountItem?) {
         guard

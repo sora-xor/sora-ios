@@ -56,6 +56,7 @@ protocol EventVisitorProtocol: AnyObject {
     func processChainSyncDidComplete(event: ChainSyncDidComplete)
     func processChainSyncDidFail(event: ChainSyncDidFail)
     func processChainsUpdated(event: ChainsUpdatedEvent)
+    func processWalletAssetListArrived(event: WalletAssetListArrived)
     func processFailedNodeConnection(event: FailedNodeConnectionEvent)
 
     func processRuntimeCommonTypesSyncCompleted(event: RuntimeCommonTypesSyncCompleted)
@@ -68,6 +69,7 @@ protocol EventVisitorProtocol: AnyObject {
     func processLanguageChanged(event: LanguageChanged)
     func processAccountBackuped(event: AccountBackuped)
     func processNewBlockAppeared(event: NewBlockEvent)
+    func processPendingSubmissionsResolved(event: Sora2PendingSubmissionsResolved)
 
 //    func processSelectedNodeUpdated(event: SelectedNodeChangedEvent)
 
@@ -95,12 +97,14 @@ extension EventVisitorProtocol {
     func processMigration(event: MigrationEvent) {}
     func processSuccsessMigration(event: MigrationSuccsessEvent) {}
     func processNewTransactionCreated(event: NewTransactionCreatedEvent) {}
+    func processPendingSubmissionsResolved(event _: Sora2PendingSubmissionsResolved) {}
 //    func processPurchaseCompletion(event: PurchaseCompleted) {}
 
     func processChainSyncDidStart(event _: ChainSyncDidStart) {}
     func processChainSyncDidComplete(event _: ChainSyncDidComplete) {}
     func processChainSyncDidFail(event _: ChainSyncDidFail) {}
     func processChainsUpdated(event _: ChainsUpdatedEvent) {}
+    func processWalletAssetListArrived(event _: WalletAssetListArrived) {}
     func processFailedNodeConnection(event: FailedNodeConnectionEvent) {}
 
     func processRuntimeCommonTypesSyncCompleted(event _: RuntimeCommonTypesSyncCompleted) {}

@@ -35,10 +35,13 @@ final class AccountExportRawSeedPresenter {
     weak var view: AccountExportRawSeedViewProtocol?
     var wireframe: AccountExportRawSeedWireframeProtocol!
     var interactor: AccountExportRawSeedInteractorInputProtocol!
+    var exportJSONAction: (() -> Void)?
     private var appEventService = AppEventService()
 }
 
 extension AccountExportRawSeedPresenter: AccountExportRawSeedPresenterProtocol {
+    func exportJSON() { exportJSONAction?() }
+
     func copyRawSeed() {
         interactor.copyRawSeedToClipboard()
     }
@@ -49,7 +52,7 @@ extension AccountExportRawSeedPresenter: AccountExportRawSeedPresenterProtocol {
 }
 
 extension AccountExportRawSeedPresenter: AccountExportRawSeedInteractorOutputProtocol {
-    func set(rawSeed: String) {
-        view?.set(rawSeed: rawSeed)
+    func set(rawSeed: String, derivationPath: String) {
+        view?.set(rawSeed: rawSeed, derivationPath: derivationPath)
     }
 }

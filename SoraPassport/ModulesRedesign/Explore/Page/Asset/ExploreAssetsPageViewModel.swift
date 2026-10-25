@@ -30,16 +30,17 @@
 
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import BigInt
 import IrohaCrypto
 
 protocol ExplorePageViewModelProtocol {
     var snapshotPublisher: Published<ExplorePageSnapshot>.Publisher { get }
+    var isNeedHeaders: Bool { get }
     func setup()
-    func didSelect(with id: String?)
-    func didSelect(with viewModel: ExplorePoolViewModel?)
+    func didSelect(with item: ExplorePageSectionItem?)
+    func searchTextChanged(with text: String)
 }
 
 class ExplorePageSection {
@@ -79,6 +80,15 @@ final class ExploreAssetsPageViewModel {
     var view: ControllerBackedProtocol?
     
     var assetViewModelsService: ExploreAssetViewModelService
+    private var loading: Task<Void, Never>?
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        loading?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
 
     init(wireframe: ExploreWireframeProtocol,
          assetViewModelsService: ExploreAssetViewModelService) {
@@ -98,13 +108,13 @@ final class ExploreAssetsPageViewModel {
         if assetViewModels.isEmpty {
             let serialNumbers = Array(1...20)
             let shimmersAssetItems = serialNumbers.map {
-                ExploreAssetItem(assetViewModel: ExploreAssetViewModel(serialNumber: String($0)))
+                ExploreAssetItem(serialNumber: String($0), assetViewModel: ExploreAssetViewModel(serialNumber: String($0)))
             }
             
             let shimmerSection = ExplorePageSection(items: shimmersAssetItems.map { .asset($0) })
             sections.append(shimmerSection)
         } else {
-            let assetItems = assetViewModels.map { ExploreAssetItem(assetViewModel: $0) }
+            let assetItems = assetViewModels.map { ExploreAssetItem(serialNumber: $0.serialNumber, assetViewModel: $0) }
             let assetSection = ExplorePageSection(items: assetItems.map { .asset($0) })
             sections.append(assetSection)
         }
@@ -117,20 +127,43 @@ final class ExploreAssetsPageViewModel {
 }
 
 extension ExploreAssetsPageViewModel: ExplorePageViewModelProtocol {
+    var isNeedHeaders: Bool {
+        return false
+    }
+    
     func setup() {
         snapshot = createSnapshot()
+        loadAssets()
+        if pricesObserver == nil {
+            // Prices arrived or were refreshed: list the assets again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadAssets()
+            }
+        }
+    }
 
-        Task {
-            let assetViewModels = await assetViewModelsService.setup()
-            snapshot = createSnapshot(assetViewModels: assetViewModels)
+    private func loadAssets() {
+        loading?.cancel()
+        loading = Task { [weak self] in
+            guard let assetViewModels = await self?.assetViewModelsService.setup(),
+                  !Task.isCancelled,
+                  let self else { return }
+            self.snapshot = self.createSnapshot(assetViewModels: assetViewModels)
         }
     }
     
-    func didSelect(with viewModel: ExplorePoolViewModel?) {
+    func didSelect(with item: ExplorePageSectionItem?) {
+        switch item {
+        case .asset(let item):
+            guard let id = item.assetViewModel.assetId else { return }
+            wireframe.showAssetDetails(on: view?.controller, assetId: id)
+        default: break
+        }
     }
     
-    func didSelect(with id: String?) {
-        guard let id else { return }
-        wireframe.showAssetDetails(on: view?.controller, assetId: id)
-    }
+    func searchTextChanged(with text: String) {}
 }

@@ -31,7 +31,6 @@
 import Foundation
 import IrohaCrypto
 import SoraKeystore
-import SCard
 import SoraFoundation
 import SoraUIKit
 
@@ -43,6 +42,7 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         self.localizationManager = localizationManager
     }
 
+    @MainActor
     func showJson(from view: AccountExportViewProtocol?, accounts: [AccountItem]) {
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = self.localizationManager

@@ -75,18 +75,18 @@ final class AccountImportedViewModel: AccountImportedViewModelProtocol {
     }
 
     private func contentSection() -> AccountImportedSection {
-        let importedAccountsAddresses = ApplicationConfig.shared.backupedAccountAddresses
-        let areThereAnotherAccounts = !(Set(backedUpAccounts.map { $0.address }).subtracting(importedAccountsAddresses).isEmpty)
+        // Accounts whose keys are not on this iPhone stay listed.
+        let areThereAnotherAccounts = backedUpAccounts.contains { !WalletDriveBackupList.hidesBackup(of: $0.address) }
         let item = AccountImportedItem(accountName: importedAccount?.name ?? "",
                                        accountAddress: importedAccount?.address ?? "",
                                        areThereAnotherAccounts: areThereAnotherAccounts )
         item.loadMoreTapHandler = { [weak self] in
-            let notBackedUpAccount = self?.backedUpAccounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
+            let notBackedUpAccount = self?.backedUpAccounts.filter { !WalletDriveBackupList.hidesBackup(of: $0.address) }
             self?.wireframe.showBackepedAccounts(accounts: notBackedUpAccount ?? [])
         }
         item.continueTapHandler = { [weak self] in
             if self?.endAddingBlock != nil {
-                self?.wireframe.dissmiss(completion: self?.endAddingBlock)
+                self?.wireframe.dismiss(completion: self?.endAddingBlock)
                 return
             }
             self?.wireframe.showSetupPinCode()

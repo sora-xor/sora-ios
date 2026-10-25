@@ -1,0 +1,6 @@
+framework module libed25519 {
+  umbrella header "libed25519.h"
+  export *
+
+  module * { export * }
+}

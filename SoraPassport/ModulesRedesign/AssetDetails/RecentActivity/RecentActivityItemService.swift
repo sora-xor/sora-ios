@@ -31,7 +31,7 @@
 import Foundation
 import Combine
 import BigInt
-import CommonWallet
+
 
 final class RecentActivityItemService {
     @Published var historyViewModels: [ActivityContentViewModel] = [ ActivityContentViewModel(),
@@ -71,6 +71,11 @@ final class RecentActivityItemService {
 
 extension RecentActivityItemService: EventVisitorProtocol {
     func processNewTransaction(event: WalletNewTransactionInserted) {
+        setup()
+    }
+
+    /// A sent transaction received its final status: show it.
+    func processPendingSubmissionsResolved(event _: Sora2PendingSubmissionsResolved) {
         setup()
     }
 }

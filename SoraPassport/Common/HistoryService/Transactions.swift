@@ -110,6 +110,13 @@ struct TransferTransaction: Transaction {
     let tokenId: String
 }
 
+struct ClaimReward: Transaction {
+    var base: TransactionBase
+    let amount: Amount
+    let peer: String
+    let rewardTokenId: String
+}
+
 struct ReferralBondTransaction: Transaction {
 
     enum ReferralTransactionType {
@@ -158,7 +165,6 @@ struct Swap: Transaction {
     let fromAmount: Amount
     let toAmount: Amount
     let market: LiquiditySourceType
-    let lpFee: Amount
 }
 
 struct Liquidity: Transaction {
@@ -186,6 +192,80 @@ struct Liquidity: Transaction {
     let firstAmount: Amount
     let secondAmount: Amount
     let type: TransactionLiquidityType
+}
+
+struct FarmLiquidity: Transaction {
+    enum TransactionLiquidityType {
+        case add
+        case withdraw
+        
+        var subtitle: String {
+            switch self {
+            case .add: return R.string.localizable.demeterStakedLiquidity(preferredLanguages: .currentLocale)
+            case .withdraw: return R.string.localizable.demeterUnstakedLiquidity(preferredLanguages: .currentLocale)
+            }
+        }
+        
+        var image: UIImage? {
+            switch self {
+            case .add: return R.image.wallet.send()
+            case .withdraw: return R.image.wallet.receive()
+            }
+        }
+    }
+    var base: TransactionBase
+    let firstTokenId: String
+    let secondTokenId: String
+    let rewardTokenId: String
+    let amount: Amount
+    let sender: String
+    let type: TransactionLiquidityType
+}
+
+/// A transaction this device signed and handed to the network, known from
+/// the app's own journal of sent transactions and (so far) not listed by the
+/// indexer. The journal keeps the transaction's hash and its fate, not what
+/// it did: the row says that a transaction was sent and what became of it.
+/// When the indexer lists the transaction, its row replaces this one.
+struct SubmittedTransaction: Transaction {
+    enum Outcome: Equatable {
+        /// Handed to the network; no final result yet.
+        case pending
+        /// In a finalized block, executed successfully.
+        case succeeded
+        /// In a finalized block, and the chain rejected its effect.
+        case failed
+        /// Its validity period ended and it is not on the chain. Nothing
+        /// moved and it can no longer be included.
+        case notIncluded
+
+        var status: TransactionBase.Status {
+            switch self {
+            case .pending: return .pending
+            case .succeeded: return .success
+            case .failed, .notIncluded: return .failed
+            }
+        }
+
+        /// One line saying what became of the transaction.
+        var explanation: String {
+            switch self {
+            case .pending:
+                return WalletUX.text("Waiting for the network to confirm it")
+            case .succeeded:
+                return WalletUX.text("Confirmed by the network")
+            case .failed:
+                return WalletUX.text("It failed on the network")
+            case .notIncluded:
+                return WalletUX.text("The network did not include it. Nothing was sent.")
+            }
+        }
+    }
+
+    var base: TransactionBase
+    let outcome: Outcome
+
+    static var title: String { WalletUX.text("Sent transaction") }
 }
 
 struct TransferData {
@@ -219,6 +299,19 @@ struct LiquidityData {
     let baseTokenAmount: String
     let targetTokenAmount: String
 }
+
+struct ClaimRewardsData {
+    let amount: String
+    let rewardAssetId: String
+}
+
+struct FarmLiquidityData {
+    let baseTokenAmount: String
+    let poolTokenAmount: String
+    let rewardAssetId: String
+    let amount: String
+}
+
 
 extension Array where Element == TxHistoryItemParam {
     func toTransferData() -> TransferData {
@@ -261,5 +354,17 @@ extension Array where Element == TxHistoryItemParam {
                              targetTokenId: self.first { $0.paramName == "input_asset_b" }?.paramValue ?? "" ,
                              baseTokenAmount: self.first { $0.paramName == "input_a_desired" }?.paramValue ?? "" ,
                              targetTokenAmount: self.first { $0.paramName == "input_b_desired" }?.paramValue ?? "" )
+    }
+    
+    func toClaimRewardData() -> ClaimRewardsData {
+        return ClaimRewardsData(amount: self.first { $0.paramName == "amount" }?.paramValue ?? "" ,
+                                rewardAssetId: self.first { $0.paramName == "assetId" }?.paramValue ?? "")
+    }
+    
+    func toFarmLiquidity() -> FarmLiquidityData {
+        return FarmLiquidityData(baseTokenAmount: self.first { $0.paramName == "baseAssetId" }?.paramValue ?? "",
+                                 poolTokenAmount: self.first { $0.paramName == "assetId" }?.paramValue ?? "",
+                                 rewardAssetId: self.first { $0.paramName == "rewardAssetId" }?.paramValue ?? "",
+                                 amount: self.first { $0.paramName == "amount" }?.paramValue ?? "")
     }
 }

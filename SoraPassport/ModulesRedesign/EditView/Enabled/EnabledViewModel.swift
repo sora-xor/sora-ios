@@ -30,42 +30,31 @@
 
 import Foundation
 import UIKit
-import CommonWallet
+
 import SoraUIKit
 
 enum Cards: Int, CaseIterable {
-    case soraCard = 0, referralProgram, liquidAssets, pooledAssets
-    
+    case referralProgram = 1
+    case pooledAssets = 3
+
     var id: Int {
         return self.rawValue
     }
     
     var title: String {
         switch self {
-        case .soraCard:
-            return R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: .currentLocale)
         case .referralProgram:
             return R.string.localizable.referralToolbarTitle(preferredLanguages: .currentLocale)
-        case .liquidAssets:
-            return R.string.localizable.liquidAssets(preferredLanguages: .currentLocale)
         case .pooledAssets:
             return R.string.localizable.pooledAssets(preferredLanguages: .currentLocale)
         }
     }
     
-    var defaultState: State {
-        switch self {
-        case .soraCard, .referralProgram, .pooledAssets:
-            return .selected
-        case .liquidAssets:
-            return .unselected
-        }
-    }
+    var defaultState: State { .selected }
 }
 
 enum State {
     case selected
-    case unselected
     case disabled
 }
 

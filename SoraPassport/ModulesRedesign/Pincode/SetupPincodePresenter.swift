@@ -80,7 +80,7 @@ class SetupPincodePresenter: PinSetupPresenterProtocol {
     }
 
     func padButtonTapped(with symbol: String) {
-        guard inputedPinCode.count <= 6 else {
+        guard inputedPinCode.count < 6 else {
             return
         }
 
@@ -138,10 +138,19 @@ extension SetupPincodePresenter: PinSetupInteractorOutputProtocol {
     }
 
     func didReceiveConfigError(_ error: Error) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            _ = self.wireframe.present(error: error, from: nil, locale: LocalizationManager.shared.selectedLocale)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.savedPinCode = ""
+            self.inputedPinCode = ""
+            let locale = LocalizationManager.shared.selectedLocale
+            if !self.wireframe.present(error: error, from: self.view, locale: locale) {
+                self.wireframe.present(
+                    message: WalletUX.text("The PIN update could not be completed. Try again. Your wallet keys are unchanged."),
+                    title: R.string.localizable.operationErrorTitle(preferredLanguages: locale.rLanguages),
+                    closeAction: R.string.localizable.commonOk(preferredLanguages: locale.rLanguages),
+                    from: self.view)
+            }
         }
-
     }
 
     func didChangeState(from: PinSetupInteractor.PinSetupState) {}

@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
+
 import SoraFoundation
 
 protocol ContactsWireframeProtocol {    
@@ -48,7 +48,7 @@ protocol ContactsWireframeProtocol {
 }
 
 final class ContactsWireframe: ContactsWireframeProtocol {
-    func showScanQR(on view: UIViewController?,
+    @MainActor func showScanQR(on view: UIViewController?,
                     networkFacade: WalletNetworkOperationFactoryProtocol,
                     assetManager: AssetManagerProtocol,
                     qrEncoder: WalletQREncoderProtocol,

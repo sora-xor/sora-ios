@@ -29,113 +29,1078 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import UIKit
+import RobinHood
 import SoraKeystore
 import SSFUtils
+import IrohaCrypto
 
 typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
+
+/// Collect only outcomes of operations the wallet already performs. No key tags,
+/// identifiers, values, derivation strings or database paths enter this record.
+final class WalletSecretDiagnostics {
+    enum Origin: String, Codable { case liveInventory = "live_account_inventory", savedManifest = "saved_manifest_validation" }
+    enum Operation: String, Codable, CaseIterable {
+        case scopedSecret = "scoped_secret", scopedEntropy = "scoped_entropy", scopedSeed = "scoped_seed"
+        case scopedDerivation = "scoped_derivation", globalEntropy = "global_entropy", legacyIrohaKey = "legacy_iroha_key"
+    }
+    enum Outcome: String, Codable { case notChecked = "not_checked", missing = "not_found", present, empty, failed }
+    enum Fallback: String, Codable {
+        case notChecked = "not_checked", scopedEntropy = "scoped_entropy", watchOnly = "watch_only"
+        case scopedConflict = "scoped_material_present", derivationConflict = "scoped_derivation_present"
+        case globalMissing = "global_entropy_not_found", noSnapshot = "no_snapshot"
+        case snapshotIdentity = "snapshot_identity_not_unique", snapshotSource = "snapshot_source_not_mnemonic"
+        case provingGlobal = "proving_global_identity", resolvedGlobal = "global_identity_verified"
+    }
+    struct Snapshot: Codable, Equatable {
+        let origin: Origin
+        let schema: Int
+        let accountNumber: Int
+        let accountCount: Int
+        let cryptoType: Int
+        let networkType: Int
+        let selectedPreferenceMatches: Bool
+        let watchOnly: Bool
+        var outcomes: [Operation: Outcome] = [:]
+        var fallback: Fallback = .notChecked
+        var failedOperation: Operation?
+        var snapshotPresent: Bool?
+        var savedSecret: Bool?
+        var savedEntropy: Bool?
+        var savedSeed: Bool?
+        var isValid: Bool {
+            (1...2).contains(schema) && (1...4096).contains(accountCount) &&
+                (1...accountCount).contains(accountNumber) && (0...255).contains(cryptoType) &&
+                (0...16383).contains(networkType) && outcomes.count <= Operation.allCases.count
+        }
+        var summary: String {
+            var rows = ["Secret check: \(origin.rawValue); schema=\(schema); account=\(accountNumber)/\(accountCount)",
+                "Account type: crypto=\(cryptoType); network=\(networkType); selected=\(selectedPreferenceMatches); watch_only=\(watchOnly)"]
+            rows += Operation.allCases.map { "\($0.rawValue)=\((outcomes[$0] ?? .notChecked).rawValue)" }
+            rows.append("Entropy fallback: \(fallback.rawValue)")
+            if let snapshotPresent { rows.append("Network snapshot present: \(snapshotPresent)") }
+            if let failedOperation { rows.append("Failed key operation: \(failedOperation.rawValue)") }
+            if let savedSecret, let savedEntropy, let savedSeed {
+                rows.append("Saved manifest: secret=\(savedSecret); entropy=\(savedEntropy); seed=\(savedSeed)")
+            }
+            return rows.joined(separator: "\n")
+        }
+    }
+    var snapshot: Snapshot
+    init(origin: Origin, schema: Int, accountNumber: Int, accountCount: Int,
+         cryptoType: Int, networkType: Int, selected: Bool, watchOnly: Bool) {
+        snapshot = Snapshot(origin: origin, schema: schema, accountNumber: accountNumber,
+            accountCount: accountCount, cryptoType: cryptoType, networkType: networkType,
+            selectedPreferenceMatches: selected, watchOnly: watchOnly)
+    }
+    static func observe<T>(_ operation: Operation, into observation: WalletSecretDiagnostics?,
+                           _ body: () throws -> T) throws -> T {
+        do {
+            let result = try body()
+            let outcome: Outcome
+            if let value = result as? Data { outcome = value.isEmpty ? .empty : .present }
+            else if let value = result as? String { outcome = value.isEmpty ? .empty : .present }
+            else if let value = result as? Bool {
+                // An existence recheck cannot establish that earlier empty
+                // bytes acquired content. Keep the more specific observation.
+                outcome = value ? (observation?.snapshot.outcomes[operation] == .empty ? .empty : .present) : .missing
+            }
+            else { outcome = .missing }
+            observation?.snapshot.outcomes[operation] = outcome
+            return result
+        } catch {
+            observation?.snapshot.outcomes[operation] = .failed
+            observation?.snapshot.failedOperation = operation
+            throw error
+        }
+    }
+}
+
+/// A retry can fail for a different reason than the original recovery marker.
+/// Keep that new outcome separately: it is diagnostic evidence, not permission
+/// to clear the marker. Only fixed codes and numeric framework status are stored.
+struct WalletStartupDiagnostic: Codable, Equatable {
+    enum Phase: String, Codable {
+        case startupRecovery = "startup_recovery"
+        case journalRecovery = "journal_recovery"
+        case databaseMigration = "database_migration"
+        case databaseInventory = "database_inventory"
+        case networkSnapshot = "network_snapshot"
+        case selectedAccount = "selected_account"
+        case networkBootstrap = "network_bootstrap"
+        case pendingTransactions = "pending_transactions"
+    }
+
+    enum Cause: String, Codable {
+        case unexpected = "unexpected_failure"
+        case unknownStore = "unknown_store_version"
+        case unavailableModel = "unavailable_model"
+        case incompleteMigration = "incomplete_migration_path"
+        case interruptedMigration = "interrupted_migration"
+        case missingStore = "missing_wallet_store"
+        case missingSecret = "missing_wallet_secret"
+        case emptySecret = "empty_wallet_secret"
+        case insufficientStorage = "insufficient_storage"
+        case backupVerification = "backup_verification_failed"
+        case inventoryMismatch = "account_inventory_mismatch"
+        case selectionMismatch = "selected_account_mismatch"
+        case keychainIdentifier = "keychain_identifier"
+        case keychainMissing = "keychain_missing"
+        case keychainDuplicate = "keychain_duplicate"
+        case keychainResult = "keychain_result"
+        case keychainSystem = "keychain_system"
+        case duplicateAccounts = "duplicate_accounts"
+        case multipleSelections = "multiple_selections"
+        case missingSelection = "missing_selection"
+        case legacyUpgradeProof = "legacy_upgrade_proof"
+        case invalidMnemonic = "invalid_mnemonic"
+        case invalidDerivation = "invalid_derivation"
+        case derivationFailed = "derivation_failed"
+        case invalidPrivateKey = "invalid_private_key"
+        case snapshotVerification = "snapshot_verification"
+        case missingSnapshot = "missing_snapshot"
+        case lifecycleBusy = "lifecycle_busy"
+        case recoveryRequired = "recovery_required"
+        case legacyIdentityMismatch = "legacy_identity_mismatch"
+        case removalMismatch = "removal_mismatch"
+        case decoding = "decoding_failed"
+        case encoding = "encoding_failed"
+        case fileProtection = "file_protection_unavailable"
+        case durableTarget = "durable_file_target"
+        case durableCommit = "durable_file_commit"
+        case migrationNamespace = "migration_namespace"
+        case cocoa, posix, osstatus, url
+    }
+
+    private static let settingsKey = SettingsKey.walletStartupDiagnostic.rawValue
+    let phase: Phase
+    let cause: Cause
+    let systemCode: Int?
+    private let markerGeneration: String?
+    let secretChecks: WalletSecretDiagnostics.Snapshot?
+    let recordedAt: Date?
+
+    var summary: String {
+        let suffix = systemCode.map { " (\($0))" } ?? ""
+        let prefix = "Latest verification: \(phase.rawValue) / \(cause.rawValue)\(suffix)"
+        let checks = secretChecks?.summary ?? "Detailed credential checks were not recorded for this failure."
+        let attempted = recordedAt.map { "Attempted at: \(ISO8601DateFormatter().string(from: $0))" }
+        return [prefix, attempted, checks].compactMap { $0 }.joined(separator: "\n")
+    }
+
+    var userMessage: String {
+        if phase == .pendingTransactions {
+            return WalletUX.text("SORA cannot read its records of transactions that were still being confirmed, so it cannot safely start a new one. Your accounts, keys and funds are not affected. You can set these records aside below. Nothing is deleted.")
+        }
+        switch cause {
+        case .missingSecret, .keychainMissing:
+            if secretChecks?.origin == .savedManifest {
+                return WalletUX.text("The retained migration manifest does not identify signing material for this account. This check did not establish that its Keychain records are absent. Existing account data has been preserved.")
+            }
+            return WalletUX.text("SORA found your saved account, but could not find matching signing material through the permitted Keychain lookups. This does not prove a key was deleted. If you have the original recovery phrase, use Restore existing wallet keys to restore this same account.")
+        case .emptySecret:
+            return WalletUX.text("A matching wallet key record was found, but it was empty. Existing account data and other keys have been preserved.")
+        case .keychainSystem:
+            if systemCode == -25308 { return WalletUX.text("iOS did not allow SORA to read the protected Keychain. Unlock this iPhone, then try again.") }
+            if systemCode == -34018 { return WalletUX.text("iOS rejected this app’s Keychain access. The error details include the system status; no wallet data was replaced.") }
+            return WalletUX.text("iOS returned an error while SORA was checking a wallet key. No missing-key conclusion was made for that failed operation.")
+        case .snapshotVerification, .inventoryMismatch, .legacyIdentityMismatch, .legacyUpgradeProof:
+            return WalletUX.text("The saved account and its recovery evidence did not agree. SORA preserved them and stopped before approving wallet access.")
+        case .missingStore, .unknownStore, .unavailableModel:
+            return WalletUX.text("SORA could not verify the saved wallet database. Existing files and recovery copies have been preserved.")
+        case .insufficientStorage: return WalletUX.text("SORA needs more free storage to retain a verified recovery copy before completing this upgrade.")
+        default: return WalletUX.text("SORA could not complete the latest wallet verification. The details below identify the failed check; existing wallet data has been preserved.")
+        }
+    }
+
+    private static let pendingSecretChecksKey = "co.jp.soramitsu.sora.pending-secret-diagnostic"
+    private final class PendingSecretChecks: NSObject {
+        let value: WalletSecretDiagnostics.Snapshot
+        let cause: Cause
+        let code: Int?
+        init(_ value: WalletSecretDiagnostics.Snapshot, error: Error) {
+            self.value = value
+            (cause, code) = WalletStartupDiagnostic.classify(error)
+        }
+    }
+    static func retainSecretChecks(_ value: WalletSecretDiagnostics.Snapshot?, error: Error? = nil) {
+        if let value, value.isValid, let error {
+            Thread.current.threadDictionary[pendingSecretChecksKey] = PendingSecretChecks(value, error: error)
+        } else { Thread.current.threadDictionary.removeObject(forKey: pendingSecretChecksKey) }
+    }
+    private static func takeSecretChecks(matching error: Error) -> WalletSecretDiagnostics.Snapshot? {
+        let pending = Thread.current.threadDictionary[pendingSecretChecksKey] as? PendingSecretChecks
+        Thread.current.threadDictionary.removeObject(forKey: pendingSecretChecksKey)
+        let (cause, code) = classify(error)
+        guard pending?.cause == cause, pending?.code == code else { return nil }
+        return pending?.value
+    }
+
+    private static func classify(_ error: Error) -> (Cause, Int?) {
+        if let error = error as? UserStorageMigrationError {
+            return (Cause(rawValue: error.privacySafeOutcomeCode) ?? .unexpected, nil)
+        }
+        if let error = error as? KeystoreSystemError {
+            return (.keychainSystem, Int(error.status))
+        }
+        if let error = error as? KeystoreError {
+            switch error {
+            case .invalidIdentifierFormat: return (.keychainIdentifier, nil)
+            case .noKeyFound: return (.keychainMissing, nil)
+            case .duplicatedItem: return (.keychainDuplicate, nil)
+            case .unexpectedFail: return (.keychainResult, nil)
+            }
+        }
+        if let error = error as? SelectedWalletSettingsError {
+            switch error {
+            case .duplicateAccountIdentifiers: return (.duplicateAccounts, nil)
+            case .multipleSelectedAccounts: return (.multipleSelections, nil)
+            case .missingSelectedAccount: return (.missingSelection, nil)
+            }
+        }
+        if let error = error as? WalletIntegrityError {
+            switch error {
+            case .selectedAccountSecretMissing: return (.missingSecret, nil)
+            case .selectedAccountMissing: return (.missingSelection, nil)
+            case .legacyWalletUpgradeVerificationFailed: return (.legacyUpgradeProof, nil)
+            }
+        }
+        if let error = error as? WalletNetworkMigrationError {
+            switch error {
+            case .invalidMnemonic: return (.invalidMnemonic, nil)
+            case .invalidDerivationPath, .nonHardenedDerivationComponent,
+                 .invalidDerivationIndex: return (.invalidDerivation, nil)
+            case .keyDerivationFailed: return (.derivationFailed, nil)
+            case .invalidPrivateKey: return (.invalidPrivateKey, nil)
+            case .snapshotVerificationFailed: return (.snapshotVerification, nil)
+            case .missingSnapshot: return (.missingSnapshot, nil)
+            case .missingSelectedWallet: return (.missingSelection, nil)
+            case .lifecycleMutationBusy: return (.lifecycleBusy, nil)
+            case .walletRecoveryRequired: return (.recoveryRequired, nil)
+            case .legacyIdentityMismatch: return (.legacyIdentityMismatch, nil)
+            case .explicitRemovalTargetMissing, .explicitRemovalInventoryMismatch,
+                 .explicitRemovalSelectionMismatch: return (.removalMismatch, nil)
+            }
+        }
+        if error is DecodingError { return (.decoding, nil) }
+        if error is EncodingError { return (.encoding, nil) }
+        if error is FileProtectionMetadata.Failure { return (.fileProtection, nil) }
+        if error is WalletMigrationSafetyNamespaceAdmission.Failure { return (.migrationNamespace, nil) }
+        if let error = error as? DurableFileWriter.Failure {
+            switch error {
+            case .invalidTarget: return (.durableTarget, nil)
+            case .fileSystemFailure: return (.durableCommit, nil)
+            }
+        }
+        let systemError = error as NSError
+        let family: Cause
+        switch systemError.domain {
+        case NSCocoaErrorDomain: family = .cocoa
+        case NSPOSIXErrorDomain: family = .posix
+        case NSOSStatusErrorDomain: family = .osstatus
+        case NSURLErrorDomain: family = .url
+        default: return (.unexpected, nil)
+        }
+        return (family, systemError.code)
+    }
+
+    static func record(_ error: Error, phase: Phase, settings: SettingsManagerProtocol) {
+        let detail = error as? WalletStartupCheckFailure
+        let (cause, code) = classify(detail?.underlying ?? error)
+        let pendingChecks = takeSecretChecks(matching: detail?.underlying ?? error)
+        let checks = detail?.secretChecks ?? pendingChecks
+        WalletMigrationRecoveryMarker.synchronized {
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            guard marker.required else { return }
+            let value = Self(phase: detail?.phase ?? phase, cause: cause,
+                systemCode: code, markerGeneration: marker.generation, secretChecks: checks, recordedAt: Date())
+            guard let data = try? JSONEncoder().encode(value) else { return }
+            settings.set(value: String(decoding: data, as: UTF8.self), for: settingsKey)
+            Logger.shared.error(value.summary)
+        }
+    }
+
+    static func current(_ settings: SettingsManagerProtocol) -> Self? {
+        WalletMigrationRecoveryMarker.synchronized {
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            guard marker.required,
+                  let stored = settings.string(for: settingsKey), stored.utf8.count <= 1_024,
+                  let value = try? JSONDecoder().decode(Self.self, from: Data(stored.utf8)),
+                  value.markerGeneration == marker.generation,
+                  value.secretChecks?.isValid != false,
+                  value.recordedAt?.timeIntervalSince1970.isFinite != false else { return nil }
+            return value
+        }
+    }
+
+    static func check<T>(_ phase: Phase, _ body: () throws -> T) throws -> T {
+        retainSecretChecks(nil)
+        defer { retainSecretChecks(nil) }
+        do { return try body() }
+        catch let failure as WalletStartupCheckFailure { throw failure }
+        catch { throw WalletStartupCheckFailure(phase: phase, underlying: error, secretChecks: takeSecretChecks(matching: error)) }
+    }
+}
+
+private struct WalletStartupCheckFailure: Error {
+    let phase: WalletStartupDiagnostic.Phase
+    let underlying: Error
+    let secretChecks: WalletSecretDiagnostics.Snapshot?
+}
+
+enum WalletStorageStartupOutcome: Equatable {
+    case ready
+    case needsStorageSpace
+    case recoveryRequired
+}
+
+enum WalletStorageStartup {
+    /// Runs startup storage checks. A retryable failure (transient Keychain,
+    /// disk or journal error) is retried automatically, up to
+    /// `maximumAttempts` runs in total, before the recovery screen is shown.
+    /// Every retry is the same read-only verification a relaunch performs.
+    static func run(
+        settings: SettingsManagerProtocol,
+        accountCommitRecovery: (() throws -> Void)? = nil,
+        maximumAttempts: Int = 3,
+        retryDelay: (Int) -> Void = { attempt in Thread.sleep(forTimeInterval: 0.3 * Double(attempt)) },
+        migration: () throws -> Void
+    ) -> WalletStorageStartupOutcome {
+        var outcome = runOnce(settings: settings, accountCommitRecovery: accountCommitRecovery,
+                              migration: migration)
+        var attempt = 1
+        while outcome == .recoveryRequired, accountCommitRecovery != nil, attempt < maximumAttempts {
+            let marker = WalletMigrationRecoveryMarker.capture(settings)
+            // An interrupted database migration is retried too: its resume
+            // runs only after the retained backup, inventory and keys are
+            // proven again (product decision: 3 attempts before options).
+            guard marker.isRetryableStartupFailure || marker.isLegacyAccountCommitInterruption ||
+                marker.isDatabaseInterruption else { break }
+            retryDelay(attempt)
+            attempt += 1
+            Logger.shared.info("Wallet startup: automatic retry \(attempt) of \(maximumAttempts)")
+            outcome = runOnce(settings: settings, accountCommitRecovery: accountCommitRecovery,
+                              migration: migration)
+        }
+        return outcome
+    }
+
+    private static func runOnce(
+        settings: SettingsManagerProtocol,
+        accountCommitRecovery: (() throws -> Void)?,
+        migration: () throws -> Void
+    ) -> WalletStorageStartupOutcome {
+        WalletStartupDiagnostic.retainSecretChecks(nil)
+        defer { WalletStartupDiagnostic.retainSecretChecks(nil) }
+        do {
+            try accountCommitRecovery?()
+        } catch {
+            if !settings.walletMigrationRecoveryRequired {
+                settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error),
+                    preservingExistingReason: true
+                )
+            }
+            WalletStartupDiagnostic.record(error, phase: .startupRecovery, settings: settings)
+            return .recoveryRequired
+        }
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        guard !marker.required || marker.isDatabaseInterruption else {
+            return .recoveryRequired
+        }
+        do {
+            try migration()
+            return settings.walletMigrationRecoveryRequired
+                ? .recoveryRequired : .ready
+        } catch {
+            // This typed error is raised by the capacity preflight before
+            // checkpointing, backup creation or store replacement. Do not
+            // turn a full disk into an irreversible integrity-recovery latch.
+            // A marker raised by another check still takes precedence.
+            if case UserStorageMigrationError.insufficientStorage = error,
+               !settings.walletMigrationRecoveryRequired {
+                return .needsStorageSpace
+            }
+            if !settings.walletMigrationRecoveryRequired {
+                settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error),
+                    preservingExistingReason: true
+                )
+            }
+            WalletStartupDiagnostic.record(error, phase: .databaseMigration, settings: settings)
+            Logger.shared.error(
+                "Wallet startup outcome: \(UserStorageMigrationError.privacySafeOutcomeCode(for: error))"
+            )
+            return .recoveryRequired
+        }
+    }
+}
+
+extension WalletStorageStartup {
+    struct Checks: Equatable {
+        let outcome: WalletStorageStartupOutcome
+        /// A wallet of the pre-account-model releases is waiting for its
+        /// explicit upgrade confirmation; no database was created.
+        let deferredForLegacyUpgrade: Bool
+    }
+
+    /// The wallet storage checks of one launch, in the order the app runs
+    /// them on its storage queue before it routes anywhere:
+    ///
+    /// 1. remove the hidden helper files a durable write leaves when the
+    ///    process dies inside it. They are not wallet data, and no check may
+    ///    fail because of them;
+    /// 2. resolve an interrupted startup verification and an interrupted
+    ///    account commit;
+    /// 3. migrate and verify the wallet database;
+    /// 4. check that the records of unfinished transactions can be read.
+    ///    Every send first records the transaction there. If they cannot be
+    ///    read, that is said now, on the recovery screen with its "set
+    ///    aside" action, instead of refusing every send later.
+    ///
+    /// `SplashInteractor` calls this with the defaults. The other parameters
+    /// exist so tests run this same sequence over an isolated installation.
+    static func runChecks(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        storeURL: URL = UserStorageParams.storageURL,
+        modelDirectory: String = UserStorageParams.modelDirectory,
+        applicationSupportURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        databaseMigrator: UserStorageMigrator? = nil,
+        fileManager: FileManager = .default,
+        sweepsHelperFiles: Bool = true,
+        retryDelay: ((Int) -> Void)? = nil
+    ) -> Checks {
+        if sweepsHelperFiles {
+            WalletInterruptedWriteCleanup.run(
+                storeURL: storeURL,
+                applicationSupportURL: applicationSupportURL,
+                fileManager: fileManager
+            )
+        }
+
+        let dbMigrator = databaseMigrator ?? UserStorageMigrator(
+            targetVersion: UserStorageParams.modelVersion,
+            storeURL: storeURL,
+            modelDirectory: modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: fileManager
+        )
+        let hasUnresolvedAccountCommit = {
+            try !WalletAccountCommitJournalStore(
+                fileManager: fileManager,
+                baseURL: applicationSupportURL,
+                recoveryGate: recoveryGate
+            ).unresolved().isEmpty
+        }
+//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
+        var deferredForLegacyUpgrade = false
+        let accountCommitRecovery: () throws -> Void = {
+            let paths: WalletLocalStateSetAside.Paths
+            if let applicationSupportURL {
+                paths = .init(storeURL: storeURL, applicationSupportURL: applicationSupportURL,
+                              setAsideRootURL: storeURL.deletingLastPathComponent()
+                                .appendingPathComponent("WalletSetAside", isDirectory: true))
+            } else {
+                paths = try .production(fileManager: fileManager)
+            }
+            let returnLease = lifecycleCoordinator.acquire()
+            do {
+                try WalletPreservedGeneration.resume(paths: paths, settings: settings, keystore: keystore)
+                if try keystore.checkKey(for: WalletCredentialRepair.pendingTag) {
+                    let marker = WalletMigrationRecoveryMarker.capture(settings)
+                    let repairGate = WalletRecoveryCapabilityGate(settings: settings,
+                        unresolvedMigrationJournal: { dbMigrator.hasUnresolvedMigrationJournal() },
+                        unresolvedWalletCommitJournal: {
+                            try !WalletAccountCommitJournalStore(baseURL: applicationSupportURL).unresolved().isEmpty
+                        },
+                        migrationRecoveryMarker: marker.isDatabaseInterruption ? marker : nil,
+                        legacyAccountRecoveryMarker: marker.isLegacyAccountCommitInterruption ? marker : nil,
+                        startupVerificationMarker: marker.isRetryableStartupFailure ? marker : nil)
+                    let rows = WalletPreservedGeneration.exists(storeURL)
+                        ? try dbMigrator.preservedAccountInventory() : []
+                    try WalletCredentialRepair(keystore: keystore, settings: settings, recoveryGate: repairGate)
+                        .resumePending(accounts: rows)
+                }
+                returnLease.release()
+            } catch {
+                returnLease.release()
+                throw error
+            }
+            try WalletMissingDatabaseRecovery.preserveStaleMetadata(
+                settings: settings, keystore: keystore, paths: paths,
+                fileManager: fileManager, lifecycleCoordinator: lifecycleCoordinator)
+            try WalletStartupVerificationRecovery.recoverIfNeeded(
+                storeURL: storeURL,
+                modelDirectory: modelDirectory,
+                keystore: keystore,
+                settings: settings,
+                baseURL: applicationSupportURL,
+                lifecycleCoordinator: lifecycleCoordinator
+            )
+            try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                storeURL: storeURL,
+                modelDirectory: modelDirectory,
+                keystore: keystore,
+                settings: settings,
+                baseURL: applicationSupportURL,
+                lifecycleCoordinator: lifecycleCoordinator,
+                recoveryGate: recoveryGate
+            )
+        }
+        let migration: () throws -> Void = {
+            guard try !hasUnresolvedAccountCommit() else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            if !settings.walletMigrationRecoveryRequired,
+               try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+                storeExists: fileManager.fileExists(atPath: storeURL.path),
+                keystore: keystore,
+                hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: try WalletNetworkStore(
+                    fileManager: fileManager,
+                    baseURL: applicationSupportURL,
+                    recoveryGate: recoveryGate
+                ).load()
+            ) {
+                // This pre-account-model state has retained legacy entropy
+                // and, in 1.x, its verified Iroha key. Do not create an
+                // empty replacement store; Root presents the explicit,
+                // journaled upgrade confirmation and verifies the resulting
+                // SORA identity while retaining the original Keychain entry.
+                deferredForLegacyUpgrade = true
+                return
+            }
+            try dbMigrator.migrateAtStartup(
+                lifecycleCoordinator: lifecycleCoordinator,
+                hasUnresolvedAccountCommit: hasUnresolvedAccountCommit
+            )
+            try WalletStartupDiagnostic.check(.pendingTransactions) {
+                try PendingTransactionRecords.requireReadable(
+                    baseURL: applicationSupportURL,
+                    fileManager: fileManager
+                )
+            }
+        }
+        let outcome: WalletStorageStartupOutcome
+        if let retryDelay {
+            outcome = run(
+                settings: settings,
+                accountCommitRecovery: accountCommitRecovery,
+                retryDelay: retryDelay,
+                migration: migration
+            )
+        } else {
+            outcome = run(
+                settings: settings,
+                accountCommitRecovery: accountCommitRecovery,
+                migration: migration
+            )
+        }
+        if outcome == .recoveryRequired {
+            do { try dbMigrator.preserveLegacyKeysDuringRecovery(lifecycleCoordinator: lifecycleCoordinator) }
+            catch { Logger.shared.warning("Wallet keys: recovery preservation deferred; original items kept") }
+        }
+        return Checks(
+            outcome: outcome,
+            deferredForLegacyUpgrade: deferredForLegacyUpgrade
+        )
+    }
+}
+
+/// Older builds latched any unexpected framework error as a permanent wallet
+/// failure. Retry only that exact marker, retaining the ordinary operation gate
+/// until the complete installed account inventory and network keys are proven.
+enum WalletStartupVerificationRecovery {
+    @discardableResult
+    static func recoverIfNeeded(
+        storeURL: URL, modelDirectory: String,
+        keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+        baseURL: URL? = nil,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        checkpoint: () throws -> Void = {}
+    ) throws -> Bool {
+        let marker = WalletMigrationRecoveryMarker.capture(settings)
+        guard marker.isStartupVerificationFailure else { return false }
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        try marker.requireUnchangedForStartupVerification(settings)
+        let hasDatabaseJournal = {
+            WalletRecoveryMigrationJournalProbe.hasUnresolvedMigration(storeURL: storeURL)
+        }
+        let hasAccountJournal = {
+            try !WalletAccountCommitJournalStore(baseURL: baseURL).unresolved().isEmpty
+        }
+        // A generic marker may have been latched after a recoverable transaction
+        // was written. Give that transaction its existing full recovery proof
+        // while the generic marker and ordinary wallet gate remain required.
+        try WalletStartupDiagnostic.check(.journalRecovery) {
+            let accountPending = try hasAccountJournal()
+            guard !hasDatabaseJournal() || !accountPending else {
+                throw UserStorageMigrationError.interruptedMigration
+            }
+            let journalGate = WalletRecoveryCapabilityGate(settings: settings,
+                unresolvedMigrationJournal: { false },
+                unresolvedWalletCommitJournal: { false },
+                startupVerificationMarker: marker)
+            if try hasAccountJournal() {
+                try LegacyWalletAccountCommitRecovery.recoverIfNeeded(
+                    storeURL: storeURL, modelDirectory: modelDirectory,
+                    keystore: keystore, settings: settings, baseURL: baseURL,
+                    lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: journalGate),
+                    recoveryGate: journalGate, startupVerificationMarker: marker)
+            }
+            if hasDatabaseJournal() {
+                let journalStore = try WalletNetworkStore(baseURL: baseURL, recoveryGate: journalGate)
+                let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+                    storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
+                    settings: settings, fileManager: .default, recoveryGate: journalGate,
+                    loadWalletNetworkSnapshot: { try journalStore.load() })
+                try database.resumeForStartupVerification(marker: marker)
+            }
+        }
+        guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        let gate = WalletRecoveryCapabilityGate(settings: settings,
+            unresolvedMigrationJournal: hasDatabaseJournal,
+            unresolvedWalletCommitJournal: hasAccountJournal,
+            startupVerificationMarker: marker)
+        try gate.requireMutableWalletAccess()
+        let store = try WalletNetworkStore(baseURL: baseURL, recoveryGate: gate)
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: storeURL.path) {
+            let evidence = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+                storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
+                settings: settings, fileManager: fileManager, recoveryGate: gate,
+                loadWalletNetworkSnapshot: { try store.load() }).retainedWalletEvidenceKind()
+            guard evidence != .durable else { throw UserStorageMigrationError.missingWalletStore }
+            if try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(storeExists: false,
+                keystore: keystore, hasWatchOnlyWallet: settings.hasRetainedWatchOnlyWallet(),
+                snapshot: store.load()) {
+                var entropy = try keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue)
+                defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+                let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+                guard WalletMnemonicWordPolicy.retainedSoraWordCounts.contains(mnemonic.allWords().count) else {
+                    throw WalletIntegrityError.legacyWalletUpgradeVerificationFailed
+                }
+                _ = try LegacyWalletUpgradeDisplayNameResolver.resolve(settings: settings, keystore: keystore)
+                // The existing explicit legacy-upgrade flow creates the first account.
+            }
+            // Otherwise only Keychain items survived (reinstall), or nothing
+            // did. Onboarding offers to restore them; nothing is changed here.
+        } else {
+            let database = UserStorageMigrator(targetVersion: UserStorageParams.modelVersion,
+                storeURL: storeURL, modelDirectory: modelDirectory, keystore: keystore,
+                settings: settings, fileManager: fileManager, recoveryGate: gate,
+                loadWalletNetworkSnapshot: { try store.load() })
+            try WalletStartupDiagnostic.check(.databaseMigration) {
+                try database.performMigration()
+            }
+            let accounts = try WalletStartupDiagnostic.check(.databaseInventory) {
+                try database.verifiedCurrentAccounts()
+            }
+            let selected = try SelectedWalletSettings.resolveSelection(accounts: accounts,
+                legacySelectedAddress: settings.value(of: AccountItem.self,
+                    for: SettingsKey.selectedAccount.rawValue)?.identifier)
+            // An empty store with only Keychain items (or nothing) left is a
+            // reinstall or a removed-last-account state: onboarding handles it.
+            if accounts.isEmpty {
+                try checkpoint()
+                guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+                    throw UserStorageMigrationError.interruptedMigration
+                }
+                try gate.requireMutableWalletAccess()
+                try marker.clearAfterVerifiedStartup(settings)
+                return true
+            }
+            guard let selected else {
+                throw UserStorageMigrationError.selectedAccountMismatch
+            }
+            // The outer lease excludes normal lifecycle operations. The private
+            // coordinator admits only verification bound to this exact marker.
+            let verifier = WalletNetworkModelMigrator(keystore: keystore, store: store,
+                settings: settings, lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+                recoveryGate: gate)
+            let expected = try WalletStartupDiagnostic.check(.networkSnapshot) {
+                try verifier.verifiedSnapshot(accounts: accounts, selectedAddress: selected.address)
+            }
+            let current = try store.load()
+            if current?.wallets != expected.wallets || current?.accounts != expected.accounts ||
+                current?.selectedWalletId != expected.selectedWalletId {
+                try verifier.migrate(accounts: accounts, selectedAddress: selected.address)
+            }
+            let finalAccounts = try database.verifiedCurrentAccounts()
+            guard Set(finalAccounts.map(\.address)) == Set(accounts.map(\.address)),
+                  finalAccounts.allSatisfy({ account in accounts.contains(account) })
+            else { throw UserStorageMigrationError.accountInventoryMismatch }
+            let verified = try verifier.verifiedSnapshot(accounts: finalAccounts, selectedAddress: selected.address)
+            guard let active = try store.load(), active.wallets == verified.wallets,
+                  active.accounts == verified.accounts, active.selectedWalletId == verified.selectedWalletId
+            else { throw WalletNetworkMigrationError.snapshotVerificationFailed }
+        }
+        try checkpoint()
+        guard !hasDatabaseJournal(), try !hasAccountJournal() else {
+            throw UserStorageMigrationError.interruptedMigration
+        }
+        try gate.requireMutableWalletAccess()
+        try marker.clearAfterVerifiedStartup(settings)
+        return true
+    }
+}
 
 final class SplashInteractor: SplashInteractorProtocol {
     weak var presenter: SplashPresenterProtocol!
     let settings: SettingsManagerProtocol
-    let socketService: WebSocketServiceProtocol
-    let configService: ConfigServiceProtocol
-    let reachabilityManager: ReachabilityManagerProtocol? = ReachabilityManager.shared
+    private let network: StartupNetworkCoordinating
+    private let genesisProvider: GenesisProviderProtocol
+    private let storageChecks: (() -> Void)?
+    private let migrationStateLock = NSLock()
+    private var didStartStorageMigration = false
+    private var isAwaitingStorageRetry = false
+    private var protectedDataObserver: NSObjectProtocol?
+    private let storageMigrationQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "co.jp.soramitsu.sora.storage-migration"
+        queue.maxConcurrentOperationCount = 1
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
 
+    /// - Parameter storageChecks: replaces the wallet storage checks of this
+    ///   run (tests of the startup order only).
     init(settings: SettingsManagerProtocol,
-         socketService: WebSocketServiceProtocol,
-         configService: ConfigServiceProtocol) {
+         network: StartupNetworkCoordinating = StartupNetworkCoordinator.shared,
+         genesisProvider: GenesisProviderProtocol = GenesisProvider(),
+         storageChecks: (() -> Void)? = nil) {
         self.settings = settings
-        self.socketService = socketService
-        self.configService = configService
+        self.network = network
+        self.genesisProvider = genesisProvider
+        self.storageChecks = storageChecks
     }
 
+    /// Starts the wallet storage checks and routing at once, as App Store
+    /// 3.8.6 does. Nothing here waits for the network: an existing wallet
+    /// reaches its PIN screen, and a wallet that needs attention reaches the
+    /// recovery screen, Welcome back or onboarding, with no node at all (dead
+    /// saved node, captive network, airplane mode). The remote configuration
+    /// and the on-chain asset list are requested in the background by
+    /// `StartupNetworkCoordinator` and applied when they arrive.
     func setup() {
-        configService.setupConfig { [weak self] in
-            self?.socketService.setup()
-            self?.loadGenesis()
+        let genesis = genesisProvider.load()
+        settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
+        Logger.shared.info("Runtime update gen: " + genesis)
+
+        network.startupDidBegin()
+
+        Task { @MainActor [weak self] in
+            self?.startChain()
         }
     }
 
-    private func loadGenesis() {
-        guard reachabilityManager?.isReachable ?? false else {
-            loadAssetsInfo(chainId: nil)
+    func retryStorageMigration() {
+        migrationStateLock.lock()
+        guard isAwaitingStorageRetry else {
+            migrationStateLock.unlock()
             return
         }
-
-        let provider = GenesisProvider(engine: socketService.connection!)
-        provider.load(completion: { [weak self] genesis in
-            self?.didLoadGenesis(genesis)
-        })
-    }
-
-    private func didLoadGenesis(_ genesis: String?) {
-        if let genesis = genesis {
-            self.settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
-            Logger.shared.info("Runtime update gen: " + genesis)
-        }
-        loadAssetsInfo(chainId: genesis)
-    }
-
-    private func loadAssetsInfo(chainId: String?) {
-        guard reachabilityManager?.isReachable ?? false else {
-            didLoadAssetsInfo([])
-            return
-        }
-        
-        let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
-        provider.load { [weak self] assetsInfo in
-            self?.didLoadAssetsInfo(assetsInfo)
+        isAwaitingStorageRetry = false
+        migrationStateLock.unlock()
+        storageMigrationQueue.addOperation { [weak self] in
+            self?.runStorageChecks()
         }
     }
 
-    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
-        AssetManager.networkAssets = assetsInfo
-
-        let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
-        PriceInfoService.shared.setup(for: assetsIds)
-
-        socketService.throttle()
-
-        DispatchQueue.main.async {
-            self.startChain()
+    private func runStorageChecks() {
+        if let storageChecks {
+            storageChecks()
+        } else {
+            performStorageMigration()
         }
     }
 
+    @MainActor
     private func startChain() {
-        let dbMigrator = UserStorageMigrator(
-            targetVersion: UserStorageParams.modelVersion,
-            storeURL: UserStorageParams.storageURL,
-            modelDirectory: UserStorageParams.modelDirectory,
-            keystore: Keychain(),
-            settings: settings,
-            fileManager: FileManager.default
-        )
-        let logger = Logger.shared
-//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
-        do {
-            try dbMigrator.migrate()
-        } catch {
-            logger.error(error.localizedDescription)
+        migrationStateLock.lock()
+        guard !didStartStorageMigration else {
+            migrationStateLock.unlock()
+            return
+        }
+        didStartStorageMigration = true
+        migrationStateLock.unlock()
+
+        NexusTransactionRuntime.shared.prepareForWalletStorageMigration()
+        Sora2PendingSubmissionRecoveryRuntime.shared
+            .prepareForWalletStorageMigration()
+
+        // Wallet keys use WhenUnlockedThisDeviceOnly and the migration files
+        // use complete protection. Before the first unlock (for example a
+        // background or prewarmed launch) both are unreadable; wait instead of
+        // recording a failure.
+        guard UIApplication.shared.isProtectedDataAvailable else {
+            Logger.shared.info("Wallet storage: waiting for the device to be unlocked")
+            protectedDataObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                if let observer = self.protectedDataObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                    self.protectedDataObserver = nil
+                }
+                self.storageMigrationQueue.addOperation { [weak self] in
+                    self?.runStorageChecks()
+                }
+            }
+            return
         }
 
-        let settings = SelectedWalletSettings.shared
-        let chainRegistry = ChainRegistryFacade.sharedRegistry
+        storageMigrationQueue.addOperation { [weak self] in
+            self?.runStorageChecks()
+        }
+    }
 
-        settings.setup(runningCompletionIn: .main) { result in
+    private func performStorageMigration() {
+        let checks = WalletStorageStartup.runChecks(settings: settings, keystore: Keychain())
+        let outcome = checks.outcome
+        let deferredForLegacyUpgrade = checks.deferredForLegacyUpgrade
+
+        switch outcome {
+        case .needsStorageSpace:
+            migrationStateLock.lock()
+            isAwaitingStorageRetry = true
+            migrationStateLock.unlock()
+            DispatchQueue.main.async { [weak self] in
+                self?.presenter.storageSpaceRequired()
+            }
+            return
+        case .recoveryRequired:
+            completeSplashOnMain()
+            return
+        case .ready:
+            break
+        }
+
+        if deferredForLegacyUpgrade {
+            completeSplashOnMain()
+            return
+        }
+
+        // Do not create an empty replacement SQLite store just to decide
+        // between onboarding and Welcome back. This also leaves an empty live
+        // namespace eligible for the explicit preserved-generation return.
+        if !WalletPreservedGeneration.exists(UserStorageParams.storageURL) {
+            SelectedWalletSettings.shared.commitInternalValue(nil)
+            completeSplashOnMain()
+            return
+        }
+
+        guard !settings.walletMigrationRecoveryRequired else {
+            completeSplashOnMain()
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.setupSelectedWalletAfterMigration()
+        }
+    }
+
+    private func setupSelectedWalletAfterMigration() {
+        let logger = Logger.shared
+        let selectedSettings = SelectedWalletSettings.shared
+        selectedSettings.setup(runningCompletionIn: .main) { [weak self] result in
             switch result {
             case let .success(maybeAccount):
-                if let metaAccount = maybeAccount {
-                    chainRegistry.performHotBoot()
-                    logger.debug("Selected account: \(metaAccount.address)")
-                } else {
-                    chainRegistry.performColdBoot()
-                    logger.debug("No selected account")
-                }
+                self?.bootstrapWalletNetworks(selectedAccount: maybeAccount)
             case let .failure(error):
-                logger.error("Selected account setup failed: \(error)")
+                let outcome = UserStorageMigrationError
+                    .privacySafeOutcomeCode(for: error)
+                logger.error(
+                    "Selected account setup outcome: \(outcome)"
+                )
+                self?.settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
+                if let self {
+                    WalletStartupDiagnostic.record(error, phase: .selectedAccount, settings: self.settings)
+                }
+                self?.presenter.setupComplete()
+            }
+        }
+    }
+
+    private func completeSplashOnMain() {
+        DispatchQueue.main.async { [weak self] in
+            self?.presenter.setupComplete()
+        }
+    }
+
+    private func bootstrapWalletNetworks(selectedAccount: AccountItem?) {
+        let repository: CoreDataRepository<AccountItem, CDAccountItem> =
+            UserDataStorageFacade.shared.createRepository(
+                filter: nil,
+                sortDescriptors: [NSSortDescriptor.accountsByOrder],
+                mapper: AnyCoreDataMapper(AccountItemMapper())
+            )
+        let operation = repository.fetchAllOperation(
+            with: RepositoryFetchOptions(
+                includesProperties: true,
+                includesSubentities: true
+            )
+        )
+
+        operation.completionBlock = { [weak self] in
+            guard let self else {
+                return
+            }
+            do {
+                let accounts = try operation.extractNoCancellableResultData()
+                let store = try WalletNetworkStore()
+                let keystore = Keychain()
+                try Self.initializeWalletNetworksIfNeeded(
+                    accounts: accounts,
+                    selectedAddress: selectedAccount?.address,
+                    store: store,
+                    keystore: keystore,
+                    settings: settings
+                )
+                Self.addScopedCopiesIfNeeded(accounts: accounts, store: store, keystore: keystore)
+                self.repairSelectionIfNeeded(accounts: accounts, selectedAccount: selectedAccount)
+
+                DispatchQueue.main.async {
+                    // The lossless Core Data and wallet-network migrations are
+                    // now verified and active. Only now may restart recovery
+                    // inspect pending Nexus or SORA2 transactions.
+                    NexusTransactionRuntime.shared
+                        .markWalletStorageReadyAndResume()
+                    Sora2PendingSubmissionRecoveryRuntime.shared
+                        .markWalletStorageReadyAndResume()
+                    Self.bootChainRegistry(
+                        hasSelectedAccount: selectedAccount != nil,
+                        network: self.network
+                    )
+                    self.presenter.setupComplete()
+                }
+            } catch {
+                settings.setWalletMigrationRecovery(
+                    reason: UserStorageMigrationError.privacySafeRecoveryDescription(for: error)
+                )
+                WalletStartupDiagnostic.record(error, phase: .networkBootstrap, settings: settings)
+                let outcome = UserStorageMigrationError
+                    .privacySafeOutcomeCode(for: error)
+                Logger.shared.error(
+                    "Wallet network bootstrap outcome: \(outcome)"
+                )
+                DispatchQueue.main.async {
+                    self.presenter.setupComplete()
+                }
             }
         }
 
-        self.presenter.setupComplete()
+        OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+    }
+
+    /// Boots the chain registry. Main thread only.
+    ///
+    /// The registry is created by its first use, and creating it reads the
+    /// app's window (UIKit, main thread only). The asset list and the remote
+    /// node list are loaded in the background and use the registry as soon as
+    /// the coordinator hears of the boot, on a queue of their own. So the
+    /// registry is created here first: the background work can then never be
+    /// the one that creates it.
+    static func bootChainRegistry(
+        hasSelectedAccount: Bool,
+        network: StartupNetworkCoordinating,
+        registry: () -> ChainRegistryProtocol = { ChainRegistryFacade.sharedRegistry }
+    ) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        let registry = registry()
+        // From here on the asset list and the remote node list reach the registry.
+        network.chainRegistryWillBoot()
+        if hasSelectedAccount {
+            registry.performHotBoot()
+            Logger.shared.debug("Selected wallet restored")
+        } else {
+            registry.performColdBoot()
+            Logger.shared.debug("No selected account")
+        }
+    }
+
+    /// Downgrade safety (see `LegacyGlobalEntropyScopedBackfill`). Best effort:
+    /// a failure is logged with a fixed code and retried at the next startup;
+    /// it never latches recovery.
+    static func addScopedCopiesIfNeeded(
+        accounts: [AccountItem],
+        store: WalletNetworkStore,
+        keystore: KeystoreProtocol,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) {
+        guard !accounts.isEmpty else { return }
+        let lease = lifecycleCoordinator.acquire()
+        defer { lease.release() }
+        do {
+            guard let snapshot = try store.load() else { return }
+            try LegacyGlobalEntropyScopedBackfill.run(
+                accounts: accounts,
+                snapshot: snapshot,
+                keystore: keystore,
+                recoveryGate: recoveryGate
+            )
+        } catch {
+            Logger.shared.warning(
+                "Wallet keys: scoped copies deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+            )
+        }
+    }
+
+    /// Core Data must hold exactly one selected row: App Store 3.8.6 reads
+    /// only that row, and signing requires the selection to be durable. Older
+    /// releases and interrupted writes can leave zero or several. Write the
+    /// resolved selection back (journal-free selection save; no key changes).
+    private func repairSelectionIfNeeded(accounts: [AccountItem], selectedAccount: AccountItem?) {
+        guard let selectedAccount,
+              SelectedWalletSettings.needsSelectionRepair(accounts: accounts) else { return }
+        let done = DispatchSemaphore(value: 0)
+        SelectedWalletSettings.shared.performSave(value: selectedAccount) { result in
+            if case let .failure(error) = result {
+                Logger.shared.warning(
+                    "Selected wallet repair deferred (\(UserStorageMigrationError.privacySafeOutcomeCode(for: error)))"
+                )
+            }
+            done.signal()
+        }
+        done.wait()
+    }
+
+    static func initializeWalletNetworksIfNeeded(
+        accounts: [AccountItem],
+        selectedAddress: String?,
+        store: WalletNetworkStore,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws {
+        // On a clean install there is no wallet to activate. Creating an empty
+        // snapshot here writes a retained-wallet marker before onboarding and
+        // makes Root correctly reject the missing selected account. Existing
+        // snapshots still receive every migration check; Root independently
+        // rejects retained keys/settings when the snapshot is absent.
+        if accounts.isEmpty, selectedAddress == nil, try store.load() == nil {
+            return
+        }
+        try WalletNetworkModelMigrator(
+            keystore: keystore,
+            store: store,
+            settings: settings,
+            lifecycleCoordinator: lifecycleCoordinator,
+            recoveryGate: recoveryGate
+        ).migrate(accounts: accounts, selectedAddress: selectedAddress)
     }
 }

@@ -54,6 +54,7 @@ final class SetupNameImportAccountPresenter {
     private(set) var usernameViewModel: InputViewModelProtocol
     private(set) var passwordViewModel: InputViewModelProtocol?
     private(set) var derivationPathViewModel: InputViewModelProtocol?
+    private let expectedAddress: String?
     
     init(accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
@@ -64,7 +65,8 @@ final class SetupNameImportAccountPresenter {
          sourceViewModel: InputViewModelProtocol,
          usernameViewModel: InputViewModelProtocol,
          passwordViewModel: InputViewModelProtocol?,
-         derivationPathViewModel: InputViewModelProtocol?) {
+         derivationPathViewModel: InputViewModelProtocol?,
+         expectedAddress: String? = nil) {
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -75,6 +77,7 @@ final class SetupNameImportAccountPresenter {
         self.usernameViewModel = usernameViewModel
         self.passwordViewModel = passwordViewModel
         self.derivationPathViewModel = derivationPathViewModel
+        self.expectedAddress = expectedAddress
     }
 }
 
@@ -100,7 +103,8 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                        username: username,
                                                        networkType: networkType,
                                                        derivationPath: derivationPath,
-                                                       cryptoType: cryptoType)
+                                                       cryptoType: cryptoType,
+                                                       expectedAddress: expectedAddress)
             interactor.importAccountWithMnemonic(request: request, completion: completion)
         case .seed:
             let seed = sourceViewModel.inputHandler.value
@@ -129,10 +133,15 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     func proceed() {
        let endingBlock: (() -> Void)? = { [weak self] in
             guard let self = self else { return }
-            if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
-                self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
-                    if case .success = result {
-                        self?.eventCenter.notify(with: SelectedUsernameChanged())
+            if let account = self.settingsManager.currentAccount {
+                self.settingsManager.performUpdateName(
+                    account: account,
+                    displayName: self.userName ?? ""
+                ) { [weak self] result in
+                    DispatchQueue.main.async {
+                        if case .success = result {
+                            self?.eventCenter.notify(with: SelectedUsernameChanged())
+                        }
                     }
                 }
                 
@@ -141,9 +150,13 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
             }
         }
        
-        importAccount { result in
-            if case .success = result {
-               endingBlock?()
+        importAccount { [weak self] result in
+            switch result {
+            case .success: endingBlock?()
+            case .failure(let error) where !(error is CancellationError):
+                self?.wireframe.present(message: error.localizedDescription,
+                    title: WalletUX.text("Wallet keys not restored"), closeAction: WalletUX.text("OK"), from: self?.view)
+            default: break
             }
         }
     }

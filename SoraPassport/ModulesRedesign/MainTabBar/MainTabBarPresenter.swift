@@ -52,6 +52,10 @@ extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
     func didLanguageChange() {
         wireframe.recreateWalletViewController(on: view)
     }
+
+    func didReceiveWalletAssetList() {
+        wireframe.rebuildWalletForArrivedAssetListIfNeeded(on: view)
+    }
     
     func didEndTransaction() {
 
@@ -63,10 +67,15 @@ extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
 
     func didReloadSelectedNetwork() {
         wireframe.showNewWalletView(on: view)
+        // The reload above reads the asset list again. If it was the first
+        // list, the manager no longer sees the wallet as empty and posts no
+        // event for it, while the other tabs are still built without assets.
+        wireframe.rebuildWalletForArrivedAssetListIfNeeded(on: view)
     }
 
     func didUpdateWalletInfo() {
         wireframe.reloadWalletContent()
+        wireframe.rebuildWalletForArrivedAssetListIfNeeded(on: view)
     }
 
     func didRequestImportAccount() {

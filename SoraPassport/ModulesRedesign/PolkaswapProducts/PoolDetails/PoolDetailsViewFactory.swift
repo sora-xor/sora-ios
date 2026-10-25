@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 import SSFUtils
 
 final class PoolDetailsViewFactory {
@@ -43,19 +43,33 @@ final class PoolDetailsViewFactory {
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol,
                            farmingService: DemeterFarmingServiceProtocol,
-                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {        
-        let viewModel = PoolDetailsViewModel(wireframe: PoolDetailsWireframe(),
+                           feeProvider: FeeProviderProtocol,
+                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {
+        let wireframe = PoolDetailsWireframe(feeProvider: feeProvider,
+                                             providerFactory: providerFactory,
+                                             operationFactory: operationFactory, 
+                                             assetsProvider: assetsProvider,
+                                             marketCapService: marketCapService)
+        
+        let detailsFactory = DetailViewModelFactory(assetManager: assetManager)
+        
+        let poolDetailsService = PoolDetailsItemService(poolInfo: poolInfo,
+                                                        apyService: APYService.shared,
+                                                        fiatService: fiatService,
+                                                        detailsFactory: detailsFactory)
+        let userFarmService = UserFarmsService()
+        let viewModel = PoolDetailsViewModel(wireframe: wireframe,
                                              poolInfo: poolInfo,
                                              fiatService: fiatService,
                                              poolsService: poolsService,
                                              assetManager: assetManager,
-                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                             providerFactory: providerFactory,
-                                             operationFactory: operationFactory,
-                                             assetsProvider: assetsProvider,
+                                             detailsFactory: detailsFactory,
                                              farmingService: farmingService,
-                                             marketCapService: marketCapService)
+                                             poolDetailsService: poolDetailsService, 
+                                             userFarmService: userFarmService)
         viewModel.dismissHandler = dismissHandler
+        
+        poolDetailsService.viewModel = viewModel
 
         let view = PoolDetailsViewController(viewModel: viewModel)
         viewModel.view = view

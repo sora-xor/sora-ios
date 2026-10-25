@@ -1,0 +1,893 @@
+{
+  "vectors" : [
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "t7DcTZaF8CpRo5oZyPBJjvro86C+lk5qL4a\/g5yJgEIAgAAAAQAAAAgAAAAdP5eCN9wYYtTGDhPupOSQgehzsMnhEznerSN7cveZLB11o6lM2At36w+ymBjGEGU2Ubt+b+6cJDlu+GB69EwBYRc0dy7vl1CypH25gJfJpQxC4xSKMH3RBlc\/LDBN6i1lBj2chZzQs5Fi2jogQ5\/2rSGVWvBo4SZ299uMwRo8XnfVxOQQxNdy0NbOoFVF6+3Jx61ZS0Esp3otxL6B",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-3words-0",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-3words-0",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "d625fd810700b1c49e6874842f75c02f54d73c5e6f76e6b98eab5b9e91f8800141e48465f5d5dcd1ab3e44aa808a154c39e066d9b2af295c9fdf64e69f3ba88d",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "fNVEeD0crlTUsAMU53TEXtBtgRz8+XLrCS28i8SFqe0AgAAAAQAAAAgAAABsCzPbXybwaupmmzdNTruGmwkkhWowHrvK+0+PDs2tpvpaH5nYn4fGmYICruTTgNDPA\/1OCY8JFfw61glZdCiqoZGkSpQMKc0o0jGeyh\/OCVJQz1qRX1d+j7xTdGMVzvUaNKUKHDFR1Qs+WgmNbXfvbXGvLVOieoJBQNWxDA==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-3words-1",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-3words-1",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "a7834547c34bcc7a86dc5982d571530d89db86e8a0b2e86404b1815c9f9d114a49b10af108ef3d492c9319f11e25f2c41872c263ddf7a76a85807cb00d29c509",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "9NSW9u33uB+cige6RIDqK2epXHl7H6z5kqiOocPrX4EAgAAAAQAAAAgAAAAnUDbQZ1ehg3RTirxK4OjHW1sEtpsJkqtmVCKiGbT0ndRlM+F4EbAqzfaPogFwhhy+R1TQPZqaFJItKbOdPfO2fT0tN8goMJjAH3mcMude6O0jfg+zPVI3q8I4uefQuCflHZ6OAwcVSoEFuxhK9xtoOyz4NeyUKENNb8dEkqs=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-3words-2",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-3words-2",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "g0ERdIow4fPgy3QMfA9MuyZxbVvVxQkrpZA80Q5XP5kAgAAAAQAAAAgAAADJvtmZaCUhQP0\/R+T\/\/wPAC0L\/qF4lDg8vKsmCdANGMBeH0qombDU\/dTWUeaThTf1z13BX8Eayd6OR6n1is1ORk4GjgCj0yHpoM0PJkkaSFR+vHcGsCO7wW0TLb6LPzggCr7ZyCoxm1zGLtPiV4Ka8r0LyOQZGEPLQiNb9vLbSj0Zf0idlm1FaW0FkE7YaldvZL3tYFhQ4NT9zr9Qf",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-6words-3",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-6words-3",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "f284e9628279a1d499951ca8f81ee382d324077251999a27c039dfc7f671b743f657118ba8fe1d36ba793ad5067946c1291b1ff391bf737cc83fb3a0cf080789",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "pwR6xRby1o07PHdYS\/7TpWfuBvJ4JNVYhXHlT3uAjjcAgAAAAQAAAAgAAADZpe7HT0oK0EwT+ZYmSmQivJ02bHY8Cq6IhkSTuVzVLIxAROQDPv+mdg6T1RTeu7AZolhmppoy7EMCxM4Rt6It4XDJT0pPOakFSQXwh4COQZQVJx6yVDH2v6vYLD8IGS7Qe4F3EG3dqde3coBxrY1mKLT3zfsIohuMV0omEg==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-6words-4",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-6words-4",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "03542b0b535b38d6bd23e4b3149bc8af41e2e39dc2bf34fe47909843b1e8a396d154aef8a7854b4551fbafa936eebc5a82c4ba8ff70266969c7a22deb74b3d03",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "tkau50KYoDBYBFZiLjFeyPlSq\/L897IvvLyqtauoMkQAgAAAAQAAAAgAAADr4KATNIfQFazjBwE0gsKWiiXfxV0jHIAvXkWXNVLj3F5qLUFLpVLaqibwt4V2x+kXHjuzSOTMjYp7goS1L9xmhXf7HbnYa4isyGzIsOWMGtTh6JXRlOQL9rUuuofpJFlq5bPH0EwiqE9ilNfIKgfKeDVA6raIVgas76pjAJQ=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-6words-5",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-6words-5",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "cbKa9jGtgKqh0CN\/ExPaDcF47TwoqpArtxFoMEsguMIAgAAAAQAAAAgAAAAIrd2MytqBz7MELK6hMkY1aauA5TiFCopwqCCeyYkLKgr2Z2SDdwcbaPeNOG4eh0T4tdcPb8vWsRQsKWNlHTt9QF4FC7GntuUhefoU4kY4i2nbhFElI3+BuoC8ADPa1Zg0w9FKqDXXBswqs3goUyRjZly8bRxLdq82vIMDOGpn32WcjQiEQDe+83J1Seryd7HUjoACYeLaN\/RCB6Ey",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-9words-6",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-9words-6",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "128eabe44f37de328645eb884913d64dbc4da3c390dee6d4cb6c7304b87b1252e52a125920a70260b2c1947af1185f7c3e9149219b693929b4292b1db37b5280",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "SrepRgTVb0+K4wJs8\/fdHF9yK+5tY7M1JFAngBOEkzYAgAAAAQAAAAgAAABpm6xcR9L2U31HpfnlZznTtuS2QgJK8V1FerhLXYD8HjXtQM\/aSVPGFXJgc2dXtij0Vi0RLPF\/5H234HYGSwpaVBRqqAKtbm7cmSz6Vmi4w4KPaDC7QJC+Tu5DQQWzIYn8sJvEG0\/s+dK+g9VoAuFmt8eqJJllVBAP+CBoSg==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-9words-7",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-9words-7",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "81c2b82d088dabb3a5815cfb7b6ab5048c07835a5bee8bacdf61fc84cb423c3dc749d436277ee452364e96697ec3d648dc4b7527ef30afe65151765929af080f",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "tnE6NmE8idZ5e\/MSk1hxs3slOCnVEr84Hs5OdvrDJMUAgAAAAQAAAAgAAADtUYDmUy+9QSvyj+tuGzCwEQZaKWjuJCyvnVZvzW4k\/YRGQiBFcYUtGzduOqpiQHpQvbAudv4+OJH22JTW02JPjqwJVRG4dsuN2xGva59LNVhVcIJRw6u6KMVUWqCSuPTzNKFyUrNXK9yrdnvqI9uCpMiYUZxtA5AnWEgjTbg=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-9words-8",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-9words-8",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "6Tg\/KzKU4WR7xoGYj+ogmT4Wz6bLbJ14rKF+yaE9UOcAgAAAAQAAAAgAAAAYHUWZMMA+UDBfO09PEIADWoIzQ0BYYh7RUGyTcNJcbLozb79TevVJOlxziXTB3IoN2ZdA7rUBQ\/70bZ4zMEIh2k\/3WUlnd+cPWrF35VBgv\/uIRvZekUCh4gfioKuJqhXxtnNFMZBQEnvQ5QNXZPE7wBElGGxn49qnq1kbqLQRjehoaMBxQNxSPp8nKtTQ3BDWdwOBZRm0byMpxkJs",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-9",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-9",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "94f8213ed292b45f726b2e39b8eb8bf5f1e95f6ad3f9936930f6d0bf02d83b274d2179950f5365de2c2b47037451c8e4423a28e3b90ca7601e54176d31e4188f",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "NpAKrITR\/NAHEvaMMOAH8T2Z0c8rHvizLe380lV8\/L8AgAAAAQAAAAgAAAB6tOI4jhoqD3gJtsvvEN0Ww7sRlTrlGWFVIJuyOtLsCbWyMp+aR5InXlVG810PUXcAhzHekb\/0UqbqU6l4ZsF0Dy0Xo\/8g+OcZ+mRVEqTFyFGZc\/cxORtHpJ3CPYeafgK0lvorx99QLLPyuXCCd30\/djJ8osouZ7vAekoTjw==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-10",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-10",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e538042d677dafd8659c3728b73033dadd74d34b236cc5367f88d169a4ae115d9b1c524cdaa641b495c00a0b9644f6f211c026b25369120ca716db91f823d608",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "9RmFsURXopqwT92ZcynRgpHA7bEH3qlJJmZBgz04Jg0AgAAAAQAAAAgAAADTK58D9qOBB+82n3BNFQoFKhAvTLYyMWABRSZaHyrcsBwu62urwwx0d7QSl8FXR\/aTn3wvpOCVlspHOyNNYwsk8CW5yVBBdDAGrSGbRIz973RnHXy6DUEsI6YWtowyLXlxEPBECHCGFtIFX0JnblbmrePey2b0L2Pg4\/KTxTA=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-12words-11",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-12words-11",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSDNEeuQo5V7Arauy6YLaLXjMiTEuDk6acpYjyKkALoUikqP",
+      "chaincodes" : [
+        {
+          "dataHex" : "10736f6674000000000000000000000000000000000000000000000000000000",
+          "type" : "soft"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/soft",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSDNEeuQo5V7Arauy6YLaLXjMiTEuDk6acpYjyKkALoUikqP",
+        "encoded" : "5TzGwXZTqhin3DHM8kjZzeQzQk43BH5qp6DGpDjgmzgAgAAAAQAAAAgAAAApFfESksvAG4Ke\/GQgs4GezlNA99HF0e5olFsHSXRy0kN4ia3MN8gsFw8UHMeCNrRRPQsQ8+4iGdnfZkf\/yARmCxO3ggujmsdqK9oqp3pTSkLdajBs4kJn92GzDrJEihgkbv7N1K6eaVY7viCHlBBmM50zbvdbXqqGQRV4IKq+mPwPbqzVT4blkfoUJ5UUF4+ccXXwq0PxeNM+pLYq",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-12",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-12",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "201854fe65987d8bf30ae6ebe6df154dfd18a9b551ec0bd81a1faad0ab7de806",
+      "secretKeyHex" : "52f51d0d767ae92464b22d2d6ed128b96ad18ef777e036e8b9a86aa30e7e52069680bfaf9c6bfc5fb2e9245f9e4a44b81e475616f1cba1b3926077ef810fa914",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "6ec8129bab03a385cdd523eddd21a45c6ee16ce5902290bd50a473c6f6ee3d1e643fa372c2bb763af2b43a91805b3b9a6239e836023edbb04cb1967db84ea387",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnWCPDsxY4eDuL22eq9d3sE29vkCmqR5dgy8JieE1NnaDVPB7",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnWCPDsxY4eDuL22eq9d3sE29vkCmqR5dgy8JieE1NnaDVPB7",
+        "encoded" : "G230otP6+8Ok+22sgBufzSq6WdpLEvsRvReYYlVmcd4AgAAAAQAAAAgAAADADqqo8dBAnHCJ1ndpFf+ROFeAx0NTluF\/7878QzRDzxecYsGkI9cwEseuxD+ARKpvKgKcxB2eRspWTDRkXmf7gwMcMNrDrfWCrKGgYJabaacZFoGVo13KQsfbkVVv48eGtmMRsV28Z6mM1LmQO+tBaOlupYes\/Z3VyxsYA2X4+Ul9i0RGu+5MV0zraFjxj8n7imfw\/h6+a29agaBu",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-13",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-13",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "d049577c1d14856730aa4af5a9401b5534b72c5eae4f0226c42615d47983ad22",
+      "secretKeyHex" : "4a8533a0b395c68b759dc2f695ef29e9e205e505efd42c1884a9fb1f1f403c0a99901f1382e95013693f6b559f4d07b68634db1b2210753fdc473f45cd077af4",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "0ad6ec2a358838924f25acd2066e7888e58bae7237bd20d3f335d28c99ba203815e67585b4100e779e4fb59d97c85beae62862374f0aa5ecc74587414cad278b",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnW2mFQrGyR8T1Sbvr5RhHTYqXGVUJhNLudvgRf21om2q6QkB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        },
+        {
+          "dataHex" : "10736f6674000000000000000000000000000000000000000000000000000000",
+          "type" : "soft"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/\/hard\/soft\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnW2mFQrGyR8T1Sbvr5RhHTYqXGVUJhNLudvgRf21om2q6QkB",
+        "encoded" : "BPVqRXSA3QW54aTlw9Ol6uyK2LtQqa+Y\/6lFwBEqstsAgAAAAQAAAAgAAAD6sQgZzoPfcYDF1oNObcGzh7UoEe3vVW7CcgejQxFZdiJeO+XqY3ksmSf5d+v3MTYlaR9kSuutlvMZFdsqjjV5eLiRT49mldj+xNNxat59Uo30b4b2D6VaGfj\/sYJ2SwDS5nym93n+nneGPtGxXjjDuI4ynVXB7fFJQ0EpSaZPi8SUYU+SlTpu7sXoJhlzb4esiT6Xv6RYI8D\/Nmgv",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-14",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-12words-14",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "c8f309060af081350b965e752d9c0bb98a41536b8e8b491836bd8efaacbde06d",
+      "secretKeyHex" : "a8355f89bdbba287e19212ed53b4bc34e34ff0b852b7a1f854056a5d020e02046192c28ccc558ccf844b2f37f78a5a2922b088ac87dfb8cdf996478c90995507",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "145460d4183de969fd69a3a4d482b0f74d3bec14c60fe5ed7a3f94dbe11fcb4a022e669644faf05c1278ad0b8df8f2e244b5421629f2feae03f5ef3ca3d73f86",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSf2zzDeNach9r6KUPbMdEKCz9RikY222bELEuHmcKi4Ug7W",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "60344d9cb12026aaa8cb32575ba017b6a4c7169a2075c5915c3e0ef707dddf23",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSf2zzDeNach9r6KUPbMdEKCz9RikY222bELEuHmcKi4Ug7W",
+        "encoded" : "tPYbTB1W55Nn07fPb8XRU0PxT25DCyvJaNAJY4oJYCAAgAAAAQAAAAgAAADPqMBwoEiYF0UsTqaBP0T\/3sFZBNIgSJ63S5Fywaxt5gtstlM7XIfwx93MAXPTTJIbRq3j+xWJ85d61nXtNh06EMssdWlg9Vkzppr1QGR\/Q7i7uiA7Vx2yQA6mUCamogKGzN5\/iEtHf2l308A67FCtbUTAYvxxK\/aQprg9Fg==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-15",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-15",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "33abf5a7c429eb677fe06794fdc7a8807e6f555149d3673b3daf361ecbd0459c",
+      "secretKeyHex" : "60344d9cb12026aaa8cb32575ba017b6a4c7169a2075c5915c3e0ef707dddf23",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "bcd3fa01ae68cd98dbe20d4aaf0f8802ea7570b4e3ab45e31470ebc6d7db573386ce045648b65206bb42c197a1cc82e46b940127c29381dfd623a4cb52ad8d0c",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnWkaPjXd5sgFeAz83pmCWqQKXK9Z3cUqBv5xWfEYc3vTi9sn",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "a329e47dbcad237812d586ef591e17f22c910adda6e526c4fbd6b22a26b56625",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "\/\/hard\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnWkaPjXd5sgFeAz83pmCWqQKXK9Z3cUqBv5xWfEYc3vTi9sn",
+        "encoded" : "vXTZkjrQnrs2cmnTYe9Rd1oF\/0d8x9w9OXcBRTFqiBUAgAAAAQAAAAgAAAA265\/d2SFifnSXS0DW3PNuOBz0mlfNOlkhlnZj5Q0vYElzWz6PdvWWLFQKdRojXDVJthwzEYCLCIpERNVY8erTIQ2bK+fI39IFfxF4Pu7vyRKBpQOP2EwQAhElpJy8oTs6nOK7DFWM5Cu2OyUu9eUOvciipNFE\/2OzzcouJC4=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-12words-16",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ecdsa-12words-16",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "02101e34aa67f5d4653e7416457f8329e8f97759fcd7f03b33af5ec2de47c3ac56",
+      "secretKeyHex" : "a329e47dbcad237812d586ef591e17f22c910adda6e526c4fbd6b22a26b56625",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "6259de27c46714791791d6f33faf5d167bb5c916ecd823a2752a27fca2cdee907400ad7d7feda9d42ef9867e2493d1842783bad3daacfca4f37b230c55320e0900",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+        "encoded" : "8vOqCi3gC4MCZdDWEuBbnP7gkgGqzk9Qkt4gdVgt0JAAgAAAAQAAAAgAAADhhWjNqUYwEl0uBotMlFGaZhe912\/4SONYQTIvy\/uONx4Z\/z+i2UCkwPCaRUXI\/zWDLQL4WZBd6AohQAxjElpJpj6fFaJskC6ceGUb2GkZERzO6HLZK86tx6XqNcYhx7GI\/Tms7pGnW2XojU7L9zhRM5\/brdaACSTsj753v7wHrACMd2Lo3zMqPXVzMQrMEYx0AsT4OlxAfdnH1WRV",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-17",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-17",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretKeyHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretShape" : "json64",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "90c6b5c7cdfd16cbe27124c876cb488078211c64182766eec0d86b1c49cb04dbdc6314045e52a1b864452159be2cb2a181f9e507a8c8ccb26fbe90638a7d4a08",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+        "encoded" : "0uaGpqyXvwJGcueMFgbUsakUQa6VNN2w94puxCZYt04AgAAAAQAAAAgAAADFDPqd3QL6NwgIuD21bVpB9X2rHf\/+KEMhdDQ774OCkS2XGRAhCtkyz5xAGF8wDt9Ejphtf7IFmsaW1YBk5cGBlkiMS3F\/42YriU9cBwLiAjoXKPUiKcU5GI7ESmRDRr8e7UwBWskqHc3mi7CqB2s2equ1CsWFUaUlZrCYae5sXdkFbhLefxNVwS6b1aIMEjYI2Cd8kwBuAh\/Pr5IT",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-18",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-ed25519-12words-18",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretKeyHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aaa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "secretShape" : "json64-stale-redundant-half",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "493b71e42d6c5fc1b800bd3e918dd52f5ddb36077c06f7efaee8c919b5aa9912fe26263755f1443af6bec5eafc00389108de13fb71ed69a36bb203937dfd620c",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "mLpxwRL4yoztz2RkIOGnaQae\/x5vreWwDmlJjtqEEbwAgAAAAQAAAAgAAADVRB3DDGzIhcB1LSF1CC2nnTQ5oi5wMB7QTohfKCp7Ir0Jn5uiEyL6rDqVIHLB+6Oq8yMByuHZ3+yYbsC2bGhWzW7vCvpjgM0DMrU6QvT4jaYaPxw6Y4mCjXYf6XnbkLuKF+EE2cFINmu0UjRVJK0bxlTMceZTsepzZ0OJSrkqvmM4V8KqUcs4EEd0s7J6MS2qrwGAYfTPLk4nGMUx",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-15words-19",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "id" : "ios-ssfutils-0.1.31-models-0.1.31-sr25519-15words-19",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "legacy-phrase-migration",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "887496ded5ece0247dd49b0a7d12f7e397bb9c331400f8ea737d767a64070d4d8152f638384a88be6383ddf36b59a163ed335a61590a8df20f7af11cae4cee8c",
+      "signatureVerified" : true,
+      "wordCount" : 15
+    }
+  ]
+}

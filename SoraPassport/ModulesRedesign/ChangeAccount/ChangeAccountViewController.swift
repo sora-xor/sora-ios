@@ -111,6 +111,9 @@ final class ChangeAccountViewController: SoramitsuViewController {
 
     private var viewModel: [AccountMenuItem] = []
     private var tableConstraint: NSLayoutConstraint?
+    private let switchProgress = UIView()
+    private let switchSpinner = UIActivityIndicatorView(style: .large)
+    private let switchStatus = WalletUX.label(WalletUX.text("Switching account…"), style: .body)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -142,6 +145,32 @@ final class ChangeAccountViewController: SoramitsuViewController {
         tableBg.addSubview(tableView)
         view.addSubview(tableBg)
         view.addSubview(actionButton)
+
+        switchProgress.translatesAutoresizingMaskIntoConstraints = false
+        switchProgress.backgroundColor = WalletUX.page.withAlphaComponent(0.96)
+        switchProgress.accessibilityIdentifier = "wallet-account-switch-progress"
+        switchProgress.accessibilityViewIsModal = true
+        switchProgress.isHidden = true
+        switchSpinner.color = WalletUX.foreground
+        switchSpinner.hidesWhenStopped = true
+        switchSpinner.accessibilityIdentifier = "wallet-account-switch-spinner"
+        switchStatus.textAlignment = .center
+        let status = UIStackView(arrangedSubviews: [switchSpinner, switchStatus])
+        status.axis = .vertical
+        status.spacing = 16
+        status.translatesAutoresizingMaskIntoConstraints = false
+        switchProgress.addSubview(status)
+        view.addSubview(switchProgress)
+        NSLayoutConstraint.activate([
+            switchProgress.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            switchProgress.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            switchProgress.topAnchor.constraint(equalTo: view.topAnchor),
+            switchProgress.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            status.centerXAnchor.constraint(equalTo: switchProgress.centerXAnchor),
+            status.centerYAnchor.constraint(equalTo: switchProgress.centerYAnchor),
+            status.leadingAnchor.constraint(greaterThanOrEqualTo: switchProgress.leadingAnchor, constant: 24),
+            status.trailingAnchor.constraint(lessThanOrEqualTo: switchProgress.trailingAnchor, constant: -24)
+        ])
     }
     
     private func setupConstraints() {
@@ -164,14 +193,7 @@ final class ChangeAccountViewController: SoramitsuViewController {
             target: self,
             action: mode.action
         )
-        button.setTitleTextAttributes(
-            [ .font: FontType.textBoldS.font, .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
-            for: .normal
-        )
-        button.setTitleTextAttributes(
-            [ .font: FontType.textBoldS.font],
-            for: .selected
-        )
+        // Styled by the bar appearance (`NeonChrome`): no red text on bars.
         navigationItem.leftBarButtonItem = button
     }
 
@@ -196,6 +218,34 @@ final class ChangeAccountViewController: SoramitsuViewController {
 }
 
 extension ChangeAccountViewController: ChangeAccountViewProtocol {
+    func setSwitchingAccount(_ switching: Bool) {
+        switchProgress.isHidden = !switching
+        tableView.isUserInteractionEnabled = !switching
+        actionButton.isEnabled = !switching
+        navigationItem.leftBarButtonItems?.forEach { $0.isEnabled = !switching }
+        navigationItem.rightBarButtonItems?.forEach { $0.isEnabled = !switching }
+        isModalInPresentation = switching
+        navigationController?.isModalInPresentation = switching
+        if switching {
+            switchProgress.backgroundColor = WalletUX.page.withAlphaComponent(0.96)
+            switchSpinner.color = WalletUX.foreground
+            switchStatus.textColor = WalletUX.foreground
+            switchSpinner.startAnimating()
+            UIAccessibility.post(notification: .announcement, argument: switchStatus.text)
+        } else {
+            switchSpinner.stopAnimating()
+        }
+    }
+
+    func showAccountSwitchError() {
+        let alert = UIAlertController(
+            title: WalletUX.text("Couldn’t switch accounts"),
+            message: WalletUX.text("Your current account is still selected. Please try again."),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
+        present(alert, animated: true)
+    }
     
     func update(with accountViewModels: [AccountMenuItem]) {
         self.viewModel = accountViewModels
@@ -216,6 +266,7 @@ extension ChangeAccountViewController: Localizable {
     }
 
     func applyLocalization() {
+        switchStatus.text = WalletUX.text("Switching account…")
         navigationItem.title = R.string.localizable.commonAccount(preferredLanguages: languages)
         actionButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
     }

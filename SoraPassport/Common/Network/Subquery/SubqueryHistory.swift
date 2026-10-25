@@ -132,7 +132,7 @@ extension TransactionType {
             return .deposit
         case .liquidityRemoval:
             return .removal
-        case .incoming, .outgoing, .reward, .slash, .swap, .migration, .extrinsic, .referral:
+        case .incoming, .outgoing, .reward, .slash, .swap, .migration, .extrinsic, .referral, .demeterDeposit, .demeterWithdraw, .demeterClaimReward:
             return nil
         }
     }

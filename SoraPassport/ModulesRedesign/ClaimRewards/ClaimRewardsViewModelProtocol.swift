@@ -31,13 +31,15 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
+
 import UIKit
 
 typealias ClaimRewardsDataSource = UITableViewDiffableDataSource<ClaimRewardsSection, ClaimRewardsSectionItem>
 typealias ClaimRewardsSnapshot = NSDiffableDataSourceSnapshot<ClaimRewardsSection, ClaimRewardsSectionItem>
 
-protocol ClaimRewardsViewProtocol: ControllerBackedProtocol {}
+protocol ClaimRewardsViewProtocol: ControllerBackedProtocol {
+    func dismiss(competion: (() -> Void)?)
+}
 
 protocol ClaimRewardsViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<ClaimRewardsSnapshot>.Publisher { get }

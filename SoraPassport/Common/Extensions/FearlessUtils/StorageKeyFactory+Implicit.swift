@@ -30,6 +30,7 @@
 
 import SSFUtils
 import Foundation
+import scrypt
 
 enum PalleteName: String {
 //    case System
@@ -198,7 +199,7 @@ extension StorageKeyFactoryProtocol {
         try createStorageKey(moduleName: "DemeterFarmingPlatform",
                              storageName: "UserInfos",
                              key: identifier,
-                             hasher: .blake128Concat)
+                             hasher: .identity)
     }
     
     func demeterFarmingPoolsKeysPaged() throws -> Data {

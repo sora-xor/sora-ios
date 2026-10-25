@@ -56,7 +56,7 @@ final class AppSettingsView: SoramitsuViewController & AppSettingsViewProtocol {
     }
 
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
+        soramitsuView.sora.backgroundColor = .bgPage
         view.addSubview(tableView)
     }
 

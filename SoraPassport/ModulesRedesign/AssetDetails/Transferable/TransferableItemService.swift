@@ -31,7 +31,7 @@
 import Foundation
 import Combine
 import BigInt
-import CommonWallet
+
 
 final class TransferableItemService {
     @Published var balanceAmount: Decimal?
@@ -39,14 +39,35 @@ final class TransferableItemService {
     
     @Published var publishedFrozenAmount: Amount?
     @Published var frozenFiat: String?
+    /// The balance could not be read. While this is so nothing above is
+    /// published: the amounts would be those of a placeholder.
+    @Published private(set) var balanceUnavailable = false
     
     var referralBalance: Decimal?
     var balanceContext: BalanceContext?
-    var usdPrice: Decimal = Decimal(0)
+    /// `nil` when the price is not known; the fiat texts are then empty.
+    var usdPrice: Decimal?
     
     private let assetInfo: AssetInfo
     private var assetsProvider: AssetProviderProtocol
     private let referralFactory: ReferralsOperationFactoryProtocol
+    private let stateLock = NSLock()
+    /// Each setup has a number. The one that looks up the referral balance
+    /// publishes only if no later setup (or "unavailable") came meanwhile.
+    private var setupNumber = 0
+
+    private func nextSetup() -> Int {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        setupNumber += 1
+        return setupNumber
+    }
+
+    private func isCurrent(_ number: Int) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return setupNumber == number
+    }
 
     init(assetInfo: AssetInfo,
          eventCenter: EventCenterProtocol,
@@ -58,49 +79,69 @@ final class TransferableItemService {
         self.assetsProvider.add(observer: self)
     }
     
+    /// The balance could not be read: say so, and publish no amount, value
+    /// or frozen part worked out from a placeholder.
+    func setupUnavailable() {
+        _ = nextSetup()
+        balanceUnavailable = true
+    }
+
     func setup(with balance: BalanceData) {
+        let number = nextSetup()
         Task {
-            referralBalance = await assetInfo.isFeeAsset ? getReferralBalance() : nil
+            let readReferralBalance = await assetInfo.isFeeAsset ? getReferralBalance() : nil
+            guard isCurrent(number) else { return }
+            referralBalance = readReferralBalance
             balanceContext = BalanceContext(context: balance.context ?? [:])
             
+            balanceUnavailable = false
             balanceAmount = balance.balance.decimalValue
-            fiatBalanceText = (balance.balance.decimalValue * usdPrice).priceText()
+            fiatBalanceText = WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
             
             let frozen = balanceContext?.frozen ?? Decimal(0)
             let referral = referralBalance ?? Decimal(0)
             let frozenAmount = Amount(value: frozen + referral)
             
             publishedFrozenAmount = frozenAmount
-            frozenFiat = (frozenAmount.decimalValue * usdPrice).priceText()
+            frozenFiat = WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
         }
     }
     
     func getReferralBalance() async -> Decimal? {
         return await withCheckedContinuation { continuation in
-            guard let operation = referralFactory.createReferrerBalancesOperation() else { return }
-            OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
+            guard let operation = referralFactory.createReferrerBalancesOperation() else {
+                continuation.resume(returning: nil)
+                return
+            }
             
             operation.completionBlock = {
                 do {
                     guard let data = try operation.extractResultData()?.underlyingValue else {
-                        continuation.resume(with: .success(nil))
+                        continuation.resume(returning: nil)
                         return
                     }
                     let referralBalance = Decimal.fromSubstrateAmount(data.value, precision: 18) ?? Decimal(0)
-                    continuation.resume(with: .success(referralBalance))
+                    continuation.resume(returning: referralBalance)
                 } catch {
                     Logger.shared.error("Request unsuccessful")
+                    continuation.resume(returning: nil)
                 }
             }
+            OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
         }
     }
 }
 
 extension TransferableItemService: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        print("balancedata = \(data)")
-        guard let assetBalance = data.first(where: { $0.identifier == assetInfo.assetId }) else { return }
-        print("balancedata = \(data)")
-        setup(with: assetBalance)
+        if let assetBalance = data.first(where: { $0.identifier == assetInfo.assetId }) {
+            // Also the way back: a balance that could not be read before
+            // and is read now replaces "Balance unavailable".
+            setup(with: assetBalance)
+        } else if assetsProvider
+            .unavailableBalanceAssetIds(among: [assetInfo.assetId])
+            .contains(assetInfo.assetId) {
+            setupUnavailable()
+        }
     }
 }

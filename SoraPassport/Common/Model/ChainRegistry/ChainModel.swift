@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 
 class ChainModel: Codable {
     // swiftlint:disable:next type_name

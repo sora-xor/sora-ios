@@ -36,6 +36,19 @@ protocol CoingeckoOperationFactoryProtocol {
 }
 
 final class CoingeckoOperationFactory {
+    private static let networkSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 20
+        configuration.timeoutIntervalForResource = 30
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        // Market-data requests share the indexer's no-redirect policy.
+        return URLSession(configuration: configuration,
+                          delegate: PIRedirectRejectingDelegate.shared,
+                          delegateQueue: nil)
+    }()
+
     private func buildURLForAssets(
         _ tokenIds: [String],
         method: String,
@@ -52,7 +65,8 @@ final class CoingeckoOperationFactory {
         components.queryItems = [
             URLQueryItem(name: "ids", value: tokenIDParam),
             URLQueryItem(name: "vs_currencies", value: currencyParam),
-            URLQueryItem(name: "include_24hr_change", value: "true")
+            URLQueryItem(name: "include_24hr_change", value: "true"),
+            URLQueryItem(name: "include_last_updated_at", value: "true")
         ]
 
         return components.url
@@ -74,6 +88,8 @@ extension CoingeckoOperationFactory: CoingeckoOperationFactoryProtocol {
             )
 
             request.httpMethod = HttpMethod.get.rawValue
+            request.timeoutInterval = 20
+            request.cachePolicy = .reloadIgnoringLocalCacheData
 
             return request
         }
@@ -84,9 +100,10 @@ extension CoingeckoOperationFactory: CoingeckoOperationFactoryProtocol {
                 from: data
             )
 
-            return tokenIds.compactMap { assetId in
-                guard let priceData = priceData[assetId] else {
-                    return nil
+            let now = Date()
+            return try tokenIds.map { assetId in
+                guard let priceData = priceData[assetId], priceData.isUsable(at: now) else {
+                    throw NetworkBaseError.unexpectedResponseObject
                 }
 
                 return PriceData(
@@ -97,6 +114,7 @@ extension CoingeckoOperationFactory: CoingeckoOperationFactoryProtocol {
         }
 
         let operation = NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
+        operation.networkSession = Self.networkSession
 
         return operation
     }

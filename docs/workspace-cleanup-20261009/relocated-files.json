@@ -1,0 +1,902 @@
+[
+  {
+    "source": "IOS-LOCALIZATION-COVERAGE-20260924.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/IOS-LOCALIZATION-COVERAGE-20260924.md",
+    "sha256": "de90debaf6e516d0b244765658e272a748126730751f1c490d2b0463c937cd6b",
+    "storage": "tracked"
+  },
+  {
+    "source": "IOS-SIGNING-INVENTORY-20260924.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/IOS-SIGNING-INVENTORY-20260924.md",
+    "sha256": "f9c6be5e47a57ced3b84615f9a0a922ab41084a81e3a70c523144e7fe696d2c9",
+    "storage": "tracked"
+  },
+  {
+    "source": "PRODUCTION-READINESS-GOALS.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/PRODUCTION-READINESS-GOALS.md",
+    "sha256": "15e0a883196293d18d8781b86ea74c37354fb5f0f036828ff9acaab827b199ce",
+    "storage": "tracked"
+  },
+  {
+    "source": "UPGRADE-SAFETY-REPORT.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/UPGRADE-SAFETY-REPORT.md",
+    "sha256": "d9de6896e729acf979c99a32a825bd2d4bcd5e06a659f1a45e429575fcb2b669",
+    "storage": "tracked"
+  },
+  {
+    "source": "UX-IMPLEMENTATION-PLAN.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/UX-IMPLEMENTATION-PLAN.md",
+    "sha256": "de8d3a737cf586a3c6f2265e40a72e70d3d0993468529b8b7b7aa59236c96a5d",
+    "storage": "tracked"
+  },
+  {
+    "source": "UX-IMPLEMENTATION-REPORT.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/UX-IMPLEMENTATION-REPORT.md",
+    "sha256": "e1c170e9c4ab2675e4ed0d8a5ffa1ddaff384b65ac57566ebf49a7e3bdc51f76",
+    "storage": "tracked"
+  },
+  {
+    "source": "iroha-patches",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/iroha-patches",
+    "sha256": null,
+    "storage": "tracked"
+  },
+  {
+    "source": "output/pdf/SORA-Wallet-France-Cryptography-Declaration-2026090601.pdf",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/reports/SORA-Wallet-France-Cryptography-Declaration-2026090601.pdf",
+    "sha256": "a548d0a13d48221d16b32217e3faa735700da9a0a0c1d86e77c529273d4e0843",
+    "storage": "tracked"
+  },
+  {
+    "source": "tmp/pdfs/france-declaration-2026090601/build_declaration.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/build_declaration.py",
+    "sha256": "9e7bea13773358484aa268cefd5dd5b3098ebd4890551c84fe3d8e88eb2649b7",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/account-activation-recovery-pr-body-2026090704.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/account-activation-recovery-pr-body-2026090704.md",
+    "sha256": "1c0b51761f90ceeaef3a5eb85aaef4c7dce0a137b35112949c716ba0c99fdea8",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-connected-wallet-recovery-2026091301.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-connected-wallet-recovery-2026091301.py",
+    "sha256": "2105ea03658f5c002319689c4aaf624c706e9fa0438b5ca59defd2578c315161",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-google-import-pin-response-2026091401-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-google-import-pin-response-2026091401-r2.py",
+    "sha256": "aa4717b42d221c67b6878f916f7fc7ddf3bc7141f80161a1f13da8c5286ed227",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-google-import-pin-response-2026091401.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-google-import-pin-response-2026091401.py",
+    "sha256": "16ede33f9011e0f9e25ee9ade43152069a02688a67d7bd7b386e3071e7c9b751",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-keychain-lockout-2026090706.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-keychain-lockout-2026090706.py",
+    "sha256": "0920c1c08aa7c2c43759358665f8ce2d2b0fee4ac4604a33ea5864aa56f0e327",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-legacy-secret-recovery-2026090802.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-legacy-secret-recovery-2026090802.py",
+    "sha256": "047b03070856820a71f51bd6cfebcf06ead9e0e3fb4b8f4b3d913ce1b8bfefd6",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-startup-recovery-2026090801-attempt-2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-startup-recovery-2026090801-attempt-2.py",
+    "sha256": "ee621e23cefbcd357d1a4b33b9cdd3817bfc0bbca7a61a99279990ba79ee50b5",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-startup-recovery-2026090801.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-startup-recovery-2026090801.py",
+    "sha256": "1233e2e63cce0bb251d172a01909286b8a7115b4778cb76250aca52c4a5a404d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-wallet-backup-preservation-2026091305-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-wallet-backup-preservation-2026091305-r2.py",
+    "sha256": "72c222d21ca53cf2fb04d3ae9d6699778841a28db97b3b165b0fc597da104490",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-wallet-backup-preservation-2026091305.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-wallet-backup-preservation-2026091305.py",
+    "sha256": "e809ae8e1364afc7fd919a360c96ac7878a4c12efa63ef04a21afdd2080f5eed",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-wallet-cloud-account-choice-2026091304.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-wallet-cloud-account-choice-2026091304.py",
+    "sha256": "53af488dac56214e2f0b1336580fcce355bac8dcc64e9d65a65e081232e47d31",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-wallet-cloud-recovery-2026091303.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-wallet-cloud-recovery-2026091303.py",
+    "sha256": "4551a16e736c1a0d165e322b87372b3b5c6c8edb9f039a0fa1f06f4fb8496f50",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-wallet-recovery-diagnostics-2026091302.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-wallet-recovery-diagnostics-2026091302.py",
+    "sha256": "4596ed07dddeb795176f7557c2922d865d5b93d1d0a95e57d308d8b9afe417fe",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-working-default-nodes-2026091402-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-working-default-nodes-2026091402-r3.py",
+    "sha256": "df65023f7320c8387334533ef51e0255c52e1b262bf9b065bb46c8beb86d3dcc",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-working-default-nodes-2026091402-r4.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-working-default-nodes-2026091402-r4.py",
+    "sha256": "cdddafc143f8d577b445df253eb2ee311a5ae311dd34aaf3414ab6e34688d082",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/archive-working-default-nodes-2026091402.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/archive-working-default-nodes-2026091402.py",
+    "sha256": "cca6e81113b3470b318c4b4f0fca563567a9b64c08152ac950608dfe1f0f37c6",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/commit-verified-connected-wallet-recovery.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/commit-verified-connected-wallet-recovery.py",
+    "sha256": "b2d7b1051ac2510a96c46bbbabcbd294b2a9bc23d87f187479a5a5f7d0212992",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/commit-verified-legacy-secret-recovery.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/commit-verified-legacy-secret-recovery.py",
+    "sha256": "f923f15ca62e97fd34032ea3823c9133d24f08cb6f0c33daf9c698cd257b5d4d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/connected-wallet-recovery-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/connected-wallet-recovery-runtime.patch",
+    "sha256": "b5e7df6197a5cb51bd1d65a5fd7a2546af6d7dd165b885ea902ee01abbff2512",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/egyptian-generator-current-core-drift.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/egyptian-generator-current-core-drift.patch",
+    "sha256": "030d2e515f67777f66fdd694849439204c74b1365956eda908cb711577f534c4",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/egyptian-localization-final.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/egyptian-localization-final.patch",
+    "sha256": "7db5f65100d3145890d8d13c001ca1d767293281c8ec36707ae28042da86798b",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/exempt-encryption-0703-primary-integration.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/exempt-encryption-0703-primary-integration.patch",
+    "sha256": "4161ded48e515b08b45dccfa98d5257f27c4b055638831ada21a0d9feadeb0ca",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/google-import-pin-response-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/google-import-pin-response-runtime.patch",
+    "sha256": "79b87eeaf3fab65ed8660fd3b6654a239789d284236027c458e51c882ade1b7e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/hosted-test-fix-pr.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/hosted-test-fix-pr.md",
+    "sha256": "1b7513aaaeaf4abd3cb9847653d90a2d57cbe990a2163e658b4e018234f0e84a",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-connected-wallet-recovery-2026091301.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-connected-wallet-recovery-2026091301.py",
+    "sha256": "0f59f24153edb44194eac82609b701a24ddbdeed008a7c67981028857be649d5",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-google-import-pin-response-2026091401-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-google-import-pin-response-2026091401-r2.py",
+    "sha256": "97d0e06a581861592b5ca6c8ca1370efe632fcf067e6cb260f6e7a9f5b3d9059",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-backup-preservation-2026091305-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-backup-preservation-2026091305-r2.py",
+    "sha256": "e2f3670f1fd00dee196fb3a435d4be2c585bd905abb0258a588f9559530cb090",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-backup-preservation-2026091305-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-backup-preservation-2026091305-r3.py",
+    "sha256": "94e0f49385375ffc83f9a706c73621230e6ba0c967dcb3f39b5266a67283dfdf",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-backup-preservation-2026091305.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-backup-preservation-2026091305.py",
+    "sha256": "e39180a9a7cb50fd13a8dbe6e46693dcb009eca83f6d62fe181d7769096238e6",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-cloud-account-choice-2026091304-preserved-library.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-cloud-account-choice-2026091304-preserved-library.py",
+    "sha256": "4a0a986eabdc9c21f062ce4deabb9f185543fa4e118f4f16351ba7d5534e4268",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-cloud-account-choice-2026091304.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-cloud-account-choice-2026091304.py",
+    "sha256": "3d834a76b240a3ef9f5d5ac80013eeb397ef14a04cf410f13084a34b847deecf",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-cloud-recovery-2026091303.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-cloud-recovery-2026091303.py",
+    "sha256": "055a41818fba76d4fc61b5becb37363e5d3b4d22924c3add9d2dd694fe2b52fc",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/install-wallet-recovery-diagnostics-2026091302.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/install-wallet-recovery-diagnostics-2026091302.py",
+    "sha256": "2791f698ad6717160f0bb941a933d0e661d9d329ad71635ee45c195b645e4e0d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-connected-wallet-recovery-fix.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-connected-wallet-recovery-fix.py",
+    "sha256": "b11c90f0bd006ddb279ccaaf5f2eacec6f1f5980ccb4576cb1d03c2eb0c623c2",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-google-import-pin-response-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-google-import-pin-response-r2.py",
+    "sha256": "3d7afed8ca2b0a72c54d6427831d3aeb98a5246b360159d328aa9a4bc272b2b9",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-keychain-lockout-fix.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-keychain-lockout-fix.py",
+    "sha256": "3f785d99e625d392b50a1ff6b28f30a5c18bbcb1c429358459acf48fb50e8e69",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-legacy-secret-recovery-fix.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-legacy-secret-recovery-fix.py",
+    "sha256": "2262af83baaa60f4bf5f0ed4da6c64bca9e716118c4b0cec2a830bfc33bfcbca",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-startup-recovery-fix.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-startup-recovery-fix.py",
+    "sha256": "64aff9b22791554dd1d05536af6939da1fd9b68698b17abd61212d952d315f35",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-verified-ios-account-activation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-verified-ios-account-activation.py",
+    "sha256": "78ef0d5d03b21361465f48110f4e473be940d883e1104335959ab2d39391379c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-verified-ios-interruption.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-verified-ios-interruption.py",
+    "sha256": "9afcad51207d1047c1d263ef365ce469949f2c61044111643be89f8f012e1919",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-verified-ios-retry.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-verified-ios-retry.py",
+    "sha256": "db9010702cd36ff4678be8d21ef071de44451cc45306725f7cf4a4846b11d3e6",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-wallet-backup-preservation-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-wallet-backup-preservation-r2.py",
+    "sha256": "64a3ae351c3f4b6d68bfafdebf51be0e2b06ea4c83761721b5b42ad6a0044ba1",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-wallet-backup-preservation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-wallet-backup-preservation.py",
+    "sha256": "627c8719db084371f75428c69406d29af089ad6a2d91789b83ad8cc49f046ca0",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-wallet-cloud-account-choice.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-wallet-cloud-account-choice.py",
+    "sha256": "556e1a5603a7abc00950e616cf76b6515dc2e391a43f6b7bae12286ca5b5572c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-wallet-cloud-recovery.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-wallet-cloud-recovery.py",
+    "sha256": "4fcc58d74478e4a654267eddabe29707c5bbd376e771047804045dadf35cc9b1",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-wallet-recovery-diagnostics.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-wallet-recovery-diagnostics.py",
+    "sha256": "f8c1f635b6315b680a055877f508c49890e90704c682b75c453208f6aab95675",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-working-default-nodes-1402-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-working-default-nodes-1402-r3.py",
+    "sha256": "65825871800bcf96bdd4c78a76e991e77fe3de7eee3f14d5bf6bdf0bc2da124b",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-working-default-nodes-1402-r4.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-working-default-nodes-1402-r4.py",
+    "sha256": "be52d308383b03a493aeabb9e07482d66c2cc55e38a5ef9fbbc17f1003cd55c0",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/integrate-working-default-nodes-1402.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/integrate-working-default-nodes-1402.py",
+    "sha256": "81ce7cf5767f7735ea94faf013f88f33d29e24dfefe437f02fb1126c3da99436",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/interruption-recovery-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/interruption-recovery-pr-body.md",
+    "sha256": "def86cc127592f9a8178ff9018bd0dc949b9f6d3a03f9d76daf2e075136cddd3",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/interruption-recovery-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/interruption-recovery-runtime.patch",
+    "sha256": "01d130632b6b25e0489e7756933837f95ba8c6e196713afb90e0f4f760a9aaa9",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/keychain-lockout-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/keychain-lockout-pr-body.md",
+    "sha256": "fdbcc29b7fd1cd63ba465c5e2aabfef28ffcf38861288e8f84626dd5f7266388",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/keychain-lockout-report-top-status.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/keychain-lockout-report-top-status.md",
+    "sha256": "ba85379b8402791c2a049b392ba169c7187dbbde835f31fc1c85472da88cf3da",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/keychain-lockout-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/keychain-lockout-runtime.patch",
+    "sha256": "58beef187a11b5c8dc3b7f1e1b243996321a4fdd5851cafbd7e3d63f85f0022e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/legacy-secret-recovery-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/legacy-secret-recovery-pr-body.md",
+    "sha256": "0226a9827176a67b36c02a1fb63032a17194fa173ea2c59a65a38a80ca6a7426",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/legacy-secret-recovery-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/legacy-secret-recovery-runtime.patch",
+    "sha256": "29e8f57969518a6506b83cab1bb8aeac94e6be437488b115b5a963c07ee7b76f",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/next-testflight-preparation.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/next-testflight-preparation.md",
+    "sha256": "3847f3b3c3a860ea4c50fcb5793d826fc15effa6e8e88cf2cf7bc64bea5b30f8",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-backup-preservation-external-helpers-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-backup-preservation-external-helpers-r2.py",
+    "sha256": "2d9046331b78c3b5652b13fd5e16edbc54965a3fcdd06a125c26baaaee84b3e3",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-backup-preservation-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-backup-preservation-external-helpers.py",
+    "sha256": "a6e3f406a82fc9be08dcb54699055505c55ee6690e23271612feca19fd557123",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-cloud-account-choice-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-cloud-account-choice-external-helpers.py",
+    "sha256": "b04815595f2b63a4b670a1d8b9c4577ce7d91222f76e194df77ff648d123a88e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-cloud-disposable-preflight.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-cloud-disposable-preflight.py",
+    "sha256": "a75e8c4a0239fa3200db138f3e22e4de6832bd20d8f7551dcd791c05285aa321",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-cloud-recovery-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-cloud-recovery-external-helpers.py",
+    "sha256": "960035517a17be864a52f49d00f6135446146870376288f0ca430cd32094c209",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-connected-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-connected-external-helpers.py",
+    "sha256": "585698c93e18f068f6113e30a4e609a69a1bc63c53bd8918a7b4495b28810965",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-diagnostics-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-diagnostics-external-helpers.py",
+    "sha256": "9803cc89e6de6be555383fb63bd84f5213074bdd53ef8ab15de782bbff37d99b",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-google-import-pin-external-helpers-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-google-import-pin-external-helpers-r2.py",
+    "sha256": "89fa099f61f1ae05b5a8e722dd0708224156365aeac9d8e939ea0dde1ca9222c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-google-import-pin-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-google-import-pin-external-helpers.py",
+    "sha256": "0295ba0f0a0fd6c1265935107648a70be3d8d176f7cfcc5052385ac5e824559d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-internal-testflight-2026090602.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-internal-testflight-2026090602.py",
+    "sha256": "7026d96d2b5e18844fca58fa5e0a1382fdd81f4031bc353f8d71b090160b3673",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-internal-testflight-2026090701.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-internal-testflight-2026090701.py",
+    "sha256": "a9c1af390273836849f7f44090de3c6842dd799969bdb5f6e25733cbf9343957",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-internal-testflight-2026090702.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-internal-testflight-2026090702.py",
+    "sha256": "356d3c2ad7864c6aa41ec65a230d2430b7dde7c2af9c0c2b4aaf03572254a20f",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-internal-testflight-2026090703.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-internal-testflight-2026090703.py",
+    "sha256": "813081b658822518b0fb539c5b52a9a02937c921462a9aba2f0bce75601d97da",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-internal-testflight-2026090704.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-internal-testflight-2026090704.py",
+    "sha256": "d0052d928845f6420cc9b667412ac31841a59f0ddadce8646118adf890e31a42",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091301.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091301.py",
+    "sha256": "16a2a64dfd24e4dccd096b4e7c5ce5bce11e8f3b14b07e4b16d395f41e1b0e28",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091302.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091302.py",
+    "sha256": "ac7e0e397e4a23e61a90169a80bbcc7c1a2fdd6e2b9aa46cc7ff953dc411af9c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091303.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091303.py",
+    "sha256": "fab2a1e99a57ae24ec484c68f7256c6e8c1762d8d6da72b7c979e0077fcc1997",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091304.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091304.py",
+    "sha256": "ca0c11664f135f343842f05c09a7ab93b3f0db7c097ed7d18b366ca4da98f03c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091305-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091305-r2.py",
+    "sha256": "049bfc932698bab9473b2e07db57164d673eff898ae9619482e6dfce798e741c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091305.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091305.py",
+    "sha256": "e0d10b83440639f3a9d57edadf53cf7d5fd2d3f5de265ff588c2ad3ae506c342",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091401-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091401-r2.py",
+    "sha256": "f9700b7ad37b41ce6e4ec1bd79b607131f7e3131b6037ebe5f30f33beeca16cc",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091401.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091401.py",
+    "sha256": "ecd9118a6359cbc76027eead0139f3adeccc7062a7378b1c92809d746e8e909c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091402-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091402-r2.py",
+    "sha256": "4629e2a9fa2822e8c0f98007006dae6ed65bf5aef8d90faae014145fb664cdd3",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091402-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091402-r3.py",
+    "sha256": "bccccf3a5100bc84d26e43616feaa509fb0dba81bc777e35c7b4ea85000c8bdf",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091402-r4.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091402-r4.py",
+    "sha256": "afd430ea94e9f83c240169a126b1c4aeb70f9ab280c8f1389ed13983000045fc",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-parallel-testflight-2026091402.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-parallel-testflight-2026091402.py",
+    "sha256": "7a2f92fa4a38591c721576f0421f71424b6cdf299fd5f22c631415091e91555a",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-published-callback-testflight.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-published-callback-testflight.py",
+    "sha256": "dd7799b71da16171c1002d52a5897fc9fbe1d5caf8c33569f25f7fd210549fb9",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-startup-external-helpers.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-startup-external-helpers.py",
+    "sha256": "13b2e2c051ca87154badf5a0d61760d6c86ea49f81d14971fd61763d2013db0d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-testflight-2026090706.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-testflight-2026090706.py",
+    "sha256": "527fa29c2dd48732498ebd97d63880a04ae43a96d68d355cac43f70752b95d46",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-testflight-2026090801.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-testflight-2026090801.py",
+    "sha256": "69756d7d5402b93e56885f5aa00d1e86fa11aa5bd9a77b699c7d0ed633efaa5e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-testflight-2026090802.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-testflight-2026090802.py",
+    "sha256": "0f7d76a34727ac4a88f5d623b9dabfc9a856e437549d08a000dbaeccc4a5ea51",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-testflight-2026091301.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-testflight-2026091301.py",
+    "sha256": "7549e108a07cc5094404bea5636d32deff18f4dd1fb26996cec6b7f1cb0d39de",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-working-default-nodes-external-helpers-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-working-default-nodes-external-helpers-r2.py",
+    "sha256": "e6c5c9a7e2df92f0a6961751754d0bbb067e406ee465daea35e106d9d95ddae7",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-working-default-nodes-external-helpers-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-working-default-nodes-external-helpers-r3.py",
+    "sha256": "2da7c765ae051ab61d5380fce1f098de47176a50199dfab751318b4a67a976d8",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/prepare-working-default-nodes-external-helpers-r4.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/prepare-working-default-nodes-external-helpers-r4.py",
+    "sha256": "bf029365d1978e5e6bc0273e579f79ab192301555fa36c8b6af7f182a91915e9",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/read-installed-wallet-diagnostic-2026091302.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/read-installed-wallet-diagnostic-2026091302.py",
+    "sha256": "8fb44c2b022285322ff5d4c7bbc3e263808534bb750653ae986518656d8b3b3b",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/read-installed-wallet-diagnostic-2026091303.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/read-installed-wallet-diagnostic-2026091303.py",
+    "sha256": "10ea87a03d3cdb418ecfb712806d72d9cee1caf2750dd4d795ac5ae698ca98e1",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/read-installed-wallet-diagnostic-2026091304.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/read-installed-wallet-diagnostic-2026091304.py",
+    "sha256": "2b87e22355763264e20c6e28714d8886281d200734543edd38f07f67d84ede01",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/read-installed-wallet-diagnostic-2026091305-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/read-installed-wallet-diagnostic-2026091305-r2.py",
+    "sha256": "38ca5417435eaf38959f66fd68649e8df563b733812bb3ba6a8e23613aca9056",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/read-installed-wallet-diagnostic-2026091305.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/read-installed-wallet-diagnostic-2026091305.py",
+    "sha256": "d56ab73154621302633de02828e72b4982f92b5a24edd404bf1319c574dbbaf4",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-account-activation-recovery-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-account-activation-recovery-validation.py",
+    "sha256": "74bd4a4f2deba03b073a1cda6738bec936d77c008538312fdbfc40f8ebbfff6a",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-connected-wallet-recovery-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-connected-wallet-recovery-validation.py",
+    "sha256": "8368baf05773b7e453eac1bbd8c6419f7c0a64c8d8a1b6203699c8e4e34d4452",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-google-import-pin-response-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-google-import-pin-response-validation.py",
+    "sha256": "efbaf1de9303f03cd09572788e5246c1ceb2e3c4fb9004b678176a670332c428",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-interruption-recovery-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-interruption-recovery-validation.py",
+    "sha256": "c89434975d746f23cd7cb2a0e97f210c47bb4a4e723ad6a45646dd855fb2ce56",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-keychain-lockout-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-keychain-lockout-validation.py",
+    "sha256": "d6eb93061aad6f5101f5794fed2b53c6b6e7293de7716914c0eb86ae31b4332b",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-legacy-secret-recovery-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-legacy-secret-recovery-validation.py",
+    "sha256": "b6b857e80fb70bd39fe91191438f3c9e675196740c21d4730d852b799b626f68",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-resume-auth-fixture-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-resume-auth-fixture-validation.py",
+    "sha256": "f8b67052d3f02e09ce225cef1fab91919250402a6dc5a6b341446df20eff10a3",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-selection-regressions.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-selection-regressions.py",
+    "sha256": "2eea517c29637b8c5f03d94174e8cd2440dc7ea84391286ce59eef6b8b5fd7c5",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-signed-simulator-historical-rehearsal.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-signed-simulator-historical-rehearsal.py",
+    "sha256": "70fb1934f484919bdf38b6a12af48f8bb046a2c7309fadd7a01857a2d63319ee",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-startup-recovery-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-startup-recovery-validation.py",
+    "sha256": "6f4b1081fddd7b382fc4f01a23109bf79d1aff4489a9615312303bd85a6726e7",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-upgrade-retry-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-upgrade-retry-validation.py",
+    "sha256": "98407852fab188c1f4320cbeaee3620e6ff794f0f5857120688c9247e5288b7c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-wallet-backup-preservation-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-wallet-backup-preservation-validation.py",
+    "sha256": "e4c9e69fd81d329cab4b68e569092aa39c68cec9ba6f2450e0ec85faf686cb76",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-wallet-cloud-account-choice-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-wallet-cloud-account-choice-validation.py",
+    "sha256": "1f3d0c82112c987a5bc6cd8a9ff4a0335a2255b2723340e53c7a376305f28b45",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-wallet-cloud-recovery-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-wallet-cloud-recovery-validation.py",
+    "sha256": "ac2f85a9c0572b2681665ff10449efa2a84537f4682923b0cfdb768a56882a8d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-wallet-recovery-diagnostics-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-wallet-recovery-diagnostics-validation.py",
+    "sha256": "951db186df7435182ea19502c5d671cc6624c8564370ab354f64783d992c27e2",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/run-working-default-nodes-validation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/run-working-default-nodes-validation.py",
+    "sha256": "ea6e1f9e1e22ee3a9716cc6166b3bcf76814cc1a64355dd79bc8db20b1363b7e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/selection-callback-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/selection-callback-pr-body.md",
+    "sha256": "a8fa68f85a4e6f6d6c1598a88454d346e83bdd946fca6d7efd6911baa503da4d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/startup-recovery-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/startup-recovery-pr-body.md",
+    "sha256": "ef190d6b926bf8a746b507c021976397057902ded42ae7e4a6e3e4debea3137d",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/upgrade-retry-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/upgrade-retry-pr-body.md",
+    "sha256": "7b7a320c7de90bc3536a00fe7ccd0e440a8da8edc90c0e29064dd6aad611c5f5",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/upgrade-retry-primary-integration-plan.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/upgrade-retry-primary-integration-plan.md",
+    "sha256": "451d7a784f5c2d167c57d7508b451f2ac7d087c012be7a6a09bd3119ea07f45b",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/upgrade-retry-publication-plan.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/upgrade-retry-publication-plan.md",
+    "sha256": "d1c9c9591e2222f3dff6715d6a1b05ff7be4689d8614b16afb64712a6cdad251",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verified-selection-callback-fix.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verified-selection-callback-fix.patch",
+    "sha256": "c6418c57e9a45382ed2c9a5a0b268099ce57e5c00eb206f900fb63d49caf982c",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-connected-wallet-recovery.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-connected-wallet-recovery.py",
+    "sha256": "70bc9f1f2bbbcd4d1774a4c60e47d9075fdba7e4e8cd4ee978f1cb446d795297",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-google-import-pin-response-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-google-import-pin-response-r2.py",
+    "sha256": "f634bbafa3b6b85ecd863957308822822f17e355b2c4a4bc97a860ea5a76e1d2",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-wallet-backup-preservation-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-wallet-backup-preservation-r2.py",
+    "sha256": "beacc84806cbdee8538e642bd499164702afe3ce9d8994bc702ce48b100dbe5a",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-wallet-backup-preservation-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-wallet-backup-preservation-r3.py",
+    "sha256": "e00b3462bac09d54779b7ae91baa12cb37188395377a329824c95698fc1b7039",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-wallet-backup-preservation.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-wallet-backup-preservation.py",
+    "sha256": "faa59a9e5be299906dae7c0f9ec93a6ef3935e28e6d22b6d71e33cdbd5f8a750",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-wallet-cloud-account-choice.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-wallet-cloud-account-choice.py",
+    "sha256": "e1350c150eafe11dbdb93cc9c9dc7c0999b8774c1137f318ff470a909aa96c88",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-wallet-cloud-recovery.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-wallet-cloud-recovery.py",
+    "sha256": "502cfa338335ac577a9d67323937913f6a8e5f12910a5e32d25271c8b7da5070",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-wallet-recovery-diagnostics.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-wallet-recovery-diagnostics.py",
+    "sha256": "83f3a942778e4e2ff0f9e87c8cdbd4a207119c7a1e541e39517b939d1e58645a",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-working-default-nodes-1402-r3.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-working-default-nodes-1402-r3.py",
+    "sha256": "7fade8ba5e2e08edaf0b86ae612e61d0f01f7c970187be385d20179606be89fc",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-working-default-nodes-1402-r4.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-working-default-nodes-1402-r4.py",
+    "sha256": "9197a5c8a80762052cc95bf90807d383671380bd54745d5816f67a973c722c0a",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-committed-working-default-nodes-1402.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-committed-working-default-nodes-1402.py",
+    "sha256": "841a4a3579d15dda0160071e8e1efb981888bea8bbdab24cb36e5f93386d15f8",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-container-sync-sandbox.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-container-sync-sandbox.py",
+    "sha256": "3a43df4bcf8b0f48677dd93bb1bbe746877c1abec7c1dff2c9c5667e431c9d55",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-gui-testflight-2026090704.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-gui-testflight-2026090704.py",
+    "sha256": "42313b6f2bb2021d880882d5fe9adfbfcd4bcb4446722979792da74ec6423ba3",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-installed-wallet-accounts-2026091303.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-installed-wallet-accounts-2026091303.py",
+    "sha256": "3e2c62ce06fd0d32000df98dca44ad8f0cd571fbe30323c6c2316a2a3bf6959e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-installed-wallet-accounts-2026091304.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-installed-wallet-accounts-2026091304.py",
+    "sha256": "daf9fd9cd4e70ef64a1f84bf7b5c21b7b77a305686a0d544d68ac61d49ba6aaf",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-installed-wallet-accounts-2026091305-r2.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-installed-wallet-accounts-2026091305-r2.py",
+    "sha256": "d5e4c222cfe8bcfe4a4704780ee7cf018b3fd186daeab7c49a028bd2f8018e0e",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/verify-installed-wallet-accounts-2026091305.py",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/verify-installed-wallet-accounts-2026091305.py",
+    "sha256": "dc23720fadabe69651450f1cd7d10479d3fbce1aa0e9eaa97a8127c87c19b375",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/wallet-backup-preservation-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/wallet-backup-preservation-runtime.patch",
+    "sha256": "111f14e76bc3cfe735b50b4eb55a7b4aedf8734e9215b2cc48030ee4f12f9393",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/wallet-cloud-account-choice-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/wallet-cloud-account-choice-runtime.patch",
+    "sha256": "97669eb1231b23c33a79490e41b8b10d33025690ffc434822af9704608ce3537",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/wallet-recovery-diagnostics-pr-body.md",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/wallet-recovery-diagnostics-pr-body.md",
+    "sha256": "baa37cbcb4faa621b3cffd85ad119703594f84d6e8ca69fb1a114575934e7cf7",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906/working-default-nodes-runtime.patch",
+    "destination": "sora-ios/docs/workspace-cleanup-20261009/historical-tools/testflight-20260906/working-default-nodes-runtime.patch",
+    "sha256": "19eb766bc93d8ea684a94222dc30801500328be1d77ffafe76608513c6f214d5",
+    "storage": "tracked"
+  },
+  {
+    "source": "testflight-20260906",
+    "destination": "sora-ios/.local/workspace-cleanup-20261009/testflight-20260906",
+    "sha256": null,
+    "storage": "local-evidence-and-signed-archives"
+  }
+]

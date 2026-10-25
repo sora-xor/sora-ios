@@ -31,31 +31,35 @@
 import Foundation
 import SoraUIKit
 
-final class ClaimRewardsItem: NSObject {
+final class ClaimRewardsItem: ItemProtocol {
     
-    var reward: SoramitsuTextItem
-    var amount: SoramitsuTextItem
+    var rewardText: String
+    var amountText: String
     var image: UIImage?
+    var claimPossible: Bool
     var detailsViewModel: [DetailViewModel] = []
     var onClaim: (() -> Void)?
     
-    init(reward: SoramitsuTextItem,
-         amount: SoramitsuTextItem,
+    init(rewardText: String,
+         amountText: String,
          image: UIImage?,
+         claimPossible: Bool,
          detailsViewModel: [DetailViewModel]) {
-        self.reward = reward
-        self.amount = amount
+        self.rewardText = rewardText
+        self.amountText = amountText
         self.image = image
+        self.claimPossible = claimPossible
         self.detailsViewModel = detailsViewModel
     }
 }
 
-extension ClaimRewardsItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { ClaimRewardsCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
+extension ClaimRewardsItem: Hashable {
+    static func == (lhs: ClaimRewardsItem, rhs: ClaimRewardsItem) -> Bool {
+        lhs.detailsViewModel == rhs.detailsViewModel && lhs.amountText == rhs.amountText
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(amountText)
+        hasher.combine(detailsViewModel)
+    }
 }
-
-

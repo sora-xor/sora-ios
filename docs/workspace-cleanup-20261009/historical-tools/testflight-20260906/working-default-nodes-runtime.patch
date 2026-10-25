@@ -1,0 +1,1270 @@
+diff --git a/SoraPassport/Common/Configs/ApplicationConfigs.swift b/SoraPassport/Common/Configs/ApplicationConfigs.swift
+index a93630a6854bf6337ab47bd5326f3bbcac853125..a0985c727057d2ca588f6e3e1e0c1fd21af136c8 100644
+--- a/SoraPassport/Common/Configs/ApplicationConfigs.swift
++++ b/SoraPassport/Common/Configs/ApplicationConfigs.swift
+@@ -298,21 +298,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
+     }
+ 
+     var defaultChainNodes: Set<ChainNodeModel> {
+-    #if F_RELEASE
+-        return [
+-            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
+-        ]
+-
+-    #elseif F_STAGING || F_TEST
+-        return [
+-            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
+-        ]
+-    #else
+-        return [
+-            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
+-        ]
+-
+-    #endif
++        Set(SoraNodeConnectionPolicy.bundledMainnetNodes)
+     }
+ 
+     var polkaswapIndexerURL: URL {
+diff --git a/SoraPassport/Common/Network/JSONRPC/ConnectionAutobalancing.swift b/SoraPassport/Common/Network/JSONRPC/ConnectionAutobalancing.swift
+index ecb3b2b597aaf44f055a4eb613c3ba51799955f3..45748d11b9fc6d23e2c9d3a4487e57f242064152 100644
+--- a/SoraPassport/Common/Network/JSONRPC/ConnectionAutobalancing.swift
++++ b/SoraPassport/Common/Network/JSONRPC/ConnectionAutobalancing.swift
+@@ -48,3 +48,61 @@ extension ConnectionRank {
+         rank = 0
+     }
+ }
++
++/// Node choice is connection state, not a change to the user's saved preference.
++/// Only the known SORA mainnet identity receives the bundled mainnet fallbacks.
++enum SoraNodeConnectionPolicy {
++    static let mainnetGenesis = "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5"
++    static let bundledMainnetNodes = [
++        ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "SORA Ministry of Finance", apikey: nil),
++        ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "SORA Ministry of Finance 2", apikey: nil),
++    ]
++
++    static func isMainnet(chainId: String, addressPrefix: UInt16) -> Bool {
++        chainId.lowercased() == mainnetGenesis && addressPrefix == 69
++    }
++
++    static func candidates(for chain: ChainModel) -> [ChainNodeModel] {
++        let bundled = isMainnet(chainId: chain.chainId, addressPrefix: chain.addressPrefix)
++            ? bundledMainnetNodes : []
++        let defaults = chain.nodes.sorted { $0.url.absoluteString < $1.url.absoluteString }
++        let custom = (chain.customNodes ?? []).sorted { $0.url.absoluteString < $1.url.absoluteString }
++        var seen: Set<URL> = []
++        return ([chain.selectedNode].compactMap { $0 } + bundled + defaults + custom).filter {
++            guard ["ws", "wss"].contains($0.url.scheme?.lowercased() ?? ""),
++                  $0.url.host?.isEmpty == false else { return false }
++            return seen.insert($0.url).inserted
++        }
++    }
++}
++
++struct NodeConnectionFailover {
++    struct Decision {
++        let nextNode: ChainNodeModel?
++        let shouldPresentUnavailable: Bool
++    }
++
++    private var failedURLs: Set<URL> = []
++    private var hasPresentedUnavailable = false
++
++    mutating func failed(url: URL, candidates: [ChainNodeModel]) -> Decision {
++        guard let current = candidates.firstIndex(where: { $0.url == url }) else {
++            return Decision(nextNode: nil, shouldPresentUnavailable: false)
++        }
++        failedURLs.insert(url)
++        let ordered = Array(candidates.dropFirst(current + 1)) + Array(candidates.prefix(current + 1))
++        if let next = ordered.first(where: { !failedURLs.contains($0.url) }) {
++            return Decision(nextNode: next, shouldPresentUnavailable: false)
++        }
++        let shouldPresent = !hasPresentedUnavailable
++        hasPresentedUnavailable = true
++        failedURLs.removeAll()
++        return Decision(nextNode: ordered.first(where: { $0.url != url }),
++                        shouldPresentUnavailable: shouldPresent)
++    }
++
++    mutating func connected() {
++        failedURLs.removeAll()
++        hasPresentedUnavailable = false
++    }
++}
+diff --git a/SoraPassport/Common/Services/ChainRegistry/ChainRegistry.swift b/SoraPassport/Common/Services/ChainRegistry/ChainRegistry.swift
+index 131efeb924fd607c62aef9f7fcd88efc3f9968e0..ec749cdb6f88c681ce55137d2746c8329b0b9efe 100644
+--- a/SoraPassport/Common/Services/ChainRegistry/ChainRegistry.swift
++++ b/SoraPassport/Common/Services/ChainRegistry/ChainRegistry.swift
+@@ -80,6 +80,7 @@ final class ChainRegistry {
+     private let mutex = NSLock()
+ 
+     private let maxAttemptCount = 2
++    private var nodeFailover: [ChainModel.Id: NodeConnectionFailover] = [:]
+ 
+     init(
+         snapshotHotBootBuilder: SnapshotHotBootBuilderProtocol,
+@@ -313,7 +314,7 @@ extension ChainRegistry: ChainRegistryProtocol {
+ 
+         let chain = chains.first { $0.chainId == chainId }
+         let url = connectionPool.getConnection(for: chainId)?.url
+-        return chain?.nodes.first { $0.url == url } ?? chain?.customNodes?.first { $0.url == url }
++        return chain.flatMap { SoraNodeConnectionPolicy.candidates(for: $0).first { $0.url == url } }
+     }
+ 
+     func getAssetManager(for chainId: ChainModel.Id) -> AssetManagerProtocol {
+@@ -372,74 +373,58 @@ extension ChainRegistry: ChainRegistryProtocol {
+ extension ChainRegistry: ConnectionPoolDelegate {
+ 
+     func connectionNeedsReconnect(url: URL, attempt: Int) {
+-        guard let failedChain = chains.first(where: { chain in
+-            return chain.nodes.first { $0.url == url } != nil || chain.customNodes?.first { $0.url == url } != nil
+-        }) else {
+-            return
+-        }
+-        
+-        guard attempt > maxAttemptCount else {
+-            
+-            let defaultNodes = failedChain.nodes
+-            let customNodes = failedChain.customNodes ?? []
+-
+-            let sortedDefaultNodes = defaultNodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
+-            let sortedCustomNodes = customNodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
+-            
+-            let allNodes = sortedDefaultNodes + sortedCustomNodes
+-
+-            let currentNodeIndex = Int(allNodes.firstIndex(where: { $0.url == url } ) ?? 0)
+-            let nextNodeIndex = currentNodeIndex + 1 >= allNodes.count ? 0 : currentNodeIndex + 1
+-
+-            if currentNodeIndex + 1 >= allNodes.count {
+-                DispatchQueue.main.async {
+-                    self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
+-                }
++        guard attempt >= maxAttemptCount else { return }
++        // Delegate notifications are asynchronous. Ignore stale failures after
++        // another connection has already been selected or established.
++        processingQueue.async { [weak self] in
++            guard let self = self else { return }
++            self.mutex.lock()
++            guard let chain = self.chains.first(where: {
++                self.connectionPool.getConnection(for: $0.chainId)?.url == url
++            }), let connection = self.connectionPool.getConnection(for: chain.chainId) else {
++                self.mutex.unlock()
++                return
+             }
+-
+-            let currentNode = allNodes[currentNodeIndex]
+-            let nextNode = allNodes[nextNodeIndex]
+-            
+-            let event = FailedNodeConnectionEvent(node: currentNode)
+-            eventCenter.notify(with: event)
+-            changeSelectedNode(from: failedChain, to: nextNode)
+-            return
+-        }
+-
+-        guard failedChain.selectedNode == nil else { return }
+-
+-        let node = failedChain.selectedNode ?? failedChain.nodes.first(where: { $0.url != url })
+-
+-        if let newUrl = node?.url {
+-            if let connection = getConnection(for: failedChain.chainId) {
+-                connection.reconnect(url: newUrl)
+-
+-                let event = ChainsUpdatedEvent(updatedChains: [failedChain])
+-                eventCenter.notify(with: event)
++            if case .connected = connection.state {
++                self.mutex.unlock()
++                return
++            }
++            var failover = self.nodeFailover[chain.chainId] ?? NodeConnectionFailover()
++            let candidates = SoraNodeConnectionPolicy.candidates(for: chain)
++            let decision = failover.failed(url: url, candidates: candidates)
++            self.nodeFailover[chain.chainId] = failover
++            self.mutex.unlock()
++
++            if let failedNode = candidates.first(where: { $0.url == url }) {
++                self.eventCenter.notify(with: FailedNodeConnectionEvent(node: failedNode))
++            }
++            if let next = decision.nextNode {
++                connection.disconnectIfNeeded()
++                connection.reconnect(url: next.url)
++                connection.connectIfNeeded()
++                self.eventCenter.notify(with: ChainsUpdatedEvent(updatedChains: [chain]))
++            }
++            if decision.shouldPresentUnavailable {
++                DispatchQueue.main.async { [weak self] in
++                    self?.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
++                }
+             }
+         }
+     }
+ 
+     func connectionUpdated(url: URL) {
+-        SettingsManager.shared.lastSuccessfulUrl = url
+-    }
+-
+-    private func changeSelectedNode(from: ChainModel, to: ChainNodeModel) {
+-
+-        let updatedChain = from.replacingSelectedNode(to)
+-
+-        let saveOperation = chainRepository.saveOperation {
+-            return [updatedChain]
+-        } _: {
+-            []
++        processingQueue.async { [weak self] in
++            guard let self = self else { return }
++            self.mutex.lock()
++            defer { self.mutex.unlock() }
++            guard let chain = self.chains.first(where: {
++                self.connectionPool.getConnection(for: $0.chainId)?.url == url
++            }) else { return }
++            self.nodeFailover[chain.chainId]?.connected()
++            SettingsManager.shared.lastSuccessfulUrl = url
+         }
+-
+-        saveOperation.completionBlock = { [weak self] in
+-            let event = ChainsUpdatedEvent(updatedChains: [updatedChain])
+-            self?.eventCenter.notify(with: event)
+-        }
+-        operationManager.enqueue(operations: [saveOperation], in: .transient)
+     }
++
+ }
+ 
+ struct FailedNodeConnectionEvent: EventProtocol {
+diff --git a/SoraPassport/Common/Services/ChainRegistry/ChainSyncService.swift b/SoraPassport/Common/Services/ChainRegistry/ChainSyncService.swift
+index dc9a38a140d1b10867eeee98b2bd4a387b280e9b..1d1c61be1d60f2bd93378921ea00e00eb23adbfa 100644
+--- a/SoraPassport/Common/Services/ChainRegistry/ChainSyncService.swift
++++ b/SoraPassport/Common/Services/ChainRegistry/ChainSyncService.swift
+@@ -95,73 +95,30 @@ final class ChainSyncService {
+         executeSync()
+     }
+ 
+-    private func executeSync() {
+-        guard let typesUrl = typesUrl, let assetsUrl = assetsUrl else {
+-            assertionFailure()
+-            return
+-        }
+-
+-        let remoteFetchAssetsOperation = dataFetchFactory.fetchData(from: assetsUrl)
++    private func executeSync(whitelistData: Data? = nil, refreshWhitelist: Bool = true) {
+         let localFetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+         let processingOperation: BaseOperation<SyncChanges> = ClosureOperation {
+-            let assets = AssetManager.networkAssets
+-            let assetsRemoteData = try remoteFetchAssetsOperation.extractNoCancellableResultData()
+-            let whiteList: [Whitelist] = try JSONDecoder().decode([Whitelist].self, from: assetsRemoteData)
+-
+-            var filteredAssets: [AssetInfo] = []
+-
+-            for var asset in assets {
+-                if let listed = whiteList.first(where: { (list) -> Bool in
+-                    list.assetId == asset.assetId
+-                }) {
+-                    asset.icon = listed.icon
+-                    asset.name = listed.name
+-                    asset.symbol = listed.symbol
+-                    filteredAssets.append(asset)
+-                }
+-            }
+-            Logger.shared.info("HANDLE ASSETS \(assets.count), whitelist: \(whiteList.count), result: \(filteredAssets.count)")
+-
+-            let typesSettings  = ChainModel.TypesSettings(url: typesUrl, overridesCommon: true)
+-            let defaultChain = ChainModel(chainId: Chain.sora.genesisHash(),
+-                                          name: Chain.sora.rawValue,
+-                                          nodes: ConfigService.shared.config.defaultNodes,
+-                                          addressPrefix: ApplicationConfig.shared.addressType,
+-                                          types: typesSettings,
+-                                          icon: nil,
+-                                          selectedNode: nil,
+-                                          iosMinAppVersion: nil)
+-            let chainAssets = filteredAssets.map {
+-                ChainAssetModel(assetId: $0.assetId,
+-                                staking: nil,
+-                                purchaseProviders: nil,
+-                                type: .normal,
+-                                asset: $0,
+-                                chain: defaultChain) }
+-            defaultChain.assets = Set(chainAssets)
++            let localChains = try localFetchOperation.extractNoCancellableResultData()
++            let chainId = Chain.sora.genesisHash()
++            // A remote whitelist is optional metadata. Its outage must not
++            // prevent the local chain and its working nodes from being saved.
++            let defaultChain = Self.preparedChain(
++                chainId: chainId,
++                addressPrefix: ApplicationConfig.shared.addressType,
++                name: Chain.sora.rawValue,
++                nodes: ConfigService.shared.config.defaultNodes,
++                typesURL: self.typesUrl,
++                local: localChains.first { $0.chainId == chainId },
++                assets: AssetManager.networkAssets,
++                whitelistData: whitelistData
++            )
+ 
+             let remoteChains: [ChainModel] = [defaultChain]
+ 
+-            remoteChains.forEach { chain in
+-                chain.assets.forEach { chainAsset in
+-                    chainAsset.chain = chain
+-                    if let asset = filteredAssets.first(where: { asset in
+-                        chainAsset.assetId == asset.assetId
+-                    }) {
+-                        chainAsset.asset = asset
+-                    }
+-                }
+-            }
+-
+-            remoteChains.forEach {
+-                $0.assets = $0.assets.filter { $0.asset != nil && $0.chain != nil }
+-            }
+-
+             let remoteMapping = remoteChains.reduce(into: [ChainModel.Id: ChainModel]()) { mapping, item in
+                 mapping[item.chainId] = item
+             }
+ 
+-            let localChains = try localFetchOperation.extractNoCancellableResultData()
+             let localMapping = localChains.reduce(into: [ChainModel.Id: ChainModel]()) { mapping, item in
+                 mapping[item.chainId] = item
+             }
+@@ -181,7 +138,6 @@ final class ChainSyncService {
+             return SyncChanges(newOrUpdatedItems: newOrUpdated, removedItems: removed)
+         }
+ 
+-        processingOperation.addDependency(remoteFetchAssetsOperation)
+         processingOperation.addDependency(localFetchOperation)
+ 
+         let localSaveOperation = repository.saveOperation({
+@@ -204,15 +160,91 @@ final class ChainSyncService {
+ 
+         mapOperation.completionBlock = { [weak self] in
+             DispatchQueue.global(qos: .userInitiated).async {
+-                self?.complete(result: mapOperation.result)
++                guard let self = self else { return }
++                if refreshWhitelist, case let .success(changes) = mapOperation.result, let assetsURL = self.assetsUrl {
++                    // Publish usable bundled nodes before starting optional remote
++                    // metadata work. A stalled endpoint cannot delay cold boot.
++                    self.eventCenter.notify(with: ChainSyncDidComplete(
++                        newOrUpdatedChains: changes.newOrUpdatedItems,
++                        removedChains: changes.removedItems
++                    ))
++                    self.refreshWhitelist(from: assetsURL, bootstrapResult: mapOperation.result)
++                } else {
++                    self.complete(result: mapOperation.result)
++                }
+             }
+         }
+ 
+         operationQueue.addOperations([
+-            remoteFetchAssetsOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
++            localFetchOperation, processingOperation, localSaveOperation, mapOperation
+         ], waitUntilFinished: false)
+     }
+ 
++    private func refreshWhitelist(from url: URL, bootstrapResult: Result<SyncChanges, Error>?) {
++        let operation = dataFetchFactory.fetchData(from: url)
++        operation.completionBlock = { [weak self] in
++            guard let self = self else { return }
++            if let data = try? operation.extractNoCancellableResultData(),
++               (try? JSONDecoder().decode([Whitelist].self, from: data)) != nil {
++                // Fetch the current local chain again, preserving a node choice
++                // made while the optional HTTP request was in flight.
++                self.executeSync(whitelistData: data, refreshWhitelist: false)
++            } else {
++                self.complete(result: bootstrapResult)
++            }
++        }
++        operationQueue.addOperation(operation)
++    }
++
++    static func preparedChain(
++        chainId: String,
++        addressPrefix: UInt16,
++        name: String,
++        nodes: Set<ChainNodeModel>,
++        typesURL: URL?,
++        local: ChainModel?,
++        assets: [AssetInfo],
++        whitelistData: Data?
++    ) -> ChainModel {
++        let matchingLocal = local?.chainId == chainId && local?.addressPrefix == addressPrefix ? local : nil
++        var availableNodes = nodes
++        if SoraNodeConnectionPolicy.isMainnet(chainId: chainId, addressPrefix: addressPrefix) {
++            availableNodes.formUnion(SoraNodeConnectionPolicy.bundledMainnetNodes)
++        }
++        if availableNodes.isEmpty {
++            availableNodes = matchingLocal?.nodes ?? []
++        }
++        let chain = ChainModel(
++            chainId: chainId,
++            parentId: matchingLocal?.parentId,
++            name: name,
++            nodes: availableNodes,
++            addressPrefix: addressPrefix,
++            types: typesURL.map { ChainModel.TypesSettings(url: $0, overridesCommon: true) } ?? matchingLocal?.types,
++            icon: matchingLocal?.icon,
++            options: matchingLocal?.options,
++            externalApi: matchingLocal?.externalApi,
++            selectedNode: matchingLocal?.selectedNode,
++            customNodes: matchingLocal?.customNodes,
++            iosMinAppVersion: matchingLocal?.iosMinAppVersion
++        )
++        let whitelist = whitelistData.flatMap { try? JSONDecoder().decode([Whitelist].self, from: $0) }
++        let retainedAssets = assets.isEmpty ? (matchingLocal?.assets.compactMap { $0.asset } ?? []) : assets
++        let chainAssets = retainedAssets.compactMap { originalAsset -> ChainAssetModel? in
++            var asset = originalAsset
++            if let whitelist = whitelist {
++                guard let listed = whitelist.first(where: { $0.assetId == asset.assetId }) else { return nil }
++                asset.icon = listed.icon
++                asset.name = listed.name
++                asset.symbol = listed.symbol
++            }
++            return ChainAssetModel(assetId: asset.assetId, staking: nil, purchaseProviders: nil,
++                                   type: .normal, asset: asset, chain: chain)
++        }
++        chain.assets = Set(chainAssets)
++        return chain
++    }
++
+     private func complete(result: Result<SyncChanges, Error>?) {
+         mutex.lock()
+ 
+diff --git a/SoraPassport/Common/Services/ChainRegistry/ConnectionPool/ConnectionPool.swift b/SoraPassport/Common/Services/ChainRegistry/ConnectionPool/ConnectionPool.swift
+index 4c6a421af2d10a67798638c635aad06670596a8f..03df4b111a62e0a3442f87433947969dc9a6c689 100644
+--- a/SoraPassport/Common/Services/ChainRegistry/ConnectionPool/ConnectionPool.swift
++++ b/SoraPassport/Common/Services/ChainRegistry/ConnectionPool/ConnectionPool.swift
+@@ -48,6 +48,7 @@ class ConnectionPool {
+     weak var delegate: ConnectionPoolDelegate?
+ 
+     private var mutex = NSLock()
++    private var preferredURLs: [ChainModel.Id: URL] = [:]
+ 
+     private(set) var connectionsByChainIds: [ChainModel.Id: WeakWrapper] = [:]
+ 
+@@ -70,7 +71,7 @@ extension ConnectionPool: ConnectionPoolProtocol {
+     }
+ 
+     func setupConnection(for chain: ChainModel, ignoredUrl: URL?) throws -> ChainConnection {
+-        let node = chain.selectedNode ?? chain.nodes.first
++        let node = SoraNodeConnectionPolicy.candidates(for: chain).first { $0.url != ignoredUrl }
+ 
+         guard let url = node?.url else {
+             throw JSONRPCEngineError.unknownError
+@@ -85,13 +86,20 @@ extension ConnectionPool: ConnectionPoolProtocol {
+         clearUnusedConnections()
+ 
+         if let connection = connectionsByChainIds[chain.chainId]?.target as? ChainConnection {
+-            if connection.url == url {
++            if preferredURLs[chain.chainId] == url {
+                 return connection
+             } else {
+-                connectionsByChainIds[chain.chainId] = nil
++                // Runtime metadata and subscriptions retain this engine. A
++                // same-chain user choice must update every holder's URL too.
++                preferredURLs[chain.chainId] = url
++                connection.disconnectIfNeeded()
++                connection.reconnect(url: url)
++                connection.connectIfNeeded()
++                return connection
+             }
+         }
+ 
++        preferredURLs[chain.chainId] = url
+         let connection = connectionFactory.createConnection(for: url, delegate: self)
+         let wrapper = WeakWrapper(target: connection)
+         Logger.shared.info("Connected node: \(url)")
+@@ -119,8 +127,8 @@ extension ConnectionPool: WebSocketEngineDelegate {
+ 
+         switch newState {
+         case let .connecting(attempt):
++            guard case let .connecting(currentAttempt) = engine.state, currentAttempt == attempt else { return }
+             if attempt > 1 {
+-                // temporary disable autobalance , maybe this causing crashes
+                 delegate?.connectionNeedsReconnect(url: previousUrl, attempt: attempt)
+             }
+         case .connected:
+diff --git a/SoraPassport/Common/WalletContext/WalletContextFactory.swift b/SoraPassport/Common/WalletContext/WalletContextFactory.swift
+index d019d745261460e75fe32d9cfac92e9a5a219202..a989554ab10e1c582b3ef311a8519c0ac1357b0d 100644
+--- a/SoraPassport/Common/WalletContext/WalletContextFactory.swift
++++ b/SoraPassport/Common/WalletContext/WalletContextFactory.swift
+@@ -107,7 +107,9 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
+             substrateStorageFacade.createRepository()
+ 
+         let localStorageIdFactory = try ChainStorageIdFactory(chain: Chain.sora)
+-        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
++        guard let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
++            throw WalletContextFactoryError.missingConnection
++        }
+         let extrinsicService = ExtrinsicService(address: selectedAccount.address,
+                                                 cryptoType: selectedAccount.cryptoType,
+                                                 runtimeRegistry: runtime,
+diff --git a/SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift b/SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
+index 83e018a13a0e04140221a3a91fa16c5204675fcb..d3b89abaf4a1d2edaeca475d7d08b49dab0a656b 100644
+--- a/SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
++++ b/SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
+@@ -36,15 +36,32 @@ import SoraUIKit
+ import IrohaCrypto
+ import SSFUtils
+ 
++enum WalletOpeningError: String, Error {
++    case recoveryRequired = "recovery_required"
++    case servicesNotReady = "services_not_ready"
++    case connectionNotReady = "connection_not_ready"
++    case accountNotReady = "account_not_ready"
++    case assetsNotReady = "assets_not_ready"
++    case contextNotReady = "context_not_ready"
++    case screensNotReady = "screens_not_ready"
++}
++
+ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
+     static let walletIndex: Int = 0
+     
+     @MainActor
+     static func createView() -> MainTabBarViewProtocol? {
+-        
++        try? createViewOrThrow()
++    }
++
++    @MainActor
++    static func createViewOrThrow() throws -> MainTabBarViewProtocol {
++        guard !SettingsManager.shared.walletMigrationRecoveryRequired else {
++            throw WalletOpeningError.recoveryRequired
++        }
+         guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared.findService() else {
+             Logger.shared.error("Can't find required keystore import service")
+-            return nil
++            throw WalletOpeningError.servicesNotReady
+         }
+         
+         let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
+@@ -56,16 +73,24 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
+         
+         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+         
+-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+-            return nil
++        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
++              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil else {
++            throw WalletOpeningError.connectionNotReady
+         }
+         
+         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+         assetManager.setup(for: SelectedWalletSettings.shared)
+ 
+-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+-            return nil
++        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
++            throw WalletOpeningError.accountNotReady
++        }
++        let accountSettings: WalletAccountSettingsProtocol
++        do {
++            accountSettings = try primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
++        } catch WalletPrimitiveFactoryError.undefinedAssets {
++            throw WalletOpeningError.assetsNotReady
++        } catch {
++            throw WalletOpeningError.accountNotReady
+         }
+         
+         let farmingService = DemeterFarmingService(
+@@ -78,7 +103,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
+                                                                             assetManager: assetManager,
+                                                                             accountSettings: accountSettings, 
+                                                                             demeterFarmingService: farmingService) else {
+-            return nil
++            throw WalletOpeningError.contextNotReady
+         }
+         
+         let feeProvider = FeeProvider()
+@@ -89,7 +114,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
+                                                               accountSettings: accountSettings, 
+                                                               feeProvider: feeProvider,
+                                                               farmingService: farmingService) else {
+-            return nil
++            throw WalletOpeningError.screensNotReady
+         }
+         
+         view.viewControllers = viewControllers
+diff --git a/SoraPassport/ModulesRedesign/NetworkAvailabilityLayer/NetworkAvailabilityLayerPresenter.swift b/SoraPassport/ModulesRedesign/NetworkAvailabilityLayer/NetworkAvailabilityLayerPresenter.swift
+index a983e11a0734ca4e6cc9ebf67923979951bcd9a3..fe2b8f7eae42238aefb19bcd6e30f0e56dab8588 100644
+--- a/SoraPassport/ModulesRedesign/NetworkAvailabilityLayer/NetworkAvailabilityLayerPresenter.swift
++++ b/SoraPassport/ModulesRedesign/NetworkAvailabilityLayer/NetworkAvailabilityLayerPresenter.swift
+@@ -52,15 +52,11 @@ extension NetworkAvailabilityLayerPresenter: NetworkAvailabilityLayerInteractorO
+ 
+     func didDecideUnreachableNodesAllertPresentation() {
+ 
+-        let languages = localizationManager?.preferredLocalizations
+-        let alert = UIAlertController(
+-            title: R.string.localizable.nodeOffline(preferredLanguages: languages),
+-            message: R.string.localizable.nodeConnectionIssue(preferredLanguages: languages),
+-            preferredStyle: .alert
+-        )
+-        alert.addAction(.init(title: R.string.localizable.commonClose(preferredLanguages: languages), style: .cancel))
+-
+-        view.presentAlert(alert: alert, animated: true)
++        // A disconnected node does not mean an account was just created.
++        // Keep navigation and retry controls usable while failover continues.
++        view.presentStatus(title: WalletUX.text("Network unavailable. Retrying connection…"),
++                           style: unavailbleStyle,
++                           animated: true)
+     }
+ 
+     func didDecideUnreachableStatusPresentation() {
+diff --git a/SoraPassport/ModulesRedesign/Nodes/NodesViewFactory.swift b/SoraPassport/ModulesRedesign/Nodes/NodesViewFactory.swift
+index f05e31dea6d4fb3b6be4e856660d8db753c20808..3b9dfcb3c00a39e835b3a4a47cb13c234fcea396 100644
+--- a/SoraPassport/ModulesRedesign/Nodes/NodesViewFactory.swift
++++ b/SoraPassport/ModulesRedesign/Nodes/NodesViewFactory.swift
+@@ -43,7 +43,9 @@ final class NodesViewFactory: NodesViewFactoryProtocol {
+         let presenter = NodesPresenter()
+         presenter.localizationManager = LocalizationManager.shared
+ 
+-        let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash())!
++        guard let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash()) else {
++            return nil
++        }
+         let repository = ChainRepositoryFactory().createRepository()
+         let interactor = NodesInteractor(settings: SettingsManager.shared,
+                                          chain: chain,
+diff --git a/SoraPassport/ModulesRedesign/Pincode/PinSetup/PinSetupWireframe.swift b/SoraPassport/ModulesRedesign/Pincode/PinSetup/PinSetupWireframe.swift
+index 6c2f584e8d2a05a560660ef5fefac1b9b3337e0e..90f2b914868bd13745a8624c07d7eb07999673db 100644
+--- a/SoraPassport/ModulesRedesign/Pincode/PinSetup/PinSetupWireframe.swift
++++ b/SoraPassport/ModulesRedesign/Pincode/PinSetup/PinSetupWireframe.swift
+@@ -35,9 +35,15 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
+     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
+ 
+     let localizationManager: LocalizationManagerProtocol
++    private let mainViewFactory: @MainActor () throws -> UIViewController
++    private var isOpeningWallet = false
+ 
+-    init(localizationManager: LocalizationManagerProtocol) {
++    init(localizationManager: LocalizationManagerProtocol,
++         mainViewFactory: @escaping @MainActor () throws -> UIViewController = {
++             try MainTabBarViewFactory.createViewOrThrow().controller
++         }) {
+         self.localizationManager = localizationManager
++        self.mainViewFactory = mainViewFactory
+     }
+ 
+     func dismiss(from view: PinSetupViewProtocol?) {
+@@ -51,11 +57,28 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
+ 
+     @MainActor
+     func showMain(from view: PinSetupViewProtocol?) {
+-        guard let mainViewController = MainTabBarViewFactory.createView()?.controller else { return }
+-
+-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+-            self.rootAnimator.animateTransition(to: mainViewController)
++        guard !isOpeningWallet else { return }
++        isOpeningWallet = true
++        let window = view?.controller.view.window ?? (UIApplication.shared.delegate?.window ?? nil)
++        let animator = rootAnimator
++        let transition: (UIViewController) -> Void = { [weak window] controller in
++            if let window {
++                animator.animateTransition(to: controller, in: window)
++            } else {
++                animator.animateTransition(to: controller)
++            }
+         }
++        let opening = WalletOpeningViewController(
++            makeWallet: mainViewFactory,
++            refresh: { ChainRegistryFacade.sharedRegistry.syncUp() },
++            makeNodes: { NodesViewFactory.createView()?.controller },
++            recheckWallet: { [weak window] in
++                guard let window = window as? SoraWindow else { return }
++                SplashPresenterFactory.createSplashPresenter(with: window)
++            },
++            opened: transition
++        )
++        transition(UINavigationController(rootViewController: opening))
+     }
+ 
+     public func showSignup(from view: PinSetupViewProtocol?) {
+@@ -74,3 +97,158 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
+         })
+     }
+ }
++
++/// Authentication has succeeded, but local chain/asset subscriptions can still
++/// be starting. Retry their construction without asking for the PIN again or
++/// coupling the app's navigation to a successful remote request.
++@MainActor
++final class WalletOpeningViewController: UIViewController {
++    private let makeWallet: () throws -> UIViewController
++    private let refresh: () -> Void
++    private let makeNodes: () -> UIViewController?
++    private let recheckWallet: () -> Void
++    private let opened: (UIViewController) -> Void
++    private let retryInterval: TimeInterval
++    private let maximumAttempts: Int
++    private var retryTask: Task<Void, Never>?
++    private var attempts = 0
++    private var didOpen = false
++    private let status = UILabel()
++    private let progress = UIActivityIndicatorView(style: .large)
++    private let retryButton = UIButton(type: .system)
++    private let nodesButton = UIButton(type: .system)
++    private let recheckButton = UIButton(type: .system)
++
++    init(makeWallet: @escaping () throws -> UIViewController,
++         refresh: @escaping () -> Void,
++         makeNodes: @escaping () -> UIViewController?,
++         recheckWallet: @escaping () -> Void,
++         opened: @escaping (UIViewController) -> Void,
++         retryInterval: TimeInterval = 1,
++         maximumAttempts: Int = 10) {
++        self.makeWallet = makeWallet
++        self.refresh = refresh
++        self.makeNodes = makeNodes
++        self.recheckWallet = recheckWallet
++        self.opened = opened
++        self.retryInterval = retryInterval
++        self.maximumAttempts = maximumAttempts
++        super.init(nibName: nil, bundle: nil)
++    }
++
++    @available(*, unavailable)
++    required init?(coder: NSCoder) { nil }
++
++    deinit { retryTask?.cancel() }
++
++    override func viewDidLoad() {
++        super.viewDidLoad()
++        view.backgroundColor = WalletUX.page
++        title = WalletUX.text("Opening wallet")
++        status.font = .preferredFont(forTextStyle: .body)
++        status.textColor = WalletUX.foreground
++        status.numberOfLines = 0
++        status.textAlignment = .center
++        status.accessibilityIdentifier = "wallet-opening-status"
++        progress.hidesWhenStopped = true
++        for (button, title, identifier, action) in [
++            (retryButton, "Try again", "wallet-opening-retry", #selector(retry)),
++            (nodesButton, "Change node", "wallet-opening-nodes", #selector(selectNode)),
++            (recheckButton, "Check wallet again", "wallet-opening-recheck", #selector(recheck))
++        ] {
++            button.setTitle(WalletUX.text(title), for: .normal)
++            button.titleLabel?.font = .preferredFont(forTextStyle: .headline)
++            button.accessibilityIdentifier = identifier
++            button.addTarget(self, action: action, for: .touchUpInside)
++            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
++        }
++        let stack = UIStackView(arrangedSubviews: [progress, status, retryButton, nodesButton, recheckButton])
++        stack.axis = .vertical
++        stack.spacing = 16
++        stack.translatesAutoresizingMaskIntoConstraints = false
++        view.addSubview(stack)
++        NSLayoutConstraint.activate([
++            stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
++            stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24),
++            stack.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
++        ])
++    }
++
++    override func viewDidAppear(_ animated: Bool) {
++        super.viewDidAppear(animated)
++        retry()
++    }
++
++    override func viewWillDisappear(_ animated: Bool) {
++        super.viewWillDisappear(animated)
++        retryTask?.cancel()
++        retryTask = nil
++    }
++
++    @objc private func retry() {
++        guard !didOpen else { return }
++        retryTask?.cancel()
++        retryTask = nil
++        attempts = 0
++        refresh()
++        attemptOpen()
++    }
++
++    private func attemptOpen() {
++        guard !didOpen else { return }
++        attempts += 1
++        do {
++            let wallet = try makeWallet()
++            didOpen = true
++            retryTask?.cancel()
++            retryTask = nil
++            progress.stopAnimating()
++            opened(wallet)
++        } catch {
++            let reason = (error as? WalletOpeningError) ?? .contextNotReady
++            // Log only a fixed stage code, never account or remote error data.
++            Logger.shared.warning("Wallet opening deferred: \(reason.rawValue); attempt=\(attempts)")
++            let recoveryRequired = reason == .recoveryRequired || reason == .accountNotReady
++            recheckButton.isHidden = !recoveryRequired
++            nodesButton.isHidden = recoveryRequired
++            retryButton.isHidden = recoveryRequired
++            nodesButton.isEnabled = !recoveryRequired
++            let shouldRetry = !recoveryRequired && attempts < maximumAttempts
++            retryButton.isEnabled = !shouldRetry
++            if shouldRetry {
++                status.text = WalletUX.text("Preparing wallet services…")
++                progress.startAnimating()
++                retryTask = Task { [weak self, retryInterval] in
++                    do { try await Task.sleep(nanoseconds: UInt64(max(0, retryInterval) * 1_000_000_000)) }
++                    catch { return }
++                    guard !Task.isCancelled else { return }
++                    self?.attemptOpen()
++                }
++            } else {
++                progress.stopAnimating()
++                status.text = WalletUX.text(recoveryRequired
++                    ? "Wallet verification needs attention. Check your saved wallet again."
++                    : "Wallet services are not ready. Try again or choose another node.")
++            }
++        }
++    }
++
++    @objc private func selectNode() {
++        guard navigationController?.topViewController === self else { return }
++        retryTask?.cancel()
++        retryTask = nil
++        progress.stopAnimating()
++        retryButton.isEnabled = true
++        guard let nodes = makeNodes() else {
++            status.text = WalletUX.text("Node settings are still loading. Try again.")
++            return
++        }
++        navigationController?.pushViewController(nodes, animated: true)
++    }
++
++    @objc private func recheck() {
++        retryTask?.cancel()
++        retryTask = nil
++        recheckWallet()
++    }
++}
+diff --git a/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings b/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
+index a6d0c3743d34683bc2565abcb0919d3343ccf58e..79b7c6bbe10791eadd5cfadb79114405693bdac0 100644
+--- a/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
++++ b/SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
+@@ -1109,3 +1109,14 @@
+ "Sending is paused while pending transfers need checking. Review the activity below before starting another transfer." = "Sending is paused while pending transfers need checking. Review the activity below before starting another transfer.";
+ 
+ "Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh." = "Sending is unavailable until this network's balance and XOR asset can be verified. Pull down to refresh.";
++
++// Wallet opening and connection recovery
++"Opening wallet" = "Opening wallet";
++"Preparing wallet services…" = "Preparing wallet services…";
++"Try again" = "Try again";
++"Change node" = "Change node";
++"Check wallet again" = "Check wallet again";
++"Wallet verification needs attention. Check your saved wallet again." = "Wallet verification needs attention. Check your saved wallet again.";
++"Wallet services are not ready. Try again or choose another node." = "Wallet services are not ready. Try again or choose another node.";
++"Node settings are still loading. Try again." = "Node settings are still loading. Try again.";
++"Network unavailable. Retrying connection…" = "Network unavailable. Retrying connection…";
+diff --git a/SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings b/SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
+index 5a059b2d832c4004d960e2ea00fb4b8ebc4fde82..17ebcacc8de227777dbea501f94d9156901d4eae 100644
+--- a/SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
++++ b/SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
+@@ -952,3 +952,14 @@
+ "polkamarkt.ticket.slippage" = "Slippage";
+ "polkamarkt.ticket.takerFee" = "Taker fee";
+ "networkFeeText" = "Network fee";
++
++// Wallet opening and connection recovery
++"Opening wallet" = "ウォレットを開いています";
++"Preparing wallet services…" = "ウォレットを準備しています…";
++"Try again" = "再試行";
++"Change node" = "ノードを変更";
++"Check wallet again" = "ウォレットを再確認";
++"Wallet verification needs attention. Check your saved wallet again." = "保存されたウォレットを確認する必要があります。ウォレットを再確認してください。";
++"Wallet services are not ready. Try again or choose another node." = "ウォレットの準備が完了していません。再試行するか、別のノードを選択してください。";
++"Node settings are still loading. Try again." = "ノード設定を読み込んでいます。再試行してください。";
++"Network unavailable. Retrying connection…" = "ネットワークに接続できません。再接続しています…";
+diff --git a/SoraPassportTests/Common/Config/ApplicationConfigTests.swift b/SoraPassportTests/Common/Config/ApplicationConfigTests.swift
+index 5d4a9060d3c81a605cff2a0ce346838408d58a23..51e44f914cb0548be6ca07610199934a189b44eb 100644
+--- a/SoraPassportTests/Common/Config/ApplicationConfigTests.swift
++++ b/SoraPassportTests/Common/Config/ApplicationConfigTests.swift
+@@ -1,5 +1,7 @@
+ import XCTest
+ import Foundation
++import SSFUtils
++import RobinHood
+ @testable import SoraPassport
+ 
+ class ApplicationConfigTests: XCTestCase {
+@@ -28,10 +30,9 @@ class ApplicationConfigTests: XCTestCase {
+         XCTAssertEqual(ApplicationConfig.shared.subqueryUrl, ApplicationConfig.shared.polkaswapIndexerURL)
+ 
+         let nodes = ApplicationConfig.shared.defaultChainNodes
+-        XCTAssertEqual(nodes.count, 1)
+-        XCTAssertEqual(nodes.first?.url.absoluteString, "wss://mof2.sora.org")
+-        XCTAssertEqual(nodes.first?.name, "Sora")
+-        XCTAssertNil(nodes.first?.apikey)
++        XCTAssertEqual(Set(nodes.map { $0.url.absoluteString }),
++                       ["wss://ws.mof.sora.org", "wss://mof2.sora.org"])
++        XCTAssertTrue(nodes.allSatisfy { $0.apikey == nil && $0.url.scheme == "wss" })
+     }
+ 
+     func testRemoteConfigFallsBackFromInvalidURLs() {
+@@ -79,6 +80,129 @@ class ApplicationConfigTests: XCTestCase {
+         XCTAssertFalse(project.contains("pod install"))
+     }
+ 
++    func testNodeFailoverTriesEveryCandidateBeforeOneOutageAlert() throws {
++        let mainnet = configuredChain()
++        let nodes = SoraNodeConnectionPolicy.candidates(for: mainnet)
++        XCTAssertEqual(nodes.map { $0.url.absoluteString }, ["wss://ws.mof.sora.org", "wss://mof2.sora.org"])
++        var failover = NodeConnectionFailover()
++        let first = failover.failed(url: nodes[0].url, candidates: nodes)
++        XCTAssertEqual(first.nextNode, nodes[1])
++        XCTAssertFalse(first.shouldPresentUnavailable)
++        let exhausted = failover.failed(url: nodes[1].url, candidates: nodes)
++        XCTAssertEqual(exhausted.nextNode, nodes[0])
++        XCTAssertTrue(exhausted.shouldPresentUnavailable)
++        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
++        XCTAssertFalse(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
++        failover.connected()
++        XCTAssertFalse(failover.failed(url: nodes[0].url, candidates: nodes).shouldPresentUnavailable)
++        XCTAssertTrue(failover.failed(url: nodes[1].url, candidates: nodes).shouldPresentUnavailable)
++
++        var singleton = NodeConnectionFailover()
++        XCTAssertTrue(singleton.failed(url: nodes[0].url, candidates: [nodes[0]]).shouldPresentUnavailable)
++        XCTAssertNil(singleton.failed(url: nodes[0].url, candidates: [nodes[0]]).nextNode)
++        XCTAssertFalse(singleton.failed(url: nodes[0].url, candidates: []).shouldPresentUnavailable)
++        XCTAssertNil(mainnet.selectedNode)
++        let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
++        let selected = configuredChain(selected: custom, custom: [custom])
++        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: selected).first, custom)
++        let otherChain = configuredChain(chainId: "other-genesis", selected: custom, custom: [custom])
++        XCTAssertEqual(SoraNodeConnectionPolicy.candidates(for: otherChain), [custom])
++        XCTAssertTrue(SoraNodeConnectionPolicy.candidates(for: configuredChain(chainId: "other-genesis")).isEmpty)
++        XCTAssertTrue(SoraNodeConnectionPolicy.candidates(for: configuredChain(prefix: 42)).isEmpty)
++    }
++
++    func testConnectionPoolPreservesActiveFallbackUntilUserChangesPreference() throws {
++        let factory = NodeTestConnectionFactory()
++        let pool = ConnectionPool(connectionFactory: factory)
++        let chain = configuredChain()
++        let first = try pool.setupConnection(for: chain)
++        XCTAssertEqual(first.url, SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
++        // The same subscribed engine has moved temporarily to its fallback.
++        first.reconnect(url: SoraNodeConnectionPolicy.bundledMainnetNodes[1].url)
++        XCTAssertTrue(first === (try pool.setupConnection(for: chain)))
++        XCTAssertEqual(factory.createdURLs.count, 1)
++        XCTAssertNil(chain.selectedNode)
++
++        let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
++        let explicitlyChanged = configuredChain(selected: custom, custom: [custom])
++        let second = try pool.setupConnection(for: explicitlyChanged)
++        XCTAssertTrue(first === second)
++        XCTAssertEqual(second.url, custom.url)
++        let recording = try XCTUnwrap(second as? NodeTestConnection)
++        XCTAssertEqual(Array(recording.operations.suffix(3)), ["disconnect", "reconnect", "connect"])
++        XCTAssertEqual(factory.createdURLs.count, 1)
++        XCTAssertEqual(explicitlyChanged.selectedNode, custom)
++        let ignored = try pool.setupConnection(for: chain, ignoredUrl: SoraNodeConnectionPolicy.bundledMainnetNodes[0].url)
++        XCTAssertEqual(ignored.url, SoraNodeConnectionPolicy.bundledMainnetNodes[1].url)
++        XCTAssertThrowsError(try pool.setupConnection(for: configuredChain(chainId: "other-genesis")))
++    }
++
++    func testChainSyncKeepsNodesAndSavedChoiceWithoutRemoteWhitelist() throws {
++        let repository = NodeTestRepository()
++        let requestedWhitelist = expectation(description: "Optional whitelist starts after local chain is saved")
++        let releaseWhitelist = DispatchSemaphore(value: 0)
++        let fetchFactory = NodeTestDataFactory {
++            XCTAssertEqual(repository.snapshot.count, 1)
++            XCTAssertGreaterThanOrEqual(repository.snapshot.first?.nodes.count ?? 0, 2)
++            requestedWhitelist.fulfill()
++            return ClosureOperation {
++                _ = releaseWhitelist.wait(timeout: .now() + 5)
++                throw NSError(domain: "SyntheticOfflineWhitelist", code: 1)
++            }
++        }
++        let queue = OperationQueue()
++        let service = ChainSyncService(
++            typesUrl: nil, assetsUrl: URL(string: "https://metadata.invalid/whitelist"),
++            dataFetchFactory: fetchFactory, repository: AnyDataProviderRepository(repository),
++            eventCenter: EventCenter(), operationQueue: queue
++        )
++        service.syncUp()
++        wait(for: [requestedWhitelist], timeout: 3)
++        releaseWhitelist.signal()
++        queue.waitUntilAllOperationsAreFinished()
++        XCTAssertEqual(repository.snapshot.count, 1)
++
++        let custom = ChainNodeModel(url: URL(string: "wss://custom.example")!, name: "User node", apikey: nil)
++        let local = configuredChain(selected: custom, custom: [custom])
++        local.assets = [ChainAssetModel(assetId: AssetInfo.xor.assetId, type: .normal, asset: .xor, chain: local)]
++        for unavailableWhitelist in [nil, Data("invalid metadata".utf8)] as [Data?] {
++            let synced = ChainSyncService.preparedChain(
++                chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
++                typesURL: nil, local: local, assets: [], whitelistData: unavailableWhitelist
++            )
++            XCTAssertEqual(synced.selectedNode, custom)
++            XCTAssertEqual(synced.customNodes, [custom])
++            XCTAssertEqual(Set(synced.nodes.map { $0.url }), Set(SoraNodeConnectionPolicy.bundledMainnetNodes.map { $0.url }))
++            XCTAssertEqual(synced.assets.map { $0.assetId }, [AssetInfo.xor.assetId])
++            XCTAssertTrue(synced.assets.allSatisfy { $0.chain === synced })
++            XCTAssertEqual(local.selectedNode, custom)
++            XCTAssertEqual(local.customNodes, [custom])
++        }
++        let cold = ChainSyncService.preparedChain(
++            chainId: local.chainId, addressPrefix: 69, name: "SORA", nodes: [],
++            typesURL: nil, local: nil, assets: [.xor], whitelistData: nil
++        )
++        XCTAssertEqual(cold.nodes.count, 2)
++        XCTAssertEqual(cold.assets.count, 1)
++        let different = ChainSyncService.preparedChain(
++            chainId: "other-genesis", addressPrefix: 42, name: "Other", nodes: [],
++            typesURL: nil, local: local, assets: [], whitelistData: nil
++        )
++        XCTAssertTrue(different.nodes.isEmpty)
++        XCTAssertNil(different.selectedNode)
++        XCTAssertNil(different.customNodes)
++    }
++
++    private func configuredChain(
++        chainId: String = SoraNodeConnectionPolicy.mainnetGenesis,
++        prefix: UInt16 = 69,
++        selected: ChainNodeModel? = nil,
++        custom: Set<ChainNodeModel>? = nil
++    ) -> ChainModel {
++        ChainModel(chainId: chainId, name: "SORA", nodes: [], addressPrefix: prefix,
++                   icon: nil, selectedNode: selected, customNodes: custom, iosMinAppVersion: nil)
++    }
++
+     private func repositoryRoot() throws -> URL {
+         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+         let fileManager = FileManager.default
+@@ -112,3 +236,85 @@ class ApplicationConfigTests: XCTestCase {
+         return []
+     }
+ }
++
++private final class NodeTestConnectionFactory: ConnectionFactoryProtocol {
++    var createdURLs: [URL] = []
++    func createConnection(for url: URL, delegate: WebSocketEngineDelegate) -> ChainConnection {
++        createdURLs.append(url)
++        return NodeTestConnection(url: url)
++    }
++}
++
++private final class NodeTestConnection: ChainConnection {
++    var url: URL?
++    var state: WebSocketEngine.State = .notConnected
++    var ranking: [ConnectionRank] = []
++    var pendingEngineRequests: [JSONRPCRequest] = []
++    var operations: [String] = []
++    init(url: URL) { self.url = url }
++    func set(ranking: [ConnectionRank]) { self.ranking = ranking }
++    func disconnectIfNeeded() { operations.append("disconnect"); state = .notConnected }
++    func reconnect(url: URL) { operations.append("reconnect"); self.url = url }
++    func connectIfNeeded() { operations.append("connect"); state = .connecting(attempt: 0) }
++    func callMethod<P: Codable, T: Decodable>(
++        _ method: String, params: P?, options: JSONRPCOptions,
++        completion closure: ((Result<T, Error>) -> Void)?
++    ) throws -> UInt16 { 0 }
++    func subscribe<P: Codable, T: Decodable>(
++        _ method: String, params: P?, updateClosure: @escaping (T) -> Void,
++        failureClosure: @escaping (Error, Bool) -> Void
++    ) throws -> UInt16 { 0 }
++    func cancelForIdentifier(_ identifier: UInt16) {}
++    func generateRequestId() -> UInt16 { 0 }
++    func addSubscription(_ subscription: JSONRPCSubscribing) {}
++    func unsubsribe(_ identifier: UInt16) throws {}
++}
++
++private final class NodeTestDataFactory: DataOperationFactoryProtocol {
++    let makeOperation: () -> BaseOperation<Data>
++    init(_ makeOperation: @escaping () -> BaseOperation<Data>) { self.makeOperation = makeOperation }
++    func fetchData(from url: URL) -> BaseOperation<Data> { makeOperation() }
++}
++
++private final class NodeTestRepository: DataProviderRepositoryProtocol {
++    typealias Model = ChainModel
++    private let lock = NSLock()
++    private var stored: [ChainModel] = []
++    var snapshot: [ChainModel] {
++        lock.lock()
++        defer { lock.unlock() }
++        return stored
++    }
++    func fetchAllOperation(with options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
++        ClosureOperation { self.snapshot }
++    }
++    func saveOperation(_ updates: @escaping () throws -> [ChainModel],
++                       _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
++        ClosureOperation {
++            let changed = try updates()
++            let removed = try deletions()
++            self.lock.lock()
++            defer { self.lock.unlock() }
++            self.stored.removeAll { old in removed.contains(old.chainId) || changed.contains(where: { $0.chainId == old.chainId }) }
++            self.stored.append(contentsOf: changed)
++        }
++    }
++    func saveBatchOperation(_ updates: @escaping () throws -> [ChainModel],
++                            _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> {
++        saveOperation(updates, deletions)
++    }
++    func fetchOperation(by ids: @escaping () throws -> [String], options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
++        ClosureOperation { let selected = try ids(); return self.snapshot.filter { selected.contains($0.chainId) } }
++    }
++    func fetchOperation(by id: @escaping () throws -> String, options: RepositoryFetchOptions) -> BaseOperation<ChainModel?> {
++        ClosureOperation { let selected = try id(); return self.snapshot.first { $0.chainId == selected } }
++    }
++    func fetchOperation(by request: RepositorySliceRequest, options: RepositoryFetchOptions) -> BaseOperation<[ChainModel]> {
++        fetchAllOperation(with: options)
++    }
++    func replaceOperation(_ models: @escaping () throws -> [ChainModel]) -> BaseOperation<Void> {
++        saveOperation(models, { self.snapshot.map { $0.chainId } })
++    }
++    func deleteAllOperation() -> BaseOperation<Void> { replaceOperation { [] } }
++    func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { self.snapshot.count } }
++}
+diff --git a/SoraPassportTests/Common/Modernization/WalletUXTests.swift b/SoraPassportTests/Common/Modernization/WalletUXTests.swift
+index 3d6d8f8d37c040d788c8015e5c12772c8e020b70..49cbb36aff18b073d8aeded5b4161a904f8f86ae 100644
+--- a/SoraPassportTests/Common/Modernization/WalletUXTests.swift
++++ b/SoraPassportTests/Common/Modernization/WalletUXTests.swift
+@@ -11,6 +11,136 @@ import Darwin
+ @testable import SoraPassport
+ 
+ final class WalletUXTests: XCTestCase {
++
++    @MainActor
++    func testAuthenticatedWalletOpeningRetriesLateServicesAndLeavesPIN() async throws {
++        let previousWindow = UIApplication.shared.keyWindow
++        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
++        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
++        let wallet = UIViewController()
++        var attempts = 0
++        var refreshes = 0
++        var opened = 0
++        let opening = WalletOpeningViewController(makeWallet: {
++            attempts += 1
++            if attempts < 3 { throw WalletOpeningError.assetsNotReady }
++            return wallet
++        }, refresh: { refreshes += 1 }, makeNodes: { nil }, recheckWallet: { XCTFail("No storage recovery required") }, opened: {
++            opened += 1
++            window.rootViewController = $0
++        }, retryInterval: 0.01, maximumAttempts: 5)
++        window.rootViewController = UINavigationController(rootViewController: opening)
++        window.makeKeyAndVisible()
++        try await waitForWalletOpening { window.rootViewController === wallet }
++        XCTAssertTrue(window.rootViewController === wallet)
++        XCTAssertEqual(attempts, 3)
++        XCTAssertEqual(refreshes, 1)
++        XCTAssertEqual(opened, 1)
++        try await Task.sleep(nanoseconds: 50_000_000)
++        XCTAssertEqual(opened, 1, "Successful opening cancels pending retries")
++    }
++
++    @MainActor
++    func testWalletOpeningStopsWaitingAndOffersRetryAndNodes() async throws {
++        let previousWindow = UIApplication.shared.keyWindow
++        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
++        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKeyAndVisible() }
++        var attempts = 0
++        var ready = false
++        var nodeRequests = 0
++        let wallet = UIViewController()
++        let nodes = UIViewController()
++        let opening = WalletOpeningViewController(makeWallet: {
++            attempts += 1
++            if !ready { throw WalletOpeningError.connectionNotReady }
++            return wallet
++        }, refresh: {}, makeNodes: {
++            nodeRequests += 1
++            return nodeRequests == 1 ? nil : nodes
++        }, recheckWallet: { XCTFail("A node failure is not a storage failure") }, opened: {
++            window.rootViewController = $0
++        }, retryInterval: 0.01, maximumAttempts: 2)
++        let navigation = UINavigationController(rootViewController: opening)
++        window.rootViewController = navigation
++        window.makeKeyAndVisible()
++        try await waitForWalletOpening { attempts == 2 }
++        XCTAssertEqual(attempts, 2)
++        let buttons = descendants(opening.view).compactMap { $0 as? UIButton }
++        let retry = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" })
++        let changeNode = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" })
++        let status = try XCTUnwrap(descendants(opening.view).compactMap { $0 as? UILabel }
++            .first { $0.accessibilityIdentifier == "wallet-opening-status" })
++        XCTAssertTrue(retry.isEnabled && !retry.isHidden)
++        XCTAssertTrue(changeNode.isEnabled && !changeNode.isHidden)
++        XCTAssertTrue(descendants(opening.view).compactMap { $0 as? UIActivityIndicatorView }.allSatisfy { !$0.isAnimating })
++        XCTAssertEqual(status.text, WalletUX.text("Wallet services are not ready. Try again or choose another node."))
++        retry.sendActions(for: .touchUpInside)
++        try await waitForWalletOpening { attempts == 4 }
++        XCTAssertEqual(attempts, 4)
++        changeNode.sendActions(for: .touchUpInside)
++        XCTAssertEqual(status.text, WalletUX.text("Node settings are still loading. Try again."))
++        XCTAssertTrue(retry.isEnabled)
++        changeNode.sendActions(for: .touchUpInside)
++        XCTAssertTrue(navigation.topViewController === nodes)
++        try await Task.sleep(nanoseconds: 400_000_000)
++        XCTAssertEqual(attempts, 4, "Do not replace a node picker with a background retry")
++        ready = true
++        navigation.popViewController(animated: false)
++        try await waitForWalletOpening { window.rootViewController === wallet }
++        XCTAssertTrue(window.rootViewController === wallet)
++        XCTAssertEqual(attempts, 5)
++    }
++
++    @MainActor
++    func testWalletOpeningNeverBypassesRetainedRecoveryForANodeError() async throws {
++        let settings = InMemorySettingsManager()
++        settings.setWalletMigrationRecovery(reason: "Retained fixture")
++        let marker = WalletMigrationRecoveryMarker.capture(settings)
++        let keys = InMemoryKeychain()
++        try keys.addKey(Data([1, 2, 3]), with: "retained-fixture-key")
++        let identifiers = try keys.allKeyIdentifiers()
++        var attempts = 0
++        var rechecks = 0
++        let controller = WalletOpeningViewController(makeWallet: {
++            attempts += 1
++            throw WalletOpeningError.recoveryRequired
++        }, refresh: {}, makeNodes: { XCTFail("Recovery cannot expose node settings"); return nil },
++           recheckWallet: { rechecks += 1 }, opened: { _ in XCTFail("Recovery cannot open the wallet") },
++           retryInterval: 0.01, maximumAttempts: 2)
++        controller.loadViewIfNeeded()
++        controller.viewDidAppear(false)
++        try await Task.sleep(nanoseconds: 80_000_000)
++        XCTAssertEqual(attempts, 1)
++        let buttons = descendants(controller.view).compactMap { $0 as? UIButton }
++        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-nodes" }).isHidden)
++        XCTAssertTrue(try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-retry" }).isHidden)
++        let recheck = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "wallet-opening-recheck" })
++        XCTAssertFalse(recheck.isHidden)
++        recheck.sendActions(for: .touchUpInside)
++        XCTAssertEqual(rechecks, 1)
++        XCTAssertEqual(WalletMigrationRecoveryMarker.capture(settings), marker)
++        XCTAssertEqual(try keys.allKeyIdentifiers(), identifiers)
++        XCTAssertEqual(try keys.fetchKey(for: "retained-fixture-key"), Data([1, 2, 3]))
++    }
++
++    @MainActor
++    func testNodeFailureUsesStatusWithoutBlockingPINOrClaimingAccountCreation() {
++        let view = WalletUXNetworkStatusSpy()
++        let presenter = NetworkAvailabilityLayerPresenter()
++        presenter.view = view
++        presenter.didDecideUnreachableNodesAllertPresentation()
++        XCTAssertEqual(view.alerts, 0)
++        XCTAssertEqual(view.statuses, [WalletUX.text("Network unavailable. Retrying connection…")])
++    }
++
++    @MainActor
++    private func waitForWalletOpening(_ condition: () -> Bool) async throws {
++        let deadline = Date().addingTimeInterval(3)
++        while !condition(), Date() < deadline {
++            try await Task.sleep(nanoseconds: 10_000_000)
++        }
++    }
++
+     @MainActor
+     func testResumeAuthorizationPreservesRecoveryAndGoogleCompletionAfterTimeout() async throws {
+         let previousKeyWindow = UIApplication.shared.keyWindow
+@@ -904,3 +1034,11 @@ private final class WalletUXAuthorizationSpy: ScreenAuthorizationWireframeProtoc
+     var results: [Bool] = []
+     func showAuthorizationCompletion(with result: Bool) { results.append(result) }
+ }
++
++private final class WalletUXNetworkStatusSpy: ApplicationStatusPresentable {
++    var alerts = 0
++    var statuses: [String] = []
++    func presentAlert(alert: UIAlertController, animated: Bool) { alerts += 1 }
++    func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) { statuses.append(title) }
++    func dismissStatus(title: String?, style: ApplicationStatusStyle?, animated: Bool) {}
++}

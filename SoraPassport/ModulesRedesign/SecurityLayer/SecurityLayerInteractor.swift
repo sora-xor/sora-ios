@@ -42,9 +42,21 @@ final class SecurityLayerInteractor {
     private var backgroundEnterDate: Date?
 
     let pincodeDelay: TimeInterval
+    private let currentDate: () -> Date
 
     private var canEnterPincode: Bool {
+        // While this install's PIN is not set yet (onboarding that started
+        // from Welcome back), `pincode` is an earlier install's PIN: asking
+        // for it on return from the background could stop a user who does
+        // not remember it, with no way on.
         do {
+            if let account = settings.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) {
+                guard try !WalletOwnerPIN(keystore: keystore, settings: settings)
+                    .requiresInitialSetup(accounts: [account]) else { return false }
+            } else if WalletPendingPinSetup.isPending(settings) {
+                // Only an onboarding presentation hint when no wallet row is selected.
+                return false
+            }
             let hasPincode = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
             return hasPincode
         } catch {
@@ -55,11 +67,13 @@ final class SecurityLayerInteractor {
     init(applicationHandler: ApplicationHandlerProtocol,
          settings: SettingsManagerProtocol,
          keystore: KeystoreProtocol,
-         pincodeDelay: TimeInterval) {
+         pincodeDelay: TimeInterval,
+         currentDate: @escaping () -> Date = Date.init) {
         self.applicationHandler = applicationHandler
         self.settings = settings
         self.keystore = keystore
         self.pincodeDelay = pincodeDelay
+        self.currentDate = currentDate
     }
 
     private func checkAuthorizationRequirement() {
@@ -70,7 +84,7 @@ final class SecurityLayerInteractor {
         self.backgroundEnterDate = nil
 
         if canEnterPincode {
-            let pincodeDelayReached = Date().timeIntervalSince(backgroundEnterDate) >= pincodeDelay
+            let pincodeDelayReached = currentDate().timeIntervalSince(backgroundEnterDate) >= pincodeDelay
 
             if pincodeDelayReached {
                 presenter.didDecideRequestAuthorization()
@@ -98,6 +112,6 @@ extension SecurityLayerInteractor: ApplicationHandlerDelegate {
     func didReceiveWillResignActive(notification: Notification) {
         presenter.didDecideSecurePresentation()
 
-        backgroundEnterDate = Date()
+        backgroundEnterDate = currentDate()
     }
 }

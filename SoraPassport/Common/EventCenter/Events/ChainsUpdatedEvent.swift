@@ -37,3 +37,12 @@ struct ChainsUpdatedEvent: EventProtocol {
         visitor.processChainsUpdated(event: self)
     }
 }
+
+/// The wallet's screens were built while there was no asset list at all (a
+/// first launch on which no node answered yet), and the list has now arrived.
+/// The screens are built from the list, so they have to be built again.
+struct WalletAssetListArrived: EventProtocol {
+    func accept(visitor: EventVisitorProtocol) {
+        visitor.processWalletAssetListArrived(event: self)
+    }
+}

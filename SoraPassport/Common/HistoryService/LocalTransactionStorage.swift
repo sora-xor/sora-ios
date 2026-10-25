@@ -34,33 +34,54 @@ protocol LocalTransactionStorageProtocol {
     var transactions: [String: [Transaction]] { get set }
 }
 
+/// The transactions sent in this run of the app, by account, until the
+/// indexer lists them. Events arrive on the event center's queue and the
+/// history is read on others, so every access goes through one lock.
 final class LocalTransactionStorage: LocalTransactionStorageProtocol {
     
     static let shared = LocalTransactionStorage()
-    var transactions: [String: [Transaction]] = [:]
+    private let lock = NSLock()
+    private var stored: [String: [Transaction]] = [:]
+    var transactions: [String: [Transaction]] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return stored
+        }
+        set {
+            lock.lock()
+            stored = newValue
+            lock.unlock()
+        }
+    }
     var currentAccount = SelectedWalletSettings.shared
     
     init() {
         EventCenter.shared.add(observer: self)
+    }
+
+    private func update(_ address: String, _ change: (inout [Transaction]) -> Void) {
+        lock.lock()
+        var list = stored[address] ?? []
+        change(&list)
+        stored[address] = list
+        lock.unlock()
     }
 }
 
 extension LocalTransactionStorage: EventVisitorProtocol {
     func processNewTransactionCreated(event: NewTransactionCreatedEvent) {
         guard let address = currentAccount.currentAccount?.address else { return }
-        var transactions = transactions[address] ?? []
-        transactions.append(event.item)
-        self.transactions[address] = transactions
+        update(address) { $0.append(event.item) }
     }
     
     func processNewTransaction(event: WalletNewTransactionInserted) {
-        if let transaction = event.items.first,
-           let address = currentAccount.currentAccount?.address,
-           var transactions = transactions[address],
-           var foundedTransactionIndex = transactions.firstIndex(where: { $0.base.txHash == transaction.extrinsicHash.toHex(includePrefix: true) }) {
-            
-            transactions[foundedTransactionIndex].base.status = transaction.processingResult.isSuccess ? .success : .failed
-            self.transactions[address] = transactions
+        guard let transaction = event.items.first,
+              let address = currentAccount.currentAccount?.address else { return }
+        let hash = transaction.extrinsicHash.toHex(includePrefix: true)
+        update(address) { list in
+            guard let index = list.firstIndex(where: { $0.base.txHash == hash }) else { return }
+            list[index].base.status = transaction.processingResult.isSuccess ? .success : .failed
         }
     }
 }

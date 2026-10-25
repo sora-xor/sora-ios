@@ -32,8 +32,93 @@ import Foundation
 import SoraUIKit
 import UIKit
 
+/// Exact slippage used by every legacy Polkaswap quote and signed limit.
+///
+/// A percent is stored as basis points so values never pass through Float/Double.
+/// Context parsing intentionally accepts legacy canonical decimal forms such as
+/// `0.50` and `1.0`, while all new writes use `contextValue`.
+struct PolkaswapSlippage: Equatable, Sendable {
+    static let defaultValue = PolkaswapSlippage(uncheckedBasisPoints: 50)
+    static let maximumBasisPoints: UInt16 = 1_000
+
+    let basisPoints: UInt16
+
+    init?(basisPoints: UInt16) {
+        guard (1...Self.maximumBasisPoints).contains(basisPoints) else {
+            return nil
+        }
+        self.basisPoints = basisPoints
+    }
+
+    init?(percent: Decimal) {
+        guard percent > 0, percent <= 10 else {
+            return nil
+        }
+
+        var scaled = percent * 100
+        var integral = Decimal()
+        NSDecimalRound(&integral, &scaled, 0, .plain)
+        guard integral == scaled else {
+            return nil
+        }
+
+        let rawValue = NSDecimalNumber(decimal: integral).uint64Value
+        guard rawValue <= UInt64(Self.maximumBasisPoints) else {
+            return nil
+        }
+        self.init(basisPoints: UInt16(rawValue))
+    }
+
+    init?(contextValue: String) {
+        guard contextValue.range(
+            of: #"^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$"#,
+            options: .regularExpression
+        ) != nil,
+        let percent = Decimal(string: contextValue, locale: Locale(identifier: "en_US_POSIX")) else {
+            return nil
+        }
+        self.init(percent: percent)
+    }
+
+    var percent: Decimal {
+        Decimal(Int(basisPoints)) / 100
+    }
+
+    var fraction: Decimal {
+        Decimal(Int(basisPoints)) / 10_000
+    }
+
+    var contextValue: String {
+        let whole = Int(basisPoints) / 100
+        let remainder = Int(basisPoints) % 100
+        if remainder == 0 {
+            return "\(whole)"
+        }
+        if remainder.isMultiple(of: 10) {
+            return "\(whole).\(remainder / 10)"
+        }
+        return "\(whole).\(remainder < 10 ? "0" : "")\(remainder)"
+    }
+
+    var displayValue: String {
+        "\(contextValue)%"
+    }
+
+    func minimumAmount(for amount: Decimal) -> Decimal {
+        amount * Decimal(10_000 - Int(basisPoints)) / 10_000
+    }
+
+    func maximumAmount(for amount: Decimal) -> Decimal {
+        amount * Decimal(10_000 + Int(basisPoints)) / 10_000
+    }
+
+    private init(uncheckedBasisPoints: UInt16) {
+        basisPoints = uncheckedBasisPoints
+    }
+}
+
 protocol SlippageToleranceViewDelegate: AnyObject {
-    func slippageToleranceChanged(_ to: Float)
+    func slippageToleranceChanged(_ to: PolkaswapSlippage?)
 }
 
 final class SlippageToleranceView: SoramitsuView {
@@ -66,26 +151,28 @@ final class SlippageToleranceView: SoramitsuView {
         field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             guard let self = self else { return }
             
-            var currentValue = Float(self.field.textField.text?
+            let rawValue = self.field.textField.text?
                 .replacingOccurrences(of: "%", with: "", options: .literal, range: nil)
-                .replacingOccurrences(of: ",", with: ".", options: .literal, range: nil) ?? "")
+                .replacingOccurrences(of: ",", with: ".", options: .literal, range: nil) ?? ""
+            var currentValue = PolkaswapSlippage(contextValue: rawValue)
             
             if (self.field.textField.text?.contains("%") ?? false) {
                 self.field.textField.sora.text?.removeLast()
             }
 
-            if let value = currentValue, value > 10 {
+            if let decimalValue = Decimal(
+                string: rawValue,
+                locale: Locale(identifier: "en_US_POSIX")
+            ), decimalValue > 10 {
                 self.field.textField.sora.text = "10"
-                currentValue = 10
+                currentValue = PolkaswapSlippage(contextValue: "10")
             }
             
             if let text = self.field.textField.text {
                 self.field.sora.text = "\(text)%"
             }
             
-            if let value = currentValue {
-                self.delegate?.slippageToleranceChanged(value)
-            }
+            self.delegate?.slippageToleranceChanged(currentValue)
         }
         field.textField.autocorrectionType = .no
         return field

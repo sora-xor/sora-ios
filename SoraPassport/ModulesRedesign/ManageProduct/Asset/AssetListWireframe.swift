@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
+
 import SoraFoundation
 
 protocol AssetListWireframeProtocol {
@@ -56,7 +56,13 @@ protocol AssetListWireframeProtocol {
 }
 
 final class AssetListWireframe: AssetListWireframeProtocol {
-    func showAssetDetails(on viewController: UIViewController?,
+    let feeProvider: FeeProviderProtocol
+    
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
+    }
+    
+    @MainActor func showAssetDetails(on viewController: UIViewController?,
                           assetInfo: AssetInfo,
                           assetManager: AssetManagerProtocol,
                           fiatService: FiatServiceProtocol,
@@ -90,7 +96,8 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
                                                                               marketCapService: marketCapService, 
-                                                                              farmingService: farmingService) else {
+                                                                              farmingService: farmingService, 
+                                                                              feeProvider: feeProvider) else {
             return
         }
         

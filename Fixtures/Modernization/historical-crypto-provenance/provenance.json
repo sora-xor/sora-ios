@@ -1,0 +1,204 @@
+{
+  "generatedUTC": "2026-10-12",
+  "syntheticOnly": true,
+  "appHistoricalSources": [
+    {
+      "commit": "08d9c82e404919ec8b2b9833a39401a4b35163b6",
+      "ref": "1.5.1"
+    },
+    {
+      "commit": "354f176c38fed32e27a52b9024746bde7f889e71",
+      "ref": "354f176c"
+    }
+  ],
+  "families": [
+    {
+      "id": "IrohaCrypto-0.2.6",
+      "appTags": [
+        "1.3.3",
+        "1.4.6",
+        "1.5.1"
+      ],
+      "sourceURL": "https://github.com/ERussel/IrohaCrypto/tree/20010a2ad73471216927ec5d3341c2cdcb446c8c",
+      "commit": "20010a2ad73471216927ec5d3341c2cdcb446c8c",
+      "podspecSHA1": "4eb85b5edbf7667b5ffcef1b5104357f18ca8e81",
+      "vectorFile": "ios-1x-vectors.json",
+      "vectorCount": 2,
+      "coverage": "legacy mnemonic/scrypt/identity/signature/phrase round trip",
+      "runtime": "Unmodified historical Objective-C. Original native ed25519 object sections unchanged. Original sodium LLVM bitcode compiled by host clang; module triple overridden to arm64 macOS."
+    },
+    {
+      "id": "shared-features-spm-ada44b24",
+      "appTags": "3.8.5 through 3.8.9 and App Store reference 354f176c",
+      "sourceURL": "https://github.com/soramitsu/shared-features-spm/tree/ada44b24433a44a68c65fafc6414575454db3786",
+      "commit": "ada44b24433a44a68c65fafc6414575454db3786",
+      "vectorFile": "ios-386-vectors.json",
+      "vectorCount": 20,
+      "verifiedFiles": 321,
+      "coverage": "Mnemonic parsing, historical Swift junction/seed/key factories, native direct signing/verification, encrypted JSON export/import/sign round trips",
+      "runtime": "Native retained arm64 simulator object section bytes unchanged; only existing Mach-O platform/version load-command metadata retargeted. Original Objective-C/Swift/C sources compiled for host."
+    },
+    {
+      "id": "IrohaCrypto-0.9.0-FearlessUtils-c1d17ccfbd8217612fdb56e588b1dec9cbe23bf5",
+      "appTags": [
+        "3.0.1"
+      ],
+      "sourceURL": "https://github.com/soramitsu/fearless-utils-iOS/tree/c1d17ccfbd8217612fdb56e588b1dec9cbe23bf5",
+      "commit": "c1d17ccfbd8217612fdb56e588b1dec9cbe23bf5",
+      "podspecVersion": "0.14.0",
+      "vectorFile": "ios-fearless-c1d17ccf-vectors.json",
+      "vectorCount": 20,
+      "coverage": "Original mnemonic parser, junctions, seeds, all three key factories, direct signing, encrypted export/decryption and re-signing",
+      "runtime": "Original Swift/Objective-C/C sources and exact IrohaCrypto 0.9.0 native libraries, using documented host metadata adaptation"
+    },
+    {
+      "id": "IrohaCrypto-0.9.0-FearlessUtils-e6aaeb177713793c18902d45e4e8264b8734665b",
+      "appTags": [
+        "3.1.0",
+        "3.2.0"
+      ],
+      "sourceURL": "https://github.com/soramitsu/fearless-utils-iOS/tree/e6aaeb177713793c18902d45e4e8264b8734665b",
+      "commit": "e6aaeb177713793c18902d45e4e8264b8734665b",
+      "podspecVersion": "0.14.0",
+      "vectorFile": "ios-fearless-e6aaeb17-vectors.json",
+      "vectorCount": 20,
+      "coverage": "Original mnemonic parser, junctions, seeds, all three key factories, direct signing, encrypted export/decryption and re-signing",
+      "runtime": "Original Swift/Objective-C/C sources and exact IrohaCrypto 0.9.0 native libraries, using documented host metadata adaptation"
+    },
+    {
+      "id": "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "appTags": [
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+        "3.6.0",
+        "3.6.1",
+        "3.7.0",
+        "3.7.1"
+      ],
+      "sourceURL": "https://github.com/soramitsu/fearless-utils-iOS/tree/26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "commit": "26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "podspecVersion": "0.14.0",
+      "vectorFile": "ios-fearless-26dfc128-vectors.json",
+      "vectorCount": 20,
+      "coverage": "Original mnemonic parser, junctions, seeds, all three key factories, direct signing, encrypted export/decryption and re-signing",
+      "runtime": "Original Swift/Objective-C/C sources and exact IrohaCrypto 0.9.0 native libraries, using documented host metadata adaptation"
+    },
+    {
+      "id": "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.31",
+      "appTags": [
+        "3.8.0",
+        "3.8.1",
+        "3.8.2",
+        "3.8.3"
+      ],
+      "sourceURL": "https://github.com/soramitsu/shared-features-ios/tree/2b1d7ca85acfdf48e2d1c69f9e9e473f137868eb",
+      "commit": "2b1d7ca85acfdf48e2d1c69f9e9e473f137868eb",
+      "SSFModelsCommit": "2b1d7ca85acfdf48e2d1c69f9e9e473f137868eb",
+      "SSFUtilsPodspecSHA1": "1b0bbf20c0d3577bd17f56e4f8d7107925f49c76",
+      "SSFModelsPodspecSHA1": "d85433036fd8a3bc88f93d570649f242d948f063",
+      "vectorFile": "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+      "vectorCount": 20,
+      "coverage": "Original mnemonic parser, junctions, seeds, all three key factories, direct signing, encrypted export/decryption and re-signing",
+      "runtime": "Original Swift/Objective-C/C and exact IrohaCrypto 0.9.0 libraries; minimal SSFModels module compiles original Data+Hex, with import-only glue"
+    },
+    {
+      "id": "IrohaCrypto-0.9.0-SSFUtils-0.1.31-SSFModels-0.1.32",
+      "appTags": [
+        "3.8.4"
+      ],
+      "sourceURL": "https://github.com/soramitsu/shared-features-ios/tree/2b1d7ca85acfdf48e2d1c69f9e9e473f137868eb",
+      "commit": "2b1d7ca85acfdf48e2d1c69f9e9e473f137868eb",
+      "SSFModelsCommit": "e266039f6c5640ba3140472b0c983d88ffd2f6d6",
+      "SSFUtilsPodspecSHA1": "1b0bbf20c0d3577bd17f56e4f8d7107925f49c76",
+      "SSFModelsPodspecSHA1": "8d6d7daa95b5491a43483c99dae953011bb65b2e",
+      "vectorFile": "ios-ssfutils-0.1.31-models-0.1.32-vectors.json",
+      "vectorCount": 20,
+      "coverage": "Original mnemonic parser, junctions, seeds, all three key factories, direct signing, encrypted export/decryption and re-signing",
+      "runtime": "Original Swift/Objective-C/C and exact IrohaCrypto 0.9.0 libraries; minimal SSFModels module compiles original Data+Hex, with import-only glue"
+    }
+  ],
+  "dependencies386": [
+    {
+      "name": "BigInt",
+      "version": "5.4.1",
+      "commit": "793a7fac0bfc318e85994bf6900652e827aef33e"
+    },
+    {
+      "name": "secp256k1.swift",
+      "version": "0.1.7",
+      "commit": "cd187c632fb812fd93711a9f7e644adb7e5f97f0",
+      "submoduleCommit": "d5407179912e8c1f825a212a474aaa86b10f1352"
+    },
+    {
+      "name": "tweetnacl-swiftwrap",
+      "version": "1.1.0",
+      "commit": "f8fd111642bf2336b11ef9ea828510693106e954"
+    }
+  ],
+  "toolchain": {
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "host": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434"
+  },
+  "limitations": [
+    "Not an IPA, simulator or physical-device execution proof; no production storage or UI executed.",
+    "Signatures (sr25519), derived nonce material and encrypted JSON salt/nonce may vary across generation. Compare identities/scalars and verify signatures, rather than requiring byte-identical randomized values.",
+    "The old SECSigner context-lifetime bug is deliberately unpatched in this historical harness; recorded calls returned verified signatures, but this does not prove its memory safety.",
+    "The old scrypt C stray printf is deliberately unpatched; only public synthetic inputs enter this isolated process, and stdout is discarded when creating fixtures.",
+    "No current/audited crypto implementation was used to calculate historical expected values.",
+    "Coverage is the obtainable dependency families found in inspected local release tags; no 2.x tag was present in that inventory. This does not establish a full historical release inventory.",
+    "Extrinsic framing differs between FearlessUtils pins e6aaeb17 and 26dfc128; this host harness covers identity/signature/export algorithms, not full extrinsic building or network submission.",
+    "The 0.9 Iroha legacy subsystem is not invoked by the Substrate signing fixtures. Original 1.x Iroha key creation is covered independently using 0.2.6."
+  ],
+  "fixtureSHA256": {
+    "ios-1x-vectors.json": "1c02a251e8ef00077a319b5e784ff4083b283251f058c2f48059c65cfdcd0f2f",
+    "ios-386-vectors.json": "a456bcda30342a5c278c55125cd7ab69f427a0f198f49688dfe27927f0477de5",
+    "ios-fearless-26dfc128-vectors.json": "5df412915b359147e0d5fa46d48db9664506fd4e2655bd90bc330a6666857a86",
+    "ios-fearless-c1d17ccf-vectors.json": "358d97e5e4e9ea311e7c8d932475bc02fd0674c6f64477681cd7ce208e546c76",
+    "ios-fearless-e6aaeb17-vectors.json": "5925facb816f89a24fe4e50f32b1f77ee798ead695262de8cc6cee41f252bd80",
+    "ios-ssfutils-0.1.31-models-0.1.31-vectors.json": "538d24ce53eddf015898ee7047688cc0bcdd862402ea81f238130d367a371bfe",
+    "ios-ssfutils-0.1.31-models-0.1.32-vectors.json": "4edca9dd0953048bb56e4035e45cf6f526bbe543863a396fe6bc55d1b39c9ade"
+  },
+  "dependenciesPreSPM": [
+    {
+      "name": "IrohaCrypto",
+      "version": "0.9.0",
+      "commit": "4033eb8d3f2e126bb7503757a4c0e701c121a8bb",
+      "podspecSHA1": "6be75a4268cd1f5cec4231c6d3f95cb03f723fd3"
+    },
+    {
+      "name": "secp256k1.c",
+      "version": "0.1.2",
+      "commit": "9b7e183c6515f69c1d0238573af6a93bd32fcb18",
+      "podspecSHA1": "db47b726585d80f027423682eb369729e61b3b20"
+    },
+    {
+      "name": "scrypt.c",
+      "version": "0.1.1",
+      "commit": "0a1ac944808cd667a0c2e2457a4729dcdd447085",
+      "podspecSHA1": "b42ae06183251329d2b2c620c226fb541a4a3592"
+    },
+    {
+      "name": "BigInt",
+      "version": "5.2.0",
+      "commit": "e1f28276687d7661cbb2754771bd9fc281784e32",
+      "podspecSHA1": "f668a80089607f521586bbe29513d708491ef2f7"
+    },
+    {
+      "name": "TweetNacl",
+      "version": "1.0.2",
+      "commit": "d1552db4d907f2c5cb3d1bf1336496b2e16c8ecf",
+      "podspecSHA1": "3abf4d1d2082b0114e7a67410e300892448951e6"
+    }
+  ],
+  "preSPMSourceVerification": {
+    "file": "pre-spm-source-verification.json",
+    "verifiedExportedFiles": 2529,
+    "nativeSectionProofs": [
+      "provenance/iroha-0.9-sr25519-section-verification.json",
+      "provenance/iroha-0.9-ed25519-section-verification.json",
+      "provenance/iroha-0.9-blake2-section-verification.json"
+    ]
+  }
+}

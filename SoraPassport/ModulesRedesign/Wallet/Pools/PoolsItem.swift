@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import sorawallet
 
@@ -45,7 +45,7 @@ final class PoolsItem: NSObject {
     var title: String
     var isExpand: Bool
     var isHidden: Bool
-    let service: PoolsItemService
+    weak var service: PoolsItemService?
     
     var updateHandler: (() -> Void)?
     var expandButtonHandler: (() -> Void)?

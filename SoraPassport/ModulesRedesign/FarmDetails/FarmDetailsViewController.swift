@@ -46,7 +46,6 @@ final class FarmDetailsViewController: SoramitsuViewController {
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
         tableView.register(FarmDetailsCell.self, forCellReuseIdentifier: "FarmDetailsCell")
         tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SoramitsuSpaceCell")
-        tableView.register(SupplyPoolCell.self, forCellReuseIdentifier: "SupplyPoolCell")
         tableView.sora.cancelsTouchesOnDragging = true
         return tableView
     }()
@@ -70,10 +69,6 @@ final class FarmDetailsViewController: SoramitsuViewController {
             case .space(let item):
                 let cell: SoramitsuCell<SoramitsuTableViewSpaceView>? = tableView.dequeueReusableCell(withIdentifier: "SoramitsuSpaceCell",
                                                                                                       for: indexPath) as? SoramitsuCell<SoramitsuTableViewSpaceView>
-                cell?.set(item: item, context: nil)
-                return cell ?? UITableViewCell()
-            case .liquidity(let item):
-                let cell: SupplyPoolCell? = tableView.dequeueReusableCell(withIdentifier: "SupplyPoolCell", for: indexPath) as? SupplyPoolCell
                 cell?.set(item: item, context: nil)
                 return cell ?? UITableViewCell()
             }

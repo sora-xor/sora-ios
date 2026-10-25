@@ -32,7 +32,8 @@ import Foundation
 import UIKit
 import SoraKeystore
 import RobinHood
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 final class ChangeAccountPresenter {
     weak var view: ChangeAccountViewProtocol?
@@ -45,6 +46,8 @@ final class ChangeAccountPresenter {
     private var mode: ChangeAccountViewController.Mode = .view
     private var accounts: [AccountItem] = []
     private var accountViewModels: [AccountMenuItem] = []
+    private var capabilityGeneration = UUID()
+    private var isSwitchingAccount = false
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let operationManager: OperationManagerProtocol
     private let iconGenerator = PolkadotIconGenerator()
@@ -83,15 +86,26 @@ final class ChangeAccountPresenter {
         let address = settingsManager.currentAccount?.address ?? ""
 
         accountViewModels = makeModels(from: accounts, selectedAccountAddress: address)
+        let generation = UUID()
+        capabilityGeneration = generation
+        accountViewModels.forEach { $0.capabilityBadge = WalletAccountCapability.State.checking.badge }
         
         view?.update(with: accountViewModels)
+        for (index, account) in accounts.enumerated() {
+            WalletAccountCapability.probe(account: account) { [weak self] state in
+                guard let self, self.capabilityGeneration == generation,
+                      self.accountViewModels.indices.contains(index) else { return }
+                self.accountViewModels[index].capabilityBadge = state.badge
+                self.view?.update(with: self.accountViewModels)
+            }
+        }
     }
     
     private func makeModels(from accounts: [AccountItem], selectedAccountAddress: String) -> [AccountMenuItem] {
         return accounts.enumerated().map { [weak self] (index, account) -> AccountMenuItem in
             
             let icon = try? iconGenerator.generateFromAddress(account.address)
-                .imageWithFillColor(.white,
+                .imageWithFillColor(UIColor.white,
                                     size: CGSize(width: 40.0, height: 40.0),
                                     contentScale: UIScreen.main.scale)
             
@@ -110,6 +124,7 @@ final class ChangeAccountPresenter {
 extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
 
     func onAction() {
+        guard !isSwitchingAccount else { return }
         switch mode {
         case .view:
             addOrCreateAccount()
@@ -118,13 +133,14 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         }
     }
     func set(mode: ChangeAccountViewController.Mode) {
+        guard !isSwitchingAccount else { return }
         self.mode = mode
 
         switch mode {
         case .view:
             getAccounts()
         case .edit:
-            for currentIndex in 0...accountViewModels.count - 1 {
+            for currentIndex in accountViewModels.indices {
                 accountViewModels[currentIndex].isSelected = false
             }
             _ = accountViewModels.map { $0.isMultiselectionMode = true }
@@ -137,23 +153,61 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
     }
     
     func selectItem(at index: Int) {
+        guard !isSwitchingAccount, accounts.indices.contains(index),
+              accountViewModels.indices.contains(index) else { return }
 
         switch mode {
         case .view:
-            guard settingsManager.currentAccount != accounts[index] else {
+            guard settingsManager.currentAccount?.address != accounts[index].address else {
                 return
             }
 
-            for currentIndex in 0...accountViewModels.count - 1 {
+            isSwitchingAccount = true
+            view?.setSwitchingAccount(true)
+            for currentIndex in accountViewModels.indices {
                 accountViewModels[currentIndex].isSelected = currentIndex == index
             }
             view?.update(with: accountViewModels)
 
             let accountItem = accounts[index]
-
-            settingsManager.save(value: accountItem)
-            eventCenter.notify(with: SelectedAccountChanged())
-            view?.controller.dismiss(animated: true)
+            let selectionEventCenter = eventCenter
+            settingsManager.performSave(
+                value: accountItem
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        // Keep the account picker over the old controller
+                        // graph until MainTabBar has consumed the durable
+                        // selection and atomically rebound every account-
+                        // scoped provider/context (or installed recovery).
+                        selectionEventCenter.notify(
+                            with: SelectedAccountChanged(),
+                            completionOnMain: { [weak self] in
+                                guard let self else { return }
+                                self.view?.controller.dismiss(animated: true) { [weak self] in
+                                    self?.isSwitchingAccount = false
+                                    self?.view?.setSwitchingAccount(false)
+                                }
+                            }
+                        )
+                    case .failure:
+                        // The lifecycle coordinator and network-model
+                        // migration failed closed. Restore the durable
+                        // selection instead of leaving the optimistic
+                        // checkmark visible.
+                        guard let self else { return }
+                        self.isSwitchingAccount = false
+                        self.view?.setSwitchingAccount(false)
+                        self.accountViewModels = self.makeModels(
+                            from: self.accounts,
+                            selectedAccountAddress: self.settingsManager.currentAccount?.address ?? ""
+                        )
+                        self.view?.update(with: self.accountViewModels)
+                        self.view?.showAccountSwitchError()
+                    }
+                }
+            }
 
         case .edit:
             guard accountViewModels.indices.contains(index) else { return }
@@ -163,6 +217,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
     }
 
     func editItem(at index: Int) {
+        guard !isSwitchingAccount, accounts.indices.contains(index) else { return }
         guard let view = view?.controller else {
             return
         }
@@ -189,13 +244,71 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
     }
 
     private func addOrCreateAccount() {
-        guard let view = view?.controller else {
+        guard let controller = view?.controller else {
             return
         }
+        let existing = Set(accounts.map(\.address))
+        // Wallets an earlier install left in the Keychain stay restorable
+        // after setup with that install's PIN (see `WalletRetainedPinGate`).
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let retained = WalletRecoveryStateProbe.retainedWalletsAfterSetup(
+                keystore: Keychain(), existingAddresses: existing)
+            DispatchQueue.main.async {
+                guard let self, !self.isSwitchingAccount else { return }
+                guard !retained.isEmpty else {
+                    self.showAddAccountStart(from: controller)
+                    return
+                }
+                let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+                sheet.addAction(UIAlertAction(title: WalletUX.text("Restore wallets found on this iPhone"),
+                                              style: .default) { [weak self] _ in
+                    self?.restoreRetainedWallets(from: controller)
+                })
+                sheet.addAction(UIAlertAction(title: WalletUX.text("Create or import an account"),
+                                              style: .default) { [weak self] _ in
+                    self?.showAddAccountStart(from: controller)
+                })
+                sheet.addAction(UIAlertAction(title: WalletUX.text("Cancel"), style: .cancel))
+                if let popover = sheet.popoverPresentationController {
+                    popover.sourceView = controller.view
+                    popover.sourceRect = CGRect(x: controller.view.bounds.midX, y: controller.view.bounds.maxY,
+                                                width: 0, height: 0)
+                }
+                controller.present(sheet, animated: true)
+            }
+        }
+    }
 
-        wireframe?.showStart(from: view) { [weak self] in
+    private func showAddAccountStart(from controller: UIViewController) {
+        wireframe?.showStart(from: controller) { [weak self] in
             self?.getAccounts()
             self?.serviceCoordinator.checkMigration()
+        }
+    }
+
+    private func restoreRetainedWallets(from controller: UIViewController) {
+        let eventCenter = self.eventCenter
+        WalletRetainedWalletRestoreFlow.run(on: controller, scope: .afterSetup, setBusy: { busy in
+            controller.view.isUserInteractionEnabled = !busy
+        }) { [weak self] outcome in
+            switch outcome {
+            case let .restored(count, failed):
+                let finish = { [weak self] in
+                    eventCenter.notify(with: SelectedAccountChanged())
+                    self?.getAccounts()
+                }
+                if failed == 0 {
+                    finish()
+                } else {
+                    controller.present(WalletRetainedWalletRestoreFlow.partialAlert(
+                        restored: count, failed: failed, onOK: finish), animated: true)
+                }
+            case let .setupRequired(_, message), let .nothingRestored(message):
+                let alert = UIAlertController(title: WalletUX.text("Wallet restore"), message: message,
+                                              preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default))
+                controller.present(alert, animated: true)
+            }
         }
     }
     

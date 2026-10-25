@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SSFModels
 
 struct RuntimeCommonTypesSyncCompleted: EventProtocol {
     let fileHash: String

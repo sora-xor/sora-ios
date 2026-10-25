@@ -60,8 +60,6 @@ final class ExploreFarmCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExploreFarmViewModel) {
-        farmView.serialNumber.sora.text = viewModel.serialNumber
-        
         if let baseAssetIcon = viewModel.baseAssetIcon {
             farmView.firstCurrencyImageView.sora.picture = .logo(image: baseAssetIcon)
             farmView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
@@ -101,6 +99,7 @@ extension ExploreFarmCell: CellProtocol {
             return
         }
         
+        farmView.serialNumber.sora.text = item.serialNumber
         updateContent(with: item.farmViewModel)
     }
 }

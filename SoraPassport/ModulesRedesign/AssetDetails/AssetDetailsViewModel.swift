@@ -29,9 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
-import SCard
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import sorawallet
 
@@ -59,6 +58,14 @@ final class AssetDetailsViewModel {
     private let priceInfoService: PriceInfoServiceProtocol
     private let itemsFactory: AssetDetailsItemFactory
     private var task: Task<Void, Swift.Error>?
+    private var activityItem: SoramitsuTableViewItemProtocol?
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
 
     init(
         wireframe: AssetDetailsWireframeProtocol,
@@ -74,13 +81,20 @@ final class AssetDetailsViewModel {
         self.itemsFactory = itemsFactory
     }
     
-    func createItems(with data: AssetDetailsData) {
+    /// - Parameter pricesLoaded: The price read has finished. Before that
+    ///   the screen is drawn from balances alone and the price is left
+    ///   blank; after it, an asset without a price reads "Price
+    ///   unavailable". An unknown price is never shown as "$0".
+    func createItems(with data: AssetDetailsData, pricesLoaded: Bool = true) {
         var items: [SoramitsuTableViewItemProtocol] = []
         
         let priceInfo = data.priceInfo
-        let usdPrice = priceInfo.fiatData.first(where: { $0.id == assetInfo.assetId })?.priceUsd?.decimalValue ?? Decimal(0)
+        let usdPrice = priceInfo.fiatData.first(where: { $0.id == assetInfo.assetId })?.priceUsd?.decimalValue
         
-        let priceItem = itemsFactory.createPriceItem(with: assetInfo, usdPrice: usdPrice, priceInfo: priceInfo)
+        let priceItem = itemsFactory.createPriceItem(with: assetInfo,
+                                                     usdPrice: usdPrice,
+                                                     priceInfo: priceInfo,
+                                                     pricesLoaded: pricesLoaded)
         items.append(priceItem)
         items.append(SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)))
         
@@ -98,9 +112,12 @@ final class AssetDetailsViewModel {
             items.append(poolsItem)
         }
         
-        let activityItem = itemsFactory.createRecentActivity(with: assetInfo.assetId) { [weak self] item in
+        // Built once: the screen is drawn again when prices arrive, and
+        // that must not read the activity a second time.
+        let activityItem = self.activityItem ?? itemsFactory.createRecentActivity(with: assetInfo.assetId) { [weak self] item in
             self?.reloadItems?([ item ])
         }
+        self.activityItem = activityItem
         items.append(activityItem)
 
         let assetIdItem = AssetIdItem(assetId: assetInfo.assetId, tapHandler: self.showAppEvent)
@@ -113,9 +130,32 @@ final class AssetDetailsViewModel {
 
 extension AssetDetailsViewModel: AssetDetailsViewModelProtocol {
     func viewDidLoad() {
+        // Balance, Send, Receive and Swap do not depend on PI: show them
+        // at once and fill the prices in when they arrive.
+        createItems(
+            with: AssetDetailsData(
+                priceInfo: PriceInfo(fiatData: [], marketCapInfo: []),
+                referralBalance: nil
+            ),
+            pricesLoaded: false
+        )
+        loadPrices()
+        if pricesObserver == nil {
+            // Prices were refreshed, or became available: ask again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadPrices()
+            }
+        }
+    }
+
+    private func loadPrices() {
         task?.cancel()
         task = Task { [weak self] in
-            guard let data = await self?.fetchData() else { return }
+            guard let data = await self?.fetchData(), !Task.isCancelled else { return }
             self?.createItems(with: data)
         }
     }
@@ -131,17 +171,21 @@ private extension AssetDetailsViewModel {
     
     func getReferralBalance() async -> Decimal? {
         return await withCheckedContinuation { continuation in
-            guard let operation = referralFactory.createReferrerBalancesOperation() else { return }
+            guard let operation = referralFactory.createReferrerBalancesOperation() else {
+                continuation.resume(returning: nil)
+                return
+            }
             operation.completionBlock = {
                 do {
                     guard let data = try operation.extractResultData()?.underlyingValue else {
-                        continuation.resume(with: .success(nil))
+                        continuation.resume(returning: nil)
                         return
                     }
                     let referralBalance = Decimal.fromSubstrateAmount(data.value, precision: 18) ?? Decimal(0)
-                    continuation.resume(with: .success(referralBalance))
+                    continuation.resume(returning: referralBalance)
                 } catch {
                     Logger.shared.error("Request unsuccessful")
+                    continuation.resume(returning: nil)
                 }
             }
             OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
@@ -167,14 +211,14 @@ private extension AssetDetailsViewModel {
                                                  textColor: .fgPrimary,
                                                  alignment: .right)
         
-        let frozenFiatText = SoramitsuTextItem(text: "$" + fiatAmount,
+        let frozenFiatText = SoramitsuTextItem(text: fiatAmount,
                                                fontData: type.fiatAmountFont,
                                                textColor: .fgSecondary,
                                                alignment: .right)
         return BalanceDetailViewModel(title: frozenTitleText, amount: frozenAmountText, fiatAmount: frozenFiatText)
     }
     
-    func showFrozenDetails(with usdPrice: Decimal, balanceContext: BalanceContext?, referralBalance: Decimal?) {
+    func showFrozenDetails(with usdPrice: Decimal?, balanceContext: BalanceContext?, referralBalance: Decimal?) {
         let decimalsDetails: [Decimal] = [
             (balanceContext?.frozen ?? Decimal(0)) + (referralBalance ?? Decimal(0)),
             balanceContext?.locked ?? Decimal(0),
@@ -185,7 +229,7 @@ private extension AssetDetailsViewModel {
         ]
         
         let amountDetails = decimalsDetails.compactMap { Amount(value: $0) }
-        let fiatDetails = amountDetails.compactMap { NumberFormatter.fiat.stringFromDecimal($0.decimalValue * usdPrice) }
+        let fiatDetails = amountDetails.map { WalletUX.fiatText(amount: $0.decimalValue, price: usdPrice) }
         
         let models = FrozenDetailType.allCases.map { type in
             balanceDetailViewModel(title: type.title,

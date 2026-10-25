@@ -99,7 +99,7 @@ extension NetworkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractor
 
             try reachabilityManager.add(listener: self)
         } catch {
-            logger?.error("Can't add reachability listener due to error \(error)")
+            logger?.error("Reachability listener setup failed")
         }
     }
 }

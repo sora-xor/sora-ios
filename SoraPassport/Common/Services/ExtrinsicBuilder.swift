@@ -119,6 +119,9 @@ public final class ExtrinsicBuilder {
                 try encoder.append(encodable: specVersion)
             case .txVersion:
                 try encoder.append(encodable: transactionVersion)
+            case .metadataHash:
+                // Disabled mode signs "no metadata hash": `Option::None`.
+                try encoder.append(encodable: UInt8(0))
             default:
                 continue
             }
@@ -250,9 +253,7 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
     
     public func buildExtrinsic(metadata: RuntimeMetadata) throws -> Extrinsic {
         let call = try prepareExtrinsicCall(for: metadata)
-        
-        Log.enable(kind: "DynamicScale")
-        return Extrinsic(call: call, signature: signature)
+        return Extrinsic(signature: signature, call: call)
     }
 
     public func build(
@@ -261,16 +262,12 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
     ) throws -> Data {
         let call = try prepareExtrinsicCall(for: metadata)
         
-        Log.enable(kind: "DynamicScale")
-        let extrinsic = Extrinsic(call: call, signature: signature)
+        let extrinsic = Extrinsic(signature: signature, call: call)
 
         try encoder.append(extrinsic, ofType: GenericType.extrinsic.name)
-        
-        let encoded = try encoder.encode()
-        Log.write("DynamicScale", message: "Extrinsic encoded: \(encoded.toHex(includePrefix: true))")
-        Log.disable(kind: "DynamicScale")
-        
-        return encoded
+        // Signed bytes are transaction secrets until transport handoff. Never
+        // emit them to logs, even in debug builds.
+        return try encoder.encode()
     }
     
     public func buildSignature(

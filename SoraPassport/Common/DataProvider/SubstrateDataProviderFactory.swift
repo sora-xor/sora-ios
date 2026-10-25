@@ -61,8 +61,8 @@ final class SubstrateDataProviderFactory: SubstrateDataProviderFactoryProtocol {
                                                    predicate: { $0.identifier == identifier })
 
         observable.start { error in
-            if let error = error {
-                self.logger?.error("Can't start storage observing: \(error)")
+            if error != nil {
+                self.logger?.error("Storage observation failed to start")
             }
         }
 
@@ -82,8 +82,8 @@ final class SubstrateDataProviderFactory: SubstrateDataProviderFactoryProtocol {
                                                    predicate: { $0.identifier == key })
 
         observable.start { error in
-            if let error = error {
-                self.logger?.error("Can't start storage observing: \(error)")
+            if error != nil {
+                self.logger?.error("Storage observation failed to start")
             }
         }
 

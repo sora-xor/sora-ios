@@ -34,6 +34,16 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     
     private var farmDetailsItem: FarmDetailsItem?
     
+    let fullViewStackView: SoramitsuStackView = {
+        let view = SoramitsuStackView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.sora.axis = .vertical
+        view.sora.distribution = .fill
+        view.sora.backgroundColor = .custom(uiColor: .clear)
+        view.spacing = 8
+        return view
+    }()
+    
     let containerView: SoramitsuStackView = {
         let view = SoramitsuStackView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -60,10 +70,10 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     
     private lazy var topButton: SoramitsuButton = {
         let button = SoramitsuButton()
+        button.sora.title = R.string.localizable.claimRewards(preferredLanguages: .currentLocale)
         button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
-        button.sora.isEnabled = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.farmDetailsItem?.onTapTopButton?()
         }
@@ -72,11 +82,8 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     
     private lazy var bottomButton: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.title = R.string.localizable.editFarm(preferredLanguages: .currentLocale)
-        button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
-        button.sora.isHidden = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.farmDetailsItem?.onTapBottomButton?()
         }
@@ -91,6 +98,21 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
         label.sora.alignment = .center
         return label
     }()
+    
+    private let supplyView: SupplyPoolView = {
+        let view = SupplyPoolView()
+        view.sora.isHidden = true
+        return view
+    }()
+    
+    private let arrowImage: SoramitsuImageView = {
+        let imageView = SoramitsuImageView()
+        imageView.transform = CGAffineTransform(rotationAngle: .pi/2)
+        if let image = R.image.wallet.swapArrow() {
+            imageView.sora.picture = .logo(image: image)
+        }
+        return imageView
+    }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -102,14 +124,16 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
-        contentView.addSubview(containerView)
+        contentView.addSubview(fullViewStackView)
+        contentView.addSubview(arrowImage)
+        fullViewStackView.addArrangedSubviews(containerView, supplyView)
         
         containerView.addArrangedSubviews([
             headerView,
             stackView,
             topButton,
             bottomButton,
-            footerLabel
+            footerLabel,
         ])
         
         containerView.setCustomSpacing(18, after: stackView)
@@ -118,10 +142,15 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            arrowImage.heightAnchor.constraint(equalToConstant: 24),
+            arrowImage.widthAnchor.constraint(equalToConstant: 24),
+            arrowImage.topAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -8),
+            arrowImage.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            
+            fullViewStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            fullViewStackView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            fullViewStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            fullViewStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
         ])
     }
 }
@@ -134,10 +163,18 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
         }
         farmDetailsItem = item
         
-        topButton.sora.title = item.isStaked ? R.string.localizable.claimRewards(preferredLanguages: .currentLocale) : R.string.localizable.startStaking(preferredLanguages: .currentLocale)
-        topButton.sora.isEnabled = item.isEnabled
+        arrowImage.sora.isHidden = item.supplyItem == nil
+        supplyView.sora.isHidden = item.supplyItem == nil
+        supplyView.set(item: item.supplyItem)
+
+        topButton.sora.isHidden = !item.areThereRewards
         
-        bottomButton.sora.isHidden = !item.isStaked
+        bottomButton.sora.isUserInteractionEnabled = item.stackingState.isUserInteractionEnabled
+        bottomButton.sora.attributedText = SoramitsuTextItem(text: item.stackingState.title,
+                                                             fontData: FontType.buttonM ,
+                                                             textColor: item.stackingState.buttonTitleColor,
+                                                             alignment: .center)
+        bottomButton.sora.backgroundColor = item.stackingState.backgroundColor
         
         headerView.titleLabel.sora.text = item.title
         headerView.subtitleLabel.sora.text = item.subtitle

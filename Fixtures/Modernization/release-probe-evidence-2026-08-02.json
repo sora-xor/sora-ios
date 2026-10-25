@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-02T20:46:04+04:00",
+  "environment": "pre-release qualification probe",
+  "privacy": {
+    "accountIdentifiersIncluded": false,
+    "secretsIncluded": false,
+    "signedPayloadsIncluded": false,
+    "transactionsSubmitted": false
+  },
+  "piIndexer": {
+    "endpoint": "https://pi.soramitsu.io/graphql",
+    "lastReprobedAtUtc": "2026-08-05T14:32:55Z",
+    "status": "blocked",
+    "result": "health_and_history_height_contract_present_end_to_end_history_unverified_mutation_capabilities_blocked",
+    "readContractStatus": "blocked",
+    "historyCheckpointContractStatus": "field_deployed_end_to_end_unverified",
+    "mutationCapabilitiesStatus": "blocked",
+    "validatedContracts": [
+      {
+        "operation": "health",
+        "constraints": [
+          "_health is queried with its deployed schema fields",
+          "serviceId, ecosystem, chainId, network and readOnly are validated",
+          "workerReady and finalized/indexed worker heights are present"
+        ],
+        "observed": {
+          "service": "polkaswap-indexer",
+          "serviceId": "pi.soramitsu.io",
+          "schemaVersion": 1,
+          "ecosystem": "sora2",
+          "chainId": "sora:mainnet",
+          "network": "mainnet",
+          "readOnly": true,
+          "workerReady": true,
+          "workerLatestFinalizedBlock": 27183376,
+          "workerLatestIndexedBlock": 27183376,
+          "workerLag": 0,
+          "workerLastSuccessfulIndexTimestamp": 1785940359
+        },
+        "qualification": "qualified for reads by the reviewed endpoint, serviceId, ecosystem, chainId, network, read-only mode, running worker lifecycle, and fresh coherent finalized/indexed worker checkpoint"
+      },
+      {
+        "operation": "markets",
+        "constraints": [
+          "bounded first/after pagination",
+          "ID ordering",
+          "strict GraphQL error handling"
+        ],
+        "result": "query accepted"
+      },
+      {
+        "operation": "marketSnapshots",
+        "constraints": [
+          "exact marketId",
+          "exact snapshot type BLOCK",
+          "timestamp ordering"
+        ],
+        "result": "query accepted"
+      },
+      {
+        "operation": "history",
+        "constraints": [
+          "exact address",
+          "bounded type inclusion set and pagination",
+          "exact transaction hash, block height, and block hash",
+          "record height at or below the qualified indexed checkpoint",
+          "block hash equality with canonical SORA RPC"
+        ],
+        "result": "a privacy-safe filtered query proves historyElements.blockHeight is deployed; exact account/transaction/nonzero-block-hash and canonical SORA RPC checkpoint binding remain unqualified",
+        "qualification": "blocked"
+      },
+      {
+        "operation": "accountPositions/accountTrades/signals",
+        "constraints": [
+          "exact account filters for private portfolio data",
+          "bounded pagination"
+        ],
+        "result": "queries accepted"
+      },
+      {
+        "operation": "mobileConfig emergency feature flags",
+        "fields": [
+          "nexusAvailable",
+          "nexusSendsAvailable",
+          "polkamarktVisible",
+          "polkamarktMutationsAvailable",
+          "tairaDefaultVisible"
+        ],
+        "result": "GRAPHQL_VALIDATION_FAILED for every field",
+        "qualification": "blocked"
+      }
+    ],
+    "historyQualification": {
+      "blockHeightFieldDeployed": true,
+      "exactAccountBindingQualified": false,
+      "canonicalTransactionHashQualified": false,
+      "nonzeroBlockHashQualified": false,
+      "soraRpcCheckpointBindingQualified": false,
+      "boundedRpcVerificationQualified": false,
+      "partialGraphQLErrorRejectionQualified": false,
+      "pendingOverlayFallbackQualified": false
+    },
+    "mobileConfigQualification": {
+      "allRequiredFieldsDeployed": false,
+      "strictBooleanTypesQualified": false,
+      "healthBoundFetchQualified": false,
+      "capabilityChangeFailClosedQualified": false
+    },
+    "accountBalancesQualification": {
+      "typedContractDeployed": false,
+      "exactAccountBindingQualified": false,
+      "exactAssetBindingQualified": false,
+      "finalizedCheckpointBindingQualified": false,
+      "arbitraryPrecisionQualified": false
+    }
+  },
+  "torii": {
+    "taira": {
+      "endpoint": "https://taira.sora.org/v1/mcp",
+      "nativeTool": "iroha.health",
+      "httpStatus": 200,
+      "body": "Healthy",
+      "observedChainId": null,
+      "observedI105Discriminant": null,
+      "lastHealthProbeAt": "2026-08-06T08:30:10Z",
+      "lastHealthProbeResult": "Healthy",
+      "lastHealthContentType": "text/plain; charset=utf-8",
+      "jsonOnlyHealthAcceptHttpStatus": 406,
+      "healthRouteSpecificAcceptQualified": true,
+      "rolloutValidation": {
+        "configuredEndpointClass": "convenience",
+        "canonicalPublicNodeEndpointProvided": false,
+        "qualification": "blocked until operators provide and qualify the explicit public-node /v1/mcp endpoint"
+      },
+      "xorHolderRead": {
+        "nativeTool": "iroha.assets.holders",
+        "assetDefinitionAlias": "xor#universal",
+        "httpStatus": 200,
+        "boundedLimit": 1,
+        "accountIdentifiersRecorded": false,
+        "result": "authoritative fanout read succeeded"
+      },
+      "sumeragiTelemetry": {
+        "httpStatus": 200,
+        "contentType": "application/json",
+        "updatedAtHeight": 2,
+        "validatorRosterLength": 4,
+        "vrfCommitments": 4,
+        "vrfReveals": 0,
+        "vrfFinalized": false,
+        "chainIdentityDecoded": false
+      },
+      "sumeragiStatus": {
+        "httpStatus": 200,
+        "contentType": "application/json; charset=utf-8",
+        "decoded": true,
+        "protocolVersion": 4,
+        "height": 3,
+        "lastCommittedHeight": 2,
+        "phase": "awaiting_proposal",
+        "livenessBlocker": "missing_proposal",
+        "noProgressAgeMillis": 122702558,
+        "networkIngressDepth": 5,
+        "networkIngressOldestAgeMillis": 122700760,
+        "validatorCount": 4,
+        "minimumSigners": 3,
+        "restartRequired": false
+      },
+      "sumeragiQc": {
+        "httpStatus": 503,
+        "errorClass": "telemetry_profile_restricted",
+        "retryAfterSeconds": 1
+      },
+      "sumeragiCheckpoints": {
+        "httpStatus": 503,
+        "errorClass": "telemetry_profile_restricted",
+        "retryAfterSeconds": 1
+      },
+      "qualification": "blocked: the convenience endpoint still reports HTTP health, but Sumeragi is awaiting a proposal at height 3 with more than 34 hours without progress and an aged network-ingress backlog; canonical rollout endpoint, chain identity, and funded XOR receive/send/finality qualification remain blocked"
+    },
+    "minamoto": {
+      "endpoint": "https://minamoto.sora.org/health",
+      "lastHealthProbeAt": "2026-08-05T14:32:00Z",
+      "connectTimeoutSeconds": 5,
+      "totalTimeoutSeconds": 10,
+      "curlExitCode": 28,
+      "result": "timeout",
+      "httpStatus": 0,
+      "observedChainId": null,
+      "observedI105Discriminant": null,
+      "qualification": "blocked"
+    }
+  },
+  "polkamarktWebReference": {
+    "repository": "/Users/takemiyamakoto/dev/polkaswap-exchange-web",
+    "branch": "ui-updates",
+    "revision": "893783ba6a19c33043eb5dabe42d949c14d0f257",
+    "commitTreeObject": "e391982c0921dea5278e919a7558b7a6a2afc0d4",
+    "polkamarktTreeObject": "57f0fe7623f2b93b34faecfc66d6c5da96d54e1b",
+    "commitSignatureStatus": "verified",
+    "version": "1.46.0",
+    "sourceDirectory": "src/features/polkamarkt",
+    "result": "canonical implementation present and pinned",
+    "qualification": "source-qualified; transaction parity remains gated by runtime and mutation receipts"
+  },
+  "dependencyProvenance": {
+    "productionSendReadiness": {
+      "fixture": "Fixtures/Modernization/iroha-production-send-readiness.json",
+      "schemaVersion": 3,
+      "status": "blocked",
+      "releaseEnabled": false,
+      "defaultSigner": "UnavailableNexusTransactionSigner"
+    },
+    "irohaSwift": {
+      "upstreamTag": "v2.0.0-rc.2.1-fearless-mobile-sdk.3",
+      "annotatedTagObject": "dbe075fa8248abf181463f0e69379cf1f2b194be",
+      "revision": "4f8cfbdd17aa6a3b049e619f23ec02501e5297b6",
+      "tagSignatureVerified": false,
+      "commitSignatureVerified": false,
+      "sourceTreeObject": null,
+      "sourceFileCount": null,
+      "sourceManifestSha256": null,
+      "provenanceReceiptSha256": null,
+      "wholeTreeReceiptRequired": true,
+      "localReviewedSourcePresent": false,
+      "qualification": "blocked"
+    },
+    "noritoBridge": {
+      "observedMutableArchiveSha256": "475035c7173fa6a3ea660ceae2c3f524089826dcfc78b2f74273aff43965919e",
+      "releaseAssetBytes": 393295676,
+      "releaseAssetDigestSource": "GitHub release API",
+      "githubReleaseImmutable": false,
+      "artifactManifestSha256": "5c21c01528aac1de1d89f102a30201cd60d7af02decd9d23ca90db451ab87d13",
+      "artifactManifestVersion": "0.1.0",
+      "publishedSliceSha256": {
+        "ios-arm64": "7b6dc9711ae4427b46795fb582d47bb34888c292a0f7544ef32d70962ce3a4ff",
+        "ios-arm64_x86_64-simulator": "80ac9cd86787736965232b0638809a90b00fc8fef264f4fd22d8c87a909e1370",
+        "macos-arm64": "dd23ba8d87b930c23b6d20d2ffc6413e021ac510a2197c7f12959249c642903e"
+      },
+      "fearlessPreviouslyReviewedArchiveSha256": "dc944af3dc98d37d349b9f95fe25b9e4a920f095db58adbcccc6354fc28ada4b",
+      "freshArtifactReviewRequired": true,
+      "reviewedArchiveSha256": null,
+      "provenanceReceiptSha256": null,
+      "contentManifestSha256": null,
+      "infoPlistSha256": null,
+      "requiredContentFileCount": 13,
+      "allSliceBinarySha256": null,
+      "headersAndModuleMapsCoveredByContentManifest": false,
+      "localReviewedArtifactPresent": false,
+      "qualification": "blocked"
+    },
+    "xNetworking": {
+      "upstreamSourceRevision": "b7657d4dad68dd3afee6b29b8b2909848afd38a2",
+      "immutableRelease": "ios-xcframework-1.0.10-rebuild.1",
+      "archiveSha256": "43319ac6f215e95edc215366116264205902a18d480b87aa4a8c40d381a3b61a",
+      "qualification": "pinned"
+    }
+  },
+  "releaseBlockers": [
+    "PI mobileConfig does not expose the required emergency Nexus, send, Polkamarkt mutation, or Taira-default feature flags.",
+    "The stricter PI history checkpoint contract now requires historyElements.blockHeight plus exact account, transaction-hash, block-hash, and canonical SORA RPC binding; the deployed schema has not yet been reprobed and the full read contract is fail-closed.",
+    "PI does not expose a global indexed-block hash; every consumed Polkamarkt history item is therefore required to carry a block hash that is reconciled against authoritative SORA RPC at that block.",
+    "Taira health was reconfirmed through the configured convenience MCP endpoint, but operators have not supplied the explicit canonical public-node /v1/mcp target required for rollout validation.",
+    "Taira Torii reports Healthy with the exact text/plain UTF-8 media contract, but its JSON Sumeragi status remains stalled at height 3 with missing_proposal and more than 34 hours without progress; QC and checkpoint telemetry are profile-restricted, while chain identity decoding and the funded XOR receive/send/finality canary remain unqualified.",
+    "Minamoto Torii did not return health within the bounded timeout.",
+    "No funded send, receipt, finality, balance read-back or history reconciliation was attempted.",
+    "The current GitHub NoritoBridge release asset is mutable and its archive and slice digests differ from the older Fearless-reviewed artifact; Nexus mutation signing remains disabled until an exact copied archive is independently reviewed and a receipt pins Info.plist plus every library, header, and module map with no unlisted files.",
+    "The IrohaSwift upstream revision is identified but not release-qualified: Vendor/IrohaSwift has no independently approved whole-tree object, complete content manifest, or provenance receipt.",
+    "The tagged Swift package compile failure, stale transaction parity, source-to-binary mismatch, missing SBOM/provenance/attestation, secret-boundary review, receipt-hash equality, and funded live evidence remain unresolved.",
+    "No retained historical Core Data release-snapshot corpus is present for the required lossless migration qualification matrix."
+  ]
+}
