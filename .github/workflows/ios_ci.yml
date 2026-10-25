@@ -23,11 +23,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Xcode is pinned. Use the newest Xcode 26.x or 27.x on the runner image and
-  # the same version for App Store archives (docs/release-3.9.0/RELEASE-CHECKLIST.md).
-  # If the runner image does not have this path, the "Select Xcode" step lists
-  # the installed versions; update this line to the newest 26.x/27.x path.
-  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  # Pin the stable Xcode installed on macos-26, also used by ios_modernization.
+  # Keep App Store archives on this version (docs/release-3.9.0/RELEASE-CHECKLIST.md).
+  # The "Select Xcode" step fails and lists installed versions if it is removed.
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
   # Every build uses exactly the package versions pinned in
   # SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
   # (-onlyUsePackageVersionsFromResolvedFile), so CI never drifts to newer
@@ -170,6 +169,8 @@ jobs:
           # ENABLE_TESTABILITY lets the tests use @testable import against the
           # optimized Release build. WALLET_TESTING exposes durable-writer fault
           # checkpoints only in this local test host, never a distribution app.
+          # Xcode, not the shell, expands $(inherited).
+          # shellcheck disable=SC2016
           xcodebuild build-for-testing \
             -project SoraPassport.xcodeproj \
             -scheme SoraPassport \
