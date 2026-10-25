@@ -41,8 +41,12 @@ jobs:
 
   release-tests:
     name: Full Release XCTest Closure
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
+    env:
+      # Match ios_ci.yml; the macos-15 default Xcode 16.4 cannot compile
+      # the iOS 26 scene APIs used by the application.
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -55,6 +59,21 @@ jobs:
           set -euo pipefail
           test -z "$(git status --porcelain=v1 --untracked-files=normal)"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "${DEVELOPER_DIR}" ]; then
+            echo "::error::Pinned Xcode not found at ${DEVELOPER_DIR}. Installed:"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          xcodebuild -version
+          case "$(xcrun --sdk iphonesimulator --show-sdk-version)" in
+            26.*|27.*) ;;
+            *) echo "::error::iOS SDK too old"; exit 1 ;;
+          esac
 
       - name: Initialize private Release-test paths
         shell: bash

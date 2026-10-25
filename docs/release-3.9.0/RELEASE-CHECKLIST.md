@@ -21,10 +21,10 @@ Human and operations actions for the release. Each task adds its items here.
       "Unsigned Release Device Compile". Require "Build and unit tests
       (simulator)", "Unit tests, Release configuration (simulator)" and
       "Unsigned Release device compile" from `iOS CI`.
-- [ ] Confirm that `/Applications/Xcode_27.0.app` exists on the GitHub
-      `macos-26` runner image. If it does not, the "Select Xcode" step fails
-      and lists the installed versions; set `DEVELOPER_DIR` in
-      `.github/workflows/ios_ci.yml` to the newest Xcode 27.x (or 26.x) shown.
+- [ ] Both iOS build workflows pin `/Applications/Xcode_26.6.app`, present
+      on the GitHub `macos-26` runner image. If it is removed, the "Select
+      Xcode" step fails and lists installed versions; update `DEVELOPER_DIR`
+      together in `.github/workflows/ios_ci.yml` and `ios_modernization.yml`.
 - [ ] Jenkins `mac-sora` agent: set `DEVELOPER_DIR` to the same Xcode as CI.
       Archive the App Store build with that same Xcode.
 - [ ] Jenkins: disable the production-promotion and migration-evidence jobs.
