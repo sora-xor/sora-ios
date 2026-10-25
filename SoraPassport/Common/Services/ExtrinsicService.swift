@@ -1080,6 +1080,7 @@ final class Sora2BoundedHTTPJSONRPCEngine: JSONRPCEngine,
     static func httpEndpoint(for nodeURL: URL?) throws -> URL {
         guard
             let nodeURL,
+            !SoraNodeConnectionPolicy.isCompromisedEndpoint(nodeURL),
             var components = URLComponents(
                 url: nodeURL,
                 resolvingAgainstBaseURL: false

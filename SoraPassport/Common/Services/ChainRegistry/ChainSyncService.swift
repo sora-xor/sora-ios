@@ -374,18 +374,18 @@ final class ChainSyncService {
                 nodesByURL[node.url] = node
             }
         }
-        let orderedNodes = nodes.sorted {
+        let orderedNodes = nodes.filter { SoraNodeConnectionPolicy.isAllowedEndpoint($0.url) }.sorted {
             ($0.url.absoluteString, $0.name) < ($1.url.absoluteString, $1.name)
         }
         for node in orderedNodes where nodesByURL[node.url] == nil {
             nodesByURL[node.url] = node
         }
         // The uniqueness constraint covers custom nodes too. A user who added
-        // a node in an older release that 3.9.0 now bundles (for example
-        // ws.mof.sora.org when PI listed only mof2) keeps it as their custom
-        // node; it is not saved a second time as a default node. Connection
+        // a node in an older release that is now bundled keeps it as their
+        // custom node if it remains allowed. It is not saved a second time
+        // as a default node. Connection
         // candidates still include every bundled mainnet node.
-        let customNodes = matchingLocal?.customNodes
+        let customNodes = matchingLocal?.customNodes?.filter { SoraNodeConnectionPolicy.isAllowedEndpoint($0.url) }
         let customURLs = Set((customNodes ?? []).map(\.url))
         for url in customURLs {
             nodesByURL[url] = nil
@@ -393,15 +393,16 @@ final class ChainSyncService {
         var availableNodes = Set(nodesByURL.values)
         if availableNodes.isEmpty {
             availableNodes = (matchingLocal?.nodes ?? []).filter {
-                !customURLs.contains($0.url)
+                !customURLs.contains($0.url) && SoraNodeConnectionPolicy.isAllowedEndpoint($0.url)
             }
         }
         // The selected node is saved into the same row as the default or
         // custom node with its URL. Use that entry's name, so saving does not
         // rename the row (for example back to PI's "Sora" for mof2) and the
         // next sync does not see a changed chain again.
-        let selectedNode = matchingLocal?.selectedNode.map { selected in
-            availableNodes.first { $0.url == selected.url }
+        let selectedNode = matchingLocal?.selectedNode.flatMap { selected -> ChainNodeModel? in
+            guard SoraNodeConnectionPolicy.isAllowedEndpoint(selected.url) else { return nil }
+            return availableNodes.first { $0.url == selected.url }
                 ?? customNodes?.first { $0.url == selected.url }
                 ?? selected
         }

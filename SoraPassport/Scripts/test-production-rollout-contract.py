@@ -21,6 +21,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -1976,6 +1977,55 @@ def run_gate(
         )
 
 
+class GateCheckRunner:
+    """Run independent real gate invocations with bounded concurrency.
+
+    Each case freezes the release tree before fixture generation continues:
+    funded mutations rewrite the readiness fixture in that tree. Sharing it
+    between workers would race and could test the wrong evidence. Evidence
+    outside this tree is already written to distinct immutable case paths.
+    """
+
+    def __init__(self) -> None:
+        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.pending = []
+        self.names: set[str] = set()
+
+    def __enter__(self) -> "GateCheckRunner":
+        return self
+
+    def submit(self, *, name: str, shell_path: Path, environment: dict[str, str],
+               should_succeed: bool, expected_fragment: str) -> None:
+        if name in self.names:
+            raise HarnessFailure(f"duplicate rollout regression case: {name}")
+        self.names.add(name)
+        source_root = shell_path.parents[2]
+        case_root = source_root.parent / "gate-runs" / name / "release-tree"
+        shutil.copytree(source_root, case_root)
+        case_shell = case_root / shell_path.relative_to(source_root)
+        case_environment = dict(environment)
+        case_environment["SORA_ROLLOUT_REGRESSION_SHELL"] = str(case_shell)
+        case_environment["SORA_ROLLOUT_REGRESSION_TRUST"] = str(
+            case_root / "Fixtures/Modernization/production-rollout-controller-trust.json"
+        )
+        self.pending.append(self.executor.submit(
+            run_gate, name=name, shell_path=case_shell, environment=case_environment,
+            should_succeed=should_succeed, expected_fragment=expected_fragment,
+        ))
+
+    def __exit__(self, exception_type, exception, traceback) -> None:
+        try:
+            if exception_type is None:
+                # Every queued case must finish successfully before main can
+                # report a pass or the temporary evidence tree can be removed.
+                for future in as_completed(self.pending):
+                    future.result()
+        finally:
+            for future in self.pending:
+                future.cancel()
+            self.executor.shutdown(wait=True, cancel_futures=True)
+
+
 def copy_release_tree(root: Path) -> tuple[Path, Path, Path, Path]:
     scripts = root / "SoraPassport/Scripts"
     fixtures = root / "Fixtures/Modernization"
@@ -2302,7 +2352,9 @@ def main() -> int:
     if not PRIVATE_TMP.is_dir():
         raise HarnessFailure("/private/tmp is required by the iOS rollout contract")
 
-    with tempfile.TemporaryDirectory(prefix="sora-ios-rollout-regression-", dir=PRIVATE_TMP) as temporary:
+    with tempfile.TemporaryDirectory(prefix="sora-ios-rollout-regression-", dir=PRIVATE_TMP) as temporary, \
+            GateCheckRunner() as gate_checks:
+        run_gate = gate_checks.submit
         temporary_root = Path(temporary)
         release_root = temporary_root / "release-tree"
         shell_path, trust_path, funded_trust_path, readiness_path = copy_release_tree(release_root)

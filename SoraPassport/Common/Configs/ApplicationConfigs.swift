@@ -326,22 +326,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var nodesURL: URL? {
-        var stand = ""
-
-        #if F_RELEASE
-        stand = "prod"
-        #elseif F_STAGING || F_TEST
-        stand = "stage"
-        #else
-        stand = "dev"
-        #endif
-
-        return GitHubUrl.url(suffix: "sora2_config.json",
-                             branch: "sora2-substrate-js-library/metadata14/packages/types/src/metadata/\(stand)/")
+        // Nodes come from the bundled policy and the validated indexer response.
+        nil
     }
 
     var commonTypesURL: URL? {
-        GitHubUrl.url(suffix: "types_scalecodec_mobile.json", branch: "sora2-substrate-js-library/metadata14ios/packages/types/src/metadata/\(GitHubUrl.repoPrefix)/")
+        // Preserve this build's reviewed schema without a remote repository dependency.
+        let resourcePath: String? = R.file.runtimeSoraJson.path()
+        guard let path = resourcePath else { return nil }
+        return URL(fileURLWithPath: path)
     }
 
     var chainListURL: URL? {

@@ -678,8 +678,8 @@ final class Sora2LiveRuntimeTests: XCTestCase {
 
         // The identity of a node is its HTTPS signing route.
         XCTAssertEqual(
-            Sora2LiveRuntimeIdentityCache.nodeIdentity(for: URL(string: "wss://WS.mof.sora.org")),
-            "https://ws.mof.sora.org/"
+            Sora2LiveRuntimeIdentityCache.nodeIdentity(for: URL(string: "wss://MOF2.sora.org")),
+            "https://mof2.sora.org/"
         )
         XCTAssertEqual(
             Sora2LiveRuntimeIdentityCache.nodeIdentity(for: URL(string: "wss://node.example:9944/rpc")),
@@ -2679,6 +2679,7 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         XCTAssertEqual(WalletUX.balanceUnavailableText, WalletUX.text("Balance unavailable"))
     }
 
+
     // MARK: - Custom nodes and the HTTPS signing route (S-6)
 
     /// A custom node is checked for the HTTPS JSON-RPC route that signing
@@ -2733,7 +2734,7 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         // A node selected by an earlier version may still lack the route.
         // Every signing flow then says why, instead of "try again".
         let custom = URL(string: "ws://plain.test:9944")
-        let bundled = URL(string: "wss://ws.mof.sora.org")
+        let bundled = URL(string: "wss://mof2.sora.org")
         XCTAssertEqual(
             Sora2SigningNotice.kind(for: Sora2BoundedHTTPJSONRPCError.invalidEndpoint, nodeURL: custom),
             .nodeWithoutSigningRoute
@@ -4760,6 +4761,8 @@ private final class BalanceListAssetProvider: AssetProviderProtocol {
     func add(observer _: AssetProviderObserverProtocol) {}
     func remove(observer _: AssetProviderObserverProtocol) {}
 }
+
+/// No prices and no market data: the wallet list is about balances here.
 
 // MARK: - Review round 6 test doubles
 

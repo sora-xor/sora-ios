@@ -11,14 +11,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import plistlib
 import re
 import stat
 import sys
-import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
-from urllib.parse import urlsplit
+from typing import Any, Iterable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import zipfile
 
 
 MAX_JSON_BYTES = 262_144
@@ -297,6 +297,8 @@ def require_hex40(value: Any, path: str) -> str:
 
 
 def configure_authenticated_taira(path: str) -> None:
+    from urllib.parse import urlsplit
+
     global TAIRA_DEPLOYMENT
     value, raw = load_json_record(path)
     admission_sha256 = hashlib.sha256(raw).hexdigest()
@@ -612,6 +614,11 @@ def validate_trust(value: dict[str, Any], qualified: bool) -> None:
 
 
 def validate_artifact(value: dict[str, Any], ipa_path: Path) -> None:
+    # Hash/snapshot invocations do not parse IPAs. Avoid loading the ZIP/XML
+    # stack for every individual evidence-file operation.
+    import plistlib
+    import zipfile
+
     keys = {
         "schemaVersion",
         "contractId",
@@ -1031,6 +1038,16 @@ def secure_file_sha256(path_text: str, maximum_bytes: int) -> str:
         return digest.hexdigest()
     finally:
         os.close(descriptor)
+
+
+def secure_file_pair_sha256(first: str, first_maximum: int, second: str, second_maximum: int) -> str:
+    if first_maximum <= 0 or second_maximum <= 0:
+        fail("hash byte bounds must be positive")
+    # Keep both complete stable-file reads. Only interpreter startup is shared;
+    # callers still recompute this pair before and after signature verification.
+    first_digest = secure_file_sha256(first, first_maximum)
+    second_digest = secure_file_sha256(second, second_maximum)
+    return f"{first_digest} {second_digest}"
 
 
 def snapshot_stable_file(source_text: str, destination_text: str, maximum_bytes: int) -> str:
@@ -1655,6 +1672,8 @@ def main(argv: list[str]) -> int:
             if maximum <= 0:
                 fail("hash byte bound must be positive")
             print(secure_file_sha256(argv[2], maximum))
+        elif mode == "hash-pair" and len(argv) == 6:
+            print(secure_file_pair_sha256(argv[2], int(argv[3]), argv[4], int(argv[5])))
         elif mode == "snapshot" and len(argv) == 5:
             maximum = int(argv[4])
             if maximum <= 0:

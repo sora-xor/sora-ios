@@ -47,8 +47,14 @@ struct RemoteConfig {
          typesUrlString: String? = ApplicationConfig.shared.commonTypesURL?.absoluteString,
          defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes) {
         self.polkaswapIndexerURL = Self.validHTTPURL(from: polkaswapIndexerUrlString) ?? ApplicationConfig.shared.polkaswapIndexerURL
-        self.typesURL = typesUrlString.flatMap(Self.validHTTPURL)
-        self.defaultNodes = defaultNodes
+        self.typesURL = typesUrlString.flatMap(Self.validRuntimeTypesURL)
+        self.defaultNodes = Set(defaultNodes.filter { SoraNodeConnectionPolicy.isAllowedEndpoint($0.url) })
+    }
+
+    private static func validRuntimeTypesURL(from string: String) -> URL? {
+        guard let url = URL(string: string), url.isFileURL,
+              url == ApplicationConfig.shared.commonTypesURL else { return nil }
+        return url
     }
 
     private static func validHTTPURL(from string: String) -> URL? {
@@ -106,7 +112,8 @@ extension ConfigService: ConfigServiceProtocol {
             let bundled = ApplicationConfig.shared.defaultChainNodes
             let bundledURLs = Set(bundled.map(\.url))
             let remote: [ChainNodeModel] = response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address), !bundledURLs.contains(url) else { return nil }
+                guard let url = URL(string: node.address), SoraNodeConnectionPolicy.isAllowedEndpoint(url),
+                      !bundledURLs.contains(url) else { return nil }
                 return ChainNodeModel(url: url, name: node.name, apikey: nil)
             })
             self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,

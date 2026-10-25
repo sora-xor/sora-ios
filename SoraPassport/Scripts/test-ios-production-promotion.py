@@ -9,7 +9,9 @@ import inspect
 import json
 import os
 import subprocess
+import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -33,6 +35,12 @@ if ROLLOUT_SPEC is None or ROLLOUT_SPEC.loader is None:
     raise RuntimeError("production rollout validator cannot be loaded")
 ROLLOUT_MODULE = importlib.util.module_from_spec(ROLLOUT_SPEC)
 ROLLOUT_SPEC.loader.exec_module(ROLLOUT_MODULE)
+HARNESS_SPEC = importlib.util.spec_from_file_location("ios_rollout_harness", ROLLOUT_HARNESS)
+if HARNESS_SPEC is None or HARNESS_SPEC.loader is None:
+    raise RuntimeError("production rollout harness cannot be loaded")
+HARNESS_MODULE = importlib.util.module_from_spec(HARNESS_SPEC)
+sys.modules[HARNESS_SPEC.name] = HARNESS_MODULE
+HARNESS_SPEC.loader.exec_module(HARNESS_MODULE)
 
 
 def canonical(value: object) -> bytes:
@@ -371,6 +379,122 @@ class ProductionPromotionTests(unittest.TestCase):
         self.assertIn("timeout=bounded_timeout(180)", harness)
         self.assertNotIn("timeout=bounded_timeout(90)", harness)
         self.assertIn("timeout=bounded_timeout(180)", gate)
+
+
+class RolloutHashPairTests(unittest.TestCase):
+    def test_hash_pair_cli_matches_both_exact_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            first, second = Path(temporary) / "payload with spaces", Path(temporary) / "signature"
+            first.write_bytes(b"receipt")
+            second.write_bytes(b"signature")
+            result = subprocess.run(
+                ["/usr/bin/python3", "-I", "-S", str(ROLLOUT_VALIDATOR), "hash-pair",
+                 str(first), "64", str(second), "64"],
+                capture_output=True, text=True, check=False, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            expected = hashlib.sha256(b"receipt").hexdigest() + " " + hashlib.sha256(b"signature").hexdigest()
+            self.assertEqual(result.stdout, expected + "\n")
+
+    def test_each_read_detects_payload_or_signature_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            first, second = Path(temporary) / "payload", Path(temporary) / "signature"
+            first.write_bytes(b"receipt")
+            second.write_bytes(b"signature")
+            before = ROLLOUT_MODULE.secure_file_pair_sha256(str(first), 64, str(second), 64)
+            first.write_bytes(b"changed")
+            self.assertNotEqual(before, ROLLOUT_MODULE.secure_file_pair_sha256(str(first), 64, str(second), 64))
+            first.write_bytes(b"receipt")
+            second.write_bytes(b"changed")
+            self.assertNotEqual(before, ROLLOUT_MODULE.secure_file_pair_sha256(str(first), 64, str(second), 64))
+
+    def test_both_files_retain_path_type_size_and_bound_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            good, empty, link = root / "good", root / "empty", root / "link"
+            good.write_bytes(b"abcd")
+            empty.touch()
+            link.symlink_to(good)
+            for invalid, bound in [(root / "missing", 64), (root, 64), (empty, 64),
+                                   (link, 64), (good, 3), (good, 0), (Path("relative"), 64)]:
+                for position in (0, 1):
+                    with self.subTest(path=invalid, bound=bound, position=position):
+                        args = (str(invalid), bound, str(good), 64) if position == 0 else (str(good), 64, str(invalid), bound)
+                        with self.assertRaises(ROLLOUT_MODULE.ValidationError):
+                            ROLLOUT_MODULE.secure_file_pair_sha256(*args)
+
+    def test_invalid_second_file_never_emits_partial_success(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            first = Path(temporary) / "payload"
+            first.write_bytes(b"receipt")
+            result = subprocess.run(
+                ["/usr/bin/python3", "-I", "-S", str(ROLLOUT_VALIDATOR), "hash-pair",
+                 str(first), "64", str(first.parent / "missing"), "64"],
+                capture_output=True, text=True, check=False, timeout=30,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, "")
+
+
+class RolloutRunnerTests(unittest.TestCase):
+    def release_tree(self, root: Path) -> tuple[Path, Path]:
+        shell = root / "release-tree/SoraPassport/Scripts/check.sh"
+        shell.parent.mkdir(parents=True)
+        shell.write_text("#!/bin/sh\nexit 0\n")
+        readiness = root / "release-tree/Fixtures/Modernization/readiness.json"
+        readiness.parent.mkdir(parents=True)
+        readiness.write_text("baseline")
+        return shell, readiness
+
+    def test_parallel_cases_freeze_mutable_fixture_and_environment(self) -> None:
+        release_workers = threading.Event()
+        observed = {}
+
+        def check(**case):
+            if not release_workers.wait(10):
+                raise RuntimeError("test worker release timed out")
+            fixture = case["shell_path"].parents[2] / "Fixtures/Modernization/readiness.json"
+            observed[case["name"]] = (fixture.read_text(), case["environment"]["VALUE"])
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(HARNESS_MODULE, "run_gate", side_effect=check):
+            shell, readiness = self.release_tree(Path(temporary))
+            environment = {"VALUE": "baseline"}
+            with HARNESS_MODULE.GateCheckRunner() as runner:
+                try:
+                    runner.submit(name="first", shell_path=shell, environment=environment,
+                                  should_succeed=True, expected_fragment="ok")
+                    readiness.write_text("mutation")
+                    environment["VALUE"] = "mutation"
+                    runner.submit(name="second", shell_path=shell, environment=environment,
+                                  should_succeed=False, expected_fragment="rejected")
+                    readiness.write_text("restored")
+                finally:
+                    release_workers.set()
+            self.assertEqual(observed, {
+                "first": ("baseline", "baseline"),
+                "second": ("mutation", "mutation"),
+            })
+
+    def test_worker_failure_prevents_success(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(HARNESS_MODULE, "run_gate",
+                                  side_effect=HARNESS_MODULE.HarnessFailure("bad signature")):
+            shell, _ = self.release_tree(Path(temporary))
+            with self.assertRaisesRegex(HARNESS_MODULE.HarnessFailure, "bad signature"):
+                with HARNESS_MODULE.GateCheckRunner() as runner:
+                    runner.submit(name="failure", shell_path=shell, environment={},
+                                  should_succeed=True, expected_fragment="ok")
+
+    def test_duplicate_cases_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(HARNESS_MODULE, "run_gate"):
+            shell, _ = self.release_tree(Path(temporary))
+            with self.assertRaisesRegex(HARNESS_MODULE.HarnessFailure, "duplicate"):
+                with HARNESS_MODULE.GateCheckRunner() as runner:
+                    for _ in range(2):
+                        runner.submit(name="duplicate", shell_path=shell, environment={},
+                                      should_succeed=True, expected_fragment="ok")
 
 
 if __name__ == "__main__":

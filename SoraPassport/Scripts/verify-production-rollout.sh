@@ -120,6 +120,18 @@ secure_sha256() {
     /usr/bin/printf '%s\n' "${result}"
 }
 
+secure_receipt_hashes() {
+    require_absolute_path "$1" "$3"
+    require_absolute_path "$2" "$3 signature"
+    result="$(/usr/bin/python3 -I -S "${json_validator}" hash-pair \
+        "$1" "${maximum_json_bytes}" "$2" "${maximum_signature_bytes}")" ||
+        fail "$3 payload or signature is not a stable regular non-symlink file"
+    is_lower_hex_64 "${result%% *}" && is_lower_hex_64 "${result#* }" &&
+        [ "${result}" = "${result%% *} ${result#* }" ] ||
+        fail "$3 payload/signature SHA-256 pair is invalid"
+    /usr/bin/printf '%s\n' "${result}"
+}
+
 validate_templates() {
     [ -f "${json_validator}" ] && [ ! -L "${json_validator}" ] ||
         fail "strict rollout JSON validator is missing or a symbolic link"
@@ -526,11 +538,8 @@ verify_signed_receipt() {
     signed_file="$1"
     signature_file="$2"
     signed_label="$3"
-    signed_sha="$(secure_sha256 "${signed_file}" "${maximum_json_bytes}" "${signed_label}")"
-    signature_sha="$(
-        secure_sha256 "${signature_file}" "${maximum_signature_bytes}" "${signed_label} detached signature"
-    )"
-    is_lower_hex_64 "${signature_sha}" || fail "${signed_label} signature SHA-256 is invalid"
+    signed_hashes="$(secure_receipt_hashes "${signed_file}" "${signature_file}" "${signed_label}")"
+    signed_sha="${signed_hashes%% *}"
     [ "$(json_raw controllerId "${signed_file}")" = "${controller_id}" ] ||
         fail "${signed_label} was not issued by the trusted rollout controller"
     secure_openssl dgst -sha256 \
@@ -538,10 +547,8 @@ verify_signed_receipt() {
         -signature "${signature_file}" \
         "${signed_file}" >/dev/null 2>&1 ||
         fail "${signed_label} detached ECDSA signature is invalid"
-    [ "$(secure_sha256 "${signed_file}" "${maximum_json_bytes}" "${signed_label}")" = "${signed_sha}" ] ||
-        fail "${signed_label} changed during signature verification"
-    [ "$(secure_sha256 "${signature_file}" "${maximum_signature_bytes}" "${signed_label} detached signature")" = "${signature_sha}" ] ||
-        fail "${signed_label} signature changed during verification"
+    [ "$(secure_receipt_hashes "${signed_file}" "${signature_file}" "${signed_label}")" = "${signed_hashes}" ] ||
+        fail "${signed_label} payload or signature changed during verification"
     /usr/bin/printf '%s\n' "${signed_sha}"
 }
 

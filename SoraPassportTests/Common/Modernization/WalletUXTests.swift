@@ -15,6 +15,22 @@ import SSFUtils
 import IrohaCrypto
 @testable import SoraPassport
 
+final class AnalyticsPriceAdmissionTests: XCTestCase {
+    func testOnlyPositiveRecentQuotesAreUsable() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        func quote(_ price: String, _ timestamp: String) throws -> CoingeckoPriceData {
+            let json = "{\"usd\":\(price),\"last_updated_at\":\(timestamp)}"
+            return try JSONDecoder().decode(CoingeckoPriceData.self, from: Data(json.utf8))
+        }
+        XCTAssertTrue(try quote("1.25", "1999990").isUsable(at: now))
+        XCTAssertFalse(try quote("0", "1999990").isUsable(at: now))
+        XCTAssertFalse(try quote("-1", "1999990").isUsable(at: now))
+        XCTAssertFalse(try quote("1", "1999099").isUsable(at: now))
+        XCTAssertFalse(try quote("1", "2000061").isUsable(at: now))
+        XCTAssertFalse(try quote("1", "null").isUsable(at: now))
+    }
+}
+
 final class TairaFaucetAppTests: XCTestCase {
     private let receiveAddress = "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH"
 

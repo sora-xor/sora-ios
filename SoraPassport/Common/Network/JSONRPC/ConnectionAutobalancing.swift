@@ -54,9 +54,21 @@ extension ConnectionRank {
 enum SoraNodeConnectionPolicy {
     static let mainnetGenesis = "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5"
     static let bundledMainnetNodes = [
-        ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "SORA Ministry of Finance", apikey: nil),
         ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "SORA Ministry of Finance 2", apikey: nil),
     ]
+
+    /// Excludes the reported compromised host even when cached or supplied remotely.
+    static func isAllowedEndpoint(_ url: URL) -> Bool {
+        guard ["ws", "wss"].contains(url.scheme?.lowercased() ?? ""),
+              let host = url.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")),
+              !host.isEmpty else { return false }
+        return !isCompromisedEndpoint(url)
+    }
+
+    static func isCompromisedEndpoint(_ url: URL) -> Bool {
+        let host = url.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        return ["ws.mof.sora.org", "mof.sora.org", "mof3.sora.org", "207.254.29.218"].contains(host ?? "")
+    }
 
     static func isMainnet(chainId: String, addressPrefix: UInt16) -> Bool {
         chainId.lowercased() == mainnetGenesis && addressPrefix == 69
@@ -69,8 +81,7 @@ enum SoraNodeConnectionPolicy {
         let custom = (chain.customNodes ?? []).sorted { $0.url.absoluteString < $1.url.absoluteString }
         var seen: Set<URL> = []
         return ([chain.selectedNode].compactMap { $0 } + bundled + defaults + custom).filter {
-            guard ["ws", "wss"].contains($0.url.scheme?.lowercased() ?? ""),
-                  $0.url.host?.isEmpty == false else { return false }
+            guard isAllowedEndpoint($0.url) else { return false }
             return seen.insert($0.url).inserted
         }
     }

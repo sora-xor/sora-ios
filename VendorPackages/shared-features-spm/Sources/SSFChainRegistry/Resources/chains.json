@@ -322,17 +322,7 @@
         },
         "nodes": [
             {
-                "url": "wss://ws.mof.sora.org",
-                "name": "SORA Parliament Ministry of Finance Node",
-                "enabled": true
-            },
-            {
                 "url": "wss://mof2.sora.org",
-                "name": "SORA Parliament Ministry of Finance Node",
-                "enabled": true
-            },
-            {
-                "url": "wss://mof3.sora.org",
                 "name": "SORA Parliament Ministry of Finance Node",
                 "enabled": true
             },
