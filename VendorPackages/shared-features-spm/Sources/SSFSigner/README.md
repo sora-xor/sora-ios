@@ -1,6 +1,5 @@
 # SSF-signer-ios
 
-[![CI Status](https://img.shields.io/travis/Alex Lebedko/SSF-signer-ios.svg?style=flat)](https://travis-ci.org/Alex Lebedko/SSF-signer-ios)
 [![Version](https://img.shields.io/cocoapods/v/SSF-signer-ios.svg?style=flat)](https://cocoapods.org/pods/SSF-signer-ios)
 [![License](https://img.shields.io/cocoapods/l/SSF-signer-ios.svg?style=flat)](https://cocoapods.org/pods/SSF-signer-ios)
 [![Platform](https://img.shields.io/cocoapods/p/SSF-signer-ios.svg?style=flat)](https://cocoapods.org/pods/SSF-signer-ios)

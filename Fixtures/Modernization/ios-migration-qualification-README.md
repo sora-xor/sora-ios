@@ -226,28 +226,13 @@ Nexus committed instruction history is authoritative only when the MCP
 attempted route successful; a missing family, routed-by-only proof, partial family, or declared
 route failure must fail closed without replacing the local pending overlay.
 
-The legacy Jenkins job remains a build/test driver and is not a rollout or funded-canary
-controller. Its `jenkins-library` dependency must resolve the exact authenticated Soramitsu
-commit `65079bbe356bca4a3d5a1964e360498735afa1f0`; a branch, tag, default version, or a different
-40-hex value is rejected. On 2026-08-09, authenticated GitHub GraphQL and Git object inspection
-resolved that private repository's unprotected `master` head to this GitHub-valid signed commit,
-tree `d48928bf7706be3fd7d6bb37aae43593c3ba5100`, and the reviewed iOS pipeline, parameters,
-Fastfile, Gemfile, and base-pipeline blobs and SHA-256 values recorded in
-`SoraPassport/Configs/ModernizationDependencies.conf`. The source review confirmed the current
-Jenkinsfile interface, mandatory application tests, SORA Release bundle/team/profile parameters,
-and the Release build handoff that executes this repository's strict build phase. This immutable
-dependency pin does not qualify migration evidence, signing material, canaries, rollout authority,
-or production mutations.
-
-The bound `.github/workflows/ios_modernization.yml` PR workflow independently runs the complete
-source-contract gate and every simulator-eligible Release XCTest, then retains the `.xcresult`.
-It has read-only repository permission and no protected release admission, signing, upload,
-funded-canary, or rollout authority; those stay in the separately reviewed production controller.
+Run the source-contract gate and simulator tests locally. The repository has no Jenkins
+or hosted CI dependency. Local source checks and XCTest results do not confer release,
+signing, upload, funded-canary, or rollout authority; those remain explicit release steps.
 
 `qualificationContractSha256` binds the ordered relative path and SHA-256 identity of every
 migration, recovery, lifecycle, deletion-preflight, pending-journal, project, test, checklist, and
-verifier input listed by the release verifier, including both shared test schemes, the Jenkins
-pipeline definition and dependency-provenance manifest, the SORA2 extrinsic builder/service,
+verifier input listed by the release verifier, including both shared test schemes and the dependency-provenance manifest, the SORA2 extrinsic builder/service,
 application/chain-readiness wiring, the
 retained settings-key definitions and per-account completion record, signing wrappers, and seed
 signer used for backward-compatibility parity. Re-run the complete qualification whenever any
@@ -576,14 +561,14 @@ point-of-use read of `SettingsExtension.swift` and the four authoritative test/p
 descriptor-anchored and must match that saved entry's exact byte count and SHA-256; a transient
 change restored before the final whole-contract recheck is still rejected.
 
-`Jenkinsfile.migration-evidence` is a separate non-promoting collection entry point. It accepts a
-completed protected raw namespace, runs the collector twice into fresh owner-only external
-namespaces, byte-compares all five outputs, and archives only the observed public artifacts. It
-rejects qualification sequence/signature/private-key, funded-canary, rollout-controller, and
-production-mutation authority in its environment. It neither builds the raw run nor creates the
-protected observation ledger; those remain responsibilities of the separately controlled
-retained-device runner. It never calls `--verify-qualified`, writes a qualification receipt/trust
-root/signature, assigns an append-only sequence, or promotes a build.
+`SoraPassport/Scripts/run-ios-migration-evidence-collection.sh` is the local non-promoting
+collection entry point. It accepts completed protected raw input and writes only observed
+public artifacts to a fresh owner-only external namespace. It rejects qualification
+sequence/signature/private-key, funded-canary, rollout-controller, and production-mutation
+authority in its environment. It neither builds the raw run nor creates the protected
+observation ledger; those remain responsibilities of the retained-device runner. It never
+calls `--verify-qualified`, writes a qualification receipt/trust root/signature, assigns an
+append-only sequence, or promotes a build.
 
 Observed collection output remains non-authorizing by itself. Schema-8 admission accepts it only
 when the signed v4 evidence manifest and signed v8 receipt bind the protected raw-input digest,

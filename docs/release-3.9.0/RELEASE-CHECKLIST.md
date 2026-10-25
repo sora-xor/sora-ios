@@ -12,28 +12,21 @@ Human and operations actions for the release. Each task adds its items here.
       or remove the key and answer the question in App Store Connect for
       each build.
 
-## i1: UIScene, retired gates, lean CI
+## i1: UIScene and local validation
 
-### CI and build machines
+### Local build machine
 
-- [ ] GitHub branch protection: remove the old required checks
-      "Modernization Source Contract", "Full Release XCTest Closure" and
-      "Unsigned Release Device Compile". Require "Build and unit tests
-      (simulator)", "Unit tests, Release configuration (simulator)" and
-      "Unsigned Release device compile" from `iOS CI`.
-- [ ] Both iOS build workflows pin `/Applications/Xcode_26.6.app`, present
-      on the GitHub `macos-26` runner image. If it is removed, the "Select
-      Xcode" step fails and lists installed versions; update `DEVELOPER_DIR`
-      together in `.github/workflows/ios_ci.yml` and `ios_modernization.yml`.
-- [ ] Jenkins `mac-sora` agent: set `DEVELOPER_DIR` to the same Xcode as CI.
-      Archive the App Store build with that same Xcode.
-- [ ] Jenkins: disable the production-promotion and migration-evidence jobs.
-      Their Jenkinsfiles were deleted.
+- [ ] Select an installed Xcode 26 or 27 version and use the same version
+      for local validation and the App Store archive. Record `xcodebuild -version`
+      with the release evidence.
+- [ ] Run the local source gate and Debug/Release unit tests documented in
+      `README.md`, then review their results before preparing an archive.
+      No Jenkins or hosted CI result is required.
 - [ ] Watch for one possibly flaky unit test:
       `WalletModernizationTests.testCancelledLifecycleAcquireOperationDoesNotLeakLease`
       timed out (2-second wait) once in several local full runs. It passed
-      on every rerun and 50 of 50 times alone. If it fails in CI, rerun the
-      job once; if it fails again, treat it as a real failure of the wallet
+      on every rerun and 50 of 50 times alone. If it fails locally, rerun the
+      test once; if it fails again, treat it as a real failure of the wallet
       lifecycle lease and investigate before release.
 
 ### Archive
@@ -41,9 +34,9 @@ Human and operations actions for the release. Each task adds its items here.
 - [ ] Archive with plain `xcodebuild archive` (or Xcode Organizer). No
       qualification mode variables are needed any more.
 - [ ] Pass `-onlyUsePackageVersionsFromResolvedFile` to `xcodebuild archive`
-      (as CI does) and confirm `git status` shows no change to
+      and confirm `git status` shows no change to
       `Package.resolved` afterwards, so the archive uses the pinned
-      dependency versions that CI tested.
+      dependency versions tested locally.
 - [ ] Pass the build number explicitly: `CURRENT_PROJECT_VERSION` must be
       greater than `2026091402` (format `YYYYMMDDNN`, e.g. `2026101001`).
       `MARKETING_VERSION` must be `3.9.0`.
@@ -148,8 +141,7 @@ existing wallet:
 - [ ] Google Sign-In client (keeps existing Google Drive backups visible):
       the archive job must supply `SORA_GOOGLE_TOKEN_DEV` and
       `SORA_GOOGLE_URL_SCHEME_DEV` with exactly the values App Store 3.8.6
-      shipped (the Jenkins credential of that name, or `env-vars.sh` on the
-      build machine). A Release archive fails without them.
+      shipped (for example, from `env-vars.sh` on the local build machine). A Release archive fails without them.
       - Verify once: compare `GIDClientID` and `CFBundleURLTypes[0]` of the
         3.9.0 archive with the 3.8.6 IPA
         (`unzip -p SORA.ipa 'Payload/*.app/Info.plist' | plutil -p -`).
@@ -164,8 +156,8 @@ existing wallet:
       `SORA_EVIDENCE_HARNESS_CONDITION=SORA_MIGRATION_EVIDENCE_HARNESS` on
       the command line. Such builds must never be uploaded.
 - [ ] The archive's `Info.plist` has no `iroha`/`irohaconnect` URL scheme and
-      the app bundle has no `akk.lproj` or `egy-Egyp.lproj`. CI checks both on
-      its fresh Release build. A local incremental build can keep stale
+      the app bundle has no `akk.lproj` or `egy-Egyp.lproj`. Check both on
+      a fresh Release build. A local incremental build can keep stale
       `.lproj` folders from older builds, so archive from a clean build
       folder.
 

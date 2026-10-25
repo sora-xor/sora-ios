@@ -18,8 +18,6 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "SoraPassport/Scripts/run-ios-production-promotion.py"
-PIPELINE = ROOT / "Jenkinsfile.production-promotion"
-LEGACY = ROOT / "Jenkinsfile"
 SOURCE_GATE = ROOT / "SoraPassport/Scripts/verify-modernization-dependencies.sh"
 ROLLOUT_HARNESS = ROOT / "SoraPassport/Scripts/test-production-rollout-contract.py"
 ROLLOUT_VALIDATOR = ROOT / "SoraPassport/Scripts/verify-production-rollout-json.py"
@@ -78,34 +76,6 @@ class ProductionPromotionTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "iOS production promotion controller contract: OK\n")
-
-    def test_legacy_pipeline_remains_non_authorizing(self) -> None:
-        source = LEGACY.read_text(encoding="utf-8")
-        self.assertIn("legacy pipeline is not an authorized production promotion controller", source)
-        self.assertNotIn("run-ios-production-promotion.py", source)
-        self.assertNotIn("PRODUCTION_ROLLOUT_TARGET_PERCENT", source)
-
-    def test_pipeline_orders_two_one_shot_builds_before_qualification(self) -> None:
-        source = PIPELINE.read_text(encoding="utf-8")
-        markers = [
-            "--phase initialize",
-            "--phase release-tests",
-            "--phase archive",
-            "--phase compare",
-            "--phase qualify",
-            "--phase upload",
-            "--phase rollout",
-        ]
-        positions = [source.index(marker) for marker in markers]
-        self.assertEqual(positions, sorted(positions))
-        self.assertEqual(source.count("--phase archive --state"), 2)
-        self.assertIn("disableConcurrentBuilds()", source)
-        self.assertIn("skipDefaultCheckout(true)", source)
-        self.assertIn("credentialsId: 'ios-keychain-credentials'", source)
-        self.assertIn("usernameVariable: 'IOS_SIGNING_KEYCHAIN_PATH'", source)
-        self.assertIn("passwordVariable: 'IOS_SIGNING_KEYCHAIN_PASSWORD'", source)
-        self.assertIn("/usr/bin/security unlock-keychain", source)
-        self.assertIn("/usr/bin/security lock-keychain", source)
 
     def test_advance_phases_have_no_build_or_test_entry_point(self) -> None:
         for function in (
