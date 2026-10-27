@@ -57,15 +57,10 @@ final class PolkaswapMainInteractor {
 
     func setup() {
         eventCenter.add(observer: self)
-        updateNetworkFeeValue()
     }
 
     func stop() {
         eventCenter.remove(observer: self)
-    }
-
-    fileprivate func updateNetworkFeeValue() {
-        //TODO: update networkFeeValue here
     }
 }
 

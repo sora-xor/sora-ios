@@ -1134,7 +1134,6 @@ private extension AccountOptionsInteractor {
         }
         stopServices()
         lifecycleLease.release()
-        // TODO: [SN-377] Clean Capital cache
         DispatchQueue.main.async {
             self.presenter?.restart()
         }

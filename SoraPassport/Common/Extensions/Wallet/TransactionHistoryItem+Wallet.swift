@@ -197,7 +197,6 @@ extension TransactionHistoryItem {
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
 
             
-        // TODO: impl
         case .incoming, .outgoing, .migration, .reward, .slash, .extrinsic, .referral:
             let receiverAccountId = try Data(hexStringSSF: info.destination)
             guard !info.asset.isEmpty,

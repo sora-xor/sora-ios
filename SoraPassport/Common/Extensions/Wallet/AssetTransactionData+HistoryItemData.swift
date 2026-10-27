@@ -105,7 +105,6 @@ extension AssetTransactionData {
             )
         }
 
-        // TODO: add other types of transactions
         return createLocalExtrinsic(
             from: item,
             address: address,

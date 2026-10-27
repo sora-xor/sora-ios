@@ -142,12 +142,7 @@ final class RuntimeHotBootSnapshotFactory {
             )
 
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
-            var runtimeMetadata: RuntimeMetadata
-            if let resolver = strongSelf.runtimeItem.resolver {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-            } else {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-            }
+            let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 strongSelf.commonTypes,
@@ -196,14 +191,9 @@ final class RuntimeHotBootSnapshotFactory {
             )
 
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
-            var runtimeMetadata: RuntimeMetadata
-            if let resolver = strongSelf.runtimeItem.resolver {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-            } else {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
-            }
+            let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
-            // TODO: think about it
+            // Common types are empty because this snapshot uses only the chain's own types.
             let json: JSON = .dictionaryValue(["types": .dictionaryValue([:])])
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 try JSONEncoder().encode(json),

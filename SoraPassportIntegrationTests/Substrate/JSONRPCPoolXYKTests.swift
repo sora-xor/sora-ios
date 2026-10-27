@@ -155,45 +155,6 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
         }
     }
 
-    //TODO: try to get all account's pools in one request (now 1 request for XOR-pools and 1 request for XSTUSD-pools)
-//    func testPools() {
-//        let url: URL = URL(string: "wss://mof2.sora.org")!
-//        let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
-//        let logger = Logger.shared
-//        let operationQueue = OperationQueue()
-//
-//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
-//
-//        let storageFactory = StorageKeyFactory()
-//
-//        let xorIdData = try! Data(hexStringSSF: WalletAssetId.xor.rawValue)
-//        let xstIdData = try! Data(hexStringSSF: WalletAssetId.xstusd.rawValue)
-//
-//        let keyXor = try! storageFactory.createStorageKey(moduleName: "PoolXYK", storageName: "AccountPools", key1: address.accountId!, hasher1: .identity, key2: xorIdData, hasher2: .blake128Concat).toHex(includePrefix: true)
-//        let keyXst = try! storageFactory.createStorageKey(moduleName: "PoolXYK", storageName: "AccountPools", key1: address.accountId!, hasher1: .identity, key2: xstIdData, hasher2: .blake128Concat).toHex(includePrefix: true)
-//
-//        let operation = JSONRPCOperation<[[String]], JSONScaleDecodable<AccountAssetPools>>(
-//            engine: engine,
-//            method: SoraPassport.RPCMethod.queryStorageAt,
-//            parameters: [[keyXor, keyXst]]
-//        )
-//
-//        operationQueue.addOperations([operation], waitUntilFinished: true)
-//
-//        do {
-//            guard let pools = try operation.extractResultData()?.underlyingValue else {
-//                XCTFail("No account pools")
-//                return
-//            }
-//
-////            XCTAssertFalse(pools.assetIds.isEmpty)
-//            Logger.shared.debug("Account pools: \(pools)")
-//
-//        } catch {
-//            XCTFail("Unexpected error: \(error)")
-//        }
-//    }
-
     //    poolXYK
     //    properties(AssetId, AssetId): Option<(AccountId,AccountId)>
     //    Properties of particular pool. Base Asset => Target Asset => (Reserves Account Id, Fees Account Id)
