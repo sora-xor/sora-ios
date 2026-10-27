@@ -82,7 +82,10 @@ extension AccountCreateError: ErrorContentConvertible {
             message = WalletUX.text("Paste the complete contents of a wallet JSON backup file. A recovery phrase or wallet address cannot be used here.", language: locale?.rLanguages?.first)
         case .unsupportedNetwork:
             title = R.string.localizable.accountImportDefaultError(preferredLanguages: locale?.rLanguages)
-            message = "" // TODO: no design
+            message = WalletUX.text(
+                "This wallet uses a network that SORA does not support. Import a SORA wallet backup.",
+                language: locale?.rLanguages?.first
+            )
         }
 
         return ErrorContent(title: title, message: message)

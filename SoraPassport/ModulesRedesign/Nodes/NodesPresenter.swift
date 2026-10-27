@@ -107,32 +107,12 @@ extension NodesPresenter: NodesCellDelegate {
         let removeAction = AlertPresentableAction(
             title: R.string.localizable.commonRemove(preferredLanguages: .currentLocale)
         ) {
-            // TODO: impl remove node
             self.interactor.removeNode(node)
         }
 
         let viewModel = AlertPresentableViewModel(
             title: R.string.localizable.removeNodeTitle(preferredLanguages: .currentLocale),
             message: nil,
-            actions: [removeAction],
-            closeAction: R.string.localizable.commonCancel(preferredLanguages: .currentLocale)
-        )
-        present(viewModel: viewModel, style: .alert, from: view)
-    }
-
-    // TODO: use it
-    private func unableToRemove(_ node: ChainNodeModel) {
-
-        let removeAction = AlertPresentableAction(
-            title: R.string.localizable.commonOk(preferredLanguages: .currentLocale)
-        ) {
-            // TODO: impl remove node
-            print("TODO: impl remove node")
-        }
-
-        let viewModel = AlertPresentableViewModel(
-            title: R.string.localizable.removeNodeErrorTitle(preferredLanguages: .currentLocale),
-            message: R.string.localizable.removeNodeErrorMessage(preferredLanguages: .currentLocale),
             actions: [removeAction],
             closeAction: R.string.localizable.commonCancel(preferredLanguages: .currentLocale)
         )

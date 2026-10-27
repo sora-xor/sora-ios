@@ -95,7 +95,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
     private func secondSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
         let nodes = MoreMenuItem(title: R.string.localizable.settingsNodes(preferredLanguages: languages),
-                                 subtitle: nodeName(), //TODO: node address/description here
+                                 subtitle: nodeName(),
                                  picture: .icon(image: R.image.iconNode()!,
                                                 color: .accentTertiary),
                                  circleColor: .statusSuccess,

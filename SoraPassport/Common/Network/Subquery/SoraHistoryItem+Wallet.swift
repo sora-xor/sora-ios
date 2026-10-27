@@ -354,7 +354,7 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         return AssetTransactionData(
             transactionId: identifier,
             status: status,
-            assetId: liquidity.targetAssetId, // TODO: check
+            assetId: liquidity.targetAssetId,
             peerId: liquidity.baseAssetId,
             peerFirstName: nil,
             peerLastName: nil,
@@ -394,7 +394,7 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         return AssetTransactionData(
             transactionId: identifier,
             status: status,
-            assetId: liquidity.inputAssetA, // TODO: check
+            assetId: liquidity.inputAssetA,
             peerId: liquidity.inputAssetB,
             peerFirstName: nil,
             peerLastName: nil,

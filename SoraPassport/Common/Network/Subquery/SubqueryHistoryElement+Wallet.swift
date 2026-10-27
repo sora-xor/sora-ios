@@ -292,7 +292,7 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
         return AssetTransactionData(
             transactionId: identifier,
             status: status,
-            assetId: liquidity.targetAssetId, // TODO: check
+            assetId: liquidity.targetAssetId,
             peerId: liquidity.baseAssetId,
             peerFirstName: nil,
             peerLastName: nil,

@@ -213,7 +213,6 @@ final class ChainRegistry {
         }
         let storage: CoreDataRepository<AssetInfo, CDAssetInfo> = SubstrateDataStorageFacade.shared.createRepository()
         let operationManager = OperationManagerFacade.sharedManager
-        //TODO: insert assets, not chain?
         let assetManager = AssetManager(storage: AnyDataProviderRepository(storage),
                                         chainProvider: chainProvider,
                                         chainId: chain.chainId,
@@ -267,8 +266,6 @@ extension ChainRegistry: ChainRegistryProtocol {
     }
 
     func performHotBoot() {
-//TODO: why not working?
-//        snapshotHotBootBuilder.startHotBoot()
         performColdBoot()
     }
 

@@ -66,12 +66,15 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
     private lazy var passwordInputField: InputField = {
         let view = InputField()
         view.sora.titleLabelText = R.string.localizable.exportJsonInputLabel(preferredLanguages: languages)
+        view.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: languages)
         view.sora.textFieldPlaceholder = R.string.localizable.exportJsonInputLabel(preferredLanguages: languages)
         view.sora.keyboardType = .alphabet
         view.sora.textContentType = .newPassword
+        view.textField.autocapitalizationType = .none
+        view.textField.autocorrectionType = .no
         view.textField.isSecureTextEntry = true
         view.sora.addHandler(for: .editingChanged) { [weak self] in
-            self?.updateSate()
+            self?.updateState()
         }
         return view
     }()
@@ -82,9 +85,11 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         view.sora.textFieldPlaceholder = R.string.localizable.exportJsonInputConfirmationLabel(preferredLanguages: languages)
         view.sora.keyboardType = .alphabet
         view.sora.textContentType = .newPassword
+        view.textField.autocapitalizationType = .none
+        view.textField.autocorrectionType = .no
         view.textField.isSecureTextEntry = true
         view.sora.addHandler(for: .editingChanged) { [weak self] in
-            self?.updateSate()
+            self?.updateState()
         }
         return view
     }()
@@ -133,25 +138,30 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         }
     }
 
-    private func updateSate() {
+    private func updateState() {
 
-        let isPasswordEmpty = passwordInputField.sora.text?.isEmpty ?? true
+        let isPasswordValid = (passwordInputField.sora.text?.count ?? 0) >= 6
         let isConfirmEmpty = confirmPasswordInputField.sora.text?.isEmpty ?? true
         let isMatching = passwordInputField.sora.text == confirmPasswordInputField.sora.text
 
-        // TODO: add password requirements
-        passwordInputField.sora.state = isPasswordEmpty ? .fail : .success
+        passwordInputField.sora.descriptionLabelText = isPasswordValid
+            ? R.string.localizable.backupPasswordMandatoryReqsFulfilled(preferredLanguages: languages)
+            : R.string.localizable.backupPasswordRequirments(preferredLanguages: languages)
+        passwordInputField.sora.state = isPasswordValid ? .success : .fail
 
         confirmPasswordInputField.sora.descriptionLabelText = isMatching ? "" : isConfirmEmpty ? "" :
             R.string.localizable.exportJsonInputMatchError(preferredLanguages: languages)
         confirmPasswordInputField.sora.state = isMatching ? .success : isConfirmEmpty ? .default : .fail
 
-        downloadButton.sora.isEnabled = !isPasswordEmpty && isMatching
+        downloadButton.sora.isEnabled = isPasswordValid && isMatching
     }
 
     @objc
     func downloadTapped(){
-        presenter.exportWith(password: confirmPasswordInputField.sora.text ?? "")
+        guard let password = passwordInputField.sora.text,
+              password.count >= 6,
+              password == confirmPasswordInputField.sora.text else { return }
+        presenter.exportWith(password: password)
     }
 }
 

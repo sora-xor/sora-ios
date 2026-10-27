@@ -6,6 +6,47 @@ import SoraUIKit
 @testable import SoraPassport
 
 final class ChangeAccountTests: XCTestCase {
+    @MainActor
+    func testExportRequiresSixCharactersEvenWhenTheActionIsCalledDirectly() throws {
+        let presenter = ExportPasswordPresenterSpy()
+        let view = AccountExportViewController()
+        view.presenter = presenter
+        view.localizationManager = LocalizationManager.shared
+        view.loadViewIfNeeded()
+        let fields = descendants(view.view).compactMap { $0 as? InputField }
+        XCTAssertEqual(fields.count, 2)
+        let password = try XCTUnwrap(fields.first)
+        let confirmation = try XCTUnwrap(fields.last)
+        let button = try XCTUnwrap(descendants(view.view).compactMap { $0 as? SoramitsuButton }.first)
+
+        func edit(_ value: String) {
+            password.sora.text = value
+            password.textField.sendActions(for: .editingChanged)
+            confirmation.sora.text = value
+            confirmation.textField.sendActions(for: .editingChanged)
+        }
+
+        edit("12345")
+        XCTAssertFalse(button.isEnabled)
+        XCTAssertEqual(password.sora.state, .fail)
+        XCTAssertFalse((password.sora.descriptionLabelText ?? "").isEmpty)
+        view.downloadTapped()
+        XCTAssertTrue(presenter.passwords.isEmpty)
+
+        edit("123456")
+        XCTAssertTrue(button.isEnabled)
+        XCTAssertEqual(password.sora.state, .success)
+        view.downloadTapped()
+        XCTAssertEqual(presenter.passwords, ["123456"])
+    }
+
+    func testUnsupportedNetworkImportExplainsHowToProceed() {
+        let content = AccountCreateError.unsupportedNetwork.toErrorContent(for: Locale(identifier: "en"))
+        XCTAssertFalse(content.title.isEmpty)
+        XCTAssertTrue(content.message.contains("network"))
+        XCTAssertTrue(content.message.contains("SORA wallet backup"))
+    }
+
     func testJSONImportErrorsExplainTheFileOrPasswordProblem() {
         for language in ["en", "ja"] {
             let locale = Locale(identifier: language)
@@ -196,4 +237,12 @@ private struct SwitchRepository: DataProviderRepositoryProtocol {
     func replaceOperation(_ models: @escaping () throws -> [AccountItem]) -> BaseOperation<Void> { fatalError("read-only fixture") }
     func deleteAllOperation() -> BaseOperation<Void> { fatalError("read-only fixture") }
     func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { accounts.count } }
+}
+
+private final class ExportPasswordPresenterSpy: AccountExportPresenterProtocol {
+    var passwords: [String] = []
+
+    func exportWith(password: String) {
+        passwords.append(password)
+    }
 }

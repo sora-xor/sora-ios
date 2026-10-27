@@ -525,7 +525,7 @@ extension RuntimeSnapshotFactory {
         let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
         let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
-        // TODO: think about it
+        // Common types are empty because this snapshot uses only the chain's own types.
         let json: JSON = .dictionaryValue(["types": .dictionaryValue([:])])
         let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
             try JSONEncoder().encode(json),
