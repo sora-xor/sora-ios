@@ -47,7 +47,7 @@ protocol OnboardingMainPresenterProtocol: AlertPresentable {
 protocol OnboardingMainInteractorInputProtocol: AnyObject {
     func setup()
     func resetGoogleState()
-    func getBackupedAccounts(completion: @escaping (Result<[OpenBackupAccount], Error>) -> Void)
+    func getBackupedAccounts() async throws -> [OpenBackupAccount]
 }
 
 protocol OnboardingMainInteractorOutputProtocol: AnyObject {

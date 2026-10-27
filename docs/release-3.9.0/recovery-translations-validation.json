@@ -1,0 +1,235 @@
+{
+  "date": "2026-10-12",
+  "keyCount": 235,
+  "shippedLocaleCount": 28,
+  "requiredEntriesChecked": 6580,
+  "nativeReview": "pending for all 26 newly translated locales; structural validation is not native review",
+  "locales": {
+    "zh-Hans": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "1a1a65a48ca0d2c5a5a56efbdfda32c04e116141b97f8a065e32e0836945fe0f"
+    },
+    "en": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "2c22cb5b6cea2746cc0d66b99780b6729a7d9e423513121cde774de9e1d7662b"
+    },
+    "it-IT": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "b209b3b1d935fe9e1b53f2f21533662b53495193758e42568de78990ec582bfa"
+    },
+    "es": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "a6980abf3089c6a16f135d6be322e639aebd3d5b79afb75d276a40875a8b7a2b"
+    },
+    "sl": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "3ad5bd559cff89d34d31d77fef92c0c73a95d329a49b7d4207029076d0344547"
+    },
+    "cs": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "eacdb97d1724138dccbaa36bf44c01e47ce54a3d8109924fa442f30e83ee2b4a"
+    },
+    "no": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "c5b210a1f379eecc7b563e66e894d3e5e65f8c3fc09da55ca043933c33cac53a"
+    },
+    "hu": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "d08eaf8bb3e21c2e405def92814e217cab472686d40a938b58d6d044d56574be"
+    },
+    "tr": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "5baae8515cb452d4b94fe91e467810adedd5712ac8e65865cbb13a2ae98a108d"
+    },
+    "pl": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "dee13171c811c08303f70337645ae514e7248c6f394cf5e27be1fa69256b794e"
+    },
+    "ru": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "37b1b8fd65bd67daaa1ad6ab22b490af06a842cf437199d4d6a6e0e761c10701"
+    },
+    "de-DE": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "2598060ec90d5b88eb040c6028629bb7bfdd461010b99d7f24c32e0196f3252e"
+    },
+    "fr": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "64fbc3c17be943647e3cc769de9a5c87a8ca07872d546fa4afeb26d99730b104"
+    },
+    "id": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "26687f4029251bc6ff38527884d96aaa11ac7918a0ab995861ecf0269f064743"
+    },
+    "ca": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "6bb449935a47cff78b102ccc57666db7408d271b68c6d67d3b06b442700b88b9"
+    },
+    "ar": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "282e3c5bea9cab169f6c8dc81265a417813190e6f55e531d3943f0310b42c9dd"
+    },
+    "he": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "e452d1c4ca92ca7a182640b68aceb0601cff8ec52e7214eed11c2c00e2c4d16f"
+    },
+    "fa": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "a99c5f9a5fbee3d03e4e0c26e1434c41a3fbf1e8c139d05dd8ddf0b4f1874a52"
+    },
+    "ms-MY": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "4f4a81ae1ed438978298ed026ade77fd18ac547375524a7cb62a12c7b44411d5"
+    },
+    "sr": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "3a509f1f14f5442af212e8f0e28edd91e9fce59a0143715b9feafeb3b5175011"
+    },
+    "vi": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "dd0ae1c4b1fbdbbcccafa573f17f9fd4697ed4aaf78630d626fcdbe612095b73"
+    },
+    "hi-IN": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "a430f6a70e993839c14107efe5d2a9b91a981935ab4d31fd40413777ee61d704"
+    },
+    "az": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "7d06d11abe1516a97ba014f470c305b5049cf6127dde03a645c1463febb29dec"
+    },
+    "zh-Hant-TW": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "e40d0edbb926fb3d085afd7e6ac3f6dca6f7a4c64a64caba99012756522572d7"
+    },
+    "nl": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "ba9d42aef33ff9eab8c33eaf900dabf37a3eb4afd0d197e153d16bd4c50801ae"
+    },
+    "fi-FI": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "8ae15be850e7e63690de0d79f77af3eb265e454c506766cca07d710aaf5d116e"
+    },
+    "ja": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "37375e477cb7675dfbf0795ee7d29e67e4c7b2aa1de1e18e0e6a98902de2b012"
+    },
+    "pt": {
+      "coverage": 235,
+      "syntax": "passed",
+      "requiredKeyDuplicates": [],
+      "placeholderMismatches": [],
+      "untranslatedEnglish": [],
+      "sha256": "7177923eb2cb594d7a977c0a236c938be473fcad776da3697ab3fdf1a9ca6f02"
+    }
+  },
+  "failures": [],
+  "passed": true
+}

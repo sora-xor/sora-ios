@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import SoraKeystore
 import SoraUIKit
 import Nantes
 
@@ -57,17 +58,18 @@ final class WelcomeViewController: SoramitsuViewController {
     
     let titleLabel: SoramitsuLabel = {
         let title = SoramitsuTextItem(text:  R.string.localizable.tutorialManyWorld(preferredLanguages: .currentLocale),
-                                      fontData: ScreenSizeMapper.value(small: FontType.displayS, medium: FontType.displayL, large: FontType.displayL),
+                                      fontData: FontType.headline1,
                                       textColor: .fgPrimary,
                                       alignment: .center)
         
         let sora = SoramitsuTextItem(text:  "\nSORA",
-                                     fontData: ScreenSizeMapper.value(small: FontType.displayS, medium: FontType.displayL, large: FontType.displayL),
+                                     fontData: FontType.headline1,
                                      textColor: .accentPrimary,
                                      alignment: .center)
         let label = SoramitsuLabel()
         label.sora.numberOfLines = 0
         label.sora.attributedText = [ title, sora ]
+        label.sora.dynamicTextStyle = .title1
         return label
     }()
     
@@ -75,6 +77,7 @@ final class WelcomeViewController: SoramitsuViewController {
         let label = SoramitsuLabel()
         label.sora.numberOfLines = 0
         label.sora.font = FontType.paragraphS
+        label.sora.dynamicTextStyle = .body
         label.sora.textColor = .fgPrimary
         label.sora.text = R.string.localizable.onboardingDescription(preferredLanguages: .currentLocale)
         label.sora.alignment = .center
@@ -104,42 +107,37 @@ final class WelcomeViewController: SoramitsuViewController {
         return button
     }()
     
-    private lazy var createAccountButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.create_account_title(preferredLanguages: .currentLocale),
-                                      fontData: FontType.buttonM,
-                                      textColor: .bgSurface,
-                                      alignment: .center)
-        
-        let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .accentPrimary
-        button.sora.attributedText = title
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.presenter.activateSignup()
-        }
+    private lazy var createAccountButton = WalletUX.button(
+        R.string.localizable.create_account_title(preferredLanguages: .currentLocale), primary: true
+    ) { [weak self] in self?.presenter.activateSignup() }
+
+    private lazy var importAccountButton = WalletUX.button(
+        R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale)
+    ) { [weak self] in self?.presenter.activateAccountRestore() }
+
+    private lazy var earlierDataButton: WalletNeonButton = {
+        let button = WalletSafeMode.button(.secondary, title: WalletUX.text("Use the earlier wallet data again"))
+        button.accessibilityIdentifier = "wallet-onboarding-earlier-data"
+        button.isHidden = true
+        button.addTarget(self, action: #selector(restoreEarlierData), for: .touchUpInside)
         return button
     }()
-    
-    private lazy var importAccountButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
-                                      fontData: FontType.buttonM,
-                                      textColor: .accentPrimary,
-                                      alignment: .center)
-        
-        let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .custom(uiColor: .clear)
-        button.sora.attributedText = title
-        button.sora.borderColor = .accentPrimary
-        button.sora.borderWidth = 1
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.presenter.activateAccountRestore()
-        }
-        return button
+    private lazy var actionsStack: UIStackView = {
+        let stack = UIStackView(arrangedSubviews: [createAccountButton, importAccountButton, earlierDataButton])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
     }()
-    
+    @objc private func restoreEarlierData() {
+        WalletPreservedDataRestoration.present(on: self) { [weak self] in
+            guard let window = self?.view.window as? SoraWindow else { return }
+            RootWireframe.restartStartup(on: window)
+        }
+    }
+
+    private let scrollView = UIScrollView()
+
     lazy var termDecorator: AttributedStringDecoratorProtocol = {
         CompoundAttributedStringDecorator.legalRedesign(for: Locale.current)
     }()
@@ -162,21 +160,43 @@ final class WelcomeViewController: SoramitsuViewController {
     }()
     
     let linkDecorator = LinkDecoratorFactory.termsDecorator()
+    /// The terms text with its link markers removed, and the links found in
+    /// it; kept so the label can be re-coloured after a theme change.
+    private var termsContent: (text: String, links: [(URL, NSRange)])?
     
     func decorate(label: NantesLabel) {
         label.delegate = self
+        // Links are cyan and underlined, so colour is never the only signal
+        // (spec §8.2, §10.1). Re-applied on every theme change.
+        let link = NeonTokens.current.link
         label.linkAttributes = [
-            NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+            .foregroundColor: link,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .underlineColor: link
         ]
-        var text = label.text ?? ""
-        let links: [(URL, NSRange)] = linkDecorator.links(inText: &text)
+        label.activeLinkAttributes = [
+            .foregroundColor: link.withAlphaComponent(0.7),
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .underlineColor: link.withAlphaComponent(0.7)
+        ]
+        if termsContent == nil {
+            var text = label.text ?? ""
+            let links = linkDecorator.links(inText: &text)
+            termsContent = (text, links)
+        }
+        let text = termsContent?.text ?? ""
+        let links = termsContent?.links ?? []
         
+        // Terms are `textXS` `text.secondary` (spec §8.2).
         let attributedText = SoramitsuTextItem(text: text,
                                      fontData: FontType.textXS,
-                                     textColor: .fgPrimary,
+                                     textColor: .fgSecondary,
                                      alignment: .center).attributedString
         
-        label.attributedText = attributedText
+        let scaledText = NSMutableAttributedString(attributedString: attributedText)
+        scaledText.addAttribute(.font, value: UIFontMetrics(forTextStyle: .caption1).scaledFont(for: FontType.textXS.font), range: NSRange(location: 0, length: scaledText.length))
+        label.attributedText = scaledText
+        label.adjustsFontForContentSizeCategory = true
         for link in links {
             label.addLink(to: link.0, withRange: link.1)
         }
@@ -189,6 +209,7 @@ final class WelcomeViewController: SoramitsuViewController {
         setupView()
         setupConstraints()
         presenter.setup()
+        SoramitsuUI.updates.addObserver(self)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -203,17 +224,37 @@ final class WelcomeViewController: SoramitsuViewController {
     }
     
     func setupView() {
-        view.addSubview(containerView)
-        containerView.addSubviews(logo, titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
+        createAccountButton.translatesAutoresizingMaskIntoConstraints = false
+        importAccountButton.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubviews(titleLabel, subtitleLabel, googleButton, actionsStack, termsLabel)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let available = (try? WalletLocalStateSetAside.Paths.production()).map {
+                !WalletPreservedGeneration.available(paths: $0, settings: SettingsManager.shared).isEmpty
+            } ?? false
+            DispatchQueue.main.async { self?.earlierDataButton.isHidden = !available }
+        }
+        // The logo overlaps the card's top edge. It sits above the card, not
+        // inside it: the card draws its hairline over its own subviews,
+        // which put a line across the logo.
+        scrollView.addSubview(logo)
         decorate(label: termsLabel)
         view.addSubview(loadingView)
     }
     
     func setupConstraints() {
         NSLayoutConstraint.activate([
-            containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 72),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             logo.topAnchor.constraint(equalTo: containerView.topAnchor, constant: -56),
             logo.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -226,15 +267,10 @@ final class WelcomeViewController: SoramitsuViewController {
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             subtitleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
-            createAccountButton.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
-            createAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            createAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            
-            importAccountButton.topAnchor.constraint(equalTo: createAccountButton.bottomAnchor, constant: 16),
-            importAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            importAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            
-            termsLabel.topAnchor.constraint(equalTo: importAccountButton.bottomAnchor, constant: 16),
+            actionsStack.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
+            actionsStack.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
+            actionsStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -24),
+            termsLabel.topAnchor.constraint(equalTo: actionsStack.bottomAnchor, constant: 16),
             termsLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             termsLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             termsLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
@@ -261,5 +297,13 @@ extension WelcomeViewController: OnboardingMainViewProtocol {
     func hideLoading() {
         googleButton.isUserInteractionEnabled = true
         loadingView.isHidden = true
+    }
+}
+
+extension WelcomeViewController: SoramitsuObserver {
+    /// The terms label is plain attributed text: re-colour it with the theme.
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette), isViewLoaded else { return }
+        decorate(label: termsLabel)
     }
 }

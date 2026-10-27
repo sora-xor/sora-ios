@@ -59,3 +59,46 @@ extension CustomNodeOperationFactory: CustomNodeOperationFactoryProtocol {
                                             parameters: [param])
     }
 }
+
+/// Whether a SORA mainnet node can carry the app's signing requests: one
+/// HTTPS JSON-RPC POST at the node's own host, port and path, answered as
+/// JSON by SORA mainnet. Checked before a custom node is saved.
+enum Sora2NodeSigningRoute: Equatable {
+    case available
+    /// No HTTPS JSON-RPC answer at the node's address (a `ws://` address, a
+    /// WebSocket-only proxy, no TLS listener, or an answer that is not
+    /// JSON-RPC).
+    case missing
+    /// It answers, but it is not SORA mainnet.
+    case anotherNetwork
+
+    static var missingRouteMessage: String {
+        WalletUX.text(
+            "This node answers on its WebSocket address but not over HTTPS at the same address. The app needs both: balances use the WebSocket, and fee estimates and sends use HTTPS. With this node balances would load and every send would fail, so it was not saved. Use a node that serves wss:// and https:// at the same address."
+        )
+    }
+
+    static var missingRouteFieldText: String {
+        WalletUX.text("This node does not answer over HTTPS, so it can't send transactions")
+    }
+
+    static func probe(
+        nodeURL: URL,
+        session: URLSession? = nil
+    ) async -> Sora2NodeSigningRoute {
+        guard (try? Sora2BoundedHTTPJSONRPCEngine.httpEndpoint(for: nodeURL)) != nil else {
+            return .missing
+        }
+        let client = PolkamarktRPCClient(
+            engine: Sora2BoundedHTTPJSONRPCEngine(nodeURL: nodeURL, session: session)
+        )
+        do {
+            _ = try await client.reviewedGenesisHash()
+            return .available
+        } catch PolkamarktRuntimeError.wrongChain {
+            return .anotherNetwork
+        } catch {
+            return .missing
+        }
+    }
+}

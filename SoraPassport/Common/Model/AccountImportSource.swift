@@ -41,7 +41,7 @@ extension AccountImportSource: SourceType {
         switch self {
         case .mnemonic: return R.string.localizable.commonPassphraseTitle(preferredLanguages: locale.rLanguages)
         case .seed: return R.string.localizable.commonRawSeed(preferredLanguages: locale.rLanguages)
-        case .keystore: return "JSON" // for the future
+        case .keystore: return WalletUX.text("JSON backup", language: locale.rLanguages?.first)
         }
     }
 
@@ -53,7 +53,7 @@ extension AccountImportSource: SourceType {
         switch self {
         case .mnemonic: return R.string.localizable.onboardingEnterPassphrase(preferredLanguages: .currentLocale)
         case .seed: return R.string.localizable.onboardingEnterSeed(preferredLanguages: .currentLocale)
-        case .keystore: return "JSON" // for the future
+        case .keystore: return WalletUX.text("Import JSON backup")
         }
     }
     
@@ -61,7 +61,7 @@ extension AccountImportSource: SourceType {
         switch self {
         case .mnemonic: return R.string.localizable.recoveryEnterPassphraseTitle(preferredLanguages: .currentLocale)
         case .seed: return R.string.localizable.recoveryEnterSeedTitle(preferredLanguages: .currentLocale)
-        case .keystore: return "JSON" // for the future
+        case .keystore: return WalletUX.text("Paste the full contents of your wallet’s JSON backup file. Enter the password used when you created that backup. This is not your app PIN.")
         }
     }
 }

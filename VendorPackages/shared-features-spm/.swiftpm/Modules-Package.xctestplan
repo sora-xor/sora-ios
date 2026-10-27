@@ -1,0 +1,194 @@
+{
+  "configurations" : [
+    {
+      "id" : "8448FF31-3E45-4AEE-88B9-FE04D12CDDC8",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "AccountManagementWorkerTests",
+        "JSONExportServiceTests",
+        "JSONExportServiceTests\/testExportAccount()",
+        "JSONExportServiceTests\/testExportWallet()"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFAccountManagmentTests",
+        "name" : "SSFAccountManagmentTests"
+      }
+    },
+    {
+      "skippedTests" : [
+        "ChainAssetsFetchingServiceTests\/testFetchSortAssetId()",
+        "ChainAssetsFetchingServiceTests\/testFetchSortPrice()"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFAssetManagmentTests",
+        "name" : "SSFAssetManagmentTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFQRServiceTests",
+        "name" : "SSFQRServiceTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFCloudStorageTests",
+        "name" : "SSFCloudStorageTests"
+      }
+    },
+    {
+      "skippedTests" : [
+        "JsonCreatorTests\/testSubsctrateJson()"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFKeyPairTests",
+        "name" : "SSFKeyPairTests"
+      }
+    },
+    {
+      "skippedTests" : [
+        "XcmAccountsTests",
+        "XcmAccountsTests\/testAccountId20ValueInit()",
+        "XcmAccountsTests\/testAccountId32ValueInit()",
+        "XcmAccountsTests\/testAccountIndexValueInit()",
+        "XcmAssemblyTests",
+        "XcmAssemblyTests\/testCreateExtrincisServices()",
+        "XcmAssetMultilocationFetcherTests",
+        "XcmAssetMultilocationFetcherTests\/testVersionedMultilocation()",
+        "XcmAssetMultilocationFetcherTests\/testVersionedMultilocationWithAssetError()",
+        "XcmAssetMultilocationFetcherTests\/testVersionedMultilocationWithRetryError()",
+        "XcmAssetMultilocationFetcherTests\/testXcmAssetMultilocationFetcherInit()",
+        "XcmCallFactoryTests",
+        "XcmCallFactoryTests\/testBridgeProxyBurn()",
+        "XcmCallFactoryTests\/testPolkadotXcmLimitedReserveTransferAssets()",
+        "XcmCallFactoryTests\/testPolkadotXcmLimitedReserveTransferAssetsWithError()",
+        "XcmCallFactoryTests\/testReserveNativeToken()",
+        "XcmCallFactoryTests\/testXTokensTransfer()",
+        "XcmCallFactoryTests\/testXTokensTransferMultiasset()",
+        "XcmCallFactoryTests\/testXTokensTransferMultiassetWithError()",
+        "XcmCallPathTests",
+        "XcmCallPathTests\/testPathParameters()",
+        "XcmCallPathTests\/testUsedRuntimePathsParameter()",
+        "XcmChainsConfigFetcherTests",
+        "XcmChainsConfigFetcherTests\/testGetAvailableAssets()",
+        "XcmChainsConfigFetcherTests\/testGetAvailableAssetsWithError()",
+        "XcmChainsConfigFetcherTests\/testGetAvailableDestinationChains()",
+        "XcmChainsConfigFetcherTests\/testGetAvailableDestinationChainsWithError()",
+        "XcmChainsConfigFetcherTests\/testGetAvailableOriginalChains()",
+        "XcmChainsConfigFetcherTests\/testGetAvailableOriginalChainsWithError()",
+        "XcmChainsConfigFetcherTests\/testGetVersion()",
+        "XcmChainsConfigFetcherTests\/testGetVersionWithError()",
+        "XcmConfigTests",
+        "XcmConfigTests\/testChainTypesSourceUrl()",
+        "XcmConfigTests\/testChainsSourceUrl()",
+        "XcmConfigTests\/testDestinationFeeSourceUrl()",
+        "XcmConfigTests\/testTokenLocationsSourceUrlokenLocationsSourceUrl()",
+        "XcmDependencyContainerTests",
+        "XcmDependencyContainerTests\/testPrepareDeps()",
+        "XcmDestinationTests",
+        "XcmDestinationTests\/testDetermineChainType()",
+        "XcmDestinationTests\/testDetermineChainTypeWithError()",
+        "XcmExtrinsicBuilderTests",
+        "XcmExtrinsicBuilderTests\/testBuildPolkadotXcmLimitedReserveTransferAssetsExtrinsicBuilderClosure()",
+        "XcmExtrinsicBuilderTests\/testBuildReserveNativeTokenExtrinsicBuilderClosure()",
+        "XcmExtrinsicBuilderTests\/testBuildXTokensTransferExtrinsicBuilderClosure()",
+        "XcmExtrinsicBuilderTests\/testBuildXTokensTransferMultiassetExtrinsicBuilderClosure()",
+        "XcmExtrinsicServiceTests",
+        "XcmExtrinsicServiceTests\/testEstimateOriginalFee()",
+        "XcmExtrinsicServiceTests\/testTransfer()",
+        "XcmFeeResponseTests",
+        "XcmFeeResponseTests\/testXcmFeeResponseInit()",
+        "XcmFeeServiceTests",
+        "XcmFeeServiceTests\/testEstimateFee()",
+        "XcmFeeServiceTests\/testEstimateWeight()",
+        "XcmFeeTests",
+        "XcmFeeTests\/testDestXcmFeeInit()",
+        "XcmFeeTests\/testXcmFeeInit()",
+        "XcmJunctionNetworkIdTests",
+        "XcmJunctionNetworkIdTests\/testEncode()",
+        "XcmJunctionNetworkIdTests\/testFromEcosystem()",
+        "XcmJunctionTests",
+        "XcmJunctionTests\/testEncode()",
+        "XcmJunctionTests\/testEquatable()",
+        "XcmJunctionTests\/testInitFromDecoder()",
+        "XcmJunctionTests\/testIsParachain()",
+        "XcmV1MultiAssetTests",
+        "XcmV1MultiAssetTests\/testXcmV1MultiAssetIdInit()",
+        "XcmV1MultiAssetTests\/testXcmV1MultiAssetLocationInit()",
+        "XcmV1MultiLocationTests",
+        "XcmV1MultiLocationTests\/testXcmV1MultiLocationInit()",
+        "XcmV1MultiassetAssetIdTests",
+        "XcmV1MultiassetAssetIdTests\/testEncode()",
+        "XcmV1MultiassetFungibilityTests",
+        "XcmV1MultiassetFungibilityTests\/testEncode()",
+        "XcmV1MultilocationJunctionsTests",
+        "XcmV1MultilocationJunctionsTests\/testEncode()",
+        "XcmV1MultilocationJunctionsTests\/testXcmV1MultilocationJunctionsInit()",
+        "XcmVersionedMultiAssetTests",
+        "XcmVersionedMultiAssetTests\/testEncode()",
+        "XcmVersionedMultiAssetsTests",
+        "XcmVersionedMultiAssetsTests\/testEncode()",
+        "XcmVersionedMultiLocationTests",
+        "XcmVersionedMultiLocationTests\/testEncode()",
+        "XcmWeightLimitTests",
+        "XcmWeightLimitTests\/testEncode()"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFXCMTests",
+        "name" : "SSFXCMTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFSingleValueCacheTests",
+        "name" : "SSFSingleValueCacheTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFStorageQueryKitTest",
+        "name" : "SSFStorageQueryKitTest"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFTransferServiceTests",
+        "name" : "SSFTransferServiceTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "WebSocketEngineTests",
+        "name" : "WebSocketEngineTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SSFIndexersTests",
+        "name" : "SSFIndexersTests"
+      }
+    }
+  ],
+  "version" : 1
+}

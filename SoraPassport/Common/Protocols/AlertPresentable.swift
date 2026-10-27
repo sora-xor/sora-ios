@@ -92,6 +92,12 @@ extension AlertPresentable {
     func present(message: String?, title: String?,
                  closeAction: String?,
                  from view: ControllerBackedProtocol?) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.present(message: message, title: title, closeAction: closeAction, from: view)
+            }
+            return
+        }
 
         var currentController = view?.controller
 
@@ -113,6 +119,12 @@ extension AlertPresentable {
                  closeAction: String?,
                  from view: ControllerBackedProtocol?,
                  completion: @escaping () -> Void) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.present(message: message, title: title, closeAction: closeAction, from: view, completion: completion)
+            }
+            return
+        }
 
         var currentController = view?.controller
 
@@ -134,6 +146,12 @@ extension AlertPresentable {
     func present(viewModel: AlertPresentableViewModel,
                  style: UIAlertController.Style,
                  from view: ControllerBackedProtocol?) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.present(viewModel: viewModel, style: style, from: view)
+            }
+            return
+        }
 
         var currentController = view?.controller
 
@@ -171,6 +189,14 @@ extension AlertPresentable {
 extension UIAlertController {
     public static func present(message: String?, title: String?,
                                closeAction: String?, with presenter: UIViewController, completion: (() -> Void)? = nil) {
+        // UIKit must be used on the main thread; some callers finish network work on a
+        // background queue (ported from the 3.8.x line, b890dd5c).
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                UIAlertController.present(message: message, title: title, closeAction: closeAction, with: presenter, completion: completion)
+            }
+            return
+        }
         let alertView = UIAlertController(title: title, message: message, preferredStyle: .alert)
         let action = UIAlertAction(title: closeAction, style: .cancel, handler: { _ in
             completion?()

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
-import CommonWallet
+
 
 protocol MainTabBarViewProtocol: ControllerBackedProtocol {
     var middleButtonHadler: (() -> Void)? { get set }
@@ -60,6 +60,9 @@ protocol MainTabBarInteractorOutputProtocol: AnyObject {
     func didEndTransaction()
     func didUserChange()
     func didLanguageChange()
+    /// The wallet's first asset list has arrived, or may have arrived while
+    /// nobody was listening.
+    func didReceiveWalletAssetList()
 }
 
 protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible {
@@ -74,6 +77,7 @@ protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible 
     
     func showTransactionSuccess(on view: MainTabBarViewProtocol?)
     func recreateWalletViewController(on view: MainTabBarViewProtocol?)
+    func rebuildWalletForArrivedAssetListIfNeeded(on view: MainTabBarViewProtocol?)
 }
 
 protocol MainTabBarViewFactoryProtocol: AnyObject {

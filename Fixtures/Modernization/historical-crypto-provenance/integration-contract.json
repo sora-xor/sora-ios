@@ -1,0 +1,78 @@
+{
+  "kind": "Required production integration assertions, not executed app results",
+  "fixtureInputs": [
+    "ios-1x-vectors.json",
+    "ios-386-vectors.json",
+    "ios-fearless-26dfc128-vectors.json",
+    "ios-fearless-c1d17ccf-vectors.json",
+    "ios-fearless-e6aaeb17-vectors.json",
+    "ios-ssfutils-0.1.31-models-0.1.31-vectors.json",
+    "ios-ssfutils-0.1.31-models-0.1.32-vectors.json"
+  ],
+  "scenarios": [
+    {
+      "id": "ecdsa-phrase-then-child-seed",
+      "fixture": "ios-386-ecdsa-12words-16",
+      "historicalSecondWrite": {
+        "secretKey": "childSeedHex",
+        "seed": "childSeedHex",
+        "entropy": "unchanged",
+        "deriv": "unchanged"
+      },
+      "expected": "Direct signing stays available; phrase with retained path still matches, seed plus stale retained path does not. JSON exports remain recoverable."
+    },
+    {
+      "id": "ed25519-json64-after-phrase",
+      "fixture": "ios-386-ed25519-12words-17",
+      "historicalSecondWrite": {
+        "secretKey": "64-byte secretKeyHex",
+        "seed": "unchanged parent seed",
+        "entropy": "unchanged",
+        "deriv": "unchanged"
+      },
+      "expected": "Direct signer accepts first 32 seed bytes. Compare identity and valid signatures, not 64-byte secret equality against a 32-byte seed."
+    },
+    {
+      "id": "ed25519-json64-stale-redundant-half",
+      "fixture": "ios-386-ed25519-12words-18",
+      "expected": "Direct first-32-byte seed still proves identity; preserve the entire retained 64 bytes; exported JSON reconstructs the redundant public half in memory."
+    },
+    {
+      "id": "working-direct-key-stale-deriv",
+      "fixture": "ios-386-sr25519-12words-9",
+      "retainedDerivUTF8": "//wrong",
+      "expected": "Direct identity/signing remain available; suppress entropy/seed/path backup combinations that do not re-derive the account. JSON remains available."
+    },
+    {
+      "id": "absent-direct-key-valid-auxiliary",
+      "fixture": "ios-386-ed25519-12words-10",
+      "omit": [
+        "secretKey"
+      ],
+      "expected": "Matching seed/entropy can prove identity and sign in memory; no automatic replacement of retained secret records."
+    },
+    {
+      "id": "wrong-direct-key-with-valid-auxiliary",
+      "fixture": "ios-386-ecdsa-12words-11",
+      "replaceDirectSecret": "32 zero bytes",
+      "expected": "Remains read-only until authenticated explicit repair; valid auxiliary does not silently override a present invalid direct key."
+    },
+    {
+      "id": "legacy-1x-to-new-chain",
+      "legacyFixture": "ios-1x-15words",
+      "newChainFixture": "ios-386-sr25519-15words-19",
+      "expected": "Original Iroha KDF/public key/signature agrees before migration; after explicit migration the unchanged 15-word entropy derives the fixed sr25519 new-chain address. Do not compare legacy public key to Substrate public key."
+    }
+  ],
+  "interruptionCoverage": "Inject each production journal/Keychain/Core Data transition failure and restart. This host generator did not execute storage or interruption paths.",
+  "everySubstrateVector": [
+    "Recreate AccountItem using exact address/publicKeyHex/cryptoType/networkType.",
+    "Populate address-secretKey/entropy/seed/deriv with fixture bytes using historical writer semantics.",
+    "Capture retained bytes; run production startup/migration and identity proof; require same account identity and production signature that verifies.",
+    "Verify the supplied historical challenge/signature against the same public key.",
+    "Import exportedJSON with jsonPassword; require the same identity and a production signature.",
+    "Production backup screens/export must expose only material that re-derives the account, and fresh JSON must re-import to that identity.",
+    "After each non-repair operation, all pre-existing bytes must equal the captured bytes."
+  ],
+  "sourceOnlyCoverageRemaining": false
+}

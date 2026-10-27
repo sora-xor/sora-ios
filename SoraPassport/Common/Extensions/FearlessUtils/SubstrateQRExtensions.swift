@@ -40,7 +40,7 @@ public struct SoraSubstrateQRInfo: Equatable {
     public let assetId: String
     public let amount: String?
 
-    public init(prefix: String = SubstrateQR.prefix,
+    public init(prefix: String = SubstrateQRConstants.prefix,
                 address: String,
                 rawPublicKey: Data,
                 username: String?,

@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import sorawallet
 import Combine
 
@@ -74,7 +74,7 @@ final class InputSendInfoViewModel {
         }
     }
     
-    var fiatData: [FiatData] = [] {
+    var fiatData: [PIExactFiatData] = [] {
         didSet {
             guard let asset = asset else { return }
             balanceFiatText = setupFullBalanceText(from: assetBalance)
@@ -93,6 +93,7 @@ final class InputSendInfoViewModel {
     private var qrEncoder: WalletQREncoderProtocol
     private var sharingFactory: AccountShareFactoryProtocol
     private let marketCapService: MarketCapServiceProtocol
+    private var pricesObservation: PIPricesObservation?
     
     init(
         address: String,
@@ -155,14 +156,23 @@ final class InputSendInfoViewModel {
     }
     
     func viewDidLoad() {
-        fiatService?.getFiat(completion: { [weak self] fiatData in
-            self?.fiatData = fiatData
-        })
-        
         asset = assetManager?.assetInfo(for: WalletAssetId.xor.rawValue)
         
-        fiatService?.add(observer: self)
+        loadFiat()
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Ask again when that read ends.
+        pricesObservation = PIPricesObservation { [weak self] in
+            self?.loadFiat()
+        }
+
         assetsProvider?.add(observer: self)
+    }
+
+    private func loadFiat() {
+        Task { [weak self] in
+            guard let self else { return }
+            self.fiatData = await self.fiatService?.getFiat() ?? []
+        }
     }
     
     func setupBalanceDataProvider() {
@@ -197,7 +207,7 @@ extension InputSendInfoViewModel: AssetProviderObserverProtocol {
 }
 
 extension InputSendInfoViewModel: FiatServiceObserverProtocol {
-    func processFiat(data: [FiatData]) {
+    func processFiat(data: [PIExactFiatData]) {
         fiatData = data
     }
 }

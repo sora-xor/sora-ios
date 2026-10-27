@@ -118,16 +118,14 @@ final class ProductListViewController: SoramitsuViewController {
                                              style: .plain,
                                              target: self,
                                              action: mode == .edit ? #selector(self.doneTapped) : #selector(self.editTapped) )
-                button.setTitleTextAttributes([ .font: UIFont.systemFont(ofSize: 13, weight: .bold),
-                                                .foregroundColor: UIColor(hex: "#EE2233")],
-                                              for: .normal)
+                // Styled by the bar appearance (`NeonChrome`): no red text on bars.
                 self.navigationItem.leftBarButtonItem = button
             } else {
                 self.navigationItem.leftBarButtonItem = nil
             }
         }
         
-        viewModel.dissmiss = { [weak self] isNeedForce in
+        viewModel.dismiss = { [weak self] isNeedForce in
             DispatchQueue.main.async {
                 if self?.presentedViewController == nil || isNeedForce {
                     self?.navigationItem.searchController?.isActive = false
@@ -153,7 +151,7 @@ final class ProductListViewController: SoramitsuViewController {
     
     @objc
     func crossButtonTapped() {
-        viewModel.viewDissmissed()
+        viewModel.viewdismissed()
         self.dismiss(animated: true)
     }
 

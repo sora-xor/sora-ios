@@ -63,6 +63,7 @@ struct AssetInfo: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
         fiatPrice = try container.decodeIfPresent(Decimal.self, forKey: .visible)
+        normalizeNativeAssetMetadata()
     }
 
     init(
@@ -80,6 +81,14 @@ struct AssetInfo: Codable {
         self.icon = icon
         self.name = displayName ?? ""
         self.visible = visible
+        normalizeNativeAssetMetadata()
+    }
+
+    mutating func normalizeNativeAssetMetadata() {
+        // Remote and cached display metadata must not rename the native XOR asset.
+        guard assetId == WalletAssetId.xor.rawValue else { return }
+        name = "XOR"
+        symbol = "XOR"
     }
 }
 

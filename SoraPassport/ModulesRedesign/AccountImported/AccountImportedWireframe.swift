@@ -31,7 +31,7 @@
 import Foundation
 import SoraKeystore
 import SoraFoundation
-import CommonWallet
+
 import SoraUIKit
 import RobinHood
 import SSFCloudStorage
@@ -49,8 +49,9 @@ final class AccountImportedWireframe {
 }
 
 extension AccountImportedWireframe: AccountImportedWireframeProtocol {
+    @MainActor 
     func showSetupPinCode() {
-        let view = PinViewFactory.createRedesignPinSetupView()
+        let view = PinViewFactory.createPostImportPinView()
         
         let containerView = BlurViewController()
         containerView.isClosable = false
@@ -68,7 +69,7 @@ extension AccountImportedWireframe: AccountImportedWireframeProtocol {
         currentController?.controller.navigationController?.pushViewController(viewController, animated: true)
     }
     
-    func dissmiss(completion: (() -> Void)?) {
+    func dismiss(completion: (() -> Void)?) {
         currentController?.controller.dismiss(animated: true, completion: completion)
     }
 }

@@ -31,6 +31,7 @@
 import Foundation
 import SoraKeystore
 import RobinHood
+import SSFModels
 
 protocol ChainRegistryProtocol: AnyObject {
     var availableChainIds: Set<ChainModel.Id>? { get }
@@ -52,6 +53,23 @@ protocol ChainRegistryProtocol: AnyObject {
     func performHotBoot()
     func performColdBoot()
     func syncUp()
+    /// Asks the runtime sync service to fetch the runtime the live node runs.
+    /// Does nothing while a sync for that chain is already running or queued.
+    /// A request to replace the stored metadata does nothing while such a
+    /// replacement is already running or scheduled for that runtime version.
+    func requestRuntimeRefresh(
+        for chainId: ChainModel.Id,
+        liveVersion: RuntimeVersion,
+        replacingCachedMetadata: Bool
+    )
+}
+
+extension ChainRegistryProtocol {
+    func requestRuntimeRefresh(
+        for _: ChainModel.Id,
+        liveVersion _: RuntimeVersion,
+        replacingCachedMetadata _: Bool
+    ) {}
 }
 
 final class ChainRegistry {
@@ -67,6 +85,7 @@ final class ChainRegistry {
     private let logger: LoggerProtocol?
     private let eventCenter: EventCenterProtocol
     private let networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol?
+    private let nodeDidConnect: () -> Void
 
     private let chainRepository: AnyDataProviderRepository<ChainModel>
     private let operationManager: OperationManagerProtocol
@@ -80,6 +99,7 @@ final class ChainRegistry {
     private let mutex = NSLock()
 
     private let maxAttemptCount = 2
+    private var nodeFailover: [ChainModel.Id: NodeConnectionFailover] = [:]
 
     init(
         snapshotHotBootBuilder: SnapshotHotBootBuilderProtocol,
@@ -94,7 +114,8 @@ final class ChainRegistry {
         eventCenter: EventCenterProtocol,
         chainRepository: AnyDataProviderRepository<ChainModel>,
         operationManager: OperationManagerProtocol,
-        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol
+        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol,
+        nodeDidConnect: @escaping () -> Void = { StartupNetworkCoordinator.shared.nodeDidConnect() }
     ) {
         self.snapshotHotBootBuilder = snapshotHotBootBuilder
         self.runtimeProviderPool = runtimeProviderPool
@@ -109,6 +130,7 @@ final class ChainRegistry {
         self.chainRepository = chainRepository
         self.operationManager = operationManager
         self.networkStatusPresenter = networkStatusPresenter
+        self.nodeDidConnect = nodeDidConnect
 
         connectionPool.setDelegate(self)
 
@@ -156,7 +178,7 @@ final class ChainRegistry {
                     chains = chains.filter { $0.chainId != chainId }
                 }
             } catch {
-                logger?.error("Unexpected error on handling chains update: \(error)")
+                logger?.error("Chain update handling failed")
             }
         }
     }
@@ -167,7 +189,7 @@ final class ChainRegistry {
         }
 
         let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+            self?.logger?.error("Chain listener setup failed: \(error)")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -256,7 +278,7 @@ extension ChainRegistry: ChainRegistryProtocol {
         }
 
         let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+            self?.logger?.error("Chain listener setup failed: \(error)")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -272,6 +294,24 @@ extension ChainRegistry: ChainRegistryProtocol {
             failing: failureClosure,
             options: options
         )
+    }
+
+    func requestRuntimeRefresh(
+        for chainId: ChainModel.Id,
+        liveVersion: RuntimeVersion,
+        replacingCachedMetadata: Bool
+    ) {
+        guard runtimeSyncService.hasChain(with: chainId) else {
+            return
+        }
+        if replacingCachedMetadata {
+            runtimeSyncService.applyReplacingCachedMetadata(
+                version: liveVersion,
+                for: chainId
+            )
+        } else if !runtimeSyncService.isChainSyncing(chainId) {
+            runtimeSyncService.apply(version: liveVersion, for: chainId)
+        }
     }
 
     func getConnection(for chainId: ChainModel.Id) -> ChainConnection? {
@@ -313,7 +353,7 @@ extension ChainRegistry: ChainRegistryProtocol {
 
         let chain = chains.first { $0.chainId == chainId }
         let url = connectionPool.getConnection(for: chainId)?.url
-        return chain?.nodes.first { $0.url == url } ?? chain?.customNodes?.first { $0.url == url }
+        return chain.flatMap { SoraNodeConnectionPolicy.candidates(for: $0).first { $0.url == url } }
     }
 
     func getAssetManager(for chainId: ChainModel.Id) -> AssetManagerProtocol {
@@ -342,7 +382,7 @@ extension ChainRegistry: ChainRegistryProtocol {
         }
 
         let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+            self?.logger?.error("Chain listener setup failed: \(error)")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -372,74 +412,74 @@ extension ChainRegistry: ChainRegistryProtocol {
 extension ChainRegistry: ConnectionPoolDelegate {
 
     func connectionNeedsReconnect(url: URL, attempt: Int) {
-        guard let failedChain = chains.first(where: { chain in
-            return chain.nodes.first { $0.url == url } != nil || chain.customNodes?.first { $0.url == url } != nil
-        }) else {
-            return
-        }
-        
-        guard attempt > maxAttemptCount else {
-            
-            let defaultNodes = failedChain.nodes
-            let customNodes = failedChain.customNodes ?? []
-
-            let sortedDefaultNodes = defaultNodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
-            let sortedCustomNodes = customNodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
-            
-            let allNodes = sortedDefaultNodes + sortedCustomNodes
-
-            let currentNodeIndex = Int(allNodes.firstIndex(where: { $0.url == url } ) ?? 0)
-            let nextNodeIndex = currentNodeIndex + 1 >= allNodes.count ? 0 : currentNodeIndex + 1
-
-            if currentNodeIndex + 1 >= allNodes.count {
-                DispatchQueue.main.async {
-                    self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
-                }
+        guard attempt >= maxAttemptCount else { return }
+        // Delegate notifications are asynchronous. Ignore stale failures after
+        // another connection has already been selected or established.
+        processingQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.mutex.lock()
+            guard let chain = self.chains.first(where: {
+                self.connectionPool.getConnection(for: $0.chainId)?.url == url
+            }), let connection = self.connectionPool.getConnection(for: chain.chainId) else {
+                self.mutex.unlock()
+                return
             }
+            if case .connected = connection.state {
+                self.mutex.unlock()
+                return
+            }
+            var failover = self.nodeFailover[chain.chainId] ?? NodeConnectionFailover()
+            let candidates = SoraNodeConnectionPolicy.candidates(for: chain)
+            let decision = failover.failed(url: url, candidates: candidates)
+            self.nodeFailover[chain.chainId] = failover
+            self.mutex.unlock()
 
-            let currentNode = allNodes[currentNodeIndex]
-            let nextNode = allNodes[nextNodeIndex]
-            
-            let event = FailedNodeConnectionEvent(node: currentNode)
-            eventCenter.notify(with: event)
-            changeSelectedNode(from: failedChain, to: nextNode)
-            return
-        }
-
-        guard failedChain.selectedNode == nil else { return }
-
-        let node = failedChain.selectedNode ?? failedChain.nodes.first(where: { $0.url != url })
-
-        if let newUrl = node?.url {
-            if let connection = getConnection(for: failedChain.chainId) {
-                connection.reconnect(url: newUrl)
-
-                let event = ChainsUpdatedEvent(updatedChains: [failedChain])
-                eventCenter.notify(with: event)
+            if let failedNode = candidates.first(where: { $0.url == url }) {
+                self.eventCenter.notify(with: FailedNodeConnectionEvent(node: failedNode))
+            }
+            if let next = decision.nextNode {
+                connection.disconnectIfNeeded()
+                connection.reconnect(url: next.url)
+                connection.connectIfNeeded()
+                self.eventCenter.notify(with: ChainsUpdatedEvent(updatedChains: [chain]))
+            }
+            if decision.shouldPresentUnavailable {
+                DispatchQueue.main.async { [weak self] in
+                    self?.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
+                }
             }
         }
     }
 
     func connectionUpdated(url: URL) {
-        SettingsManager.shared.lastSuccessfulUrl = url
+        processingQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.mutex.lock()
+            guard let chain = self.chains.first(where: {
+                self.connectionPool.getConnection(for: $0.chainId)?.url == url
+            }) else {
+                self.mutex.unlock()
+                return
+            }
+            let wasUnavailablePresented = self.nodeFailover[chain.chainId]?.connected() ?? false
+            self.mutex.unlock()
+
+            SettingsManager.shared.lastSuccessfulUrl = url
+            if wasUnavailablePresented {
+                // The status said that no node could be reached. Only a change
+                // of the device's reachability took it down, so after a node
+                // outage or a captive network it stayed over a working wallet.
+                DispatchQueue.main.async { [weak self] in
+                    self?.networkStatusPresenter?.didDecideReachableStatusPresentation()
+                }
+            }
+            // Work that was waiting for a node (the asset list) can go on.
+            // The registry's lock is not held: that work asks the registry
+            // for its connection.
+            self.nodeDidConnect()
+        }
     }
 
-    private func changeSelectedNode(from: ChainModel, to: ChainNodeModel) {
-
-        let updatedChain = from.replacingSelectedNode(to)
-
-        let saveOperation = chainRepository.saveOperation {
-            return [updatedChain]
-        } _: {
-            []
-        }
-
-        saveOperation.completionBlock = { [weak self] in
-            let event = ChainsUpdatedEvent(updatedChains: [updatedChain])
-            self?.eventCenter.notify(with: event)
-        }
-        operationManager.enqueue(operations: [saveOperation], in: .transient)
-    }
 }
 
 struct FailedNodeConnectionEvent: EventProtocol {

@@ -35,8 +35,9 @@ import UIKit
 final class WalletHeaderView: SoramitsuControl {
     private let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.headline2
-        label.sora.textColor = .fgPrimary
+        label.sora.font = FontType.eyebrow
+        label.sora.numberOfLines = 0
+        label.sora.textColor = .fgSecondary
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()
@@ -75,13 +76,18 @@ final class WalletHeaderView: SoramitsuControl {
             imageView.heightAnchor.constraint(equalToConstant: 16),
             imageView.widthAnchor.constraint(equalToConstant: 16),
             imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            imageView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
         ])
     }
 
     func configure(title: String, isExpand: Bool) {
-        titleLabel.sora.text = title
+        titleLabel.sora.text = title.uppercased()
+        isAccessibilityElement = true
+        accessibilityLabel = title
+        accessibilityTraits = .button
 
-        UIView.animate(withDuration: 0.3) {
+        UIView.animate(withDuration: FxPolicy.current.reduceMotion ? 0 : 0.3) {
             self.imageView.transform = isExpand ? CGAffineTransform(rotationAngle: .pi) : CGAffineTransform.identity
         }
     }

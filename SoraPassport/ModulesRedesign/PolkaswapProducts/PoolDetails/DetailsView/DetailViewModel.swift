@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+
 import SoraUIKit
 
 enum DetailsType {
@@ -59,5 +59,15 @@ final class DetailViewModel {
         self.assetAmountText = assetAmountText
         self.fiatAmountText = fiatAmountText
         self.type = type
+    }
+}
+
+extension DetailViewModel: Hashable {
+    static func == (lhs: DetailViewModel, rhs: DetailViewModel) -> Bool {
+        lhs.assetAmountText.text == rhs.assetAmountText.text
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(assetAmountText.text)
     }
 }

@@ -29,10 +29,9 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import SCard
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import SoraFoundation
 
@@ -49,8 +48,6 @@ protocol AssetDetailsWireframeProtocol {
     
     func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel])
 
-    func showXOne(service: SCard)
-    
     func showPoolDetails(poolInfo: PoolInfo,
                          poolsService: PoolsServiceInputProtocol)
 }
@@ -72,6 +69,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
     private let qrEncoder: WalletQREncoderProtocol 
     private let sharingFactory: AccountShareFactoryProtocol 
     private let farmingService: DemeterFarmingServiceProtocol
+    private let feeProvider: FeeProviderProtocol
     
     init(
         accountId: String,
@@ -87,7 +85,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         marketCapService: MarketCapServiceProtocol,
         qrEncoder: WalletQREncoderProtocol,
         sharingFactory: AccountShareFactoryProtocol,
-        farmingService: DemeterFarmingServiceProtocol
+        farmingService: DemeterFarmingServiceProtocol,
+        feeProvider: FeeProviderProtocol
     ) {
         self.accountId = accountId
         self.address = address
@@ -103,10 +102,11 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         self.qrEncoder = qrEncoder
         self.sharingFactory = sharingFactory
         self.farmingService = farmingService
+        self.feeProvider = feeProvider
     }
     
 
-    func showActivity(assetId: String) {
+    @MainActor func showActivity(assetId: String) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return }
         let assets = assetManager.getAssetList() ?? []
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
@@ -143,7 +143,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showActivityDetails(model: Transaction) {
+    @MainActor func showActivityDetails(model: Transaction) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount, let aseetList = assetManager.getAssetList() else { return }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
@@ -168,7 +168,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSwap() {
+    @MainActor func showSwap() {
         guard let swapController = SwapViewFactory.createView(selectedTokenId: assetInfo.assetId,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
@@ -184,33 +184,35 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSend() {
-        let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
-                                                  selectedAddress: nil,
-                                                  fiatService: fiatService,
-                                                  assetManager: assetManager,
-                                                  providerFactory: providerFactory,
-                                                  networkFacade: networkFacade,
-                                                  wireframe: InputAssetAmountWireframe(),
-                                                  assetsProvider: assetsProvider,
-                                                  qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory,
-                                                  marketCapService: marketCapService)
-        let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
-        viewModel.view = inputAmountController
-        
-        let navigationController = UINavigationController(rootViewController: inputAmountController)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
+    @MainActor func showSend() {
+        WalletAccountCapability.preflightSend(from: controller, expectedAddress: address) { [self] in
+            let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
+                                                      selectedAddress: nil,
+                                                      fiatService: fiatService,
+                                                      assetManager: assetManager,
+                                                      providerFactory: providerFactory,
+                                                      networkFacade: networkFacade,
+                                                      wireframe: InputAssetAmountWireframe(),
+                                                      assetsProvider: assetsProvider,
+                                                      qrEncoder: qrEncoder,
+                                                      sharingFactory: sharingFactory,
+                                                      marketCapService: marketCapService)
+            let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
+            viewModel.view = inputAmountController
+
+            let navigationController = UINavigationController(rootViewController: inputAmountController)
+            navigationController.navigationBar.backgroundColor = .clear
+            navigationController.addCustomTransitioning()
+
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+            containerView.add(navigationController)
+
+            controller?.present(containerView, animated: true)
+        }
     }
     
-    func showReceive() {
+    @MainActor func showReceive() {
         let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
         
         let viewModel = ReceiveViewModel(qrService: qrService,
@@ -225,7 +227,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         viewModel.view = receiveController
 
         let navigationController = UINavigationController(rootViewController: receiveController)
-        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.navigationBar.backgroundColor = UIColor.clear
         navigationController.addCustomTransitioning()
         
         let containerView = BlurViewController()
@@ -235,7 +237,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel]) {
+    @MainActor func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel]) {
         let receiveController = BalanceDetailsViewController(viewModels: frozenDetailViewModels)
         
         let containerView = BlurViewController()
@@ -245,12 +247,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
 
-    func showXOne(service: SCard) {
-        let viewController = service.xOneViewController(address: address)
-        controller?.present(viewController, animated: true)
-    }
-    
-    func showPoolDetails(poolInfo: PoolInfo,
+    @MainActor func showPoolDetails(poolInfo: PoolInfo,
                          poolsService: PoolsServiceInputProtocol) {
         guard let operationFactory = networkFacade,
               let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
@@ -262,6 +259,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService,
                                                                              farmingService: farmingService,
+                                                                             feeProvider: feeProvider,
                                                                              dismissHandler: nil) else {
             return
         }

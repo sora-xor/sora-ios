@@ -63,6 +63,7 @@ protocol SettingsInformationPresenterProtocol: AnyObject {
 final class SettingsInformationPresenter: SettingsInformationPresenterProtocol {
     weak var view: SettingsInformationViewController?
     
+    @MainActor
     func reload() {
         view?.set(title: R.string.localizable.settingsInformationTitle(preferredLanguages: languages))
         
@@ -70,6 +71,7 @@ final class SettingsInformationPresenter: SettingsInformationPresenterProtocol {
         view?.update(snapshot: snapshot)
     }
     
+    @MainActor
     private func createSnapshot() -> SettingsInformationSnapshot {
         var snapshot = SettingsInformationSnapshot()
         
@@ -107,6 +109,7 @@ final class SettingsInformationPresenter: SettingsInformationPresenterProtocol {
         return SettingsInformationSection(items: items)
     }
     
+    @MainActor
     private func termsSection() -> SettingsInformationSection {
         var items: [InformationItem] = [
             InformationItem(title: R.string.localizable.polkaswapInfoTitle2(preferredLanguages: languages),
@@ -213,6 +216,7 @@ final class SettingsInformationPresenter: SettingsInformationPresenterProtocol {
         return SettingsInformationSection(items: items)
     }
     
+    @MainActor
     private func showDisclaimer() {
         guard let containerView = MainTabBarViewFactory.swapDisclamerController(completion: {
             UserDefaults.standard.set(true, forKey: "isDisclamerShown")
@@ -250,6 +254,7 @@ extension SettingsInformationPresenter: Localizable {
         localizationManager?.preferredLocalizations
     }
     
+    @MainActor
     func applyLocalization() {
         reload()
     }

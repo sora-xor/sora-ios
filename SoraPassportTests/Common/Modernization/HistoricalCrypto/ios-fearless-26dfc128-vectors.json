@@ -1,0 +1,893 @@
+{
+  "vectors" : [
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "kuNHPmSh3Dd31Q1WqP8EdHjnnVv+MlMx2L3st57OG4oAgAAAAQAAAAgAAAD9CAJ5pefUtf2bBJKQAGDfUbmDE2HD1xzNxGloyWc5ZQukTcOFbZ\/cSGEUw8qSON6NLO2uaebsjlWmREP2Lss+ur3cxo4hDiqFxSbH31xynA6ijc\/A0cqXdb2FgaE3lSena4UX6YQi9iXmifNPoC7M\/O2W34IueNkY4K9Y485cuWwf0ef1PBDoOMnxtqpXpcg2wFUd+LDqkcNhkdZE",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-3words-0",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-3words-0",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "da56f29e5d6b0858021eaff593c7c3165b8eaa00f7b66e9323f2af7fb22d2d1972627dd83ceb64ddddaad827d5ea7a94a5507c11172e4e57a241af281f9a1b8e",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "Kgx4yoERPxbpYzfiCZ1hVYNUz+XNe9t8fZARZlZ2050AgAAAAQAAAAgAAACUqJG43Y1+61m\/Yz+Gvyh6\/m0BbyiA4FM79wg7btHIu3SUgTkZj92p947V566jGky13tF5Pva\/BcTQLus+4R3UUtKzT\/W+DcbBE5j0I2DJzcI\/32kqAcqFr2xnjnF43Q9pwKYlqeE+PYQSFYlBpbiyn6nPbXjtMvsn\/9mdHg==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-3words-1",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-3words-1",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "5f52f7864b1a37615cb7fc18dbabd7f6efd3ce3cdd4b2d15a9ac9a57e9dc1879e6fb3b8a29ea90e3712489abee8e0b854285c0cdbc53c2e8ecc86f7eef69d605",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "MlyX0Km4Uuj0m8Lh6IWAfV073JOrLMd1pteWbmVQgdAAgAAAAQAAAAgAAABLPoUHEmItEclDmxjLeaylw9ZwLkOEZ3l1XxUlgRvWoMGcMZFOm2IjWXC9bazNUnSYp5upp63KzO+VjnkYPHzDLd+fhH+gbPIjpVLOJhhtwAoPyqGtrqhaty45JQyhMN8frqskPZM4G\/JB8RP++NSISludQCNkvDplOfLOqWA=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ecdsa-3words-2",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ecdsa-3words-2",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "lb\/QuZ6oluNEUwMpI9jO7aJwgN05Y9EbwGfBhxcRSvsAgAAAAQAAAAgAAADXwFtp844hwuUcB\/n1qCqdTa\/3FQ7Ivr90Y+Cr7jUewNlQ2pjD6gvDbm\/KeDzPej\/unh3dBL6O4INMgdwJHPva9xEDSbATqD5HIlMC+7NJrmC8Ls6nR3BmAAx2EfE68Z2RlIT4H32\/IvKBbG7hJ8G9i3rYo8OXLZuHUS3I4gj9ZliAFDaDmGi5A5Ud26INqYWQm2fYwKTsUfOuHV1z",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-6words-3",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-6words-3",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "248626107f72e4466d00083069116ae00fd5ee7dae5a35caf61b969d630afc30b6aebd661227ad8783e4e4e25b4d225f94b2b57a99087b758e357ef7b5cc098a",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "QfPhNL6U+LtMgug2dWHmOtz4MrbqdlQGXpNF3YrMdtoAgAAAAQAAAAgAAABCl+hOA\/n3NYvyzITTvBVA2KZxH6pBgg5bWzZIfbEXoZ9pGCPr1vL+E5Q2lSoj5PZTHySw2BoNe08qcEWVFv8exrPaEMKGGVRPBabV5WJmqynQ6db1gfjLUvtB8U1\/O7+NsPgZXEUpG6HcmAUilRm4fUSB8xTgcgkJ6E7q8Q==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-6words-4",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-6words-4",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "87b283804eab0cfd3db3e88e23ba51b79ba2c88f9eff1e00135e74e5b9961734af5c77fda2fd7990a10dd4c4d3eb46976f07b8db584b67dfbcae2d213ef9470f",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "I11BTAYIG+b7dvLMuF91VEWJGIh7ZR8IcTnf8qcJtOEAgAAAAQAAAAgAAACTK1j4J4v+TMAlbP1pyo37bv5zdeNmmCmxtk5p8lY6eoIHnsSL6b\/tYme5HleunqrLK2GiWpnqPcMOX6XVWqHiFzbOWprWNZDgga+6Qyox03alL0fDYAiT\/QzWTaT72GvvELLc8yf6kuGPwi8lB2J\/eXmN\/79eArWRazF8HCg=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ecdsa-6words-5",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ecdsa-6words-5",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "N1frokV7JW1fXe+RzoYEY1Y2+ZooU58HCsgKJOcwPyMAgAAAAQAAAAgAAAACS85K8l0WE06k+oTHqXdQSoZ9glMvI\/Q0njnvShGdP6BwnDMjAGNVsBzv2X2fjiCcDDrFaDppnUbzZAcOcNjLCtU0rvD9WyM7fmy5fXGgY5aGQ\/8ftyNG1lUdCUrDWWr8hOc2DZEYNhaWkQUTYf0C3kvqoQamMuM+gtBYJWYMxOu8ItTN22bnuPivc4RlCysQ76y0mfk2AA6iRMuz",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-9words-6",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-9words-6",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "c4fe55cbaa1ccf2d57c0149aebfb2de380d5412de82d80efe0eba3c6dad04f495abc352ea787de7d959d6d7d46bf0bbc00ffe1e0781495b71dc39ee06eb8a180",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "pBuC8pZXfKTJqphjVpOhLPnCokeAhgbhSHBmhLuR240AgAAAAQAAAAgAAADX8hIDRaukVSnzzVN16HMgda4E3FstHucSzxyfLmWxk\/+Z9UMU422bNuYWDc\/COXi1j6agYvuLPVI\/Ydi7m6xGhh+r4S\/bA\/UdBX9naM6Ihdmip5tQxQSUvqi0VtdtlWA5eogdi94Q+KNGLylB4iGmg7TfpDQqtmx4+TuV\/w==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-9words-7",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-9words-7",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "2fcc9230da205a90997092b3bad9cff80c26385c2503828702421875690cdb9123d29090a0b4fa6893135290f1f5be9a90da4a0d7f77e455198a409f0e51160a",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "akIJ3wEBxhM3RDLGwSwTp\/d3onEuR1iRe1z96Dc\/iasAgAAAAQAAAAgAAAC+0jglzk4M1be+C27cnmpfFNO5RGDEWE\/SKEjDuuxeNlS89PYQh66\/cswZDUki\/FaB7LigP\/mDicSdoxtEFeXm5JxpeZqaRkxDs\/CyrBwEj4yfzL1suGZngjXU2uUsSCvhuf8\/3xtoICf99lWh8IY3e0SKnvF+qjtWTN87G2k=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ecdsa-9words-8",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ecdsa-9words-8",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "tvbpEh5btkv5N0NDanFThj\/7ts+inGG22AI08cODZoQAgAAAAQAAAAgAAAChob+QSEN3muZsApY8XpkVvv4HXIidVKYERtb5JNb9XMv0Y\/f1NXF7qM3kyBLWFpZ6F8LgHtHip26cFkU+GC0vRmdNTd8p6YBD+N80ICJEQM6S7lP5AAiVszF\/j02A1+u8ld9jQaNAPfOhHi1a10Pr73GHAw3Yy0MFwGuan702WjZ1pnEA2blWfXFcO3ntKnchpIltzPJmIXoJGzEz",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-12words-9",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-12words-9",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "bcdc61a239c1b518c5b4a0cf30a3f1dedc4933d09e9d9dded96c5c447291e45a96b4ce4f6b2065f64106058fb0fe01ddfdc43a59913aaff976646af387df708e",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "3+bAzOTEwr4oR5M\/g0VyA5eofPzUqoqhb\/Yv6g\/dXwIAgAAAAQAAAAgAAAAknxQq1iMXlY0GMpVp04g5Td0F3sD23UcED\/FN5ePglxWypcyenN6FEdZZbfLtmeWEbELs2\/TSsH7BehWeUPwLQlU\/Y7yTSjDQiZa153EOf19ojhdUnEASuAD4J2W2sdt0TZqcotXKufpvox4l9c194tzcnDFRqs13Ty7B9w==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-12words-10",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-12words-10",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "94a7411432f9b55537506429b623d61405c6d711b38e7ee6a672d3a85047016b5583c84b04d351ea39f19ade84f45886602f731bd7a489519e9c8498a5d7fa0b",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "H8JSBnOPfKVZX5vixPTKCpryZyGi3MAOZcEZurAple0AgAAAAQAAAAgAAAA18A1eVxKkNZZ81XRsKzbhkVZRpepU\/yLe8bqRdMd4EakguTInqUDdhSsDZy\/ma1dmAP2ApJieRw6gxpkDz8AT5Ms\/phTRqRAJNNHPY\/WRXOgoHX6dtKbMf\/iciIepu9yOgEXyK9yuxBCWTKUppy9rbntL5kQxAsjKOnibR+o=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ecdsa-12words-11",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ecdsa-12words-11",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSDNEeuQo5V7Arauy6YLaLXjMiTEuDk6acpYjyKkALoUikqP",
+      "chaincodes" : [
+        {
+          "dataHex" : "10736f6674000000000000000000000000000000000000000000000000000000",
+          "type" : "soft"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/soft",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSDNEeuQo5V7Arauy6YLaLXjMiTEuDk6acpYjyKkALoUikqP",
+        "encoded" : "BUQe+zeeWhw91x+cLoRs9d4piiunlWycch2zO8xDDC8AgAAAAQAAAAgAAABh3GVFQDcysMBdjTLAFGiF96KVgKdcSDn+Lum4rwZlsys57NMuxToRBDbqgOknP3myYF+apcfgLaDM47J1UzyKubIRDry2DtSWROzYWaNRMpyAkSNHhibKKi3rJN+VB8eI5FYzPyGT0Kdky8fez58HJeL+JTtBnJ6FMKzfp5NRssGnPxOTo2iZcON3lWu419CEwbQQPYcjDn4nFO44",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-12words-12",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-12words-12",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "201854fe65987d8bf30ae6ebe6df154dfd18a9b551ec0bd81a1faad0ab7de806",
+      "secretKeyHex" : "52f51d0d767ae92464b22d2d6ed128b96ad18ef777e036e8b9a86aa30e7e5206a1a9e8ad4b386a6e00b1a39d9199cd4b6c54152c7ebd3f0c61bfa619a4b765c9",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "38ff6686d4ea62d8cc021b885a5da5584276f1a8c0cfc7bbedaf2dc5a6920475e3721542731bbebf5ed4bfd6c528e0b8c045562f4127f6a3dc4e9b840fff1688",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnWCPDsxY4eDuL22eq9d3sE29vkCmqR5dgy8JieE1NnaDVPB7",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnWCPDsxY4eDuL22eq9d3sE29vkCmqR5dgy8JieE1NnaDVPB7",
+        "encoded" : "o6fhstnmyHKBfSinb16pwEWkaFmL+oXKEEiQnWeuziIAgAAAAQAAAAgAAADfJ\/+Z5a96nq3M59qch2qJFUZDa7MVu48vNRTbsuW5a6iqhfZxH6t8GqvDywMNOknvwjHkiFA5kju88xAsLmf\/52warYV32pEkuDKAx\/e2XRzlTDTHWlHTBTfWWcOyrfxruiNObWlTU8s2zLp+rc9vrSyFXTx8Nvguug\/G\/NAz+QT+kcQxHMyzC7LdCqRMKhXX5uc41Y5V7ThQqCH4",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-12words-13",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-12words-13",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "d049577c1d14856730aa4af5a9401b5534b72c5eae4f0226c42615d47983ad22",
+      "secretKeyHex" : "4a8533a0b395c68b759dc2f695ef29e9e205e505efd42c1884a9fb1f1f403c0a99901f1382e95013693f6b559f4d07b68634db1b2210753fdc473f45cd077af4",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "f00cdf9b9c20e7e4728359b9183ce29125ef5c43668fa0263ff632d4d8e6031600223c8343379861ebfd40b39ccdefcd17d865637fa4f445f936c03d8186ec82",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnW2mFQrGyR8T1Sbvr5RhHTYqXGVUJhNLudvgRf21om2q6QkB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        },
+        {
+          "dataHex" : "10736f6674000000000000000000000000000000000000000000000000000000",
+          "type" : "soft"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/\/hard\/soft\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnW2mFQrGyR8T1Sbvr5RhHTYqXGVUJhNLudvgRf21om2q6QkB",
+        "encoded" : "DsWfDdT6al8jJKB114UMv6a\/2Kxa4SGwJqxIuUdMyZgAgAAAAQAAAAgAAAD0a97MmT7R9tNBp2Fh3mp0jdKtJNoKzMt6yarkZMOgSY6WLsq1UY+ny5vNHXyFR\/KNbZyHuuiJjdxBm9KTjG82mZgN9Yez\/Ft6gTM8R6zSUE7dqxcq60B5O9M8amIhqdhmy7QSbOaRrQyB6bFucahR5WWSPRlngzbqzreKL5+Je2OxasarC99NKi9vO9C\/umGsih9E10UuuTLn4rha",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-12words-14",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-12words-14",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "c8f309060af081350b965e752d9c0bb98a41536b8e8b491836bd8efaacbde06d",
+      "secretKeyHex" : "a8355f89bdbba287e19212ed53b4bc34e34ff0b852b7a1f854056a5d020e0204ed0285af9422b32e7f36e031666d9371c066dc2d7dc5f00ae4caf5af2196813d",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "82c2fb9f2cc20ba21dee8743cb5d41b2b8760c89983a4f1dbca4e19c567d5760feee12741b976f447d7c3870fcec4a94e2b262313ca16fb3e545b0a438063682",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSf2zzDeNach9r6KUPbMdEKCz9RikY222bELEuHmcKi4Ug7W",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "60344d9cb12026aaa8cb32575ba017b6a4c7169a2075c5915c3e0ef707dddf23",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSf2zzDeNach9r6KUPbMdEKCz9RikY222bELEuHmcKi4Ug7W",
+        "encoded" : "fQv5Xq9FFQeSL3O0gnFt2BEgFUU5eD3l0slH5Rfcel8AgAAAAQAAAAgAAACqsM\/n+FWfHxw9gcRmMKccv5aDh2GCcHNm0ONDMXJon+bdsTD0CyhkOJ9ucT\/qQOqtSIiwpZTsZ2rdb2tdG47htLDMwz73tgJAKFQOKP93CZuHYaZyTNkdvhkvNlLcy+EvdYz1BUop9HFlLeiguBhvzomQUpGkrEpou1qR+Q==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-12words-15",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-12words-15",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "33abf5a7c429eb677fe06794fdc7a8807e6f555149d3673b3daf361ecbd0459c",
+      "secretKeyHex" : "60344d9cb12026aaa8cb32575ba017b6a4c7169a2075c5915c3e0ef707dddf23",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "f661fbc31087fac46781ff5b406dafd0f3985b29faef38728e558287200b1ad3558eab39d0a88fb671f79876b6028f8a4b7e9fa0dc7b4b8b30666197ac4c140f",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnWkaPjXd5sgFeAz83pmCWqQKXK9Z3cUqBv5xWfEYc3vTi9sn",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "a329e47dbcad237812d586ef591e17f22c910adda6e526c4fbd6b22a26b56625",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "\/\/hard\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnWkaPjXd5sgFeAz83pmCWqQKXK9Z3cUqBv5xWfEYc3vTi9sn",
+        "encoded" : "RljaqGlcpbMaizmz3y1U2tnsh50SRHFbawMLVFUMTdsAgAAAAQAAAAgAAACE4n2arv1\/Pmk55k\/5eJ2HB8ZPtdHMDqzwvldNHvT6axubWJFbdh8X5ELvmLUFDem6dCiG3b8a4f91\/vvOhGsVI9RIJbm4bys8ZjnizY7f50BApqtECumnZVZyk8cVQ\/TsVoFxSiv1Wc9AxwA+FCSK8HuNm+ErylCRts0xrLc=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ecdsa-12words-16",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ecdsa-12words-16",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "02101e34aa67f5d4653e7416457f8329e8f97759fcd7f03b33af5ec2de47c3ac56",
+      "secretKeyHex" : "a329e47dbcad237812d586ef591e17f22c910adda6e526c4fbd6b22a26b56625",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "6259de27c46714791791d6f33faf5d167bb5c916ecd823a2752a27fca2cdee907400ad7d7feda9d42ef9867e2493d1842783bad3daacfca4f37b230c55320e0900",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+        "encoded" : "boUErOUyOm9+kWXsP\/kO9UtzmN6X2fZYDjqectqrUxMAgAAAAQAAAAgAAACSmkwuAtbMWKu4qRdffg\/IjfWHahu\/dMplc9nYETjGQ9CaIfVfICmsJ4S0lqlqtFw72rAnXmx7NfKIOTWjooF6b+vw5VFCBtNf770WPgAOcqp4ggeVGaSB4+Xt1y30m+SPxittRvfchbaUH4IIYYl3CDVw6FoQr5akmIWl7juLXOWWyVehJohzSvKiBcsY+2Ct5o7am\/oS8tlFEWi1",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-12words-17",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-12words-17",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretKeyHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretShape" : "json64",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "63e36e9b29b64d4ed88e12325c50195c7f4b7026e3df90494c158a100c12dc50c25d5d51d44d1ea282ea071aa772e9dc30e253b9e21777149dc149f309b6590c",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+        "encoded" : "wjoLUlEz5FGqosXyBiiQrbEiD5fO5zdaMgYO42mvNxQAgAAAAQAAAAgAAADAdxTOgK6z\/FoOmDGy6hZngs+XSa17lrR3aIgQz\/BfcGEVD2SG0HqN2684q9C2guQj2X2Q1dbQBSEn9jtRrDGTMx4ovtpcHoZl2GWVmLcADF7rOcl913HMS4sEFEsPp2ZOTgvIkKYigIr44e15IAaxSWoX5T2E7MEGGUjJ0yA5odJkfUiqT2DFPD+goKvkKChhsKihBGWWU\/ReOI77",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-ed25519-12words-18",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-ed25519-12words-18",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretKeyHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aaa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "secretShape" : "json64-stale-redundant-half",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "76731740f5fc46ed2ef6353b0f6f499ed1253b748abcb61401471c0cd5fd56d9fc246651157c8b38930128fade4052ae74dd90b6bb50b5a8bcf4a27f436c360f",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "BFHIQw99J6KfBOn\/Zodt2rUKb6t2oOn8+8hJZkrYY1EAgAAAAQAAAAgAAACMSJZwqOMQ7Fz99ISlhea3esX7fUpFerjl\/1XEUdSiDIPbpv+O2O4bLijwKLep23f7J9Ri1vkXW6NosPJhEHL+1c5vXZMAEJoCQHFdO1wEH91ROxrTkUTmuCXizgFlKMTRmjFJ1XsCiNDlZ8ZJrywFzmlnHPlRXkqe\/N4PNi8cstG9M3m7ykfUrWkZnjsCz4Ss\/zgvcvoZVLrJfgzB",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-fearless-26dfc128-sr25519-15words-19",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "IrohaCrypto-0.9.0-FearlessUtils-26dfc128d0d1f35aac0c44ffab3ef1f2071e003c",
+      "id" : "ios-fearless-26dfc128-sr25519-15words-19",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "legacy-phrase-migration",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "f4a77f547472ec5989fc82be35d4bfb4d5483bf5a304da248ddd312578862a2bb0f4ba6c7cc8b832603b860527d553edac470706945d18c609d95c842936e18b",
+      "signatureVerified" : true,
+      "wordCount" : 15
+    }
+  ]
+}

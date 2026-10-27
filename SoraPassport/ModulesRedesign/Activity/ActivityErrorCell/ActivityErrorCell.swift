@@ -71,6 +71,8 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
         contentView.addSubview(errorView)
     }
 
+    private lazy var errorViewTop = errorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8)
+
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
@@ -78,22 +80,84 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
             
-            errorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            // 24 at the sides, as the rows of the list have: a text of
+            // more than one line must not run into the rounded corners.
+            errorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             errorView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            errorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            errorViewTop,
             errorView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
         ])
     }
 }
 
-extension ActivityErrorCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension ActivityErrorCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? ActivityErrorItem else {
             assertionFailure("Incorect type of item")
             return
         }
 
         errorItem = item
+        // The cell is reused: set the text for every item. A row with its
+        // own text is the first of the list, under the rounded corners.
+        errorView.titleLabel.sora.text = item.title
+            ?? R.string.localizable.activityDataNotUpToDateTitle(preferredLanguages: .currentLocale)
+        errorViewTop.constant = item.title == nil ? 8 : 20
+        containerView.sora.cornerMask = item.roundsTop ? .top : .none
     }
 }
 
+
+/// Shows an `ActivityNoticeItem`: informational text only, no action.
+final class ActivityNoticeCell: SoramitsuTableViewCell {
+
+    private let containerView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.cornerMask = .top
+        view.sora.cornerRadius = .extraLarge
+        return view
+    }()
+
+    private let noticeLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.paragraphM
+        label.sora.textColor = .fgSecondary
+        label.sora.alignment = .center
+        label.sora.numberOfLines = 0
+        return label
+    }()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        contentView.addSubview(containerView)
+        contentView.addSubview(noticeLabel)
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            noticeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            noticeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            noticeLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            noticeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+extension ActivityNoticeCell: CellProtocol {
+    func set(item: ItemProtocol) {
+        guard let item = item as? ActivityNoticeItem else {
+            assertionFailure("Incorect type of item")
+            return
+        }
+
+        noticeLabel.sora.text = item.text
+        accessibilityLabel = item.text
+        containerView.sora.cornerMask = item.roundsTop ? .top : .none
+    }
+}

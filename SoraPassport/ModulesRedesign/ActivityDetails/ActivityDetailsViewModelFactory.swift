@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+
 import SoraUIKit
 import UIKit
 import sorawallet
@@ -106,18 +106,6 @@ extension ActivityDetailsViewModelFactory: ActivityDetailsViewModelFactoryProtoc
             isHideFeeDetails: false,
             tapHandler: networkFeeTapHandler
         )
-        
-        let lpFee = "\(NumberFormatter.cryptoAssets.stringFromDecimal(transaction.lpFee.decimalValue) ?? "") XOR"
-        let lpFeeReversed = "XOR \(NumberFormatter.cryptoAssets.stringFromDecimal(transaction.lpFee.decimalValue) ?? "")"
-        
-        let lpFeeText = SoramitsuTextItem(text: localizationManager.isRightToLeft ? lpFeeReversed : lpFee,
-                                        fontData: FontType.textS,
-                                        textColor: .fgPrimary,
-                                        alignment: .right)
-        let lpFeeItem = DetailViewModel(title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
-                                      assetAmountText: lpFeeText)
-        lpFeeItem.infoHandler = lpFeeTapHandler
-        items.append(lpFeeItem)
         
         return items
     }

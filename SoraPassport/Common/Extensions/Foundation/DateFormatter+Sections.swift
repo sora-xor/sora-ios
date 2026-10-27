@@ -29,12 +29,19 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SoraFoundation
 
 extension DateFormatter {
     static var sectionThisYear: DateFormatter {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = R.string.localizable.thisYearFormat()
 
+        return dateFormatter
+    }
+
+    static var activityDate: DateFormatter {
+        let dateFormatter = EventListDateFormatterFactory.createDateFormatter()
+        dateFormatter.locale = LocalizationManager.shared.selectedLocale
         return dateFormatter
     }
 }

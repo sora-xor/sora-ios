@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import ObjectiveC
 import SoraUIKit
 import SoraFoundation
 
@@ -36,6 +37,9 @@ final class MainTabBarViewController: UITabBarController {
 	var presenter: MainTabBarPresenterProtocol!
     var middleButtonHadler: (() -> Void)?
     private var viewAppeared: Bool = false
+    /// The custom bar, kept even when it could not be swapped in (its swap
+    /// disc then lives on the system bar and still follows theme changes).
+    private var customTabBar: TabBar?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,7 +47,9 @@ final class MainTabBarViewController: UITabBarController {
         self.delegate = self
 
         let tabBar = TabBar(frame: tabBar.frame)
-        tabBar.middleButton.sora.image = R.image.wallet.polkaswap()
+        // The swap disc draws its own neon fill and glow; the Polkaswap mark
+        // is tinted ink (white in light) on it.
+        tabBar.middleButton.sora.image = R.image.wallet.polkaswap()?.withRenderingMode(.alwaysTemplate)
         tabBar.middleButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.middleButtonHadler?()
         }
@@ -51,10 +57,37 @@ final class MainTabBarViewController: UITabBarController {
             self?.middleButtonHadler?()
         }
         tabBar.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
-        setValue(tabBar, forKey: "tabBar")
-        
+        installCustomTabBar(tabBar)
+
+        installAurora()
         SoramitsuUI.updates.addObserver(self)
         configureTabBar()
+    }
+
+    /// Swaps in the notched tab bar with the swap disc. `UITabBarController`
+    /// has no public setter, so this uses key-value coding on its `_tabBar`
+    /// storage, as every release since 2.0 has. Verified on the iOS 18.4
+    /// (notched bar), 26.5 and 27.0 (Liquid Glass) simulators, and checked
+    /// by `SoraNeonDesignTests.testTabBarChromeAndSwapDisc` on whatever
+    /// system the tests run on. If a future iOS renames that storage, KVC
+    /// would raise an Objective-C exception, so the swap is skipped and the
+    /// whole disc (glow, gradient fill, button, tap cover and label) moves
+    /// onto the system tab bar.
+    private func installCustomTabBar(_ custom: TabBar) {
+        customTabBar = custom
+        if class_getInstanceVariable(UITabBarController.self, "_tabBar") != nil {
+            setValue(custom, forKey: "tabBar")
+        }
+        guard tabBar !== custom else { return }
+        custom.installSwapDisc(in: tabBar)
+    }
+
+    /// One static aurora behind every tab (spec §4.2.1). Tab roots are clear.
+    private func installAurora() {
+        let aurora = AuroraView(style: .standard)
+        aurora.frame = view.bounds
+        aurora.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.insertSubview(aurora, at: 0)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -66,19 +99,42 @@ final class MainTabBarViewController: UITabBarController {
         }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let custom = customTabBar, let items = tabBar.items else { return }
+        let nativeButtons = tabBar.subviews.compactMap { $0 as? UIControl }
+            .filter { $0 !== custom.coverButton && $0 !== custom.middleButton }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        guard nativeButtons.count == items.count, items.count == 5 else { return }
+        var elements: [UIView] = []
+        for (index, button) in nativeButtons.enumerated() {
+            let accessibleButton: UIControl = index == 2 ? custom.middleButton : button
+            accessibleButton.isAccessibilityElement = true
+            accessibleButton.accessibilityLabel = index == 2
+                ? custom.middleButtonTitleLabel.sora.text : items[index].title
+            accessibleButton.accessibilityTraits = index == selectedIndex ? [.button, .selected] : .button
+            elements.append(accessibleButton)
+        }
+        custom.coverButton.isAccessibilityElement = false
+        custom.middleButtonTitleLabel.isAccessibilityElement = false
+        tabBar.accessibilityElements = elements
+    }
+
+    /// Spec §7.11: inactive items `text.secondary`, the active item
+    /// `text.primary` (SemiBold). On iOS 26+ the system Liquid Glass
+    /// selection is the indicator; nothing paints over the bar.
     private func configureTabBar() {
-        let palette = SoramitsuUI.shared.theme.palette
-        
-        let normalAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.fgSecondary),
-                                NSAttributedString.Key.font: FontType.textBoldXS.font]
-        let selectedAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.accentPrimary),
-                                  NSAttributedString.Key.font: FontType.textBoldXS.font]
-        
-        tabBar.tintColor = palette.color(.accentPrimary)
-        tabBar.unselectedItemTintColor = palette.color(.fgSecondary)
+        let tokens = NeonTokens.current
+        let appearance = NeonChrome.tabBarAppearance(tokens: tokens)
+        tabBar.standardAppearance = appearance
+        tabBar.scrollEdgeAppearance = appearance
+        tabBar.tintColor = tokens.textPrimary
+        tabBar.unselectedItemTintColor = tokens.textSecondary
         tabBar.items?.forEach {
-            $0.setTitleTextAttributes(normalAttributes, for: .normal)
-            $0.setTitleTextAttributes(selectedAttributes, for: .selected)
+            $0.setTitleTextAttributes([.foregroundColor: tokens.textSecondary, .font: FontType.textXS.font],
+                                      for: .normal)
+            $0.setTitleTextAttributes([.foregroundColor: tokens.textPrimary, .font: FontType.textBoldXS.font],
+                                      for: .selected)
         }
     }
 }
@@ -87,6 +143,7 @@ extension MainTabBarViewController: SoramitsuObserver {
     func styleDidChange(options: UpdateOptions) {
         configureTabBar()
         AppearanceFactory.applyGlobalAppearance()
+        AppearanceFactory.restyleVisibleNavigationBars()
     }
 }
 
@@ -98,6 +155,11 @@ extension MainTabBarViewController: UITabBarControllerDelegate {
         }
 
         return true
+    }
+
+    func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+        // iOS 16–25: slide the active indicator (no-op on iOS 26+).
+        (tabBar as? TabBar)?.updateSelectionIndicator(animated: true)
     }
 }
 
@@ -120,6 +182,6 @@ extension MainTabBarViewController: Localizable {
     
     func applyLocalization() {
         let languages = localizationManager?.preferredLocalizations
-        (tabBar as? TabBar)?.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: languages)
+        customTabBar?.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: languages)
     }
 }

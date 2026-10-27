@@ -1,0 +1,1 @@
+{"errors":[{"message":"referrerRewards orderBy field timestamp is not supported by the public query plan","locations":[{"line":6,"column":3}],"path":["referrerRewards"],"extensions":{"code":"BAD_USER_INPUT"}}],"data":null}

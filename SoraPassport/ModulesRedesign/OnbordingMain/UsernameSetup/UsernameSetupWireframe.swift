@@ -50,8 +50,8 @@ final class UsernameSetupWireframe: UsernameSetupWireframeProtocol {
         view?.controller.navigationController?.pushViewController(accountCreation.controller, animated: true)
     }
     
-    func showPinCode(from view: UsernameSetupViewProtocol?) {
-        let pinCodeView = PinViewFactory.createRedesignPinSetupView()
+    @MainActor func showPinCode(from view: UsernameSetupViewProtocol?) {
+        let pinCodeView = PinViewFactory.createPostImportPinView()
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen

@@ -30,7 +30,7 @@
 
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 
 
@@ -43,7 +43,7 @@ final class PoolListViewModel {
     var setupNavigationBar: ((WalletViewMode) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
+    var dismiss: ((Bool) -> Void)?
     
     var poolItems: [PoolListItem] = [] {
         didSet {
@@ -98,10 +98,11 @@ final class PoolListViewModel {
     weak var view: UIViewController?
     var operationFactory: WalletNetworkOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
-    var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     let marketCapService: MarketCapServiceProtocol
     let farmingService: DemeterFarmingServiceProtocol
+    let feeProvider: FeeProviderProtocol
     let updateHandler: ((UpdatedSection) -> Void)?
+    private var pricesObservation: PIPricesObservation?
 
     init(poolsService: PoolsServiceInputProtocol,
          assetManager: AssetManagerProtocol,
@@ -112,6 +113,7 @@ final class PoolListViewModel {
          assetsProvider: AssetProviderProtocol,
          marketCapService: MarketCapServiceProtocol,
          farmingService: DemeterFarmingServiceProtocol,
+         feeProvider: FeeProviderProtocol,
          updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.poolViewModelFactory = poolViewModelFactory
@@ -123,11 +125,12 @@ final class PoolListViewModel {
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
         self.farmingService = farmingService
+        self.feeProvider = feeProvider
         self.updateHandler = updateHandler
     }
-    func dissmissIfNeeded() {
+    func dismissIfNeeded() {
         if poolItems.isEmpty {
-            dissmiss?(false)
+            dismiss?(false)
         }
     }
 }
@@ -140,10 +143,22 @@ extension PoolListViewModel: PoolListViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        poolsService?.loadAccountPools(isNeedForceUpdate: false)
+
+        let pools = poolsService?.getAccountPools() ?? []
+        loaded(pools: pools)
+        // The first answer can be the catalog of an earlier day, served at
+        // once while PI is read. Value the pools again when that read
+        // ends. Not while the list is being edited or searched: building
+        // it again would undo what the user is doing.
+        pricesObservation = PIPricesObservation { [weak self] in
+            guard let self, self.mode == .view, !self.isActiveSearch else { return }
+            let pools = self.poolItems.map(\.poolInfo)
+            guard !pools.isEmpty else { return }
+            self.loaded(pools: pools)
+        }
     }
     
-    func viewDissmissed() {
+    func viewdismissed() {
         updateHandler?(.pools)
     }
 }
@@ -152,7 +167,7 @@ extension PoolListViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
         Task {
             if pools.isEmpty {
-                dissmiss?(false)
+                dismiss?(false)
             }
             
             self.poolItems = try await pools.concurrentMap { pool in
@@ -187,7 +202,8 @@ extension PoolListViewModel: PoolsServiceOutput {
                                   assetsProvider: assetsProvider,
                                   marketCapService: marketCapService, 
                                   farmingService: farmingService,
-                                  dismissHandler: dissmissIfNeeded)
+                                  feeProvider: feeProvider,
+                                  dismissHandler: dismissIfNeeded)
     }
 }
 

@@ -105,6 +105,9 @@
                BlueprintName = "SoraPassportIntegrationTests"
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
+            <!-- Legacy pool tests pin a historical funded account and storage layout.
+                 Sora2MainnetLiveSigningTests covers current runtime storage; these
+                 fixtures cannot be a deterministic release gate. -->
             <SkippedTests>
                <Test
                   Identifier = "JSONRPCPoolXYKTests">
@@ -134,7 +137,7 @@
       </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Debug"
+      buildConfiguration = "Test"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"

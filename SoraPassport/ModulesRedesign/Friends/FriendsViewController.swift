@@ -136,6 +136,7 @@ final class FriendsViewController: UIViewController {
     private lazy var activityIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .large)
         indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.color = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
         return indicator
     }()
     
@@ -148,7 +149,7 @@ final class FriendsViewController: UIViewController {
 
     /// Used to correction the distance to the top of the screen
     private var statusBarHeightCorrection: CGFloat {
-        UIApplication.shared.statusBarFrame.size.height + 10
+        UIApplication.shared.soraStatusBarHeight + 10
     }
 
     /// Used to correction the middle position of the pull-up controller

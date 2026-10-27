@@ -1,0 +1,39 @@
+{
+  "differences": [
+    {
+      "from": "c1d17ccf",
+      "to": "e6aaeb17",
+      "completeRepositoryDiff": "diff --git a/FearlessUtils/Classes/Keystore/ScryptParameters.swift b/FearlessUtils/Classes/Keystore/ScryptParameters.swift\nindex ea109ee..3434c27 100644\n--- a/FearlessUtils/Classes/Keystore/ScryptParameters.swift\n+++ b/FearlessUtils/Classes/Keystore/ScryptParameters.swift\n@@ -5,7 +5,7 @@ enum ScryptParametersError: Error {\n     case invalidSalt\n }\n \n-struct ScryptParameters {\n+public struct ScryptParameters {\n     static let saltLength = 32\n     static let encodedLength = 44\n     static let saltRange = 0..<Self.saltLength\n@@ -13,12 +13,12 @@ struct ScryptParameters {\n     static let scryptPRange = (Self.saltLength+4)..<(Self.saltLength+8)\n     static let scryptRRange = (Self.saltLength+8)..<(Self.saltLength+12)\n \n-    let salt: Data\n-    let scryptN: UInt32\n-    let scryptP: UInt32\n-    let scryptR: UInt32\n+    public let salt: Data\n+    public let scryptN: UInt32\n+    public let scryptP: UInt32\n+    public let scryptR: UInt32\n \n-    init(salt: Data, scryptN: UInt32, scryptP: UInt32, scryptR: UInt32) throws {\n+    public init(salt: Data, scryptN: UInt32, scryptP: UInt32, scryptR: UInt32) throws {\n         guard salt.count == Self.saltLength else {\n             throw ScryptParametersError.invalidSalt\n         }\n@@ -29,12 +29,12 @@ struct ScryptParameters {\n         self.scryptR = scryptR\n     }\n \n-    init(scryptN: UInt32 = 32768, scryptP: UInt32 = 1, scryptR: UInt32 = 8) throws {\n+    public init(scryptN: UInt32 = 32768, scryptP: UInt32 = 1, scryptR: UInt32 = 8) throws {\n         let data = try Data.generateRandomBytes(of: Self.saltLength)\n         try self.init(salt: data, scryptN: scryptN, scryptP: scryptP, scryptR: scryptR)\n     }\n \n-    init(data: Data) throws {\n+    public init(data: Data) throws {\n         guard data.count >= Self.encodedLength  else {\n             throw ScryptParametersError.invalidDataLength\n         }\n@@ -51,7 +51,7 @@ struct ScryptParameters {\n         self.scryptR = valueR.littleEndian\n     }\n \n-    func encode() -> Data {\n+    public func encode() -> Data {\n         var data = Data(repeating: 0, count: Self.encodedLength)\n         data.replaceSubrange(Self.saltRange, with: salt)\n \n"
+    },
+    {
+      "from": "e6aaeb17",
+      "to": "26dfc128",
+      "completeRepositoryDiff": "diff --git a/FearlessUtils/Classes/Extrinsic/ExtrinsicBuilder.swift b/FearlessUtils/Classes/Extrinsic/ExtrinsicBuilder.swift\nindex 6a5ffc6..8450b2b 100644\n--- a/FearlessUtils/Classes/Extrinsic/ExtrinsicBuilder.swift\n+++ b/FearlessUtils/Classes/Extrinsic/ExtrinsicBuilder.swift\n@@ -17,7 +17,8 @@ public protocol ExtrinsicBuilderProtocol: AnyObject {\n         metadata: RuntimeMetadata\n     ) throws -> Self\n \n-    func build(encodingBy encoder: DynamicScaleEncoding, metadata: RuntimeMetadata) throws -> Data\n+    func buildExtrinsic(metadata: RuntimeMetadata) throws -> Extrinsic\n+    func build(encodingBy encoder: DynamicScaleEncoding, extrinsic: Extrinsic) throws -> Data\n }\n \n public enum ExtrinsicBuilderError: Error {\n@@ -232,16 +233,16 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {\n \n         return self\n     }\n-\n-    public func build(\n-        encodingBy encoder: DynamicScaleEncoding,\n-        metadata: RuntimeMetadata\n-    ) throws -> Data {\n+    \n+    public func buildExtrinsic(metadata: RuntimeMetadata) throws -> Extrinsic {\n         let call = try prepareExtrinsicCall(for: metadata)\n         \n         Log.enable(kind: \"DynamicScale\")\n-        let extrinsic = Extrinsic(signature: signature, call: call)\n+        return Extrinsic(signature: signature, call: call)\n+    }\n \n+    public func build(encodingBy encoder: DynamicScaleEncoding, extrinsic: Extrinsic) throws -> Data {\n+        Log.enable(kind: \"DynamicScale\")\n         try encoder.append(extrinsic, ofType: GenericType.extrinsic.name)\n         \n         let encoded = try encoder.encode()\n"
+    },
+    {
+      "from": "FearlessUtils-26dfc128",
+      "to": "SSFUtils-0.1.31",
+      "path": "Crypto/JunctionFactory/SubstrateJunctionFactory.swift",
+      "diff": "--- \n+++ \n@@ -28,7 +28,7 @@\n             return Data(number.serialize().reversed())\n         }\n \n-        if let data = try? Data(hexString: junction) {\n+        if let data = try? Data(hexStringSSF: junction) {\n             return data\n         }\n \n"
+    },
+    {
+      "from": "FearlessUtils-26dfc128",
+      "to": "SSFUtils-0.1.31",
+      "path": "Keystore/KeystoreInfoFactory.swift",
+      "diff": "--- \n+++ \n@@ -19,6 +19,8 @@\n         guard let value = cryptoTypeValue, let cryptoType = CryptoType(rawValue: value) else {\n             throw KeystoreInfoFactoryError.unsupportedCryptoType\n         }\n+        \n+        let isEthereum = (value == \"ethereum\")\n \n         let chainType: ChainType?\n \n@@ -32,6 +34,7 @@\n         return KeystoreInfo(address: definition.address,\n                             chainType: chainType,\n                             cryptoType: cryptoType,\n-                            meta: definition.meta)\n+                            meta: definition.meta,\n+                            isEthereum: isEthereum)\n     }\n }\n"
+    },
+    {
+      "from": "FearlessUtils-26dfc128",
+      "to": "SSFUtils-0.1.31",
+      "path": "Keystore/ScryptParameters.swift",
+      "diff": "--- \n+++ \n@@ -5,7 +5,7 @@\n     case invalidSalt\n }\n \n-public struct ScryptParameters {\n+struct ScryptParameters {\n     static let saltLength = 32\n     static let encodedLength = 44\n     static let saltRange = 0..<Self.saltLength\n@@ -13,12 +13,12 @@\n     static let scryptPRange = (Self.saltLength+4)..<(Self.saltLength+8)\n     static let scryptRRange = (Self.saltLength+8)..<(Self.saltLength+12)\n \n-    public let salt: Data\n-    public let scryptN: UInt32\n-    public let scryptP: UInt32\n-    public let scryptR: UInt32\n+    let salt: Data\n+    let scryptN: UInt32\n+    let scryptP: UInt32\n+    let scryptR: UInt32\n \n-    public init(salt: Data, scryptN: UInt32, scryptP: UInt32, scryptR: UInt32) throws {\n+    init(salt: Data, scryptN: UInt32, scryptP: UInt32, scryptR: UInt32) throws {\n         guard salt.count == Self.saltLength else {\n             throw ScryptParametersError.invalidSalt\n         }\n@@ -29,12 +29,12 @@\n         self.scryptR = scryptR\n     }\n \n-    public init(scryptN: UInt32 = 32768, scryptP: UInt32 = 1, scryptR: UInt32 = 8) throws {\n+    init(scryptN: UInt32 = 32768, scryptP: UInt32 = 1, scryptR: UInt32 = 8) throws {\n         let data = try Data.generateRandomBytes(of: Self.saltLength)\n         try self.init(salt: data, scryptN: scryptN, scryptP: scryptP, scryptR: scryptR)\n     }\n \n-    public init(data: Data) throws {\n+    init(data: Data) throws {\n         guard data.count >= Self.encodedLength  else {\n             throw ScryptParametersError.invalidDataLength\n         }\n@@ -51,7 +51,7 @@\n         self.scryptR = valueR.littleEndian\n     }\n \n-    public func encode() -> Data {\n+    func encode() -> Data {\n         var data = Data(repeating: 0, count: Self.encodedLength)\n         data.replaceSubrange(Self.saltRange, with: salt)\n \n"
+    },
+    {
+      "from": "FearlessUtils-26dfc128",
+      "to": "SSFUtils-0.1.31",
+      "path": "Keystore/KeystoreInfo.swift",
+      "diff": "--- \n+++ \n@@ -6,4 +6,5 @@\n     public let chainType: ChainType?\n     public let cryptoType: CryptoType\n     public let meta: KeystoreMeta?\n+    public let isEthereum: Bool\n }\n"
+    }
+  ],
+  "models031to032DataHex": "Identical Git blob and bytes; both executed separately"
+}

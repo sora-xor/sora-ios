@@ -88,7 +88,7 @@ final class DetailView: SoramitsuControl {
     
     let valueLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.font = FontType.headline2
+        label.sora.font = FontType.textS
         label.sora.textColor = .fgPrimary
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.sora.backgroundColor = .custom(uiColor: .clear)

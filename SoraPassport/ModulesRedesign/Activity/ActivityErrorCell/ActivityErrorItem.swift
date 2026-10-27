@@ -31,15 +31,51 @@
 import Foundation
 import SoraUIKit
 
-final class ActivityErrorItem: NSObject {
+/// A row with one line of text and a Refresh button.
+final class ActivityErrorItem: ItemProtocol {
 
+    /// The text above the button. `nil`: "Some data is not up to date".
+    let title: String?
+    /// The row is the top of the list's card and has its rounded corners.
+    /// Not so for a row at the end of the list.
+    let roundsTop: Bool
     var handler: (() -> Void)?
+
+    init(title: String? = nil, roundsTop: Bool = true) {
+        self.title = title
+        self.roundsTop = roundsTop
+    }
 }
 
-extension ActivityErrorItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { ActivityErrorCell.self }
+extension ActivityErrorItem: Hashable {
+    static func == (lhs: ActivityErrorItem, rhs: ActivityErrorItem) -> Bool {
+        return lhs === rhs
+    }
 
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+}
 
-    var clipsToBounds: Bool { false }
+/// A calm, non-interactive note shown above the activity list, for example
+/// when the indexer can list only operations this account signed.
+final class ActivityNoticeItem: ItemProtocol {
+    let text: String
+    /// The row is the top of the list's card and has its rounded corners.
+    let roundsTop: Bool
+
+    init(text: String, roundsTop: Bool = true) {
+        self.text = text
+        self.roundsTop = roundsTop
+    }
+}
+
+extension ActivityNoticeItem: Hashable {
+    static func == (lhs: ActivityNoticeItem, rhs: ActivityNoticeItem) -> Bool {
+        return lhs === rhs
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
 }

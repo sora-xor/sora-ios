@@ -30,7 +30,7 @@
 
 import Foundation
 import UIKit
-import CommonWallet
+
 import SoraUIKit
 
 struct AssetViewModel {
@@ -42,7 +42,11 @@ struct AssetViewModel {
     let icon: UIImage?
     var mode: WalletViewMode
     var isFavorite: Bool
-    var deltaPriceText: SoramitsuTextItem?
+    var deltaPriceText: SoramitsuAttributedText?
+    /// The price read for this row has finished. A row that then has no
+    /// fiat value or 24-hour change shows nothing there instead of a
+    /// loading placeholder that never ends.
+    var priceLoadFinished = false
 
     init(identifier: String,
          title: String,
@@ -51,7 +55,7 @@ struct AssetViewModel {
          icon: UIImage? = nil,
          mode: WalletViewMode = .view,
          isFavorite: Bool = false,
-         deltaPriceText: SoramitsuTextItem? = nil) {
+         deltaPriceText: SoramitsuAttributedText? = nil) {
         self.identifier = identifier
         self.title = title
         self.subtitle = subtitle

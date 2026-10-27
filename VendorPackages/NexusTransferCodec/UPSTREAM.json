@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/hyperledger-iroha/iroha",
+  "revision": "4008dcf54a214cd62360307558f11552cbf8a04d",
+  "license": "Apache-2.0",
+  "files": {
+    "IrohaSwift/Sources/IrohaSwift/Blake2b.swift": "94209f44f2de3e45a7533cd3fa819597839eee5558df23c2bf187a75e96c26c5",
+    "IrohaSwift/Sources/IrohaSwift/AssetDefinitionAddress.swift": "36291a13f4be3d509772798f7bb9dfa4140354c162458ff13fdbb60675778875",
+    "fixtures/sdk/nexus_connect_transfer_v1.json": "fce091824784420ff7654391ea584489a577a67dfafa5a71da044fe1a94ca4ce"
+  },
+  "scope": "Locally encoded single Ed25519 XOR transfer; fee intent and network are explicit. No native artifact or private key is needed by this codec."
+}

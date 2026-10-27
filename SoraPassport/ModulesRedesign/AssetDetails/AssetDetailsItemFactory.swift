@@ -31,13 +31,10 @@
 import SoraUIKit
 import sorawallet
 import SoraFoundation
-import CommonWallet
-import SCard
 
 final class AssetDetailsItemFactory {
     
     private weak var assetsProvider: AssetProviderProtocol?
-    private let priceTrendService: PriceTrendServiceProtocol
     private let poolViewModelsFactory: PoolViewModelFactory
     private let historyService: HistoryServiceProtocol
     private var recentActivityService: RecentActivityItemService
@@ -46,7 +43,6 @@ final class AssetDetailsItemFactory {
     private let transferableItemService: TransferableItemService
     
     init(assetsProvider: AssetProviderProtocol? = nil,
-         priceTrendService: PriceTrendServiceProtocol = PriceTrendService(),
          poolViewModelsFactory: PoolViewModelFactory,
          historyService: HistoryServiceProtocol,
          recentActivityService: RecentActivityItemService,
@@ -54,7 +50,6 @@ final class AssetDetailsItemFactory {
          poolsService: PoolsServiceInputProtocol?,
          transferableItemService: TransferableItemService) {
         self.assetsProvider = assetsProvider
-        self.priceTrendService = priceTrendService
         self.poolViewModelsFactory = poolViewModelsFactory
         self.historyService = historyService
         self.recentActivityService = recentActivityService
@@ -63,39 +58,62 @@ final class AssetDetailsItemFactory {
         self.transferableItemService = transferableItemService
     }
     
+    /// - Parameters:
+    ///   - usdPrice: `nil` when the price is not known.
+    ///   - pricesLoaded: The price read has finished. An unknown price then
+    ///     reads "Price unavailable"; before, it is left blank.
     func createPriceItem(with asset: AssetInfo, 
-                         usdPrice: Decimal,
-                         priceInfo: PriceInfo) -> SoramitsuTableViewItemProtocol {
-        let priceDelta: Decimal? = priceTrendService.getPriceTrend(for: asset.identifier,
-                                                                     fiatData: priceInfo.fiatData,
-                                                                     marketCapInfo: priceInfo.marketCapInfo)
+                         usdPrice: Decimal?,
+                         priceInfo: PriceInfo,
+                         pricesLoaded: Bool = true) -> SoramitsuTableViewItemProtocol {
+        let priceDelta = priceInfo.marketCapInfo.first(where: { $0.assetId == asset.identifier })?.hourDelta
         let priceDeltaText = priceDelta.priceDeltaAttributedText()
         
         return PriceItem(icon: asset.icon,
                          tokenName: asset.name,
                          tokenSymbol: asset.symbol,
-                         priceText: usdPrice.assetDetailPriceText(),
+                         priceText: Self.priceText(usdPrice: usdPrice, pricesLoaded: pricesLoaded),
                          deltaPriceText: priceDeltaText)
     }
     
+    /// The headline price: the price, nothing while it is loading, or the
+    /// "Price unavailable" notice. Never "$0" for want of a price.
+    static func priceText(usdPrice: Decimal?, pricesLoaded: Bool) -> String {
+        if let usdPrice {
+            return usdPrice.assetDetailPriceText()
+        }
+        return pricesLoaded ? WalletUX.priceUnavailableText : ""
+    }
+
     func createTranferableItem(with assetInfo: AssetInfo,
-                               usdPrice: Decimal,
+                               usdPrice: Decimal?,
                                referralBalance: Decimal?,
                                wireframe: AssetDetailsWireframeProtocol,
                                frozenDetailsHandler: ((BalanceContext) -> Void)?
     ) -> TransferableItem {
-        let balance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first ?? BalanceData(identifier: "",
-                                                                                                     balance: AmountDecimal(value: 0))
+        let readBalance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first
+        // A balance that could not be read is shown as unavailable, not as
+        // the zero the placeholder below carries, and no value or frozen
+        // part is worked out from that zero.
+        let balanceUnavailable = readBalance == nil && (assetsProvider?
+            .unavailableBalanceAssetIds(among: [assetInfo.identifier])
+            .contains(assetInfo.identifier) ?? false)
+        let balance = readBalance ?? BalanceData(identifier: "",
+                                                 balance: AmountDecimal(value: 0))
 
-        let fiatDecimal = balance.balance.decimalValue * usdPrice
-        let fiatBalanceText = fiatDecimal.priceText()
+        // Without a price the value is unknown: no fiat text, not "$0".
+        let fiatBalanceText = balanceUnavailable
+            ? ""
+            : WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
 
         let balanceContext = BalanceContext(context: balance.context ?? [:])
         let frozen = balanceContext.frozen
         let referral = referralBalance ?? Decimal(0)
-        let frozenAmount = Amount(value: frozen + referral)
+        let frozenAmount = Amount(value: balanceUnavailable ? 0 : frozen + referral)
 
-        let frozenFiat = (frozenAmount.decimalValue * usdPrice).priceText()
+        let frozenFiat = balanceUnavailable
+            ? ""
+            : WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
         
         transferableItemService.usdPrice = usdPrice
         transferableItemService.balanceContext = balanceContext
@@ -106,7 +124,8 @@ final class AssetDetailsItemFactory {
                                                 frozenAmount: frozenAmount,
                                                 frozenFiatAmount: frozenFiat,
                                                 service: transferableItemService,
-                                                balanceData: balance)
+                                                balanceData: balance,
+                                                balanceUnavailable: balanceUnavailable)
 
         transferableItem.actionHandler = { [weak self] type in
             switch type {
@@ -118,17 +137,13 @@ final class AssetDetailsItemFactory {
                 self?.wireframe.showReceive()
             case .swap:
                 self?.wireframe.showSwap()
-// TODO: Temporary Removal of X1
-//            case .buy:
-//                guard let scard = SCard.shared else { return }
-//                self?.wireframe.showXOne(service: scard)
             }
         }
     
         return transferableItem
     }
     
-    func createPooledItem(with assetInfo: AssetInfo, fiatData: [FiatData]) -> PooledItem? {
+    func createPooledItem(with assetInfo: AssetInfo, fiatData: [PIExactFiatData]) -> PooledItem? {
         guard let pools = poolsService?.loadPools(currentAsset: assetInfo), !pools.isEmpty else {
             return nil
         }
