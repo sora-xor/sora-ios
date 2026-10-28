@@ -102,7 +102,11 @@ final class LocalStorageRequestFactory: LocalStorageRequestFactoryProtocol {
         factory: @escaping () throws -> RuntimeCoderFactoryProtocol,
         params: StorageRequestParams
     ) -> CompoundOperationWrapper<LocalStorageResponse<T>> where T: Decodable {
-        let queryOperation = repository.fetchOperation(by: key, options: RepositoryFetchOptions())
+        let keyOperation = ClosureOperation<String>(closure: key)
+        let queryOperation = repository.fetchOperation(by: {
+            try keyOperation.extractNoCancellableResultData()
+        }, options: RepositoryFetchOptions())
+        queryOperation.addDependency(keyOperation)
 
         let decodingOperation = StorageDecodingListOperation<T>(path: params.path)
         decodingOperation.configurationBlock = {
@@ -122,14 +126,14 @@ final class LocalStorageRequestFactory: LocalStorageRequestFactoryProtocol {
         let mapOperation = ClosureOperation<LocalStorageResponse<T>> {
             let fetchResult = try queryOperation.extractNoCancellableResultData()
             let decodedResult = try decodingOperation.extractNoCancellableResultData().first
-            let key = try key()
+            let key = try keyOperation.extractNoCancellableResultData()
 
             return LocalStorageResponse(key: key, data: fetchResult?.data, value: decodedResult)
         }
 
         mapOperation.addDependency(decodingOperation)
 
-        let dependencies = [queryOperation, decodingOperation]
+        let dependencies = [keyOperation, queryOperation, decodingOperation]
 
         return CompoundOperationWrapper(
             targetOperation: mapOperation,

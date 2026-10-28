@@ -55,6 +55,7 @@ protocol FriendsInteractorInputProtocol: AnyObject {
 }
 
 protocol FriendsInteractorOutputProtocol: AnyObject {
+    func didFailLoading(error: Swift.Error)
     func didReceive(rewards: [ReferrerReward],
                     setReferrerFee: Decimal,
                     bondFee: Decimal,

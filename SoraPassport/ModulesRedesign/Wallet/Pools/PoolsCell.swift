@@ -39,6 +39,7 @@ final class PoolsCell: SoramitsuTableViewCell {
     
     private var poolsItem: PoolsItem? {
         didSet {
+            cancellables.removeAll()
             guard let item = poolsItem else { return }
             item.service?.$moneyText
                 .receive(on: DispatchQueue.main)
@@ -172,12 +173,9 @@ final class PoolsCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModels: [PoolViewModel]) {
+        heightConstraint?.isActive = viewModels.isEmpty || poolsItem?.isHidden == true
         if views == nil {
             rearange(with: viewModels)
-            return
-        }
-
-        if views?.isEmpty ?? true {
             return
         }
 
@@ -255,6 +253,7 @@ final class PoolsCell: SoramitsuTableViewCell {
 
         poolView?.isUserInteractionEnabled = !poolModel.title.isEmpty
         
+        poolView?.sora.removeAllHandlers(for: .touchUpInside)
         poolView?.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
             poolsItem?.poolHandler?(poolModel.identifier)
         }
@@ -277,9 +276,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        if poolsItem == nil {
-            poolsItem = item
-        }
+        poolsItem = item
        
         moneyLabel.sora.text = item.service?.moneyText
         applyTotalStyle()

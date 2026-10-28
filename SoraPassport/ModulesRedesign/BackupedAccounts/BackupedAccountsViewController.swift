@@ -35,6 +35,7 @@ final class BackupedAccountsViewController: SoramitsuViewController & BackupedAc
     var viewModel: BackupedAccountsViewModelProtocol? {
         didSet {
             setupSubscriptions()
+            if isViewLoaded { viewModel?.reload() }
         }
     }
     
@@ -103,6 +104,7 @@ final class BackupedAccountsViewController: SoramitsuViewController & BackupedAc
     }
 
     private func setupSubscriptions() {
+        cancellables.removeAll()
         viewModel?.titlePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in

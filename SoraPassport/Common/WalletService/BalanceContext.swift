@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import BigInt
 
 struct BalanceContext {
     static let freeKey = "account.balance.free.key"
@@ -102,15 +103,27 @@ extension BalanceContext {
 }
 
 extension BalanceContext {
-    func byChangingAccountInfo(_ accountData: AccountData, precision: Int16) -> BalanceContext {
-        let free = Decimal
-            .fromSubstrateAmount(accountData.free, precision: precision) ?? .zero
-        let reserved = Decimal
-            .fromSubstrateAmount(accountData.reserved, precision: precision) ?? .zero
-        let miscFrozen = Decimal
-            .fromSubstrateAmount(accountData.miscFrozen, precision: precision) ?? .zero
-        let feeFrozen = Decimal
-            .fromSubstrateAmount(accountData.feeFrozen, precision: precision) ?? .zero
+    enum AmountError: Error { case invalidPrecision, unrepresentable }
+
+    private static func exactAmount(_ raw: BigUInt, precision: Int16) throws -> Decimal {
+        guard (0...255).contains(precision) else { throw AmountError.invalidPrecision }
+        if raw.isZero { return .zero }
+        let digits = String(raw)
+        let scale = Int(precision)
+        let padded = String(repeating: "0", count: max(0, scale + 1 - digits.count)) + digits
+        let split = padded.index(padded.endIndex, offsetBy: -scale)
+        let text = scale == 0 ? padded : String(padded[..<split]) + "." + String(padded[split...])
+        guard let value = Decimal.parseLocalizedAmount(text, locale: Locale(identifier: "en_US_POSIX")) else {
+            throw AmountError.unrepresentable
+        }
+        return value
+    }
+
+    func byChangingAccountInfo(_ accountData: AccountData, precision: Int16) throws -> BalanceContext {
+        let free = try Self.exactAmount(accountData.free, precision: precision)
+        let reserved = try Self.exactAmount(accountData.reserved, precision: precision)
+        let miscFrozen = try Self.exactAmount(accountData.miscFrozen, precision: precision)
+        let feeFrozen = try Self.exactAmount(accountData.feeFrozen, precision: precision)
 
         return BalanceContext(free: free,
                               reserved: reserved,
@@ -125,18 +138,15 @@ extension BalanceContext {
 
     func byChangingStakingInfo(_ stakingInfo: StakingLedger,
                                activeEra: UInt32,
-                               precision: Int16) -> BalanceContext {
-        let redeemable = Decimal
-            .fromSubstrateAmount(stakingInfo.redeemable(inEra: activeEra),
-                                 precision: precision) ?? .zero
+                               precision: Int16) throws -> BalanceContext {
+        let redeemable = try Self.exactAmount(stakingInfo.redeemable(inEra: activeEra),
+                                 precision: precision)
 
-        let bonded = Decimal
-            .fromSubstrateAmount(stakingInfo.active,
-                                 precision: precision) ?? .zero
+        let bonded = try Self.exactAmount(stakingInfo.active,
+                                 precision: precision)
 
-        let unbonding = Decimal
-            .fromSubstrateAmount(stakingInfo.unbounding(inEra: activeEra),
-                                 precision: precision) ?? .zero
+        let unbonding = try Self.exactAmount(stakingInfo.unbounding(inEra: activeEra),
+                                 precision: precision)
 
         return BalanceContext(free: free,
                               reserved: reserved,

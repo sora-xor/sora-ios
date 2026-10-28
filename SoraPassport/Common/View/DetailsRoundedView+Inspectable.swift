@@ -183,12 +183,12 @@ extension DetailsRoundedView {
     @IBInspectable
     private var _subtitleFontName: String? {
         get {
-            return titleLabel.font.fontName
+            return subtitleLabel?.font.fontName
         }
 
         set(newValue) {
             guard let fontName = newValue else {
-                titleLabel.font = nil
+                subtitleLabel?.font = nil
                 return
             }
 

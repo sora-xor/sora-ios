@@ -50,7 +50,10 @@ public final class TairaClient {
             ]], options: [.sortedKeys])
         }
         public func requireFresh(now: UInt64 = TairaClient.now()) throws {
-            guard createdAt <= now + 5_000, now < createdAt + 80_000 else { throw Failure.quoteExpired }
+            // Subtract only the smaller timestamp: addition can overflow for a
+            // malformed/future draft or a caller checking an extreme clock value.
+            let fresh = createdAt > now ? createdAt - now <= 5_000 : now - createdAt < 80_000
+            guard fresh else { throw Failure.quoteExpired }
         }
     }
 

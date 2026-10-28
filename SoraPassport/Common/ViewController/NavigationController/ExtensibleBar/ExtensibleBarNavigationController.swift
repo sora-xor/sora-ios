@@ -49,6 +49,8 @@ public class ExtensibleBarNavigationController: UINavigationController {
     private var navBarExtensionTopConstraint: NSLayoutConstraint?
     private var toolbarBottomConstraint: NSLayoutConstraint?
 
+    private let appliedExtensionHeights = NSMapTable<UIViewController, NSNumber>(keyOptions: .weakMemory, valueOptions: .strongMemory)
+
     private var navBarAdditionalSize: CGFloat = 0 {
         didSet {
             let needsToShowExtension = self.needsToShowExtension(for: topViewController)
@@ -56,15 +58,18 @@ public class ExtensibleBarNavigationController: UINavigationController {
             navBarExtensionTopConstraint?.constant = -navBarAdditionalSize
             navBarExtensionContainerBottomConstraint?.constant = navBarAdditionalSize
             toolbarBottomConstraint?.constant = -navBarAdditionalSize
-            topViewController?.additionalSafeAreaInsets = extensionSafeAreaInsets
+            if let topViewController { applyExtensionInsets(to: topViewController) }
         }
     }
 
-    /// Extension view additional safe area insets
-    private var extensionSafeAreaInsets: UIEdgeInsets {
-        let needsToShowExtension = self.needsToShowExtension(for: topViewController)
-        return needsToShowExtension ?
-            UIEdgeInsets(top: navBarAdditionalSize, left: 0, bottom: 0, right: 0) : .zero
+    /// Own only the inset contributed by this extension. Screen-specific insets remain intact.
+    private func applyExtensionInsets(to controller: UIViewController) {
+        let previous = CGFloat(appliedExtensionHeights.object(forKey: controller)?.doubleValue ?? 0)
+        let next = needsToShowExtension(for: controller) ? navBarAdditionalSize : 0
+        var insets = controller.additionalSafeAreaInsets
+        insets.top += next - previous
+        controller.additionalSafeAreaInsets = insets
+        appliedExtensionHeights.setObject(NSNumber(value: Double(next)), forKey: controller)
     }
 
     public var extensionAppearingIsAnimatable = false
@@ -103,6 +108,10 @@ public class ExtensibleBarNavigationController: UINavigationController {
     // MARK: - ExtensibleBarNavigationController
 
     public func setNavigationBarExtensionView(_ view: UIView?, forHeight height: CGFloat = 0) {
+        navBarExtensionTopConstraint?.isActive = false
+        navBarExtensionBottomConstraint?.isActive = false
+        navBarExtensionTopConstraint = nil
+        navBarExtensionBottomConstraint = nil
         navBarExtensionView?.removeFromSuperview()
         guard let view = view else {
             self.navBarExtensionView = nil
@@ -155,8 +164,8 @@ public class ExtensibleBarNavigationController: UINavigationController {
     // MARK: - UINavigationController
 
     override public func pushViewController(_ viewController: UIViewController, animated: Bool) {
-        super.pushViewController(viewController, animated: true)
-        viewController.additionalSafeAreaInsets = extensionSafeAreaInsets
+        super.pushViewController(viewController, animated: animated)
+        applyExtensionInsets(to: viewController)
     }
 
     // MARK: - Private
@@ -231,6 +240,7 @@ extension ExtensibleBarNavigationController: UINavigationControllerDelegate {
             navigationController, willShow: viewController, animated: animated
         )
 
+        applyExtensionInsets(to: viewController)
         let needsToShowExtension = self.needsToShowExtension(for: viewController)
         updateShadowImage()
 

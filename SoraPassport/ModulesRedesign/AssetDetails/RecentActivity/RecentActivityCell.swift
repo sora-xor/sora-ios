@@ -42,6 +42,7 @@ final class RecentActivityCell: SoramitsuTableViewCell {
     
     private var activityItem: RecentActivityItem? {
         didSet {
+            cancellables.removeAll()
             guard let item = activityItem else { return }
             item.service?.$historyViewModels
                 .receive(on: DispatchQueue.main)
@@ -207,9 +208,7 @@ extension RecentActivityCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        if activityItem == nil {
-            activityItem = item
-        }
+        activityItem = item
         
         let viewModels = item.service?.historyViewModels ?? []
         updateContent(with: viewModels)

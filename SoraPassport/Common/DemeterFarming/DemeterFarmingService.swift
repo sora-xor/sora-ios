@@ -55,16 +55,21 @@ protocol DemeterFarmingServiceProtocol: AnyObject {
 
 final class DemeterFarmingService {
     weak var poolsService: PoolsServiceInputProtocol?
+    private let runtimeOperation: () -> BaseOperation<RuntimeCoderFactoryProtocol>?
     private var operationFactory: DemeterFarmingOperationFactory
     private let operationManager = OperationManager()
-    private let fiatService: FiatService
+    private let fiatService: FiatServiceProtocol
     private let assetManager: AssetManagerProtocol
     private var farms: [Farm] = []
     private var farmsTask: Task<Void, Swift.Error>?
     
     init(operationFactory: DemeterFarmingOperationFactory,
-         fiatService: FiatService,
-         assetManager: AssetManagerProtocol) {
+         fiatService: FiatServiceProtocol,
+         assetManager: AssetManagerProtocol,
+         runtimeOperation: @escaping () -> BaseOperation<RuntimeCoderFactoryProtocol>? = {
+             ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())?.fetchCoderFactoryOperation()
+         }) {
+        self.runtimeOperation = runtimeOperation
         self.operationFactory = operationFactory
         self.fiatService = fiatService
         self.assetManager = assetManager
@@ -74,11 +79,12 @@ final class DemeterFarmingService {
 extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     
     func getAllFarms() async throws -> [Farm] {
+        try Task.checkCancellation()
         if !farms.isEmpty {
             return farms
         }
         
-        let poolsKeys = (try? await getPoolKeys()) ?? []
+        let poolsKeys = try await getPoolKeys()
         
         async let farmList = poolsKeys.concurrentMap { [weak self] key -> [FarmedPool]? in
             let data = String(key.dropFirst(2))
@@ -86,33 +92,33 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             guard assetId.count > 2 else {
                 return nil
             }
-            let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
+            let pools = try await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
             return pools
         }
         
-        let reducedFarms = (try? await farmList.reduce([], +)) ?? []
+        let reducedFarms = try await farmList.reduce([], +)
         
-        let rewardTokenInfosKeys = (try? await getTokenInfosKeys()) ?? []
+        let rewardTokenInfosKeys = try await getTokenInfosKeys()
         
         async let rewardTokenInfos = rewardTokenInfosKeys.concurrentMap { [weak self] key in
             let data = String(key.dropFirst(2))
             let assetId = "0x\(data.components(withMaxLength: 64).last ?? "")"
-            let pools = try? await self?.getRewardTokenInfos(with: assetId)
+            let pools = try await self?.getRewardTokenInfos(with: assetId)
             return pools
         }
         
-        let finalRewardTokenInfos = try? await rewardTokenInfos
+        let finalRewardTokenInfos = try await rewardTokenInfos
         
         let fiatData = await fiatService.getFiat()
         
-        async let farms = try? reducedFarms.concurrentMap { [weak self] pool in
+        async let farms = reducedFarms.concurrentMap { [weak self] pool in
             let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
             let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
             let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
             
             let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
             let id = "\(baseAsset?.assetId ?? "")-\(poolAsset?.assetId ?? "")-\(rewardAsset?.assetId ?? "")"
-            let rewardTokenInfo = finalRewardTokenInfos?.first { $0.assetId == pool.rewardAssetId }
+            let rewardTokenInfo = finalRewardTokenInfos.first { $0.assetId == pool.rewardAssetId }
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
             
@@ -136,11 +142,13 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         tvl: tvl,
                         apr: apr / 100,
                         depositFee: depositFee,
-                        tvlIsKnown: knownPrice != nil,
-                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
+                        tvlIsKnown: self?.hasKnownTVL(poolInfo: poolInfo, price: knownPrice) == true,
+                        aprIsKnown: self?.hasKnownTVL(poolInfo: poolInfo, price: knownPrice) == true &&
+                            knownRewardAssetPrice.map { !$0.isNaN && $0 >= 0 } == true && rewardTokenInfo != nil)
         }
         
-        let finalfarms = await farms ?? []
+        let finalfarms = try await farms
+        try Task.checkCancellation()
         self.farms = finalfarms
         return finalfarms
     }
@@ -150,23 +158,23 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     }
     
     func getFarmDetails(baseAssetId: String, poolAssetId: String, rewardAssetId: String) async throws -> [Farm] {
-        async let farmedPools = (try? getPools(poolAssetId: poolAssetId, rewardAssetId: rewardAssetId)) ?? []
-        
-        async let rewardTokenInfos = try? getRewardTokenInfos(with: rewardAssetId)
+        try Task.checkCancellation()
+        async let farmedPools = getPools(poolAssetId: poolAssetId, rewardAssetId: rewardAssetId)
+        async let rewardTokenInfos = getRewardTokenInfos(with: rewardAssetId)
         
         async let fiatData = self.fiatService.getFiat()
         
-        let results = await (farmedPools: farmedPools.filter { $0.baseAssetId == baseAssetId },
+        let results = try await (farmedPools: farmedPools.filter { $0.baseAssetId == baseAssetId },
                              rewardTokenInfos: rewardTokenInfos,
                              fiatData: fiatData)
         
-        async let farms = try? results.farmedPools.concurrentMap { [weak self] pool in
+        async let farms = results.farmedPools.concurrentMap { [weak self] pool in
             let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
             let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
             let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
             
             let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
-            let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
+            let id = "\(baseAsset?.assetId ?? "")-\(poolAsset?.assetId ?? "")-\(rewardAsset?.assetId ?? "")"
             let rewardTokenInfo = results.rewardTokenInfos
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
@@ -191,51 +199,52 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         tvl: tvl,
                         apr: apr / 100,
                         depositFee: depositFee,
-                        tvlIsKnown: knownPrice != nil,
-                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
+                        tvlIsKnown: self?.hasKnownTVL(poolInfo: poolInfo, price: knownPrice) == true,
+                        aprIsKnown: self?.hasKnownTVL(poolInfo: poolInfo, price: knownPrice) == true &&
+                            knownRewardAssetPrice.map { !$0.isNaN && $0 >= 0 } == true && rewardTokenInfo != nil)
         }
 
-        return await farms ?? []
+        let result = try await farms
+        try Task.checkCancellation()
+        return result
     }
     
     func getPoolKeys() async throws -> [String] {
-        guard let keysOperation = try? operationFactory.poolsKeysPagedOperation() else { return [] }
-
-        return await withCheckedContinuation { continuation in
-            keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                continuation.resume(returning: pools)
+        try Task.checkCancellation()
+        let keysOperation = try operationFactory.poolsKeysPagedOperation()
+        let result: [String] = try await withCheckedThrowingContinuation { continuation in
+            keysOperation.completionBlock = { [weak keysOperation] in
+                do {
+                    guard let keysOperation else { throw DemeterFarmingServiceError.unavailable }
+                    continuation.resume(returning: try keysOperation.extractResultData(throwing: DemeterFarmingServiceError.unavailable))
+                } catch { continuation.resume(throwing: error) }
             }
             operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
+        try Task.checkCancellation()
+        return result
     }
     
     
     func getPools(poolAssetId: String, rewardAssetId: String) async throws -> [FarmedPool] {
-        guard let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
-              let poolsOperation = try? operationFactory.poolsOperation(poolAssetId: poolAssetId,
-                                                                        rewardAssetId: rewardAssetId,
-                                                                        runtimeOperation: runtimeService.fetchCoderFactoryOperation()) else {
-            return []
-        }
-
-        return await withCheckedContinuation { continuation in
+        try Task.checkCancellation()
+        guard let runtimeOperation = runtimeOperation() else { throw DemeterFarmingServiceError.unavailable }
+        let poolsOperation = try operationFactory.poolsOperation(poolAssetId: poolAssetId,
+                                                                rewardAssetId: rewardAssetId,
+                                                                runtimeOperation: runtimeOperation)
+        let result: [FarmedPool] = try await withCheckedThrowingContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
-                    guard let allFarmInfos = try poolsOperation.targetOperation.extractResultData()?.filter({ $0.isFarm && !$0.isRemoved }) else {
-                        continuation.resume(returning: [])
-                        return
-                    }
+                    let allFarmInfos = try poolsOperation.targetOperation.extractResultData(
+                        throwing: DemeterFarmingServiceError.unavailable
+                    ).filter { $0.isFarm && !$0.isRemoved }
                     
                     let farms = allFarmInfos.map { farm in
                         return FarmedPool(
                             baseAssetId: farm.baseAsset.value,
                             poolAssetId: poolAssetId,
                             rewardAssetId: rewardAssetId,
-                            multiplier: ((Decimal(string: farm.multiplier) ?? .zero) as NSDecimalNumber).multiplying(byPowerOf10: -18).decimalValue,
+                            multiplier: Decimal(string: farm.multiplier) ?? .zero,
                             depositFee: Decimal.fromSubstrateAmount(farm.depositFee, precision: 18) ?? .zero,
                             isCore: farm.isCore,
                             isFarm: farm.isFarm,
@@ -248,47 +257,47 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     
                     continuation.resume(returning: farms)
                 } catch {
-                    continuation.resume(returning: [])
+                    continuation.resume(throwing: error)
                 }
             }
             operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
+        try Task.checkCancellation()
+        return result
     }
     
     func getTokenInfosKeys() async throws -> [String] {
-        guard let keysOperation = try? operationFactory.tokenInfosKeysPagedOperation() else { return [] }
-
-        return await withCheckedContinuation { continuation in
-            keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                continuation.resume(returning: pools)
+        try Task.checkCancellation()
+        let keysOperation = try operationFactory.tokenInfosKeysPagedOperation()
+        let result: [String] = try await withCheckedThrowingContinuation { continuation in
+            keysOperation.completionBlock = { [weak keysOperation] in
+                do {
+                    guard let keysOperation else { throw DemeterFarmingServiceError.unavailable }
+                    continuation.resume(returning: try keysOperation.extractResultData(throwing: DemeterFarmingServiceError.unavailable))
+                } catch { continuation.resume(throwing: error) }
             }
             operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
+        try Task.checkCancellation()
+        return result
     }
     
     func getRewardTokenInfos(with assetId: String) async throws -> FarmedRewardTokenInfo? {
-        guard let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
-              let poolsOperation = try? operationFactory.tokenInfos(assetId: assetId,
-                                                                    runtimeOperation: runtimeService.fetchCoderFactoryOperation()) else {
-            return nil
-        }
-
-        return await withCheckedContinuation { continuation in
+        try Task.checkCancellation()
+        guard let runtimeOperation = runtimeOperation() else { throw DemeterFarmingServiceError.unavailable }
+        let poolsOperation = try operationFactory.tokenInfos(assetId: assetId, runtimeOperation: runtimeOperation)
+        let result: FarmedRewardTokenInfo? = try await withCheckedThrowingContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
-                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else {
+                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(throwing: DemeterFarmingServiceError.unavailable) else {
                         continuation.resume(returning: nil)
                         return
                     }
                     
                     let rewardAssetInfo = FarmedRewardTokenInfo(
                         assetId: assetId,
-                        farmsTotalMultiplier: ((Decimal(string: assetInfo.farmsTotalMultiplier) ?? .zero) as NSDecimalNumber).multiplying(byPowerOf10: -18).decimalValue,
-                        stakingTotalMultiplier: ((Decimal(string: assetInfo.stakingTotalMultiplier) ?? .zero) as NSDecimalNumber).multiplying(byPowerOf10: -18).decimalValue,
+                        farmsTotalMultiplier: Decimal(string: assetInfo.farmsTotalMultiplier) ?? .zero,
+                        stakingTotalMultiplier: Decimal(string: assetInfo.stakingTotalMultiplier) ?? .zero,
                         tokenPerBlock: Decimal.fromSubstrateAmount(assetInfo.tokenPerBlock, precision: 18) ?? .zero,
                         farmsAllocation: Decimal.fromSubstrateAmount(assetInfo.farmsAllocation, precision: 18) ?? .zero,
                         stakingAllocation: Decimal.fromSubstrateAmount(assetInfo.stakingAllocation, precision: 18) ?? .zero
@@ -296,11 +305,13 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
 
                     continuation.resume(returning: rewardAssetInfo)
                 } catch {
-                    continuation.resume(returning: nil)
+                    continuation.resume(throwing: error)
                 }
             }
             operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
+        try Task.checkCancellation()
+        return result
     }
 
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm] {
@@ -323,12 +334,13 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
         targetAssetId: String?,
         accountId: Data
     ) async throws -> [UserFarm] {
+        try Task.checkCancellation()
         guard let baseAssetId, let targetAssetId,
               !accountId.isEmpty,
-              let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+              let runtimeOperation = runtimeOperation(),
               let farmedPoolsOperation = try? operationFactory.userInfo(
                 accountId: accountId,
-                runtimeOperation: runtimeService.fetchCoderFactoryOperation()
+                runtimeOperation: runtimeOperation
               ) else {
             throw DemeterFarmingServiceError.unavailable
         }
@@ -377,10 +389,10 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     func getSingleSidedXorFarmedPools(completion: @escaping ([UserFarmInfo]) -> Void) {
         guard let account = SelectedWalletSettings.shared.currentAccount,
               let accountId = try? SS58AddressFactory().accountId(fromAddress: account.address, type: account.networkType),
-              let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+              let runtimeOperation = runtimeOperation(),
               let farmedPoolsOperation = try? operationFactory.userInfo(
                 accountId: accountId,
-                runtimeOperation: runtimeService.fetchCoderFactoryOperation()
+                runtimeOperation: runtimeOperation
               )
         else {
             completion([])
@@ -416,11 +428,20 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
         return allocation * rewardTokenInfo.tokenPerBlock * multiplier
     }
     
+    private func hasKnownTVL(poolInfo: PoolInfo?, price: Decimal?) -> Bool {
+        guard let price, !price.isNaN, price >= 0, let poolInfo,
+              let reserves = poolInfo.targetAssetReserves, !reserves.isNaN, reserves >= 0,
+              let issuance = poolInfo.totalIssuances, !issuance.isNaN, issuance > 0 else { return false }
+        return true
+    }
+
     private func calculateTVL(farmedPool: FarmedPool, poolInfo: PoolInfo?, price: Decimal) -> Decimal {
         guard let poolInfo else { return .zero }
 
         if farmedPool.isFarm {
-            let kf = (poolInfo.targetAssetReserves ?? Decimal(0)) / (poolInfo.totalIssuances ?? Decimal(0))
+            guard let reserves = poolInfo.targetAssetReserves, reserves >= 0,
+                  let issuance = poolInfo.totalIssuances, issuance > 0 else { return .zero }
+            let kf = reserves / issuance
             return kf * farmedPool.totalTokensInPool * 2 * price
         }
 

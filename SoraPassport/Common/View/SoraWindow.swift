@@ -152,12 +152,13 @@ extension SoraWindow: ApplicationStatusPresentable {
             if topController is UIAlertController {
                 topController.dismiss(animated: true) {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        self.topController?.present(alert, animated: true)
+                        self.topController?.present(alert, animated: animated)
                     }
                 }
+                return
             }
         }
-        self.topController?.present(alert, animated: true)
+        self.topController?.present(alert, animated: animated)
     }
 
     func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) {

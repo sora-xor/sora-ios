@@ -576,18 +576,12 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
                   let dexId = context[TransactionContextKeys.dex],
                   let rawDesiredA = context[TransactionContextKeys.firstAssetAmount],
                   let rawDesiredB = context[TransactionContextKeys.secondAssetAmount],
-                  let desiredA = Decimal(string: rawDesiredA, locale: Locale(identifier: "en_US_POSIX")),
-                  let desiredB = Decimal(string: rawDesiredB, locale: Locale(identifier: "en_US_POSIX")),
+                  let desiredA = AmountDecimal(string: rawDesiredA)?.decimalValue,
+                  let desiredB = AmountDecimal(string: rawDesiredB)?.decimalValue,
                   let rawFirstReserves = context[TransactionContextKeys.firstReserves],
-                  let firstReserves = Decimal(
-                    string: rawFirstReserves,
-                    locale: Locale(identifier: "en_US_POSIX")
-                  ),
+                  let firstReserves = AmountDecimal(string: rawFirstReserves)?.decimalValue,
                   let rawTotalIssuances = context[TransactionContextKeys.totalIssuances],
-                  let totalIssuances = Decimal(
-                    string: rawTotalIssuances,
-                    locale: Locale(identifier: "en_US_POSIX")
-                  ),
+                  let totalIssuances = AmountDecimal(string: rawTotalIssuances)?.decimalValue,
                   let rawSlippage = context[TransactionContextKeys.slippage],
                   let slippage = PolkaswapSlippage(contextValue: rawSlippage) else {
                 throw WalletNetworkOperationFactoryError.invalidContext

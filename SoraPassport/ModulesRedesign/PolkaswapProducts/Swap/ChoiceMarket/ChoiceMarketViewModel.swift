@@ -47,6 +47,10 @@ final class ChoiceMarketViewModel {
     var markets: [LiquiditySourceType]
     var selectedMarket: LiquiditySourceType {
         didSet {
+            guard markets.contains(selectedMarket) else {
+                selectedMarket = oldValue
+                return
+            }
             view?.setup(selectedMarket: selectedMarket)
             completion?(selectedMarket)
         }

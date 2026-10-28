@@ -32,12 +32,14 @@ protocol PortfolioSora2BalanceReading: AnyObject {
 enum PortfolioReaderError: Error {
     case noConnection
     case invalidAddress
+    case invalidAsset
+    case invalidStorageResponse
+    case unrepresentableBalance
 }
 
 final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
     private let engine: () -> JSONRPCEngine?
     private let runtime: () -> RuntimeCodingServiceProtocol?
-    private let requestFactory: StorageRequestFactoryProtocol
     private let queue: OperationQueue
 
     init(engine: @escaping () -> JSONRPCEngine? = {
@@ -50,25 +52,29 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
         self.engine = engine
         self.runtime = runtime
         self.queue = queue
-        requestFactory = StorageRequestFactory(remoteFactory: StorageKeyFactory() as StorageKeyFactoryProtocol,
-                                               operationManager: OperationManagerFacade.sharedManager)
     }
 
     func balances(address: String, assets: [(id: String, precision: Int16)]) async throws -> [String: PortfolioRawBalance] {
+        try Task.checkCancellation()
         guard let engine = engine(), let runtime = runtime() else { throw PortfolioReaderError.noConnection }
         guard let accountId = (address as AccountAddress).accountId else { throw PortfolioReaderError.invalidAddress }
+        let xorId = WalletAssetId.xor.rawValue
+        var seen = Set<Data>()
+        for asset in assets {
+            guard (0...255).contains(asset.precision),
+                  let identifier = try? Data.sora(hex: asset.id), identifier.count == 32,
+                  seen.insert(identifier).inserted else { throw PortfolioReaderError.invalidAsset }
+        }
 
         var result: [String: PortfolioRawBalance] = [:]
-        let xorId = WalletAssetId.xor.rawValue
-
         if let xor = assets.first(where: { $0.id == xorId }) {
             let info = try await accountInfo(accountId: accountId, engine: engine, runtime: runtime)
             if let data = info?.data {
-                let free = Decimal.fromSubstrateAmount(data.free, precision: xor.precision) ?? 0
-                let reserved = Decimal.fromSubstrateAmount(data.reserved, precision: xor.precision) ?? 0
-                let frozen = max(Decimal.fromSubstrateAmount(data.miscFrozen, precision: xor.precision) ?? 0,
-                                 Decimal.fromSubstrateAmount(data.feeFrozen, precision: xor.precision) ?? 0)
-                result[xorId] = PortfolioRawBalance(free: free, reserved: reserved, frozen: frozen)
+                result[xorId] = PortfolioRawBalance(
+                    free: try amount(data.free, precision: xor.precision),
+                    reserved: try amount(data.reserved, precision: xor.precision),
+                    frozen: try amount(max(data.miscFrozen, data.feeFrozen), precision: xor.precision)
+                )
             } else {
                 result[xorId] = .zero
             }
@@ -78,52 +84,88 @@ final class PortfolioSora2BalanceReader: PortfolioSora2BalanceReading {
         guard !tokens.isEmpty else { return result }
         let keyFactory = StorageKeyFactory()
         var keyToAsset: [Data: (id: String, precision: Int16)] = [:]
-        var keys: [String] = []
         for token in tokens {
-            guard let assetData = try? Data.sora(hex: token.id),
-                  let key = try? keyFactory.accountsKey(account: accountId, asset: assetData) else { continue }
+            let key = try keyFactory.accountsKey(account: accountId, asset: Data.sora(hex: token.id))
             keyToAsset[key] = token
-            keys.append(key.toHex(includePrefix: true))
         }
-        guard !keys.isEmpty else { return result }
-
-        let operation = JSONRPCOperation<[[String]], [StorageUpdate]>(engine: engine,
-                                                                       method: RPCMethod.queryStorageAt,
-                                                                       parameters: [keys])
-        let updates = try await run(operation)
-        for token in tokens { result[token.id] = .zero }
-        for change in updates.flatMap({ StorageUpdateData(update: $0).changes }) {
-            guard let token = keyToAsset[change.key], let value = change.value else { continue }
+        let values = try await storageValues(keys: Array(keyToAsset.keys), engine: engine)
+        for (key, token) in keyToAsset {
+            guard let value = values[key] ?? nil else {
+                result[token.id] = .zero
+                continue
+            }
             let decoder = try ScaleDecoder(data: value)
             let data = try OrmlAccountData(scaleDecoder: decoder)
+            guard decoder.remained == 0 else { throw PortfolioReaderError.invalidStorageResponse }
             result[token.id] = PortfolioRawBalance(
-                free: Decimal.fromSubstrateAmount(data.free.value, precision: token.precision) ?? 0,
-                reserved: Decimal.fromSubstrateAmount(data.reserved.value, precision: token.precision) ?? 0,
-                frozen: Decimal.fromSubstrateAmount(data.frozen.value, precision: token.precision) ?? 0
+                free: try amount(data.free.value, precision: token.precision),
+                reserved: try amount(data.reserved.value, precision: token.precision),
+                frozen: try amount(data.frozen.value, precision: token.precision)
             )
         }
         return result
     }
 
+    /// Convert the complete integer without NSDecimalNumber's exception-raising underflow behavior.
+    /// A value the display type cannot represent exactly remains unavailable, never rounded to zero.
+    private func amount(_ raw: BigUInt, precision: Int16) throws -> Decimal {
+        if raw.isZero { return .zero }
+        let digits = String(raw)
+        let scale = Int(precision)
+        let padded = String(repeating: "0", count: max(0, scale + 1 - digits.count)) + digits
+        let split = padded.index(padded.endIndex, offsetBy: -scale)
+        let text = scale == 0 ? padded : String(padded[..<split]) + "." + String(padded[split...])
+        guard let value = Decimal.parseLocalizedAmount(text, locale: Locale(identifier: "en_US_POSIX")) else {
+            throw PortfolioReaderError.unrepresentableBalance
+        }
+        return value
+    }
+
+    /// A null value is an authoritative absence. Missing, duplicate, foreign or malformed changes
+    /// are incomplete reads and must not be presented as zero balances.
+    private func storageValues(keys: [Data], engine: JSONRPCEngine) async throws -> [Data: Data?] {
+        let operation = JSONRPCOperation<[[String]], [StorageUpdate]>(
+            engine: engine, method: RPCMethod.queryStorageAt,
+            parameters: [keys.map { $0.toHex(includePrefix: true) }]
+        )
+        let updates = try await run(operation)
+        guard updates.count == 1, let changes = updates.first?.changes else {
+            throw PortfolioReaderError.invalidStorageResponse
+        }
+        let requested = Set(keys)
+        var values: [Data: Data?] = [:]
+        for change in changes {
+            guard change.count == 2, let encodedKey = change[0],
+                  let key = try? Data.sora(hex: encodedKey), requested.contains(key),
+                  !values.keys.contains(key) else { throw PortfolioReaderError.invalidStorageResponse }
+            if let encodedValue = change[1] {
+                guard let value = try? Data.sora(hex: encodedValue) else {
+                    throw PortfolioReaderError.invalidStorageResponse
+                }
+                values.updateValue(value, forKey: key)
+            } else {
+                values.updateValue(nil, forKey: key)
+            }
+        }
+        guard Set(values.keys) == requested else { throw PortfolioReaderError.invalidStorageResponse }
+        return values
+    }
+
     private func accountInfo(accountId: Data, engine: JSONRPCEngine,
                              runtime: RuntimeCodingServiceProtocol) async throws -> AccountInfo? {
-        let coderFactoryOperation = runtime.fetchCoderFactoryOperation()
-        let wrapper: CompoundOperationWrapper<[StorageResponse<AccountInfo>]> = requestFactory.queryItems(
-            engine: engine,
-            keyParams: { [accountId] },
-            factory: { try coderFactoryOperation.extractNoCancellableResultData() },
-            storagePath: StorageCodingPath.account
-        )
-        wrapper.allOperations.forEach { $0.addDependency(coderFactoryOperation) }
-        queue.addOperation(coderFactoryOperation)
-        wrapper.dependencies.forEach { queue.addOperation($0) }
-        let responses = try await run(wrapper.targetOperation)
-        return responses.first?.value
+        let factory = try await run(runtime.fetchCoderFactoryOperation())
+        let key = try StorageKeyFactory().accountInfoKeyForId(accountId)
+        let values = try await storageValues(keys: [key], engine: engine)
+        guard let data = values[key] ?? nil else { return nil }
+        let operation = StorageDecodingOperation<AccountInfo>(path: .account, data: data)
+        operation.codingFactory = factory
+        return try await run(operation)
     }
 
     /// Enqueues `operation` (its dependencies must already be queued) and awaits its result.
     private func run<T>(_ operation: BaseOperation<T>) async throws -> T {
-        try await withTaskCancellationHandler(operation: {
+        try Task.checkCancellation()
+        return try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
                 operation.completionBlock = {
                     do {

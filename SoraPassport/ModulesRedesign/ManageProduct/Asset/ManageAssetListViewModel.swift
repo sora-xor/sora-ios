@@ -47,13 +47,13 @@ final class ManageAssetListViewModel {
 
     var assetItems: [AssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: assetItems)
+            filterAssetList(with: normalizedQuery)
         }
     }
 
     var filteredAssetItems: [AssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredAssetItems)
+            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
         }
     }
 
@@ -81,7 +81,7 @@ final class ManageAssetListViewModel {
             }
             
             DispatchQueue.main.async {
-                self.reloadItems?(self.assetItems)
+                self.reloadItems?(self.isActiveSearch ? self.filteredAssetItems : self.assetItems)
             }
         }
     }
@@ -108,14 +108,12 @@ final class ManageAssetListViewModel {
         }
     }
 
+    private var normalizedQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     var searchText: String = "" {
-        didSet {
-            guard !searchText.isEmpty else {
-                setupTableViewItems(with: assetItems)
-                return
-            }
-            filterAssetList(with: searchText.lowercased())
-        }
+        didSet { filterAssetList(with: normalizedQuery) }
     }
 
     weak var assetManager: AssetManagerProtocol?
@@ -153,7 +151,8 @@ final class ManageAssetListViewModel {
          marketCapService: MarketCapServiceProtocol,
          farmingService: DemeterFarmingServiceProtocol,
          wireframe: AssetListWireframeProtocol,
-         updateHandler: ((UpdatedSection) -> Void)?
+         updateHandler: ((UpdatedSection) -> Void)?,
+         priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared
     ) {
         self.assetViewModelFactory = assetViewModelFactory
         self.fiatService = fiatService
@@ -172,7 +171,7 @@ final class ManageAssetListViewModel {
         self.marketCapService = marketCapService
         self.farmingService = farmingService
         self.wireframe = wireframe
-        self.priceInfoService = PriceInfoService.shared
+        self.priceInfoService = priceInfoService
     }
 }
 
@@ -187,9 +186,8 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
         let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
         let balanceData = assetsProvider?.getBalances(with: ids) ?? []
 
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             await self?.items(with: balanceData)
-            self?.priceInfo = await self?.priceInfoService.getPriceInfo(for: ids)
         }
 
         assetsProvider?.add(observer: self)
@@ -202,11 +200,10 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
 
 extension ManageAssetListViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
-        let balanceData = data.filter { ids.contains($0.identifier) }
-        
-        Task { [weak self] in
-            await self?.items(with: balanceData)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let ids = (self.assetManager?.getAssetList() ?? []).map { $0.identifier }
+            await self.items(with: data.filter { ids.contains($0.identifier) })
         }
     }
 }
@@ -223,6 +220,7 @@ extension ManageAssetListViewModel {
 }
 
 private extension ManageAssetListViewModel {
+    @MainActor
     func items(with balanceItems: [BalanceData]) async {
         let fiatData = priceInfo?.fiatData ?? []
         let marketCapInfo = priceInfo?.marketCapInfo ?? []
@@ -258,11 +256,11 @@ private extension ManageAssetListViewModel {
         assetItems = items.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
 
         let assetIds = balanceItems.map { $0.identifier }
-        priceInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+        priceInfo = await priceInfoService.getPriceInfo(for: assetIds)
     }
 
     func filterAssetList(with query: String) {
-        filteredAssetItems = self.assetItems.filter { item in
+        filteredAssetItems = query.isEmpty ? assetItems : assetItems.filter { item in
             return item.assetInfo.assetId.lowercased().contains(query) ||
             item.assetInfo.symbol.lowercased().contains(query) ||
             item.assetViewModel.title.lowercased().contains(query)

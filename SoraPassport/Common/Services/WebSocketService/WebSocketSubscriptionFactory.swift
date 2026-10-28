@@ -33,23 +33,36 @@ import SSFUtils
 import IrohaCrypto
 import RobinHood
 
+enum WebSocketSubscriptionFactoryError: Error { case runtimeUnavailable }
+
 final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
     let storageFacade: StorageFacadeProtocol
 
     let storageKeyFactory = StorageKeyFactory()
     let addressFactory = SS58AddressFactory()
-    let operationManager = OperationManagerFacade.sharedManager
-    let eventCenter = EventCenter.shared
-    let logger = Logger.shared
+    let operationManager: OperationManagerProtocol
+    let eventCenter: EventCenterProtocol
+    let logger: LoggerProtocol
+    private let runtimeProvider: () -> RuntimeCodingServiceProtocol?
 
     var runtimeService: RuntimeCodingServiceProtocol? {
-        ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
+        runtimeProvider()
     }
 
     let providerFactory: SubstrateDataProviderFactoryProtocol
 
-    init(storageFacade: StorageFacadeProtocol) {
+    init(
+        storageFacade: StorageFacadeProtocol,
+        runtimeProvider: @escaping () -> RuntimeCodingServiceProtocol? = { ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) },
+        operationManager: OperationManagerProtocol = OperationManagerFacade.sharedManager,
+        eventCenter: EventCenterProtocol = EventCenter.shared,
+        logger: LoggerProtocol = Logger.shared
+    ) {
         self.storageFacade = storageFacade
+        self.runtimeProvider = runtimeProvider
+        self.operationManager = operationManager
+        self.eventCenter = eventCenter
+        self.logger = logger
         providerFactory = SubstrateDataProviderFactory(
             facade: storageFacade,
             operationManager: operationManager
@@ -73,6 +86,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         engine: JSONRPCEngine
     ) throws -> [WebSocketSubscribing] {
         let accountId = try addressFactory.accountId(fromAddress: address, type: type)
+        guard let runtimeService else { throw WebSocketSubscriptionFactoryError.runtimeUnavailable }
 
         let localStorageIdFactory = try ChainStorageIdFactory(chain: type.chain)
 
@@ -87,7 +101,8 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         let transferSubscription = createTransferSubscription(
             address: address,
             engine: engine,
-            networkType: type
+            networkType: type,
+            runtimeService: runtimeService
         )
 
         let accountSubscription =
@@ -106,13 +121,13 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         let globalSubscriptionContainer = StorageSubscriptionContainer(
             engine: engine,
             children: globalSubscriptions,
-            logger: Logger.shared
+            logger: logger
         )
 
         let accountSubscriptionContainer = StorageSubscriptionContainer(
             engine: engine,
             children: accountSubscriptions,
-            logger: Logger.shared
+            logger: logger
         )
 
         let runtimeSubscription = createRuntimeVersionSubscription(
@@ -199,9 +214,9 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             remoteStorageKey: accountStorageKey,
             localStorageKey: localStorageKey,
             storage: AnyDataProviderRepository(storage),
-            operationManager: OperationManagerFacade.sharedManager,
-            logger: Logger.shared,
-            eventCenter: EventCenter.shared
+            operationManager: operationManager,
+            logger: logger,
+            eventCenter: eventCenter
         )
     }
 
@@ -263,7 +278,8 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
     private func createTransferSubscription(
         address: String,
         engine: JSONRPCEngine,
-        networkType: SNAddressType
+        networkType: SNAddressType,
+        runtimeService: RuntimeCodingServiceProtocol
     ) -> TransactionSubscription {
         let filter = NSPredicate.filterTransactionsBy(address: address)
         let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
@@ -284,13 +300,13 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             address: address,
             chain: networkType.chain,
             addressFactory: addressFactory,
-            runtimeService: runtimeService!,
+            runtimeService: runtimeService,
             txStorage: AnyDataProviderRepository(txStorage),
             contactOperationFactory: contactOperationFactory,
             storageRequestFactory: storageRequestFactory,
-            operationManager: OperationManagerFacade.sharedManager,
-            eventCenter: EventCenter.shared,
-            logger: Logger.shared
+            operationManager: operationManager,
+            eventCenter: eventCenter,
+            logger: logger
         )
     }
 

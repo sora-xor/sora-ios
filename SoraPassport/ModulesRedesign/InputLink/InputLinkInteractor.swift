@@ -87,6 +87,8 @@ extension InputLinkInteractor: InputLinkInteractorInputProtocol {
     }
 
     func isCurrentUserAddress(with address: String) -> Bool {
-        return selectedAccountAddress == address
+        guard let selectedId = getAccountId(from: selectedAccountAddress),
+              let candidateId = getAccountId(from: address) else { return false }
+        return selectedId == candidateId
     }
 }

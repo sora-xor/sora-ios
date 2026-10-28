@@ -77,7 +77,7 @@ final class ExploreAssetsPageViewModel {
     var snapshotPublisher: Published<ExplorePageSnapshot>.Publisher { $snapshot }
     
     var wireframe: ExploreWireframeProtocol
-    var view: ControllerBackedProtocol?
+    weak var view: ControllerBackedProtocol?
     
     var assetViewModelsService: ExploreAssetViewModelService
     private var loading: Task<Void, Never>?

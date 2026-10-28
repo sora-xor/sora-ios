@@ -110,6 +110,8 @@ final class ScanQRViewModel: NSObject {
     private let feeProvider: FeeProviderProtocol
     private let marketCapService: MarketCapServiceProtocol
     private var isOpeningIrohaConnect = false
+    private var activeLookupID: UUID?
+    private var hasCaptureSession = false
     
     
     var qrExtractionService: WalletQRExtractionServiceProtocol?
@@ -214,6 +216,7 @@ final class ScanQRViewModel: NSObject {
 
     private func handleReceived(captureSession: AVCaptureSession) {
         if case .initializing = scanState {
+            hasCaptureSession = true
             scanState = .active
 
             view?.didReceive(session: captureSession)
@@ -229,6 +232,7 @@ final class ScanQRViewModel: NSObject {
 
         switch scanState {
         case .processing(let oldReceiverInfo, let oldOperation) where oldReceiverInfo != receiverInfo:
+            activeLookupID = nil
             oldOperation.cancel()
 
             performProcessing(of: receiverInfo)
@@ -280,17 +284,26 @@ final class ScanQRViewModel: NSObject {
 
             completeTransferFoundAccount(searchData, receiverInfo: receiverInfo)
         } else {
+            let lookupID = UUID()
+            activeLookupID = lookupID
             let operation = networkService.search(for: receiverInfo.accountId,
-                                                  runCompletionIn: .main) { [weak self] (optionalResult) in
-                                                    if let result = optionalResult {
-                                                        switch result {
-                                                        case .success(let searchResult):
-                                                            let loadedResult = searchResult ?? []
-                                                            self?.handleProccessing(searchResult: loadedResult)
-                                                        case .failure(let error):
-                                                            self?.handleProcessing(error: error)
-                                                        }
-                                                    }
+                                                  runCompletionIn: .main) { [weak self] result in
+                // Queue even a synchronous callback until its operation has been
+                // published, and bind it to this scan rather than the next one.
+                DispatchQueue.main.async {
+                    guard let self, self.activeLookupID == lookupID else { return }
+                    self.activeLookupID = nil
+                    guard let result else {
+                        self.handleProcessing(error: WalletNetworkOperationFactoryError.invalidContext)
+                        return
+                    }
+                    switch result {
+                    case let .success(searchResult):
+                        self.handleProccessing(searchResult: searchResult ?? [])
+                    case let .failure(error):
+                        self.handleProcessing(error: error)
+                    }
+                }
             }
 
             scanState = .processing(receiverInfo: receiverInfo, operation: operation)
@@ -320,6 +333,8 @@ final class ScanQRViewModel: NSObject {
     }
 
     private func completeTransferFoundAccount(_ foundAccount: SearchData, receiverInfo: ReceiveInfo) {
+        activeLookupID = nil
+        scanState = .inactive
         view?.controller.dismiss(animated: true, completion: { [weak self] in
             self?.completion?(ScanQRResult(firstName: foundAccount.firstName, receiverInfo: receiverInfo))
         })
@@ -415,6 +430,10 @@ extension ScanQRViewModel: WalletQRCaptureServiceDelegate {
 
     func qrCapture(service: WalletQRCaptureServiceProtocol, didMatch code: String) {
         DispatchQueue.main.async {
+            switch self.scanState {
+            case .active, .processing: break
+            default: return
+            }
             if self.handleIrohaConnect(code: code) {
                 return
             }
@@ -428,6 +447,10 @@ extension ScanQRViewModel: WalletQRCaptureServiceDelegate {
 
     func qrCapture(service: WalletQRCaptureServiceProtocol, didFailMatching code: String) {
         DispatchQueue.main.async {
+            switch self.scanState {
+            case .active, .processing: break
+            default: return
+            }
             if self.handleIrohaConnect(code: code) {
                 return
             }
@@ -444,6 +467,9 @@ extension ScanQRViewModel: WalletQRCaptureServiceDelegate {
 
 extension ScanQRViewModel: ScanQRViewModelProtocol {
     func prepareAppearance() {
+        if !hasCaptureSession, case .inactive = scanState {
+            scanState = .initializing(accessRequested: false)
+        }
         qrScanService.start()
     }
 
@@ -454,10 +480,7 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
     }
 
     func prepareDismiss() {
-        if case .initializing = scanState {
-            return
-        }
-
+        activeLookupID = nil
         if case .processing(_, let operation) = scanState {
             operation.cancel()
         }

@@ -91,10 +91,10 @@ extension RuntimeRegistryService: RuntimeCodingServiceProtocol {
     }
 
     func fetchCoderFactoryOperation(
-        with _: TimeInterval,
-        closure _: RuntimeMetadataClosure?
+        with timeout: TimeInterval,
+        closure: RuntimeMetadataClosure?
     ) -> BaseOperation<RuntimeCoderFactoryProtocol> {
-        chainRuntimeProvider?.fetchCoderFactoryOperation() ??
+        chainRuntimeProvider?.fetchCoderFactoryOperation(with: timeout, closure: closure) ??
             BaseOperation.createWithError(RuntimeProviderError.providerUnavailable)
     }
 

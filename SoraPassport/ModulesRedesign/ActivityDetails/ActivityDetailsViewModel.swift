@@ -41,7 +41,7 @@ final class ActivityDetailsViewModel {
     var setupItem: (([SoramitsuTableViewItemProtocol]) -> Void)?
     
     var items: [SoramitsuTableViewItemProtocol] = []
-    let model: Transaction
+    private(set) var model: Transaction
     let assetManager: AssetManagerProtocol
     let detailsFactory: ActivityDetailsViewModelFactoryProtocol
     let historyService: HistoryServiceProtocol
@@ -145,10 +145,11 @@ extension ActivityDetailsViewModel: ActivityDetailsViewModelProtocol {
 extension ActivityDetailsViewModel: EventVisitorProtocol {
     
     func processNewTransaction(event: WalletNewTransactionInserted) {
-        if let transaction = event.items.first, self.model.base.txHash == transaction.extrinsicHash.toHex(includePrefix: true) {
+        if let transaction = event.items.first(where: { self.model.base.txHash.caseInsensitiveCompare($0.extrinsicHash.toHex(includePrefix: true)) == .orderedSame }) {
             
             var updatedModel = model
             updatedModel.base.status = transaction.processingResult.isSuccess ? .success : .failed
+            model = updatedModel
             if let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel) {
                 (self.items.first as? HeaderActivityDetailsItem)?.details = headerItem.details
             }
@@ -179,6 +180,7 @@ extension ActivityDetailsViewModel: EventVisitorProtocol {
         if let submitted = updatedModel as? SubmittedTransaction {
             updatedModel = SubmittedTransaction(base: submitted.base, outcome: outcome)
         }
+        model = updatedModel
         guard let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel),
               let shown = items.first as? HeaderActivityDetailsItem else { return }
         shown.details = headerItem.details
@@ -359,14 +361,14 @@ extension ActivityDetailsViewModel {
         let toAssetInfo = assetManager.assetInfo(for: liquidity.secondTokenId)
         
         let textColor: SoramitsuColor = liquidity.type == .withdraw ? .statusSuccess : .fgPrimary
-        let fromBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
+        let fromBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
         let fromText = liquidity.type == .withdraw ? "+ \(fromBalance) \(fromAssetInfo?.symbol ?? "")" : "\(fromBalance) \(fromAssetInfo?.symbol ?? "")"
         let fromBalanceText = SoramitsuTextItem(text: fromText,
                                                 fontData: FontType.headline3,
                                                 textColor: textColor,
                                                 alignment: .right)
         
-        let toBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
+        let toBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
         let toText = liquidity.type == .withdraw ? "+ \(toBalance) \(toAssetInfo?.symbol ?? "")" : "\(toBalance) \(toAssetInfo?.symbol ?? "")"
         let toBalanceText = SoramitsuTextItem(text: toText,
                                               fontData: FontType.headline3,
@@ -386,8 +388,8 @@ extension ActivityDetailsViewModel {
                                          actionTransactionImage: R.image.wallet.detailsPlus(),
                                          firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
                                          secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
-                                         firstBalanceText: toBalanceText.attributedString,
-                                         secondBalanceText: fromBalanceText.attributedString,
+                                         firstBalanceText: fromBalanceText.attributedString,
+                                         secondBalanceText: toBalanceText.attributedString,
                                          details: details)
     }
     
@@ -416,7 +418,7 @@ extension ActivityDetailsViewModel {
     func headerSetReferrerTransactionViewModel(from setReferrer: SetReferrerTransaction) -> HeaderActivityDetailsItem {
         let assetInfo = assetManager.assetInfo(for: setReferrer.tokenId)
         
-        let balance = NumberFormatter.historyAmount.stringFromDecimal(setReferrer.base.fee.decimalValue) ?? ""
+        let balance = NumberFormatter.historyAmount.stringFromDecimal(setReferrer.base.fee.decimalValue / Decimal(1_000_000_000_000_000_000)) ?? ""
         let xorText = "\(balance) \(assetInfo?.symbol ?? "")"
         let invitationText = R.string.localizable.activityInvitationCount("1", preferredLanguages: .currentLocale)
         let balanceText = SoramitsuTextItem(text: setReferrer.isMyReferrer ? xorText : invitationText,

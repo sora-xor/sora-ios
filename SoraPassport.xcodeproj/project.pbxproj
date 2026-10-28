@@ -106,6 +106,163 @@
 		A66F00012F5D000000000003 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
 		A66F00012F5D000000000004 /* NotoSansEgyptianHieroglyphs-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = A66F00012F5D000000000102 /* NotoSansEgyptianHieroglyphs-OFL.txt */; };
 		FA1C179D69061DA806EFAEC5 /* WalletKeySafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */; };
+		9611D764BC61401681B1219D /* SendAmountLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E22731999D44EE482EFCA1B /* SendAmountLifecycleTests.swift */; };
+		38F8702CECF3453EAAB740D5 /* GeneratedQRCodeLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E937ED7AF5C4B4BA0D2D6BF /* GeneratedQRCodeLifecycleTests.swift */; };
+		85B44A4D352344639B90FAE9 /* FarmingEditLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CAD581B9334A7BB940DB09 /* FarmingEditLifecycleTests.swift */; };
+		546E7CCD179846B799E96B06 /* FarmingTransactionLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15ECFE32082046FCA5DF8529 /* FarmingTransactionLifecycleTests.swift */; };
+		2C436E6A4AD14A558C5ED326 /* ActivityRowMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C226DEA46E4A3086300AB5 /* ActivityRowMappingTests.swift */; };
+		7A25DDC825CE483196CC18FB /* StorageKeyOperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACBF2DB3EEF4DCB83B97D37 /* StorageKeyOperationTests.swift */; };
+		1D60EE0F68AE497BA4370A33 /* WalletDashboardFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C74D229BD24DA6A0FA728C /* WalletDashboardFlowTests.swift */; };
+		10F6EA9EB89D4CF4BBC54C23 /* DemeterStorageReadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C211BC4FDFCE416385AB182B /* DemeterStorageReadTests.swift */; };
+		342D1377935546F8BBF9E095 /* LocalHistoryProjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60C822F4AEE40D1B7DB054E /* LocalHistoryProjectionTests.swift */; };
+		D6E9E753F2734D7A8A69191D /* RuntimeIntegerBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C09B918E0DB2424B9FAAC0B7 /* RuntimeIntegerBoundaryTests.swift */; };
+		AAE1AC00D98D4E7A8A5D7891 /* AccountOptionsCloudLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591CA9B1D9214CA4B77D3DFE /* AccountOptionsCloudLifecycleTests.swift */; };
+		6A1987A3848941FA953492FA /* WalletControlBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC3431D8F5D43D785A5730B /* WalletControlBehaviorTests.swift */; };
+		95158ADDDCEC4C7C9555D905 /* WalletSelectionControlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B9C1E6E14A2434DBE3A13B8 /* WalletSelectionControlTests.swift */; };
+		ABF3DEBC0B6345E49783FA99 /* SheetInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72731D9E58A40FBB9E20982 /* SheetInteractionTests.swift */; };
+		5E056F7C19894BDDBECCF86F /* RuntimeProviderLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7918FED6394158A7AA074A /* RuntimeProviderLifecycleTests.swift */; };
+		A3CBD397F36C45BB8E7525F4 /* APYRequestLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366F2F9E672F4BAFAFABDBB6 /* APYRequestLifecycleTests.swift */; };
+		5A16D5D986584E399BD96B93 /* FeeProviderBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8DC36A521446B0A7ACC28C /* FeeProviderBehaviorTests.swift */; };
+		90354984A97A40879B18D438 /* ClaimRewardsLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02BD5B370409489188497938 /* ClaimRewardsLifecycleTests.swift */; };
+		9FA2B610877C484E82D93AC3 /* NexusCoordinatorLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EFF3BC91C8449D987863FBC /* NexusCoordinatorLifecycleTests.swift */; };
+		BB6AC468A3A14EF19B954563 /* PoolDetailsFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF723A16535483F8EB1CE28 /* PoolDetailsFlowTests.swift */; };
+		4570C8B0778D41F489545460 /* FarmDetailsFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5887C80B7434BF791E42AED /* FarmDetailsFlowTests.swift */; };
+		131A670F90234ADC8A099165 /* RuntimeVersionSubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78C350B5B264970A0375572 /* RuntimeVersionSubscriptionTests.swift */; };
+		839DA8DE9D714D0499C09910 /* NexusNetworkFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB1A0F2841640A5A9DB4F10 /* NexusNetworkFlowTests.swift */; };
+		03D9DCEE84B2470790A44B7A /* LiquidityConfirmationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2FD16D98DD4702BEB2F74D /* LiquidityConfirmationFlowTests.swift */; };
+		49D67C8E9A98414EB66A899D /* DemeterServiceFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C992505ABB54C6FBF167675 /* DemeterServiceFlowTests.swift */; };
+		74814A3EAABC4094B3AA1EB0 /* ExtrinsicProcessingBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18E1AFC8ED24D03BFD104B7 /* ExtrinsicProcessingBehaviorTests.swift */; };
+		9492C5CB3BA543F191F4ACAC /* IrohaConnectScreenFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08679322D35840019564C3BC /* IrohaConnectScreenFlowTests.swift */; };
+		912C34C981874ECAA80C8E0E /* RetainedEvidenceValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAF015642C15480FABEC02D2 /* RetainedEvidenceValidationTests.swift */; };
+		5541D45DC6A942E292A30CD0 /* FriendsInteractorFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9939AD9F19024019B69CB66E /* FriendsInteractorFlowTests.swift */; };
+		059611987E3B4E4691B64ACA /* RecoveryDisclosureFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E77C5423CFA84CAB8DDB805A /* RecoveryDisclosureFlowTests.swift */; };
+		155A1B62B89341FCA9E37879 /* MigrationEligibilityFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF14918D51A41C89148F34F /* MigrationEligibilityFlowTests.swift */; };
+		1110569AEAB64D0D8FBF794F /* AccountImportFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947916CA2E8D48119CA6F920 /* AccountImportFlowTests.swift */; };
+		05725C231EDF476C83A972EC /* WalletFacadeFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A55FBDCF3884C4AB634A389 /* WalletFacadeFlowTests.swift */; };
+		2E665B4DB5914FC59A0C014B /* InMemoryRepositoryFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87B25439757F4BBAA29ECA8C /* InMemoryRepositoryFlowTests.swift */; };
+		A26C60DD05834D389AF8E9F6 /* TabConstructionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3180377CF533483A92D18FE6 /* TabConstructionFlowTests.swift */; };
+		F3A5ED918D954CC7BA2D415E /* AccountCreationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D020E3DCE55F40B59C6A3491 /* AccountCreationFlowTests.swift */; };
+		427E64F281754BA8AC89B1C4 /* StorageDecodingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 302E826308A74F71B7A7854F /* StorageDecodingFlowTests.swift */; };
+		E26044C338D54372B4061852 /* TransactionSubscriptionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6709192FB92481185F140A2 /* TransactionSubscriptionFlowTests.swift */; };
+		41A2D7AFD1B54C83B94A62F6 /* LPFeeServiceFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B67FC3394842629E52B611 /* LPFeeServiceFlowTests.swift */; };
+		3C3972B5E70C48CEA7FCD3B9 /* AccountPoolsServiceFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A348E3AC9D88439EB8A05CF1 /* AccountPoolsServiceFlowTests.swift */; };
+		346D8902391E466990AFAA1B /* PolkamarktCoordinatorFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300ED24FA0D448B998649ECE /* PolkamarktCoordinatorFlowTests.swift */; };
+		390FB47119734BA294517F46 /* WebSocketStorageFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1AD7BD09BE4908A32465A2 /* WebSocketStorageFlowTests.swift */; };
+		DA53E39983974147BAF723BF /* ExtrinsicServiceFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FC9020DBB344E8AA0B9DDA /* ExtrinsicServiceFlowTests.swift */; };
+		D3EA62088FD643AF8DC65A0D /* RequestAmountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6AB2AAB2FC8409F9B485986 /* RequestAmountFlowTests.swift */; };
+		424382B062294C76A09C83A9 /* ActivityWireCodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE64AA6DE7F344159D8F5B15 /* ActivityWireCodingTests.swift */; };
+		44429F744DDC4E6B9D996427 /* NavigationRouteFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB339F6F6784396AE2BF17E /* NavigationRouteFlowTests.swift */; };
+		3520B739E84348F8A9720D9E /* AssetDetailContentFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B734E27FD094EB695575928 /* AssetDetailContentFlowTests.swift */; };
+		923719B39BEE43F2913AD271 /* RuntimeHotBootFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5FAFC4E1CF4D40A99EEFE4 /* RuntimeHotBootFlowTests.swift */; };
+		4F4226E67E6449F0B076CDF7 /* AccountNamingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E27463FC1904630BDF339C6 /* AccountNamingFlowTests.swift */; };
+		5AA23169E0CE4BCD9801BD14 /* WalletImageProcessingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E6BB069458741CEB2EAEB44 /* WalletImageProcessingTests.swift */; };
+		B02ED969B5FD493EA960F327 /* OnboardingFactoryFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F374A830CA43D1B17D0A0D /* OnboardingFactoryFlowTests.swift */; };
+		4974FF6A21704C51A87A8F13 /* PISecondaryReadFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13809BF642CD48E89E90331C /* PISecondaryReadFlowTests.swift */; };
+		6D71136C7B5643F39484D03E /* PolkamarktAccountScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 682B75F77C334283A5E423ED /* PolkamarktAccountScreenTests.swift */; };
+		8BA9EA38C544418D98C4270A /* ReferralEntryFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7FF28BF713D46FC95DB94AB /* ReferralEntryFlowTests.swift */; };
+		A78833E60959444F81D80821 /* PortfolioBalanceReadFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C66DA120E64655802F2062 /* PortfolioBalanceReadFlowTests.swift */; };
+		2B03B9E7CED74C5EAA6FB766 /* LivePortfolioReadFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6578797E5D4242279C7C9777 /* LivePortfolioReadFlowTests.swift */; };
+		D192674BF8F5459BB0C6A7EB /* NodeSelectionScreenFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 684E6385FAFC47E287EB4054 /* NodeSelectionScreenFlowTests.swift */; };
+		A927CE2E1F68468B8093E580 /* ExtendedNavigationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDC1E5C721A413BA703895C /* ExtendedNavigationFlowTests.swift */; };
+		C830AF65939F41618F0A1FAB /* MigrationScreenRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7A59BDD0B44B78840AEB6F /* MigrationScreenRenderingTests.swift */; };
+		F7417A33DD74465E87207D0F /* ExploreNavigationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939AB7A35DB74C3990FAD9DE /* ExploreNavigationFlowTests.swift */; };
+		7A8940415F444C76AEB27E84 /* WalletServiceDispatchFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90BAB4866CE04EE9A22EF97A /* WalletServiceDispatchFlowTests.swift */; };
+		486A7A332EA740D3A163CE81 /* BackupAccountScreenFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD891990B7E2465E925757D4 /* BackupAccountScreenFlowTests.swift */; };
+		683C1CD5EF1248F79C976F44 /* QRPermissionLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9962613B4C9B4C6CA1BDBECE /* QRPermissionLifecycleTests.swift */; };
+		9E7617A888F4440ABB27A95C /* WalletCardEditingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD0C0972D9E43178006C638 /* WalletCardEditingFlowTests.swift */; };
+		9149E9C7BE6D4F54BB55914E /* StorageProviderLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB2FA87DBF0421EAA799F25 /* StorageProviderLifecycleTests.swift */; };
+		637F6F9061264E3AB052FE91 /* AccountOptionsScreenFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C062717F3E444E78A6A8F68 /* AccountOptionsScreenFlowTests.swift */; };
+		1BA526C0234C4925A53A06A0 /* WalletCreationLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582AD5F83CC413991AF98C1 /* WalletCreationLifecycleTests.swift */; };
+		A3AD9A77413C44DE9A66E762 /* WebSocketServiceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2689BC5EB07848CCA1B18E95 /* WebSocketServiceLifecycleTests.swift */; };
+		25227B2689DF4CB4B3E66CB4 /* MoreMenuNavigationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C86B6374CCA840B199BF37DC /* MoreMenuNavigationFlowTests.swift */; };
+		806A82C1B36D41919ECE515B /* WalletFacadeBalanceFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 948A2D9C1E5643EC9CA6F7BB /* WalletFacadeBalanceFlowTests.swift */; };
+		DEBD50DE85984476BACF7234 /* SwapEditorFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173AA832331146888C1A287C /* SwapEditorFlowTests.swift */; };
+		FEB3D57E41DC468C86B5F717 /* BackupPasswordScreenFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB54C06703A941F8A75ED720 /* BackupPasswordScreenFlowTests.swift */; };
+		EEDCDEFEC6F64C44A72C9C13 /* BackupAccountModelFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1254E8632E6943E0BFB2FABC /* BackupAccountModelFlowTests.swift */; };
+		48C9D89A4E9C4C0F94ED7664 /* ObserverRemovalLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7426C7AA4C452A879F269D /* ObserverRemovalLifecycleTests.swift */; };
+		BE3AC87E27A04ACC94D7E631 /* BackupImportPasswordScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF02CAC3E06B448F967BAD8F /* BackupImportPasswordScreenTests.swift */; };
+		8EDE5D0B4A08402A9B52AC75 /* BackupImportPasswordModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5DBB706D5246A295A4FBD9 /* BackupImportPasswordModelTests.swift */; };
+		4F39EE8D82C941F1998F4C08 /* TransactionReviewRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C33942E110C47708EEE813E /* TransactionReviewRenderingTests.swift */; };
+		19E8AE4D13654AFDA33B073B /* MarketDataOperationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9793B627F0944F4B98E935A2 /* MarketDataOperationFlowTests.swift */; };
+		4E69D6716AE9479DB4C2B6C6 /* ExplorePagingLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61ACC77CA3D444C5BD557D0F /* ExplorePagingLayoutTests.swift */; };
+		F052A9C2C4A0431F92271AD6 /* ScannerFrameRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53119ACADDFA4A9DB34B90E5 /* ScannerFrameRenderingTests.swift */; };
+		26B6E3B656214728A9E649B3 /* WalletNavigationStyleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EE412A607664E82AFC168EF /* WalletNavigationStyleTests.swift */; };
+		F4466DD3EBCE4090A0593B08 /* SupplyLiquidityEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E535AA7D764CC0998D10B7 /* SupplyLiquidityEditorTests.swift */; };
+		70593ABE809C4841A480575B /* RemoveLiquidityEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3A479E2AA744C3836B0B8C /* RemoveLiquidityEditorTests.swift */; };
+		075DE100C6034008A44E941E /* WindowStatusLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 134B6304EADB4D6CB186D044 /* WindowStatusLifecycleTests.swift */; };
+		013A8BA7515944FE9F76DFC2 /* NavigationTransitionLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEB60822EB424E82ABF481D3 /* NavigationTransitionLifecycleTests.swift */; };
+		0E74CEBBDEF146048DC0A0AE /* LegalTextRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B749D685BD402985631258 /* LegalTextRenderingTests.swift */; };
+		CB5271E791C14518A654AA4B /* WalletCardCellRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138C54CF51EF4FA1B5288613 /* WalletCardCellRenderingTests.swift */; };
+		41DC488C01CD463CB3646D5E /* AuthorizationNavigationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A35F607A243E89D7E81A0 /* AuthorizationNavigationFlowTests.swift */; };
+		51B4BA26A236455EB3870659 /* TransferSubmissionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D05487839784DAB9544D4CC /* TransferSubmissionFlowTests.swift */; };
+		33C736C18C224D17AD0E596F /* PincodeInputLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663CC3836FF34DCD945A5335 /* PincodeInputLifecycleTests.swift */; };
+		DF34B7484B954DCCB8EC45CD /* RuntimeRegistryFacadeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D757F1E4F2945C7A4BD1EE5 /* RuntimeRegistryFacadeTests.swift */; };
+		2103458D026247228EAF3111 /* HistoryMergeOrderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD247A32C154B7F96451E0A /* HistoryMergeOrderingTests.swift */; };
+		F21818744A6C44AA8AD91557 /* NodeSelectionPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91C82F17C9E4702AF9CD7A4 /* NodeSelectionPersistenceTests.swift */; };
+		1DC8F3BA01F9429E83897AB5 /* SharedViewLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66891586AA74D4398683E11 /* SharedViewLifecycleTests.swift */; };
+		77189230D67248CA92308DD6 /* PolkamarktPendingRecoveryFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5BE927406CE4A289BD2EE11 /* PolkamarktPendingRecoveryFlowTests.swift */; };
+		B3D220EBB2F04F67814A9F6F /* PortfolioCoordinatorFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017CCE4BFCEE4363B0B63E2D /* PortfolioCoordinatorFlowTests.swift */; };
+		90F60C6029754E97AFC0F2D8 /* HistoryTransactionMappingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5BC21B6C4154F28A3EDEF8C /* HistoryTransactionMappingFlowTests.swift */; };
+		926E718B04304BC5A44C6B7D /* RewardOperationTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D444FA46254B7380431AEB /* RewardOperationTransportTests.swift */; };
+		BC377979A6F94B76BEF0EC01 /* ReusablePresentationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63212D0B027A485A959A9F2C /* ReusablePresentationFlowTests.swift */; };
+		DE7B14DEF2F34BA38B7FB0BD /* RecoveryPresentationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C7287265FCD458ABCEF6FE6 /* RecoveryPresentationFlowTests.swift */; };
+		402349680EFE4E3C9F47C5DF /* AccountPickerSelectionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39406600FF6644608572376A /* AccountPickerSelectionFlowTests.swift */; };
+		AEA5B25CEFD7486294651DD6 /* PinScreenAssemblyFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 480EA007D2894FF5819A134C /* PinScreenAssemblyFlowTests.swift */; };
+		E1DEE741828248D9933B2174 /* LocalSigningIdentityFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C2B705BCD04D1AA2706FE5 /* LocalSigningIdentityFlowTests.swift */; };
+		26E746AE9877420BB3457290 /* RuntimeSnapshotAssemblyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2FB593D4C814480B3F9AED4 /* RuntimeSnapshotAssemblyTests.swift */; };
+		84C78DB9DB6845D6A8229EB0 /* IrohaConnectSessionBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41167F403764D2B94824562 /* IrohaConnectSessionBoundaryTests.swift */; };
+		E097C70F7A624EEDAE1669B5 /* PolkaswapSubscriptionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E990A804A3B43EBA3B45D68 /* PolkaswapSubscriptionFlowTests.swift */; };
+		5689513EB4764683B06B9B6C /* WalletContextAssemblyFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00282C5264BF48D98AA6EE05 /* WalletContextAssemblyFlowTests.swift */; };
+		273CE587672A4B968129CE00 /* ReferralSubmissionFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2A86494A434CB6A5C84A4D /* ReferralSubmissionFactoryTests.swift */; };
+		8AC202DB6B464F7A8C9FA414 /* MainTabAccountAssemblyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBD3702D68E44AB9D51CDBA /* MainTabAccountAssemblyTests.swift */; };
+		D8A94AEBCA954A128476FB48 /* MissingAccountRepairConsentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B78CBF37914831ABF3865A /* MissingAccountRepairConsentTests.swift */; };
+		D2841E93AF6B4A68A037BDF7 /* PoolValuationLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5533F77F47FD921CA196 /* PoolValuationLifecycleTests.swift */; };
+		A869966477C545D295838595 /* MigrationSubmissionBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27DD6079B00F4A849F6419C6 /* MigrationSubmissionBoundaryTests.swift */; };
+		1F81D31C818E4D2FBEE5DEC2 /* PolkamarktSubmissionBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6987C670CC5C46C38C6D5991 /* PolkamarktSubmissionBoundaryTests.swift */; };
+		52A2C7EA69384A42BA74D3F4 /* TairaFaucetScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7741F28FAD74AA196579E32 /* TairaFaucetScreenTests.swift */; };
+		86C53C32397148978F8E327E /* WalletRecoveryExporterBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0574E8E6CDAF496394A72E69 /* WalletRecoveryExporterBoundaryTests.swift */; };
+		D72B975B77184C6FA46EBB7C /* NexusTransferHistoryBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6585EEB5268840E2849F07CA /* NexusTransferHistoryBoundaryTests.swift */; };
+		08C06DFEB62A4EA29A571758 /* RetainedEvidenceStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C309C92A6E974599AA818C30 /* RetainedEvidenceStateTests.swift */; };
+		A9502932ADA642A8B33D4624 /* PreparedWalletTreeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41C74363F0F45789F0200E8 /* PreparedWalletTreeTests.swift */; };
+		7EE5F9D77EBD49688E6C9B37 /* FoundationValidationBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58050BF59AF4509BA99C996 /* FoundationValidationBoundaryTests.swift */; };
+		0DDCBAEE2D3C431DAF6D6EAB /* ChainMetadataBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D54D5D96594067A1091BD1 /* ChainMetadataBoundaryTests.swift */; };
+		6AE8550C62474647AEFE4A4B /* AccountOnboardingNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9EC20ED1584F81B933059A /* AccountOnboardingNavigationTests.swift */; };
+		E1194B08F37442E280052293 /* RetainedEvidenceReceiptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C24200E113B448B9BBDBC0B /* RetainedEvidenceReceiptTests.swift */; };
+		ED63604DE5254FC59A049DD7 /* SettingsPersistenceBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F731B3136BC44308F4B7E40 /* SettingsPersistenceBoundaryTests.swift */; };
+		3B4A2443F55B4FE68104C135 /* LegacyWireModelBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8564EE4D67F4183A9696459 /* LegacyWireModelBoundaryTests.swift */; };
+		467F41581DAC4868B0077713 /* WalletRenderingBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95B1158F7B7A423998BF38B5 /* WalletRenderingBoundaryTests.swift */; };
+		FAE4DE6E7275488C8B22C36A /* AccountRemovalLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CF987A72E04911BC24C7B6 /* AccountRemovalLifecycleTests.swift */; };
+		95C6BDE4DF71414BA9D48F54 /* RetainedEvidenceFileBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23619832703148B9A6EC9490 /* RetainedEvidenceFileBoundaryTests.swift */; };
+		2B0E308CC0B249C0942E63A6 /* LegacyStorageAndFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDC5029D1E04B2481EFED87 /* LegacyStorageAndFormattingTests.swift */; };
+		866DF4CC9E8E410EAB0A430D /* LegacyPresentationLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE13438A1EE41D3AD31BCDE /* LegacyPresentationLifecycleTests.swift */; };
+		AC2F0F7F0A5142788034B8EE /* WalletScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D70B8DF9D24EBE878BC715 /* WalletScreenBehaviorTests.swift */; };
+		E0C303C9A28F4AC598798BFC /* ContactSearchLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF0EF06B2E4F4CE4878460B9 /* ContactSearchLifecycleTests.swift */; };
+		014B547BC24D4604863A1514 /* ExportAndNetworkPickerScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DA36CD6896949C4BA73715D /* ExportAndNetworkPickerScreenTests.swift */; };
+		0DFAC571C28F47248C1E6391 /* ReferralAmountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 407D1AAD1D434E519D125ED8 /* ReferralAmountFlowTests.swift */; };
+		D7AC240A4C744652939709B3 /* FarmAndRecentActivityScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BFB59F324048CFB0667051 /* FarmAndRecentActivityScreenTests.swift */; };
+		FC625C5F43E2469E81564544 /* MoreMenuLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D57F9E18C6743919B4FB722 /* MoreMenuLifecycleTests.swift */; };
+		28B2C6EBEF7D4BE5A3363DCB /* TradingPreferenceScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C75A84D883A44FB189AF8825 /* TradingPreferenceScreenTests.swift */; };
+		BD886AC75969463FABDCEF65 /* CustomNodeFormTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540570FB8DEB4912970EFAA0 /* CustomNodeFormTests.swift */; };
+		BEACFC3EEBBC4634BB12167C /* CredentialAndQRCodeScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D30DFCBFC346FC9D523ED9 /* CredentialAndQRCodeScreenTests.swift */; };
+		C3D9B690CC184E8DB7669927 /* WalletNetworkOperationFactoryCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E27E9F90DA437C9C98CCEC /* WalletNetworkOperationFactoryCoverageTests.swift */; };
+		8DAF017E79DE4F80BEC951A6 /* AccountOptionsScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFEE81A01A3845DCBA0601F2 /* AccountOptionsScreenTests.swift */; };
+		E2B41F3D6B32421E9951621C /* SwapConfirmationBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76889553464D4010A2F13E38 /* SwapConfirmationBehaviorTests.swift */; };
+		36E4B2C97945486D94B58B75 /* AssetMetadataCodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2407175BF6DF40C2A7EEE653 /* AssetMetadataCodingTests.swift */; };
+		3FFAE9FB88064D1D87B534A1 /* ProductListBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7BCECC23E945699645A0F5 /* ProductListBehaviorTests.swift */; };
+		002BBBB2FEAA4152893F5C8C /* ActivityPresentationCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 823DC545BF5E4BB4BAC96258 /* ActivityPresentationCoverageTests.swift */; };
+		9320BA3D25F245A8A4B719AC /* SettingsScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576ED59BCEEB4DAC9211D186 /* SettingsScreenBehaviorTests.swift */; };
+		DD20DA4C9F8048C693985954 /* ScannerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA6224111C443DABA2C6E8 /* ScannerLifecycleTests.swift */; };
+		2B74E3DCCDC54125AED0CA49 /* PoolCellLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB0912FD13E459E90C9007E /* PoolCellLifecycleTests.swift */; };
+		2155722DA642452DBD697ED8 /* ExploreFlowBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CDB5BC34744AB5A9FA0095 /* ExploreFlowBehaviorTests.swift */; };
+		2EB7186F5EB444568F8361F5 /* NexusTransportCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DE89F50EEEC41EDB7EE27E2 /* NexusTransportCoverageTests.swift */; };
+		EBA8E9546CB040F798A7021D /* ExploreScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC81615742949A295D07715 /* ExploreScreenBehaviorTests.swift */; };
+		8EDFB083BC48466D8EE3E092 /* TransferConfirmationBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EA3F067F3A412FAF8870B1 /* TransferConfirmationBehaviorTests.swift */; };
+		7072EE6E28364C3FB2B55FC9 /* NexusScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F8B806886244AD9B683966 /* NexusScreenBehaviorTests.swift */; };
+		9ED064D178844B708219CBCD /* PolkamarktRuntimeCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A259CBA3DCC844B193BC656D /* PolkamarktRuntimeCoverageTests.swift */; };
+		772E88A0772441B69333F340 /* ReferralScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D7B53930CC497D80FA4A0E /* ReferralScreenBehaviorTests.swift */; };
+		9D3BEAA004244349BD67CD63 /* WalletHistoryConversionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DB28D570F0045DE976D26DC /* WalletHistoryConversionTests.swift */; };
+		EB3FDD96FCEE497E963CFE90 /* PolkamarktScreenBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7084D10C642F4B27A21EB0DA /* PolkamarktScreenBehaviorTests.swift */; };
+		F40102C19A924DF69559473F /* WalletCellBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66D37BE97AB4E0BBB3E3729 /* WalletCellBehaviorTests.swift */; };
 		66C57DAFD9E21FE13B3DE9D2 /* InterimRecoveryLeftoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68B23157D5FC9847967592E3 /* InterimRecoveryLeftoverTests.swift */; };
 		A10000E00000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		A10000090000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
@@ -2622,6 +2779,163 @@
 		A66B00012F5B000000000110 /* IrohaConnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectTests.swift; sourceTree = "<group>"; };
 		B66B00012F5B000000000110 /* WalletUXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletUXTests.swift; sourceTree = "<group>"; };
 		B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletKeySafetyTests.swift; sourceTree = "<group>"; };
+		3E22731999D44EE482EFCA1B /* SendAmountLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendAmountLifecycleTests.swift; sourceTree = "<group>"; };
+		7E937ED7AF5C4B4BA0D2D6BF /* GeneratedQRCodeLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedQRCodeLifecycleTests.swift; sourceTree = "<group>"; };
+		F2CAD581B9334A7BB940DB09 /* FarmingEditLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmingEditLifecycleTests.swift; sourceTree = "<group>"; };
+		15ECFE32082046FCA5DF8529 /* FarmingTransactionLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmingTransactionLifecycleTests.swift; sourceTree = "<group>"; };
+		24C226DEA46E4A3086300AB5 /* ActivityRowMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRowMappingTests.swift; sourceTree = "<group>"; };
+		8ACBF2DB3EEF4DCB83B97D37 /* StorageKeyOperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageKeyOperationTests.swift; sourceTree = "<group>"; };
+		66C74D229BD24DA6A0FA728C /* WalletDashboardFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletDashboardFlowTests.swift; sourceTree = "<group>"; };
+		C211BC4FDFCE416385AB182B /* DemeterStorageReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemeterStorageReadTests.swift; sourceTree = "<group>"; };
+		C60C822F4AEE40D1B7DB054E /* LocalHistoryProjectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHistoryProjectionTests.swift; sourceTree = "<group>"; };
+		C09B918E0DB2424B9FAAC0B7 /* RuntimeIntegerBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeIntegerBoundaryTests.swift; sourceTree = "<group>"; };
+		591CA9B1D9214CA4B77D3DFE /* AccountOptionsCloudLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountOptionsCloudLifecycleTests.swift; sourceTree = "<group>"; };
+		5EC3431D8F5D43D785A5730B /* WalletControlBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletControlBehaviorTests.swift; sourceTree = "<group>"; };
+		2B9C1E6E14A2434DBE3A13B8 /* WalletSelectionControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletSelectionControlTests.swift; sourceTree = "<group>"; };
+		F72731D9E58A40FBB9E20982 /* SheetInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetInteractionTests.swift; sourceTree = "<group>"; };
+		7A7918FED6394158A7AA074A /* RuntimeProviderLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProviderLifecycleTests.swift; sourceTree = "<group>"; };
+		366F2F9E672F4BAFAFABDBB6 /* APYRequestLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APYRequestLifecycleTests.swift; sourceTree = "<group>"; };
+		1A8DC36A521446B0A7ACC28C /* FeeProviderBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeProviderBehaviorTests.swift; sourceTree = "<group>"; };
+		02BD5B370409489188497938 /* ClaimRewardsLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsLifecycleTests.swift; sourceTree = "<group>"; };
+		4EFF3BC91C8449D987863FBC /* NexusCoordinatorLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusCoordinatorLifecycleTests.swift; sourceTree = "<group>"; };
+		CDF723A16535483F8EB1CE28 /* PoolDetailsFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsFlowTests.swift; sourceTree = "<group>"; };
+		C5887C80B7434BF791E42AED /* FarmDetailsFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmDetailsFlowTests.swift; sourceTree = "<group>"; };
+		E78C350B5B264970A0375572 /* RuntimeVersionSubscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeVersionSubscriptionTests.swift; sourceTree = "<group>"; };
+		9EB1A0F2841640A5A9DB4F10 /* NexusNetworkFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusNetworkFlowTests.swift; sourceTree = "<group>"; };
+		6A2FD16D98DD4702BEB2F74D /* LiquidityConfirmationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidityConfirmationFlowTests.swift; sourceTree = "<group>"; };
+		4C992505ABB54C6FBF167675 /* DemeterServiceFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemeterServiceFlowTests.swift; sourceTree = "<group>"; };
+		E18E1AFC8ED24D03BFD104B7 /* ExtrinsicProcessingBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtrinsicProcessingBehaviorTests.swift; sourceTree = "<group>"; };
+		08679322D35840019564C3BC /* IrohaConnectScreenFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectScreenFlowTests.swift; sourceTree = "<group>"; };
+		FAF015642C15480FABEC02D2 /* RetainedEvidenceValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedEvidenceValidationTests.swift; sourceTree = "<group>"; };
+		9939AD9F19024019B69CB66E /* FriendsInteractorFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsInteractorFlowTests.swift; sourceTree = "<group>"; };
+		E77C5423CFA84CAB8DDB805A /* RecoveryDisclosureFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDisclosureFlowTests.swift; sourceTree = "<group>"; };
+		1BF14918D51A41C89148F34F /* MigrationEligibilityFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationEligibilityFlowTests.swift; sourceTree = "<group>"; };
+		947916CA2E8D48119CA6F920 /* AccountImportFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountImportFlowTests.swift; sourceTree = "<group>"; };
+		9A55FBDCF3884C4AB634A389 /* WalletFacadeFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletFacadeFlowTests.swift; sourceTree = "<group>"; };
+		87B25439757F4BBAA29ECA8C /* InMemoryRepositoryFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InMemoryRepositoryFlowTests.swift; sourceTree = "<group>"; };
+		3180377CF533483A92D18FE6 /* TabConstructionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabConstructionFlowTests.swift; sourceTree = "<group>"; };
+		D020E3DCE55F40B59C6A3491 /* AccountCreationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCreationFlowTests.swift; sourceTree = "<group>"; };
+		302E826308A74F71B7A7854F /* StorageDecodingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageDecodingFlowTests.swift; sourceTree = "<group>"; };
+		E6709192FB92481185F140A2 /* TransactionSubscriptionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionSubscriptionFlowTests.swift; sourceTree = "<group>"; };
+		90B67FC3394842629E52B611 /* LPFeeServiceFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LPFeeServiceFlowTests.swift; sourceTree = "<group>"; };
+		A348E3AC9D88439EB8A05CF1 /* AccountPoolsServiceFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPoolsServiceFlowTests.swift; sourceTree = "<group>"; };
+		300ED24FA0D448B998649ECE /* PolkamarktCoordinatorFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktCoordinatorFlowTests.swift; sourceTree = "<group>"; };
+		DD1AD7BD09BE4908A32465A2 /* WebSocketStorageFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketStorageFlowTests.swift; sourceTree = "<group>"; };
+		71FC9020DBB344E8AA0B9DDA /* ExtrinsicServiceFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtrinsicServiceFlowTests.swift; sourceTree = "<group>"; };
+		E6AB2AAB2FC8409F9B485986 /* RequestAmountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestAmountFlowTests.swift; sourceTree = "<group>"; };
+		BE64AA6DE7F344159D8F5B15 /* ActivityWireCodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityWireCodingTests.swift; sourceTree = "<group>"; };
+		1CB339F6F6784396AE2BF17E /* NavigationRouteFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationRouteFlowTests.swift; sourceTree = "<group>"; };
+		5B734E27FD094EB695575928 /* AssetDetailContentFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetDetailContentFlowTests.swift; sourceTree = "<group>"; };
+		1A5FAFC4E1CF4D40A99EEFE4 /* RuntimeHotBootFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeHotBootFlowTests.swift; sourceTree = "<group>"; };
+		1E27463FC1904630BDF339C6 /* AccountNamingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountNamingFlowTests.swift; sourceTree = "<group>"; };
+		4E6BB069458741CEB2EAEB44 /* WalletImageProcessingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletImageProcessingTests.swift; sourceTree = "<group>"; };
+		76F374A830CA43D1B17D0A0D /* OnboardingFactoryFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFactoryFlowTests.swift; sourceTree = "<group>"; };
+		13809BF642CD48E89E90331C /* PISecondaryReadFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PISecondaryReadFlowTests.swift; sourceTree = "<group>"; };
+		682B75F77C334283A5E423ED /* PolkamarktAccountScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktAccountScreenTests.swift; sourceTree = "<group>"; };
+		E7FF28BF713D46FC95DB94AB /* ReferralEntryFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralEntryFlowTests.swift; sourceTree = "<group>"; };
+		E3C66DA120E64655802F2062 /* PortfolioBalanceReadFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioBalanceReadFlowTests.swift; sourceTree = "<group>"; };
+		6578797E5D4242279C7C9777 /* LivePortfolioReadFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePortfolioReadFlowTests.swift; sourceTree = "<group>"; };
+		684E6385FAFC47E287EB4054 /* NodeSelectionScreenFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeSelectionScreenFlowTests.swift; sourceTree = "<group>"; };
+		ECDC1E5C721A413BA703895C /* ExtendedNavigationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtendedNavigationFlowTests.swift; sourceTree = "<group>"; };
+		7B7A59BDD0B44B78840AEB6F /* MigrationScreenRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationScreenRenderingTests.swift; sourceTree = "<group>"; };
+		939AB7A35DB74C3990FAD9DE /* ExploreNavigationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreNavigationFlowTests.swift; sourceTree = "<group>"; };
+		90BAB4866CE04EE9A22EF97A /* WalletServiceDispatchFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletServiceDispatchFlowTests.swift; sourceTree = "<group>"; };
+		FD891990B7E2465E925757D4 /* BackupAccountScreenFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupAccountScreenFlowTests.swift; sourceTree = "<group>"; };
+		9962613B4C9B4C6CA1BDBECE /* QRPermissionLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRPermissionLifecycleTests.swift; sourceTree = "<group>"; };
+		6AD0C0972D9E43178006C638 /* WalletCardEditingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletCardEditingFlowTests.swift; sourceTree = "<group>"; };
+		DEB2FA87DBF0421EAA799F25 /* StorageProviderLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProviderLifecycleTests.swift; sourceTree = "<group>"; };
+		5C062717F3E444E78A6A8F68 /* AccountOptionsScreenFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountOptionsScreenFlowTests.swift; sourceTree = "<group>"; };
+		9582AD5F83CC413991AF98C1 /* WalletCreationLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletCreationLifecycleTests.swift; sourceTree = "<group>"; };
+		2689BC5EB07848CCA1B18E95 /* WebSocketServiceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketServiceLifecycleTests.swift; sourceTree = "<group>"; };
+		C86B6374CCA840B199BF37DC /* MoreMenuNavigationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuNavigationFlowTests.swift; sourceTree = "<group>"; };
+		948A2D9C1E5643EC9CA6F7BB /* WalletFacadeBalanceFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletFacadeBalanceFlowTests.swift; sourceTree = "<group>"; };
+		173AA832331146888C1A287C /* SwapEditorFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapEditorFlowTests.swift; sourceTree = "<group>"; };
+		CB54C06703A941F8A75ED720 /* BackupPasswordScreenFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupPasswordScreenFlowTests.swift; sourceTree = "<group>"; };
+		1254E8632E6943E0BFB2FABC /* BackupAccountModelFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupAccountModelFlowTests.swift; sourceTree = "<group>"; };
+		0C7426C7AA4C452A879F269D /* ObserverRemovalLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverRemovalLifecycleTests.swift; sourceTree = "<group>"; };
+		BF02CAC3E06B448F967BAD8F /* BackupImportPasswordScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupImportPasswordScreenTests.swift; sourceTree = "<group>"; };
+		3E5DBB706D5246A295A4FBD9 /* BackupImportPasswordModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupImportPasswordModelTests.swift; sourceTree = "<group>"; };
+		1C33942E110C47708EEE813E /* TransactionReviewRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionReviewRenderingTests.swift; sourceTree = "<group>"; };
+		9793B627F0944F4B98E935A2 /* MarketDataOperationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketDataOperationFlowTests.swift; sourceTree = "<group>"; };
+		61ACC77CA3D444C5BD557D0F /* ExplorePagingLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExplorePagingLayoutTests.swift; sourceTree = "<group>"; };
+		53119ACADDFA4A9DB34B90E5 /* ScannerFrameRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerFrameRenderingTests.swift; sourceTree = "<group>"; };
+		9EE412A607664E82AFC168EF /* WalletNavigationStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNavigationStyleTests.swift; sourceTree = "<group>"; };
+		D2E535AA7D764CC0998D10B7 /* SupplyLiquidityEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyLiquidityEditorTests.swift; sourceTree = "<group>"; };
+		5F3A479E2AA744C3836B0B8C /* RemoveLiquidityEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoveLiquidityEditorTests.swift; sourceTree = "<group>"; };
+		134B6304EADB4D6CB186D044 /* WindowStatusLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowStatusLifecycleTests.swift; sourceTree = "<group>"; };
+		EEB60822EB424E82ABF481D3 /* NavigationTransitionLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationTransitionLifecycleTests.swift; sourceTree = "<group>"; };
+		B9B749D685BD402985631258 /* LegalTextRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalTextRenderingTests.swift; sourceTree = "<group>"; };
+		138C54CF51EF4FA1B5288613 /* WalletCardCellRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletCardCellRenderingTests.swift; sourceTree = "<group>"; };
+		AE4A35F607A243E89D7E81A0 /* AuthorizationNavigationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthorizationNavigationFlowTests.swift; sourceTree = "<group>"; };
+		6D05487839784DAB9544D4CC /* TransferSubmissionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferSubmissionFlowTests.swift; sourceTree = "<group>"; };
+		663CC3836FF34DCD945A5335 /* PincodeInputLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PincodeInputLifecycleTests.swift; sourceTree = "<group>"; };
+		4D757F1E4F2945C7A4BD1EE5 /* RuntimeRegistryFacadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeRegistryFacadeTests.swift; sourceTree = "<group>"; };
+		EDD247A32C154B7F96451E0A /* HistoryMergeOrderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryMergeOrderingTests.swift; sourceTree = "<group>"; };
+		D91C82F17C9E4702AF9CD7A4 /* NodeSelectionPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeSelectionPersistenceTests.swift; sourceTree = "<group>"; };
+		E66891586AA74D4398683E11 /* SharedViewLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedViewLifecycleTests.swift; sourceTree = "<group>"; };
+		A5BE927406CE4A289BD2EE11 /* PolkamarktPendingRecoveryFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktPendingRecoveryFlowTests.swift; sourceTree = "<group>"; };
+		017CCE4BFCEE4363B0B63E2D /* PortfolioCoordinatorFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioCoordinatorFlowTests.swift; sourceTree = "<group>"; };
+		D5BC21B6C4154F28A3EDEF8C /* HistoryTransactionMappingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryTransactionMappingFlowTests.swift; sourceTree = "<group>"; };
+		18D444FA46254B7380431AEB /* RewardOperationTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardOperationTransportTests.swift; sourceTree = "<group>"; };
+		63212D0B027A485A959A9F2C /* ReusablePresentationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReusablePresentationFlowTests.swift; sourceTree = "<group>"; };
+		9C7287265FCD458ABCEF6FE6 /* RecoveryPresentationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPresentationFlowTests.swift; sourceTree = "<group>"; };
+		39406600FF6644608572376A /* AccountPickerSelectionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPickerSelectionFlowTests.swift; sourceTree = "<group>"; };
+		480EA007D2894FF5819A134C /* PinScreenAssemblyFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinScreenAssemblyFlowTests.swift; sourceTree = "<group>"; };
+		68C2B705BCD04D1AA2706FE5 /* LocalSigningIdentityFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSigningIdentityFlowTests.swift; sourceTree = "<group>"; };
+		E2FB593D4C814480B3F9AED4 /* RuntimeSnapshotAssemblyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeSnapshotAssemblyTests.swift; sourceTree = "<group>"; };
+		C41167F403764D2B94824562 /* IrohaConnectSessionBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaConnectSessionBoundaryTests.swift; sourceTree = "<group>"; };
+		9E990A804A3B43EBA3B45D68 /* PolkaswapSubscriptionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkaswapSubscriptionFlowTests.swift; sourceTree = "<group>"; };
+		00282C5264BF48D98AA6EE05 /* WalletContextAssemblyFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletContextAssemblyFlowTests.swift; sourceTree = "<group>"; };
+		6C2A86494A434CB6A5C84A4D /* ReferralSubmissionFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralSubmissionFactoryTests.swift; sourceTree = "<group>"; };
+		FFBD3702D68E44AB9D51CDBA /* MainTabAccountAssemblyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabAccountAssemblyTests.swift; sourceTree = "<group>"; };
+		12B78CBF37914831ABF3865A /* MissingAccountRepairConsentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingAccountRepairConsentTests.swift; sourceTree = "<group>"; };
+		A5CA5533F77F47FD921CA196 /* PoolValuationLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolValuationLifecycleTests.swift; sourceTree = "<group>"; };
+		27DD6079B00F4A849F6419C6 /* MigrationSubmissionBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationSubmissionBoundaryTests.swift; sourceTree = "<group>"; };
+		6987C670CC5C46C38C6D5991 /* PolkamarktSubmissionBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktSubmissionBoundaryTests.swift; sourceTree = "<group>"; };
+		D7741F28FAD74AA196579E32 /* TairaFaucetScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TairaFaucetScreenTests.swift; sourceTree = "<group>"; };
+		0574E8E6CDAF496394A72E69 /* WalletRecoveryExporterBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExporterBoundaryTests.swift; sourceTree = "<group>"; };
+		6585EEB5268840E2849F07CA /* NexusTransferHistoryBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusTransferHistoryBoundaryTests.swift; sourceTree = "<group>"; };
+		C309C92A6E974599AA818C30 /* RetainedEvidenceStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedEvidenceStateTests.swift; sourceTree = "<group>"; };
+		C41C74363F0F45789F0200E8 /* PreparedWalletTreeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedWalletTreeTests.swift; sourceTree = "<group>"; };
+		A58050BF59AF4509BA99C996 /* FoundationValidationBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationValidationBoundaryTests.swift; sourceTree = "<group>"; };
+		29D54D5D96594067A1091BD1 /* ChainMetadataBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChainMetadataBoundaryTests.swift; sourceTree = "<group>"; };
+		2A9EC20ED1584F81B933059A /* AccountOnboardingNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountOnboardingNavigationTests.swift; sourceTree = "<group>"; };
+		6C24200E113B448B9BBDBC0B /* RetainedEvidenceReceiptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedEvidenceReceiptTests.swift; sourceTree = "<group>"; };
+		2F731B3136BC44308F4B7E40 /* SettingsPersistenceBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPersistenceBoundaryTests.swift; sourceTree = "<group>"; };
+		D8564EE4D67F4183A9696459 /* LegacyWireModelBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyWireModelBoundaryTests.swift; sourceTree = "<group>"; };
+		95B1158F7B7A423998BF38B5 /* WalletRenderingBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRenderingBoundaryTests.swift; sourceTree = "<group>"; };
+		20CF987A72E04911BC24C7B6 /* AccountRemovalLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRemovalLifecycleTests.swift; sourceTree = "<group>"; };
+		23619832703148B9A6EC9490 /* RetainedEvidenceFileBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedEvidenceFileBoundaryTests.swift; sourceTree = "<group>"; };
+		4CDC5029D1E04B2481EFED87 /* LegacyStorageAndFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyStorageAndFormattingTests.swift; sourceTree = "<group>"; };
+		3AE13438A1EE41D3AD31BCDE /* LegacyPresentationLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyPresentationLifecycleTests.swift; sourceTree = "<group>"; };
+		A3D70B8DF9D24EBE878BC715 /* WalletScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletScreenBehaviorTests.swift; sourceTree = "<group>"; };
+		BF0EF06B2E4F4CE4878460B9 /* ContactSearchLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactSearchLifecycleTests.swift; sourceTree = "<group>"; };
+		8DA36CD6896949C4BA73715D /* ExportAndNetworkPickerScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportAndNetworkPickerScreenTests.swift; sourceTree = "<group>"; };
+		407D1AAD1D434E519D125ED8 /* ReferralAmountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralAmountFlowTests.swift; sourceTree = "<group>"; };
+		D1BFB59F324048CFB0667051 /* FarmAndRecentActivityScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmAndRecentActivityScreenTests.swift; sourceTree = "<group>"; };
+		9D57F9E18C6743919B4FB722 /* MoreMenuLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuLifecycleTests.swift; sourceTree = "<group>"; };
+		C75A84D883A44FB189AF8825 /* TradingPreferenceScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TradingPreferenceScreenTests.swift; sourceTree = "<group>"; };
+		540570FB8DEB4912970EFAA0 /* CustomNodeFormTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNodeFormTests.swift; sourceTree = "<group>"; };
+		F3D30DFCBFC346FC9D523ED9 /* CredentialAndQRCodeScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialAndQRCodeScreenTests.swift; sourceTree = "<group>"; };
+		B4E27E9F90DA437C9C98CCEC /* WalletNetworkOperationFactoryCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkOperationFactoryCoverageTests.swift; sourceTree = "<group>"; };
+		AFEE81A01A3845DCBA0601F2 /* AccountOptionsScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountOptionsScreenTests.swift; sourceTree = "<group>"; };
+		76889553464D4010A2F13E38 /* SwapConfirmationBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapConfirmationBehaviorTests.swift; sourceTree = "<group>"; };
+		2407175BF6DF40C2A7EEE653 /* AssetMetadataCodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetMetadataCodingTests.swift; sourceTree = "<group>"; };
+		3F7BCECC23E945699645A0F5 /* ProductListBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductListBehaviorTests.swift; sourceTree = "<group>"; };
+		823DC545BF5E4BB4BAC96258 /* ActivityPresentationCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityPresentationCoverageTests.swift; sourceTree = "<group>"; };
+		576ED59BCEEB4DAC9211D186 /* SettingsScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreenBehaviorTests.swift; sourceTree = "<group>"; };
+		9BDA6224111C443DABA2C6E8 /* ScannerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerLifecycleTests.swift; sourceTree = "<group>"; };
+		1AB0912FD13E459E90C9007E /* PoolCellLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolCellLifecycleTests.swift; sourceTree = "<group>"; };
+		94CDB5BC34744AB5A9FA0095 /* ExploreFlowBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreFlowBehaviorTests.swift; sourceTree = "<group>"; };
+		3DE89F50EEEC41EDB7EE27E2 /* NexusTransportCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusTransportCoverageTests.swift; sourceTree = "<group>"; };
+		2CC81615742949A295D07715 /* ExploreScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreScreenBehaviorTests.swift; sourceTree = "<group>"; };
+		A1EA3F067F3A412FAF8870B1 /* TransferConfirmationBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferConfirmationBehaviorTests.swift; sourceTree = "<group>"; };
+		40F8B806886244AD9B683966 /* NexusScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusScreenBehaviorTests.swift; sourceTree = "<group>"; };
+		A259CBA3DCC844B193BC656D /* PolkamarktRuntimeCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktRuntimeCoverageTests.swift; sourceTree = "<group>"; };
+		55D7B53930CC497D80FA4A0E /* ReferralScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralScreenBehaviorTests.swift; sourceTree = "<group>"; };
+		0DB28D570F0045DE976D26DC /* WalletHistoryConversionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletHistoryConversionTests.swift; sourceTree = "<group>"; };
+		7084D10C642F4B27A21EB0DA /* PolkamarktScreenBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktScreenBehaviorTests.swift; sourceTree = "<group>"; };
+		F66D37BE97AB4E0BBB3E3729 /* WalletCellBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletCellBehaviorTests.swift; sourceTree = "<group>"; };
 		68B23157D5FC9847967592E3 /* InterimRecoveryLeftoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterimRecoveryLeftoverTests.swift; sourceTree = "<group>"; };
 		A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletMigrationRetainedDeviceEvidenceTests.swift; sourceTree = "<group>"; };
 		A10000150000000000000001 /* NexusWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWalletService.swift; sourceTree = "<group>"; };
@@ -4177,6 +4491,163 @@
 				CD101226F001000000000001 /* SimulatorReleased386AccountItemMapper.swift */,
 				CD101226F001000000000000 /* SimulatorReleased386AccountOperationFactory.swift */,
 				B466099ADD8FA5F04A3CA016 /* WalletKeySafetyTests.swift */,
+				3E22731999D44EE482EFCA1B /* SendAmountLifecycleTests.swift */,
+				7E937ED7AF5C4B4BA0D2D6BF /* GeneratedQRCodeLifecycleTests.swift */,
+				F2CAD581B9334A7BB940DB09 /* FarmingEditLifecycleTests.swift */,
+				15ECFE32082046FCA5DF8529 /* FarmingTransactionLifecycleTests.swift */,
+				24C226DEA46E4A3086300AB5 /* ActivityRowMappingTests.swift */,
+				8ACBF2DB3EEF4DCB83B97D37 /* StorageKeyOperationTests.swift */,
+				66C74D229BD24DA6A0FA728C /* WalletDashboardFlowTests.swift */,
+				C211BC4FDFCE416385AB182B /* DemeterStorageReadTests.swift */,
+				C60C822F4AEE40D1B7DB054E /* LocalHistoryProjectionTests.swift */,
+				C09B918E0DB2424B9FAAC0B7 /* RuntimeIntegerBoundaryTests.swift */,
+				591CA9B1D9214CA4B77D3DFE /* AccountOptionsCloudLifecycleTests.swift */,
+				5EC3431D8F5D43D785A5730B /* WalletControlBehaviorTests.swift */,
+				2B9C1E6E14A2434DBE3A13B8 /* WalletSelectionControlTests.swift */,
+				F72731D9E58A40FBB9E20982 /* SheetInteractionTests.swift */,
+				7A7918FED6394158A7AA074A /* RuntimeProviderLifecycleTests.swift */,
+				366F2F9E672F4BAFAFABDBB6 /* APYRequestLifecycleTests.swift */,
+				1A8DC36A521446B0A7ACC28C /* FeeProviderBehaviorTests.swift */,
+				02BD5B370409489188497938 /* ClaimRewardsLifecycleTests.swift */,
+				4EFF3BC91C8449D987863FBC /* NexusCoordinatorLifecycleTests.swift */,
+				CDF723A16535483F8EB1CE28 /* PoolDetailsFlowTests.swift */,
+				C5887C80B7434BF791E42AED /* FarmDetailsFlowTests.swift */,
+				E78C350B5B264970A0375572 /* RuntimeVersionSubscriptionTests.swift */,
+				9EB1A0F2841640A5A9DB4F10 /* NexusNetworkFlowTests.swift */,
+				6A2FD16D98DD4702BEB2F74D /* LiquidityConfirmationFlowTests.swift */,
+				4C992505ABB54C6FBF167675 /* DemeterServiceFlowTests.swift */,
+				E18E1AFC8ED24D03BFD104B7 /* ExtrinsicProcessingBehaviorTests.swift */,
+				08679322D35840019564C3BC /* IrohaConnectScreenFlowTests.swift */,
+				FAF015642C15480FABEC02D2 /* RetainedEvidenceValidationTests.swift */,
+				9939AD9F19024019B69CB66E /* FriendsInteractorFlowTests.swift */,
+				E77C5423CFA84CAB8DDB805A /* RecoveryDisclosureFlowTests.swift */,
+				1BF14918D51A41C89148F34F /* MigrationEligibilityFlowTests.swift */,
+				947916CA2E8D48119CA6F920 /* AccountImportFlowTests.swift */,
+				9A55FBDCF3884C4AB634A389 /* WalletFacadeFlowTests.swift */,
+				87B25439757F4BBAA29ECA8C /* InMemoryRepositoryFlowTests.swift */,
+				3180377CF533483A92D18FE6 /* TabConstructionFlowTests.swift */,
+				D020E3DCE55F40B59C6A3491 /* AccountCreationFlowTests.swift */,
+				302E826308A74F71B7A7854F /* StorageDecodingFlowTests.swift */,
+				E6709192FB92481185F140A2 /* TransactionSubscriptionFlowTests.swift */,
+				90B67FC3394842629E52B611 /* LPFeeServiceFlowTests.swift */,
+				A348E3AC9D88439EB8A05CF1 /* AccountPoolsServiceFlowTests.swift */,
+				300ED24FA0D448B998649ECE /* PolkamarktCoordinatorFlowTests.swift */,
+				DD1AD7BD09BE4908A32465A2 /* WebSocketStorageFlowTests.swift */,
+				71FC9020DBB344E8AA0B9DDA /* ExtrinsicServiceFlowTests.swift */,
+				E6AB2AAB2FC8409F9B485986 /* RequestAmountFlowTests.swift */,
+				BE64AA6DE7F344159D8F5B15 /* ActivityWireCodingTests.swift */,
+				1CB339F6F6784396AE2BF17E /* NavigationRouteFlowTests.swift */,
+				5B734E27FD094EB695575928 /* AssetDetailContentFlowTests.swift */,
+				1A5FAFC4E1CF4D40A99EEFE4 /* RuntimeHotBootFlowTests.swift */,
+				1E27463FC1904630BDF339C6 /* AccountNamingFlowTests.swift */,
+				4E6BB069458741CEB2EAEB44 /* WalletImageProcessingTests.swift */,
+				76F374A830CA43D1B17D0A0D /* OnboardingFactoryFlowTests.swift */,
+				13809BF642CD48E89E90331C /* PISecondaryReadFlowTests.swift */,
+				682B75F77C334283A5E423ED /* PolkamarktAccountScreenTests.swift */,
+				E7FF28BF713D46FC95DB94AB /* ReferralEntryFlowTests.swift */,
+				E3C66DA120E64655802F2062 /* PortfolioBalanceReadFlowTests.swift */,
+				6578797E5D4242279C7C9777 /* LivePortfolioReadFlowTests.swift */,
+				684E6385FAFC47E287EB4054 /* NodeSelectionScreenFlowTests.swift */,
+				ECDC1E5C721A413BA703895C /* ExtendedNavigationFlowTests.swift */,
+				7B7A59BDD0B44B78840AEB6F /* MigrationScreenRenderingTests.swift */,
+				939AB7A35DB74C3990FAD9DE /* ExploreNavigationFlowTests.swift */,
+				90BAB4866CE04EE9A22EF97A /* WalletServiceDispatchFlowTests.swift */,
+				FD891990B7E2465E925757D4 /* BackupAccountScreenFlowTests.swift */,
+				9962613B4C9B4C6CA1BDBECE /* QRPermissionLifecycleTests.swift */,
+				6AD0C0972D9E43178006C638 /* WalletCardEditingFlowTests.swift */,
+				DEB2FA87DBF0421EAA799F25 /* StorageProviderLifecycleTests.swift */,
+				5C062717F3E444E78A6A8F68 /* AccountOptionsScreenFlowTests.swift */,
+				9582AD5F83CC413991AF98C1 /* WalletCreationLifecycleTests.swift */,
+				2689BC5EB07848CCA1B18E95 /* WebSocketServiceLifecycleTests.swift */,
+				C86B6374CCA840B199BF37DC /* MoreMenuNavigationFlowTests.swift */,
+				948A2D9C1E5643EC9CA6F7BB /* WalletFacadeBalanceFlowTests.swift */,
+				173AA832331146888C1A287C /* SwapEditorFlowTests.swift */,
+				CB54C06703A941F8A75ED720 /* BackupPasswordScreenFlowTests.swift */,
+				1254E8632E6943E0BFB2FABC /* BackupAccountModelFlowTests.swift */,
+				0C7426C7AA4C452A879F269D /* ObserverRemovalLifecycleTests.swift */,
+				BF02CAC3E06B448F967BAD8F /* BackupImportPasswordScreenTests.swift */,
+				3E5DBB706D5246A295A4FBD9 /* BackupImportPasswordModelTests.swift */,
+				1C33942E110C47708EEE813E /* TransactionReviewRenderingTests.swift */,
+				9793B627F0944F4B98E935A2 /* MarketDataOperationFlowTests.swift */,
+				61ACC77CA3D444C5BD557D0F /* ExplorePagingLayoutTests.swift */,
+				53119ACADDFA4A9DB34B90E5 /* ScannerFrameRenderingTests.swift */,
+				9EE412A607664E82AFC168EF /* WalletNavigationStyleTests.swift */,
+				D2E535AA7D764CC0998D10B7 /* SupplyLiquidityEditorTests.swift */,
+				5F3A479E2AA744C3836B0B8C /* RemoveLiquidityEditorTests.swift */,
+				134B6304EADB4D6CB186D044 /* WindowStatusLifecycleTests.swift */,
+				EEB60822EB424E82ABF481D3 /* NavigationTransitionLifecycleTests.swift */,
+				B9B749D685BD402985631258 /* LegalTextRenderingTests.swift */,
+				138C54CF51EF4FA1B5288613 /* WalletCardCellRenderingTests.swift */,
+				AE4A35F607A243E89D7E81A0 /* AuthorizationNavigationFlowTests.swift */,
+				6D05487839784DAB9544D4CC /* TransferSubmissionFlowTests.swift */,
+				663CC3836FF34DCD945A5335 /* PincodeInputLifecycleTests.swift */,
+				4D757F1E4F2945C7A4BD1EE5 /* RuntimeRegistryFacadeTests.swift */,
+				EDD247A32C154B7F96451E0A /* HistoryMergeOrderingTests.swift */,
+				D91C82F17C9E4702AF9CD7A4 /* NodeSelectionPersistenceTests.swift */,
+				E66891586AA74D4398683E11 /* SharedViewLifecycleTests.swift */,
+				A5BE927406CE4A289BD2EE11 /* PolkamarktPendingRecoveryFlowTests.swift */,
+				017CCE4BFCEE4363B0B63E2D /* PortfolioCoordinatorFlowTests.swift */,
+				D5BC21B6C4154F28A3EDEF8C /* HistoryTransactionMappingFlowTests.swift */,
+				18D444FA46254B7380431AEB /* RewardOperationTransportTests.swift */,
+				63212D0B027A485A959A9F2C /* ReusablePresentationFlowTests.swift */,
+				9C7287265FCD458ABCEF6FE6 /* RecoveryPresentationFlowTests.swift */,
+				39406600FF6644608572376A /* AccountPickerSelectionFlowTests.swift */,
+				480EA007D2894FF5819A134C /* PinScreenAssemblyFlowTests.swift */,
+				68C2B705BCD04D1AA2706FE5 /* LocalSigningIdentityFlowTests.swift */,
+				E2FB593D4C814480B3F9AED4 /* RuntimeSnapshotAssemblyTests.swift */,
+				C41167F403764D2B94824562 /* IrohaConnectSessionBoundaryTests.swift */,
+				9E990A804A3B43EBA3B45D68 /* PolkaswapSubscriptionFlowTests.swift */,
+				00282C5264BF48D98AA6EE05 /* WalletContextAssemblyFlowTests.swift */,
+				6C2A86494A434CB6A5C84A4D /* ReferralSubmissionFactoryTests.swift */,
+				FFBD3702D68E44AB9D51CDBA /* MainTabAccountAssemblyTests.swift */,
+				12B78CBF37914831ABF3865A /* MissingAccountRepairConsentTests.swift */,
+				A5CA5533F77F47FD921CA196 /* PoolValuationLifecycleTests.swift */,
+				27DD6079B00F4A849F6419C6 /* MigrationSubmissionBoundaryTests.swift */,
+				6987C670CC5C46C38C6D5991 /* PolkamarktSubmissionBoundaryTests.swift */,
+				D7741F28FAD74AA196579E32 /* TairaFaucetScreenTests.swift */,
+				0574E8E6CDAF496394A72E69 /* WalletRecoveryExporterBoundaryTests.swift */,
+				6585EEB5268840E2849F07CA /* NexusTransferHistoryBoundaryTests.swift */,
+				C309C92A6E974599AA818C30 /* RetainedEvidenceStateTests.swift */,
+				C41C74363F0F45789F0200E8 /* PreparedWalletTreeTests.swift */,
+				A58050BF59AF4509BA99C996 /* FoundationValidationBoundaryTests.swift */,
+				29D54D5D96594067A1091BD1 /* ChainMetadataBoundaryTests.swift */,
+				2A9EC20ED1584F81B933059A /* AccountOnboardingNavigationTests.swift */,
+				6C24200E113B448B9BBDBC0B /* RetainedEvidenceReceiptTests.swift */,
+				2F731B3136BC44308F4B7E40 /* SettingsPersistenceBoundaryTests.swift */,
+				D8564EE4D67F4183A9696459 /* LegacyWireModelBoundaryTests.swift */,
+				95B1158F7B7A423998BF38B5 /* WalletRenderingBoundaryTests.swift */,
+				20CF987A72E04911BC24C7B6 /* AccountRemovalLifecycleTests.swift */,
+				23619832703148B9A6EC9490 /* RetainedEvidenceFileBoundaryTests.swift */,
+				4CDC5029D1E04B2481EFED87 /* LegacyStorageAndFormattingTests.swift */,
+				3AE13438A1EE41D3AD31BCDE /* LegacyPresentationLifecycleTests.swift */,
+				A3D70B8DF9D24EBE878BC715 /* WalletScreenBehaviorTests.swift */,
+				BF0EF06B2E4F4CE4878460B9 /* ContactSearchLifecycleTests.swift */,
+				8DA36CD6896949C4BA73715D /* ExportAndNetworkPickerScreenTests.swift */,
+				407D1AAD1D434E519D125ED8 /* ReferralAmountFlowTests.swift */,
+				D1BFB59F324048CFB0667051 /* FarmAndRecentActivityScreenTests.swift */,
+				9D57F9E18C6743919B4FB722 /* MoreMenuLifecycleTests.swift */,
+				C75A84D883A44FB189AF8825 /* TradingPreferenceScreenTests.swift */,
+				540570FB8DEB4912970EFAA0 /* CustomNodeFormTests.swift */,
+				F3D30DFCBFC346FC9D523ED9 /* CredentialAndQRCodeScreenTests.swift */,
+				B4E27E9F90DA437C9C98CCEC /* WalletNetworkOperationFactoryCoverageTests.swift */,
+				AFEE81A01A3845DCBA0601F2 /* AccountOptionsScreenTests.swift */,
+				76889553464D4010A2F13E38 /* SwapConfirmationBehaviorTests.swift */,
+				2407175BF6DF40C2A7EEE653 /* AssetMetadataCodingTests.swift */,
+				3F7BCECC23E945699645A0F5 /* ProductListBehaviorTests.swift */,
+				823DC545BF5E4BB4BAC96258 /* ActivityPresentationCoverageTests.swift */,
+				576ED59BCEEB4DAC9211D186 /* SettingsScreenBehaviorTests.swift */,
+				9BDA6224111C443DABA2C6E8 /* ScannerLifecycleTests.swift */,
+				1AB0912FD13E459E90C9007E /* PoolCellLifecycleTests.swift */,
+				94CDB5BC34744AB5A9FA0095 /* ExploreFlowBehaviorTests.swift */,
+				3DE89F50EEEC41EDB7EE27E2 /* NexusTransportCoverageTests.swift */,
+				2CC81615742949A295D07715 /* ExploreScreenBehaviorTests.swift */,
+				A1EA3F067F3A412FAF8870B1 /* TransferConfirmationBehaviorTests.swift */,
+				40F8B806886244AD9B683966 /* NexusScreenBehaviorTests.swift */,
+				A259CBA3DCC844B193BC656D /* PolkamarktRuntimeCoverageTests.swift */,
+				55D7B53930CC497D80FA4A0E /* ReferralScreenBehaviorTests.swift */,
+				0DB28D570F0045DE976D26DC /* WalletHistoryConversionTests.swift */,
+				7084D10C642F4B27A21EB0DA /* PolkamarktScreenBehaviorTests.swift */,
+				F66D37BE97AB4E0BBB3E3729 /* WalletCellBehaviorTests.swift */,
 				68B23157D5FC9847967592E3 /* InterimRecoveryLeftoverTests.swift */,
 				CD1012269012000000000001 /* WalletOwnerPINIntentTests.swift */,
 				CD101226C003000000000001 /* WalletCredentialRepairTests.swift */,
@@ -9259,6 +9730,163 @@
 				CD101226F002000000000001 /* SimulatorReleased386AccountItemMapper.swift in Sources */,
 				CD101226F002000000000000 /* SimulatorReleased386AccountOperationFactory.swift in Sources */,
 				FA1C179D69061DA806EFAEC5 /* WalletKeySafetyTests.swift in Sources */,
+				9611D764BC61401681B1219D /* SendAmountLifecycleTests.swift in Sources */,
+				38F8702CECF3453EAAB740D5 /* GeneratedQRCodeLifecycleTests.swift in Sources */,
+				85B44A4D352344639B90FAE9 /* FarmingEditLifecycleTests.swift in Sources */,
+				546E7CCD179846B799E96B06 /* FarmingTransactionLifecycleTests.swift in Sources */,
+				2C436E6A4AD14A558C5ED326 /* ActivityRowMappingTests.swift in Sources */,
+				7A25DDC825CE483196CC18FB /* StorageKeyOperationTests.swift in Sources */,
+				1D60EE0F68AE497BA4370A33 /* WalletDashboardFlowTests.swift in Sources */,
+				10F6EA9EB89D4CF4BBC54C23 /* DemeterStorageReadTests.swift in Sources */,
+				342D1377935546F8BBF9E095 /* LocalHistoryProjectionTests.swift in Sources */,
+				D6E9E753F2734D7A8A69191D /* RuntimeIntegerBoundaryTests.swift in Sources */,
+				AAE1AC00D98D4E7A8A5D7891 /* AccountOptionsCloudLifecycleTests.swift in Sources */,
+				6A1987A3848941FA953492FA /* WalletControlBehaviorTests.swift in Sources */,
+				95158ADDDCEC4C7C9555D905 /* WalletSelectionControlTests.swift in Sources */,
+				ABF3DEBC0B6345E49783FA99 /* SheetInteractionTests.swift in Sources */,
+				5E056F7C19894BDDBECCF86F /* RuntimeProviderLifecycleTests.swift in Sources */,
+				A3CBD397F36C45BB8E7525F4 /* APYRequestLifecycleTests.swift in Sources */,
+				5A16D5D986584E399BD96B93 /* FeeProviderBehaviorTests.swift in Sources */,
+				90354984A97A40879B18D438 /* ClaimRewardsLifecycleTests.swift in Sources */,
+				9FA2B610877C484E82D93AC3 /* NexusCoordinatorLifecycleTests.swift in Sources */,
+				BB6AC468A3A14EF19B954563 /* PoolDetailsFlowTests.swift in Sources */,
+				4570C8B0778D41F489545460 /* FarmDetailsFlowTests.swift in Sources */,
+				131A670F90234ADC8A099165 /* RuntimeVersionSubscriptionTests.swift in Sources */,
+				839DA8DE9D714D0499C09910 /* NexusNetworkFlowTests.swift in Sources */,
+				03D9DCEE84B2470790A44B7A /* LiquidityConfirmationFlowTests.swift in Sources */,
+				49D67C8E9A98414EB66A899D /* DemeterServiceFlowTests.swift in Sources */,
+				74814A3EAABC4094B3AA1EB0 /* ExtrinsicProcessingBehaviorTests.swift in Sources */,
+				9492C5CB3BA543F191F4ACAC /* IrohaConnectScreenFlowTests.swift in Sources */,
+				912C34C981874ECAA80C8E0E /* RetainedEvidenceValidationTests.swift in Sources */,
+				5541D45DC6A942E292A30CD0 /* FriendsInteractorFlowTests.swift in Sources */,
+				059611987E3B4E4691B64ACA /* RecoveryDisclosureFlowTests.swift in Sources */,
+				155A1B62B89341FCA9E37879 /* MigrationEligibilityFlowTests.swift in Sources */,
+				1110569AEAB64D0D8FBF794F /* AccountImportFlowTests.swift in Sources */,
+				05725C231EDF476C83A972EC /* WalletFacadeFlowTests.swift in Sources */,
+				2E665B4DB5914FC59A0C014B /* InMemoryRepositoryFlowTests.swift in Sources */,
+				A26C60DD05834D389AF8E9F6 /* TabConstructionFlowTests.swift in Sources */,
+				F3A5ED918D954CC7BA2D415E /* AccountCreationFlowTests.swift in Sources */,
+				427E64F281754BA8AC89B1C4 /* StorageDecodingFlowTests.swift in Sources */,
+				E26044C338D54372B4061852 /* TransactionSubscriptionFlowTests.swift in Sources */,
+				41A2D7AFD1B54C83B94A62F6 /* LPFeeServiceFlowTests.swift in Sources */,
+				3C3972B5E70C48CEA7FCD3B9 /* AccountPoolsServiceFlowTests.swift in Sources */,
+				346D8902391E466990AFAA1B /* PolkamarktCoordinatorFlowTests.swift in Sources */,
+				390FB47119734BA294517F46 /* WebSocketStorageFlowTests.swift in Sources */,
+				DA53E39983974147BAF723BF /* ExtrinsicServiceFlowTests.swift in Sources */,
+				D3EA62088FD643AF8DC65A0D /* RequestAmountFlowTests.swift in Sources */,
+				424382B062294C76A09C83A9 /* ActivityWireCodingTests.swift in Sources */,
+				44429F744DDC4E6B9D996427 /* NavigationRouteFlowTests.swift in Sources */,
+				3520B739E84348F8A9720D9E /* AssetDetailContentFlowTests.swift in Sources */,
+				923719B39BEE43F2913AD271 /* RuntimeHotBootFlowTests.swift in Sources */,
+				4F4226E67E6449F0B076CDF7 /* AccountNamingFlowTests.swift in Sources */,
+				5AA23169E0CE4BCD9801BD14 /* WalletImageProcessingTests.swift in Sources */,
+				B02ED969B5FD493EA960F327 /* OnboardingFactoryFlowTests.swift in Sources */,
+				4974FF6A21704C51A87A8F13 /* PISecondaryReadFlowTests.swift in Sources */,
+				6D71136C7B5643F39484D03E /* PolkamarktAccountScreenTests.swift in Sources */,
+				8BA9EA38C544418D98C4270A /* ReferralEntryFlowTests.swift in Sources */,
+				A78833E60959444F81D80821 /* PortfolioBalanceReadFlowTests.swift in Sources */,
+				2B03B9E7CED74C5EAA6FB766 /* LivePortfolioReadFlowTests.swift in Sources */,
+				D192674BF8F5459BB0C6A7EB /* NodeSelectionScreenFlowTests.swift in Sources */,
+				A927CE2E1F68468B8093E580 /* ExtendedNavigationFlowTests.swift in Sources */,
+				C830AF65939F41618F0A1FAB /* MigrationScreenRenderingTests.swift in Sources */,
+				F7417A33DD74465E87207D0F /* ExploreNavigationFlowTests.swift in Sources */,
+				7A8940415F444C76AEB27E84 /* WalletServiceDispatchFlowTests.swift in Sources */,
+				486A7A332EA740D3A163CE81 /* BackupAccountScreenFlowTests.swift in Sources */,
+				683C1CD5EF1248F79C976F44 /* QRPermissionLifecycleTests.swift in Sources */,
+				9E7617A888F4440ABB27A95C /* WalletCardEditingFlowTests.swift in Sources */,
+				9149E9C7BE6D4F54BB55914E /* StorageProviderLifecycleTests.swift in Sources */,
+				637F6F9061264E3AB052FE91 /* AccountOptionsScreenFlowTests.swift in Sources */,
+				1BA526C0234C4925A53A06A0 /* WalletCreationLifecycleTests.swift in Sources */,
+				A3AD9A77413C44DE9A66E762 /* WebSocketServiceLifecycleTests.swift in Sources */,
+				25227B2689DF4CB4B3E66CB4 /* MoreMenuNavigationFlowTests.swift in Sources */,
+				806A82C1B36D41919ECE515B /* WalletFacadeBalanceFlowTests.swift in Sources */,
+				DEBD50DE85984476BACF7234 /* SwapEditorFlowTests.swift in Sources */,
+				FEB3D57E41DC468C86B5F717 /* BackupPasswordScreenFlowTests.swift in Sources */,
+				EEDCDEFEC6F64C44A72C9C13 /* BackupAccountModelFlowTests.swift in Sources */,
+				48C9D89A4E9C4C0F94ED7664 /* ObserverRemovalLifecycleTests.swift in Sources */,
+				BE3AC87E27A04ACC94D7E631 /* BackupImportPasswordScreenTests.swift in Sources */,
+				8EDE5D0B4A08402A9B52AC75 /* BackupImportPasswordModelTests.swift in Sources */,
+				4F39EE8D82C941F1998F4C08 /* TransactionReviewRenderingTests.swift in Sources */,
+				19E8AE4D13654AFDA33B073B /* MarketDataOperationFlowTests.swift in Sources */,
+				4E69D6716AE9479DB4C2B6C6 /* ExplorePagingLayoutTests.swift in Sources */,
+				F052A9C2C4A0431F92271AD6 /* ScannerFrameRenderingTests.swift in Sources */,
+				26B6E3B656214728A9E649B3 /* WalletNavigationStyleTests.swift in Sources */,
+				F4466DD3EBCE4090A0593B08 /* SupplyLiquidityEditorTests.swift in Sources */,
+				70593ABE809C4841A480575B /* RemoveLiquidityEditorTests.swift in Sources */,
+				075DE100C6034008A44E941E /* WindowStatusLifecycleTests.swift in Sources */,
+				013A8BA7515944FE9F76DFC2 /* NavigationTransitionLifecycleTests.swift in Sources */,
+				0E74CEBBDEF146048DC0A0AE /* LegalTextRenderingTests.swift in Sources */,
+				CB5271E791C14518A654AA4B /* WalletCardCellRenderingTests.swift in Sources */,
+				41DC488C01CD463CB3646D5E /* AuthorizationNavigationFlowTests.swift in Sources */,
+				51B4BA26A236455EB3870659 /* TransferSubmissionFlowTests.swift in Sources */,
+				33C736C18C224D17AD0E596F /* PincodeInputLifecycleTests.swift in Sources */,
+				DF34B7484B954DCCB8EC45CD /* RuntimeRegistryFacadeTests.swift in Sources */,
+				2103458D026247228EAF3111 /* HistoryMergeOrderingTests.swift in Sources */,
+				F21818744A6C44AA8AD91557 /* NodeSelectionPersistenceTests.swift in Sources */,
+				1DC8F3BA01F9429E83897AB5 /* SharedViewLifecycleTests.swift in Sources */,
+				77189230D67248CA92308DD6 /* PolkamarktPendingRecoveryFlowTests.swift in Sources */,
+				B3D220EBB2F04F67814A9F6F /* PortfolioCoordinatorFlowTests.swift in Sources */,
+				90F60C6029754E97AFC0F2D8 /* HistoryTransactionMappingFlowTests.swift in Sources */,
+				926E718B04304BC5A44C6B7D /* RewardOperationTransportTests.swift in Sources */,
+				BC377979A6F94B76BEF0EC01 /* ReusablePresentationFlowTests.swift in Sources */,
+				DE7B14DEF2F34BA38B7FB0BD /* RecoveryPresentationFlowTests.swift in Sources */,
+				402349680EFE4E3C9F47C5DF /* AccountPickerSelectionFlowTests.swift in Sources */,
+				AEA5B25CEFD7486294651DD6 /* PinScreenAssemblyFlowTests.swift in Sources */,
+				E1DEE741828248D9933B2174 /* LocalSigningIdentityFlowTests.swift in Sources */,
+				26E746AE9877420BB3457290 /* RuntimeSnapshotAssemblyTests.swift in Sources */,
+				84C78DB9DB6845D6A8229EB0 /* IrohaConnectSessionBoundaryTests.swift in Sources */,
+				E097C70F7A624EEDAE1669B5 /* PolkaswapSubscriptionFlowTests.swift in Sources */,
+				5689513EB4764683B06B9B6C /* WalletContextAssemblyFlowTests.swift in Sources */,
+				273CE587672A4B968129CE00 /* ReferralSubmissionFactoryTests.swift in Sources */,
+				8AC202DB6B464F7A8C9FA414 /* MainTabAccountAssemblyTests.swift in Sources */,
+				D8A94AEBCA954A128476FB48 /* MissingAccountRepairConsentTests.swift in Sources */,
+				D2841E93AF6B4A68A037BDF7 /* PoolValuationLifecycleTests.swift in Sources */,
+				A869966477C545D295838595 /* MigrationSubmissionBoundaryTests.swift in Sources */,
+				1F81D31C818E4D2FBEE5DEC2 /* PolkamarktSubmissionBoundaryTests.swift in Sources */,
+				52A2C7EA69384A42BA74D3F4 /* TairaFaucetScreenTests.swift in Sources */,
+				86C53C32397148978F8E327E /* WalletRecoveryExporterBoundaryTests.swift in Sources */,
+				D72B975B77184C6FA46EBB7C /* NexusTransferHistoryBoundaryTests.swift in Sources */,
+				08C06DFEB62A4EA29A571758 /* RetainedEvidenceStateTests.swift in Sources */,
+				A9502932ADA642A8B33D4624 /* PreparedWalletTreeTests.swift in Sources */,
+				7EE5F9D77EBD49688E6C9B37 /* FoundationValidationBoundaryTests.swift in Sources */,
+				0DDCBAEE2D3C431DAF6D6EAB /* ChainMetadataBoundaryTests.swift in Sources */,
+				6AE8550C62474647AEFE4A4B /* AccountOnboardingNavigationTests.swift in Sources */,
+				E1194B08F37442E280052293 /* RetainedEvidenceReceiptTests.swift in Sources */,
+				ED63604DE5254FC59A049DD7 /* SettingsPersistenceBoundaryTests.swift in Sources */,
+				3B4A2443F55B4FE68104C135 /* LegacyWireModelBoundaryTests.swift in Sources */,
+				467F41581DAC4868B0077713 /* WalletRenderingBoundaryTests.swift in Sources */,
+				FAE4DE6E7275488C8B22C36A /* AccountRemovalLifecycleTests.swift in Sources */,
+				95C6BDE4DF71414BA9D48F54 /* RetainedEvidenceFileBoundaryTests.swift in Sources */,
+				2B0E308CC0B249C0942E63A6 /* LegacyStorageAndFormattingTests.swift in Sources */,
+				866DF4CC9E8E410EAB0A430D /* LegacyPresentationLifecycleTests.swift in Sources */,
+				AC2F0F7F0A5142788034B8EE /* WalletScreenBehaviorTests.swift in Sources */,
+				E0C303C9A28F4AC598798BFC /* ContactSearchLifecycleTests.swift in Sources */,
+				014B547BC24D4604863A1514 /* ExportAndNetworkPickerScreenTests.swift in Sources */,
+				0DFAC571C28F47248C1E6391 /* ReferralAmountFlowTests.swift in Sources */,
+				D7AC240A4C744652939709B3 /* FarmAndRecentActivityScreenTests.swift in Sources */,
+				FC625C5F43E2469E81564544 /* MoreMenuLifecycleTests.swift in Sources */,
+				28B2C6EBEF7D4BE5A3363DCB /* TradingPreferenceScreenTests.swift in Sources */,
+				BD886AC75969463FABDCEF65 /* CustomNodeFormTests.swift in Sources */,
+				BEACFC3EEBBC4634BB12167C /* CredentialAndQRCodeScreenTests.swift in Sources */,
+				C3D9B690CC184E8DB7669927 /* WalletNetworkOperationFactoryCoverageTests.swift in Sources */,
+				8DAF017E79DE4F80BEC951A6 /* AccountOptionsScreenTests.swift in Sources */,
+				E2B41F3D6B32421E9951621C /* SwapConfirmationBehaviorTests.swift in Sources */,
+				36E4B2C97945486D94B58B75 /* AssetMetadataCodingTests.swift in Sources */,
+				3FFAE9FB88064D1D87B534A1 /* ProductListBehaviorTests.swift in Sources */,
+				002BBBB2FEAA4152893F5C8C /* ActivityPresentationCoverageTests.swift in Sources */,
+				9320BA3D25F245A8A4B719AC /* SettingsScreenBehaviorTests.swift in Sources */,
+				DD20DA4C9F8048C693985954 /* ScannerLifecycleTests.swift in Sources */,
+				2B74E3DCCDC54125AED0CA49 /* PoolCellLifecycleTests.swift in Sources */,
+				2155722DA642452DBD697ED8 /* ExploreFlowBehaviorTests.swift in Sources */,
+				2EB7186F5EB444568F8361F5 /* NexusTransportCoverageTests.swift in Sources */,
+				EBA8E9546CB040F798A7021D /* ExploreScreenBehaviorTests.swift in Sources */,
+				8EDFB083BC48466D8EE3E092 /* TransferConfirmationBehaviorTests.swift in Sources */,
+				7072EE6E28364C3FB2B55FC9 /* NexusScreenBehaviorTests.swift in Sources */,
+				9ED064D178844B708219CBCD /* PolkamarktRuntimeCoverageTests.swift in Sources */,
+				772E88A0772441B69333F340 /* ReferralScreenBehaviorTests.swift in Sources */,
+				9D3BEAA004244349BD67CD63 /* WalletHistoryConversionTests.swift in Sources */,
+				EB3FDD96FCEE497E963CFE90 /* PolkamarktScreenBehaviorTests.swift in Sources */,
+				F40102C19A924DF69559473F /* WalletCellBehaviorTests.swift in Sources */,
 				66C57DAFD9E21FE13B3DE9D2 /* InterimRecoveryLeftoverTests.swift in Sources */,
 				CD1012269012000000000002 /* WalletOwnerPINIntentTests.swift in Sources */,
 				CD101226C003000000000002 /* WalletCredentialRepairTests.swift in Sources */,

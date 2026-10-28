@@ -59,13 +59,16 @@ final class CreateAccountService: CreateAccountServiceProtocol {
     func createAccount(request: AccountCreationRequest,
                        mnemonic: IRMnemonicProtocol,
                        completion: @escaping (Result<AccountItem, Error>?) -> Void) {
+        guard currentOperation == nil else {
+            DispatchQueue.main.async {
+                completion(.failure(WalletNetworkMigrationError.lifecycleMutationBusy))
+            }
+            return
+        }
         let operation = accountOperationFactory.prepareAccountOperation(
             request: request,
             mnemonic: mnemonic
         )
-        guard currentOperation == nil else {
-            return
-        }
         let lifecycleCoordinator = WalletLifecycleCoordinator.shared
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()

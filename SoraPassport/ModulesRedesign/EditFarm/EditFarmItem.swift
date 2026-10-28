@@ -38,6 +38,7 @@ final class EditFarmItem: ItemProtocol {
     let stakeFeeAmount: Decimal
     
     weak var service: EditFarmItemService?
+    private let serviceIdentifier: ObjectIdentifier?
     
     var onConfirm: (() -> Void)?
     var feeInfoHandler: (() -> Void)?
@@ -53,15 +54,22 @@ final class EditFarmItem: ItemProtocol {
         self.stakedSelection = stakedSelection
         self.stakeFeeAmount = stakeFeeAmount
         self.service = service
+        self.serviceIdentifier = service.map(ObjectIdentifier.init)
     }
 }
 
 extension EditFarmItem: Hashable {
     static func == (lhs: EditFarmItem, rhs: EditFarmItem) -> Bool {
-        lhs.stakedSelection == rhs.stakedSelection
+        lhs.stakedSelection == rhs.stakedSelection &&
+        lhs.sharePercentage == rhs.sharePercentage &&
+        lhs.stakeFeeAmount == rhs.stakeFeeAmount &&
+        lhs.serviceIdentifier == rhs.serviceIdentifier
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(stakedSelection)
+        hasher.combine(sharePercentage)
+        hasher.combine(stakeFeeAmount)
+        hasher.combine(serviceIdentifier)
     }
 }

@@ -58,6 +58,7 @@ final class PoolsItemService {
     private var priceRetry: Task<Void, Never>?
     private var priceFailures = 0
     private var lastPools: [PoolInfo]?
+    private var valuationID = UUID()
     private var pricesObserver: NSObjectProtocol?
 
     deinit {
@@ -78,6 +79,16 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.setup(with: pools) }
+            return
+        }
+        let id = UUID()
+        valuationID = id
+        priceRetryLock.lock()
+        priceRetry?.cancel()
+        priceRetry = nil
+        priceRetryLock.unlock()
         lastPools = pools
         if pricesObserver == nil {
             // Prices were refreshed in the background, or the app came back
@@ -92,49 +103,44 @@ final class PoolsItemService {
             }
         }
         if fiatData.isEmpty {
-            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
-            }
-
-            updateHandler?()
-        }
-        
-        Task { [weak self] in
-            guard let self else { return }
-
-            let fiatData = await self.fiatService?.getFiat() ?? []
-            self.fiatData = fiatData
-            
-            let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in
-                if let baseAssetPriceUsd = fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
-                   let targetAssetPriceUsd = fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
-                   let baseAssetPooledByAccount = pool.baseAssetPooledByAccount,
-                   let targetAssetPooledByAccount = pool.targetAssetPooledByAccount {
-
-                    let baseAssetFiatAmount = baseAssetPooledByAccount * baseAssetPriceUsd
-                    let targetAssetFiatAmount = targetAssetPooledByAccount * targetAssetPriceUsd
-                    return partialResult + baseAssetFiatAmount + targetAssetFiatAmount
-                }
-                return partialResult
-            })
-            
-            // As for the liquid assets: with pooled tokens and no price for
-            // any of the pools, the value is unknown, not "$0". Asking
-            // again only helps when the prices could not be read.
-            let pricesAvailable = Self.pricesKnown(for: pools.filter { $0.isFavorite }, fiatData: fiatData)
-            priceIsUnavailable = !pricesAvailable
-            moneyText = WalletUX.fiatTotalText(fiatDecimal, pricesAvailable: pricesAvailable)
-            schedulePriceRetry(needed: fiatData.isEmpty, pools: pools)
-            
-            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                var viewModel = self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
-                // The price read is over: a pool without a price shows no
-                // value instead of a placeholder that never ends.
-                viewModel?.priceLoadFinished = true
-                return viewModel
+            poolViewModels = pools.filter { $0.isFavorite }.compactMap {
+                poolViewModelsFactory.createPoolViewModel(with: $0, fiatData: [], mode: .view)
             }
             updateHandler?()
+        } else {
+            publish(pools: pools, prices: fiatData)
         }
+
+        guard valuationID == id else { return }
+        let fiatService = self.fiatService
+        Task { @MainActor [weak self] in
+            let prices = await fiatService?.getFiat() ?? []
+            guard let self, self.valuationID == id else { return }
+            self.fiatData = prices
+            self.publish(pools: pools, prices: prices)
+            guard self.valuationID == id else { return }
+            self.schedulePriceRetry(needed: prices.isEmpty, pools: pools)
+        }
+    }
+
+    private func publish(pools: [PoolInfo], prices: [PIExactFiatData]) {
+        let favorites = pools.filter { $0.isFavorite }
+        let total = favorites.reduce(Decimal(0)) { result, pool in
+            guard let basePrice = prices.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
+                  let targetPrice = prices.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
+                  let baseAmount = pool.baseAssetPooledByAccount,
+                  let targetAmount = pool.targetAssetPooledByAccount else { return result }
+            return result + baseAmount * basePrice + targetAmount * targetPrice
+        }
+        let pricesAvailable = Self.pricesKnown(for: favorites, fiatData: prices)
+        priceIsUnavailable = !pricesAvailable
+        moneyText = WalletUX.fiatTotalText(total, pricesAvailable: pricesAvailable)
+        poolViewModels = favorites.compactMap {
+            var model = poolViewModelsFactory.createPoolViewModel(with: $0, fiatData: prices, mode: .view)
+            model?.priceLoadFinished = true
+            return model
+        }
+        updateHandler?()
     }
 }
 

@@ -147,6 +147,8 @@ extension EnterPasswordCell: SoramitsuTableViewCellProtocol {
         if !item.errorText.isEmpty {
             passwordInputField.sora.descriptionLabelText = R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: .currentLocale)
             passwordInputField.sora.state = .fail
+        } else {
+            passwordInputField.sora.resetValidation()
         }
         
         self.item = item

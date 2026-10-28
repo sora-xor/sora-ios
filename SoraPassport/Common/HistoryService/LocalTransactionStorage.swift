@@ -54,10 +54,8 @@ final class LocalTransactionStorage: LocalTransactionStorageProtocol {
             lock.unlock()
         }
     }
-    var currentAccount = SelectedWalletSettings.shared
-    
-    init() {
-        EventCenter.shared.add(observer: self)
+    init(eventCenter: EventCenterProtocol = EventCenter.shared) {
+        eventCenter.add(observer: self)
     }
 
     private func update(_ address: String, _ change: (inout [Transaction]) -> Void) {
@@ -71,17 +69,29 @@ final class LocalTransactionStorage: LocalTransactionStorageProtocol {
 
 extension LocalTransactionStorage: EventVisitorProtocol {
     func processNewTransactionCreated(event: NewTransactionCreatedEvent) {
-        guard let address = currentAccount.currentAccount?.address else { return }
+        guard let address = event.accountAddress else { return }
         update(address) { $0.append(event.item) }
     }
     
     func processNewTransaction(event: WalletNewTransactionInserted) {
-        guard let transaction = event.items.first,
-              let address = currentAccount.currentAccount?.address else { return }
-        let hash = transaction.extrinsicHash.toHex(includePrefix: true)
-        update(address) { list in
-            guard let index = list.firstIndex(where: { $0.base.txHash == hash }) else { return }
-            list[index].base.status = transaction.processingResult.isSuccess ? .success : .failed
+        guard !event.items.isEmpty else { return }
+        var statuses: [String: TransactionBase.Status] = [:]
+        for transaction in event.items {
+            statuses[transaction.extrinsicHash.toHex(includePrefix: true)] =
+                transaction.processingResult.isSuccess ? .success : .failed
+        }
+        // Confirmation may arrive after the user switched wallets. The signed
+        // transaction hash identifies the stored row independently of selection.
+        lock.lock()
+        defer { lock.unlock() }
+        for address in Array(stored.keys) {
+            guard var list = stored[address] else { continue }
+            for index in list.indices {
+                if let status = statuses[list[index].base.txHash] {
+                    list[index].base.status = status
+                }
+            }
+            stored[address] = list
         }
     }
 }

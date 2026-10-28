@@ -33,6 +33,21 @@ import Anchorage
 import SoraFoundation
 
 final class MoreMenuCell: SoramitsuTableViewCell {
+    private var subtitleTask: Task<Void, Never>?
+    private var circleTask: Task<Void, Never>?
+
+    deinit {
+        subtitleTask?.cancel()
+        circleTask?.cancel()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        subtitleTask?.cancel()
+        circleTask?.cancel()
+        subtitleTask = nil
+        circleTask = nil
+    }
 
     let categoryItem: CategoryItem = {
         let view = CategoryItem(frame: .zero)
@@ -79,6 +94,10 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
             return
         }
 
+        subtitleTask?.cancel()
+        circleTask?.cancel()
+        subtitleTask = nil
+        circleTask = nil
         categoryItem.titleLabel.sora.text = item.title
         categoryItem.subtitleLabel.sora.text = item.subtitle
         categoryItem.rightImageView.sora.picture = item.picture
@@ -91,22 +110,24 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
         }
 
         if let circleColorStream = item.circleColorStream {
-            Task {
+            circleTask = Task { @MainActor [weak self] in
                 for await color in circleColorStream {
-                    if let color = color {
-                        categoryItem.addCircle()
-                        categoryItem.circle.sora.backgroundColor = color
+                    guard !Task.isCancelled else { return }
+                    if let color {
+                        self?.categoryItem.addCircle()
+                        self?.categoryItem.circle.sora.backgroundColor = color
                     } else {
-                        categoryItem.hideCircle()
+                        self?.categoryItem.hideCircle()
                     }
                 }
             }
         }
 
         if let subtitleStream = item.subtitleStream {
-            Task {
+            subtitleTask = Task { @MainActor [weak self] in
                 for await subtitle in subtitleStream {
-                    categoryItem.subtitleLabel.sora.text = subtitle
+                    guard !Task.isCancelled else { return }
+                    self?.categoryItem.subtitleLabel.sora.text = subtitle
                 }
             }
         }

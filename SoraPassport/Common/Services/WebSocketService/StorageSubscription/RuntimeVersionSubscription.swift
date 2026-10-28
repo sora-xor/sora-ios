@@ -51,6 +51,29 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
     private let dataOperationFactory = DataOperationFactory()
 
     private var subscriptionId: UInt16?
+    private let updateLock = NSLock()
+    private var latestVersion: (spec: UInt32, transaction: UInt32)?
+    private var latestUpdateID: UUID?
+
+    private func beginUpdate(_ version: RuntimeVersion) -> UUID? {
+        updateLock.lock()
+        defer { updateLock.unlock() }
+        if let latestVersion,
+           latestVersion.spec > version.specVersion ||
+           (latestVersion.spec == version.specVersion && latestVersion.transaction > version.transactionVersion) {
+            return nil
+        }
+        latestVersion = (version.specVersion, version.transactionVersion)
+        let identifier = UUID()
+        latestUpdateID = identifier
+        return identifier
+    }
+
+    private func isCurrentUpdate(_ identifier: UUID) -> Bool {
+        updateLock.lock()
+        defer { updateLock.unlock() }
+        return latestUpdateID == identifier
+    }
 
     init(
         chain: Chain,
@@ -105,6 +128,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
     }
 
     private func handle(runtimeVersion: RuntimeVersion) {
+        guard let updateID = beginUpdate(runtimeVersion) else { return }
         let breakingUpgradeState = chain.metadataBreakingUpgradeState(for: runtimeVersion.specVersion)
         var forceOverridesOperation: BaseOperation<Data>?
         if case let .forceResponse(_, url) = breakingUpgradeState, let url = url {
@@ -125,7 +149,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
         let saveOperation = createSaveOperation(
             dependingOn: metaOperation,
             runtimeOverrides: forceOverridesOperation,
-            runtimeVersion: runtimeVersion
+            runtimeVersion: runtimeVersion,
+            updateID: updateID
         )
 
         if let forceOverridesOperation = forceOverridesOperation {
@@ -133,7 +158,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
         }
         saveOperation.addDependency(metaOperation)
 
-        saveOperation.completionBlock = {
+        saveOperation.completionBlock = { [weak self, weak saveOperation] in
+            guard let self, let saveOperation else { return }
             do {
                 _ = try saveOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -185,7 +211,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
             parameters: parameters
         )
 
-        metaOperation.configurationBlock = {
+        metaOperation.configurationBlock = { [weak metaOperation] in
+            guard let metaOperation else { return }
             do {
                 switch breakingUpgradeState {
                 case let .forceResponse(response, _):
@@ -197,7 +224,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                 let currentItem = try localFetch
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-                if let item = currentItem, item.version == runtimeVersion.specVersion {
+                if let item = currentItem, item.version > runtimeVersion.specVersion ||
+                    (item.version == runtimeVersion.specVersion && item.txVersion >= runtimeVersion.transactionVersion) {
                     switch breakingUpgradeState {
                     case .notAffected:
                         metaOperation.result = .failure(RuntimeVersionSubscriptionError.skipUnchangedVersion)
@@ -217,9 +245,14 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
     private func createSaveOperation(
         dependingOn meta: BaseOperation<String>,
         runtimeOverrides: BaseOperation<Data>?,
-        runtimeVersion: RuntimeVersion
+        runtimeVersion: RuntimeVersion,
+        updateID: UUID
     ) -> BaseOperation<Void> {
-        storage.saveOperation({
+        let chain = chain
+        return storage.saveOperation({ [weak self] in
+            guard self?.isCurrentUpdate(updateID) == true else {
+                throw RuntimeVersionSubscriptionError.skipUnchangedVersion
+            }
             let metadataHex = try meta
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
             var rawMetadata = try Data(hexStringSSF: metadataHex)
@@ -321,7 +354,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
             }
 
             let item = RuntimeMetadataItem(
-                chain: self.chain.genesisHash(),
+                chain: chain.genesisHash(),
                 version: runtimeVersion.specVersion,
                 txVersion: runtimeVersion.transactionVersion,
                 metadata: rawMetadata,

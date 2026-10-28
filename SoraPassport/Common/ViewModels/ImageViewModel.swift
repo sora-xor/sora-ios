@@ -115,9 +115,11 @@ extension ImageViewModel: ImageProcessor {
 
     func process(item: ImageProcessItem, options: KingfisherParsedOptionsInfo) -> KFCrossPlatformImage? {
         var resultItem = item
-        let scaleFactor = UIScreen.main.scale
 
         if let size = targetSize {
+            guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else {
+                return nil
+            }
             let resizeProcessor = ResizingImageProcessor(referenceSize: size, mode: .aspectFill)
 //            let options: KingfisherParsedOptionsInfo = [.scaleFactor(scaleFactor)]
 
@@ -125,14 +127,15 @@ extension ImageViewModel: ImageProcessor {
                 return nil
             }
 
-            let cropProcessor = CroppingImageProcessor(size: size, anchor: CGPoint(x: 0.5, y: 0.5))
-
-            guard let cropedImage = cropProcessor.process(item: .image(resizedImage),
-                                                          options: options) else {
-                return nil
-            }
-
-            resultItem = .image(cropedImage)
+            // A CGImage crop rounds a half-pixel origin outwards, which can
+            // add a row or column. Draw into the requested canvas instead.
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = resizedImage.scale
+            let renderer = UIGraphicsImageRenderer(size: size, format: format)
+            resultItem = .image(renderer.image { _ in
+                resizedImage.draw(at: CGPoint(x: (size.width - resizedImage.size.width) / 2,
+                                              y: (size.height - resizedImage.size.height) / 2))
+            })
         }
 
         if let radius = cornerRadius {
@@ -166,11 +169,11 @@ private struct ProcessorIdentifier {
     static let separator = "_"
 
     static func identifier(from targetSize: CGSize?, cornerRadius: CGFloat?) -> String {
-        var result = ""
+        var result = "image-v2_"
 
         if let targetSize = targetSize {
-            result += "\(ProcessorIdentifier.widthField)\(ProcessorIdentifier.separator)\(Int(targetSize.width))"
-            result += "\(ProcessorIdentifier.heightField)\(ProcessorIdentifier.separator)\(Int(targetSize.height))"
+            result += "\(ProcessorIdentifier.widthField)\(ProcessorIdentifier.separator)\(Double(targetSize.width))"
+            result += "\(ProcessorIdentifier.heightField)\(ProcessorIdentifier.separator)\(Double(targetSize.height))"
         } else {
             result += "\(ProcessorIdentifier.widthField)\(ProcessorIdentifier.separator)"
             result += "\(ProcessorIdentifier.emptyField)"
@@ -181,7 +184,7 @@ private struct ProcessorIdentifier {
         result += ProcessorIdentifier.separator
 
         if let cornerRadius = cornerRadius {
-            result += "\(ProcessorIdentifier.cornerRadiusField)\(ProcessorIdentifier.separator)\(Int(cornerRadius))"
+            result += "\(ProcessorIdentifier.cornerRadiusField)\(ProcessorIdentifier.separator)\(Double(cornerRadius))"
         } else {
             result += "\(ProcessorIdentifier.cornerRadiusField)\(ProcessorIdentifier.separator)"
             result += "\(ProcessorIdentifier.emptyField)"

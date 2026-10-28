@@ -67,6 +67,30 @@ xcodebuild test -project SoraPassport.xcodeproj -scheme SoraPassport \
 
 ```
 
+The complete production line-coverage gate runs the app unit suite, the ordinary
+UI launch test, and the app-owned NexusTransferCodec package. Use a disposable
+simulator and an output directory that does not already exist:
+
+```sh
+/bin/sh SoraPassport/Scripts/run-ios-code-coverage.sh \
+  SIMULATOR_UDID /absolute/path/DerivedData /absolute/path/SourcePackages \
+  /absolute/path/new-coverage-result
+```
+
+The gate requires at least **80% of executable production source lines**. It
+includes unexecuted app UI and debug code and the first-party codec; it excludes
+test targets, third-party dependencies, and generated `R.swift` output. Each
+executable source line counts once, including lines that appear in overlapping
+Swift closure/function ranges. `production-summary.json` contains the numerator,
+denominator, percentage, and every file's counts. The original `.xcresult`, logs,
+source hashes, raw line data, and codec report remain beside it for review.
+
+A test failure or missing/incompatible coverage fails the command. A passing test
+suite below 80% also returns a failing exit status. Keep production sources frozen
+during measurement; the runner compares their hashes after both suites. Existing
+opt-in live and device-evidence tests keep their admission requirements. Use the
+`test` action for complete Xcode metadata; `test-without-building` can omit it.
+
 Choose an available simulator name if yours differs. Debug simulator signing uses
 Xcode's local ad-hoc identity so tests can access Keychain.
 

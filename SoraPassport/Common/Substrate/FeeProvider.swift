@@ -44,14 +44,16 @@ protocol FeeProviderProtocol {
 final class FeeProvider: FeeProviderProtocol {
 
     private let boundAccount: AccountItem?
+    private let serviceFactory: ((AccountItem) -> ExtrinsicServiceProtocol?)?
 
     private var selectedAccount: AccountItem? {
         boundAccount
     }
 
-    private var extrinsicService: ExtrinsicService? {
-        guard let selectedAccount,
-              let engine = ChainRegistryFacade.sharedRegistry.getConnection(
+    private var extrinsicService: ExtrinsicServiceProtocol? {
+        guard let selectedAccount else { return nil }
+        if let serviceFactory { return serviceFactory(selectedAccount) }
+        guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(
                 for: Chain.sora.genesisHash()
               ),
               let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(
@@ -66,15 +68,17 @@ final class FeeProvider: FeeProviderProtocol {
                                 operationManager: OperationManagerFacade.sharedManager)
     }
 
-    init(account: AccountItem? = SelectedWalletSettings.shared.currentAccount) {
+    init(account: AccountItem? = SelectedWalletSettings.shared.currentAccount,
+         serviceFactory: ((AccountItem) -> ExtrinsicServiceProtocol?)? = nil) {
         boundAccount = account
+        self.serviceFactory = serviceFactory
     }
 
     @available(*, renamed: "getFee(for:)")
     func getFee(for type: TransactionType, completion: @escaping (Decimal) -> Void) {
         Task {
             let result = await getFee(for: type)
-            completion(result)
+            await MainActor.run { completion(result) }
         }
     }
     
@@ -190,7 +194,7 @@ final class FeeProvider: FeeProviderProtocol {
                 
                 let withdrawCall = try callFactory.withdrawLiquidityCall(
                     dexId: dexId,
-                    assetA: WalletAssetId.val.chainId,
+                    assetA: WalletAssetId.xor.chainId,
                     assetB: WalletAssetId.val.chainId,
                     assetDesired: 1,
                     minA: 1,
@@ -264,7 +268,7 @@ final class FeeProvider: FeeProviderProtocol {
     ) {
         Task {
             let result = await estimateFee(builderClosure: builderClosure, runningIn: queue)
-            completionClosure(result)
+            await MainActor.run { completionClosure(result) }
         }
     }
 

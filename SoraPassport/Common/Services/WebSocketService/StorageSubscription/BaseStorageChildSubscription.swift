@@ -104,12 +104,18 @@ class BaseStorageChildSubscription: StorageChildSubscribing {
         processingOperation.addDependency(fetchOperation)
         saveOperation.addDependency(processingOperation)
 
-        saveOperation.completionBlock = { [weak self] in
-            guard let changeResult = processingOperation.result else {
+        saveOperation.completionBlock = { [weak self, weak saveOperation] in
+            guard let self else { return }
+            guard let saveResult = saveOperation?.result else {
+                self.handle(result: .failure(BaseOperationError.parentOperationCancelled), blockHash: blockHash)
                 return
             }
-
-            self?.handle(result: changeResult, blockHash: blockHash)
+            if case let .failure(error) = saveResult {
+                self.handle(result: .failure(error), blockHash: blockHash)
+                return
+            }
+            guard let changeResult = processingOperation.result else { return }
+            self.handle(result: changeResult, blockHash: blockHash)
         }
 
         operationManager.enqueue(operations: [fetchOperation, processingOperation, saveOperation],

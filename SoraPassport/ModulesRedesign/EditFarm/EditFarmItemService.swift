@@ -157,12 +157,13 @@ final class EditFarmItemService: EditFarmItemServiceProtocol {
     }
 
     func setup() {
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             self?.feeInfo = try? await self?.loadFeeInfo()
         }
     }
 
     func transform(input: AnyPublisher<FarmShareSelection, Never>) -> AnyPublisher<Void, Never> {
+        cancellables.removeAll()
         input.sink { [weak self] selection in
             self?.apply(selection: selection)
         }.store(in: &cancellables)
@@ -216,8 +217,8 @@ private extension EditFarmItemService {
         confirmButtonEnabled = feeInfo != nil
             && feePercentageIsValid
             && poolStateIsValid
-            && networkFeeAmount >= 0
-            && userBalance > networkFeeAmount
+            && networkFeeAmount > 0
+            && userBalance >= networkFeeAmount
             && selection != currentSelection
             && amount > 0
             && adjustedPoolBalance > 0

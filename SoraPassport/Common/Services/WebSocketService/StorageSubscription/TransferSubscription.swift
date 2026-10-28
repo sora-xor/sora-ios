@@ -61,7 +61,12 @@ final class TransactionSubscription {
     let operationManager: OperationManagerProtocol
     let eventCenter: EventCenterProtocol
     let logger: LoggerProtocol
-    var unhandledTransactions: [TransactionExtrinsicInfo] = []
+    private let pendingLock = NSLock()
+    private var pendingTransactions: [TransactionExtrinsicInfo] = []
+    var unhandledTransactions: [TransactionExtrinsicInfo] {
+        get { pendingLock.lock(); defer { pendingLock.unlock() }; return pendingTransactions }
+        set { pendingLock.lock(); defer { pendingLock.unlock() }; pendingTransactions = newValue }
+    }
 
     init(
         engine: JSONRPCEngine,
@@ -139,9 +144,22 @@ final class TransactionSubscription {
             txSaveOperation.addDependency(parseOperation)
             contactSaveWrapper.allOperations.forEach { $0.addDependency(parseOperation) }
 
-            txSaveOperation.completionBlock = {
+            txSaveOperation.completionBlock = { [weak self, weak txSaveOperation] in
+                guard let self else { return }
+                guard case .success = txSaveOperation?.result else {
+                    self.logger.error("Transfer history persistence failed")
+                    return
+                }
                 switch parseOperation.result {
                 case let .success(items):
+                    let resolvedHashes = Set(items.map(\.extrinsicHash))
+                    self.pendingLock.lock()
+                    self.pendingTransactions.removeAll { transaction in
+                        guard let data = try? Data(hexStringSSF: transaction.hex),
+                              let hash = try? data.blake2b32() else { return false }
+                        return resolvedHashes.contains(hash)
+                    }
+                    self.pendingLock.unlock()
                     self.logger.debug("Did complete block processing")
                     if !items.isEmpty {
                         DispatchQueue.main.async {
@@ -253,7 +271,8 @@ extension TransactionSubscription {
 
             let eventRecords = try eventsOperation.extractNoCancellableResultData().first?.value ?? []
 
-            guard let blockNumberData = BigUInt.fromHexString(block.header.number) else {
+            guard let blockNumberData = BigUInt.fromHexString(block.header.number),
+                  let blockNumber = UInt64(exactly: blockNumberData) else {
                 throw BaseOperationError.unexpectedDependentResult
             }
 
@@ -271,9 +290,8 @@ extension TransactionSubscription {
                         return nil
                     }
 
-                    self.unhandledTransactions = self.unhandledTransactions.filter { $0.hex != hexExtrinsic }
-                    
-                    guard let processingResult = extrinsicProcessor.process(
+                    guard let txIndex = UInt16(exactly: index),
+                          let processingResult = extrinsicProcessor.process(
                         extrinsicIndex: UInt32(index),
                         extrinsic: transaction.object,
                         eventRecords: eventRecords,
@@ -285,8 +303,8 @@ extension TransactionSubscription {
                     return TransactionSubscriptionResult(
                         processingResult: processingResult,
                         extrinsicHash: extrinsicHash,
-                        blockNumber: UInt64(blockNumberData),
-                        txIndex: UInt16(index)
+                        blockNumber: blockNumber,
+                        txIndex: txIndex
                     )
                 } catch {
                     return nil
@@ -298,6 +316,9 @@ extension TransactionSubscription {
 
 extension TransactionSubscription: EventVisitorProtocol {
     func processExtricsicSubmmited(event: ExtricsicSubmittedEvent) {
-        unhandledTransactions.append(TransactionExtrinsicInfo(object: event.extrinsicInfo.object, hex: event.extrinsicHex))
+        pendingLock.lock()
+        defer { pendingLock.unlock() }
+        guard !pendingTransactions.contains(where: { $0.hex.caseInsensitiveCompare(event.extrinsicHex) == .orderedSame }) else { return }
+        pendingTransactions.append(TransactionExtrinsicInfo(object: event.extrinsicInfo.object, hex: event.extrinsicHex))
     }
 }

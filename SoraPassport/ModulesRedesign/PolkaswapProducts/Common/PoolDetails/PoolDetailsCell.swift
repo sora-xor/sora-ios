@@ -37,6 +37,7 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
     
     private var poolDetailsItem: PoolDetailsItem? {
         didSet {
+            cancellables.removeAll()
             guard let item = poolDetailsItem else { return }
             item.service?.tvlTextPublisher
                 .receive(on: DispatchQueue.main)

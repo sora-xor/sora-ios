@@ -74,7 +74,11 @@ class MigrationRedesignViewController: SoramitsuViewController {
             
             signUpButton.sora.isHidden = state == .loading
             loadingView.sora.isHidden = state == .normal
-            loadingView.rotate()
+            if state == .loading {
+                loadingView.rotate()
+            } else {
+                loadingView.layer.removeAnimation(forKey: "rotationAnimation")
+            }
         }
     }
 

@@ -42,7 +42,7 @@ final class ConfirmPassphraseViewModel {
 
     var wireframe: ConfirmPassphraseWireframeProtocol?
     var items: [SoramitsuTableViewItemProtocol] = []
-    var view: ConfirmPassphraseViewProtocol?
+    weak var view: ConfirmPassphraseViewProtocol?
     var currentStage: Int = 0
     var numbersItem: WordNumberItem?
     var quiz: Quiz?
@@ -56,14 +56,21 @@ final class ConfirmPassphraseViewModel {
 
 extension ConfirmPassphraseViewModel: ConfirmPassphraseViewModelProtocol {
     func setup() {
+        currentStage = 0
+        numbersItem = nil
         let quiz = Quiz(words: mnemonic)
         self.quiz = quiz
+        guard let variants = quiz.quizArray.first, let index = quiz.correctAnswers.first else {
+            view?.setup(items: [])
+            return
+        }
 
         let numbersItem = WordNumberItem()
-        numbersItem.variants = quiz.quizArray[currentStage]
-        numbersItem.index = quiz.correctAnswers[currentStage]
-        numbersItem.tryHandler = { [weak self] variant in
-            guard let self = self, let quiz = self.quiz else { return }
+        numbersItem.variants = variants
+        numbersItem.index = index
+        numbersItem.tryHandler = { [weak self, weak numbersItem] variant in
+            guard let self, let numbersItem, self.numbersItem === numbersItem,
+                  let quiz = self.quiz, quiz.correctAnswers.indices.contains(self.currentStage) else { return }
             let correctVariant = self.mnemonic[quiz.correctAnswers[self.currentStage] - 1]
             if variant == correctVariant {
                 self.currentStage += 1
@@ -76,7 +83,7 @@ extension ConfirmPassphraseViewModel: ConfirmPassphraseViewModelProtocol {
                 numbersItem.currentStage = self.currentStage
                 self.view?.update(items: [numbersItem])
                 
-                if self.currentStage == 3 {
+                if self.currentStage == quiz.correctAnswers.count {
                     self.interactor.skipConfirmation()
                 }
             } else {

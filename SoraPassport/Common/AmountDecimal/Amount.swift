@@ -46,7 +46,7 @@ public struct Amount: Codable, Equatable {
     }
 
     public init?(string: String) {
-        guard let value = Decimal(string: string) else {
+        guard let value = Decimal(amountString: string) else {
             return nil
         }
 
@@ -58,7 +58,7 @@ public struct Amount: Codable, Equatable {
 
         let stringValue = try container.decode(String.self)
 
-        guard let value = Decimal(string: stringValue) else {
+        guard let value = Decimal(amountString: stringValue) else {
             throw AmountError.invalidStringValue
         }
 
@@ -68,5 +68,22 @@ public struct Amount: Codable, Equatable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(stringValue)
+    }
+}
+
+extension Decimal {
+    /// Amounts use a locale-independent wire representation. Foundation's
+    /// Decimal(string:) accepts numeric prefixes, including "1,25" as 1, so
+    /// validate the entire number before parsing it.
+    init?(amountString: String) {
+        guard amountString.range(
+            of: #"\A[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\z"#,
+            options: .regularExpression
+        ) != nil,
+        let value = Decimal(string: amountString, locale: Locale(identifier: "en_US_POSIX")),
+        value.isFinite else {
+            return nil
+        }
+        self = value
     }
 }

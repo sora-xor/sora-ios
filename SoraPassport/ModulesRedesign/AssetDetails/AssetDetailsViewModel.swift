@@ -62,6 +62,7 @@ final class AssetDetailsViewModel {
     private var pricesObserver: NSObjectProtocol?
 
     deinit {
+        task?.cancel()
         if let pricesObserver {
             NotificationCenter.default.removeObserver(pricesObserver)
         }
@@ -154,7 +155,7 @@ extension AssetDetailsViewModel: AssetDetailsViewModelProtocol {
 
     private func loadPrices() {
         task?.cancel()
-        task = Task { [weak self] in
+        task = Task { @MainActor [weak self] in
             guard let data = await self?.fetchData(), !Task.isCancelled else { return }
             self?.createItems(with: data)
         }

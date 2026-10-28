@@ -64,9 +64,6 @@ final class InputAssetAmountViewModel {
     /// unavailable", nothing is checked against it and the amount cannot be
     /// reviewed.
     private(set) var firstAssetBalanceUnavailable = false
-    /// Whether a needed balance was unavailable when the line under the
-    /// amount and the button were last worked out.
-    private var validatedWithNeededBalanceUnavailable = false
     
     var firstAssetId: String = "" {
         didSet {
@@ -88,6 +85,7 @@ final class InputAssetAmountViewModel {
         }
     }
 
+    private var isReviewing = false
     private var isApplyingPresetAmount = false
     private var isMaximumPresetSelected = false
     
@@ -180,16 +178,23 @@ final class InputAssetAmountViewModel {
         self.marketCapService = marketCapService
         self.warningViewModelFactory = warningViewModelFactory
     }
+
+    deinit {
+        assetsProvider?.remove(observer: self)
+    }
 }
 
 extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
     
     func didSelect(variant: Decimal) {
         // A share of a balance that could not be read is not an amount.
-        guard !firstAssetBalanceUnavailable else { return }
-        guard firstAssetBalance.balance.decimalValue > fee  else { return }
-        let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
+        guard variant > 0, variant <= 1 else { return }
+        updateBalanceData()
+        guard !firstAssetBalanceUnavailable,
+              let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
+        let isFeeAsset = asset.isFeeAsset
         let value = firstAssetBalance.balance.decimalValue * variant
+        guard value > (isFeeAsset ? fee : 0) else { return }
         isMaximumPresetSelected = variant == 1
         isApplyingPresetAmount = true
         inputedFirstAmount = isFeeAsset ? value - fee : value
@@ -279,17 +284,23 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
             return
         }
 
-        // Never reached while a needed balance is unavailable (the button
-        // is off); checked here as well because this is where an amount
-        // would be accepted.
-        guard !neededBalanceUnavailable else {
+        guard !isReviewing else { return }
+        // A provider may have changed since its last observer notification.
+        updateBalanceData()
+        guard !neededBalanceUnavailable, isExactPositiveAmount,
+              checkBalances(), checkXorBalance(), !(selectedAddress?.isEmpty ?? true) else {
             view?.setupButton(isEnabled: false)
             return
         }
 
+        isReviewing = true
         view?.setupButton(isEnabled: false)
         Task { @MainActor [weak self] in
             guard let self else { return }
+            defer {
+                self.isReviewing = false
+                self.updateButtonState()
+            }
             do {
                 guard
                     let reviewedAccount = SelectedWalletSettings.shared
@@ -320,7 +331,8 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                 guard exactFee > 0 else {
                     throw WalletNetworkOperationFactoryError.invalidFee
                 }
-                guard
+                self.updateBalanceData()
+                guard !self.neededBalanceUnavailable,
                     self.firstAssetId == reviewedAssetId,
                     self.selectedAddress == reviewedRecipient,
                     self.inputedFirstAmount == reviewedAmount,
@@ -375,7 +387,8 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                         )
                 }
 
-                guard
+                self.updateBalanceData()
+                guard !self.neededBalanceUnavailable,
                     self.firstAssetId == reviewedAssetId,
                     self.selectedAddress == reviewedRecipient,
                     self.inputedFirstAmount == reviewedAmount,
@@ -451,7 +464,6 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                     from: self.view
                 )
             }
-            self.updateButtonState()
         }
     }
     
@@ -523,35 +535,27 @@ extension InputAssetAmountViewModel {
 
     func updateBalanceData() {
         guard !firstAssetId.isEmpty else { return }
-        if let balance = assetsProvider?.getBalances(with: [firstAssetId]).first {
+        let matches = assetsProvider?.getBalances(with: [firstAssetId])
+            .filter { $0.identifier == firstAssetId } ?? []
+        let unavailable = assetsProvider?.unavailableBalanceAssetIds(among: [firstAssetId])
+            .contains(firstAssetId) == true
+        if !unavailable, matches.count == 1, let balance = matches.first,
+           balance.balance.decimalValue >= 0 {
             firstAssetBalanceUnavailable = false
             firstAssetBalance = balance
-        } else if assetsProvider?.unavailableBalanceAssetIds(among: [firstAssetId]).contains(firstAssetId) == true {
-            // The balance could not be read: say so instead of leaving a
-            // zero that reads as "nothing to send".
+        } else {
             firstAssetBalanceUnavailable = true
-            showFirstAssetBalance()
-        } else if firstAssetBalanceUnavailable {
-            // Another asset was chosen whose balance has not arrived yet:
-            // "unavailable" was about the one before.
-            firstAssetBalanceUnavailable = false
-            showFirstAssetBalance()
+            firstAssetBalance = BalanceData(identifier: firstAssetId, balance: AmountDecimal(value: 0))
         }
-        // The line under the amount and the button depend on whether
-        // there is a balance to check against. What the screen was last
-        // drawn for is kept here: the provider already holds the new state
-        // when it reports a change.
-        let unavailableNow = neededBalanceUnavailable
-        if unavailableNow != validatedWithNeededBalanceUnavailable {
-            validatedWithNeededBalanceUnavailable = unavailableNow
-            refreshAmountValidation()
-        }
+        refreshAmountValidation()
     }
 
     /// The fee is paid in XOR; its balance could not be read.
     private var feeBalanceUnavailable: Bool {
         let xor = WalletAssetId.xor.rawValue
-        return assetsProvider?.unavailableBalanceAssetIds(among: [xor]).contains(xor) == true
+        guard assetsProvider?.unavailableBalanceAssetIds(among: [xor]).contains(xor) != true else { return true }
+        let balances = assetsProvider?.getBalances(with: [xor]).filter { $0.identifier == xor } ?? []
+        return balances.count != 1 || !(balances[0].balance.decimalValue >= 0)
     }
 
     /// A balance this send is checked against could not be read: the
@@ -703,8 +707,16 @@ extension InputAssetAmountViewModel {
         }
     }
     
+    private var isExactPositiveAmount: Bool {
+        guard inputedFirstAmount > 0,
+              let asset = assetManager?.assetInfo(for: firstAssetId),
+              let precision = Int16(exactly: asset.precision),
+              let atomic = inputedFirstAmount.toSubstrateAmount(precision: precision) else { return false }
+        return atomic > 0
+    }
+
     private func updateButtonState() {
-        if firstAssetId.isEmpty {
+        if isReviewing || firstAssetId.isEmpty {
             view?.setupButton(isEnabled: false)
             return
         }
@@ -716,7 +728,7 @@ extension InputAssetAmountViewModel {
             return
         }
         
-        if inputedFirstAmount == .zero {
+        if !isExactPositiveAmount {
             view?.setupButton(isEnabled: false)
             return
         }

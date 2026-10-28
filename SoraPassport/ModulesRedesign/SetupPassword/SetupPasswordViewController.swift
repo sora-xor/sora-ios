@@ -36,6 +36,7 @@ final class SetupPasswordViewController: SoramitsuViewController & SetupPassword
     var viewModel: SetupPasswordPresenterProtocol? {
         didSet {
             setupSubscriptions()
+            if isViewLoaded { viewModel?.reload() }
         }
     }
 
@@ -106,6 +107,7 @@ final class SetupPasswordViewController: SoramitsuViewController & SetupPassword
     }
     
     private func setupSubscriptions() {
+        cancellables.removeAll()
         viewModel?.titlePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in

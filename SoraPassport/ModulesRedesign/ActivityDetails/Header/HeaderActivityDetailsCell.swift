@@ -228,8 +228,8 @@ extension HeaderActivityDetailsCell: SoramitsuTableViewCellProtocol {
         secondAmountLabel.sora.isHidden = item.secondBalanceText == nil
         secondAmountLabel.sora.attributedText = item.secondBalanceText
 
-        stackView.arrangedSubviews.filter { $0 is ActivityDetailView }.forEach { subview in
-            stackView.removeArrangedSubview(subview)
+        detailsStackView.arrangedSubviews.forEach { subview in
+            detailsStackView.removeArrangedSubview(subview)
             subview.removeFromSuperview()
         }
         

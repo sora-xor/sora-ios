@@ -3703,26 +3703,6 @@ private final class StaleListingFileManager: FileManager {
     }
 }
 
-private final class AsyncResultBox<T> {
-    var result: Result<T, Error>?
-}
-
-/// Runs an async call of an actor-isolated store from a synchronous test.
-private func blocking<T>(_ body: @escaping () async throws -> T) throws -> T {
-    let box = AsyncResultBox<T>()
-    let done = DispatchSemaphore(value: 0)
-    Task.detached {
-        do {
-            box.result = .success(try await body())
-        } catch {
-            box.result = .failure(error)
-        }
-        done.signal()
-    }
-    done.wait()
-    return try XCTUnwrap(box.result).get()
-}
-
 /// The Keychain as seen by a process that dies after `survivingAdds` more
 /// items were added: from then on no call reaches the Keychain, not even the
 /// cleanup an error path would run.
@@ -3915,15 +3895,14 @@ final class WalletInterruptedWriteTests: XCTestCase {
             // Another thread's sweep or strict listing at this instant.
             var sweep = DurableFileWriter.LeftoverSweep()
             var listed: [String] = []
-            let other = Thread {
+            let done = DispatchSemaphore(value: 0)
+            DispatchQueue.global(qos: .userInteractive).async {
+                defer { done.signal() }
                 sweep = DurableFileWriter.sweepLeftovers(in: directory)
                 listed = ((try? DurableFileWriter.contentsIgnoringLeftovers(
                     of: directory, fileManager: .default, includingPropertiesForKeys: nil)) ?? [])
                     .map(\.lastPathComponent)
             }
-            let done = DispatchSemaphore(value: 0)
-            let waiter = Thread { other.start(); while !other.isFinished { usleep(500) }; done.signal() }
-            waiter.start()
             done.wait()
             XCTAssertEqual(sweep, DurableFileWriter.LeftoverSweep(removed: 0, kept: 0, deferredToActiveWrite: true),
                            checkpoint.rawValue)
@@ -5176,7 +5155,7 @@ extension WalletInterruptedWriteTests {
 
     // MARK: 13. The Nexus and Polkamarkt journals
 
-    func testAnUnreadableNexusOrPolkamarktJournalShowsRecoveryAndCanBeSetAside() throws {
+    func testAnUnreadableNexusOrPolkamarktJournalShowsRecoveryAndCanBeSetAside() async throws {
         let (device, first, second) = try upgradedTwoAccountDevice()
         XCTAssertEqual(try device.startup(), .ready)
         let base = device.directory
@@ -5186,15 +5165,17 @@ extension WalletInterruptedWriteTests {
         let root = base.appendingPathComponent("WalletSetAside")
         let coordinator = WalletLifecycleCoordinator(recoveryGate: device.isolatedGate())
         let keys = try device.keychain.bytes()
-        func nexusCount() throws -> Int { try blocking { try await NexusPendingTransactionStore(baseURL: base).all().count } }
-        func polkamarktCount() throws -> Int { try blocking { try await PolkamarktPendingStore(baseURL: base).all().count } }
+        func nexusCount() async throws -> Int { try await NexusPendingTransactionStore(baseURL: base).all().count }
+        func polkamarktCount() async throws -> Int { try await PolkamarktPendingStore(baseURL: base).all().count }
 
         // Journals without an entry are readable.
         for name in ["nexus-v1.json", "polkamarkt-v1.json"] {
             try Data("[]".utf8).write(to: folder.appendingPathComponent(name))
         }
-        XCTAssertEqual(try nexusCount(), 0)
-        XCTAssertEqual(try polkamarktCount(), 0)
+        let initialNexusCount = try await nexusCount()
+        let initialPolkamarktCount = try await polkamarktCount()
+        XCTAssertEqual(initialNexusCount, 0)
+        XCTAssertEqual(initialPolkamarktCount, 0)
         XCTAssertNoThrow(try PendingTransactionRecords.requireReadable(baseURL: base))
         XCTAssertEqual(try device.startup(), .ready)
 
@@ -5216,12 +5197,12 @@ extension WalletInterruptedWriteTests {
             try breakage.bytes.write(to: folder.appendingPathComponent(breakage.file))
             // That feature's store refuses every action from now on...
             if breakage.file == "nexus-v1.json" {
-                XCTAssertThrowsError(try nexusCount(), what)
+                do { _ = try await nexusCount(); XCTFail(what) } catch { }
                 XCTAssertThrowsError(try NexusPendingTransactionStore.requireReadableJournal(
                     applicationSupportURL: base), what)
                 XCTAssertNoThrow(try PolkamarktPendingStore.requireReadableJournal(applicationSupportURL: base), what)
             } else {
-                XCTAssertThrowsError(try polkamarktCount(), what)
+                do { _ = try await polkamarktCount(); XCTFail(what) } catch { }
                 XCTAssertThrowsError(try PolkamarktPendingStore.requireReadableJournal(
                     applicationSupportURL: base), what)
                 XCTAssertNoThrow(try NexusPendingTransactionStore.requireReadableJournal(applicationSupportURL: base), what)
@@ -5247,8 +5228,10 @@ extension WalletInterruptedWriteTests {
             XCTAssertEqual(try InterruptedWrite.names(in: folder), [], what)
             XCTAssertEqual(try device.startup(), .ready, what)
             XCTAssertFalse(device.settings.walletMigrationRecoveryRequired, what)
-            XCTAssertEqual(try nexusCount(), 0, what)
-            XCTAssertEqual(try polkamarktCount(), 0, what)
+            let recoveredNexusCount = try await nexusCount()
+            let recoveredPolkamarktCount = try await polkamarktCount()
+            XCTAssertEqual(recoveredNexusCount, 0, what)
+            XCTAssertEqual(recoveredPolkamarktCount, 0, what)
             _ = try sora2.stage(account: first.address, hash: transactionHash(0xc0 + UInt8(index)))
             XCTAssertEqual(try sora2.all().count, 1, what)
         }

@@ -193,7 +193,7 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
         if let image = item.secondAssetImage {
             headerView.secondCurrencyImageView.sora.picture = .logo(image: image)
         }
-        headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = item.firstAssetImage == nil ? .shimmer : .none
+        headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = item.secondAssetImage == nil ? .shimmer : .none
         
         if let image = item.rewardAssetImage {
             headerView.rewardImageView.sora.picture = .logo(image: image)

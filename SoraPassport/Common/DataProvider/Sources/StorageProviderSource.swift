@@ -45,17 +45,20 @@ final class StorageProviderSource<T: Decodable & Equatable>: DataProviderSourceP
     private var lastSeenError: Error?
 
     private var lock = NSLock()
+    private let observerQueue: DispatchQueue
 
     init(itemIdentifier: String,
          codingPath: StorageCodingPath,
          runtimeService: RuntimeCodingServiceProtocol,
          provider: StreamableProvider<ChainStorageItem>,
-         trigger: DataProviderTriggerProtocol) {
+         trigger: DataProviderTriggerProtocol,
+         observerQueue: DispatchQueue = DispatchQueue(label: "jp.co.soramitsu.storageprovider.observer", qos: .default)) {
         self.itemIdentifier = itemIdentifier
         self.codingPath = codingPath
         self.runtimeService = runtimeService
         self.provider = provider
         self.trigger = trigger
+        self.observerQueue = observerQueue
 
         subscribe()
     }
@@ -63,16 +66,14 @@ final class StorageProviderSource<T: Decodable & Equatable>: DataProviderSourceP
     // MARK: Private
 
     private func replaceAndNotifyIfNeeded(_ newItem: ChainStorageItem?) {
-        if newItem != lastSeenResult || lastSeenError != nil {
-            lock.lock()
-
+        lock.lock()
+        let changed = newItem != lastSeenResult || lastSeenError != nil
+        if changed {
             lastSeenError = nil
             lastSeenResult = newItem
-
-            lock.unlock()
-
-            trigger.delegate?.didTrigger()
         }
+        lock.unlock()
+        if changed { trigger.delegate?.didTrigger() }
     }
 
     private func replaceAndNotifyError(_ error: Error) {
@@ -88,16 +89,19 @@ final class StorageProviderSource<T: Decodable & Equatable>: DataProviderSourceP
 
     private func subscribe() {
         let updateClosure = { [weak self] (changes: [DataProviderChange<ChainStorageItem>]) in
-            let finalItem: ChainStorageItem? = changes.reduce(nil) { (_, item) in
-                switch item {
-                case .insert(let newItem), .update(let newItem):
-                    return newItem
-                case .delete:
-                    return nil
+            guard let self else { return }
+            // A shared provider can emit other keys or an empty refresh batch.
+            // Only the final change for this storage key replaces its value.
+            guard let change = changes.last(where: { change in
+                switch change {
+                case .insert(let item), .update(let item): return item.identifier == self.itemIdentifier
+                case .delete(let identifier): return identifier == self.itemIdentifier
                 }
+            }) else { return }
+            switch change {
+            case .insert(let item), .update(let item): self.replaceAndNotifyIfNeeded(item)
+            case .delete: self.replaceAndNotifyIfNeeded(nil)
             }
-
-            self?.replaceAndNotifyIfNeeded(finalItem)
         }
 
         let failure = { [weak self] (error: Error) in
@@ -110,7 +114,7 @@ final class StorageProviderSource<T: Decodable & Equatable>: DataProviderSourceP
                                                         initialSize: 0,
                                                         refreshWhenEmpty: false)
         provider.addObserver(self,
-                             deliverOn: DispatchQueue.global(qos: .default),
+                             deliverOn: observerQueue,
                              executing: updateClosure,
                              failing: failure,
                              options: options)
@@ -178,6 +182,7 @@ extension StorageProviderSource {
     }
 
     func fetchOperation(page index: UInt) -> CompoundOperationWrapper<[Model]> {
+        guard index == 0 else { return .createWithResult([]) }
         lock.lock()
 
         defer {

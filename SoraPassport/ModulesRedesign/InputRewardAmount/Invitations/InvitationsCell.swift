@@ -52,10 +52,11 @@ final class InvitationsCell: SoramitsuTableViewCell {
     private weak var delegate: InvitationsCellDelegate?
     
     private var fee: Decimal = Decimal(0)
+    private var feeSymbol = "XOR"
     private var currentInvitationCount: Decimal = Decimal(0) {
         didSet {
             amountView.textField.sora.text =  "\(currentInvitationCount)"
-            amountView.underMinusLabel.sora.text =  "\(currentInvitationCount * fee) XOR"
+            amountView.underMinusLabel.sora.text =  "\(currentInvitationCount * fee) \(feeSymbol)"
             delegate?.userChanged(currentInvitationCount)
         }
     }
@@ -64,12 +65,13 @@ final class InvitationsCell: SoramitsuTableViewCell {
     private var cancellables: Set<AnyCancellable> = []
     private weak var viewModel: InvitationsViewModel? {
         didSet {
-            guard let viewModel = viewModel else { return }
+            cancellables.removeAll()
+            guard let viewModel else { return }
             viewModel.$isEnabled
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in
+                .sink { [weak self] enabled in
                     guard let self = self else { return }
-                    self.button.sora.isEnabled = viewModel.isEnabled ?? false
+                    self.button.sora.isEnabled = enabled ?? false
                 }
                 .store(in: &cancellables)
         }
@@ -183,6 +185,7 @@ final class InvitationsCell: SoramitsuTableViewCell {
     }
     
     private func buttonTapped() {
+        guard viewModel?.isEnabled == true else { return }
         delegate?.buttonTapped()
     }
     
@@ -198,7 +201,8 @@ final class InvitationsCell: SoramitsuTableViewCell {
 
     private func textFieldChanged() {
         let text = amountView.textField.sora.text ?? "0"
-        currentInvitationCount = Decimal(string: text) ?? Decimal(0)
+        let isWholeNumber = text.range(of: #"[0-9]+\z"#, options: [.regularExpression, .anchored]) != nil
+        currentInvitationCount = isWholeNumber ? (AmountDecimal(string: text)?.decimalValue ?? 0) : 0
     }
     
     private func networkFeeInfoButtonTapped() {
@@ -219,15 +223,12 @@ extension InvitationsCell: Reusable {
         amountView.underMinusLabel.sora.text = "\(viewModel.bondedAmount) \(viewModel.feeSymbol)"
         amountView.underPlusLabel.sora.text = R.string.localizable.commonBalance(preferredLanguages: .currentLocale) + ":\(viewModel.balance)"
         
-        let invitationCount = (viewModel.bondedAmount / viewModel.fee).rounded(mode: .down)
-        
-        if invitationCount > 0 {
-            amountView.textField.sora.text = "\(invitationCount)"
-        }
-        
-        self.currentInvitationCount = invitationCount
+        let invitationCount = viewModel.fee > 0 && viewModel.bondedAmount >= 0
+            ? (viewModel.bondedAmount / viewModel.fee).rounded(mode: .down) : 0
         self.fee = viewModel.fee
+        self.feeSymbol = viewModel.feeSymbol
         self.delegate = viewModel.delegate
         self.viewModel = viewModel
+        self.currentInvitationCount = invitationCount
     }
 }

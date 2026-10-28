@@ -56,14 +56,16 @@ final class PoolDetailsItemFactory {
         
         let title = "\(baseAssetSymbol)-\(targetAssetSymbol) \(poolText)"
         
-        let isRemoveLiquidityEnabled = farms.map {
-            let pooledTokens = $0.pooledTokens ?? .zero
-            let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
-            return (pooledTokens / accountPoolBalance) == 1
-        }.filter { $0 }.isEmpty
-        
-        let isThereLiquidity = poolInfo.baseAssetPooledByAccount != nil && poolInfo.targetAssetPooledByAccount != nil
-        
+        let accountPoolBalance = poolInfo.accountPoolBalance
+        let isRemoveLiquidityEnabled = accountPoolBalance.map { balance in
+            !balance.isNaN && balance > 0 && farms.allSatisfy { farm in
+                guard let tokens = farm.pooledTokens, !tokens.isNaN, tokens >= 0 else { return false }
+                return tokens < balance
+            }
+        } ?? false
+        let isThereLiquidity = [poolInfo.baseAssetPooledByAccount, poolInfo.targetAssetPooledByAccount]
+            .allSatisfy { amount in amount.map { !$0.isNaN && $0 > 0 } ?? false }
+
         let detailsViewModels = detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: nil, viewModel: viewModel)
         
         let detailsItem = PoolDetailsItem(title: title,
@@ -110,7 +112,9 @@ final class PoolDetailsItemFactory {
 
             let percentageText = "\(NumberFormatter.percent.stringFromDecimal(percentage) ?? "")%"
             
-            let aprText = farms.first(where: { $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.aprText(suffix: "% APR") ?? ""
+            let aprText = farms.first(where: { $0.baseAsset?.assetId == userFarm.baseAssetId &&
+                $0.poolAsset?.assetId == userFarm.poolAssetId &&
+                $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.aprText(suffix: "% APR") ?? ""
             
             return FarmViewModel(identifier: id,
                                  title: title,
@@ -180,7 +184,7 @@ final class PoolDetailsItemFactory {
         
         var stackingState: FarmDetailsBottomButtonState = .stackingUnavailable
 
-        if let pooledByAccount = poolInfo?.baseAssetPooledByAccount, !(pooledByAccount.isZero) {
+        if let pooledByAccount = poolInfo?.baseAssetPooledByAccount, !pooledByAccount.isNaN, pooledByAccount > 0 {
             if pooledTokens.isZero {
                 stackingState = rewardsAmount.isZero ? .startStacking : .startStackingWithRewards
             } else {
@@ -196,7 +200,7 @@ final class PoolDetailsItemFactory {
                                               detailsViewModel: detailsViewModels,
                                               typeImage: (userFarmInfo?.pooledTokens ?? 0) > 0 ? .activeFarming : .incativeFarming,
                                               stackingState: stackingState,
-                                              areThereRewards: !rewardsAmount.isZero,
+                                              areThereRewards: !rewardsAmount.isNaN && rewardsAmount > 0,
                                               supplyItem: supplyItem)
         
         farmDetailsItem.onTapTopButton = { [weak viewModel] in

@@ -33,6 +33,32 @@ import SoraFoundation
 import SoraUIKit
 
 extension Decimal {
+    /// Parse a complete, ungrouped, nonnegative user-entered amount without precision loss.
+    static func parseLocalizedAmount(_ raw: String, locale: Locale) -> Decimal? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let separator = locale.decimalSeparator ?? "."
+        guard separator == "." || !text.contains(".") else { return nil }
+        var normalized = ""
+        for scalar in text.replacingOccurrences(of: separator, with: ".").unicodeScalars {
+            if scalar == "." {
+                normalized.append(".")
+            } else if CharacterSet.decimalDigits.contains(scalar),
+                      let digit = Character(String(scalar)).wholeNumberValue {
+                normalized += String(digit)
+            } else {
+                return nil
+            }
+        }
+        let parts = normalized.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count <= 2, let whole = parts.first,
+              let value = Decimal(amountString: normalized) else { return nil }
+        let integer = String(whole.drop(while: { $0 == "0" }))
+        let fraction = parts.count == 2
+            ? String(parts[1].reversed().drop(while: { $0 == "0" }).reversed()) : ""
+        let canonical = (integer.isEmpty ? "0" : integer) + (fraction.isEmpty ? "" : "." + fraction)
+        return value.stringWithPointSeparator == canonical ? value : nil
+    }
+
     var stringWithPointSeparator: String {
         let separator = [NSLocale.Key.decimalSeparator: "."]
         var value = self
@@ -41,10 +67,9 @@ extension Decimal {
     }
     
     func reduceScale(to places: Int) -> Decimal {
-        let multiplier = pow(Decimal(10), places)
-        let newDecimal = multiplier * self // move the decimal right
-        let originalDecimal = newDecimal / multiplier // move the decimal back
-        return originalDecimal
+        // Match the floor rounding used by the fiat formatter. Multiplying and
+        // dividing by the same power of ten leaves the original scale intact.
+        rounded(with: places, mode: .down)
     }
     
     func formatNumber() -> String {

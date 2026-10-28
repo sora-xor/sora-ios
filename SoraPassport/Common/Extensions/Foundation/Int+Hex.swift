@@ -33,15 +33,12 @@ import BigInt
 
 extension BigUInt {
     public init?(hexString: String, radix: Int) {
-        let prefix = "0x"
-        if hexString.hasPrefix(prefix) {
-            let filtered = String(hexString.suffix(hexString.count - prefix.count))
-            self = BigUInt(filtered, radix: radix)!
-        } else {
-            self = BigUInt(hexString, radix: radix)!
-        }
+        guard (2...36).contains(radix) else { return nil }
+        let digits = hexString.hasPrefix("0x") ? String(hexString.dropFirst(2)) : hexString
+        guard let value = BigUInt(digits, radix: radix) else { return nil }
+        self = value
     }
-    
+
     static func fromHexString(_ hex: String) -> BigUInt? {
         let prefix = "0x"
 

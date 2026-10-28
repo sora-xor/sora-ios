@@ -35,6 +35,14 @@ import IrohaCrypto
 import SSFUtils
 
 extension AssetTransactionData {
+    private static func historyFee(_ value: String, precision: Int16) -> Decimal {
+        if let atomic = BigUInt(value) {
+            return Decimal.fromSubstrateAmount(atomic, precision: precision) ?? .zero
+        }
+        guard let amount = AmountDecimal(string: value)?.decimalValue, amount >= .zero else { return .zero }
+        return amount
+    }
+
     static func createTransaction(
         from item: TransactionHistoryItem,
         address: String,
@@ -130,12 +138,7 @@ extension AssetTransactionData {
         let desiredADecimal = Decimal.fromSubstrateAmount(desiredA, precision: asset.precision) ?? .zero
         let desiredBDecimal = Decimal.fromSubstrateAmount(desiredB, precision: asset.precision) ?? .zero
 
-        let feeDecimal: Decimal = {
-            guard let feeValue = BigUInt(item.fee) else {
-                return Decimal(string: item.fee) ?? .zero
-            }
-            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
-        }()
+        let feeDecimal: Decimal = historyFee(item.fee, precision: asset.precision)
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
@@ -201,18 +204,13 @@ extension AssetTransactionData {
         
         let withdraw = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<WithdrawLiquidityCall>.self, from: item.call).args
 
-        let desiredA = withdraw?.assetDesired ?? 0
+        let desiredA = withdraw?.minA ?? 0
         let desiredB = withdraw?.minB ?? 0
 
         let desiredADecimal = Decimal.fromSubstrateAmount(desiredA, precision: asset.precision) ?? .zero
         let desiredBDecimal = Decimal.fromSubstrateAmount(desiredB, precision: asset.precision) ?? .zero
 
-        let feeDecimal: Decimal = {
-            guard let feeValue = BigUInt(item.fee) else {
-                return Decimal(string: item.fee) ?? .zero
-            }
-            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
-        }()
+        let feeDecimal: Decimal = historyFee(item.fee, precision: asset.precision)
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
@@ -248,15 +246,15 @@ extension AssetTransactionData {
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
     ) -> AssetTransactionData {
-        let status: AssetTransactionStatus = .commited
+        let status = item.status.walletValue
 
         var type: ReferralMethodType = .setReferrer
 
-        if item.callPath == .bondReferralBalance {
+        if item.callPath.callName == CallCodingPath.bondReferralBalance.callName {
             type = .bond
         }
 
-        if item.callPath == .unbondReferralBalance {
+        if item.callPath.callName == CallCodingPath.unbondReferralBalance.callName {
             type = .unbond
         }
 
@@ -266,10 +264,7 @@ extension AssetTransactionData {
 
         let amount = Decimal.fromSubstrateAmount(bondUnbondCall?.balance ?? .zero, precision: asset.precision) ?? 0.0
 
-        let feeAmount: Decimal = {
-            guard let amountValue = BigUInt(item.fee) else { return 0.0 }
-            return Decimal.fromSubstrateAmount(amountValue, precision: asset.precision) ?? 0.0
-        }()
+        let feeAmount: Decimal = historyFee(item.fee, precision: asset.precision)
 
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
@@ -310,22 +305,18 @@ extension AssetTransactionData {
     ) -> AssetTransactionData {
 
         let swap = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<SwapCall>.self, from: item.call).args
-        let sourceType: UInt? = swap?.liquiditySourceType.first as? UInt
-        let marketType: LiquiditySourceType = LiquiditySourceType(networkValue: sourceType)
+        let source = swap?.liquiditySourceType.first?.first ?? nil
+        let marketType = source.flatMap(LiquiditySourceType.init(rawValue:)) ?? .smart
         let amountStruct = swap?.amount.values.first
-        let desired = amountStruct?.desired ?? 0
-        let slip = amountStruct?.slip ?? 0
+        let desired = amountStruct?.type == .desiredOutput
+            ? amountStruct?.slip ?? 0 : amountStruct?.desired ?? 0
+        let slip = amountStruct?.type == .desiredOutput
+            ? amountStruct?.desired ?? 0 : amountStruct?.slip ?? 0
 
         let amountDecimal = Decimal.fromSubstrateAmount(slip, precision: asset.precision) ?? .zero
         let fromAmountDecimal = Decimal.fromSubstrateAmount(desired, precision: asset.precision) ?? .zero
 
-        let feeDecimal: Decimal = {
-            guard let feeValue = BigUInt(item.fee) else {
-                return Decimal(string: item.fee) ?? .zero
-            }
-
-            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
-        }()
+        let feeDecimal: Decimal = historyFee(item.fee, precision: asset.precision)
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
@@ -391,13 +382,7 @@ extension AssetTransactionData {
         let assetId = call?.assetId.value ?? asset.identifier
 
         let peerId = accountId?.toHex() ?? peerAddress
-        let feeDecimal: Decimal = {
-            guard let feeValue = BigUInt(item.fee) else {
-                return Decimal(string: item.fee) ?? .zero
-            }
-
-            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
-        }()
+        let feeDecimal: Decimal = historyFee(item.fee, precision: asset.precision)
 
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
@@ -442,20 +427,13 @@ extension AssetTransactionData {
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
     ) -> AssetTransactionData {
-        let amount: Decimal = {
-            guard let amountValue = BigUInt(item.fee) else {
-                return 0.0
-            }
-
-            return Decimal.fromSubstrateAmount(amountValue, precision: asset.precision) ?? 0.0
-        }()
+        let amount: Decimal = historyFee(item.fee, precision: asset.precision)
 
         let accountId = try? addressFactory.accountId(
             fromAddress: item.sender,
             type: networkType
         )
 
-        let cfff = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<SwapCall>.self, from: item.call)
         let peerId = accountId?.toHex() ?? address
 
         return AssetTransactionData(

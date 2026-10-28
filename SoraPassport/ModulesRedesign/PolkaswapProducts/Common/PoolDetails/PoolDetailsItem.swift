@@ -33,7 +33,7 @@ import SoraUIKit
 
 import RobinHood
 
-enum PoollProductType {
+enum PoollProductType: Hashable {
     case activePoolWithFarming
     case inactivePoolWithFarming
     case activeFarming
@@ -59,6 +59,7 @@ final class PoolDetailsItem: ItemProtocol {
     var isThereLiquidity: Bool
     let typeImage: PoollProductType
     weak var service: PoolDetailsItemServiceProtocol?
+    private let serviceIdentity: ObjectIdentifier?
     let detailsViewModels: [DetailViewModel]
     var handler: ((Liquidity.TransactionLiquidityType) -> Void)?
 
@@ -81,15 +82,31 @@ final class PoolDetailsItem: ItemProtocol {
         self.isThereLiquidity = isThereLiquidity
         self.detailsViewModels = detailsViewModels
         self.service = service
+        self.serviceIdentity = service.map(ObjectIdentifier.init)
     }
 }
 
 extension PoolDetailsItem: Hashable {
     static func == (lhs: PoolDetailsItem, rhs: PoolDetailsItem) -> Bool {
-        lhs.isThereLiquidity == rhs.isThereLiquidity
+        lhs.isThereLiquidity == rhs.isThereLiquidity &&
+            lhs.isRemoveLiquidityEnabled == rhs.isRemoveLiquidityEnabled &&
+            lhs.title == rhs.title && lhs.typeImage == rhs.typeImage &&
+            lhs.firstAssetImage == rhs.firstAssetImage && lhs.secondAssetImage == rhs.secondAssetImage &&
+            lhs.rewardAssetImage == rhs.rewardAssetImage && lhs.detailsViewModels == rhs.detailsViewModels &&
+            lhs.serviceIdentity == rhs.serviceIdentity &&
+            (lhs.handler != nil) == (rhs.handler != nil)
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(isThereLiquidity)
+        hasher.combine(isRemoveLiquidityEnabled)
+        hasher.combine(title)
+        hasher.combine(typeImage)
+        hasher.combine(firstAssetImage)
+        hasher.combine(secondAssetImage)
+        hasher.combine(rewardAssetImage)
+        hasher.combine(detailsViewModels)
+        hasher.combine(serviceIdentity)
+        hasher.combine(handler != nil)
     }
 }

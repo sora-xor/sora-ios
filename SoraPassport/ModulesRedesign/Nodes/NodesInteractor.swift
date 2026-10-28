@@ -40,19 +40,25 @@ final class NodesInteractor {
     private let chainRepository: AnyDataProviderRepository<ChainModel>
     private let operationManager: OperationManagerProtocol
     var chain: ChainModel
-    private let chainRegistry = ChainRegistryFacade.sharedRegistry
+    private let chainRegistry: ChainRegistryProtocol
 
     init(settings: SettingsManagerProtocol,
          chain: ChainModel,
          repository: AnyDataProviderRepository<ChainModel>,
          eventCenter: EventCenterProtocol,
-         operationManager: OperationManagerProtocol
+         operationManager: OperationManagerProtocol,
+         chainRegistry: ChainRegistryProtocol = ChainRegistryFacade.sharedRegistry
     ) {
         self.settings = settings
         self.eventCenter = eventCenter
         self.operationManager = operationManager
+        self.chainRegistry = chainRegistry
         self.chain = chain
         self.chainRepository = repository
+    }
+
+    deinit {
+        eventCenter.remove(observer: self)
     }
 }
 
@@ -82,9 +88,16 @@ extension NodesInteractor: NodesInteractorInputProtocol {
             []
         }
 
-        saveOperation.completionBlock = { [weak self] in
-            let event = ChainsUpdatedEvent(updatedChains: [updatedChain])
-            self?.eventCenter.notify(with: event)
+        saveOperation.completionBlock = { [weak self, weak saveOperation] in
+            guard let saveOperation else { return }
+            do {
+                _ = try saveOperation.extractNoCancellableResultData()
+                self?.eventCenter.notify(with: ChainsUpdatedEvent(updatedChains: [updatedChain]))
+            } catch {
+                DispatchQueue.main.async { [weak self] in
+                    self?.presenter?.showConnectionFailed()
+                }
+            }
         }
         operationManager.enqueue(operations: [saveOperation], in: .transient)
     }
@@ -102,9 +115,16 @@ extension NodesInteractor: NodesInteractorInputProtocol {
             []
         }
 
-        saveOperation.completionBlock = { [weak self] in
-            let event = ChainsUpdatedEvent(updatedChains: [updatedChain])
-            self?.eventCenter.notify(with: event)
+        saveOperation.completionBlock = { [weak self, weak saveOperation] in
+            guard let saveOperation else { return }
+            do {
+                _ = try saveOperation.extractNoCancellableResultData()
+                self?.eventCenter.notify(with: ChainsUpdatedEvent(updatedChains: [updatedChain]))
+            } catch {
+                DispatchQueue.main.async { [weak self] in
+                    self?.presenter?.showConnectionFailed()
+                }
+            }
         }
         operationManager.enqueue(operations: [saveOperation], in: .transient)
     }

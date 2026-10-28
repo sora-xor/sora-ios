@@ -62,7 +62,7 @@ struct AssetInfo: Codable {
         precision = try container.decode(StringCodable<UInt32>.self, forKey: .precision).wrappedValue
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
-        fiatPrice = try container.decodeIfPresent(Decimal.self, forKey: .visible)
+        fiatPrice = nil
         normalizeNativeAssetMetadata()
     }
 

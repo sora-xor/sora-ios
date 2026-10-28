@@ -52,6 +52,7 @@ enum RuntimeProviderError: Error {
 
 final class RuntimeProvider {
     struct PendingRequest {
+        let id = UUID()
         let resultClosure: (RuntimeCoderFactoryProtocol?) -> Void
         let queue: DispatchQueue?
     }
@@ -71,6 +72,7 @@ final class RuntimeProvider {
     private(set) var pendingRequests: [PendingRequest] = []
     private(set) var currentWrapper: CompoundOperationWrapper<RuntimeSnapshot?>?
     private var mutex = NSLock()
+    private var currentBuildID: UUID?
 
     private var commonTypesFetched: Bool = false
     private var chainTypesFetched: Bool = false
@@ -103,6 +105,11 @@ final class RuntimeProvider {
         eventCenter.add(observer: self, dispatchIn: DispatchQueue.global())
     }
 
+    deinit {
+        cleanup()
+        eventCenter.remove(observer: self)
+    }
+
     private func buildSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
         guard commonTypesFetched, chainTypesFetched, chainMetadataFetched else {
             return
@@ -113,40 +120,47 @@ final class RuntimeProvider {
             dataHasher: dataHasher
         )
 
+        let buildID = UUID()
         wrapper.targetOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
-                self?.handleCompletion(result: wrapper.targetOperation.result)
+                self?.handleCompletion(result: wrapper.targetOperation.result, buildID: buildID)
             }
         }
 
+        currentBuildID = buildID
         currentWrapper = wrapper
 
         operationQueue.addOperations(wrapper.allOperations, waitUntilFinished: false)
     }
 
     private func buildHotSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
-        let wrapper = snapshotHotOperationFactory?.createRuntimeSnapshotWrapper(
+        guard let wrapper = snapshotHotOperationFactory?.createRuntimeSnapshotWrapper(
             for: typesUsage,
             dataHasher: dataHasher
-        )
+        ) else { return }
 
-        wrapper?.targetOperation.completionBlock = { [weak self] in
+        let buildID = UUID()
+        wrapper.targetOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
-                self?.handleCompletion(result: wrapper?.targetOperation.result)
+                self?.handleCompletion(result: wrapper.targetOperation.result, buildID: buildID)
             }
         }
 
+        currentBuildID = buildID
         currentWrapper = wrapper
-
-        operationQueue.addOperations(wrapper?.allOperations ?? [], waitUntilFinished: false)
+        operationQueue.addOperations(wrapper.allOperations, waitUntilFinished: false)
     }
 
-    private func handleCompletion(result: Result<RuntimeSnapshot?, Error>?) {
+    private func handleCompletion(result: Result<RuntimeSnapshot?, Error>?, buildID: UUID) {
         mutex.lock()
 
         defer {
             mutex.unlock()
         }
+
+        guard currentBuildID == buildID else { return }
+        currentBuildID = nil
+        currentWrapper = nil
 
         switch result {
         case let .success(snapshot):
@@ -163,16 +177,19 @@ final class RuntimeProvider {
 
                 let event = RuntimeCoderCreated(chainId: chainId)
                 eventCenter.notify(with: event)
+            } else {
+                resolveRequests()
             }
         case let .failure(error):
             currentWrapper = nil
 
             logger?.debug("Runtime snapshot build failed")
+            resolveRequests()
 
             let event = RuntimeCoderCreationFailed(chainId: chainId, error: error)
             eventCenter.notify(with: event)
         case .none:
-            break
+            resolveRequests()
         }
     }
 
@@ -238,6 +255,7 @@ final class RuntimeProvider {
 
     private func fetchCoderFactory(
         runCompletionIn queue: DispatchQueue?,
+        timeout: TimeInterval? = nil,
         executing closure: @escaping (RuntimeCoderFactoryProtocol?) -> Void
     ) {
         mutex.lock()
@@ -250,9 +268,28 @@ final class RuntimeProvider {
 
         if let snapshot = snapshot {
             deliver(snapshot: snapshot, to: request)
+        } else if let timeout, !timeout.isFinite || timeout <= 0 {
+            deliver(snapshot: nil, to: request)
         } else {
             pendingRequests.append(request)
+            if let timeout {
+                let requestID = request.id
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) { [weak self] in
+                    self?.expireRequest(requestID)
+                }
+            }
         }
+    }
+
+    private func expireRequest(_ id: UUID) {
+        mutex.lock()
+        guard let index = pendingRequests.firstIndex(where: { $0.id == id }) else {
+            mutex.unlock()
+            return
+        }
+        let request = pendingRequests.remove(at: index)
+        mutex.unlock()
+        deliver(snapshot: nil, to: request)
     }
 
     func fetchCoderFactoryOperation() -> BaseOperation<RuntimeCoderFactoryProtocol> {
@@ -265,8 +302,7 @@ final class RuntimeProvider {
 
             let semaphore = DispatchSemaphore(value: 0)
 
-            let queue = DispatchQueue(label: "jp.co.soramitsu.fearless.fetchCoder.\(self.chainId)", qos: .utility)
-            self.fetchCoderFactory(runCompletionIn: queue) { factory in
+            self.fetchCoderFactory(runCompletionIn: nil) { factory in
                 fetchedFactory = factory
                 semaphore.signal()
             }
@@ -282,12 +318,16 @@ final class RuntimeProvider {
     }
 
     func fetchCoderFactoryOperation(
-        with _: TimeInterval,
+        with timeout: TimeInterval,
         closure _: RuntimeMetadataClosure?
     ) -> BaseOperation<RuntimeCoderFactoryProtocol> {
         AwaitOperation { [weak self] in
             try await withCheckedThrowingContinuation { continuation in
-                self?.fetchCoderFactory(runCompletionIn: nil) { factory in
+                guard let self else {
+                    continuation.resume(throwing: RuntimeProviderError.providerUnavailable)
+                    return
+                }
+                self.fetchCoderFactory(runCompletionIn: nil, timeout: timeout) { factory in
                     guard let factory = factory else {
                         continuation.resume(with: .failure(RuntimeProviderError.providerUnavailable))
                         return
@@ -349,6 +389,7 @@ extension RuntimeProvider: RuntimeProviderProtocol {
             return
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -366,6 +407,7 @@ extension RuntimeProvider: RuntimeProviderProtocol {
 
         snapshot = nil
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -389,6 +431,7 @@ extension RuntimeProvider: EventVisitorProtocol {
             return
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -410,6 +453,7 @@ extension RuntimeProvider: EventVisitorProtocol {
             mutex.unlock()
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -435,6 +479,7 @@ extension RuntimeProvider: EventVisitorProtocol {
             return
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 

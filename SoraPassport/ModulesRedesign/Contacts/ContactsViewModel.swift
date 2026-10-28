@@ -86,6 +86,7 @@ final class ContactsViewModel: NSObject {
 
     private var searchPattern = ""
 
+    private var searchRequestID: UUID?
     private var searchOperation: CancellableCall?
     private var isWaitingSearch: Bool = false
     var completion: ((ScanQRResult) -> Void)?
@@ -201,6 +202,7 @@ final class ContactsViewModel: NSObject {
     }
     
     private func cancelSearch() {
+        searchRequestID = nil
         if isWaitingSearch {
 
             NSObject.cancelPreviousPerformRequests(withTarget: self,
@@ -214,8 +216,8 @@ final class ContactsViewModel: NSObject {
     }
     
     private func scheduleSearch() {
-        searchOperation?.cancel()
-        searchOperation = nil
+        cancelSearch()
+        searchRequestID = UUID()
 
         let accountId = try? SS58AddressFactory().accountId(from: settingsManager.currentAccount?.identifier ?? "").toHex(includePrefix: true)
         let parameters = ContactModuleParameters(accountId: accountId ?? "",
@@ -255,24 +257,19 @@ final class ContactsViewModel: NSObject {
     
     @objc private func performSearch() {
         isWaitingSearch = false
+        guard let requestID = searchRequestID else { return }
         let pattern = searchPattern
-        searchOperation = walletService.search(for: pattern, runCompletionIn: .main) { [weak self] (result) in
-
-            guard let strongSelf = self else {
-                return
-            }
-
-            guard strongSelf.searchPattern == pattern else { return }
-
-            if let result = result {
-                self?.searchOperation = nil
-
+        searchOperation = walletService.search(for: pattern, runCompletionIn: .main) { [weak self] result in
+            // A service can complete synchronously or from a background queue.
+            // Queue delivery so installing the cancellable always finishes first.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, searchRequestID == requestID, searchPattern == pattern else { return }
+                searchRequestID = nil
+                searchOperation = nil
+                guard let result else { return }
                 switch result {
-                case .success(let contacts):
-                    let loadedContacts = contacts ?? []
-                    strongSelf.handleSearch(with: loadedContacts)
-                case .failure(let error):
-                    strongSelf.handleSearchError(error)
+                case .success(let contacts): handleSearch(with: contacts ?? [])
+                case .failure(let error): handleSearchError(error)
                 }
             }
         }
@@ -290,9 +287,9 @@ extension ContactsViewModel: ContactsViewModelProtocol {
     }
     
     func search(_ pattern: String) {
-        searchPattern = pattern
+        searchPattern = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        guard !pattern.isEmpty else {
+        guard !searchPattern.isEmpty else {
             cancelSearch()
             setupItems?(recentContantsItems)
             return

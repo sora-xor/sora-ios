@@ -129,7 +129,8 @@ open class PullUpController: UIViewController {
     private var panGestureRecognizer: UIPanGestureRecognizer?
 
     private var isPortrait: Bool {
-        return UIScreen.main.bounds.height > UIScreen.main.bounds.width
+        let size = parent?.view.bounds.size ?? UIScreen.main.bounds.size
+        return size.height > size.width
     }
 
     private var portraitPreviousStickyPointIndex: Int?
@@ -280,6 +281,10 @@ open class PullUpController: UIViewController {
     }
 
     private func setupPanGestureRecognizer() {
+        removeInternalScrollViewPanGestureRecognizer()
+        if let panGestureRecognizer {
+            view.removeGestureRecognizer(panGestureRecognizer)
+        }
         addInternalScrollViewPanGesture()
         panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePanGestureRecognizer(_:)))
         panGestureRecognizer?.minimumNumberOfTouches = 1
@@ -292,6 +297,9 @@ open class PullUpController: UIViewController {
     private func setupConstraints() {
         guard let parentView = parent?.view else { return }
 
+        NSLayoutConstraint.deactivate([
+            topConstraint, leftConstraint, widthConstraint, heightConstraint, bottomConstraint
+        ].compactMap { $0 })
         topConstraint = view.topAnchor.constraint(equalTo: parentView.topAnchor)
         leftConstraint = view.leftAnchor.constraint(equalTo: parentView.leftAnchor)
         widthConstraint = view.widthAnchor.constraint(equalToConstant: pullUpControllerPreferredSize.width)
@@ -369,7 +377,7 @@ open class PullUpController: UIViewController {
             setTopOffset(topConstraint.constant + yTranslation - initialInternalScrollViewContentOffset.y)
             gestureRecognizer.setTranslation(initialInternalScrollViewContentOffset, in: scrollView)
 
-        case .ended:
+        case .ended, .cancelled, .failed:
             scrollView.bounces = true
             goToNearestStickyPoint(verticalVelocity: gestureRecognizer.velocity(in: view).y)
 
@@ -389,7 +397,7 @@ open class PullUpController: UIViewController {
             setTopOffset(topConstraint.constant + yTranslation, allowBounce: true)
             gestureRecognizer.setTranslation(.zero, in: view)
 
-        case .ended:
+        case .ended, .cancelled, .failed:
             goToNearestStickyPoint(verticalVelocity: gestureRecognizer.velocity(in: view).y)
 
         default:
@@ -569,6 +577,7 @@ extension UIScrollView {
      - parameter pullUpController: the pull up controller to be removed from controlling the scroll view.
      */
     open func detach(from pullUpController: PullUpController) {
+        guard pullUpController.internalScrollView === self else { return }
         pullUpController.removeInternalScrollViewPanGestureRecognizer()
         pullUpController.internalScrollView = nil
     }

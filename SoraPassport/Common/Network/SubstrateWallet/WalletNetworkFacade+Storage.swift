@@ -52,7 +52,12 @@ extension WalletNetworkFacade {
         )
 
         let mapOperation = ClosureOperation<JSON?> {
-            try wrapper.targetOperation.extractNoCancellableResultData().first?.value
+            let responses = try wrapper.targetOperation.extractNoCancellableResultData()
+            let key = try StorageKeyFactory().accountInfoKeyForId(accountId)
+            guard responses.count == 1, let response = responses.first, response.key == key else {
+                throw PortfolioReaderError.invalidStorageResponse
+            }
+            return response.value
         }
 
         wrapper.allOperations.forEach { $0.addDependency(coderFactoryOperation) }
@@ -72,6 +77,7 @@ extension WalletNetworkFacade {
     ///   Either way an unread balance is never reported as zero.
     func fetchBalanceInfoForAssets(_ assets: [WalletAsset], markingUnavailable: Bool = false)
         -> CompoundOperationWrapper<[BalanceData]?> {
+        guard !assets.isEmpty else { return .createWithResult([]) }
         //swiftlint:disable force_cast
         let factory = nodeOperationFactory as! WalletNetworkOperationFactory
         //swiftlint:enable force_cast
@@ -124,12 +130,20 @@ extension WalletNetworkFacade {
                     }
 
                     var context: BalanceContext = BalanceContext(context: [:])
-                    context = context.byChangingAccountInfo(accountData, precision: asset.precision)
+                    do {
+                        context = try context.byChangingAccountInfo(accountData, precision: asset.precision)
+                    } catch {
+                        return .unavailable(identifier: asset.identifier)
+                    }
                     
                     if asset.identifier == WalletAssetId.xor.rawValue,
                        let eraInfo = try? eraOperation.targetOperation.extractNoCancellableResultData(),
                        let stackingInfo = try? stackingInfoOperation.extractNoCancellableResultData().underlyingValue {
-                        context = context.byChangingStakingInfo(stackingInfo, activeEra: eraInfo, precision: asset.precision)
+                        do {
+                            context = try context.byChangingStakingInfo(stackingInfo, activeEra: eraInfo, precision: asset.precision)
+                        } catch {
+                            return .unavailable(identifier: asset.identifier)
+                        }
                     }
                     
 
@@ -146,7 +160,7 @@ extension WalletNetworkFacade {
                 mappingOperation.addDependency(operation)
             }
             
-            dependencies.forEach { operation in
+            (dependencies + eraOperation.allOperations + [stackingInfoOperation]).forEach { operation in
                 mappingOperation.addDependency(operation)
             }
 

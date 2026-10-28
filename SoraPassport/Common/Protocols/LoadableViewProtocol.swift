@@ -69,7 +69,7 @@ extension LoadableViewProtocol where Self: UIViewController {
         newIndicator.alpha = 0.0
         loadableContentView.addSubview(newIndicator)
 
-        loadableContentView.isUserInteractionEnabled = shouldDisableInteractionWhenLoading
+        loadableContentView.isUserInteractionEnabled = !shouldDisableInteractionWhenLoading
 
         newIndicator.startAnimating()
 

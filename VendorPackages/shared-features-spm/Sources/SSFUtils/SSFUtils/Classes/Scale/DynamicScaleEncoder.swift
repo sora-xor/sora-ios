@@ -41,12 +41,16 @@ public final class DynamicScaleEncoder {
             throw DynamicScaleEncoderError.expectedStringForInt(json: value)
         }
 
-        var encodedData: [UInt8] = intValue.serialize().reversed()
-
-        while encodedData.count < byteLength {
-            encodedData.append(0)
+        let bits = byteLength * 8
+        let limit = BigInt(1) << (bits - 1)
+        guard intValue >= -limit, intValue < limit else {
+            throw DynamicScaleEncoderError.integerOutOfRange(json: value, bits: bits, signed: true)
         }
-
+        // SCALE signed integers use fixed-width little-endian two's complement.
+        // BigInt.serialize() instead adds a separate sign byte.
+        let unsigned = intValue < 0 ? intValue + (BigInt(1) << bits) : intValue
+        var encodedData: [UInt8] = unsigned.magnitude.serialize().reversed()
+        encodedData += Array(repeating: 0, count: byteLength - encodedData.count)
         encoder.appendRaw(data: Data(encodedData))
     }
 
@@ -56,7 +60,7 @@ public final class DynamicScaleEncoder {
             assertionFailure()
             throw DynamicScaleCoderError.notImplemented
         } else {
-            try encodeFixedUInt(value: json, byteLength: byteLength)
+            try encodeFixedInt(value: json, byteLength: byteLength)
         }
     }
 
@@ -67,6 +71,9 @@ public final class DynamicScaleEncoder {
             throw DynamicScaleEncoderError.expectedStringForInt(json: value)
         }
 
+        guard intValue.bitWidth <= byteLength * 8 else {
+            throw DynamicScaleEncoderError.integerOutOfRange(json: value, bits: byteLength * 8, signed: false)
+        }
         var encodedData: [UInt8] = intValue.serialize().reversed()
 
         while encodedData.count < byteLength {

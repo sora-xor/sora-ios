@@ -66,6 +66,7 @@ final class ConfirmSwapViewModel {
             setupItems?(items)
         }
     }
+    private var isQuoteAvailable = true
     private var isEnoughtBalance: Bool = true {
         didSet {
             guard oldValue != isEnoughtBalance, let firstAsset = assetManager.assetInfo(for: firstAssetId) else { return }
@@ -155,25 +156,22 @@ final class ConfirmSwapViewModel {
     }
     
     private func updateBalanceData() {
-        if !self.firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [self.firstAssetId]).first {
-            self.firstAssetBalance = firstAssetBalance
-        }
-        
-        if !self.secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [self.secondAssetId]).first {
-            self.secondAssetBalance = secondAssetBalance
-        }
-
-        if let feeAssetId = assetManager.getAssetList()?.first(where: { $0.isFeeAsset })?.assetId,
-           let feeAssetBalance = assetsProvider?.getBalances(with: [feeAssetId]).first {
-            self.feeAssetBalance = feeAssetBalance
-        }
+        firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first
+            ?? .unavailable(identifier: firstAssetId)
+        secondAssetBalance = assetsProvider?.getBalances(with: [secondAssetId]).first
+            ?? .unavailable(identifier: secondAssetId)
+        let feeAssetId = assetManager.getAssetList()?.first(where: { $0.isFeeAsset })?.assetId ?? WalletAssetId.xor.rawValue
+        feeAssetBalance = assetsProvider?.getBalances(with: [feeAssetId]).first
+            ?? .unavailable(identifier: feeAssetId)
     }
 
     private func updateBalanceAvailability() {
         let maximumSpend = swapVariant == .desiredOutput
             ? minMaxValue
             : firstAssetAmount
-        guard fee > 0,
+        guard isQuoteAvailable,
+              fee > 0,
+              !firstAssetBalance.isUnavailable,
               !firstAssetId.isEmpty,
               !secondAssetId.isEmpty,
               firstAssetId != secondAssetId,
@@ -201,6 +199,7 @@ final class ConfirmSwapViewModel {
                 ? minMaxValue
                 : secondAssetAmount
             guard toAsset.assetId == feeAsset.assetId,
+                  !secondAssetBalance.isUnavailable,
                   guaranteedReceive > 0,
                   secondAssetBalance.balance.decimalValue + guaranteedReceive >= fee else {
                 isEnoughtBalance = false
@@ -211,6 +210,7 @@ final class ConfirmSwapViewModel {
         }
 
         guard feeAssetBalance.identifier == feeAsset.assetId,
+              !feeAssetBalance.isUnavailable,
               feeAssetBalance.balance.decimalValue >= fee else {
             isEnoughtBalance = false
             return
@@ -257,7 +257,11 @@ extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
 
 extension ConfirmSwapViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        updateBalanceData()
+        if Thread.isMainThread {
+            updateBalanceData()
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.updateBalanceData() }
+        }
     }
 }
 
@@ -272,10 +276,10 @@ extension ConfirmSwapViewModel {
 
     func setupContent() {
         guard let firstAsset = assetManager.assetInfo(for: firstAssetId) else { return }
-        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: 8)
+        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAsset.precision)
         
         let secondAsset = assetManager.assetInfo(for: secondAssetId)
-        let secondAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: 8)
+        let secondAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: secondAsset?.precision ?? 18)
         
         let firstAssetImageModel = ConfirmAssetViewModel(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset.icon ?? ""),
                                                          amountText: firstAssetFormatter.stringFromDecimal(firstAssetAmount) ?? "",
@@ -335,7 +339,7 @@ extension ConfirmSwapViewModel {
     }
     
     func submit() {
-        updateBalanceAvailability()
+        updateBalanceData()
         guard isEnoughtBalance, hasCurrentExactQuote() else {
             isEnoughtBalance = false
             return
@@ -413,22 +417,22 @@ extension ConfirmSwapViewModel {
                        quote: SwapValues? = nil,
                        dexId: UInt32 = 0,
                        completion: (() -> Void)? = nil) {
-        guard let quote = quote,
+        if let params, !matchesReviewedRequest(params) {
+            completion?()
+            return
+        }
+        guard let quote,
               let fromAsset = assetManager.assetInfo(for: firstAssetId),
-              let toAsset = assetManager.assetInfo(for: secondAssetId) else {
+              let toAsset = assetManager.assetInfo(for: secondAssetId),
+              let amounts = SwapQuoteAmountsFactory().createAmounts(
+                fromAsset: fromAsset, toAsset: toAsset, params: quoteParams, quote: quote),
+              amounts.fromAmount > 0, amounts.toAmount > 0 else {
+            isQuoteAvailable = false
+            updateBalanceAvailability()
             completion?()
             return
         }
-        
-        
-        guard let amounts = SwapQuoteAmountsFactory().createAmounts(
-            fromAsset: fromAsset,
-            toAsset: toAsset,
-            params: quoteParams,
-            quote: quote), self.amounts != amounts else {
-            completion?()
-            return
-        }
+        isQuoteAvailable = true
         self.amounts = amounts
         self.dexId = dexId
         
@@ -448,44 +452,34 @@ extension ConfirmSwapViewModel {
                                                       route: route,
                                                       viewModel: self)
         
-        items.compactMap { $0 as? ConfirmDetailsItem }.first?.detailViewModels = details
-        
         if swapVariant == .desiredInput {
             firstAssetAmount = amounts.fromAmount
             secondAssetAmount = amounts.toAmount
-            
-            let secondAssetPrecision = assetManager.assetInfo(for: secondAssetId)?.precision ?? 0
-            let secondAssetFormatter = NumberFormatter.inputedAmoutFormatter(with: secondAssetPrecision)
-            let secondAmountText = secondAssetFormatter.stringFromDecimal(amounts.toAmount) ?? ""
-            
-            items.compactMap { $0 as? ConfirmAssetsItem }.first?.secondAssetImageModel.amountText = secondAmountText
         } else {
             firstAssetAmount = amounts.toAmount
             secondAssetAmount = amounts.fromAmount
-            
-            let firstAssetPrecision = assetManager.assetInfo(for: firstAssetId)?.precision ?? 0
-            let firstAssetFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAssetPrecision)
-            let firstAmountText = firstAssetFormatter.stringFromDecimal(amounts.toAmount) ?? ""
-
-            items.compactMap { $0 as? ConfirmAssetsItem }.first?.firstAssetImageModel.amountText = firstAmountText
         }
-        updateBalanceAvailability()
-
-        reloadItems?(items)
+        updateBalanceData()
+        setupContent()
         completion?()
     }
 }
 
 extension ConfirmSwapViewModel: PolkaswapMainInteractorOutputProtocol {
     func didLoadQuote(_ quote: SwapValues?, dexId: UInt32, params: PolkaswapMainInteractorQuoteParams) {
-        guard let quote = quote else {
-            isEnoughtBalance = false
-            return
-        }
-        
+        guard matchesReviewedRequest(params) else { return }
         updateDetails(params: params, quote: quote, dexId: dexId)
     }
-    
+
+    private func matchesReviewedRequest(_ params: PolkaswapMainInteractorQuoteParams) -> Bool {
+        params.fromAssetId == quoteParams.fromAssetId &&
+            params.toAssetId == quoteParams.toAssetId &&
+            params.amount == quoteParams.amount &&
+            params.swapVariant == quoteParams.swapVariant &&
+            params.liquiditySources == quoteParams.liquiditySources &&
+            params.filterMode == quoteParams.filterMode
+    }
+
     func didUpdatePoolSubscription() {
         loadQuote()
     }

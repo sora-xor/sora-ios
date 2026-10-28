@@ -81,10 +81,30 @@ final class WalletQRCaptureService: NSObject {
     weak var delegate: WalletQRCaptureServiceDelegate?
     var delegateQueue: DispatchQueue
 
+    private let stateLock = NSLock()
+    private var generation: UUID?
+    private var isStartingOrRunning = false
+
+    private func isCurrent(_ id: UUID) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return generation == id
+    }
+
+    private let authorizationStatus: () -> AVAuthorizationStatus
+    private let requestAccess: (@escaping (Bool) -> Void) -> Void
+    private let makeSession: (AVCaptureMetadataOutputObjectsDelegate) throws -> AVCaptureSession
+
     init(matcher: WalletQRMatcherProtocol,
          delegate: WalletQRCaptureServiceDelegate?,
-         delegateQueue: DispatchQueue? = nil) {
+         delegateQueue: DispatchQueue? = nil,
+         authorizationStatus: @escaping () -> AVAuthorizationStatus = { AVCaptureDevice.authorizationStatus(for: .video) },
+         requestAccess: @escaping (@escaping (Bool) -> Void) -> Void = { AVCaptureDevice.requestAccess(for: .video, completionHandler: $0) },
+         makeSession: @escaping (AVCaptureMetadataOutputObjectsDelegate) throws -> AVCaptureSession = WalletQRCaptureService.makeCaptureSession) {
 
+        self.authorizationStatus = authorizationStatus
+        self.requestAccess = requestAccess
+        self.makeSession = makeSession
         self.matcher = matcher
         self.delegate = delegate
         self.delegateQueue = delegateQueue ?? WalletQRCaptureService.processingQueue
@@ -93,10 +113,11 @@ final class WalletQRCaptureService: NSObject {
     }
 
     private func configureSessionIfNeeded() throws {
-        guard self.captureSession == nil else {
-            return
-        }
+        guard captureSession == nil else { return }
+        captureSession = try makeSession(self)
+    }
 
+    private static func makeCaptureSession(delegate: AVCaptureMetadataOutputObjectsDelegate) throws -> AVCaptureSession {
         let device = AVCaptureDevice.devices(for: .video).first { $0.position == .back}
 
         guard let camera = device else {
@@ -113,89 +134,75 @@ final class WalletQRCaptureService: NSObject {
         captureSession.addInput(input)
         captureSession.addOutput(output)
 
-        self.captureSession = captureSession
-
-        output.setMetadataObjectsDelegate(self, queue: WalletQRCaptureService.processingQueue)
+        output.setMetadataObjectsDelegate(delegate, queue: WalletQRCaptureService.processingQueue)
         output.metadataObjectTypes = [AVMetadataObject.ObjectType.qr]
+        return captureSession
     }
 
-    private func startAuthorizedSession() {
-        WalletQRCaptureService.processingQueue.async {
+    private func startAuthorizedSession(id: UUID) {
+        Self.processingQueue.async {
+            guard self.isCurrent(id) else { return }
             do {
                 try self.configureSessionIfNeeded()
-
-                if let captureSession = self.captureSession {
-                    captureSession.startRunning()
-
-                    self.notifyDelegateWithCreation(of: captureSession)
-                }
+                guard self.isCurrent(id), let captureSession = self.captureSession else { return }
+                captureSession.startRunning()
+                self.notify(id: id) { $0.qrCapture(service: self, didSetup: captureSession) }
             } catch {
-                self.notifyDelegate(with: error)
+                self.notify(error: error, id: id)
             }
         }
     }
 
-    private func notifyDelegate(with error: Error) {
-        run(in: delegateQueue) {
-            self.delegate?.qrCapture(service: self, didReceive: error)
-        }
+    private func notify(error: Error, id: UUID) {
+        stateLock.lock()
+        if generation == id { isStartingOrRunning = false }
+        stateLock.unlock()
+        notify(id: id) { $0.qrCapture(service: self, didReceive: error) }
     }
 
-    private func notifyDelegateWithCreation(of captureSession: AVCaptureSession) {
-        run(in: delegateQueue) {
-            self.delegate?.qrCapture(service: self, didSetup: captureSession)
-        }
-    }
-
-    private func notifyDelegateWithSuccessMatching(of code: String) {
-        run(in: delegateQueue) {
-            self.delegate?.qrCapture(service: self, didMatch: code)
-        }
-    }
-
-    private func notifyDelegateWithFailedMatching(of code: String) {
-        run(in: delegateQueue) {
-            self.delegate?.qrCapture(service: self, didFailMatching: code)
-        }
-    }
-
-    private func run(in queue: DispatchQueue, block: @escaping () -> Void) {
-        if delegateQueue != WalletQRCaptureService.processingQueue {
-            delegateQueue.async {
-                block()
-            }
-        } else {
-            block()
+    private func notify(id: UUID, action: @escaping (WalletQRCaptureServiceDelegate) -> Void) {
+        delegateQueue.async { [weak self] in
+            guard let self, self.isCurrent(id), let delegate = self.delegate else { return }
+            action(delegate)
         }
     }
 }
 
 extension WalletQRCaptureService: WalletQRCaptureServiceProtocol {
-    public func start() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
+    func start() {
+        stateLock.lock()
+        guard !isStartingOrRunning else { stateLock.unlock(); return }
+        let id = UUID()
+        generation = id
+        isStartingOrRunning = true
+        stateLock.unlock()
+        switch authorizationStatus() {
         case .authorized:
-            startAuthorizedSession()
+            startAuthorizedSession(id: id)
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { (granted) in
+            requestAccess { [weak self] granted in
+                guard let self, self.isCurrent(id) else { return }
                 if granted {
-                    self.startAuthorizedSession()
+                    self.startAuthorizedSession(id: id)
                 } else {
-                    self.notifyDelegate(with: WalletQRCaptureServiceError.deviceAccessDeniedNow)
+                    self.notify(error: WalletQRCaptureServiceError.deviceAccessDeniedNow, id: id)
                 }
             }
         case .denied:
-            notifyDelegate(with: WalletQRCaptureServiceError.deviceAccessDeniedPreviously)
+            notify(error: WalletQRCaptureServiceError.deviceAccessDeniedPreviously, id: id)
         case .restricted:
-            notifyDelegate(with: WalletQRCaptureServiceError.deviceAccessRestricted)
+            notify(error: WalletQRCaptureServiceError.deviceAccessRestricted, id: id)
         @unknown default:
-            break
+            notify(error: WalletQRCaptureServiceError.deviceAccessRestricted, id: id)
         }
     }
 
     func stop() {
-        WalletQRCaptureService.processingQueue.async {
-            self.captureSession?.stopRunning()
-        }
+        stateLock.lock()
+        generation = nil
+        isStartingOrRunning = false
+        stateLock.unlock()
+        Self.processingQueue.async { self.captureSession?.stopRunning() }
     }
 }
 
@@ -204,6 +211,10 @@ extension WalletQRCaptureService: AVCaptureMetadataOutputObjectsDelegate {
                         didOutput metadataObjects: [AVMetadataObject],
                         from connection: AVCaptureConnection) {
 
+        stateLock.lock()
+        let id = isStartingOrRunning ? generation : nil
+        stateLock.unlock()
+        guard let id else { return }
         guard let metadata = metadataObjects.first as? AVMetadataMachineReadableCodeObject else {
             return
         }
@@ -213,9 +224,9 @@ extension WalletQRCaptureService: AVCaptureMetadataOutputObjectsDelegate {
         }
 
         if matcher.match(code: possibleCode) {
-            notifyDelegateWithSuccessMatching(of: possibleCode)
+            notify(id: id) { $0.qrCapture(service: self, didMatch: possibleCode) }
         } else {
-            notifyDelegateWithFailedMatching(of: possibleCode)
+            notify(id: id) { $0.qrCapture(service: self, didFailMatching: possibleCode) }
         }
     }
 }

@@ -79,7 +79,7 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
             }
                 .joined(separator: "|")
 
-            let pattern = "^(\\/(\(enviromentPattern)))?\\/join\\/\(String.invitationCodePattern)$"
+            let pattern = "^(\\/(\(enviromentPattern)))?\\/join\\/\(String.invitationCodePattern)\\z"
             let regularExpression = try NSRegularExpression(pattern: pattern)
 
             let path = url.path
@@ -128,7 +128,7 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
     }
 
     func remove(observer: InvitationLinkObserver) {
-        observers = observers.filter { $0.observer !== nil && observer !== observer}
+        observers = observers.filter { $0.observer != nil && $0.observer !== observer}
     }
 
     func clear() {

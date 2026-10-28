@@ -217,6 +217,7 @@ private extension HistoryService {
         let listedHashes = Set(remoteTransactions.map { $0.base.txHash })
         let localTransactions = (localStorage.transactions[address] ?? [])
             .filter { !listedHashes.contains($0.base.txHash) }
+            .filter { transaction in assetId.map { Self.containsAsset($0, in: transaction) } ?? true }
         let overlay = SentTransactionJournalOverlay.apply(
             address: address,
             journal: readJournal(),
@@ -273,6 +274,22 @@ private extension HistoryService {
                 }
             }
             operationManager.enqueue(operations: [queryOperation], in: .transient)
+        }
+    }
+
+    /// Local rows carry decoded asset identifiers. Apply the same asset scope
+    /// as the indexer, including both sides of swaps and all farm assets.
+    static func containsAsset(_ assetId: String, in transaction: Transaction) -> Bool {
+        switch transaction {
+        case let value as TransferTransaction: return value.tokenId == assetId
+        case let value as ClaimReward: return value.rewardTokenId == assetId
+        case let value as ReferralBondTransaction: return value.tokenId == assetId
+        case let value as SetReferrerTransaction: return value.tokenId == assetId
+        case let value as Swap: return value.fromTokenId == assetId || value.toTokenId == assetId
+        case let value as Liquidity: return value.firstTokenId == assetId || value.secondTokenId == assetId
+        case let value as FarmLiquidity:
+            return value.firstTokenId == assetId || value.secondTokenId == assetId || value.rewardTokenId == assetId
+        default: return false
         }
     }
 

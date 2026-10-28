@@ -139,32 +139,33 @@ class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
                 keyType = doubleMapEntry.key1
                 hasher = doubleMapEntry.hasher
             case let .nMap(nMapEntry):
-                guard
-                    let firstKey = try nMapEntry.keys(using: factory.metadata.schemaResolver).first,
-                    let firstHasher = nMapEntry.hashers.first else {
+                let keyTypes = try nMapEntry.keys(using: factory.metadata.schemaResolver)
+                guard let firstKey = keyTypes.first,
+                      let firstHasher = nMapEntry.hashers.first else {
                     throw StorageKeyEncodingOperationError.missingRequiredParams
                 }
 
-                keyType = firstKey
+                // V14 also represents a single tuple key as an N-map. A single
+                // hasher covers the encoded tuple, while multiple hashers support
+                // a query prefix made from the first dimension.
+                keyType = nMapEntry.hashers.count == 1 && keyTypes.count > 1
+                    ? "(\(keyTypes.joined(separator: ", ")))" : firstKey
                 hasher = firstHasher
             case .plain:
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
             
-            let encoder = factory.createEncoder()
-            keyParams.forEach { keyParam in
-                try? encoder.append(keyParam, ofType: keyType)
-            }
-            let encodedParam = try encoder.encode()
-
-            let keys: [Data] = [
-                try storageKeyFactory.createStorageKey(
+            let keys: [Data] = try keyParams.map { keyParam in
+                let encoder = factory.createEncoder()
+                try encoder.append(keyParam, ofType: keyType)
+                let encodedParam = try encoder.encode()
+                return try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
                     key: encodedParam,
                     hasher: hasher
                 )
-            ]
+            }
 
             result = .success(keys)
         } catch {
@@ -236,33 +237,32 @@ class DoubleMapKeyEncodingOperation<T1: Encodable, T2: Encodable>: BaseOperation
                 throw StorageKeyEncodingOperationError.invalidStoragePath
             }
 
-            guard case let .doubleMap(doubleMapEntry) = entry.type else {
+            let keyTypes: [String]
+            let hashers: [StorageHasher]
+            switch entry.type {
+            case let .doubleMap(map):
+                keyTypes = [map.key1, map.key2]
+                hashers = [map.hasher, map.key2Hasher]
+            case let .nMap(map):
+                keyTypes = try map.keys(using: factory.metadata.schemaResolver)
+                hashers = map.hashers
+                guard keyTypes.count == 2, hashers.count == 1 || hashers.count == 2 else {
+                    throw StorageKeyEncodingOperationError.incompatibleStorageType
+                }
+            default:
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
 
             let keys: [Data] = try zip(keyParams1, keyParams2).map { param in
-                let encodedParam1 = try encodeParam(
-                    param.0,
-                    factory: factory,
-                    type: doubleMapEntry.key1
-                )
-
-                let encodedParam2 = try encodeParam(
-                    param.1,
-                    factory: factory,
-                    type: doubleMapEntry.key2
-                )
-
+                let first = try encodeParam(param.0, factory: factory, type: keyTypes[0])
+                let second = try encodeParam(param.1, factory: factory, type: keyTypes[1])
                 return try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
-                    key1: encodedParam1,
-                    hasher1: doubleMapEntry.hasher,
-                    key2: encodedParam2,
-                    hasher2: doubleMapEntry.key2Hasher
+                    keys: hashers.count == 1 ? [first + second] : [first, second],
+                    hashers: hashers
                 )
             }
-
             result = .success(keys)
         } catch {
             result = .failure(error)
@@ -329,12 +329,19 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
             }
 
             let keyEntries = try nMapEntry.keys(using: factory.metadata.schemaResolver)
-            guard keyEntries.count == keyParams.count else {
+            guard !keyEntries.isEmpty,
+                  keyEntries.count == keyParams.count,
+                  (nMapEntry.hashers.count == 1 || keyEntries.count == nMapEntry.hashers.count) else {
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
 
+            let rowCount = keyParams[0].count
+            guard keyParams.allSatisfy({ $0.count == rowCount }) else {
+                throw StorageKeyEncodingOperationError.missingRequiredParams
+            }
+
             var params: [[NMapKeyParamProtocol]] = []
-            for index in 0 ..< keyParams[0].count {
+            for index in 0 ..< rowCount {
                 var array: [NMapKeyParamProtocol] = []
                 for param in keyParams {
                     array.append(param[index])
@@ -350,7 +357,8 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
                 return try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
-                    keys: encodedParams,
+                    keys: nMapEntry.hashers.count == 1
+                        ? [encodedParams.reduce(into: Data()) { $0.append($1) }] : encodedParams,
                     hashers: nMapEntry.hashers
                 )
             }

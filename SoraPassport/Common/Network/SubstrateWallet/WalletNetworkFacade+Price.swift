@@ -33,22 +33,27 @@ import RobinHood
 
 extension WalletNetworkFacade {
     func fetchPriceOperation(_ asset: WalletAssetId) -> CompoundOperationWrapper<Price?> {
-        guard let tokenId = asset.coingeckoTokenId else {
+        fetchPriceOperation(asset, tokenId: asset.coingeckoTokenId)
+    }
+
+    func fetchPriceOperation(_ asset: WalletAssetId, tokenId: String?) -> CompoundOperationWrapper<Price?> {
+        guard let tokenId else {
             return CompoundOperationWrapper.createWithResult(nil)
         }
 
         let priceOperation = coingeckoOperationFactory.fetchPriceOperation(for: [tokenId])
 
         let mappingOperation: BaseOperation<Price?> = ClosureOperation {
-            let priceData = try? priceOperation
+            let values = try priceOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-                .first
-
-            return Price(
-                assetId: asset,
-                lastValue: Decimal(string: priceData?.price ?? "") ?? 0.0,
-                change: (priceData?.usdDayChange ?? 0.0) / 100.0
-            )
+            guard let priceData = values.first,
+                  let amount = AmountDecimal(string: priceData.price)?.decimalValue,
+                  amount > 0, !amount.isNaN else {
+                throw NetworkBaseError.unexpectedResponseObject
+            }
+            let change = priceData.usdDayChange ?? 0
+            guard !change.isNaN else { throw NetworkBaseError.unexpectedResponseObject }
+            return Price(assetId: asset, lastValue: amount, change: change / 100)
         }
 
         mappingOperation.addDependency(priceOperation)

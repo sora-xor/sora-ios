@@ -78,8 +78,8 @@ extension SoramitsuButtonCell: SoramitsuTableViewCellProtocol {
 
         buttonItem = item
         button.sora.isEnabled = item.isEnable
-        if let color = item.buttonBackgroudColor, item.isEnable {
-            button.sora.backgroundColor = color
+        if item.isEnable {
+            button.sora.backgroundColor = item.buttonBackgroudColor ?? .additionalPolkaswap
         }
         button.sora.attributedText = item.title.attributedString
     }

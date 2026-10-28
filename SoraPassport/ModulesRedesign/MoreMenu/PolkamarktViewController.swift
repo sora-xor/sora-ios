@@ -190,7 +190,7 @@ final class PolkamarktViewController: WalletTableViewController {
     }
 
     private let walletContext: CommonWalletContextProtocol
-    private let client = PIIndexerClient()
+    private let client: PIIndexerClient
     private var markets: [PIMarket] = []
     private var visibleMarkets: [PIMarket] = []
     private var positions: [PIAccountPosition] = []
@@ -211,8 +211,9 @@ final class PolkamarktViewController: WalletTableViewController {
         searchResultsController: nil
     )
 
-    init(walletContext: CommonWalletContextProtocol) {
+    init(walletContext: CommonWalletContextProtocol, client: PIIndexerClient = PIIndexerClient()) {
         self.walletContext = walletContext
+        self.client = client
         super.init(style: .insetGrouped)
     }
 
@@ -1254,7 +1255,7 @@ extension PolkamarktViewController: UISearchBarDelegate {
 }
 
 @MainActor
-private final class PolkamarktMarketViewController: WalletTableViewController {
+final class PolkamarktMarketViewController: WalletTableViewController {
     private enum Section: Int, CaseIterable {
         case overview
         case position
@@ -1264,6 +1265,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
     }
 
     private let market: PIMarket
+    private let mutationsAllowed: () -> Bool
     private let client: PIIndexerClient
     private let coordinator: PolkamarktTransactionCoordinator?
     private let pendingStore: PolkamarktPendingStore
@@ -1294,9 +1296,11 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         coordinator: PolkamarktTransactionCoordinator?,
         pendingStore: PolkamarktPendingStore,
         account: String?,
-        marketDataFromCache: Bool
+        marketDataFromCache: Bool,
+        mutationsAllowed: @escaping () -> Bool = { SettingsManager.shared.polkamarktMutationsEnabled }
     ) {
         self.market = market
+        self.mutationsAllowed = mutationsAllowed
         self.client = client
         self.coordinator = coordinator
         self.pendingStore = pendingStore
@@ -1582,7 +1586,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
                 runtimeReviewFinalizedBlockHash != nil &&
                 mutationAdmissionAvailable &&
                 pendingLoadError == nil &&
-                SettingsManager.shared.polkamarktMutationsEnabled
+                mutationsAllowed()
             if shouldObservePending {
                 beginPendingReconciliation()
             }
@@ -2067,7 +2071,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
     }
 
     @objc private func trade() {
-        guard SettingsManager.shared.polkamarktMutationsEnabled else {
+        guard mutationsAllowed() else {
             show(
                 title: "Trading paused",
                 message: "Polkamarkt transactions are temporarily disabled."
@@ -2111,7 +2115,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         present(alert, animated: true)
     }
 
-    private func presentTradeInput(
+    func presentTradeInput(
         side: PolkamarktSide,
         outcome: PolkamarktOutcome
     ) {
@@ -2153,7 +2157,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         present(alert, animated: true)
     }
 
-    private func loadQuote(
+    func loadQuote(
         side: PolkamarktSide,
         outcome: PolkamarktOutcome,
         amount: String,
@@ -2191,8 +2195,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
                                 self.runtimeReviewFinalizedBlockHash != nil &&
                                 self.mutationAdmissionAvailable &&
                                 self.pendingLoadError == nil &&
-                                SettingsManager.shared
-                                    .polkamarktMutationsEnabled
+                                mutationsAllowed()
                         }
                     }
                 }
@@ -2237,7 +2240,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         }
     }
 
-    private func confirmTrade(
+    func confirmTrade(
         account: String,
         marketId: UInt32,
         outcome: PolkamarktOutcome,
@@ -2293,13 +2296,13 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         present(alert, animated: true)
     }
 
-    private func submitTrade(_ request: PolkamarktTradeRequest) {
+    func submitTrade(_ request: PolkamarktTradeRequest) {
         guard
             let coordinator,
             let account,
             request.account == account,
             canPresentAccountScopedResult(),
-            SettingsManager.shared.polkamarktMutationsEnabled
+            mutationsAllowed()
         else {
             return
         }
@@ -2333,9 +2336,9 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         }
     }
 
-    private func presentClaims() {
+    func presentClaims() {
         guard
-            SettingsManager.shared.polkamarktMutationsEnabled,
+            mutationsAllowed(),
             mutationAdmissionAvailable,
             pendingLoadError == nil
         else {
@@ -2431,12 +2434,12 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         present(alert, animated: true)
     }
 
-    private func submitClaim(
+    func submitClaim(
         operation: @escaping () async throws -> PolkamarktPendingMutation
     ) {
         guard
             canPresentAccountScopedResult(),
-            SettingsManager.shared.polkamarktMutationsEnabled
+            mutationsAllowed()
         else {
             return
         }
@@ -2486,7 +2489,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         return String(format: "%.2f%%", Double(value) / 100)
     }
 
-    private static func slippageBasisPoints(_ value: String) throws -> UInt16 {
+    static func slippageBasisPoints(_ value: String) throws -> UInt16 {
         let normalized = value
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard
@@ -2529,7 +2532,7 @@ private final class PolkamarktMarketViewController: WalletTableViewController {
         return result
     }
 
-    private static func slippagePercent(_ basisPoints: UInt16) -> String {
+    static func slippagePercent(_ basisPoints: UInt16) -> String {
         let whole = basisPoints / 100
         let fraction = basisPoints % 100
         guard fraction != 0 else {

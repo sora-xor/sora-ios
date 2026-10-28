@@ -37,13 +37,14 @@ import sorawallet
 
 enum ConfirmationState: Equatable {
     case notEnoughtBalance(String)
+    case unavailable(String)
     case readyToSubmit
 
     var title: String {
         switch self {
         case .readyToSubmit:
             return R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
-        case .notEnoughtBalance:
+        case .notEnoughtBalance, .unavailable:
             return R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
         }
     }
@@ -52,7 +53,7 @@ enum ConfirmationState: Equatable {
         switch self {
         case .readyToSubmit:
             return .bgSurface
-        case .notEnoughtBalance:
+        case .notEnoughtBalance, .unavailable:
             return .fgSecondary
         }
     }
@@ -122,41 +123,52 @@ final class ConfirmSendingViewModel {
     let debouncer = Debouncer(interval: 0.8)
     var items: [SoramitsuTableViewItemProtocol] = []
 
-    private var confirmationState: ConfirmationState = .readyToSubmit {
+    private var confirmationState: ConfirmationState = .unavailable(WalletUX.text("Balance unavailable")) {
         didSet {
             updateContent()
-            Task { [weak self] in
+            Task { @MainActor [weak self] in
                 let fiatDate = await self?.fiatService?.getFiat() ?? []
                 self?.updateContent(with: fiatDate)
             }
         }
     }
 
+    private var balanceUnavailable = true
     var firstAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
-        didSet {
-            // check if balance is enough
-            if firstAssetAmount > firstAssetBalance.balance.decimalValue {
-                let firstAssetSymbol = assetManager.assetInfo(for: assetId)?.symbol ?? ""
-                confirmationState = .notEnoughtBalance(firstAssetSymbol)
-                return
-            }
+        didSet { updateConfirmationState() }
+    }
 
-            // check if exchanging from XOR, and have not enough XOR to pay the fee
-            if let fromAsset = assetManager.assetInfo(for: assetId),
-               fromAsset.isFeeAsset,
-               firstAssetAmount + fee > firstAssetBalance.balance.decimalValue {
-                let firstAssetSymbol = assetManager.assetInfo(for: assetId)?.symbol ?? ""
-                confirmationState = .notEnoughtBalance(firstAssetSymbol)
-                return
-            }
-
-            if let feeAssetBalance = assetsProvider?.getBalances(with: [.xor]).first,
-               fee > feeAssetBalance.balance.decimalValue {
-                let feeAssetSymbol = assetManager.assetInfo(for: .xor)?.symbol ?? ""
-                confirmationState = .notEnoughtBalance(feeAssetSymbol)
-                return
-            }
-
+    private func updateConfirmationState() {
+        guard !firstAssetAmount.isNaN, firstAssetAmount > 0,
+              !fee.isNaN, fee > 0 else {
+            confirmationState = .unavailable(WalletUX.text("Enter a valid amount."))
+            return
+        }
+        guard !balanceUnavailable,
+              !firstAssetBalance.balance.decimalValue.isNaN,
+              firstAssetBalance.balance.decimalValue >= 0,
+              let feeBalance = assetsProvider?.getBalances(with: [WalletAssetId.xor.rawValue]).first,
+              feeBalance.identifier == WalletAssetId.xor.rawValue,
+              !feeBalance.isUnavailable,
+              !feeBalance.balance.decimalValue.isNaN,
+              feeBalance.balance.decimalValue >= 0 else {
+            confirmationState = .unavailable(WalletUX.text("Balance unavailable"))
+            return
+        }
+        guard let asset = assetManager.assetInfo(for: assetId) else {
+            confirmationState = .unavailable(WalletUX.text("Balance unavailable"))
+            return
+        }
+        let required = firstAssetAmount + (asset.isFeeAsset ? fee : 0)
+        guard !required.isNaN else {
+            confirmationState = .unavailable(WalletUX.text("Enter a valid amount."))
+            return
+        }
+        if required > firstAssetBalance.balance.decimalValue {
+            confirmationState = .notEnoughtBalance(asset.symbol)
+        } else if fee > feeBalance.balance.decimalValue {
+            confirmationState = .notEnoughtBalance(assetManager.assetInfo(for: WalletAssetId.xor.rawValue)?.symbol ?? "XOR")
+        } else {
             confirmationState = .readyToSubmit
         }
     }
@@ -209,9 +221,10 @@ final class ConfirmSendingViewModel {
     }
 
     private func updateBalanceData() {
-        if !assetId.isEmpty, let balance = assetsProvider?.getBalances(with: [assetId]).first {
-            firstAssetBalance = balance
-        }
+        let balance = assetsProvider?.getBalances(with: [assetId]).first
+        balanceUnavailable = assetId.isEmpty || balance == nil || balance?.identifier != assetId || balance?.isUnavailable == true ||
+            balance?.balance.decimalValue.isNaN == true || (balance?.balance.decimalValue ?? 0) < 0
+        firstAssetBalance = balance ?? BalanceData(identifier: assetId, balance: AmountDecimal(value: 0))
     }
 
 }
@@ -242,7 +255,11 @@ extension ConfirmSendingViewModel: ConfirmSendingViewModelProtocol {
 
 extension ConfirmSendingViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        updateBalanceData()
+        if Thread.isMainThread {
+            updateBalanceData()
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.updateBalanceData() }
+        }
     }
 }
 
@@ -258,7 +275,7 @@ extension ConfirmSendingViewModel {
         let sendAssetItem = SendAssetItem(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset?.icon ?? ""),
                                           symbol: firstAsset?.symbol ?? "",
                                           amount: firstAssetFormatter.stringFromDecimal(self.firstAssetAmount) ?? "",
-                                          balance: self.setupFullBalanceText(from: self.firstAssetBalance, fiatData: fiatData),
+                                          balance: self.balanceUnavailable ? WalletUX.balanceUnavailableText : self.setupFullBalanceText(from: self.firstAssetBalance, fiatData: fiatData),
                                           fiat: self.setupFiatText(from: self.firstAssetAmount, assetId: self.assetId, fiatData: fiatData))
 
         let details = self.detailsFactory.createSendingAssetViewModels(fee: self.fee, fiatData: fiatData, viewModel: self)
@@ -284,18 +301,22 @@ extension ConfirmSendingViewModel {
             let payingFee = asset?.isFeeAsset == true
             let required = firstAssetAmount + (payingFee ? fee : 0)
             let missingAsset = max(0, required - firstAssetBalance.balance.decimalValue)
-            let feeBalance = assetsProvider?.getBalances(with: [.xor]).first?.balance.decimalValue ?? 0
+            let feeBalance = assetsProvider?.getBalances(with: [WalletAssetId.xor.rawValue]).first?.balance.decimalValue ?? 0
             let shortfall = missingAsset > 0 ? missingAsset : max(0, fee - feeBalance)
-            let precision = missingAsset > 0 ? (asset?.precision ?? 18) : (assetManager.assetInfo(for: .xor)?.precision ?? 18)
+            let precision = missingAsset > 0 ? (asset?.precision ?? 18) : (assetManager.assetInfo(for: WalletAssetId.xor.rawValue)?.precision ?? 18)
             let formatter = NumberFormatter.inputedAmoutFormatter(with: precision)
             let missing = formatter.stringFromDecimal(shortfall) ?? NSDecimalNumber(decimal: shortfall).stringValue
             let message = String(format: WalletUX.text("You need %@ more %@ to cover this send and its network fee. Reduce the amount or receive more funds."), missing, symbol)
+            self.items.insert(WalletInlineNoticeItem(message), at: self.items.count - 1)
+        }
+        if case let .unavailable(message) = confirmationState {
             self.items.insert(WalletInlineNoticeItem(message), at: self.items.count - 1)
         }
         self.setupItems?(self.items)
     }
 
     func submit() {
+        updateBalanceData()
         guard !isSubmitting,
               confirmationState == .readyToSubmit,
               fee > 0 else {
@@ -310,6 +331,7 @@ extension ConfirmSendingViewModel {
 
     @MainActor
     private func runExactTransferPreflight() async {
+        let reviewedAmount = firstAssetAmount
         do {
             guard let selectedAccount =
                 SelectedWalletSettings.shared.currentAccount else {
@@ -331,12 +353,15 @@ extension ConfirmSendingViewModel {
                 balances: reviewedBalances
             )
             try Task.checkCancellation()
+            try requireReviewedAmount(reviewedAmount)
             try signingAuthorization.requireAuthorized()
             try requireSelectedAccount(selectedAccount)
 
             let prepared = try await walletService.prepareTransferSubmission(
                 for: reviewInfo,
-                preSigningValidation: { [signingAuthorization] in
+                preSigningValidation: { [weak self, signingAuthorization] in
+                    guard let self else { throw CancellationError() }
+                    try self.requireReviewedAmount(reviewedAmount)
                     try signingAuthorization.requireAuthorized()
                     try Self.requireSelectedAccountSnapshot(selectedAccount)
                 }
@@ -362,6 +387,7 @@ extension ConfirmSendingViewModel {
                 selectedAccount: selectedAccount
             )
             try Task.checkCancellation()
+            try requireReviewedAmount(reviewedAmount)
             try signingAuthorization.requireAuthorized()
             try requireSelectedAccount(selectedAccount)
 
@@ -369,7 +395,9 @@ extension ConfirmSendingViewModel {
                 let hash = try await walletService.submitPreparedTransfer(
                     prepared,
                     info: submissionInfo,
-                    preTransportValidation: { [signingAuthorization] in
+                    preTransportValidation: { [weak self, signingAuthorization] in
+                        guard let self else { throw CancellationError() }
+                        try self.requireReviewedAmount(reviewedAmount)
                         try signingAuthorization.requireAuthorized()
                         try Self.requireSelectedAccountSnapshot(
                             selectedAccount
@@ -391,6 +419,12 @@ extension ConfirmSendingViewModel {
             wireframe?.hideActivityIndicator()
         } catch {
             finishExactTransferPreflight(with: error)
+        }
+    }
+
+    private func requireReviewedAmount(_ amount: Decimal) throws {
+        guard firstAssetAmount == amount else {
+            throw WalletNetworkOperationFactoryError.invalidContext
         }
     }
 

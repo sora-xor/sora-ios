@@ -283,6 +283,11 @@ private extension FriendsViewController {
 // MARK: - FriendsViewProtocol
 
 extension FriendsViewController: FriendsViewProtocol {
+    func didStopLoading() {
+        activityIndicator.isHidden = true
+        activityIndicator.stopAnimating()
+    }
+
     func setup(with models: [CellViewModel]) {
         tableView.isHidden = false
         activityIndicator.isHidden = true
@@ -311,13 +316,13 @@ extension FriendsViewController: FriendsViewProtocol {
         tableView.isHidden = true
         containerView.sora.isHidden = false
 
-        if !referrer.isEmpty {
-            let title = SoramitsuTextItem(text: R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale),
-                                          fontData: FontType.buttonM ,
-                                          textColor: .accentPrimary ,
-                                          alignment: .center)
-            enterLinkButton.sora.attributedText = title
-        }
+        let text = referrer.isEmpty
+            ? R.string.localizable.referralEnterLinkTitle(preferredLanguages: .currentLocale)
+            : R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
+        enterLinkButton.sora.attributedText = SoramitsuTextItem(
+            text: text, fontData: FontType.buttonM,
+            textColor: .accentPrimary, alignment: .center
+        )
     }
 
     func showAlert(with text: String, image: UIImage?) {

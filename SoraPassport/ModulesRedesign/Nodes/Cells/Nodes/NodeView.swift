@@ -43,6 +43,7 @@ final class NodeView: UIControl {
     var onRemove: ((ChainNodeModel) -> Void)?
 
     private var node: NodeViewModel?
+    private var titleTrailingConstraint: NSLayoutConstraint?
     private lazy var interaction = UIContextMenuInteraction(delegate: self)
 
     private var titleLabel: SoramitsuLabel = {
@@ -88,8 +89,10 @@ final class NodeView: UIControl {
         titleLabel.do {
             $0.topAnchor == topAnchor + 16
             $0.leadingAnchor == imageView.trailingAnchor + 21
-            $0.trailingAnchor == moreButton.leadingAnchor
         }
+
+        titleTrailingConstraint = titleLabel.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor)
+        titleTrailingConstraint?.isActive = true
 
         descriptionLabel.do {
             $0.topAnchor >= titleLabel.bottomAnchor + 4
@@ -128,15 +131,11 @@ final class NodeView: UIControl {
         imageView.image = model.isSelected ? R.image.listCheckmarkIcon() : nil
         moreButton.isHidden = !model.isCustom
         
-        if model.isCustom {
-            titleLabel.do {
-                $0.trailingAnchor == moreButton.leadingAnchor
-            }
-        } else {
-            titleLabel.do {
-                $0.trailingAnchor == trailingAnchor
-            }
-        }
+        titleTrailingConstraint?.isActive = false
+        titleTrailingConstraint = titleLabel.trailingAnchor.constraint(
+            equalTo: model.isCustom ? moreButton.leadingAnchor : trailingAnchor
+        )
+        titleTrailingConstraint?.isActive = true
     }
 
     @objc

@@ -41,12 +41,15 @@ final class ChangeAccountPresenter {
     var wireframe: ChangeAccountWireframeProtocol!
     var endUpdatingBlock: (() -> Void)?
 
+    private let capabilityProbe: (AccountItem, @escaping (WalletAccountCapability.State) -> Void) -> Void
+    private let retainedWallets: (Set<String>) -> [RetainedKeychainWallet]
     private let settingsManager: SelectedWalletSettingsProtocol
     private let eventCenter: EventCenterProtocol
     private var mode: ChangeAccountViewController.Mode = .view
     private var accounts: [AccountItem] = []
     private var accountViewModels: [AccountMenuItem] = []
     private var capabilityGeneration = UUID()
+    private var accountLoadGeneration = UUID()
     private var isSwitchingAccount = false
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let operationManager: OperationManagerProtocol
@@ -57,7 +60,13 @@ final class ChangeAccountPresenter {
          eventCenter: EventCenterProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          operationManager: OperationManagerProtocol,
-         serviceCoordinator: ServiceCoordinatorProtocol) {
+         serviceCoordinator: ServiceCoordinatorProtocol,
+         capabilityProbe: @escaping (AccountItem, @escaping (WalletAccountCapability.State) -> Void) -> Void = WalletAccountCapability.probe,
+         retainedWallets: @escaping (Set<String>) -> [RetainedKeychainWallet] = {
+             WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: Keychain(), existingAddresses: $0)
+         }) {
+        self.capabilityProbe = capabilityProbe
+        self.retainedWallets = retainedWallets
         self.accountRepository = accountRepository
         self.operationManager = operationManager
         self.settingsManager = settingsManager
@@ -66,6 +75,8 @@ final class ChangeAccountPresenter {
     }
     
     private func getAccounts() {
+        let generation = UUID()
+        accountLoadGeneration = generation
         let persistentOperation = accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
         
         persistentOperation.completionBlock = { [weak self] in
@@ -74,7 +85,8 @@ final class ChangeAccountPresenter {
             }
             
             DispatchQueue.main.async {
-                self?.handle(accounts: accounts)
+                guard let self, self.accountLoadGeneration == generation else { return }
+                self.handle(accounts: accounts)
             }
         }
         OperationQueue().addOperation(persistentOperation)
@@ -92,7 +104,7 @@ final class ChangeAccountPresenter {
         
         view?.update(with: accountViewModels)
         for (index, account) in accounts.enumerated() {
-            WalletAccountCapability.probe(account: account) { [weak self] state in
+            capabilityProbe(account) { [weak self] state in
                 guard let self, self.capabilityGeneration == generation,
                       self.accountViewModels.indices.contains(index) else { return }
                 self.accountViewModels[index].capabilityBadge = state.badge
@@ -102,7 +114,7 @@ final class ChangeAccountPresenter {
     }
     
     private func makeModels(from accounts: [AccountItem], selectedAccountAddress: String) -> [AccountMenuItem] {
-        return accounts.enumerated().map { [weak self] (index, account) -> AccountMenuItem in
+        return accounts.map { [weak self] account -> AccountMenuItem in
             
             let icon = try? iconGenerator.generateFromAddress(account.address)
                 .imageWithFillColor(UIColor.white,
@@ -113,8 +125,14 @@ final class ChangeAccountPresenter {
                                    image: icon,
                                    isSelected: account.address == selectedAccountAddress,
                                    isMultiselectionMode: mode == .edit,
-                                   onTap: { self?.selectItem(at: index) },
-                                   onMore: { self?.editItem(at: index) })
+                                   onTap: {
+                                       guard let self, let currentIndex = self.accounts.firstIndex(where: { $0.address == account.address }) else { return }
+                                       self.selectItem(at: currentIndex)
+                                   },
+                                   onMore: {
+                                       guard let self, let currentIndex = self.accounts.firstIndex(where: { $0.address == account.address }) else { return }
+                                       self.editItem(at: currentIndex)
+                                   })
         }
     }
     
@@ -231,7 +249,6 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         let accountItemsToExport: [AccountItem] = accountViewModels
             .enumerated()
             .filter { $1.isSelected }
-            .enumerated()
             .compactMap { index, _ in
                 if accounts.indices.contains(index) {
                     return accounts[index]
@@ -250,9 +267,9 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         let existing = Set(accounts.map(\.address))
         // Wallets an earlier install left in the Keychain stay restorable
         // after setup with that install's PIN (see `WalletRetainedPinGate`).
+        let discoverRetainedWallets = retainedWallets
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let retained = WalletRecoveryStateProbe.retainedWalletsAfterSetup(
-                keystore: Keychain(), existingAddresses: existing)
+            let retained = discoverRetainedWallets(existing)
             DispatchQueue.main.async {
                 guard let self, !self.isSwitchingAccount else { return }
                 guard !retained.isEmpty else {

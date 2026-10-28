@@ -34,7 +34,9 @@ import SoraUIKit
 typealias AuthorizationCompletionBlock = (Bool) -> Void
 
 protocol AuthorizationPresentable: ScreenAuthorizationWireframeProtocol {
-    func authorize(animated: Bool,
+    @MainActor var authorizationPresentingController: UIViewController? { get }
+    @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController?
+    @MainActor func authorize(animated: Bool,
                    cancellable: Bool,
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock)
@@ -52,11 +54,25 @@ private struct AuthorizationConstants {
     static var inViewKey: String = "co.jp.sora.auth.inView"
 }
 
+extension AuthorizationPresentable {
+    @MainActor var authorizationPresentingController: UIViewController? {
+        UIApplication.shared.keyWindow?.rootViewController?.topModalViewController
+    }
+
+    @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController? {
+        let authorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
+        let view = BlurViewController()
+        view.modalPresentationStyle = .overFullScreen
+        view.add(authorizeView?.controller)
+        return view
+    }
+}
+
 extension AuthorizationAccessible {
     var isAuthorizing: Bool {
         let view = objc_getAssociatedObject(authorization,
                                             &AuthorizationConstants.authorizationViewKey)
-            as? PinSetupViewProtocol
+            as? UIViewController
 
         return view != nil
     }
@@ -111,7 +127,7 @@ extension AuthorizationPresentable {
 }
 
 extension AuthorizationPresentable {
-    func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock) {
+    @MainActor func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock) {
         authorize(animated: animated, cancellable: false, inView: nil, with: completionBlock)
     }
 
@@ -120,18 +136,16 @@ extension AuthorizationPresentable {
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock) {
 
-        guard let presentingController = UIApplication.shared.keyWindow?
-            .rootViewController?.topModalViewController else {
+        guard !isAuthorizing else {
+            completionBlock(false)
             return
         }
+        guard let presentingController = authorizationPresentingController else {
+            completionBlock(false)
+            return
+        }
+        let view = createAuthorizationView(cancellable: cancellable)
 
-        let view: UIViewController?
-
-        let auhorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
-        view = BlurViewController()
-        view?.modalPresentationStyle = .overFullScreen
-        view?.add(auhorizeView?.controller)
-        
         guard let authorizationView = view else {
             completionBlock(false)
             return
@@ -155,10 +169,11 @@ extension AuthorizationPresentable {
 
     func removeExistingAuthViewIfPresented(completion: @escaping ()->()) {
         if let authorizationView = authorizationView {
-            dismissAuthorizationView(authorizationView, completionBlock: completionBlock, result: false)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let previousCompletion = completionBlock
+            dismissAuthorizationView(authorizationView, completionBlock: { result in
+                previousCompletion?(result)
                 completion()
-            }
+            }, result: false)
         } else {
             completion()
         }
@@ -180,21 +195,24 @@ extension AuthorizationPresentable {
         dismissAuthorizationView(authorizationView, completionBlock: completionBlock, result: result)
     }
 
-    func dismissAuthorizationView(_ authorizationView:  UIViewController, completionBlock: AuthorizationCompletionBlock?, result: Bool) {
-        if let inView = self.inView {
+    func dismissAuthorizationView(_ authorizationView: UIViewController, completionBlock: AuthorizationCompletionBlock?, result: Bool) {
+        let navigation = self.inView
+        self.completionBlock = nil
+        self.authorizationView = nil
+        self.inView = nil
 
+        if let navigation {
+            navigation.setViewControllers(
+                navigation.viewControllers.filter { $0 !== authorizationView },
+                animated: false
+            )
             completionBlock?(result)
-            let controllerToRemove = inView.viewControllers.remove(at: 1)
-            self.authorizationView?.dismiss(animated: false)
-
-            self.authorizationView = nil
-            self.inView = nil
-
-        } else {
-            authorizationView.presentingViewController?.dismiss(animated: true) {
-                self.authorizationView = nil
+        } else if let presenter = authorizationView.presentingViewController {
+            presenter.dismiss(animated: true) {
                 completionBlock?(result)
             }
+        } else {
+            completionBlock?(result)
         }
     }
 }

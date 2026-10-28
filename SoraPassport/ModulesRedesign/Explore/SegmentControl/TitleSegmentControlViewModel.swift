@@ -107,6 +107,7 @@ extension TitleSegmentControlViewModel: TitleSegmentControlViewModelProtocol {
     }
     
     func didSelect(number: Int) {
+        guard ExploreTabs(rawValue: number) != nil else { return }
         snapshot = createSnapshot(selectedItemNumber: number)
         delegate?.changeCurrentPage(to: number)
     }
@@ -114,6 +115,7 @@ extension TitleSegmentControlViewModel: TitleSegmentControlViewModelProtocol {
 
 extension TitleSegmentControlViewModel: ExploreScrollViewDelegateOutput {
     func changeCurrentPage(to number: Int) {
+        guard ExploreTabs(rawValue: number) != nil else { return }
         snapshot = createSnapshot(selectedItemNumber: number)
     }
 }

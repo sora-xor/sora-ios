@@ -102,6 +102,8 @@ private extension NodesViewController {
     }
 
     func setupTableView() {
+        view.addSubview(tableView)
+        setupConstraints()
         tableView.separatorInset = .zero
         tableView.separatorColor = .clear
         if #available(iOS 15.0, *) {
@@ -119,9 +121,6 @@ private extension NodesViewController {
 
 extension NodesViewController: NodesViewProtocol {
     func setup(with models: [SectionViewModel]) {
-        view.addSubviews(tableView)
-        
-        setupConstraints()
         setupNavbar()
         activityIndicator.isHidden = true
         activityIndicator.stopAnimating()

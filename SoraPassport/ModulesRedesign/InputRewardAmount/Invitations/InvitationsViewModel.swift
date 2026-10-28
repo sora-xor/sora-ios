@@ -53,7 +53,7 @@ class InvitationsViewModel: InvitationsViewModelProtocol {
     var bondedAmount: Decimal
     var buttonTitle: String
     @Published var isEnabled: Bool?
-    var delegate: InvitationsCellDelegate?
+    weak var delegate: InvitationsCellDelegate?
 
     init(title: String?,
          description: String,

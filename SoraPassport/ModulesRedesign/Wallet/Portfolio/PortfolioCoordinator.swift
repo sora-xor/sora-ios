@@ -389,17 +389,17 @@ final class PortfolioCoordinator {
     }
 
     private func switchAndRun(_ handoff: PortfolioHandoff, walletId: String) {
-        inbox.put(handoff, walletId: walletId)
+        let requestID = inbox.put(handoff, walletId: walletId)
         switcher.switchTo(walletId: walletId) { [weak self] success in
-            guard !success else { return }
-            self?.inbox.clear()
-            self?.showMessage(PortfolioStrings.text("The wallet could not be switched. Nothing was changed."))
+            guard !success, let self, self.inbox.clear(ifCurrent: requestID) else { return }
+            self.showMessage(PortfolioStrings.text("The wallet could not be switched. Nothing was changed."))
         }
     }
 
     /// Runs a hand-off waiting for this wallet after an account switch.
     func consumePendingHandoff() {
-        guard let handoff = inbox.take(selectedWalletId: switcher.selectedWalletId) else { return }
+        guard presenter != nil,
+              let handoff = inbox.take(selectedWalletId: switcher.selectedWalletId) else { return }
         run(handoff)
     }
 

@@ -57,6 +57,7 @@ final class EditViewController: SoramitsuViewController, UITableViewDelegate {
     var viewModel: EditViewModelProtocol? {
         didSet {
             setupSubscription()
+            if isViewLoaded { viewModel?.reloadView() }
         }
     }
     
@@ -114,6 +115,7 @@ final class EditViewController: SoramitsuViewController, UITableViewDelegate {
     }
     
     private func setupSubscription() {
+        cancellables.removeAll()
         viewModel?.snapshotPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in

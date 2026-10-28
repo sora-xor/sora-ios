@@ -171,9 +171,11 @@ enum ReviewedSoraRuntimeSnapshotAdmission {
         }
         let metadata: RuntimeMetadata
         do {
-            metadata = try RuntimeMetadata(
-                scaleDecoder: try ScaleDecoder(data: item.metadata)
-            )
+            let decoder = try ScaleDecoder(data: item.metadata)
+            metadata = try RuntimeMetadata(scaleDecoder: decoder)
+            guard decoder.remained == 0 else {
+                throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
+            }
         } catch {
             throw RuntimeSnapshotFactoryError.unreviewedSoraRuntime
         }

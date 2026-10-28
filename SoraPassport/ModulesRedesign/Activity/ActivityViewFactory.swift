@@ -37,7 +37,13 @@ protocol ActivityViewFactoryProtocol: AnyObject {
 
 final class ActivityViewFactory: ActivityViewFactoryProtocol {
     static func createView(assetManager: AssetManagerProtocol, aseetList: [AssetInfo]) -> ActivityViewController? {
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return nil }
+        createView(assetManager: assetManager, aseetList: aseetList,
+                   selectedAccount: SelectedWalletSettings.shared.currentAccount)
+    }
+
+    static func createView(assetManager: AssetManagerProtocol, aseetList: [AssetInfo],
+                           selectedAccount: AccountItem?) -> ActivityViewController? {
+        guard let selectedAccount else { return nil }
 
         let localizationManager = LocalizationManager.shared
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,

@@ -64,7 +64,8 @@ final class ClaimRewardsItemFactory {
         let rewardAssetIcon = farm.rewardAsset?.icon ?? ""
         let rewardAssetImage = RemoteSerializer.shared.image(with: rewardAssetIcon)
         
-        let claimPossible = fee < userBalance && !fee.isZero
+        let claimPossible = !fee.isNaN && fee > 0 && !userBalance.isNaN && fee < userBalance &&
+            !tokenReward.isNaN && tokenReward > 0
         let claimRewardsItem = ClaimRewardsItem(rewardText: rewardText,
                                                 amountText: fiatRewardText,
                                                 image: rewardAssetImage,

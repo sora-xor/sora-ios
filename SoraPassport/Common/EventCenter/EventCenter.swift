@@ -106,8 +106,12 @@ extension EventCenter: EventCenterProtocol {
     }
 
     func remove(observer: EventVisitorProtocol) {
+        let identity = ObjectIdentifier(observer)
         syncQueue.async {
-            self.wrappers = self.wrappers.filter { $0.observer != nil && $0.observer !== observer }
+            self.wrappers.removeAll {
+                guard let current = $0.observer else { return true }
+                return ObjectIdentifier(current) == identity
+            }
         }
     }
 }

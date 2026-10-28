@@ -42,9 +42,10 @@ final class ExploreSearchPageViewModel {
     var snapshotPublisher: Published<ExplorePageSnapshot>.Publisher { $snapshot }
     
     private var cancellables: Set<AnyCancellable> = []
+    private var searchQuery = ""
     
     var wireframe: ExploreWireframeProtocol
-    var view: ControllerBackedProtocol?
+    weak var view: ControllerBackedProtocol?
     
     var assetViewModelsService: ExploreAssetViewModelService
     var poolViewModelsService: ExplorePoolsViewModelService
@@ -124,7 +125,7 @@ final class ExploreSearchPageViewModel {
         .sink(
             receiveValue: { [weak self] assets, pools, farms in
                 guard let self else { return }
-                self.snapshot = self.createSnapshot(assets: assets, pools: pools, farms: farms)
+                self.snapshot = self.filteredSnapshot(assets: assets, pools: pools, farms: farms)
             }
         ).store(in: &cancellables)
     }
@@ -136,8 +137,8 @@ extension ExploreSearchPageViewModel: ExplorePageViewModelProtocol {
     }
     
     func setup() {
+        cancellables.removeAll()
         setupSubscription()
-        snapshot = createSnapshot()
     }
     
     func didSelect(with item: ExplorePageSectionItem?) {
@@ -172,21 +173,24 @@ extension ExploreSearchPageViewModel: ExplorePageViewModelProtocol {
     }
     
     func searchTextChanged(with text: String) {
-        let filteredAssets = text.isEmpty ? assetViewModelsService.viewModels : assetViewModelsService.viewModels.filter {
-            ($0.symbol ?? "").lowercased().contains(text) ||
-            ($0.title ?? "").lowercased().contains(text)
+        searchQuery = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        snapshot = filteredSnapshot(assets: assetViewModelsService.viewModels,
+                                    pools: poolViewModelsService.viewModels,
+                                    farms: farmsViewModelsService.viewModels)
+    }
+
+    private func filteredSnapshot(assets: [ExploreAssetViewModel], pools: [ExplorePoolViewModel],
+                                  farms: [ExploreFarmViewModel]) -> ExplorePageSnapshot {
+        let query = searchQuery
+        let filteredAssets = query.isEmpty ? assets : assets.filter {
+            ($0.symbol ?? "").lowercased().contains(query) || ($0.title ?? "").lowercased().contains(query)
         }
-        
-        let filteredPools = text.isEmpty ? poolViewModelsService.viewModels : poolViewModelsService.viewModels.filter {
-            ($0.poolId ?? "").lowercased().contains(text) ||
-            ($0.title ?? "").lowercased().contains(text)
+        let filteredPools = query.isEmpty ? pools : pools.filter {
+            ($0.poolId ?? "").lowercased().contains(query) || ($0.title ?? "").lowercased().contains(query)
         }
-        
-        let filteredFarms = text.isEmpty ? farmsViewModelsService.viewModels : farmsViewModelsService.viewModels.filter {
-            ($0.title ?? "").lowercased().contains(text) ||
-            ($0.farmId ?? "").lowercased().contains(text)
+        let filteredFarms = query.isEmpty ? farms : farms.filter {
+            ($0.title ?? "").lowercased().contains(query) || ($0.farmId ?? "").lowercased().contains(query)
         }
-        
-        snapshot = createSnapshot(assets: filteredAssets, pools: filteredPools, farms: filteredFarms)
+        return createSnapshot(assets: filteredAssets, pools: filteredPools, farms: filteredFarms)
     }
 }

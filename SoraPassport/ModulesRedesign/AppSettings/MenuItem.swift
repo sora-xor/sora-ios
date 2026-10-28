@@ -118,10 +118,14 @@ class MenuItem: SoramitsuView {
     }
 
     func addArrow() {
+        horizontalStack.removeArrangedSubview(switcher)
+        switcher.removeFromSuperview()
         horizontalStack.insertArrangedSubview(arrow, at: 2)
     }
 
     func addSwitcher() {
+        horizontalStack.removeArrangedSubview(arrow)
+        arrow.removeFromSuperview()
         horizontalStack.insertArrangedSubview(switcher, at: 2)
         switcher.addTarget(self, action: #selector(didSwitch), for: .valueChanged)
     }

@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import Darwin
 
 struct ConnectionRank {
     let url: URL
@@ -59,10 +60,32 @@ enum SoraNodeConnectionPolicy {
 
     /// Excludes the reported compromised host even when cached or supplied remotely.
     static func isAllowedEndpoint(_ url: URL) -> Bool {
-        guard ["ws", "wss"].contains(url.scheme?.lowercased() ?? ""),
-              let host = url.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")),
-              !host.isEmpty else { return false }
-        return !isCompromisedEndpoint(url)
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              ["ws", "wss"].contains(components.scheme?.lowercased() ?? ""),
+              let originalHost = components.host, !originalHost.isEmpty,
+              components.user == nil, components.password == nil, components.fragment == nil,
+              !isCompromisedEndpoint(url) else { return false }
+        if let port = components.port, !(1...65535).contains(port) { return false }
+        // URLComponents represents an explicitly empty port as nil. Reject it.
+        let authority = url.absoluteString.components(separatedBy: "://").dropFirst().joined(separator: "://")
+            .prefix { $0 != "/" && $0 != "?" && $0 != "#" }
+        guard !authority.hasSuffix(":") else { return false }
+        if originalHost.hasPrefix("["), originalHost.hasSuffix("]") {
+            let host = String(originalHost.dropFirst().dropLast())
+            var address = in6_addr()
+            return host.withCString { inet_pton(AF_INET6, $0, &address) } == 1
+        }
+        let host = originalHost.lowercased()
+        if host.allSatisfy({ $0.isNumber || $0 == "." }) {
+            var address = in_addr()
+            return host.withCString { inet_pton(AF_INET, $0, &address) } == 1
+        }
+        let domain = host.hasSuffix(".") ? String(host.dropLast()) : host
+        guard domain.utf8.count <= 253 else { return false }
+        return domain.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { label in
+            !label.isEmpty && label.utf8.count <= 63 && label.first != "-" && label.last != "-" &&
+            label.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
+        }
     }
 
     static func isCompromisedEndpoint(_ url: URL) -> Bool {

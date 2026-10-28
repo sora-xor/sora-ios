@@ -47,13 +47,13 @@ final class PoolListViewModel {
     
     var poolItems: [PoolListItem] = [] {
         didSet {
-            setupItems?(poolItems)
+            filterAssetList(with: normalizedQuery)
         }
     }
 
     var filteredPoolItems: [PoolListItem] = [] {
         didSet {
-            setupItems?(filteredPoolItems)
+            setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
         }
     }
 
@@ -79,14 +79,12 @@ final class PoolListViewModel {
         }
     }
 
+    private var normalizedQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     var searchText: String = "" {
-        didSet {
-            guard !searchText.isEmpty else {
-                setupItems?(poolItems)
-                return
-            }
-            filterAssetList(with: searchText.lowercased())
-        }
+        didSet { filterAssetList(with: normalizedQuery) }
     }
 
     weak var assetManager: AssetManagerProtocol?
@@ -209,7 +207,7 @@ extension PoolListViewModel: PoolsServiceOutput {
 
 private extension PoolListViewModel {
     func filterAssetList(with query: String) {
-        filteredPoolItems = self.poolItems.filter { item in
+        filteredPoolItems = query.isEmpty ? poolItems : poolItems.filter { item in
             item.poolViewModel.title.lowercased().contains(query)
         }
     }

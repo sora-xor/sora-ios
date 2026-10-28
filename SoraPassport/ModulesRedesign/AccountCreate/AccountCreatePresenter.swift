@@ -47,6 +47,8 @@ final class AccountCreatePresenter: SharingPresentable {
     private var selectedNetworkType: Chain?
     private var derivationPathViewModel: InputViewModelProtocol?
     private var shouldCreatedWithGoogle: Bool
+    private var metadataGeneration = UUID()
+    private var googleAuthorization: UUID?
 
     init(username: String,
          shouldCreatedWithGoogle: Bool = true,
@@ -137,7 +139,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
 
-        if interactor.isSignedInGoogleAccount {
+        if shouldCreatedWithGoogle && interactor.isSignedInGoogleAccount {
             let backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
@@ -170,7 +172,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
 
-        if interactor.isSignedInGoogleAccount {
+        if shouldCreatedWithGoogle && interactor.isSignedInGoogleAccount {
             let backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
@@ -191,10 +193,22 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
     func restoredApp() {}
     
     func backupToGoogle() {
+        guard googleAuthorization == nil else { return }
+        let authorization = UUID()
+        let generation = metadataGeneration
+        googleAuthorization = authorization
+        view?.showLoading()
         interactor.signInToGoogleIfNeeded(completion: { [weak self] state in
-            self?.view?.hideLoading()
-            guard state == .authorized else { return }
-            self?.skip()
+            let finish = { [weak self] in
+                guard let self, self.googleAuthorization == authorization else { return }
+                self.googleAuthorization = nil
+                self.view?.hideLoading()
+                guard state == .authorized, self.metadataGeneration == generation else { return }
+                self.shouldCreatedWithGoogle = true
+                self.skip()
+            }
+            if Thread.isMainThread { finish() }
+            else { DispatchQueue.main.async(execute: finish) }
         })
     }
 }
@@ -212,10 +226,12 @@ extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
     }
     
     func didReceive(error: Error) {
-        
+        view?.hideLoading()
+        didReceiveMnemonicGeneration(error: error)
     }
     
     func didReceive(metadata: AccountCreationMetadata) {
+        metadataGeneration = UUID()
         self.metadata = metadata
 
         selectedCryptoType = metadata.defaultCryptoType

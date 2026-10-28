@@ -37,7 +37,7 @@ protocol WebSocketEngineFactoryProtocol {
 
 final class WebSocketEngineFactory: WebSocketEngineFactoryProtocol {
     func createEngine(for url: URL, autoconnect: Bool) -> WebSocketEngine {
-        WebSocketEngine(connectionName: nil, url: url)
+        WebSocketEngine(connectionName: nil, url: url, autoconnect: autoconnect)
 //        WebSocketEngine(url: url,
 //                        reachabilityManager: ReachabilityManager.shared,
 //                        autoconnect: autoconnect, logger: Logger.shared)

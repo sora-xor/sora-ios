@@ -131,9 +131,7 @@ final class InputLinkViewController: SoramitsuViewController {
 
     @objc
     private func keyboardWillHide(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-        }
+        tableView.contentInset = .zero
     }
 }
 

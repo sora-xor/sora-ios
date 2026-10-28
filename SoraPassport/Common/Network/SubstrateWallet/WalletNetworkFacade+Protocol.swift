@@ -47,8 +47,9 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
         onlyVisible: Bool,
         markingUnavailable: Bool = false
     ) -> CompoundOperationWrapper<[BalanceData]?> {
+        var seen = Set<String>()
         let userAssets: [WalletAsset] = assets.compactMap { identifier in
-            guard identifier != totalPriceAssetId?.rawValue else {
+            guard seen.insert(identifier).inserted, identifier != totalPriceAssetId?.rawValue else {
                 return nil
             }
 
@@ -392,6 +393,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
             let result = try fetchOperation.targetOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
+            guard !normalizedSearch.isEmpty else { return result }
             return result?.filter {
                 ($0.firstName.lowercased().range(of: normalizedSearch) != nil) ||
                     ($0.lastName.lowercased().range(of: normalizedSearch) != nil)

@@ -67,7 +67,6 @@ extension AddressQREncoder {
             info.amount ?? ""
         ]
 
-        let separator: String = ":"
         guard let data = fields.joined(separator: separator).data(using: .utf8) else {
             throw QREncoderError.brokenData
         }
@@ -83,7 +82,7 @@ extension AddressQRDecoder {
             throw QRDecoderError.brokenFormat
         }
 
-        guard fields.count >= 5 else {
+        guard (5...6).contains(fields.count) else {
             throw QRDecoderError.unexpectedNumberOfFields
         }
 

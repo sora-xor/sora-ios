@@ -43,7 +43,7 @@ final class ExploreFarmsPageViewModel {
     private var cancellables: Set<AnyCancellable> = []
     
     var wireframe: ExploreWireframeProtocol
-    var view: ControllerBackedProtocol?
+    weak var view: ControllerBackedProtocol?
     
     var farmsViewModelsService: ExploreFarmsViewModelService
     weak var accountPoolsService: PoolsServiceInputProtocol?

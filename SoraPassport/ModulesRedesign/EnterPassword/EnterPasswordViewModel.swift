@@ -43,6 +43,7 @@ final class EnterPasswordViewModel {
     private var wireframe: EnterPasswordWireframeProtocol?
     private var interactor: AccountImportInteractorInputProtocol
     private var errorText = ""
+    private var isImporting = false
     private let selectedAccount: OpenBackupAccount?
     private var backedUpAccounts: [OpenBackupAccount]
     private weak var view: EnterPasswordViewProtocol?
@@ -77,13 +78,16 @@ final class EnterPasswordViewModel {
         let item = EnterPasswordItem(accountName: selectedAccount?.name ?? "",
                                      accountAddress: selectedAccount?.address ?? "",
                                      errorText: errorText,
-                                     continueButtonHandler: checkPassword)
+                                     continueButtonHandler: { [weak self] password in self?.checkPassword(password: password) })
         return EnterPasswordSection(items: [ .enterPassword(item) ])
     }
     
     private func checkPassword(password: String) {
+        guard !isImporting, let selectedAccount else { return }
+        isImporting = true
+        errorText = ""
+        reload()
         view?.showLoading()
-        guard let selectedAccount = selectedAccount else { return }
         let request = AccountImportBackedupRequest(account: selectedAccount, password: password)
         interactor.importBackedupAccount(request: request)
     }
@@ -98,17 +102,20 @@ extension EnterPasswordViewModel: EnterPasswordViewModelProtocol {
 
 extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     func didCompleteAccountImport() {
+        guard isImporting, let selectedAccount else { return }
+        isImporting = false
         view?.hideLoading()
-        guard let selectedAccount = selectedAccount else { return }
-        
         var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-        backupedAccountAddresses.append(selectedAccount.address)
+        if !backupedAccountAddresses.contains(selectedAccount.address) {
+            backupedAccountAddresses.append(selectedAccount.address)
+        }
         ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
         
         wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: backedUpAccounts)
     }
     
     func didReceiveAccountImport(error: Error) {
+        isImporting = false
         errorText = error.localizedDescription
         view?.hideLoading()
         reload()

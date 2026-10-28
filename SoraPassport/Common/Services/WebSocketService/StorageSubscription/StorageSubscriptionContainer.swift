@@ -88,13 +88,17 @@ final class StorageSubscriptionContainer: WebSocketSubscribing {
     private func handleUpdate(_ update: StorageUpdate) {
         let updateData = StorageUpdateData(update: update)
 
-        for change in updateData.changes {
-            let childrenToNotify = children.filter {
-                $0.remoteStorageKey == change.key
-            }
-
-            childrenToNotify.forEach {
-                $0.processUpdate(change.value, blockHash: updateData.blockHash)
+        for rawChange in update.changes ?? [] {
+            guard rawChange.count == 2,
+                  let rawKey = rawChange[0],
+                  let key = try? Data(hexStringSSF: rawKey) else { continue }
+            let value: Data?
+            if let rawValue = rawChange[1] {
+                guard let decoded = try? Data(hexStringSSF: rawValue) else { continue }
+                value = decoded
+            } else { value = nil }
+            children.filter { $0.remoteStorageKey == key }.forEach {
+                $0.processUpdate(value, blockHash: updateData.blockHash)
             }
         }
     }

@@ -115,6 +115,9 @@ final class PincodeViewController: SoramitsuViewController {
 
     private var keypadWidth: NSLayoutConstraint!
     private var keypadHeight: NSLayoutConstraint!
+    var cooldownTimerFactory: (TimeInterval, @escaping @Sendable (Timer) -> Void) -> Timer = { interval, block in
+        Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: block)
+    }
     private var timer: Timer?
     private var cooldownDate: Date = .init()
     private var errorAnimationDuration: CGFloat = 0.32
@@ -247,17 +250,24 @@ extension PincodeViewController: PinSetupViewProtocol {
     }
 
     func blockUserInputUntil(date: Date) {
+        timer?.invalidate()
+        timer = nil
         self.cooldownDate = date
+        guard date.timeIntervalSinceNow > 0 else {
+            updateTitleLabelState()
+            numpadView.isUserInteractionEnabled = true
+            return
+        }
         numpadView.isUserInteractionEnabled = false
         titleLabel.sora.textColor = .fgPrimary
 
-        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true, block: { [weak self] _ in
+        let timer = cooldownTimerFactory(1.0, { [weak self] _ in
             guard let self = self else { return }
 
             let secondsLeft = self.cooldownDate.timeIntervalSinceNow
 
             let cooldownText = self.formatter.string(from: secondsLeft) ?? ""
-            self.titleLabel.text = R.string.localizable.pincodeLockedTitle(cooldownText, preferredLanguages: .currentLocale)
+            self.titleLabel.sora.text = R.string.localizable.pincodeLockedTitle(cooldownText, preferredLanguages: .currentLocale)
 
             guard secondsLeft <= 0 else { return }
             self.updateTitleLabelState()

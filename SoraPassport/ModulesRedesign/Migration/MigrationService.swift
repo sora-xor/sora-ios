@@ -355,6 +355,24 @@ protocol MigrationServiceProtocol {
     func requestMigration(completion completionClosure: @escaping MigrationResultClosure)
 }
 
+protocol MigrationExtrinsicSubmitting {
+    func submit(
+        _ closure: @escaping ExtrinsicBuilderClosure,
+        signer: SigningWrapperProtocol,
+        lifecycleLease: WalletLifecycleLease?,
+        purpose: Sora2PendingSubmissionPurpose,
+        preSigningValidation: (() throws -> Void)?,
+        runningIn queue: DispatchQueue,
+        completion: @escaping ExtrinsicSubmitClosure
+    )
+}
+
+extension ExtrinsicService: MigrationExtrinsicSubmitting {}
+
+typealias MigrationExtrinsicFactory = (
+    AccountItem, RuntimeCodingServiceProtocol, JSONRPCEngine, OperationManagerProtocol
+) -> MigrationExtrinsicSubmitting
+
 class MigrationService: MigrationServiceProtocol {
 
     private static let finalityRetryNanoseconds: UInt64 = 6_000_000_000
@@ -371,6 +389,8 @@ class MigrationService: MigrationServiceProtocol {
     let logger: LoggerProtocol
     let keystore: KeystoreProtocol
     private let eligibilityGate = MigrationEligibilityCheckGate()
+    private let extrinsicFactory: MigrationExtrinsicFactory
+    private let pendingStore: () throws -> Sora2PendingSubmissionStore
     private let finalityLock = NSLock()
     private var finalityRecovery: MigrationFinalityRecoveryHandle?
 
@@ -378,7 +398,14 @@ class MigrationService: MigrationServiceProtocol {
          keystore: KeystoreProtocol,
          settings: SettingsManagerProtocol,
          operationManager: OperationManagerProtocol,
-         logger: LoggerProtocol) {
+         logger: LoggerProtocol,
+         pendingStore: @escaping () throws -> Sora2PendingSubmissionStore = { try Sora2PendingSubmissionStore() },
+         extrinsicFactory: @escaping MigrationExtrinsicFactory = { account, runtime, engine, manager in
+             ExtrinsicService(address: account.address, cryptoType: account.cryptoType,
+                              runtimeRegistry: runtime, engine: engine, operationManager: manager)
+         }) {
+        self.extrinsicFactory = extrinsicFactory
+        self.pendingStore = pendingStore
         self.settings = settings
         self.eventCenter = eventCenter
         self.logger = logger
@@ -398,6 +425,7 @@ class MigrationService: MigrationServiceProtocol {
     func checkMigration() {
         guard
             let account = SelectedWalletSettings.shared.currentAccount,
+            account.networkType == Chain.sora.addressType(),
             let sourceEngine = engine
         else {
             eligibilityGate.invalidate()
@@ -502,7 +530,8 @@ class MigrationService: MigrationServiceProtocol {
     }
 
     func requestMigration(completion completionClosure: @escaping MigrationResultClosure) {
-        guard let account = SelectedWalletSettings.shared.currentAccount else {
+        guard let account = SelectedWalletSettings.shared.currentAccount,
+              account.networkType == Chain.sora.addressType() else {
             logger.error("Migration account not found")
             completionClosure(.failure(MigrationServiceError.startMigrationFail))
             return
@@ -655,13 +684,7 @@ class MigrationService: MigrationServiceProtocol {
             keystore: keystore,
             identifier: "iroha"
         )
-        let extrinsicService = ExtrinsicService(
-            address: account.address,
-            cryptoType: account.cryptoType,
-            runtimeRegistry: runtimeRegistry,
-            engine: engine,
-            operationManager: operationManager
-        )
+        let extrinsicService = extrinsicFactory(account, runtimeRegistry, engine, operationManager)
         let irohaKey = irohaKeyPair.publicKey().rawData().toHex()
         guard
             let message = (did + irohaKey).data(using: .utf8),
@@ -728,6 +751,7 @@ class MigrationService: MigrationServiceProtocol {
                     self.logger.error(
                         "Migration submission hash validation failed"
                     )
+                    completionClosure(.failure(MigrationServiceError.startMigrationFail))
                     return
                 }
                 localHash = normalized
@@ -768,7 +792,7 @@ class MigrationService: MigrationServiceProtocol {
     ) -> Bool {
         let values: [Sora2PendingSubmission]
         do {
-            values = try Sora2PendingSubmissionStore().all()
+            values = try pendingStore().all()
         } catch {
             logger.error("Migration pending journal is unavailable")
             failAttachedMigrationRequest(completion)
@@ -922,7 +946,7 @@ class MigrationService: MigrationServiceProtocol {
             guard let self else { return }
             let store: Sora2PendingSubmissionStore
             do {
-                store = try Sora2PendingSubmissionStore()
+                store = try self.pendingStore()
             } catch {
                 self.logger.error("Migration recovery journal unavailable")
                 outcome = .recoveryUnavailable

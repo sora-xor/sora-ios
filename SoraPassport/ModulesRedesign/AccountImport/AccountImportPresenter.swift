@@ -56,6 +56,26 @@ final class AccountImportPresenter {
     private(set) var selectedNetworkType: Chain?
     private var isRawSeedWarningShown: Bool = false
     private var expectedAddress: String?
+    private struct ValidationReview: Equatable {
+        let sourceType: AccountImportSource
+        let cryptoType: CryptoType
+        let networkType: Chain
+        let source: String
+        let username: String
+        let password: String
+        let derivationPath: String
+        let expectedAddress: String?
+    }
+    private var pendingValidation: (id: UUID, review: ValidationReview)?
+
+    private func currentValidationReview() -> ValidationReview? {
+        guard let sourceType = selectedSourceType, let cryptoType = selectedCryptoType,
+              let networkType = selectedNetworkType, let sourceViewModel, let usernameViewModel else { return nil }
+        return ValidationReview(sourceType: sourceType, cryptoType: cryptoType, networkType: networkType,
+                                source: sourceViewModel.inputHandler.value, username: usernameViewModel.inputHandler.value,
+                                password: passwordViewModel?.inputHandler.value ?? "",
+                                derivationPath: derivationPathViewModel?.inputHandler.value ?? "", expectedAddress: expectedAddress)
+    }
 
     private(set) var sourceViewModel: InputViewModelProtocol?
     private(set) var usernameViewModel: InputViewModelProtocol?
@@ -349,6 +369,7 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             let networkType = selectedNetworkType,
             let sourceViewModel = sourceViewModel,
             let usernameViewModel = usernameViewModel else {
+            completion?(.failure(ImportAccountError.unexpectedError))
             return
         }
               
@@ -438,7 +459,14 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
         }
         if !isShortPhrase { expectedAddress = nil }
 
+        guard let review = currentValidationReview(), pendingValidation?.review != review else { return }
+        let requestId = UUID()
+        pendingValidation = (requestId, review)
         validateAccount { [weak self] result in
+            let apply = { [weak self] in
+                guard self?.pendingValidation?.id == requestId else { return }
+                self?.pendingValidation = nil
+                guard self?.currentValidationReview() == review else { return }
             switch result {
             case .success(let existing):
                 if let existing, let self, let controller = self.view?.controller {
@@ -449,12 +477,13 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                     case .keystore: repairSource = .json
                     }
                     Task { @MainActor in
+                        guard self.currentValidationReview() == review else { return }
                         WalletAccountCapability.presentRepair(account: existing, from: controller,
                             configure: { repair in
                                 repair.setSuppliedMaterial(source: repairSource,
-                                    text: sourceViewModel.inputHandler.value,
-                                    derivationPath: self.derivationPathViewModel?.inputHandler.value ?? "",
-                                    backupPassword: self.passwordViewModel?.inputHandler.value ?? "")
+                                    text: review.source,
+                                    derivationPath: review.derivationPath,
+                                    backupPassword: review.password)
                             })
                     }
                     return
@@ -474,6 +503,9 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                 let error = BaseOperationError.parentOperationCancelled
                 self?.didReceiveAccountImport(error: error)
             }
+            }
+            if Thread.isMainThread { apply() }
+            else { DispatchQueue.main.async(execute: apply) }
         }
     }
 
@@ -489,7 +521,7 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
 extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
     func didReceiveAccountImport(metadata: AccountImportMetadata) {
         self.metadata = metadata
-        
+        selectedSourceType = selectedSourceType ?? metadata.defaultSource
         selectedCryptoType = metadata.defaultCryptoType
         selectedNetworkType = metadata.defaultNetwork
 
@@ -525,7 +557,14 @@ extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
 extension AccountImportPresenter: Localizable {
     func applyLocalization() {
         if let view = view, view.isSetup {
-            applySourceType()
+            let source = sourceViewModel?.inputHandler.value ?? ""
+            let password = passwordViewModel?.inputHandler.value ?? ""
+            let preferred = AccountImportPreferredInfo(username: usernameViewModel?.inputHandler.value,
+                                                        networkType: selectedNetworkType,
+                                                        cryptoType: selectedCryptoType,
+                                                        networkTypeConfirmed: true)
+            applySourceType(source, preferredInfo: preferred)
+            passwordViewModel?.inputHandler.changeValue(to: password)
         }
     }
 }

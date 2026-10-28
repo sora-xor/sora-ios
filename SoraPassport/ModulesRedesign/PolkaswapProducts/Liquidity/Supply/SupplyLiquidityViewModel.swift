@@ -425,6 +425,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
+        updateBalanceData()
         guard isPairStateValid,
               fee > 0,
               inputedFirstAmount > 0,

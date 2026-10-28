@@ -68,11 +68,21 @@ final class FarmViewModel {
 
 extension FarmViewModel: Hashable {
     static func == (lhs: FarmViewModel, rhs: FarmViewModel) -> Bool {
-        lhs.identifier == rhs.identifier && lhs.aprText == rhs.aprText
+        lhs.identifier == rhs.identifier && lhs.title == rhs.title && lhs.subtitle == rhs.subtitle &&
+        lhs.aprText == rhs.aprText && lhs.percentageText == rhs.percentageText && lhs.isFarmed == rhs.isFarmed &&
+        lhs.baseAssetImage == rhs.baseAssetImage && lhs.targetAssetImage == rhs.targetAssetImage &&
+        lhs.rewardAssetImage == rhs.rewardAssetImage
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(identifier)
         hasher.combine(aprText)
+        hasher.combine(title)
+        hasher.combine(subtitle)
+        hasher.combine(percentageText)
+        hasher.combine(isFarmed)
+        hasher.combine(baseAssetImage)
+        hasher.combine(targetAssetImage)
+        hasher.combine(rewardAssetImage)
     }
 }

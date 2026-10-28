@@ -64,10 +64,8 @@ final class WalletNavigationController: UINavigationController, UINavigationCont
                 navigationBar.shadowImage = UIImage.background(from: navigationBarStyle.shadowColor)
             }
 
-            if let backButtonImage = navigationBarStyle.backButtonImage {
-                navigationBar.backIndicatorImage = backButtonImage
-                navigationBar.backIndicatorTransitionMaskImage = backButtonImage
-            }
+            navigationBar.backIndicatorImage = navigationBarStyle.backButtonImage
+            navigationBar.backIndicatorTransitionMaskImage = navigationBarStyle.backButtonImage
         }
     }
 

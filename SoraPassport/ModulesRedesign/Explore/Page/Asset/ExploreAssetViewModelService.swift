@@ -101,14 +101,14 @@ final class ExploreAssetViewModelService {
             )
         }
         
-        (0..<fullListAssets.count).forEach { fullListAssets[$0].serialNumber += "\($0 + 1)" }
-        
-        if fullListAssets.isEmpty {
-            return assetViewModels(from: assetInfos, result: result)
-        } else {
-            viewModels = fullListAssets
-            return fullListAssets
+        let included = Set(fullListAssets.compactMap(\.assetId))
+        let missing = assetInfos.filter { !included.contains($0.assetId) }
+        fullListAssets.append(contentsOf: assetViewModels(from: missing, result: result))
+        for index in fullListAssets.indices {
+            fullListAssets[index].serialNumber = String(index + 1)
         }
+        viewModels = fullListAssets
+        return fullListAssets
     }
     
     static func prices(from fiatData: [PIExactFiatData]) -> [String: Decimal] {

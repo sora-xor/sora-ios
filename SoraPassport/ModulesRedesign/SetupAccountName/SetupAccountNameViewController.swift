@@ -186,6 +186,7 @@ extension SetupAccountNameViewController: UITextFieldDelegate {
 extension SetupAccountNameViewController: UsernameSetupViewProtocol {
     func set(viewModel: InputViewModelProtocol) {
         self.viewModel = viewModel
+        usernameField.textField.text = viewModel.inputHandler.value
     }
     
     func resetFocus() {

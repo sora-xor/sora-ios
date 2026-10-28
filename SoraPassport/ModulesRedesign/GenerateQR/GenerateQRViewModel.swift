@@ -65,7 +65,6 @@ final class GenerateQRViewModel {
     private var accountId: String
     private var address: String
     private var username: String
-    private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let qrEncoder: WalletQREncoderProtocol
     private var appEventService = AppEventService()
     private var networkFacade: WalletNetworkOperationFactoryProtocol?
@@ -113,6 +112,8 @@ final class GenerateQRViewModel {
                                                                sharingFactory: sharingFactory,
                                                                marketCapService: marketCapService)
 
+    private var generationID: UUID?
+    private var generationOperation: Operation?
     private var currentImage: UIImage?
     private let fiatService: FiatServiceProtocol?
     private let assetManager: AssetManagerProtocol?
@@ -150,14 +151,10 @@ final class GenerateQRViewModel {
         self.providerFactory = providerFactory
         self.isScanQRShown = isScanQRShown
         self.marketCapService = marketCapService
+    }
 
-        self.accountRepository = AnyDataProviderRepository(
-            UserDataStorageFacade.shared
-            .createRepository(filter: nil,
-                              sortDescriptors: [],
-                              mapper: AnyCoreDataMapper(AccountItemMapper()))
-        )
-
+    deinit {
+        generationOperation?.cancel()
     }
 }
 
@@ -201,47 +198,41 @@ extension GenerateQRViewModel: GenerateQRViewModelProtocol {
 private extension GenerateQRViewModel {
     func generateQR() {
         guard let receiveInfo = createGenerateQRInfo() else { return }
-        
+        // Invalidate before cancellation: an operation may complete while cancelling.
+        let requestID = UUID()
+        generationID = requestID
+        generationOperation?.cancel()
         let size = UIScreen.main.bounds.width - 112
         let qrSize = CGSize(width: size, height: size)
-        try? qrService.generate(from: receiveInfo, qrSize: qrSize, runIn: .main) { [weak self] operationResult in
-            guard case .success(let image) = operationResult else { return }
-            self?.currentImage = image
-            self?.processOperation()
+        generationOperation = try? qrService.generate(from: receiveInfo, qrSize: qrSize, runIn: .main) { [weak self] operationResult in
+            // Install the cancellable before accepting synchronous completion, and
+            // publish UIKit-facing models only on the main queue.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, generationID == requestID,
+                      case .success(let image) = operationResult else { return }
+                generationOperation = nil
+                currentImage = image
+                processOperation()
+            }
         }
     }
-    
-    func processOperation() {
-        let persistentOperation = self.accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
-        
-        persistentOperation.completionBlock = { [weak self] in
-            guard let accounts = try? persistentOperation.extractNoCancellableResultData() else { return }
-            
-            let selectedAccountAddress = SelectedWalletSettings.shared.currentAccount?.address ?? ""
-            let selectedAccount = accounts.first { $0.address == selectedAccountAddress }
-            
-            var viewModel = ReceiveQRViewModel(name: selectedAccount?.username ?? "",
-                                               address: selectedAccountAddress,
-                                               qrImage: self?.currentImage)
-            viewModel.shareHandler = { [weak self] in
-                self?.share()
-            }
-            viewModel.scanQRHandler = { [weak self] in
-                self?.scanQRCodeButtonTapped()
-            }
-            viewModel.accountTapHandler = {
-                let title = NSAttributedString(string: R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
-                let viewModel = AppEventViewController.ViewModel(title: title)
-                let appEventController = AppEventViewController(style: .custom(viewModel))
-                self?.appEventService.showToasterIfNeeded(viewController: appEventController)
-                UIPasteboard.general.string = selectedAccountAddress
-            }
-            self?.setupReceiveView?(viewModel)
-        }
 
-        OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
+    func processOperation() {
+        // The QR, label, copy action and share action describe the same captured
+        // account even if the wallet selection changes during generation.
+        var viewModel = ReceiveQRViewModel(name: username, address: address, qrImage: currentImage)
+        viewModel.shareHandler = { [weak self] in self?.share() }
+        viewModel.scanQRHandler = { [weak self] in self?.scanQRCodeButtonTapped() }
+        viewModel.accountTapHandler = { [weak self, address] in
+            let title = NSAttributedString(string: R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
+            let eventModel = AppEventViewController.ViewModel(title: title)
+            let controller = AppEventViewController(style: .custom(eventModel))
+            self?.appEventService.showToasterIfNeeded(viewController: controller)
+            UIPasteboard.general.string = address
+        }
+        setupReceiveView?(viewModel)
     }
-    
+
     func createGenerateQRInfo() -> ReceiveInfo? {
         return ReceiveInfo(accountId: accountId,
                            assetId: WalletAssetId.xor.rawValue,
@@ -262,6 +253,17 @@ private extension GenerateQRViewModel {
               let networkFacade = networkFacade else { return }
         
         if let amount = result.receiverInfo?.amount {
+            let assetId = result.receiverInfo?.assetId ?? WalletAssetId.xor.rawValue
+            guard amount.decimalValue > 0,
+                  let asset = assetManager.assetInfo(for: assetId),
+                  let precision = Int16(exactly: asset.precision),
+                  let atomic = amount.decimalValue.toSubstrateAmount(precision: precision),
+                  atomic > 0 else {
+                Task { @MainActor [weak self] in
+                    self?.wireframe?.showFeeEstimationError(on: self?.view?.controller, retry: { [weak self] in self?.handle(result) })
+                }
+                return
+            }
             Task { @MainActor [weak self] in
                 guard let self,
                       let selectedAccount = SelectedWalletSettings.shared
@@ -281,7 +283,7 @@ private extension GenerateQRViewModel {
                         fromAddress: reviewedRecipient,
                         type: selectedAccount.addressType
                     ).toHex()
-                    let assetId = result.receiverInfo?.assetId ?? .xor
+                    let assetId = result.receiverInfo?.assetId ?? WalletAssetId.xor.rawValue
                     let info = TransferInfo(
                         source: source,
                         destination: destination,
@@ -337,7 +339,7 @@ private extension GenerateQRViewModel {
             return
         }
         wireframe?.showSend(on: view?.controller,
-                            selectedTokenId: result.receiverInfo?.assetId ?? .xor,
+                            selectedTokenId: result.receiverInfo?.assetId ?? WalletAssetId.xor.rawValue,
                             selectedAddress: result.firstName,
                             fiatService: fiatService,
                             assetManager: assetManager,

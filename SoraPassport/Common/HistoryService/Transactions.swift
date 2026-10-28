@@ -343,8 +343,8 @@ extension Array where Element == TxHistoryItemParam {
     }
     
     func toLiquidityData() -> LiquidityData {
-        return LiquidityData(baseTokenId: self.first { $0.paramName == "targetAssetId" }?.paramValue ?? "" ,
-                             targetTokenId: self.first { $0.paramName == "baseAssetId" }?.paramValue ?? "" ,
+        return LiquidityData(baseTokenId: self.first { $0.paramName == "baseAssetId" }?.paramValue ?? "" ,
+                             targetTokenId: self.first { $0.paramName == "targetAssetId" }?.paramValue ?? "" ,
                              baseTokenAmount: self.first { $0.paramName == "baseAssetAmount" }?.paramValue ?? "" ,
                              targetTokenAmount: self.first { $0.paramName == "targetAssetAmount" }?.paramValue ?? "" )
     }

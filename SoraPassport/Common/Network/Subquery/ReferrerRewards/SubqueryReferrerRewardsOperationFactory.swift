@@ -43,12 +43,13 @@ final class SubqueryReferrerRewardsOperationFactory {
         self.url = url
     }
 
-    private func prepareQueryFor(_ referrer: String) -> String {
+    private func prepareQueryFor(_ referrer: String) throws -> String {
+        let referrerLiteral = String(decoding: try JSONEncoder().encode(referrer), as: UTF8.self)
         return """
         query {
         referrerRewards (
             filter: {
-                referrer: { equalTo: "\(referrer)" }
+                referrer: { equalTo: \(referrerLiteral) }
             }) {
             pageInfo {
               hasNextPage
@@ -70,9 +71,8 @@ final class SubqueryReferrerRewardsOperationFactory {
 
 extension SubqueryReferrerRewardsOperationFactory: SubqueryReferrerRewardsOperationFactoryProtocol {
     func createOperation(referrer: String) -> BaseOperation<SubqueryReferrerRewardsData> {
-        let queryString = prepareQueryFor(referrer)
-
         let requestFactory = BlockNetworkRequestFactory {
+            let queryString = try self.prepareQueryFor(referrer)
             var request = URLRequest(url: self.url)
 
             let info = JSON.dictionaryValue(["query": JSON.stringValue(queryString)])

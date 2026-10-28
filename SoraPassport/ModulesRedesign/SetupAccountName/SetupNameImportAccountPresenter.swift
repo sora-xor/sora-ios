@@ -39,7 +39,7 @@ final class SetupNameImportAccountPresenter {
     var interactor: AccountImportInteractorInputProtocol!
     var viewModel: InputViewModel!
     var completion: (() -> Void)?
-    let settingsManager = SelectedWalletSettings.shared
+    let settingsManager: SelectedWalletSettingsProtocol
     var mode: UsernameSetupMode = .onboarding
     var userName: String?
 
@@ -55,6 +55,9 @@ final class SetupNameImportAccountPresenter {
     private(set) var passwordViewModel: InputViewModelProtocol?
     private(set) var derivationPathViewModel: InputViewModelProtocol?
     private let expectedAddress: String?
+    private var activeImport: UUID?
+    private var importedAccount: AccountItem?
+    private var didFinishImport = false
     
     init(accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
@@ -66,7 +69,9 @@ final class SetupNameImportAccountPresenter {
          usernameViewModel: InputViewModelProtocol,
          passwordViewModel: InputViewModelProtocol?,
          derivationPathViewModel: InputViewModelProtocol?,
-         expectedAddress: String? = nil) {
+         expectedAddress: String? = nil,
+         selectedSettings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared) {
+        self.settingsManager = selectedSettings
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -97,7 +102,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         switch sourceType {
         case .mnemonic:
             let mnemonic = sourceViewModel.inputHandler.value
-            let username = usernameViewModel.inputHandler.value
+            let username = userName ?? usernameViewModel.inputHandler.value
             let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
             let request = AccountImportMnemonicRequest(mnemonic: mnemonic,
                                                        username: username,
@@ -108,7 +113,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
             interactor.importAccountWithMnemonic(request: request, completion: completion)
         case .seed:
             let seed = sourceViewModel.inputHandler.value
-            let username = usernameViewModel.inputHandler.value
+            let username = userName ?? usernameViewModel.inputHandler.value
             let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
             let request = AccountImportSeedRequest(seed: seed,
                                                    username: username,
@@ -119,7 +124,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         case .keystore:
             let keystore = sourceViewModel.inputHandler.value
             let password = passwordViewModel?.inputHandler.value ?? ""
-            let username = usernameViewModel.inputHandler.value
+            let username = userName ?? usernameViewModel.inputHandler.value
             let request = AccountImportKeystoreRequest(keystore: keystore,
                                                        password: password,
                                                        username: username,
@@ -131,36 +136,58 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     }
 
     func proceed() {
-       let endingBlock: (() -> Void)? = { [weak self] in
-            guard let self = self else { return }
-            if let account = self.settingsManager.currentAccount {
-                self.settingsManager.performUpdateName(
-                    account: account,
-                    displayName: self.userName ?? ""
-                ) { [weak self] result in
-                    DispatchQueue.main.async {
-                        if case .success = result {
-                            self?.eventCenter.notify(with: SelectedUsernameChanged())
-                        }
-                    }
-                }
-                
-                self.view?.controller.dismiss(animated: true, completion: completion)
-                return
-            }
+        guard activeImport == nil, !didFinishImport else { return }
+        let requestID = UUID()
+        let displayName = userName ?? usernameViewModel.inputHandler.value
+        activeImport = requestID
+        if let account = importedAccount {
+            saveName(for: account, displayName: displayName, requestID: requestID)
+            return
         }
-       
         importAccount { [weak self] result in
-            switch result {
-            case .success: endingBlock?()
-            case .failure(let error) where !(error is CancellationError):
-                self?.wireframe.present(message: error.localizedDescription,
-                    title: WalletUX.text("Wallet keys not restored"), closeAction: WalletUX.text("OK"), from: self?.view)
-            default: break
+            let finish = { [weak self] in
+                guard let self, self.activeImport == requestID, self.importedAccount == nil else { return }
+                switch result {
+                case let .success(account):
+                    self.importedAccount = account
+                    self.saveName(for: account, displayName: displayName, requestID: requestID)
+                case let .failure(error):
+                    self.activeImport = nil
+                    if !(error is CancellationError) {
+                        self.wireframe.present(message: error.localizedDescription,
+                            title: WalletUX.text("Wallet keys not restored"), closeAction: WalletUX.text("OK"), from: self.view)
+                    }
+                case nil:
+                    self.activeImport = nil
+                }
             }
+            if Thread.isMainThread { finish() }
+            else { DispatchQueue.main.async(execute: finish) }
         }
     }
-    
+
+    private func saveName(for account: AccountItem, displayName: String, requestID: UUID) {
+        settingsManager.performUpdateName(account: account, displayName: displayName) { [weak self] result in
+            let finish = { [weak self] in
+                guard let self, self.activeImport == requestID else { return }
+                self.activeImport = nil
+                switch result {
+                case .success:
+                    self.didFinishImport = true
+                    self.eventCenter.notify(with: SelectedUsernameChanged())
+                    self.view?.controller.dismiss(animated: true, completion: self.completion)
+                case let .failure(error):
+                    if !(error is CancellationError) {
+                        self.wireframe.present(message: error.localizedDescription,
+                            title: WalletUX.text("Wallet name not saved"), closeAction: WalletUX.text("OK"), from: self.view)
+                    }
+                }
+            }
+            if Thread.isMainThread { finish() }
+            else { DispatchQueue.main.async(execute: finish) }
+        }
+    }
+
     func endEditing() {}
 
     func activateURL(_ url: URL) {

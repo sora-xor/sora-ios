@@ -56,15 +56,9 @@ final class ExplorePageView: SoramitsuView {
             setupSubscriptions()
             viewModel?.setup()
             
-            var topInset: CGFloat = 16
-            
-            if let viewModel, viewModel.isNeedHeaders {
-                topInset = !viewModel.isNeedHeaders ? 16 : 0
-            } else {
-                tableView.sectionHeaderHeight = 0
-            }
-            
-            tableView.contentInset = UIEdgeInsets(top: topInset, left: 0, bottom: 16, right: 0)
+            let needsHeaders = viewModel?.isNeedHeaders == true
+            tableView.sectionHeaderHeight = needsHeaders ? UITableView.automaticDimension : 0
+            tableView.contentInset = UIEdgeInsets(top: needsHeaders ? 0 : 16, left: 0, bottom: 16, right: 0)
         }
     }
     
@@ -155,6 +149,7 @@ final class ExplorePageView: SoramitsuView {
     }
     
     private func setupSubscriptions() {
+        cancellables.removeAll()
         viewModel?.snapshotPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
@@ -174,7 +169,18 @@ extension ExplorePageView: UITableViewDelegate {
     }
 
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let title = ExploreItemType.allCases[section].title
+        let snapshot = dataSource.snapshot()
+        guard viewModel?.isNeedHeaders == true,
+              snapshot.sectionIdentifiers.indices.contains(section),
+              let first = snapshot.itemIdentifiers(inSection: snapshot.sectionIdentifiers[section]).first else { return nil }
+        let type: ExploreItemType
+        switch first {
+        case .asset: type = .assets
+        case .pool: type = .pools
+        case .farm: type = .farms
+        case .header: return nil
+        }
+        let title = type.title
         let cell = tableView.dequeueReusableHeaderFooterView(withIdentifier: ExploreSectionHeader.reuseIdentifier) as? ExploreSectionHeader
         cell?.configure(with: title)
         return cell

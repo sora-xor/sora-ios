@@ -36,6 +36,7 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
     var viewModel: EnterPasswordViewModelProtocol? {
         didSet {
             setupSubscriptions()
+            if isViewLoaded { viewModel?.reload() }
         }
     }
 
@@ -105,6 +106,7 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
     }
 
     private func setupSubscriptions() {
+        cancellables.removeAll()
         viewModel?.titlePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in

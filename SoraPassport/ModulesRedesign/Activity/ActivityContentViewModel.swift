@@ -78,7 +78,10 @@ extension ActivityContentViewModel: Hashable {
         lhs.subtitle == rhs.subtitle &&
         lhs.fiatText == rhs.fiatText &&
         lhs.status == rhs.status &&
-        lhs.isNeedTwoImage == rhs.isNeedTwoImage
+        lhs.isNeedTwoImage == rhs.isNeedTwoImage &&
+        lhs.firstBalanceText.attributedString.string == rhs.firstBalanceText.attributedString.string &&
+        lhs.firstAssetImageViewModel == rhs.firstAssetImageViewModel &&
+        lhs.secondAssetImageViewModel == rhs.secondAssetImageViewModel
     }
 
     public func hash(into hasher: inout Hasher) {
@@ -88,5 +91,8 @@ extension ActivityContentViewModel: Hashable {
         hasher.combine(fiatText)
         hasher.combine(status)
         hasher.combine(isNeedTwoImage)
+        hasher.combine(firstBalanceText.attributedString.string)
+        hasher.combine(firstAssetImageViewModel)
+        hasher.combine(secondAssetImageViewModel)
     }
 }

@@ -36,10 +36,20 @@ final class PortfolioHandoffInbox {
     static let shared = PortfolioHandoffInbox()
     static let lifetime: TimeInterval = 60
 
-    private var pending: (walletId: String, handoff: PortfolioHandoff, date: Date)?
+    private var pending: (walletId: String, handoff: PortfolioHandoff, date: Date, id: UUID)?
 
-    func put(_ handoff: PortfolioHandoff, walletId: String, now: Date = Date()) {
-        pending = (walletId, handoff, now)
+    @discardableResult
+    func put(_ handoff: PortfolioHandoff, walletId: String, now: Date = Date()) -> UUID {
+        let id = UUID()
+        pending = (walletId, handoff, now, id)
+        return id
+    }
+
+    @discardableResult
+    func clear(ifCurrent id: UUID) -> Bool {
+        guard pending?.id == id else { return false }
+        pending = nil
+        return true
     }
 
     func clear() {

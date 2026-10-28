@@ -50,13 +50,12 @@ final class SwitcherView: SoramitsuView {
 
     var viewModel: SwitcherViewModel? {
         didSet {
-            guard let viewModel = viewModel else { return }
-            
             mainStackView.arrangedSubviews.forEach { subview in
                 mainStackView.removeArrangedSubview(subview)
                 subview.removeFromSuperview()
             }
 
+            guard let viewModel else { return }
             let butttonViews = viewModel.buttonViewModels.map { buttonViewModel -> SoramitsuButton in
                 let title = SoramitsuTextItem(text:  buttonViewModel.title,
                                               fontData: FontType.textBoldS,
@@ -64,6 +63,10 @@ final class SwitcherView: SoramitsuView {
                                               alignment: .center)
                 let button = SoramitsuButton()
                 button.sora.attributedText = title
+                button.accessibilityLabel = buttonViewModel.title
+                if buttonViewModel.isSelected {
+                    button.accessibilityTraits.insert(.selected)
+                }
                 button.sora.cornerRadius = .circle
                 button.sora.backgroundColor = buttonViewModel.isSelected ? .accentSecondary : .bgSurfaceVariant
                 button.sora.horizontalOffset = 12

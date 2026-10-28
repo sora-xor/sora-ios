@@ -41,6 +41,7 @@ final class InputSendInfoView: SoramitsuView {
     
     var viewModel: InputSendInfoViewModel? {
         didSet {
+            cancellables.removeAll()
             guard let viewModel = viewModel else { return }
             let output = viewModel.transform(input: input.eraseToAnyPublisher())
             output
@@ -141,17 +142,8 @@ final class InputSendInfoView: SoramitsuView {
         field.sora.state = .default
         field.textField.keyboardType = .decimalPad
         field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
-            if let typedText = field.textField.text {
-                var dotCount = 0
-                for c in typedText {
-                    if String(c) == "." || String(c) == "," {  dotCount += 1  }
-                }
-                if dotCount >= 2 {
-                    field.textField.sora.text = String(typedText.dropLast())
-                }
-            }
             let currentAmount = field.textField.text?.replacingOccurrences(of: ",", with: ".") ?? ""
-            self?.viewModel?.inputedAmount = Decimal(string: currentAmount) ?? 0
+            self?.viewModel?.inputedAmount = AmountDecimal(string: currentAmount)?.decimalValue ?? 0
         }
         field.sora.assetChoiceHandler = { [weak self] in
             self?.input.send(.choiseAsset)

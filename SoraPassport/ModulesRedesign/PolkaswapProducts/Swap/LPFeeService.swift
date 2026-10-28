@@ -50,20 +50,27 @@ struct LPFeeData: Decodable {
 }
 
 final class LPFeeService {
-    let operationManager = OperationManager()
-    let engine: JSONRPCEngine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())!
-    let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
+    let operationManager: OperationManagerProtocol
+    let engine: JSONRPCEngine?
+    let runtime: RuntimeCodingServiceProtocol?
     var xorFee = String(0.3)
     var xstFee = ""
     
-    init() {
+    init(
+        engine: JSONRPCEngine? = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+        runtime: RuntimeCodingServiceProtocol? = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+        operationManager: OperationManagerProtocol = OperationManager()
+    ) {
+        self.engine = engine
+        self.runtime = runtime
+        self.operationManager = operationManager
         updateLpFeePercentage()
     }
     
     private func updateLpFeePercentage() {
-        guard let operation = createLpFeePercentOperation() else { return }
-        operation.completionBlock = { [weak self] in
-            guard let data = try? operation.extractNoCancellableResultData().underlyingValue else {
+        guard let operation = createLpFeePercentOperation() else { getDefaultLpFee(); return }
+        operation.completionBlock = { [weak self, weak operation] in
+            guard let data = try? operation?.extractNoCancellableResultData().underlyingValue else {
                 self?.getDefaultLpFee()
                 return
             }
@@ -73,14 +80,15 @@ final class LPFeeService {
     }
     
     private func createLpFeePercentOperation() -> JSONRPCListOperation<JSONScaleDecodable<LPFee>>? {
-        guard let parameters = try? StorageKeyFactory().xstPoolBaseFee().toHex(includePrefix: true) else { return nil }
+        guard let engine, let parameters = try? StorageKeyFactory().xstPoolBaseFee().toHex(includePrefix: true) else { return nil }
         return JSONRPCListOperation<JSONScaleDecodable<LPFee>>(engine: engine, method: RPCMethod.getStorage, parameters: [ parameters ])
     }
     
     private func getDefaultLpFee() {
+        guard let runtime else { return }
         let codingFactoryOperation = runtime.fetchCoderFactoryOperation()
-        codingFactoryOperation.completionBlock = { [weak self] in
-            guard let self = self, let codingFactory = try? codingFactoryOperation.extractNoCancellableResultData() else { return }
+        codingFactoryOperation.completionBlock = { [weak self, weak codingFactoryOperation] in
+            guard let self = self, let codingFactory = try? codingFactoryOperation?.extractNoCancellableResultData() else { return }
             let operation = self.createFallbackLpFeeOperation(with: codingFactory)
             self.operationManager.enqueue(operations: [operation], in: .transient)
         }
@@ -90,8 +98,8 @@ final class LPFeeService {
     private func createFallbackLpFeeOperation(with codingFactory: RuntimeCoderFactoryProtocol) -> StorageFallbackDecodingOperation<LPFeeData> {
         let operation = StorageFallbackDecodingOperation<LPFeeData>(path: .xstPoolFee)
         operation.codingFactory = codingFactory
-        operation.completionBlock = { [weak self] in
-            guard let data = try? operation.extractResultData()??.inner, let fee = BigUInt(data) else { return }
+        operation.completionBlock = { [weak self, weak operation] in
+            guard let data = try? operation?.extractResultData()??.inner, let fee = BigUInt(data) else { return }
             self?.xstFee = Decimal.fromSubstrateAmount(fee, precision: 16)?.stringWithPointSeparator ?? ""
         }
         return operation

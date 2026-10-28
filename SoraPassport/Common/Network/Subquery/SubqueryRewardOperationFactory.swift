@@ -43,13 +43,14 @@ final class SubqueryRewardOperationFactory {
         self.url = url
     }
 
-    private func prepareQueryForAddress(_ address: String) -> String {
-        """
+    private func prepareQueryForAddress(_ address: String) throws -> String {
+        let addressLiteral = String(decoding: try JSONEncoder().encode(address), as: UTF8.self)
+        return """
         {
             historyElements(
                  orderBy: TIMESTAMP_DESC,
                  filter: {
-                     address: { equalTo: \"\(address)\"},
+                     address: { equalTo: \(addressLiteral)},
                      reward: { isNull: false }
                  }
              ) {
@@ -57,9 +58,10 @@ final class SubqueryRewardOperationFactory {
                     id
                     timestamp
                     address
-                    reward
-                    extrinsic
-                    transfer
+                    blockHash
+                    networkFee
+                    data
+                    execution
                 }
              }
         }
@@ -69,9 +71,8 @@ final class SubqueryRewardOperationFactory {
 
 extension SubqueryRewardOperationFactory: SubqueryRewardOperationFactoryProtocol {
     func createOperation(address: String) -> BaseOperation<SubqueryRewardOrSlashData> {
-        let queryString = prepareQueryForAddress(address)
-
         let requestFactory = BlockNetworkRequestFactory {
+            let queryString = try self.prepareQueryForAddress(address)
             var request = URLRequest(url: self.url)
 
             let info = JSON.dictionaryValue(["query": JSON.stringValue(queryString)])

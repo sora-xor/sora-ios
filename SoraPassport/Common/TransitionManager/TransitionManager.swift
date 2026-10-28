@@ -43,8 +43,11 @@ final class TransitionManager: NSObject, UIViewControllerAnimatedTransitioning {
     }
 
     func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
-        guard let fromView = transitionContext.view(forKey: .from) else { return }
-        guard let toView = transitionContext.view(forKey: .to) else { return }
+        guard let fromView = transitionContext.view(forKey: .from),
+              let toView = transitionContext.view(forKey: .to) else {
+            transitionContext.completeTransition(false)
+            return
+        }
 
         let duration = transitionDuration(using: transitionContext)
 
@@ -56,6 +59,9 @@ final class TransitionManager: NSObject, UIViewControllerAnimatedTransitioning {
         }
 
         let toViewFrame = toView.frame
+        let fromViewFrame = fromView.frame
+        let fromAlpha = fromView.alpha
+        let toAlpha = toView.alpha
         toView.frame = CGRect(x: presenting ? toView.frame.width : -toView.frame.width, y: toView.frame.origin.y, width: toView.frame.width, height: toView.frame.height)
 
         let animations = {
@@ -81,8 +87,17 @@ final class TransitionManager: NSObject, UIViewControllerAnimatedTransitioning {
                                 options: .calculationModeCubic,
                                 animations: animations,
                                 completion: { finished in
-                                    container.addSubview(toView)
-                                    transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
+                                    let completed = !transitionContext.transitionWasCancelled
+                                    if completed {
+                                        container.addSubview(toView)
+                                    } else {
+                                        fromView.frame = fromViewFrame
+                                        fromView.alpha = fromAlpha
+                                        toView.frame = toViewFrame
+                                        toView.alpha = toAlpha
+                                        toView.removeFromSuperview()
+                                    }
+                                    transitionContext.completeTransition(completed)
         })
     }
 }
@@ -139,15 +154,25 @@ extension UINavigationController {
             return
         }
 
-        let percent = gestureRecognizer.translation(in: gestureRecognizerView).x / gestureRecognizerView.bounds.size.width
+        let width = gestureRecognizerView.bounds.width
+        guard width > 0 else {
+            transitionCoordinatorHelper?.interactionController?.cancel()
+            transitionCoordinatorHelper?.interactionController = nil
+            return
+        }
+        let rawPercent = gestureRecognizer.translation(in: gestureRecognizerView).x / width
+        let percent = rawPercent.isFinite ? min(1, max(0, rawPercent)) : 0
 
         if gestureRecognizer.state == .began {
             transitionCoordinatorHelper?.interactionController = UIPercentDrivenInteractiveTransition()
             popViewController(animated: true)
         } else if gestureRecognizer.state == .changed {
             transitionCoordinatorHelper?.interactionController?.update(percent)
+        } else if gestureRecognizer.state == .cancelled || gestureRecognizer.state == .failed {
+            transitionCoordinatorHelper?.interactionController?.cancel()
+            transitionCoordinatorHelper?.interactionController = nil
         } else if gestureRecognizer.state == .ended {
-            if percent > 0.5 && gestureRecognizer.state != .cancelled {
+            if percent > 0.5 {
                 transitionCoordinatorHelper?.interactionController?.finish()
             } else {
                 transitionCoordinatorHelper?.interactionController?.cancel()

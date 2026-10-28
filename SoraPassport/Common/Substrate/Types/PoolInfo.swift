@@ -119,6 +119,7 @@ struct PoolInfo: Codable {
                  totalIssuances: totalIssuances,
                  baseAssetReserves: baseAssetReserves,
                  targetAssetReserves: targetAssetReserves,
+                 accountPoolBalance: accountPoolBalance,
                  farms: farms)
     }
 }

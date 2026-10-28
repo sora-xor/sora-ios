@@ -2970,10 +2970,11 @@ final class Sora2LiveRuntimeTests: XCTestCase {
         AssetInfo(id: Self.xorAssetId, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true)
     }
 
+    @MainActor
     private func settle(
         _ what: String,
         timeout: TimeInterval = 10,
-        until condition: @escaping () -> Bool
+        until condition: @MainActor @escaping () -> Bool
     ) async {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition(), Date() < deadline {
@@ -4912,5 +4913,156 @@ private final class NoReferrals: ReferralsOperationFactoryProtocol {
     func createExtrinsicUnreserveReferralBalanceOperation(with _: BigUInt) -> BaseOperation<String> {
         ClosureOperation { "" }
     }
-    func createReferrerOperation() -> JSONRPCListOperation<String>? { nil }
+    func createReferrerOperation() -> JSONRPCListOperation<String?>? { nil }
+}
+
+/// The in-memory rows shown before the indexer catches up must remain scoped
+/// to their wallet and asset, even when confirmations arrive after a switch.
+final class LocalTransactionHistoryTests: XCTestCase {
+    private func storage() -> LocalTransactionStorage {
+        LocalTransactionStorage(eventCenter: EventCenter())
+    }
+
+    private func base(_ byte: UInt8, status: TransactionBase.Status = .pending) -> TransactionBase {
+        TransactionBase(txHash: Data([byte]).toHex(includePrefix: true), blockHash: "", fee: Amount(value: 0),
+                        status: status, timestamp: String(byte))
+    }
+
+    private func transfer(_ byte: UInt8, asset: String = "XOR") -> TransferTransaction {
+        TransferTransaction(base: base(byte), amount: Amount(value: 1), peer: "recipient",
+                            transferType: .outcoming, tokenId: asset)
+    }
+
+    private func confirmation(_ byte: UInt8, success: Bool = true) -> TransactionSubscriptionResult {
+        TransactionSubscriptionResult(processingResult: ExtrinsicProcessingResult(
+            extrinsic: Extrinsic(signature: nil, call: .dictionaryValue([:])),
+            callPath: CallCodingPath(moduleName: "Assets", callName: "transfer"), fee: nil,
+            peerId: nil, isSuccess: success), extrinsicHash: Data([byte]), blockNumber: 10, txIndex: UInt16(byte))
+    }
+
+    func testEveryConfirmationInABatchUpdatesItsOwnStatus() {
+        let store = storage()
+        store.transactions = ["A": [transfer(1), transfer(2), transfer(3)]]
+        store.processNewTransaction(event: .init(items: [confirmation(1), confirmation(2, success: false)]))
+        XCTAssertEqual(store.transactions["A"]?.map { $0.base.status }, [.success, .failed, .pending])
+    }
+
+    func testConfirmationFindsOriginalWalletAfterSelectionChanges() {
+        let store = storage()
+        store.transactions = ["A": [transfer(1)], "B": [transfer(2)]]
+        store.processNewTransaction(event: .init(items: [confirmation(1), confirmation(2, success: false)]))
+        XCTAssertEqual(store.transactions["A"]?.first?.base.status, .success)
+        XCTAssertEqual(store.transactions["B"]?.first?.base.status, .failed)
+    }
+
+    func testConfirmationDoesNotRequireASelectedWallet() {
+        let store = storage()
+        store.transactions = ["A": [transfer(1)]]
+        store.processNewTransaction(event: .init(items: [confirmation(1)]))
+        XCTAssertEqual(store.transactions["A"]?.first?.base.status, .success)
+    }
+
+    func testEmptyAndUnrelatedConfirmationsDoNotCreateOrChangeRows() {
+        let store = storage()
+        store.transactions = ["A": [transfer(1)]]
+        store.processNewTransaction(event: .init(items: []))
+        store.processNewTransaction(event: .init(items: [confirmation(2)]))
+        XCTAssertEqual(Set(store.transactions.keys), ["A"])
+        XCTAssertEqual(store.transactions["A"]?.map { $0.base.status }, [.pending])
+    }
+
+    func testConcurrentConfirmationsKeepEveryResult() {
+        let store = storage()
+        store.transactions = ["A": (1...64).map { transfer(UInt8($0)) }]
+        DispatchQueue.concurrentPerform(iterations: 64) { index in
+            store.processNewTransaction(event: .init(items: [confirmation(UInt8(index + 1))]))
+        }
+        XCTAssertEqual(store.transactions["A"]?.count, 64)
+        XCTAssertTrue(store.transactions["A"]?.allSatisfy { $0.base.status == .success } == true)
+    }
+
+    func testCreationEventsKeepCapturedWalletWhenDeliveredOutOfOrder() {
+        let store = storage()
+        let first = NewTransactionCreatedEvent(item: transfer(1), accountAddress: "A")
+        let second = NewTransactionCreatedEvent(item: transfer(2), accountAddress: "B")
+        store.processNewTransactionCreated(event: second)
+        store.processNewTransactionCreated(event: first)
+        XCTAssertEqual(store.transactions["A"]?.map { $0.base.txHash }, ["0x01"])
+        XCTAssertEqual(store.transactions["B"]?.map { $0.base.txHash }, ["0x02"])
+    }
+
+    func testCreationWithoutAnAccountDoesNotAttachToAnotherWallet() {
+        let store = storage()
+        store.transactions = ["A": [transfer(1)]]
+        store.processNewTransactionCreated(event: .init(item: transfer(2), accountAddress: nil))
+        XCTAssertEqual(Set(store.transactions.keys), ["A"])
+        XCTAssertEqual(store.transactions["A"]?.map { $0.base.txHash }, ["0x01"])
+    }
+
+    private func history(_ transactions: [Transaction], address: String = "A") -> HistoryService {
+        let store = storage()
+        store.transactions = ["A": transactions, "B": [transfer(99)]]
+        return HistoryService(operationManager: OperationManager(), address: address, assets: [], localStorage: store,
+                              readRemote: { _, _, _, _ in .init(items: [], endReached: true) }, readJournal: { [] })
+    }
+
+    private func assertAssets(_ transaction: Transaction, included: [String], file: StaticString = #filePath,
+                              line: UInt = #line) async throws {
+        let service = history([transaction])
+        for asset in included {
+            let rows = try await service.getHistory(count: 10, assetId: asset)
+            XCTAssertEqual(rows.map { $0.base.txHash }, [transaction.base.txHash], asset, file: file, line: line)
+        }
+        let other = try await service.getHistory(count: 10, assetId: "unrelated")
+        XCTAssertTrue(other.isEmpty, file: file, line: line)
+    }
+
+    func testAssetHistoryIncludesOnlyItsLocalTransfers() async throws {
+        try await assertAssets(transfer(1), included: ["XOR"])
+    }
+
+    func testAssetHistoryIncludesBothSidesOfLocalSwaps() async throws {
+        try await assertAssets(Swap(base: base(1), fromTokenId: "XOR", toTokenId: "VAL",
+                                   fromAmount: Amount(value: 1), toAmount: Amount(value: 2), market: .xyk), included: ["XOR", "VAL"])
+    }
+
+    func testAssetHistoryIncludesBothLiquidityAssets() async throws {
+        for type in [Liquidity.TransactionLiquidityType.add, .withdraw] {
+            try await assertAssets(Liquidity(base: base(1), firstTokenId: "XOR", secondTokenId: "VAL",
+                                            firstAmount: Amount(value: 1), secondAmount: Amount(value: 2), type: type), included: ["XOR", "VAL"])
+        }
+    }
+
+    func testAssetHistoryIncludesFarmRewardAndBothPoolAssets() async throws {
+        try await assertAssets(FarmLiquidity(base: base(1), firstTokenId: "XOR", secondTokenId: "VAL",
+                                            rewardTokenId: "PSWAP", amount: Amount(value: 1), sender: "A", type: .add),
+                               included: ["XOR", "VAL", "PSWAP"])
+    }
+
+    func testAssetHistoryScopesRewardsAndReferralRows() async throws {
+        try await assertAssets(ClaimReward(base: base(1), amount: Amount(value: 1), peer: "A", rewardTokenId: "PSWAP"), included: ["PSWAP"])
+        try await assertAssets(ReferralBondTransaction(base: base(2), amount: Amount(value: 1), tokenId: "XOR", type: .bond), included: ["XOR"])
+        try await assertAssets(SetReferrerTransaction(base: base(3), who: "B", isMyReferrer: true, tokenId: "XOR"), included: ["XOR"])
+    }
+
+    func testGenericRowsHaveNoAssetButRemainInAllActivity() async throws {
+        let service = history([SubmittedTransaction(base: base(1), outcome: .pending)])
+        let filtered = try await service.getHistory(count: 10, assetId: "XOR")
+        let all = try await service.getHistory(count: 10, assetId: nil)
+        XCTAssertTrue(filtered.isEmpty)
+        XCTAssertEqual(all.map { $0.base.txHash }, ["0x01"])
+    }
+
+    func testLocalRowsAreSortedAndOnlyAppearOnFirstHistoryPage() async throws {
+        let service = history([transfer(1), transfer(3), transfer(2)])
+        let first = try await service.getPageHistory(count: 10, page: 1, assetId: "XOR")
+        let next = try await service.getPageHistory(count: 10, page: 2, assetId: "XOR")
+        XCTAssertEqual(first.transactions.map { $0.base.txHash }, ["0x03", "0x02", "0x01"])
+        XCTAssertTrue(next.transactions.isEmpty)
+    }
+
+    func testHistoryNeverIncludesAnotherWalletsLocalRows() async throws {
+        let rows = try await history([transfer(1)], address: "B").getHistory(count: 10, assetId: nil)
+        XCTAssertEqual(rows.map { $0.base.txHash }, ["0x63"])
+    }
 }

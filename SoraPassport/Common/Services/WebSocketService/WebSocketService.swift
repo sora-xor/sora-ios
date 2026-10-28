@@ -51,6 +51,7 @@ final class WebSocketService: WebSocketServiceProtocol {
     var connection: JSONRPCEngine? { engine }
 
     let applicationHandler: ApplicationHandlerProtocol
+    private let engineFactory: WebSocketEngineFactoryProtocol
 
     private(set) var settings: WebSocketServiceSettings
     private(set) var engine: WebSocketEngine?
@@ -65,10 +66,12 @@ final class WebSocketService: WebSocketServiceProtocol {
 
     init(
         settings: WebSocketServiceSettings,
-        applicationHandler: ApplicationHandlerProtocol
+        applicationHandler: ApplicationHandlerProtocol,
+        engineFactory: WebSocketEngineFactoryProtocol = WebSocketEngineFactory()
     ) {
         self.settings = settings
         self.applicationHandler = applicationHandler
+        self.engineFactory = engineFactory
     }
 
     func setup() {
@@ -107,11 +110,13 @@ final class WebSocketService: WebSocketServiceProtocol {
     }
 
     func addStateListener(_ listener: WebSocketServiceStateListener) {
+        stateListeners.removeAll { $0.target == nil }
+        guard !stateListeners.contains(where: { $0.target === listener }) else { return }
         stateListeners.append(WeakWrapper(target: listener))
     }
 
     func removeStateListener(_ listener: WebSocketServiceStateListener) {
-        stateListeners = stateListeners.filter { $0 !== listener }
+        stateListeners = stateListeners.filter { $0.target != nil && $0.target !== listener }
     }
 
     private func clearConnection() {
@@ -122,7 +127,7 @@ final class WebSocketService: WebSocketServiceProtocol {
         subscriptions = nil
     }
     private func setupConnection() {
-        let engine = WebSocketEngineFactory().createEngine(for: settings.url, autoconnect: isActive)
+        let engine = engineFactory.createEngine(for: settings.url, autoconnect: isActive)
         engine.delegate = self
         self.engine = engine
         Logger.shared.info("start socket connected: \(settings.url)")
@@ -131,53 +136,52 @@ final class WebSocketService: WebSocketServiceProtocol {
 
 extension WebSocketService: ApplicationHandlerDelegate {
     func didReceiveDidBecomeActive(notification _: Notification) {
-        if !isThrottled, !isActive {
-            isActive = true
-
-            engine?.connectIfNeeded()
-        }
+        guard !isActive else { return }
+        isActive = true
+        if !isThrottled { engine?.connectIfNeeded() }
     }
 
     func didReceiveDidEnterBackground(notification _: Notification) {
-        if !isThrottled, isActive {
-            isActive = false
-
-            engine?.disconnectIfNeeded()
-        }
+        guard isActive else { return }
+        isActive = false
+        if !isThrottled { engine?.disconnectIfNeeded() }
     }
 }
 
 extension WebSocketService: WebSocketEngineDelegate {
     func webSocketDidChangeState(
-        engine _: WebSocketEngine,
+        engine: WebSocketEngine,
         from _: WebSocketEngine.State,
         to newState: WebSocketEngine.State
     ) {
+        guard self.engine === engine, !isThrottled else { return }
         switch newState {
         case let .connecting(attempt):
             if attempt > 1 {
-                scheduleNetworkUnreachable()
+                scheduleNetworkUnreachable(engine: engine)
 
                 stateListeners.forEach { listenerWeakWrapper in
                     (listenerWeakWrapper.target as? WebSocketServiceStateListener)?.websocketNetworkDown(url: settings.url)
                 }
             }
         case .connected:
-            scheduleNetworkReachable()
+            scheduleNetworkReachable(engine: engine)
 
         case .notConnected, .waitingReconnection, .notReachable:
             break
         }
     }
 
-    private func scheduleNetworkReachable() {
-        DispatchQueue.main.async {
+    private func scheduleNetworkReachable(engine: WebSocketEngine) {
+        DispatchQueue.main.async { [weak self, weak engine] in
+            guard let self, let engine, self.engine === engine, !self.isThrottled else { return }
             self.networkStatusPresenter?.didDecideReachableStatusPresentation()
         }
     }
 
-    private func scheduleNetworkUnreachable() {
-        DispatchQueue.main.async {
+    private func scheduleNetworkUnreachable(engine: WebSocketEngine) {
+        DispatchQueue.main.async { [weak self, weak engine] in
+            guard let self, let engine, self.engine === engine, !self.isThrottled else { return }
             self.networkStatusPresenter?.didDecideUnreachableStatusPresentation()
         }
     }

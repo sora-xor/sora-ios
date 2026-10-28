@@ -36,10 +36,14 @@ final class EditFarmCell: SoramitsuTableViewCell {
     
     private let localizationManager = LocalizationManager.shared
     private var cancellables: Set<AnyCancellable> = []
-    private let input: PassthroughSubject<FarmShareSelection, Never> = .init()
+    private var input: PassthroughSubject<FarmShareSelection, Never> = .init()
     
     private var item: EditFarmItem? {
         didSet {
+            guard item !== oldValue else { return }
+            cancellables.removeAll()
+            input = .init()
+            confirmButton.isEnabled = false
             guard let item, let service = item.service else { return }
             let output = service.transform(input: input.eraseToAnyPublisher())
             output
@@ -93,7 +97,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
-                    self.confirmButton.sora.isUserInteractionEnabled = value
+                    self.confirmButton.isEnabled = value
                     self.confirmButton.sora.backgroundColor = value ? .additionalPolkaswap : .bgSurfaceVariant
                     
                     let titleColor: SoramitsuColor = value ? .custom(uiColor: .white) : .fgTertiary
@@ -199,7 +203,8 @@ final class EditFarmCell: SoramitsuTableViewCell {
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.item?.onConfirm?()
+            guard let item = self?.item, item.service?.confirmButtonEnabled == true else { return }
+            item.onConfirm?()
         }
         return button
     }()
@@ -213,6 +218,11 @@ final class EditFarmCell: SoramitsuTableViewCell {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        item = nil
+    }
 
     private func setupView() {
         contentView.addSubview(containerView)

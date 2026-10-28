@@ -65,7 +65,7 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
 
             let dateOrder = Calendar.current.compare(transactionDate, to: currentDate ?? Date(), toGranularity: .day)
 
-            if let currentDate = currentDate, dateOrder != .orderedSame {
+            if let currentDate = currentDate, dateOrder != .orderedSame, !items.isEmpty {
                 sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
                                                 items: items))
                 items = []
@@ -161,7 +161,7 @@ private extension ActivityViewModelFactory {
     }
 
     func transferTransactionViewModel(from transaction: TransferTransaction) -> ActivityContentViewModel {
-        let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId })
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
         
         let isRTL = LocalizationManager.shared.isRightToLeft
@@ -188,13 +188,13 @@ private extension ActivityViewModelFactory {
         var fromAsset = walletAssets.first(where: { $0.identifier == swap.fromTokenId  })
         if fromAsset == nil {
             let fromAssetId = swap.fromTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  })
         }
         
         var toAsset = walletAssets.first(where: { $0.identifier == swap.toTokenId  })
         if toAsset == nil {
             let toAssetId = swap.toTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  })
         }
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
@@ -237,13 +237,13 @@ private extension ActivityViewModelFactory {
         var fromAsset = walletAssets.first(where: { $0.identifier == liquidity.firstTokenId  })
         if fromAsset == nil {
             let fromAssetId = liquidity.firstTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  })
         }
         
         var toAsset = walletAssets.first(where: { $0.identifier == liquidity.secondTokenId })
         if toAsset == nil {
             let toAssetId = liquidity.secondTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  })
         }
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
@@ -251,7 +251,7 @@ private extension ActivityViewModelFactory {
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = liquidity.type == .add ? .fgPrimary : .statusSuccess
-        let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
+        let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
         let fromText = liquidity.type == .withdraw ? "+ \(fromBalance) \(fromAsset?.symbol ?? "")" : "\(fromBalance) \(fromAsset?.symbol ?? "")"
         let fromTextReversed = liquidity.type == .withdraw ? "\(fromAsset?.symbol ?? "") \(fromBalance) +" : "\(fromAsset?.symbol ?? "") \(fromBalance)"
         let fromBalanceText = SoramitsuTextItem(text: isRTL ? fromTextReversed : fromText,
@@ -264,7 +264,7 @@ private extension ActivityViewModelFactory {
                                                 textColor: textColor,
                                                 alignment: isRTL ? .left : .right)
         
-        let toBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
+        let toBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
         let toText = liquidity.type == .withdraw ? "+ \(toBalance) \(toAssetInfo?.symbol ?? "")" : "\(toBalance) \(toAssetInfo?.symbol ?? "")"
         let toTextReversed = liquidity.type == .withdraw ? "\(toAssetInfo?.symbol ?? "") \(toBalance) +" : "\(toAssetInfo?.symbol ?? "") \(toBalance)"
         let toBalanceText = SoramitsuTextItem(text: isRTL ? toTextReversed : toText,
@@ -341,7 +341,7 @@ private extension ActivityViewModelFactory {
     }
     
     func claimRewardTransactionViewModel(from transaction: ClaimReward) -> ActivityContentViewModel {
-        let asset = walletAssets.first(where: { $0.identifier == transaction.rewardTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let asset = walletAssets.first(where: { $0.identifier == transaction.rewardTokenId })
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
         
         var symbolViewModel: WalletImageViewModelProtocol?
@@ -370,10 +370,10 @@ private extension ActivityViewModelFactory {
     }
     
     func farmLiquidityTransactionViewModel(from transaction: FarmLiquidity) -> ActivityContentViewModel {
-        let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId })
         let baseAssetInfo = assetManager.assetInfo(for: baseAsset?.identifier ?? "")
         
-        let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId })
         let poolAssetInfo = assetManager.assetInfo(for: poolAsset?.identifier ?? "")
         
         let isRTL = LocalizationManager.shared.isRightToLeft

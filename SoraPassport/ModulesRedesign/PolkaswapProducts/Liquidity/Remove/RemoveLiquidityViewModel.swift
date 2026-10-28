@@ -407,6 +407,7 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
+        updateBalanceData()
         guard isPairStateValid,
               isPairPresented,
               isPairEnabled,

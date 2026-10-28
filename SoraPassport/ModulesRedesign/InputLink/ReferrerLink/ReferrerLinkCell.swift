@@ -40,12 +40,12 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
     private var cancellables: Set<AnyCancellable> = []
     private weak var viewModel: ReferrerLinkViewModel? {
         didSet {
+            cancellables.removeAll()
             guard let viewModel = viewModel else { return }
             viewModel.$isEnabled
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in
-                    guard let self = self else { return }
-                    self.activateButton.sora.isEnabled = viewModel.isEnabled ?? false
+                .sink { [weak self] enabled in
+                    self?.activateButton.sora.isEnabled = enabled ?? false
                 }
                 .store(in: &cancellables)
         }

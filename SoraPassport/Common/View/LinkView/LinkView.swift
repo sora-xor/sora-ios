@@ -135,11 +135,12 @@ private extension LinkView {
 
         changesContentOpacityWhenHighlighted = true
 
-        contentView = contentView ?? createContentStackView()
-
-        contentView?.do {
-            $0.isUserInteractionEnabled = false
-            $0.edgeAnchors == edgeAnchors
+        if contentView == nil {
+            contentView = createContentStackView()
+            contentView?.do {
+                $0.isUserInteractionEnabled = false
+                $0.edgeAnchors == edgeAnchors
+            }
         }
     }
 

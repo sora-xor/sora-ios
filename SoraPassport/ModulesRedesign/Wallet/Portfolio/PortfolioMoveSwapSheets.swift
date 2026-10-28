@@ -23,6 +23,7 @@ final class PortfolioMoveSheet: PortfolioSheetViewController, UITextFieldDelegat
     var holding: PortfolioHolding?
     var sourceWalletName = ""
     var sourceIsSelected = true
+    var amountLocale: Locale = .current
     var destinations: [Destination] = []
     var availability: Availability = .send
     var onReview: ((Destination, PortfolioAmountChoice?) -> Void)?
@@ -160,20 +161,14 @@ final class PortfolioMoveSheet: PortfolioSheetViewController, UITextFieldDelegat
     private func selectMax() {
         guard let holding else { return }
         amountIsMax = true
-        amountText = PortfolioFormat.plain(holding.transferable, maxFraction: 8, locale: .current)
+        amountText = PortfolioFormat.plain(holding.transferable, maxFraction: 8, locale: amountLocale)
         field.text = amountText
         updateValidation()
     }
 
     /// The typed amount; nil when the field is empty or not a number.
     private var parsedAmount: Decimal? {
-        var text = amountText.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty else { return nil }
-        let separator = Locale.current.decimalSeparator ?? "."
-        if separator != "." {
-            text = text.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: separator, with: ".")
-        }
-        return Decimal(string: text, locale: Locale(identifier: "en_US_POSIX"))
+        PortfolioFormat.parseAmount(amountText, locale: amountLocale)
     }
 
     private func updateValidation() {
@@ -214,7 +209,7 @@ final class PortfolioMoveSheet: PortfolioSheetViewController, UITextFieldDelegat
 
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange,
                    replacementString string: String) -> Bool {
-        let allowed = CharacterSet(charactersIn: "0123456789" + (Locale.current.decimalSeparator ?? "."))
+        let allowed = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: amountLocale.decimalSeparator ?? "."))
         return string.unicodeScalars.allSatisfy { allowed.contains($0) }
     }
 }

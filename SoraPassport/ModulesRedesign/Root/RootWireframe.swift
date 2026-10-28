@@ -316,6 +316,7 @@ final class LegacyWalletUpgradeViewController: UIViewController {
 /// iPhone again" moves this install's wallet files aside and never touches
 /// the Keychain.
 final class WalletRecoveryViewController: UIViewController {
+    private let optionsLoader: (() -> WalletRecoveryOptions)?
     private let reason: String?
     private let diagnostic: WalletStartupDiagnostic?
     private let onRetry: (() -> Void)?
@@ -344,7 +345,9 @@ final class WalletRecoveryViewController: UIViewController {
     private(set) var options = WalletRecoveryOptions()
 
     init(reason: String?, diagnostic: WalletStartupDiagnostic? = nil, onRetry: (() -> Void)? = nil,
-         onSetAside: (() -> Void)? = nil, onRestore: ((Bool) -> Void)? = nil) {
+         onSetAside: (() -> Void)? = nil, onRestore: ((Bool) -> Void)? = nil,
+         optionsLoader: (() -> WalletRecoveryOptions)? = nil) {
+        self.optionsLoader = optionsLoader
         self.reason = reason
         self.diagnostic = diagnostic
         self.onRetry = onRetry
@@ -546,6 +549,13 @@ final class WalletRecoveryViewController: UIViewController {
 
     /// Reads the available actions from the device in the background.
     private func refreshOptions() {
+        if let optionsLoader {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let options = optionsLoader()
+                DispatchQueue.main.async { self?.apply(options) }
+            }
+            return
+        }
         let settings = SettingsManager.shared
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -673,6 +683,7 @@ final class WalletRecoveryViewController: UIViewController {
         guard let onRetry, !didRetry, !isExporting, !isRestoringKeys else { return }
         didRetry = true
         retryButton.isEnabled = false
+        exportButton.isEnabled = false
         restorePhraseButton.isEnabled = false
         restoreKeysButton.isEnabled = false
         restoreCloudBackupButton.isEnabled = false
@@ -1097,7 +1108,7 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     @objc private func confirmRecoveryExport() {
-        guard !isExporting, !isRestoringKeys else {
+        guard !didRetry, !isExporting, !isRestoringKeys else {
             return
         }
         let alert = UIAlertController(
@@ -1127,7 +1138,7 @@ final class WalletRecoveryViewController: UIViewController {
     }
 
     private func createRecoveryExport() {
-        guard !isExporting, !isRestoringKeys else {
+        guard !didRetry, !isExporting, !isRestoringKeys else {
             return
         }
         isExporting = true

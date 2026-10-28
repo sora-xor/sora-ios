@@ -59,12 +59,14 @@ class BalanceProviderFactory {
             let assets = assets.map { $0.assetId }
             // The provider keeps an asset whose balance could not be read,
             // marked as such; `AssetProvider` shows it as unavailable.
-            let operation = (self.networkOperationFactory as? WalletNetworkFacade)?.fetchBalanceOperation(
-                assets,
-                onlyVisible: onlyVisible,
-                markingUnavailable: true
-            )
-            return operation!
+            if let facade = self.networkOperationFactory as? WalletNetworkFacade {
+                return facade.fetchBalanceOperation(
+                    assets,
+                    onlyVisible: onlyVisible,
+                    markingUnavailable: true
+                )
+            }
+            return self.networkOperationFactory.fetchBalanceOperation(assets)
         }
 
         let updateTrigger = DataProviderEventTrigger.onInitialization

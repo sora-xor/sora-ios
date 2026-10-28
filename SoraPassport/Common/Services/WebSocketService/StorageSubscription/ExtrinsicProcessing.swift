@@ -76,14 +76,16 @@ final class ExtrinsicProcessor {
         eventRecords: [EventRecord],
         metadata: RuntimeMetadata
     ) -> Bool? {
-        eventRecords.filter { record in
+        let outcomes = eventRecords.filter { record in
             guard record.extrinsicIndex == index,
                   let eventPath = metadata.createEventCodingPath(from: record.event) else {
                        return false
             }
 
             return [.extrinsicSuccess, .extrinsicFailed].contains(eventPath)
-        }.first.map { metadata.createEventCodingPath(from: $0.event) == .extrinsicSuccess }
+        }
+        guard outcomes.count == 1, let outcome = outcomes.first else { return nil }
+        return metadata.createEventCodingPath(from: outcome.event) == .extrinsicSuccess
     }
 
     private func findFee(
@@ -91,23 +93,21 @@ final class ExtrinsicProcessor {
         eventRecords: [EventRecord],
         metadata: RuntimeMetadata
     ) -> BigUInt? {
-        eventRecords.compactMap { record in
-            guard record.extrinsicIndex == index,
-                  let eventPath = metadata.createEventCodingPath(from: record.event) else {
-                return nil
+        let records = eventRecords.filter { $0.extrinsicIndex == index }
+        let withdrawals = records.filter { metadata.createEventCodingPath(from: $0.event) == .feeWitdrawn }
+        if !withdrawals.isEmpty {
+            let amounts = withdrawals.compactMap { record -> BigUInt? in
+                guard let text = record.event.data.arrayValue?.last?.stringValue else { return nil }
+                return BigUInt(text)
             }
-            if eventPath == .balanceDeposit {
-                return try? record.event.data.map(to: BalanceDepositEvent.self).amount
-            }
-
-            if eventPath == .feeWitdrawn {
-                return BigUInt((record.event.data.arrayValue ?? []).last?.stringValue ?? "0")
-            }
-
-            return nil
-        }.reduce(BigUInt(0)) { (totalFee: BigUInt, partialFee: BigUInt) in
-            totalFee + partialFee
+            guard amounts.count == withdrawals.count else { return nil }
+            return amounts.reduce(0, +)
         }
+        let deposits = records.filter { metadata.createEventCodingPath(from: $0.event) == .balanceDeposit }
+        guard !deposits.isEmpty else { return nil }
+        let amounts = deposits.compactMap { try? $0.event.data.map(to: BalanceDepositEvent.self).amount }
+        guard amounts.count == deposits.count else { return nil }
+        return amounts.reduce(0, +)
     }
 
     private func matchBatch(
@@ -139,7 +139,6 @@ final class ExtrinsicProcessor {
     ) -> ExtrinsicProcessingResult? {
         do {
             let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
-            let accData = try? SS58AddressFactory().accountId(fromAddress: accountId, type: 69)
             guard let account = account else {
                 return nil
             }

@@ -36,14 +36,15 @@ struct AccountPools: ScaleDecodable {
     let assetIds: [String]
 
     init(scaleDecoder: ScaleDecoding) throws {
-        var assetIds: [String] = []
-        // remove hex Prefix '0x'
-        _ = try scaleDecoder.readAndConfirm(count: 1)
-        for _ in 0 ..< (scaleDecoder.remained / 32) {
-            let item = try scaleDecoder.readAndConfirm(count: 32)
-            assetIds.append(item.toHex(includePrefix: true))
+        let encodedCount = try BigUInt(scaleDecoder: scaleDecoder)
+        guard let count = Int(exactly: encodedCount),
+              scaleDecoder.remained % 32 == 0,
+              count == scaleDecoder.remained / 32 else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Account pool count does not match its SCALE payload"))
         }
-
+        let assetIds = try (0..<count).map { _ in
+            try scaleDecoder.readAndConfirm(count: 32).toHex(includePrefix: true)
+        }
         self.assetIds = assetIds
     }
 }

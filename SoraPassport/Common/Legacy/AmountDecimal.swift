@@ -24,7 +24,7 @@ public struct AmountDecimal: Codable, Equatable {
     }
 
     public init?(string: String) {
-        guard let value = Decimal(string: string) else {
+        guard let value = Decimal(amountString: string) else {
             return nil
         }
 
@@ -36,7 +36,7 @@ public struct AmountDecimal: Codable, Equatable {
 
         let stringValue = try container.decode(String.self)
 
-        guard let value = Decimal(string: stringValue) else {
+        guard let value = Decimal(amountString: stringValue) else {
             throw AmountDecimalError.invalidStringValue
         }
 

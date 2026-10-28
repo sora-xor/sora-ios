@@ -100,8 +100,8 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         poolsViewModelService.updateHandler = updateHandler
         
-        poolsItem.arrowButtonHandler = { [weak poolsItem] in
-            guard let poolsItem = poolsItem else { return }
+        poolsItem.arrowButtonHandler = { [weak poolsItem, weak walletViewModel] in
+            guard let poolsItem, let walletViewModel else { return }
             poolsItem.isExpand = !poolsItem.isExpand
             walletViewModel.reloadItem?([poolsItem])
         }

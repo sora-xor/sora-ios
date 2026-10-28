@@ -101,7 +101,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         field.textField.keyboardType = .decimalPad
         field.textField.inputAccessoryView = accessoryView
         field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
-            self?.viewModel.inputedFirstAmount = Decimal(string: field.textField.text ?? "", locale: Locale.current) ?? 0
+            self?.viewModel.inputedFirstAmount = Decimal.parseLocalizedAmount(field.textField.text ?? "", locale: Locale.current) ?? 0
         }
         field.sora.assetChoiceHandler = { [weak self] in
             self?.viewModel.choiceBaseAssetButtonTapped()

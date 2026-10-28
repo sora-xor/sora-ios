@@ -138,8 +138,8 @@ extension UIImage {
         UIGraphicsBeginImageContextWithOptions(rect.size, false, 0)
         color.setFill()
         UIRectFill(rect)
-        let image = UIGraphicsGetImageFromCurrentImageContext()
+        let image = UIGraphicsGetImageFromCurrentImageContext()!
         UIGraphicsEndImageContext()
-        self.init(cgImage: (image?.cgImage!)!)
+        self.init(cgImage: image.cgImage!, scale: image.scale, orientation: image.imageOrientation)
     }
 }

@@ -48,13 +48,13 @@ final class SelectAssetViewModel {
 
     var assetItems: [AssetListItem] = [] {
         didSet {
-            setupItems?(assetItems)
+            filterAssetList(with: normalizedQuery)
         }
     }
 
     var filteredAssetItems: [AssetListItem] = [] {
         didSet {
-            setupItems?(filteredAssetItems)
+            setupItems?(isActiveSearch ? filteredAssetItems : assetItems)
         }
     }
 
@@ -83,19 +83,17 @@ final class SelectAssetViewModel {
             }
             
             DispatchQueue.main.async {
-                self.reloadItems?(self.assetItems)
+                self.reloadItems?(self.isActiveSearch ? self.filteredAssetItems : self.assetItems)
             }
         }
     }
 
+    private var normalizedQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     var searchText: String = "" {
-        didSet {
-            guard !searchText.isEmpty else {
-                setupItems?(assetItems)
-                return
-            }
-            filterAssetList(with: searchText.lowercased())
-        }
+        didSet { filterAssetList(with: normalizedQuery) }
     }
 
     weak var assetManager: AssetManagerProtocol?
@@ -111,14 +109,15 @@ final class SelectAssetViewModel {
          assetManager: AssetManagerProtocol?,
          assetsProvider: AssetProviderProtocol?,
          assetIds: [String],
-         marketCapService: MarketCapServiceProtocol) {
+         marketCapService: MarketCapServiceProtocol,
+         priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared) {
         self.assetViewModelFactory = assetViewModelFactory
         self.fiatService = fiatService
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
         self.marketCapService = marketCapService
-        self.priceInfoService = PriceInfoService.shared
+        self.priceInfoService = priceInfoService
     }
 }
 
@@ -134,7 +133,7 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
     func viewDidLoad() {
         setupNavigationBar?(mode)
         if let balanceData = assetsProvider?.getBalances(with: assetIds) {
-            Task { [weak self] in
+            Task { @MainActor [weak self] in
                 await self?.items(with: balanceData)
             }
         }
@@ -142,6 +141,7 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 }
 
 private extension SelectAssetViewModel {
+    @MainActor
     func items(with balanceItems: [BalanceData]) async {
         let mode = self.mode
         let factory = assetViewModelFactory
@@ -171,7 +171,7 @@ private extension SelectAssetViewModel {
         assetItems = items.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
         let assetIds = balanceItems.map { $0.identifier }
-        priceInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+        priceInfo = await priceInfoService.getPriceInfo(for: assetIds)
     }
 
     func filterAssetList(with query: String) {

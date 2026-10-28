@@ -141,7 +141,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 let amount = try Self.validatedAmount(claimData.amount)
                 return ClaimReward(base: transactionBase,
                                    amount: amount,
-                                   peer: SelectedWalletSettings.shared.currentAccount?.address ?? "",
+                                   peer: myAddress,
                                    rewardTokenId: claimData.rewardAssetId)
             }
             
@@ -156,12 +156,12 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                                      secondTokenId: data.poolTokenAmount,
                                      rewardTokenId: data.rewardAssetId,
                                      amount: amount,
-                                     sender: SelectedWalletSettings.shared.currentAccount?.address ?? "",
+                                     sender: myAddress,
                                      type: item.method == "deposit" ? .add : .withdraw)
             }
             
             if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
-                let depositLiquidityData = item.nestedData?.first { $0.method == "depositLiquidity" }
+                let depositLiquidityData = item.nestedData?.first { $0.module == "poolXYK" && $0.method == "depositLiquidity" }
                 
                 if depositLiquidityData != nil {
                     guard let liquidityBatchData = depositLiquidityData?.data.toLiquidityBatchData() else {
@@ -177,7 +177,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 }
                 
                 
-                let withdrawLiquidityData = item.nestedData?.first { $0.method == "withdrawLiquidity" }
+                let withdrawLiquidityData = item.nestedData?.first { $0.module == "poolXYK" && $0.method == "withdrawLiquidity" }
                 if withdrawLiquidityData != nil {
                     guard let liquidityBatchData = withdrawLiquidityData?.data.toLiquidityBatchData()  else {
                         throw HistoryTransactionMapperError.unexpectedError

@@ -71,6 +71,10 @@ final class ButtonCell: UITableViewCell {
 extension ButtonCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let model = viewModel as? ButtonViewModelProtocol else { return }
+        button.sora.backgroundColor = model.backgroundColor ?? .additionalPolkaswap
+        button.sora.attributedText = model.titleColor.map {
+            SoramitsuTextItem(text: model.title, fontData: FontType.textBoldM, textColor: $0)
+        }
         button.sora.title = model.title
         button.sora.isEnabled = model.isEnabled
         self.delegate = model.delegate

@@ -32,7 +32,7 @@ import Foundation
 
 import SoraUIKit
 
-enum DetailsType {
+enum DetailsType: Hashable {
     case casual
     case progress(Float)
 }
@@ -64,10 +64,19 @@ final class DetailViewModel {
 
 extension DetailViewModel: Hashable {
     static func == (lhs: DetailViewModel, rhs: DetailViewModel) -> Bool {
-        lhs.assetAmountText.text == rhs.assetAmountText.text
+        lhs.title == rhs.title && lhs.assetAmountText.text == rhs.assetAmountText.text &&
+            lhs.fiatAmountText?.text == rhs.fiatAmountText?.text && lhs.type == rhs.type &&
+            lhs.rewardAssetImage == rhs.rewardAssetImage && lhs.statusAssetImage == rhs.statusAssetImage &&
+            (lhs.infoHandler != nil) == (rhs.infoHandler != nil)
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(assetAmountText.text)
+        hasher.combine(title)
+        hasher.combine(fiatAmountText?.text)
+        hasher.combine(type)
+        hasher.combine(rewardAssetImage)
+        hasher.combine(statusAssetImage)
+        hasher.combine(infoHandler != nil)
     }
 }

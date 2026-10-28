@@ -343,7 +343,11 @@ extension SettingsManagerProtocol {
         }
 
         set {
-            set(value: newValue, for: SettingsKey.externalGenesis.rawValue)
+            if let newValue {
+                set(value: newValue, for: SettingsKey.externalGenesis.rawValue)
+            } else {
+                removeValue(for: SettingsKey.externalGenesis.rawValue)
+            }
         }
     }
 
@@ -356,7 +360,11 @@ extension SettingsManagerProtocol {
         }
 
         set {
-            set(value: newValue, for: SettingsKey.externalExistentialDeposit.rawValue)
+            if let newValue {
+                set(anyValue: newValue, for: SettingsKey.externalExistentialDeposit.rawValue)
+            } else {
+                removeValue(for: SettingsKey.externalExistentialDeposit.rawValue)
+            }
         }
     }
 
@@ -369,7 +377,11 @@ extension SettingsManagerProtocol {
         }
 
         set {
-            set(value: newValue, for: SettingsKey.externalPrefix.rawValue)
+            if let newValue {
+                set(anyValue: newValue, for: SettingsKey.externalPrefix.rawValue)
+            } else {
+                removeValue(for: SettingsKey.externalPrefix.rawValue)
+            }
         }
     }
 

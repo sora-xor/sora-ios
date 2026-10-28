@@ -170,7 +170,7 @@ extension APYService: APYServiceProtocol {
         factory: PolkaswapNetworkOperationFactoryProtocol,
         networkType: SNAddressType
     ) async -> Decimal? {
-        guard let catalog = await loadCatalog(), !catalog.isEmpty else {
+        guard let catalog = await loadCatalog(), !Task.isCancelled, !catalog.isEmpty else {
             return nil
         }
 

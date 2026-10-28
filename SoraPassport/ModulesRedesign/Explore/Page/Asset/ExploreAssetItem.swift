@@ -50,6 +50,11 @@ enum LoadingState<T> {
         return nil
     }
     
+    var isLoading: Bool {
+        if case .loading = self { return true }
+        return false
+    }
+
     var shimmerType: SoramitsuLoadingPlaceholderType {
         switch self {
         case .error, .loaded:
@@ -70,6 +75,8 @@ struct ExploreAssetViewModel: Hashable {
             lhs.price == rhs.price &&
             lhs.serialNumber == rhs.serialNumber &&
             lhs.marketCap.value == rhs.marketCap.value &&
+            lhs.marketCap.isLoading == rhs.marketCap.isLoading &&
+            lhs.deltaPrice.isLoading == rhs.deltaPrice.isLoading &&
             lhs.icon == rhs.icon &&
             lhs.deltaPrice.value??.attributedString.string ==
                 rhs.deltaPrice.value??.attributedString.string
@@ -82,6 +89,8 @@ struct ExploreAssetViewModel: Hashable {
         hasher.combine(price)
         hasher.combine(serialNumber)
         hasher.combine(marketCap.value)
+        hasher.combine(marketCap.isLoading)
+        hasher.combine(deltaPrice.isLoading)
         hasher.combine(icon)
         hasher.combine(deltaPrice.value??.attributedString.string)
     }

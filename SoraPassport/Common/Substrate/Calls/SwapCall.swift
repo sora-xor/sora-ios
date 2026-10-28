@@ -57,16 +57,22 @@ class SwapAmount: Codable {
            !container.allKeys.isEmpty {
             let slip = try container.decode(String.self, forKey: CodingKeysIn.slip)
             let desired = try container.decode(String.self, forKey: CodingKeysIn.desired)
-            self.slip = BigUInt(slip) ?? 0
-            self.desired = BigUInt(desired) ?? 0
+            guard let exactSlip = BigUInt(slip), let exactDesired = BigUInt(desired) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Swap amounts must be unsigned integers"))
+            }
+            self.slip = exactSlip
+            self.desired = exactDesired
             type = .desiredInput
         } else
         if let container = try? decoder.container(keyedBy: CodingKeysOut.self),
            !container.allKeys.isEmpty {
-            let desired = try container.decode(String.self, forKey: CodingKeysOut.slip)
-            let slip = try container.decode(String.self, forKey: CodingKeysOut.desired)
-            self.slip = BigUInt(slip) ?? 0
-            self.desired = BigUInt(desired) ?? 0
+            let desired = try container.decode(String.self, forKey: CodingKeysOut.desired)
+            let slip = try container.decode(String.self, forKey: CodingKeysOut.slip)
+            guard let exactSlip = BigUInt(slip), let exactDesired = BigUInt(desired) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Swap amounts must be unsigned integers"))
+            }
+            self.slip = exactSlip
+            self.desired = exactDesired
             type = .desiredOutput
         } else {
             let context = DecodingError.Context(codingPath: decoder.codingPath,

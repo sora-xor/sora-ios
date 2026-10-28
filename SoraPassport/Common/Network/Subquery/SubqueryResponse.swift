@@ -48,6 +48,13 @@ enum SubqueryResponse<D: Decodable>: Decodable {
 
         let json = try container.decode(JSON.self)
 
+        if let errors = json.errors {
+            let values = try errors.map(to: [SubqueryErrors.SubqueryError].self)
+            if !values.isEmpty {
+                self = .errors(SubqueryErrors(errors: values))
+                return
+            }
+        }
         if let data = json.data {
             let value = try data.map(to: D.self)
             self = .data(value)

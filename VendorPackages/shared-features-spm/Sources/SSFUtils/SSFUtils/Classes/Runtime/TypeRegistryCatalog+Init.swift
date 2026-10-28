@@ -51,7 +51,9 @@ public extension TypeRegistryCatalog {
         let versionedRegistries = try versionedJsons.mapValues {
             try TypeRegistry.createFromTypesDefinition(
                 json: $0,
-                additionalNodes: [],
+                // Version-specific aliases must resolve primitives locally;
+                // otherwise U256 -> u256 can resolve back to its own proxy.
+                additionalNodes: BasisNodes.supportedBaseNodes(),
                 schemaResolver: runtimeMetadata.schemaResolver
             )
         }

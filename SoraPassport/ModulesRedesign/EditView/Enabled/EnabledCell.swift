@@ -161,7 +161,6 @@ extension EnabledCell: SoramitsuTableViewCellProtocol {
             view.tappableArea.sora.addHandler(for: .touchUpInside) { [weak enabledItem] in
                 enabledItem?.onTap?(enabledModel.id)
             }
-            enabledModel.state = .disabled
             return view
         }
 

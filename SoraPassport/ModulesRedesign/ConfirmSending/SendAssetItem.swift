@@ -35,13 +35,13 @@ import RobinHood
 
 final class SendAssetItem: NSObject {
     
-    let imageViewModel: WalletSvgImageViewModel?
+    let imageViewModel: WalletImageViewModelProtocol?
     let symbol: String
     let amount: String
     let balance: String
     let fiat: String
     
-    init(imageViewModel: WalletSvgImageViewModel?,
+    init(imageViewModel: WalletImageViewModelProtocol?,
          symbol: String,
          amount: String,
          balance: String,

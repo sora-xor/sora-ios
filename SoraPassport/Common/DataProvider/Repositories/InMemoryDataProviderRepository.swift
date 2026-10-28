@@ -66,8 +66,12 @@ final class InMemoryDataProviderRepository<T: Identifiable>: DataProviderReposit
         by modelIdsClosure: @escaping () throws -> [String],
         options: RobinHood.RepositoryFetchOptions) -> RobinHood.BaseOperation<[T]>
     {
-        // TODO: Ivan impl
-        return .init()
+        ClosureOperation { [weak self] in
+            self?.lock.lock()
+            defer { self?.lock.unlock() }
+            let identifiers = Set(try modelIdsClosure())
+            return self?.itemsById.values.filter { identifiers.contains($0.identifier) } ?? []
+        }
     }
 
     typealias Model = T

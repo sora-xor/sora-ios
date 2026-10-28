@@ -77,13 +77,19 @@ final class SetupPasswordItem: NSObject {
     }
 
     func transform(input: AnyPublisher<Input, Never>) -> AnyPublisher<Output, Never> {
+        cancellables.removeAll()
+        password = ""
+        confirmedPassword = ""
+        isCheckSelected = false
         input.sink { [weak self] event in
             guard let self = self else { return }
             switch event {
             case .passwordChanged(let text): self.password = text
             case .confirmPasswordChanged(let text): self.confirmedPassword = text
             case .checkViewChanged(let isEnabled): self.isCheckSelected = isEnabled
-            case .setupPasswordButtonTapped: self.setupPasswordButtonTapped?(self.password)
+            case .setupPasswordButtonTapped:
+                guard self.isButtonEnable else { return }
+                self.setupPasswordButtonTapped?(self.password)
             }
         }.store(in: &cancellables)
         return output.eraseToAnyPublisher()

@@ -41,6 +41,9 @@ final class PoolDetailsViewModel {
     var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { $snapshot }
     
     private var cancellables: Set<AnyCancellable> = []
+    private var catalogTask: Task<Void, Never>?
+    private var subscriptionTask: Task<Void, Never>?
+    private var loadID = UUID()
     
     var dismiss: (() -> Void)?
     var dismissHandler: (() -> Void)?
@@ -88,7 +91,8 @@ final class PoolDetailsViewModel {
     }
     
     deinit {
-        print("deinited " + String(describing: type(of: self)))
+        catalogTask?.cancel()
+        subscriptionTask?.cancel()
     }
     
     func dismissIfNeeded() {
@@ -100,35 +104,44 @@ final class PoolDetailsViewModel {
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
+        catalogTask?.cancel()
+        subscriptionTask?.cancel()
+        cancellables.removeAll()
+        let requestID = UUID()
+        loadID = requestID
         snapshot = createSnapshot(with: poolInfo, farms: poolInfo.farms)
-        
-        Task { [weak self, weak poolDetailsService] in
-            guard let self, let poolDetailsService else { return }
-            self.detailsContent = await (try? self.farmingService.getAllFarms().filter {
+        let farmingService = farmingService
+        catalogTask = Task { @MainActor [weak self] in
+            let farms = (try? await farmingService.getAllFarms()) ?? []
+            guard let self, !Task.isCancelled, loadID == requestID else { return }
+            detailsContent = farms.filter {
                 $0.baseAsset?.assetId == self.poolInfo.baseAssetId &&
                 $0.poolAsset?.assetId == self.poolInfo.targetAssetId
-            }) ?? []
-
-            self.snapshot = self.createSnapshot(with: poolInfo, farms: poolInfo.farms)
+            }
+            snapshot = createSnapshot(with: poolInfo, farms: poolInfo.farms)
             poolDetailsService.setup(with: poolInfo)
         }
-        
-        Task { [weak self, weak poolDetailsService] in
-            guard let self, let poolDetailsService else { return }
-            try? await self.userFarmService.subscribeUserFarms(to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            await self.userFarmService.userFarms
-                .dropFirst()
-                .sink(
-                    receiveValue: { [weak self] values in
-                        guard let self else { return }
-                        self.poolInfo.farms = values
-                        self.snapshot = self.createSnapshot(with: poolInfo, farms: values)
-                        poolDetailsService.setup(with: poolInfo)
+        let userFarmService = userFarmService
+        subscriptionTask = Task { @MainActor [weak self] in
+            let publisher = await userFarmService.userFarms
+            guard let self, !Task.isCancelled, loadID == requestID else { return }
+            publisher.receive(on: DispatchQueue.main)
+                .sink { [weak self] values in
+                    guard let self, loadID == requestID else { return }
+                    let matching = values.filter {
+                        $0.baseAssetId == self.poolInfo.baseAssetId &&
+                        $0.poolAssetId == self.poolInfo.targetAssetId
                     }
-                ).store(in: &self.cancellables)
+                    poolInfo.farms = matching
+                    snapshot = createSnapshot(with: poolInfo, farms: matching)
+                    poolDetailsService.setup(with: poolInfo)
+                }.store(in: &cancellables)
+            try? await userFarmService.subscribeUserFarms(
+                to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId
+            )
         }
     }
-    
+
     private func createSnapshot(with poolInfo: PoolInfo, farms: [UserFarm]) -> PoolDetailsSnapshot {
         var snapshot = PoolDetailsSnapshot()
         
@@ -237,12 +250,13 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
 
 extension PoolDetailsViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
-        guard let pool = pools.first(where: { $0.baseAssetId == poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }) else {
+        guard let pool = pools.first(where: { $0.baseAssetId == self.poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }) else {
             isDeletedPool = true
             dismiss?()
             return
         }
 
+        isDeletedPool = false
         poolInfo = pool
         snapshot = createSnapshot(with: pool, farms: pool.farms)
         poolDetailsService.setup(with: pool)

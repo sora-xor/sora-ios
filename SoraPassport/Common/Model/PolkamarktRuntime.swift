@@ -204,6 +204,17 @@ enum PolkamarktRuntimeContract {
     }
 }
 
+// The metadata decoder emits fieldless variants as empty tuples or composites;
+// the JSON encoder uses null. Accept only payloads that carry no associated value.
+private func decodePolkamarktUnitPayload(from container: inout UnkeyedDecodingContainer) throws -> Bool {
+    switch try container.decode(JSON.self) {
+    case .null: return true
+    case let .arrayValue(values): return values.isEmpty
+    case let .dictionaryValue(values): return values.isEmpty
+    default: return false
+    }
+}
+
 enum PolkamarktOutcome: String, Codable, CaseIterable {
     case yes = "Yes"
     case no = "No"
@@ -225,7 +236,7 @@ enum PolkamarktOutcome: String, Codable, CaseIterable {
         }
         guard
             !container.isAtEnd,
-            try container.decodeNil(),
+            try decodePolkamarktUnitPayload(from: &container),
             container.isAtEnd
         else {
             throw DecodingError.dataCorruptedError(
@@ -393,7 +404,7 @@ enum PolkamarktMarketStatus: String, Codable, Equatable {
         }
         guard
             !container.isAtEnd,
-            try container.decodeNil(),
+            try decodePolkamarktUnitPayload(from: &container),
             container.isAtEnd
         else {
             throw DecodingError.dataCorruptedError(
@@ -1960,7 +1971,7 @@ actor PolkamarktPendingStore {
             // Publish the feature-journal decision before relaxing any SORA2
             // witness. A crash between journals therefore leaves the more
             // conservative, non-prunable side intact.
-            try persistValidated(values)
+            values = try persistValidated(values)
         }
         do {
             for witness in preTransportWitnessesToRemove {
@@ -2106,14 +2117,14 @@ actor PolkamarktPendingStore {
         // merge only the captured hashes so a newly appended mutation or an
         // already-terminal result can never be erased or regressed.
         let latest = try all()
-        let merged = try PolkamarktPendingReconciliationPolicy.applying(
+        var merged = try PolkamarktPendingReconciliationPolicy.applying(
             resolutions,
             to: latest,
             account: account,
             resolvedAt: Date()
         )
         if merged != latest {
-            try persistValidated(merged)
+            merged = try persistValidated(merged)
         }
         try acknowledgeDurableCanonicalTerminalWitnesses(
             account: account
@@ -2172,7 +2183,7 @@ actor PolkamarktPendingStore {
 
     private func persistValidated(
         _ values: [PolkamarktPendingMutation]
-    ) throws {
+    ) throws -> [PolkamarktPendingMutation] {
         guard values.count <= journalMutationLimit else {
             throw PolkamarktRuntimeError.unavailable
         }
@@ -2187,6 +2198,8 @@ actor PolkamarktPendingStore {
             fileManager: fileManager,
             protection: .completeUntilFirstUserAuthentication
         )
+        // Return the same whole-second timestamps that readers load from the journal.
+        return try decoder.decode([PolkamarktPendingMutation].self, from: data)
     }
 }
 
@@ -2198,6 +2211,7 @@ final class PolkamarktTransactionCoordinator {
     private let runtimeValidator: PolkamarktRuntimeValidator
     private let pendingStore: PolkamarktPendingStore
     private let settings: SettingsManagerProtocol
+    private let localMutationQualification: Bool
     private let selectedAccount: () -> AccountItem?
     private let featureClient: PIIndexerClient
 
@@ -2208,7 +2222,8 @@ final class PolkamarktTransactionCoordinator {
         featureClient: PIIndexerClient = PIIndexerClient(),
         selectedAccount: @escaping () -> AccountItem? = {
             SelectedWalletSettings.shared.currentAccount
-        }
+        },
+        localMutationQualification: Bool = ProductionMutationQualification.polkamarktMutations
     ) {
         guard
             let facade = walletContext.networkOperationFactory as? WalletNetworkFacade,
@@ -2217,6 +2232,7 @@ final class PolkamarktTransactionCoordinator {
         else {
             return nil
         }
+        self.localMutationQualification = localMutationQualification
         self.facade = facade
         self.operationFactory = operationFactory
         statusEngine = Sora2BoundedHTTPJSONRPCEngine.wrapping(
@@ -2305,6 +2321,7 @@ final class PolkamarktTransactionCoordinator {
         input: BigUInt,
         slippageBasisPoints: UInt16
     ) async throws -> PolkamarktQuoteConfirmation {
+        try Task.checkCancellation()
         try validateSelectedAccount(account)
         guard settings.polkamarktEnabled else {
             throw PolkamarktRuntimeError.unavailable
@@ -2389,6 +2406,8 @@ final class PolkamarktTransactionCoordinator {
             guard xorBalance >= networkFee else {
                 throw PolkamarktRuntimeError.insufficientXOR
             }
+            // Discard a review whose owner cancelled while a noncancellable fee callback was in flight.
+            try Task.checkCancellation()
             // Reject a wallet switch that completed while quote RPCs were in flight.
             try validateSelectedAccount(account)
             guard settings.polkamarktEnabled else {
@@ -2469,6 +2488,8 @@ final class PolkamarktTransactionCoordinator {
             guard xorBalance >= networkFee else {
                 throw PolkamarktRuntimeError.insufficientXOR
             }
+            // Discard a review whose owner cancelled while a noncancellable fee callback was in flight.
+            try Task.checkCancellation()
             // Reject a wallet switch that completed while quote RPCs were in flight.
             try validateSelectedAccount(account)
             guard settings.polkamarktEnabled else {
@@ -3064,7 +3085,7 @@ final class PolkamarktTransactionCoordinator {
             [StorageResponse<PolkamarktStoredMarket>]
         > = storage.queryItems(
             engine: statusEngine,
-            keyParams: { [marketId] },
+            keyParams: { [StringScaleMapper(value: marketId)] },
             factory: { factory },
             storagePath: .polkamarktMarkets,
             at: blockHashData
@@ -3491,8 +3512,15 @@ final class PolkamarktTransactionCoordinator {
         }
     }
 
+    private var mutationsEnabled: Bool {
+        ProductionRemoteCapabilitySession.shared.permitsMutation(
+            localQualification: localMutationQualification,
+            capability: .polkamarktMutations
+        )
+    }
+
     private func validateMutationFlags() throws {
-        guard settings.polkamarktEnabled, settings.polkamarktMutationsEnabled else {
+        guard settings.polkamarktEnabled, mutationsEnabled else {
             throw PolkamarktRuntimeError.mutationsDisabled
         }
     }
@@ -3517,7 +3545,7 @@ final class PolkamarktTransactionCoordinator {
             config.polkamarktVisible,
             config.polkamarktMutationsAvailable,
             settings.polkamarktEnabled,
-            settings.polkamarktMutationsEnabled
+            mutationsEnabled
         else {
             throw PolkamarktRuntimeError.mutationsDisabled
         }

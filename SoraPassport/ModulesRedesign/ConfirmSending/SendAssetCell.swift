@@ -34,6 +34,7 @@ import SSFUtils
 
 final class SendAssetCell: SoramitsuTableViewCell {
     
+    private var bindingID = UUID()
     private let sendAssetView: SendAssetView = SendAssetView()
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -44,6 +45,12 @@ final class SendAssetCell: SoramitsuTableViewCell {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        bindingID = UUID()
+        sendAssetView.assetImageView.image = nil
+    }
 
     private func setupView() {
         contentView.addSubviews(sendAssetView)
@@ -66,8 +73,12 @@ extension SendAssetCell: SoramitsuTableViewCellProtocol {
             return
         }
         
+        let bindingID = UUID()
+        self.bindingID = bindingID
+        sendAssetView.assetImageView.image = nil
         item.imageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.sendAssetView.assetImageView.image = icon
+            guard let self, self.bindingID == bindingID else { return }
+            self.sendAssetView.assetImageView.image = icon
         }
 
         sendAssetView.symbolLabel.sora.text = item.symbol

@@ -133,11 +133,13 @@ enum ExtrinsicStatus: Decodable {
         )
 
         let type = try (decoded.dictValue?.keys.first ?? decoded.stringValue).unwrap(throwing: decodingError)
+        if type == ExtrinsicStatus.readyField {
+            self = .ready
+            return
+        }
         let value = try decoded[type].unwrap(throwing: decodingError)
 
         switch type {
-        case ExtrinsicStatus.readyField:
-            self = .ready
         case ExtrinsicStatus.broadcastField:
             self = .broadcast(
                 try value.arrayValue

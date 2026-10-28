@@ -98,6 +98,11 @@ extension FriendsPresenter: FriendsPresenterProtocol {
 // MARK: - Interactor Output Protocol
 
 extension FriendsPresenter: FriendsInteractorOutputProtocol {
+    func didFailLoading(error: Swift.Error) {
+        view?.didStopLoading()
+        view?.showAlert(with: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: .currentLocale), image: R.image.iconClose())
+    }
+
     func updateReferrer(address: String) {
         self.referrer = address
         updateScreen()
@@ -270,7 +275,8 @@ private extension FriendsPresenter {
 
         var items: [CellViewModel] = []
 
-        let invitationCount = (referralBalance / setReferrerFee).rounded(mode: .down)
+        let invitationCount = setReferrerFee > 0 && !setReferrerFee.isNaN && !referralBalance.isNaN
+            ? (max(0, referralBalance) / setReferrerFee).rounded(mode: .down) : 0
         items.append(AvailableInvitationsViewModel(accountAddress: selectedAccount.address,
                                                    invitationCount: invitationCount,
                                                    bondedAmount: referralBalance,
@@ -299,7 +305,7 @@ private extension FriendsPresenter {
     }
 
     func updateScreen() {
-        if referralBalance < setReferrerFee {
+        if setReferrerFee.isNaN || setReferrerFee <= 0 || referralBalance.isNaN || referralBalance < setReferrerFee {
             DispatchQueue.main.async {
                 self.view?.startInvitingScreen(with: self.referrer)
             }

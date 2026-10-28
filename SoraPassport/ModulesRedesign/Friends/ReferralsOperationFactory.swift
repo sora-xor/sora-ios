@@ -39,7 +39,7 @@ protocol ReferralsOperationFactoryProtocol {
     func createExtrinsicSetReferrerOperation(with address: String) -> BaseOperation<String>
     func createExtrinsicReserveReferralBalanceOperation(with balance: BigUInt) -> BaseOperation<String>
     func createExtrinsicUnreserveReferralBalanceOperation(with balance: BigUInt) -> BaseOperation<String>
-    func createReferrerOperation() -> JSONRPCListOperation<String>?
+    func createReferrerOperation() -> JSONRPCListOperation<String?>?
 }
 
 final class ReferralsOperationFactory {
@@ -53,12 +53,13 @@ final class ReferralsOperationFactory {
          keychain: KeystoreProtocol,
          engine: JSONRPCEngine,
          runtimeRegistry: RuntimeProviderProtocol,
-         selectedAccount: AccountItem) {
+         selectedAccount: AccountItem,
+         extrinsicService: ExtrinsicServiceProtocol? = nil) {
         self.keychain = keychain
         self.engine = engine
         self.selectedAccount = selectedAccount
 
-        self.extrinsicService = ExtrinsicService(address: selectedAccount.address,
+        self.extrinsicService = extrinsicService ?? ExtrinsicService(address: selectedAccount.address,
                                                  cryptoType: selectedAccount.cryptoType,
                                                  runtimeRegistry: runtimeRegistry
                                                  ,
@@ -96,17 +97,17 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
         }
 
         let operation = BaseOperation<String>()
-        operation.configurationBlock = { [weak self] in
+        operation.configurationBlock = { [extrinsicService] in
             let semaphore = DispatchSemaphore(value: 0)
 
-            self?.extrinsicService.submit(closure, signer: signer, runningIn: .main) { [operation] result, _, _ in
-                semaphore.signal()
+            extrinsicService.submit(closure, signer: signer, runningIn: .main) { [operation] result, _, _ in
                 switch result {
                 case let .success(hash):
                     operation.result = .success(hash)
                 case let .failure(error):
                     operation.result = .failure(error)
                 }
+                semaphore.signal()
             }
             let status = semaphore.wait(timeout: .now() + .seconds(60))
 
@@ -130,17 +131,17 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
         }
 
         let operation = BaseOperation<String>()
-        operation.configurationBlock = { [weak self] in
+        operation.configurationBlock = { [extrinsicService] in
             let semaphore = DispatchSemaphore(value: 0)
 
-            self?.extrinsicService.submit(closure, signer: signer, runningIn: .main) { [operation] result, _, _ in
-                semaphore.signal()
+            extrinsicService.submit(closure, signer: signer, runningIn: .main) { [operation] result, _, _ in
                 switch result {
                 case let .success(hash):
                     operation.result = .success(hash)
                 case let .failure(error):
                     operation.result = .failure(error)
                 }
+                semaphore.signal()
             }
             let status = semaphore.wait(timeout: .now() + .seconds(60))
 
@@ -164,17 +165,17 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
         }
         
         let operation = BaseOperation<String>()
-        operation.configurationBlock = { [weak self] in
+        operation.configurationBlock = { [extrinsicService] in
             let semaphore = DispatchSemaphore(value: 0)
             
-            self?.extrinsicService.submit(closure, signer: signer, runningIn: .main) { [operation] result, _, _ in
-                semaphore.signal()
+            extrinsicService.submit(closure, signer: signer, runningIn: .main) { [operation] result, _, _ in
                 switch result {
                 case let .success(hash):
                     operation.result = .success(hash)
                 case let .failure(error):
                     operation.result = .failure(error)
                 }
+                semaphore.signal()
             }
             let status = semaphore.wait(timeout: .now() + .seconds(60))
             
@@ -187,7 +188,7 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
         return operation
     }
 
-    func createReferrerOperation() -> JSONRPCListOperation<String>? {
+    func createReferrerOperation() -> JSONRPCListOperation<String?>? {
         guard let accountId =  try? SS58AddressFactory().accountId(
                 fromAddress: selectedAccount.address,
                 type: selectedAccount.addressType
@@ -197,7 +198,7 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
             return nil
         }
 
-        return JSONRPCListOperation<String>(
+        return JSONRPCListOperation<String?>(
             engine: engine,
             method: RPCMethod.getStorage,
             parameters: [ parameters ]

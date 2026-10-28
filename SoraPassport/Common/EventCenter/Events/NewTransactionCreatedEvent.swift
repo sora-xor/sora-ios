@@ -32,8 +32,11 @@ import Foundation
 
 struct NewTransactionCreatedEvent: EventProtocol {
     let item: Transaction
-    init(item: Transaction) {
+    let accountAddress: String?
+    init(item: Transaction, accountAddress: String? = SelectedWalletSettings.shared.currentAccount?.address) {
         self.item = item
+        // Delivery is asynchronous; wallet selection may change before observers run.
+        self.accountAddress = accountAddress
     }
     func accept(visitor: EventVisitorProtocol) {
         visitor.processNewTransactionCreated(event: self)

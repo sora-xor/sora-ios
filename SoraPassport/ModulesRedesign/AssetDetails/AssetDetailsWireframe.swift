@@ -177,11 +177,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                               polkaswapNetworkFacade: polkaswapNetworkFacade,
                                                               assetsProvider: assetsProvider,
                                                               marketCapService: marketCapService) else { return }
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(swapController)
-        
-        controller?.present(containerView, animated: true)
+        controller?.present(swapController, animated: true)
     }
     
     @MainActor func showSend() {

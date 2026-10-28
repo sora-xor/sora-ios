@@ -55,6 +55,16 @@ final class EditFarmViewModel {
     
     internal var sharePercentage: Decimal = 0
     private var fee: Decimal = 0
+    private var isSubmitting = false
+    private let reviewedAccount = SelectedWalletSettings.shared.currentAccount
+
+    private struct Submission {
+        let farm: UserFarm
+        let amount: Decimal
+        let fee: Decimal
+        let transaction: FarmTransaction
+        let sender: String
+    }
     
     private var stakedSelection: FarmShareSelection = .zero
 
@@ -156,8 +166,24 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
     }
 
     func confirmButtonTapped() {
-        guard let service, let userFarmInfo else { return }
-        
+        guard !isSubmitting, let service, service.confirmButtonEnabled,
+              let userFarmInfo, let reviewedAccount,
+              let currentAccount = SelectedWalletSettings.shared.currentAccount,
+              currentAccount.isSelected,
+              currentAccount.address == reviewedAccount.address,
+              currentAccount.publicKeyData == reviewedAccount.publicKeyData,
+              currentAccount.cryptoType == reviewedAccount.cryptoType,
+              currentAccount.networkType == reviewedAccount.networkType else { return }
+        let xor = WalletAssetId.xor.rawValue
+        let balances = assetsProvider?.getBalances(with: [xor]).filter { $0.identifier == xor } ?? []
+        guard assetsProvider?.unavailableBalanceAssetIds(among: [xor]).contains(xor) != true,
+              balances.count == 1, balances[0].balance.decimalValue >= service.networkFeeAmount else {
+            service.confirmButtonEnabled = false
+            return
+        }
+        let submission = Submission(farm: userFarmInfo, amount: service.amount,
+                                    fee: service.networkFeeAmount, transaction: service.farmTransaction,
+                                    sender: reviewedAccount.address)
         let context: [String: String] = [
             TransactionContextKeys.transactionType: service.farmTransaction.transactionType.rawValue,
             TransactionContextKeys.rewardAsset: userFarmInfo.rewardAssetId,
@@ -174,18 +200,22 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
             context: context
         )
         
+        isSubmitting = true
         wireframe.showActivityIndicator()
-        walletService.transfer(info: transferInfo, runCompletionIn: .main) { [weak self] (optionalResult) in
-            self?.wireframe.hideActivityIndicator()
-
-            if let result = optionalResult {
-                self?.handleTransfer(result: result)
+        walletService.transfer(info: transferInfo, runCompletionIn: .main) { [weak self] optionalResult in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                isSubmitting = false
+                wireframe.hideActivityIndicator()
+                if let result = optionalResult {
+                    handleTransfer(result: result, submission: submission)
+                }
             }
         }
     }
     
-    private func handleTransfer(result: Result<Data, Swift.Error>) {
-        guard let userFarmInfo, let service else { return }
+    private func handleTransfer(result: Result<Data, Swift.Error>, submission: Submission) {
+        let userFarmInfo = submission.farm
         
         var status: TransactionBase.Status = .pending
         var txHash = ""
@@ -197,7 +227,7 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
         }
         let base = TransactionBase(txHash: txHash,
                                    blockHash: "",
-                                   fee: Amount(value: service.networkFeeAmount * pow(10, 18)),
+                                   fee: Amount(value: submission.fee * pow(10, 18)),
                                    status: status,
                                    timestamp: "\(Date().timeIntervalSince1970)")
         
@@ -205,11 +235,11 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
                                         firstTokenId: userFarmInfo.baseAssetId,
                                         secondTokenId: userFarmInfo.poolAssetId,
                                         rewardTokenId: userFarmInfo.rewardAssetId,
-                                        amount: Amount(value: userFarmInfo.rewards ?? Decimal(0)),
-                                        sender: SelectedWalletSettings.shared.currentAccount?.address ?? "",
-                                        type: service.farmTransaction.transactionType == .demeterDeposit ? .add : .withdraw)
+                                        amount: Amount(value: submission.amount),
+                                        sender: submission.sender,
+                                        type: submission.transaction == .deposit ? .add : .withdraw)
         
-        EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
+        EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction, accountAddress: submission.sender))
         wireframe.showActivityDetails(on: view?.controller, model: transaction, assetManager: assetManager) { [weak self] in
             self?.view?.dismiss(competion: {})
         }

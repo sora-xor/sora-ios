@@ -34,17 +34,27 @@ final class Quiz {
     let correctAnswers: [Int]
     let quizArray: [[String]]
     
-    init(words: [String]) {
-        correctAnswers = [ Int.random(in: 1..<13), Int.random(in: 1..<13), Int.random(in: 1..<13)]
-        
-        var quizArray: [[String]] = []
-        
-        for answer in correctAnswers {
-            let quizVariants = Int.getUniqueRandomNumbers(min: 1, max: 11, count: 3, requiredElement: answer)
-            let quiz = quizVariants.map { words[$0 - 1] }
-            quizArray.append(quiz)
+    convenience init(words: [String]) {
+        var generator = SystemRandomNumberGenerator()
+        self.init(words: words, using: &generator)
+    }
+
+    init<Generator: RandomNumberGenerator>(words: [String], using generator: inout Generator) {
+        // All BIP39 phrase lengths are supported by account import. A malformed
+        // phrase must never produce a confirmation that can be completed.
+        guard [12, 15, 18, 21, 24].contains(words.count) else {
+            correctAnswers = []
+            quizArray = []
+            return
         }
-        
-        self.quizArray = quizArray
+        correctAnswers = words.indices.shuffled(using: &generator).prefix(3).map { $0 + 1 }
+        let uniqueWords = words.reduce(into: [String]()) { result, word in
+            if !result.contains(word) { result.append(word) }
+        }
+        quizArray = correctAnswers.map { answer in
+            let correct = words[answer - 1]
+            let alternatives = uniqueWords.filter { $0 != correct }.shuffled(using: &generator).prefix(2)
+            return ([correct] + alternatives).shuffled(using: &generator)
+        }
     }
 }

@@ -52,7 +52,8 @@ final class ProgressView: SoramitsuView {
     }
     
     public func set(progressPercentage: Float) {
-        widthConstraint?.constant = 64 * CGFloat(progressPercentage / 100)
+        let percentage = progressPercentage.isFinite ? min(100, max(0, progressPercentage)) : 0
+        widthConstraint?.constant = 64 * CGFloat(percentage / 100)
     }
 
     private func setup() {

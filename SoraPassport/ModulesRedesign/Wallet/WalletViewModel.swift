@@ -191,6 +191,11 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     
     @MainActor
     func updateItems() {
+        setupItems?(visibleItems())
+    }
+
+    @MainActor
+    private func visibleItems() -> [SoramitsuTableViewItemProtocol] {
         // The portfolio first, then the cards below it, each with its own rule.
         var items = portfolioHome.items
         let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
@@ -216,7 +221,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(editViewItem)
         }
 
-        setupItems?(items)
+        return items
     }
 
     /// The asset list closed: tokens shown, hidden or reordered there change the portfolio.
@@ -229,7 +234,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     @MainActor
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void) {
         walletItems = buildItems()
-        updateItems()
+        let items = visibleItems()
+        setupItems?(items)
+        completion(items)
         setupModels()
         refreshNetworkRows()
     }

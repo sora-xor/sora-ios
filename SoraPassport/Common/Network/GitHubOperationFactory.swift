@@ -63,7 +63,7 @@ class GitHubOperationFactory: GitHubOperationFactoryProtocol {
                         do {
                             let typeRawValue = try addressFactory.type(fromAddress: address)
 
-                            let addressType = SNAddressType(typeRawValue.uint8Value)
+                            let addressType = SNAddressType(typeRawValue.uint16Value)
 
                             let accountId = try addressFactory.accountId(fromAddress: address,
                                                                          type: addressType)

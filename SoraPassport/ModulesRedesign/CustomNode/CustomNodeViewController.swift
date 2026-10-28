@@ -212,11 +212,8 @@ extension CustomNodeViewController: CustomNodeViewProtocol {
     }
 
     func resetState() {
-        nodeAddressTextField.sora.state = .default
-        nodeNameTextField.sora.state = .default
-
-        nodeNameTextField.sora.descriptionLabelText = ""
-        nodeAddressTextField.sora.descriptionLabelText = ""
+        nodeAddressTextField.sora.resetValidation()
+        nodeNameTextField.sora.resetValidation()
     }
 
     func changeSubmitButton(to isEnabled: Bool) {

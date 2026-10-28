@@ -48,6 +48,9 @@ final class WalletQREncoder: WalletQREncoderProtocol {
     }
 
     func encode(receiverInfo: ReceiveInfo) throws -> Data {
+        guard let assetId = receiverInfo.assetId, !assetId.isEmpty else {
+            throw QREncoderError.brokenData
+        }
         let accountId = try Data(hexStringSSF: receiverInfo.accountId)
 
         let address = try addressFactory.address(fromAccountId: accountId, type: networkType)
@@ -55,7 +58,7 @@ final class WalletQREncoder: WalletQREncoderProtocol {
         let info = SoraSubstrateQRInfo(address: address,
                                        rawPublicKey: publicKey,
                                        username: username,
-                                       assetId: receiverInfo.assetId!,
+                                       assetId: assetId,
                                        amount: receiverInfo.amount?.stringValue ?? "")
         return try substrateEncoder.encode(info: info)
     }

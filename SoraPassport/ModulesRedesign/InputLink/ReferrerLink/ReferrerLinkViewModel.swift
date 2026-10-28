@@ -57,8 +57,13 @@ final class ReferrerLinkViewModel: ReferrerLinkViewModelProtocol {
     }
     
     func userTappedOnActivate() {
-        guard let accountId = interactor?.getAccountId(from: address)?.toHex(includePrefix: true) else { return }
-        interactor?.sendSetReferrerRequest(with: accountId)
+        guard let interactor,
+              !interactor.isCurrentUserAddress(with: address),
+              let accountId = interactor.getAccountId(from: address)?.toHex(includePrefix: true) else {
+            isEnabled = false
+            return
+        }
+        interactor.sendSetReferrerRequest(with: accountId)
     }
 }
 

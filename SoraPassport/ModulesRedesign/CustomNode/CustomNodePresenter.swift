@@ -37,19 +37,6 @@ final class CustomNodePresenter {
     var interactor: CustomNodeInteractorInputProtocol!
     var chain: ChainModel
 
-    private let ws = "wss?:\\/\\/"
-    private let port = "(?::\\d{1,5})"
-    private let dns = "(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
-    private let segment = "\\/[a-z0-9-_]+"
-    private let ipv4part = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)"
-    private lazy var ipv4 = "\(ipv4part)(?:\\.\(ipv4part)){3}"
-
-
-    private lazy var wsRegexp = try! NSRegularExpression(pattern: ws)
-    private lazy var dnsPathRegexp = try! NSRegularExpression(pattern: "\(dns)\(port)?(\(segment))*")
-    private lazy var ipv4Regexp = try! NSRegularExpression(pattern: "\(ipv4)\(port)?(\(segment))*")
-
-
     private var name: String = "" {
         didSet {
             checkCustomNodeInfo()
@@ -97,7 +84,7 @@ extension CustomNodePresenter: CustomNodePresenterProtocol {
     }
 
     func customNodeNameChange(to text: String) {
-        name = text
+        name = text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func customNodeAddressChange(to text: String) {
@@ -105,7 +92,7 @@ extension CustomNodePresenter: CustomNodePresenterProtocol {
     }
 
     func submitButtonTapped() {
-        guard let url = URL(string: address) else { return }
+        guard checkCustomNodeInfo(), let url = URL(string: address) else { return }
         wireframe.showActivityIndicator()
         interactor.updateCustomNode(url: url, name: name)
     }
@@ -138,58 +125,34 @@ extension CustomNodePresenter: CustomNodeInteractorOutputProtocol {
 }
 
 private extension CustomNodePresenter {
-    func checkCustomNodeInfo() {
+    @discardableResult
+    func checkCustomNodeInfo() -> Bool {
         view?.resetState()
-
-        guard !name.isEmpty, !address.isEmpty else {
-            view?.changeSubmitButton(to: false)
-            return
-        }
-
-        let customNodes = chain.customNodes?.filter { $0.identifier != node?.identifier } ?? []
-
-        guard chain.nodes.first(where: { $0.name == name }) == nil,
-              customNodes.first(where: { $0.name == name }) == nil else {
-            view?.changeSubmitButton(to: false)
+        view?.changeSubmitButton(to: false)
+        guard !name.isEmpty, !address.isEmpty else { return false }
+        let nodes = Array(chain.nodes) + Array(chain.customNodes ?? [])
+        let otherNodes = nodes.filter { $0.identifier != node?.identifier }
+        guard !otherNodes.contains(where: { $0.name == name }) else {
             view?.showNameTextField(R.string.localizable.selectNodeAlreadyExist(preferredLanguages: .currentLocale))
-            return
+            return false
         }
-
-        guard chain.nodes.first(where: { $0.url.absoluteString == address.lowercased() }) == nil,
-              customNodes.first(where: { $0.url.absoluteString == address.lowercased() }) == nil else {
-            view?.changeSubmitButton(to: false)
+        guard let url = URL(string: address), SoraNodeConnectionPolicy.isAllowedEndpoint(url) else {
+            view?.showAddressTextField(R.string.localizable.selectNodeInvalidNode(preferredLanguages: .currentLocale))
+            return false
+        }
+        guard !otherNodes.contains(where: { endpointIdentity($0.url) == endpointIdentity(url) }) else {
             view?.showAddressTextField(R.string.localizable.selectNodeAlreadyExist(preferredLanguages: .currentLocale))
-            return
+            return false
         }
-        
-        let range = NSRange(location: 0, length: address.count)
-
-        guard wsRegexp.firstMatch(in: address, options: [], range: range) != nil else {
-            view?.changeSubmitButton(to: false)
-            view?.showAddressTextField(R.string.localizable.selectNodeInvalidNode(preferredLanguages: .currentLocale))
-            return
-        }
-
-        let withoutSchemeAddress = wsRegexp.stringByReplacingMatches(in: address,
-                                                                     options: [],
-                                                                     range: range,
-                                                                     withTemplate: "")
-        let withoutSchemeAddressRange = NSRange(location: 0, length: withoutSchemeAddress.count)
-
-        guard dnsPathRegexp.firstMatch(in: withoutSchemeAddress, options: [], range: withoutSchemeAddressRange) != nil ||
-              ipv4Regexp.firstMatch(in: withoutSchemeAddress, options: [], range: withoutSchemeAddressRange) != nil else {
-            view?.changeSubmitButton(to: false)
-            view?.showAddressTextField(R.string.localizable.selectNodeInvalidNode(preferredLanguages: .currentLocale))
-            return
-        }
-
-        guard URL(string: address) != nil else {
-            view?.changeSubmitButton(to: false)
-            view?.showAddressTextField(R.string.localizable.selectNodeInvalidNode(preferredLanguages: .currentLocale))
-            return
-        }
-
         view?.changeSubmitButton(to: true)
+        return true
+    }
+
+    func endpointIdentity(_ url: URL) -> String {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url.absoluteString }
+        components.scheme = components.scheme?.lowercased()
+        components.host = components.host?.lowercased()
+        return components.string ?? url.absoluteString
     }
 }
 

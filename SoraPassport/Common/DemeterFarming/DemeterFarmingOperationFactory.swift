@@ -47,13 +47,9 @@ final class DemeterFarmingOperationFactory {
             operationManager: OperationManagerFacade.sharedManager
         )
         
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return CompoundOperationWrapper.createWithError(ChainRegistryError.runtimeMetadaUnavailable)
-        }
-        
         let eventsWrapper: CompoundOperationWrapper<[StorageResponse<[UserFarmInfo]>]> =
         storageRequestFactory.queryItems(
-            engine: connection,
+            engine: engine,
             keyParams: { [accountId] },
             factory: { return try runtimeOperation.extractNoCancellableResultData() },
             storagePath: .demeterFarmingUserInfo
@@ -71,7 +67,7 @@ final class DemeterFarmingOperationFactory {
     }
     
     func poolsKeysPagedOperation() throws -> JSONRPCOperation<[JSONAny], [String]> {
-        let poolsKey = try StorageKeyFactory().demeterFarmingPoolsKeysPaged().toHex()
+        let poolsKey = try StorageKeyFactory().demeterFarmingPoolsKeysPaged().toHex(includePrefix: true)
         
         let keyPageSize: UInt32 = 100
         let paramsArray: [JSONAny] = [ JSONAny(poolsKey), JSONAny(keyPageSize) ]
@@ -89,19 +85,32 @@ final class DemeterFarmingOperationFactory {
             operationManager: OperationManagerFacade.sharedManager
         )
         
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return CompoundOperationWrapper.createWithError(ChainRegistryError.runtimeMetadaUnavailable)
+        let keysOperation = NMapKeyEncodingOperation(
+            path: .demeterFarmingPools,
+            storageKeyFactory: StorageKeyFactory(),
+            keyParams: [
+                [NMapKeyParam(value: AssetId(wrappedValue: poolAssetId))],
+                [NMapKeyParam(value: AssetId(wrappedValue: rewardAssetId))]
+            ]
+        )
+        keysOperation.configurationBlock = {
+            do {
+                keysOperation.codingFactory = try runtimeOperation.extractNoCancellableResultData()
+            } catch {
+                keysOperation.result = .failure(error)
+            }
         }
-        
+        keysOperation.addDependency(runtimeOperation)
+
         let storageOperation: CompoundOperationWrapper<[StorageResponse<[FarmedPoolInfo]>]> =
         storageRequestFactory.queryItems(
-            engine: connection,
-            keyParams: { [ AssetId(wrappedValue: poolAssetId), AssetId(wrappedValue: rewardAssetId) ] },
-            factory: { return try runtimeOperation.extractNoCancellableResultData() },
+            engine: engine,
+            keys: { try keysOperation.extractNoCancellableResultData() },
+            factory: { try runtimeOperation.extractNoCancellableResultData() },
             storagePath: .demeterFarmingPools
         )
-        
-        storageOperation.allOperations.forEach { $0.addDependency(runtimeOperation) }
+
+        storageOperation.allOperations.forEach { $0.addDependency(keysOperation) }
 
         let mapOperation = ClosureOperation<[FarmedPoolInfo]> {
             try storageOperation.targetOperation.extractNoCancellableResultData().first?.value ?? []
@@ -109,11 +118,11 @@ final class DemeterFarmingOperationFactory {
 
         mapOperation.addDependency(storageOperation.targetOperation)
 
-        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [runtimeOperation] + storageOperation.allOperations)
+        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [runtimeOperation, keysOperation] + storageOperation.allOperations)
     }
     
     func tokenInfosKeysPagedOperation() throws -> JSONRPCOperation<[JSONAny], [String]> {
-        let tokenInfosKey = try StorageKeyFactory().demeterFarmingTokenInfosKeysPaged().toHex()
+        let tokenInfosKey = try StorageKeyFactory().demeterFarmingTokenInfosKeysPaged().toHex(includePrefix: true)
         
         let keyPageSize: UInt32 = 100
         let paramsArray: [JSONAny] = [ JSONAny(tokenInfosKey), JSONAny(keyPageSize) ]
@@ -130,13 +139,9 @@ final class DemeterFarmingOperationFactory {
             operationManager: OperationManagerFacade.sharedManager
         )
         
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return CompoundOperationWrapper.createWithError(ChainRegistryError.runtimeMetadaUnavailable)
-        }
-        
         let storageOperation: CompoundOperationWrapper<[StorageResponse<FarmedTokenInfo?>]> =
         storageRequestFactory.queryItems(
-            engine: connection,
+            engine: engine,
             keyParams: { [ AssetId(wrappedValue: assetId) ] },
             factory: { return try runtimeOperation.extractNoCancellableResultData() },
             storagePath: .demeterFarmingTokenInfo

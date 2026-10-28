@@ -104,6 +104,10 @@ final class ChoiceMarketViewController: SoramitsuViewController {
 
 extension ChoiceMarketViewController: ChoiceMarketViewProtocol {
     func setup(markets: [LiquiditySourceType]) {
+        stackView.arrangedSubviews.forEach {
+            stackView.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
         markets.forEach { market in
             let marketView = MarketView(type: market)
             marketView.sora.addHandler(for: .touchUpInside) { [weak self] in

@@ -86,8 +86,7 @@ final class InputSendInfoViewModel {
     weak var assetManager: AssetManagerProtocol?
     weak var assetsProvider: AssetProviderProtocol?
 
-    private let output: PassthroughSubject<Output, Never> = .init()
-    private var cancellables = Set<AnyCancellable>()
+    private var balanceUnavailable = false
     private weak var wireframe: GenerateQRWireframeProtocol?
     private let accountId: String
     private var qrEncoder: WalletQREncoderProtocol
@@ -120,41 +119,41 @@ final class InputSendInfoViewModel {
     }
     
     func transform(input: AnyPublisher<Input, Never>) -> AnyPublisher<Output, Never> {
-        input.sink { [weak self] event in
-            guard let self = self, let assetManager = self.assetManager, let fiatService = self.fiatService else { return }
-            switch event {
-            case .choiseAsset:
-                let assetInfos = assetManager.getAssetList() ?? []
-                let assetViewModelFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                                                  assetManager: assetManager,
-                                                                  fiatService: fiatService)
-                self.wireframe?.showAssetSelection(assetManager: assetManager,
-                                                   fiatService: fiatService,
-                                                   assetViewModelFactory: assetViewModelFactory,
-                                                   assetsProvider: self.assetsProvider,
-                                                   assetIds: assetInfos.map { $0.assetId },
-                                                   marketCapService: self.marketCapService,
-                                                   completion: { selectedAssetId in
-                    self.asset = assetManager.assetInfo(for: selectedAssetId)
-                })
-                break
-            case .createQr:
-                guard let asset = self.asset else { return }
-                self.wireframe?.showReceive(selectedAsset: asset,
-                                            accountId: self.accountId,
-                                            address: self.address ?? "",
-                                            amount: AmountDecimal(value: self.inputedAmount),
-                                            qrEncoder: self.qrEncoder,
-                                            sharingFactory: self.sharingFactory,
-                                            fiatService: fiatService,
-                                            assetProvider: self.assetsProvider,
-                                            assetManager: assetManager)
-                break
-            }
-        }.store(in: &cancellables)
-        return output.eraseToAnyPublisher()
+        input.compactMap { [weak self] event -> Output? in
+            self?.handle(event)
+            return nil
+        }.eraseToAnyPublisher()
     }
-    
+
+    private func handle(_ event: Input) {
+        guard let assetManager, let fiatService else { return }
+        switch event {
+        case .choiseAsset:
+            let assets = assetManager.getAssetList() ?? []
+            let factory = AssetViewModelFactory(walletAssets: assets,
+                                                assetManager: assetManager,
+                                                fiatService: fiatService)
+            wireframe?.showAssetSelection(assetManager: assetManager,
+                                          fiatService: fiatService,
+                                          assetViewModelFactory: factory,
+                                          assetsProvider: assetsProvider,
+                                          assetIds: assets.map { $0.assetId },
+                                          marketCapService: marketCapService) { [weak self] selected in
+                self?.asset = assetManager.assetInfo(for: selected)
+            }
+        case .createQr:
+            guard let asset,
+                  let address, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  inputedAmount > 0,
+                  let precision = Int16(exactly: asset.precision),
+                  let atomic = inputedAmount.toSubstrateAmount(precision: precision), atomic > 0 else { return }
+            wireframe?.showReceive(selectedAsset: asset, accountId: accountId, address: address,
+                                   amount: AmountDecimal(value: inputedAmount), qrEncoder: qrEncoder,
+                                   sharingFactory: sharingFactory, fiatService: fiatService,
+                                   assetProvider: assetsProvider, assetManager: assetManager)
+        }
+    }
+
     func viewDidLoad() {
         asset = assetManager?.assetInfo(for: WalletAssetId.xor.rawValue)
         
@@ -176,11 +175,14 @@ final class InputSendInfoViewModel {
     }
     
     func setupBalanceDataProvider() {
-        guard let asset = asset, let balance = assetsProvider?.getBalances(with: [asset.assetId]).first else { return }
-        assetBalance = balance
+        guard let asset else { return }
+        let balance = assetsProvider?.getBalances(with: [asset.assetId]).first { $0.identifier == asset.assetId }
+        balanceUnavailable = balance == nil || assetsProvider?.unavailableBalanceAssetIds(among: [asset.assetId]).contains(asset.assetId) == true
+        assetBalance = balance ?? BalanceData(identifier: asset.assetId, balance: AmountDecimal(value: 0))
     }
-    
+
     func setupFullBalanceText(from balanceData: BalanceData) -> String {
+        guard !balanceUnavailable else { return WalletUX.balanceUnavailableText }
         let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
         let fiatBalanceText = setupInputedFiatText(from: balanceData.balance.decimalValue, assetId: balanceData.identifier)
         return fiatBalanceText.isEmpty ? "\(balance)" : "\(balance) (\(fiatBalanceText))"

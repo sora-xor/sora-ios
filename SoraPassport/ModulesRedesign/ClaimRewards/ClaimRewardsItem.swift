@@ -55,11 +55,16 @@ final class ClaimRewardsItem: ItemProtocol {
 
 extension ClaimRewardsItem: Hashable {
     static func == (lhs: ClaimRewardsItem, rhs: ClaimRewardsItem) -> Bool {
-        lhs.detailsViewModel == rhs.detailsViewModel && lhs.amountText == rhs.amountText
+        lhs.rewardText == rhs.rewardText && lhs.amountText == rhs.amountText &&
+            lhs.image == rhs.image && lhs.claimPossible == rhs.claimPossible &&
+            lhs.detailsViewModel == rhs.detailsViewModel
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(amountText)
+        hasher.combine(rewardText)
+        hasher.combine(image)
+        hasher.combine(claimPossible)
         hasher.combine(detailsViewModel)
     }
 }

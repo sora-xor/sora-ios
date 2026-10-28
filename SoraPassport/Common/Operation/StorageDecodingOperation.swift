@@ -35,6 +35,7 @@ import RobinHood
 enum StorageDecodingOperationError: Error {
     case missingRequiredParams
     case invalidStoragePath
+    case unexpectedTrailingBytes
 }
 
 protocol StorageDecodable {
@@ -52,7 +53,11 @@ extension StorageDecodable {
 
         let decoder = try codingFactory.createDecoder(from: data)
         let type = try entry.type.typeName(using: codingFactory.metadata.schemaResolver)
-        return try decoder.read(type: type)
+        let value = try decoder.read(type: type)
+        guard decoder.remained == 0 else {
+            throw StorageDecodingOperationError.unexpectedTrailingBytes
+        }
+        return value
     }
 }
 
@@ -73,7 +78,11 @@ extension StorageModifierHandling {
         case .defaultModifier:
             let decoder = try codingFactory.createDecoder(from: entry.defaultValue)
             let type = try entry.type.typeName(using: codingFactory.metadata.schemaResolver)
-            return try decoder.read(type: type)
+            let value = try decoder.read(type: type)
+        guard decoder.remained == 0 else {
+            throw StorageDecodingOperationError.unexpectedTrailingBytes
+        }
+        return value
         case .optional:
             return nil
         }
@@ -260,7 +269,11 @@ extension ConstantDecodable {
 
         let decoder = try codingFactory.createDecoder(from: entry.value)
         let type = try entry.type(using: codingFactory.metadata.schemaResolver)
-        return try decoder.read(type: type)
+        let value = try decoder.read(type: type)
+        guard decoder.remained == 0 else {
+            throw StorageDecodingOperationError.unexpectedTrailingBytes
+        }
+        return value
     }
 }
 

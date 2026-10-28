@@ -177,6 +177,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
 
     private let assetsProvider: AssetProviderProtocol?
     private let readClient: NexusToriiReading
+    private let networkStore: () throws -> WalletNetworkStore
     private let openSora2Experience: @MainActor () -> Bool
     private let settings = SettingsManager.shared
     private var coordinator: NexusTransactionCoordinator?
@@ -188,10 +189,12 @@ final class NexusPortfolioViewController: WalletTableViewController {
     init(
         assetsProvider: AssetProviderProtocol?,
         readClient: NexusToriiReading = NexusToriiReadClient(),
-        openSora2Experience: @escaping @MainActor () -> Bool = { false }
+        openSora2Experience: @escaping @MainActor () -> Bool = { false },
+        networkStore: @escaping () throws -> WalletNetworkStore = { try WalletNetworkStore() }
     ) {
         self.assetsProvider = assetsProvider
         self.readClient = readClient
+        self.networkStore = networkStore
         self.openSora2Experience = openSora2Experience
         super.init(style: .insetGrouped)
         let runtime = NexusTransactionRuntime.shared
@@ -207,6 +210,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
     }
 
     deinit {
+        assetsProvider?.remove(observer: self)
         loadTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
@@ -277,7 +281,7 @@ final class NexusPortfolioViewController: WalletTableViewController {
             }
             do {
                 guard
-                    let snapshot = try WalletNetworkStore().load(),
+                    let snapshot = try networkStore().load(),
                     let walletId = SelectedWalletSettings.shared
                         .currentAccount?.address,
                     snapshot.wallets.contains(where: {
@@ -348,11 +352,18 @@ final class NexusPortfolioViewController: WalletTableViewController {
                 return
             }
             if account.networkId == .sora2 {
-                rows[index].balance = assetsProvider?
-                    .getBalances(with: [WalletAssetId.xor.rawValue])
-                    .first?
-                    .balance
-                    .stringValue ?? "—"
+                let assetID = WalletAssetId.xor.rawValue
+                if assetsProvider?.unavailableBalanceAssetIds(among: [assetID]).contains(assetID) == true {
+                    rows[index].balance = "Unavailable"
+                } else {
+                    let balances = assetsProvider?.getBalances(with: [assetID]).filter { $0.identifier == assetID } ?? []
+                    if balances.count == 1, let value = balances.first,
+                       !value.balance.decimalValue.isNaN, value.balance.decimalValue >= 0 {
+                        rows[index].balance = value.balance.stringValue
+                    } else {
+                        rows[index].balance = "—"
+                    }
+                }
             } else if !WalletNetworkDirectory.current.info(account.networkId).isLive {
                 rows[index].balance = WalletUX.text("Address ready")
             } else {
@@ -560,7 +571,8 @@ final class NexusPortfolioViewController: WalletTableViewController {
                 configuration: configuration,
                 coordinator: coordinator,
                 readClient: readClient,
-                mutationUnavailableReason: nexusInfrastructureError
+                mutationUnavailableReason: nexusInfrastructureError,
+                networkStore: networkStore
             ),
             animated: true
         )
@@ -640,6 +652,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
     private let configuration: NexusNetworkConfiguration
     private let coordinator: NexusTransactionCoordinator?
     private let readClient: NexusToriiReading
+    private let networkStore: () throws -> WalletNetworkStore
     private let mutationUnavailableReason: String?
     private var history: [NexusTransferHistoryItem] = []
     private var pendingRows: [NexusPortfolioPresentationPolicy.PendingRow] = []
@@ -659,7 +672,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
     private var faucetStatus: UILabel?
     private var faucetHasPending = false
     private var faucetRetryAfter: Date?
-    private let faucetService = TairaFaucetService.shared
+    private let faucetService: TairaFaucetServing
     /// Opened from the wallet's Send: show the send form once the checks
     /// below have made sending safe. Used once; a later refresh never
     /// reopens it.
@@ -671,14 +684,18 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
         coordinator: NexusTransactionCoordinator?,
         readClient: NexusToriiReading,
         mutationUnavailableReason: String?,
-        opensSendWhenReady: Bool = false
+        opensSendWhenReady: Bool = false,
+        faucetService: TairaFaucetServing = TairaFaucetService.shared,
+        networkStore: @escaping () throws -> WalletNetworkStore = { try WalletNetworkStore() }
     ) {
         self.account = account
         self.configuration = configuration
         self.coordinator = coordinator
         self.readClient = readClient
+        self.networkStore = networkStore
         self.mutationUnavailableReason = mutationUnavailableReason
         self.opensSendWhenReady = opensSendWhenReady
+        self.faucetService = faucetService
         super.init(style: .insetGrouped)
     }
 
@@ -1129,7 +1146,11 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
             guard let self else { return }
             defer {
                 faucetTask = nil
-                updateFaucet()
+                if networkActionContextIsCurrent() {
+                    updateFaucet()
+                } else {
+                    faucetButton?.isEnabled = false
+                }
             }
             do {
                 let outcome = try await faucetService.request(
@@ -1169,7 +1190,9 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
                 }
             } catch {
                 guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
-                faucetHasPending = (try? await faucetService.hasPending(account: account.address)) ?? true
+                let pending = (try? await faucetService.hasPending(account: account.address)) ?? true
+                guard !Task.isCancelled, networkActionContextIsCurrent() else { return }
+                faucetHasPending = pending
                 if let failure = error as? TairaFaucetClient.Failure, case .rateLimited(let seconds) = failure {
                     faucetRetryAfter = Date().addingTimeInterval(min(max(seconds ?? 60, 1), 86_400))
                     updateFaucet(message: WalletUX.text("The faucet limit has been reached. Please try again later."))
@@ -1343,7 +1366,7 @@ final class NexusNetworkDetailViewController: WalletTableViewController {
 
     private func selectedAccountSnapshot() -> NetworkAccount? {
         guard
-            let store = try? WalletNetworkStore(),
+            let store = try? networkStore(),
             let snapshot = try? store.load(),
             SelectedWalletSettings.shared.currentAccount?.address ==
                 account.walletId

@@ -96,7 +96,7 @@ extension KeystoreImportService: KeystoreImportServiceProtocol {
     }
 
     func remove(observer: KeystoreImportObserver) {
-        observers = observers.filter { $0.observer !== nil && observer !== observer}
+        observers = observers.filter { $0.observer != nil && $0.observer !== observer}
     }
 
     func clear() {

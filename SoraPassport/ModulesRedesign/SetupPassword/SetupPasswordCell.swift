@@ -35,11 +35,22 @@ import Combine
 
 final class SetupPasswordCell: SoramitsuTableViewCell {
     private var cancellables: Set<AnyCancellable> = []
-    private let input: PassthroughSubject<SetupPasswordItem.Input, Never> = .init()
+    private var input: PassthroughSubject<SetupPasswordItem.Input, Never> = .init()
     
     private weak var item: SetupPasswordItem? {
         didSet {
-            guard let item = item else { return }
+            guard item !== oldValue else { return }
+            cancellables.removeAll()
+            input = .init()
+            setPasswordInputField.textField.text = ""
+            confirmPasswordInputField.textField.text = ""
+            setPasswordInputField.sora.resetValidation()
+            confirmPasswordInputField.sora.resetValidation()
+            setPasswordInputField.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: .currentLocale)
+            confirmPasswordInputField.sora.descriptionLabelText = ""
+            checkView.isSelected = false
+            continueButton.isEnabled = false
+            guard let item else { return }
             let output = item.transform(input: input.eraseToAnyPublisher())
             output
                 .receive(on: DispatchQueue.main)

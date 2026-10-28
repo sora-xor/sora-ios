@@ -46,6 +46,46 @@ enum WalletOpeningError: String, Error {
     case screensNotReady = "screens_not_ready"
 }
 
+/// Dependencies used to assemble and replace one account-bound tab graph.
+/// Closures read the current app state at the moment the graph is built.
+struct WalletTabAssemblyEnvironment {
+    var requiresRecovery: () -> Bool
+    var importService: () -> KeystoreImportServiceProtocol?
+    var selectedAccount: () -> AccountItem?
+    var connection: () -> JSONRPCEngine?
+    var runtime: () -> RuntimeProviderProtocol?
+    var assetManager: () -> AssetManagerProtocol
+    var prepareAssets: (AssetManagerProtocol) -> Void
+    var contextFactory: () -> WalletContextFactoryProtocol
+    var keystore: () -> KeystoreProtocol
+    var fiatService: FiatServiceProtocol
+    var marketCapService: MarketCapServiceProtocol
+    var localizationManager: LocalizationManagerProtocol
+    var configureAPY: (PolkaswapNetworkOperationFactory) -> Void
+    var hasShownDisclaimer: () -> Bool
+    var markDisclaimerShown: () -> Void
+    var eventCenter: () -> EventCenterProtocol = { EventCenter.shared }
+    var serviceCoordinator: () -> ServiceCoordinatorProtocol = { ServiceCoordinator.shared }
+
+    static let app = WalletTabAssemblyEnvironment(
+        requiresRecovery: { SettingsManager.shared.walletMigrationRecoveryRequired },
+        importService: { URLHandlingService.shared.findService() },
+        selectedAccount: { SelectedWalletSettings.shared.currentAccount },
+        connection: { ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) },
+        runtime: { ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) },
+        assetManager: { ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash()) },
+        prepareAssets: { $0.setup(for: SelectedWalletSettings.shared) },
+        contextFactory: { WalletContextFactory() },
+        keystore: { Keychain() },
+        fiatService: FiatService.shared,
+        marketCapService: MarketCapService.shared,
+        localizationManager: LocalizationManager.shared,
+        configureAPY: { factory in Task { await APYService.shared.setup(factory: factory) } },
+        hasShownDisclaimer: { ApplicationConfig.shared.isDisclamerShown },
+        markDisclaimerShown: { UserDefaults.standard.set(true, forKey: "isDisclamerShown") }
+    )
+}
+
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
     
@@ -55,33 +95,33 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     }
 
     @MainActor
-    static func createViewOrThrow() throws -> MainTabBarViewProtocol {
-        guard !SettingsManager.shared.walletMigrationRecoveryRequired else {
+    static func createViewOrThrow(environment: WalletTabAssemblyEnvironment = .app) throws -> MainTabBarViewProtocol {
+        guard !environment.requiresRecovery() else {
             throw WalletOpeningError.recoveryRequired
         }
-        guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared.findService() else {
+        guard let keystoreImportService: KeystoreImportServiceProtocol = environment.importService() else {
             Logger.shared.error("Can't find required keystore import service")
             throw WalletOpeningError.servicesNotReady
         }
         
-        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
-                                              serviceCoordinator: ServiceCoordinator.shared,
+        let interactor = MainTabBarInteractor(eventCenter: environment.eventCenter(),
+                                              serviceCoordinator: environment.serviceCoordinator(),
                                               keystoreImportService: keystoreImportService)
         
         let view = MainTabBarViewController()
-        view.localizationManager = LocalizationManager.shared
+        view.localizationManager = environment.localizationManager
         
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+        let primitiveFactory = WalletPrimitiveFactory(keystore: environment.keystore())
         
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil else {
+        guard let connection = environment.connection(),
+              environment.runtime() != nil else {
             throw WalletOpeningError.connectionNotReady
         }
         
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
+        let assetManager = environment.assetManager()
+        environment.prepareAssets(assetManager)
 
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+        guard let selectedAccount = environment.selectedAccount() else {
             throw WalletOpeningError.accountNotReady
         }
         let accountSettings: WalletAccountSettingsProtocol
@@ -95,11 +135,12 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let farmingService = DemeterFarmingService(
             operationFactory: DemeterFarmingOperationFactory(engine: connection),
-            fiatService: FiatService.shared,
-            assetManager: assetManager
+            fiatService: environment.fiatService,
+            assetManager: assetManager,
+            runtimeOperation: { environment.runtime()?.fetchCoderFactoryOperation() }
         )
         
-        guard let walletContext = try? WalletContextFactory().createContext(connection: connection, 
+        guard let walletContext = try? environment.contextFactory().createContext(connection: connection,
                                                                             assetManager: assetManager,
                                                                             accountSettings: accountSettings, 
                                                                             demeterFarmingService: farmingService) else {
@@ -113,10 +154,16 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                               assetManager: assetManager,
                                                               accountSettings: accountSettings, 
                                                               feeProvider: feeProvider,
-                                                              farmingService: farmingService) else {
+                                                              farmingService: farmingService, selectedAccount: selectedAccount, environment: environment) else {
             throw WalletOpeningError.screensNotReady
         }
         
+        guard !environment.requiresRecovery() else {
+            throw WalletOpeningError.recoveryRequired
+        }
+        guard environment.selectedAccount()?.address == selectedAccount.address else {
+            throw WalletOpeningError.accountNotReady
+        }
         view.viewControllers = viewControllers
         
         let presenter = MainTabBarPresenter()
@@ -125,7 +172,14 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         // main thread.
         let wireframe = MainTabBarWireframe(
             walletContext: walletContext,
-            isBuiltWithoutAssets: (assetManager.getAssetList() ?? []).isEmpty
+            isBuiltWithoutAssets: (assetManager.getAssetList() ?? []).isEmpty,
+            assetListEnvironment: .init(
+                selectedWalletId: { environment.selectedAccount()?.address },
+                assets: { assetManager.getAssetList() },
+                schedule: WalletAssetListRebuild.mainRunLoopTimer,
+                rebuildTabs: { $0.recreateWalletViewController(on: $1) }
+            ),
+            assemblyEnvironment: environment
         )
         
         view.presenter = presenter
@@ -238,7 +292,9 @@ extension MainTabBarViewFactory {
                                                   assetManager: AssetManagerProtocol,
                                                   accountSettings: WalletAccountSettingsProtocol,
                                                   feeProvider: FeeProviderProtocol,
-                                                  farmingService: DemeterFarmingService) -> [UIViewController]? {
+                                                  farmingService: DemeterFarmingService,
+                                                  selectedAccount: AccountItem,
+                                                  environment: WalletTabAssemblyEnvironment) -> [UIViewController]? {
         
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
                                                      cacheFacade: CoreDataCacheFacade.shared,
@@ -249,7 +305,7 @@ extension MainTabBarViewFactory {
         let assetInfos = assetManager.getAssetList() ?? []
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
 
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+        guard let connection = environment.connection() else {
             return nil
         }
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
@@ -261,10 +317,10 @@ extension MainTabBarViewFactory {
         farmingService.poolsService = poolsService
         let factory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
-                                           fiatService: FiatService.shared)
+                                           fiatService: environment.fiatService)
         
-        let poolsViewModelService = PoolsItemService(marketCapService: MarketCapService.shared,
-                                           fiatService: FiatService.shared,
+        let poolsViewModelService = PoolsItemService(marketCapService: environment.marketCapService,
+                                           fiatService: environment.fiatService,
                                            poolViewModelsFactory: factory)
 
         poolsService.appendDelegate(delegate: poolsViewModelService)
@@ -280,17 +336,22 @@ extension MainTabBarViewFactory {
                                                                     editViewService: editViewService,
                                                                     accountSettings: accountSettings,
                                                                     farmingService: farmingService,
-                                                                    feeProvider: feeProvider) else {
+                                                                    feeProvider: feeProvider,
+                                                                    localizationManager: environment.localizationManager,
+                                                                    connection: connection, runtimeRegistry: environment.runtime(),
+                                                                    fiatService: environment.fiatService, marketCapService: environment.marketCapService,
+                                                                    selectedAccount: selectedAccount, configureAPY: environment.configureAPY) else {
             return nil
         }
         
         guard let settingsController = createMoreMenuController(walletContext: walletContext,
                                                                 assetsProvider: assetsProvider,
-                                                                accountSettings: accountSettings) else {
+                                                                accountSettings: accountSettings, assetManager: assetManager,
+                                                                fiatService: environment.fiatService, selectedAccount: selectedAccount) else {
             return nil
         }
         
-        guard let activityController = createActivityController(with: assetManager, assetInfos: assetInfos) else {
+        guard let activityController = createActivityController(with: assetManager, assetInfos: assetInfos, localizationManager: environment.localizationManager, selectedAccount: selectedAccount) else {
             return nil
         }
         
@@ -303,21 +364,30 @@ extension MainTabBarViewFactory {
                                                             assetsProvider: assetsProvider, 
                                                             farmingService: farmingService,
                                                             feeProvider: feeProvider,
-                                                            walletAssets: assetInfos) else {
+                                                            walletAssets: assetInfos, connection: connection, runtimeRegistry: environment.runtime(),
+                                                            fiatService: environment.fiatService, marketCapService: environment.marketCapService,
+                                                            selectedAccount: selectedAccount) else {
             return nil
         }
         
-        view.middleButtonHadler = {
+        view.middleButtonHadler = { [weak view] in
+            guard let view,
+                  environment.selectedAccount()?.address == selectedAccount.address,
+                  !environment.requiresRecovery() else { return }
             guard let swapViewController = createSwapController(walletContext: walletContext,
                                                                 assetManager: assetManager,
                                                                 assetsProvider: assetsProvider,
-                                                                localizationManager: LocalizationManager.shared) else { return }
-            guard let containerView = swapDisclamerController(completion: {
-                UserDefaults.standard.set(true, forKey: "isDisclamerShown")
+                                                                localizationManager: environment.localizationManager, connection: environment.connection(),
+                                                                fiatService: environment.fiatService, marketCapService: environment.marketCapService) else { return }
+            guard let containerView = swapDisclamerController(completion: { [weak view] in
+                guard let view,
+                      environment.selectedAccount()?.address == selectedAccount.address,
+                      !environment.requiresRecovery() else { return }
+                environment.markDisclaimerShown()
                 view.present(swapViewController, animated: true)
             }) else { return }
             
-            if ApplicationConfig.shared.isDisclamerShown {
+            if environment.hasShownDisclaimer() {
                 view.present(swapViewController, animated: true)
             } else {
                 view.present(containerView, animated: true)
@@ -339,13 +409,20 @@ extension MainTabBarViewFactory {
                                                accountSettings: WalletAccountSettingsProtocol,
                                                farmingService: DemeterFarmingServiceProtocol,
                                                feeProvider: FeeProviderProtocol,
-                                               localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+                                               localizationManager: LocalizationManagerProtocol = LocalizationManager.shared,
+                                               connection: JSONRPCEngine? = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+                                               runtimeRegistry: RuntimeProviderProtocol? = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+                                               fiatService: FiatServiceProtocol = FiatService.shared,
+                                               marketCapService: MarketCapServiceProtocol = MarketCapService.shared,
+        selectedAccount: AccountItem? = SelectedWalletSettings.shared.currentAccount,
+                                               configureAPY: @escaping (PolkaswapNetworkOperationFactory) -> Void = { factory in
+                                                   Task { await APYService.shared.setup(factory: factory) }
+                                               }) -> UIViewController? {
+        guard let connection, let runtimeRegistry else {
             return nil
         }
         
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+        guard let selectedAccount else {
             return nil
         }
         
@@ -363,21 +440,18 @@ extension MainTabBarViewFactory {
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
-        Task {
-            await APYService.shared.setup(factory: polkaswapContext)
-        }
+        configureAPY(polkaswapContext)
         
         let referralFactory = ReferralsOperationFactory(settings: SettingsManager.shared,
                                                         keychain: Keychain(),
                                                         engine: connection,
                                                         runtimeRegistry: runtimeRegistry,
-                                                        selectedAccount: selectedAccount)
+                 selectedAccount: selectedAccount)
         
-        let marketCapService = MarketCapService.shared
 
         let walletController = RedesignWalletViewFactory.createView(providerFactory: providerFactory,
                                                                     assetManager: assetManager,
-                                                                    fiatService: FiatService.shared,
+                                                                    fiatService: fiatService,
                                                                     farmingService: farmingService,
                                                                     networkFacade: walletContext.networkOperationFactory,
                                                                     accountId: accountSettings.accountId,
@@ -419,12 +493,14 @@ extension MainTabBarViewFactory {
         for localizationManager: LocalizationManagerProtocol = LocalizationManager.shared,
         walletContext: CommonWalletContextProtocol,
         assetsProvider: AssetProviderProtocol,
-        accountSettings: WalletAccountSettingsProtocol
+        accountSettings: WalletAccountSettingsProtocol,
+        assetManager: AssetManagerProtocol = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash()),
+        fiatService: FiatServiceProtocol = FiatService.shared,
+        selectedAccount: AccountItem? = SelectedWalletSettings.shared.currentAccount
     ) -> UIViewController? {
         
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+        guard let selectedAccount else {
             return nil
         }
         
@@ -437,7 +513,7 @@ extension MainTabBarViewFactory {
         
         guard let view = MoreMenuViewFactory.createView(
             walletContext: walletContext,
-            fiatService: FiatService.shared,
+            fiatService: fiatService,
             balanceFactory: balanceFactory,
             address: selectedAccount.address,
             assetsProvider: assetsProvider,
@@ -446,10 +522,10 @@ extension MainTabBarViewFactory {
             return nil
         }
         let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.commonSettings(preferredLanguages: locale.rLanguages)
+            R.string.localizable.commonMore(preferredLanguages: locale.rLanguages)
         }
         
-        let currentTitle = R.string.localizable.commonMore(preferredLanguages: .currentLocale)
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
         
         let image = R.image.wallet.more()
         
@@ -473,8 +549,9 @@ extension MainTabBarViewFactory {
     static func createActivityController(
         with assetManager: AssetManagerProtocol,
         assetInfos: [AssetInfo],
-        localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
-            guard let view = ActivityViewFactory.createView(assetManager: assetManager, aseetList: assetInfos) else {
+        localizationManager: LocalizationManagerProtocol = LocalizationManager.shared,
+        selectedAccount: AccountItem? = SelectedWalletSettings.shared.currentAccount) -> UIViewController? {
+            guard let view = ActivityViewFactory.createView(assetManager: assetManager, aseetList: assetInfos, selectedAccount: selectedAccount) else {
                 return nil
             }
             
@@ -510,10 +587,13 @@ extension MainTabBarViewFactory {
                                        assetsProvider: AssetProviderProtocol,
                                        farmingService: DemeterFarmingServiceProtocol,
                                        feeProvider: FeeProviderProtocol,
-                                       walletAssets: [AssetInfo]) -> UINavigationController? {
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+                                       walletAssets: [AssetInfo],
+                                       connection: JSONRPCEngine? = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+                                       runtimeRegistry: RuntimeProviderProtocol? = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+                                       fiatService: FiatServiceProtocol = FiatService.shared,
+                                               marketCapService: MarketCapServiceProtocol = MarketCapService.shared,
+        selectedAccount: AccountItem? = SelectedWalletSettings.shared.currentAccount) -> UINavigationController? {
+        guard let selectedAccount, let connection, let runtimeRegistry else {
             return nil
         }
         
@@ -521,8 +601,6 @@ extension MainTabBarViewFactory {
                                         publicKey: selectedAccount.publicKeyData,
                                         username: selectedAccount.username)
         
-        let marketCapService = MarketCapService.shared
-        let fiatService = FiatService.shared
         let itemFactory = ExploreItemFactory(assetManager: assetManager)
         
         let factory = AssetViewModelFactory(walletAssets: walletAssets,
@@ -555,7 +633,7 @@ extension MainTabBarViewFactory {
                                                         keychain: Keychain(),
                                                         engine: connection,
                                                         runtimeRegistry: runtimeRegistry,
-                                                        selectedAccount: selectedAccount)
+                 selectedAccount: selectedAccount)
         let accountId = (try? SS58AddressFactory().accountId(
             fromAddress: selectedAccount.address,
             type: selectedAccount.networkType
@@ -646,20 +724,22 @@ extension MainTabBarViewFactory {
         walletContext: CommonWalletContextProtocol,
         assetManager: AssetManagerProtocol,
         assetsProvider: AssetProviderProtocol,
-        localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
+        localizationManager: LocalizationManagerProtocol = LocalizationManager.shared,
+        connection: JSONRPCEngine? = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+        fiatService: FiatServiceProtocol = FiatService.shared,
+        marketCapService: MarketCapServiceProtocol = MarketCapService.shared
     ) -> UIViewController? {
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+        guard let connection else {
             return nil
         }
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
-        let marketCapService = MarketCapService.shared
         
         guard let swapController = SwapViewFactory.createView(selectedTokenId: WalletAssetId.xor.rawValue,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
-                                                              fiatService: FiatService.shared,
+                                                              fiatService: fiatService,
                                                               networkFacade: walletContext.networkOperationFactory,
                                                               polkaswapNetworkFacade: polkaswapContext,
                                                               assetsProvider: assetsProvider,

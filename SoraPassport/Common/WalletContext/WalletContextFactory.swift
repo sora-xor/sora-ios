@@ -55,13 +55,30 @@ final class WalletContextFactory {
     let applicationConfig: ApplicationConfigProtocol
     let logger: LoggerProtocol
     let primitiveFactory: WalletPrimitiveFactoryProtocol
+    private let selectedAccount: () -> AccountItem?
+    private let runtimeProvider: () -> RuntimeProviderProtocol?
+    private let substrateStorage: StorageFacadeProtocol?
+    private let accountStorage: StorageFacadeProtocol?
+    private let localizationManager: LocalizationManagerProtocol
 
     init(keychain: KeystoreProtocol = Keychain(),
          applicationConfig: ApplicationConfigProtocol = ApplicationConfig.shared,
-         logger: LoggerProtocol = Logger.shared) {
+         logger: LoggerProtocol = Logger.shared,
+         selectedAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
+         runtimeProvider: @escaping () -> RuntimeProviderProtocol? = {
+             ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
+         },
+         substrateStorage: StorageFacadeProtocol? = nil,
+         accountStorage: StorageFacadeProtocol? = nil,
+         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) {
         self.keychain = keychain
         self.applicationConfig = applicationConfig
         self.logger = logger
+        self.selectedAccount = selectedAccount
+        self.runtimeProvider = runtimeProvider
+        self.substrateStorage = substrateStorage
+        self.accountStorage = accountStorage
+        self.localizationManager = localizationManager
 
         primitiveFactory = WalletPrimitiveFactory(keystore: keychain)
     }
@@ -91,7 +108,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                        accountSettings: WalletAccountSettingsProtocol,
                        demeterFarmingService: DemeterFarmingServiceProtocol) throws -> CommonWalletContextProtocol {
 
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+        guard let selectedAccount = selectedAccount() else {
             throw WalletContextFactoryError.missingAccount
         }
 
@@ -99,15 +116,15 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 
         let networkType = selectedAccount.addressType
 
-        let accountSigner = SigningWrapper(keystore: Keychain(), account: selectedAccount)
+        let accountSigner = SigningWrapper(keystore: keychain, account: selectedAccount)
         let dummySigner = try DummySigner(cryptoType: selectedAccount.cryptoType)
 
-        let substrateStorageFacade = SubstrateDataStorageFacade.shared
+        let substrateStorageFacade = substrateStorage ?? SubstrateDataStorageFacade.shared
         let chainStorage: CoreDataRepository<ChainStorageItem, CDChainStorageItem> =
             substrateStorageFacade.createRepository()
 
         let localStorageIdFactory = try ChainStorageIdFactory(chain: Chain.sora)
-        guard let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+        guard let runtime = runtimeProvider() else {
             throw WalletContextFactoryError.missingConnection
         }
         let extrinsicService = ExtrinsicService(address: selectedAccount.address,
@@ -136,13 +153,13 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 
         let txFilter = NSPredicate.filterTransactionsBy(address: selectedAccount.address)
         let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
-            SubstrateDataStorageFacade.shared.createRepository(filter: txFilter)
+            substrateStorageFacade.createRepository(filter: txFilter)
 
         let contactOperationFactory = WalletContactOperationFactory(storageFacade: substrateStorageFacade,
                                                                     targetAddress: selectedAccount.address)
 
         let accountStorage: CoreDataRepository<AccountItem, CDAccountItem> =
-            UserDataStorageFacade.shared
+            (self.accountStorage ?? UserDataStorageFacade.shared)
             .createRepository(filter: NSPredicate.filterAccountBy(networkType: networkType),
                               sortDescriptors: [NSSortDescriptor.accountsByOrder],
                               mapper: AnyCoreDataMapper(AccountItemMapper()))
@@ -171,10 +188,10 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         let builder = CommonWalletBuilder.builder(with: accountSettings,
                                                   networkOperationFactory: networkFacade)
 
-        let context = try builder.with(localizationManager: LocalizationManager.shared).build()
+        let context = try builder.with(localizationManager: localizationManager).build()
 
         subscribeContextToLanguageSwitch(context,
-                                         localizationManager: LocalizationManager.shared,
+                                         localizationManager: localizationManager,
                                          logger: logger)
 
         return context

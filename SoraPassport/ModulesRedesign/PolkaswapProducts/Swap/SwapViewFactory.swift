@@ -58,7 +58,7 @@ final class SwapViewFactory {
             interactor: interactor,
             networkFacade: networkFacade,
             assetsProvider: assetsProvider,
-            lpServiceFee: LPFeeService(),
+            lpServiceFee: LPFeeService(engine: polkaswapNetworkFacade?.engine),
             polkaswapNetworkFacade: polkaswapNetworkFacade,
             marketCapService: marketCapService)
         

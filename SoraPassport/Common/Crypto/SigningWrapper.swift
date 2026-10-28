@@ -221,9 +221,24 @@ enum Sora2SignatureVerifier {
 final class SigningWrapper: LifecycleSigningWrapperProtocol {
     let keystore: KeystoreProtocol
     let account: AccountItem
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
+    private let recoveryGate: WalletRecoveryCapabilityGate
+    private let selectedAccount: () -> AccountItem?
+    private let networkSnapshot: () throws -> WalletNetworkSnapshot?
+    private let isWatchOnly: (String) -> Bool
     var signingAccount: AccountItem { account }
 
-    init(keystore: KeystoreProtocol, account: AccountItem) {
+    init(keystore: KeystoreProtocol, account: AccountItem,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+         selectedAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
+         networkSnapshot: @escaping () throws -> WalletNetworkSnapshot? = { try WalletNetworkStore().load() },
+         isWatchOnly: @escaping (String) -> Bool = { SettingsManager.shared.bool(for: "wallet.watchOnly.\($0)") == true }) {
+        self.lifecycleCoordinator = lifecycleCoordinator
+        self.recoveryGate = recoveryGate
+        self.selectedAccount = selectedAccount
+        self.networkSnapshot = networkSnapshot
+        self.isWatchOnly = isWatchOnly
         self.keystore = keystore
         self.account = account
     }
@@ -231,7 +246,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
         guard
             let lifecycleLease =
-                try WalletLifecycleCoordinator.shared
+                try lifecycleCoordinator
                     .tryAcquireForMutableWalletAccess()
         else {
             // A caller already inside a lifecycle transaction must use the
@@ -250,7 +265,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         _ originalData: Data,
         lifecycleLease: WalletLifecycleLease
     ) throws -> IRSignatureProtocol {
-        try WalletLifecycleCoordinator.shared.withExclusiveAccess(
+        try lifecycleCoordinator.withExclusiveAccess(
             using: lifecycleLease
         ) {
             try signLocked(originalData)
@@ -263,14 +278,14 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         // Recheck the full recovery capability boundary immediately before
         // touching encrypted signing material. This also covers callers that
         // supply an existing lease through background transaction routes.
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireMutableWalletAccess()
         try validateSelectedSora2Identity()
         let resolved: Data?
         do {
             resolved = try LegacySoraSecretResolver.resolve(
                 account: account,
-                keystore: keystore
+                keystore: keystore, recoveryGate: recoveryGate
             )
         } catch SigningWrapperError.identityMismatch {
             throw SigningWrapperError.keysNotVerified
@@ -314,7 +329,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
 
     private func validateSelectedSora2Identity() throws {
         guard
-            let selected = SelectedWalletSettings.shared.currentAccount,
+            let selected = selectedAccount(),
             selected.isSelected,
             selected.address == account.address,
             selected.publicKeyData == account.publicKeyData,
@@ -324,8 +339,8 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
             throw SigningWrapperError.missingSelectedAccount
         }
 
-        let snapshot = try WalletNetworkStore().load()
-        guard SettingsManager.shared.bool(for: "wallet.watchOnly.\(account.address)") != true,
+        let snapshot = try networkSnapshot()
+        guard !isWatchOnly(account.address),
               snapshot?.wallets.first(where: { $0.id == account.address })?.secretSource != .watchOnly else {
             throw SigningWrapperError.keysNotVerified
         }
@@ -357,14 +372,16 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         }
 
         do {
-            guard var secret = try LegacySoraSecretResolver.resolve(account: account, keystore: keystore) else {
+            guard var secret = try LegacySoraSecretResolver.resolve(account: account, keystore: keystore, recoveryGate: recoveryGate) else {
                 throw SigningWrapperError.keysNotOnThisDevice
             }
             defer { secret.resetBytes(in: secret.startIndex ..< secret.endIndex) }
             try LegacySoraIdentityValidator.validateSigningSecret(
                 address: account.address, publicKey: account.publicKeyData,
                 cryptoType: account.cryptoType, networkType: account.networkType,
-                secret: secret, recoveryGate: .shared)
+                secret: secret, recoveryGate: recoveryGate)
+        } catch SigningWrapperError.keysNotOnThisDevice {
+            throw SigningWrapperError.keysNotOnThisDevice
         } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
             throw SigningWrapperError.keysNotVerified
         }

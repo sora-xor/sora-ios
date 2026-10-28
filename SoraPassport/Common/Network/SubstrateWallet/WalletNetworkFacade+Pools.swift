@@ -39,214 +39,123 @@ enum PoolError: Swift.Error {
     case noReserves
 }
 
-
 extension WalletNetworkFacade {
     func getAccountPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {
-        let processingOperation: AwaitOperation<[PoolDetails]> = AwaitOperation { [weak self] in
-            guard let weakSelf = self else { return [] }
-            
-            let accountPools = await weakSelf.loadAccountPools()
-            var poolsDetails = try await weakSelf.loadPoolsDetails(accountPools: accountPools)
-            poolsDetails = weakSelf.sort(poolDetails: poolsDetails)
-
-            return poolsDetails
+        let processingOperation = AwaitOperation<[PoolDetails]> { [weak self] in
+            guard let self else { throw CancellationError() }
+            let accountPools = try await self.loadAccountPools()
+            let details = try await self.loadPoolsDetails(accountPools: accountPools)
+            return details.sorted { $0.baseAsset < $1.baseAsset }
         }
-        
         return CompoundOperationWrapper(targetOperation: processingOperation)
     }
 
-    fileprivate func loadAccountPools() async -> [String: [String]] {
+    private func loadAccountPools() async throws -> [String: [String]] {
         let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-        
-        async let pools = baseAssetIds.concurrentMap { baseAssetId in
-            return await self.poolList(baseAssetId: baseAssetId)
+        let pools = try await baseAssetIds.concurrentMap { baseAssetId in
+            try await self.poolList(baseAssetId: baseAssetId)
         }
-        
-        let tempPools = try? await pools
-        
-        var result: [String: [String]] = [:]
-        tempPools?.forEach { tempPool in
-            result[tempPool.assetId] = tempPool.pools
+        return Dictionary(uniqueKeysWithValues: pools.map { ($0.assetId, $0.pools) })
+    }
+
+    private func loadPoolsDetails(accountPools: [String: [String]]) async throws -> [PoolDetails] {
+        let pairs = accountPools.flatMap { base, targets in
+            targets.map { (baseAsset: base, targetAsset: $0) }
         }
-        
-        return result
-    }
-
-    fileprivate func loadPoolsDetails(accountPools: [String: [String]]) async throws -> [PoolDetails] {
-        return try await withCheckedThrowingContinuation({ continuetion in
-            Task {
-                do {
-                    async let poolsDetails = collectPools(accountPools: accountPools).concurrentMap { pool in
-                        return try await self.getPoolDetails(baseAsset: pool.baseAsset, targetAsset: pool.targetAsset)
-                    }
-
-                    continuetion.resume(returning: try await poolsDetails)
-                } catch {
-                    continuetion.resume(throwing: error)
-                }
-            }
-        })
-    }
-    
-    fileprivate func collectPools(accountPools: [String: [String]]) -> [(baseAsset: String, targetAsset: String)] {
-        var pools: [(baseAsset: String, targetAsset: String)] = []
-
-        for pool in accountPools {
-            for targetAsset in pool.value {
-                pools.append((baseAsset: pool.key, targetAsset: targetAsset))
-            }
+        return try await pairs.concurrentMap { pair in
+            try await self.getPoolDetails(baseAsset: pair.baseAsset, targetAsset: pair.targetAsset)
         }
-
-        return pools
     }
 
-    fileprivate func sort(poolDetails: [PoolDetails]) -> [PoolDetails] {
-        poolDetails.sorted(by: { poolDetails1, poolDetails2 in
-            return poolDetails1.baseAsset < poolDetails2.baseAsset
-        })
+    private func poolList(baseAssetId: String) async throws -> (assetId: String, pools: [String]) {
+        guard let accountId = address.accountId, !accountId.isEmpty else { throw PoolError.noProperties }
+        let baseAssetIdData = try Data(hexStringSSF: baseAssetId)
+        let operation = try polkaswapNetworkOperationFactory.accountPools(accountId: accountId, baseAssetId: baseAssetIdData)
+        let value = try await performPoolRead(operation, dependencies: [])
+        return (baseAssetId, value.underlyingValue?.assetIds ?? [])
     }
 
-    fileprivate func poolList(baseAssetId: String) async -> (assetId: String, pools: [String])? {
-        let operationQueue = OperationQueue()
-        let baseAssetIdData = (try? Data(hexStringSSF: baseAssetId)) ?? Data()
-        guard let operation = try? polkaswapNetworkOperationFactory.accountPools(accountId: address.accountId!, baseAssetId: baseAssetIdData) else {
-            return nil
-        }
-        
-        return try? await withCheckedThrowingContinuation({ continuetion in
-            operation.completionBlock = {
-                let assetIds = (try? operation.extractResultData()?.underlyingValue?.assetIds) ?? []
-                continuetion.resume(returning: (baseAssetId, assetIds))
-            }
-            operationQueue.addOperation(operation)
-        })
-    }
-    
     func getPoolDetails(baseAsset: String, targetAsset: String) async throws -> PoolDetails {
-        return try await withCheckedThrowingContinuation({ continuetion in
+        try Task.checkCancellation()
+        guard let accountId = address.accountId, !accountId.isEmpty,
+              let baseInfo = assetManager.assetInfo(for: baseAsset),
+              let targetInfo = assetManager.assetInfo(for: targetAsset),
+              let basePrecision = Int16(exactly: baseInfo.precision),
+              let targetPrecision = Int16(exactly: targetInfo.precision) else {
+            throw PoolError.noProperties
+        }
+        let properties = try polkaswapNetworkOperationFactory.poolProperties(baseAsset: baseAsset, targetAsset: targetAsset)
+        let providers = try polkaswapNetworkOperationFactory.poolProvidersBalance()
+        providers.configurationBlock = { [weak providers] in
+            do {
+                guard let pool = try properties.extractResultData(throwing: PoolError.noProperties).underlyingValue else {
+                    throw PoolError.noProperties
+                }
+                let key = try StorageKeyFactory().poolProvidersKey(reservesAccountId: pool.reservesAccountId.value, accountId: accountId)
+                providers?.parameters = [key.toHex(includePrefix: true)]
+            } catch { providers?.result = .failure(error) }
+        }
+        providers.addDependency(properties)
 
-            let operationQueue = OperationQueue()
-            operationQueue.qualityOfService = .utility
-            
-            // poolProperties
-            guard let poolPropertiesOperation = try? self.polkaswapNetworkOperationFactory.poolProperties(baseAsset: baseAsset, targetAsset: targetAsset) else {
-                continuetion.resume(throwing: PoolError.noProperties)
-                return
-            }
+        let issuance = try polkaswapNetworkOperationFactory.poolTotalIssuances()
+        issuance.configurationBlock = { [weak issuance] in
+            do {
+                guard let pool = try properties.extractResultData(throwing: PoolError.noProperties).underlyingValue else {
+                    throw PoolError.noProperties
+                }
+                let key = try StorageKeyFactory().accountPoolTotalIssuancesKeyForId(pool.reservesAccountId.value)
+                issuance?.parameters = [key.toHex(includePrefix: true)]
+            } catch { issuance?.result = .failure(error) }
+        }
+        issuance.addDependency(properties)
 
-            // poolProviders
-            guard let poolProvidersBalanceOperation = try? self.polkaswapNetworkOperationFactory.poolProvidersBalance() else {
-                continuetion.resume(throwing: PoolError.noProperties)
-                return
+        let reserves = try polkaswapNetworkOperationFactory.poolReserves(baseAsset: baseAsset, targetAsset: targetAsset)
+        let farms = AwaitOperation<[UserFarm]> { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.demeterFarmingService.loadUserFarmInfos(baseAssetId: baseAsset, targetAssetId: targetAsset, accountId: accountId)
+        }
+        let map = ClosureOperation<PoolDetails> {
+            guard let reserves = try reserves.extractResultData(throwing: PoolError.noReserves).underlyingValue,
+                  let totalIssuance = try issuance.extractResultData(throwing: PoolError.noProperties).underlyingValue else {
+                throw PoolError.noProperties
             }
-            poolProvidersBalanceOperation.configurationBlock = {
-                guard let accountId = self.address.accountId, let reservesAccountId = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId else {
-                    return
-                }
-            
-            let poolProvidersKey = (try? StorageKeyFactory().poolProvidersKey(reservesAccountId: reservesAccountId.value, accountId: accountId)) ?? Data()
-                poolProvidersBalanceOperation.parameters = [ poolProvidersKey.toHex(includePrefix: true) ]
+            // Absent storage is a zero holding; a failed read must stay a failure.
+            let balance = try providers.extractResultData(throwing: PoolError.noProperties).underlyingValue ?? Balance(value: 0)
+            let farms = try farms.extractResultData(throwing: DemeterFarmingServiceError.unavailable)
+            guard let balanceDecimal = Decimal.fromSubstrateAmount(balance.value, precision: 18),
+                  let issuanceDecimal = Decimal.fromSubstrateAmount(totalIssuance.value, precision: 18),
+                  let baseReserves = Decimal.fromSubstrateAmount(reserves.reserves.value, precision: basePrecision),
+                  let targetReserves = Decimal.fromSubstrateAmount(reserves.fees.value, precision: targetPrecision) else {
+                throw PoolError.noProperties
             }
-            poolProvidersBalanceOperation.addDependency(poolPropertiesOperation)
-                
-            // totalIssuances
-            guard let accountPoolTotalIssuancesOperation = try? self.polkaswapNetworkOperationFactory.poolTotalIssuances() else {
-                continuetion.resume(throwing: PoolError.noProperties)
-                return
-            }
-            
-            accountPoolTotalIssuancesOperation.configurationBlock = {
-                guard let reservesAccountId = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId else {
-                    return
-                }
-                let accountPoolKey = (try? StorageKeyFactory().accountPoolTotalIssuancesKeyForId(reservesAccountId.value)) ?? Data()
-                accountPoolTotalIssuancesOperation.parameters = [ accountPoolKey.toHex(includePrefix: true) ]
-            }
-            accountPoolTotalIssuancesOperation.addDependency(poolPropertiesOperation)
-            
-            // reserves
-            guard let reservesOperation = try? self.polkaswapNetworkOperationFactory.poolReserves(baseAsset: baseAsset, targetAsset: targetAsset) else {
-                continuetion.resume(throwing: PoolError.noProperties)
-                return
-            }
-            
-            // farms
-            let farmsOperation: BaseOperation<[UserFarm]> = AwaitOperation { [weak self] in
-                guard let self,
-                      let accountId = self.address.accountId,
-                      !accountId.isEmpty else {
-                    throw DemeterFarmingServiceError.unavailable
-                }
-                return try await self.demeterFarmingService.loadUserFarmInfos(
-                    baseAssetId: baseAsset,
-                    targetAssetId: targetAsset,
-                    accountId: accountId
-                )
-            }
-            
-            let processingOperation: BaseOperation<Void> = ClosureOperation {
-                
-                guard let reserves = try? reservesOperation.extractResultData()?.underlyingValue else {
-                    continuetion.resume(throwing: PoolError.noProperties)
-                    return
-                }
-                
-                let accountPoolBalance = (try? poolProvidersBalanceOperation.extractResultData()?.underlyingValue) ?? Balance(value: 0)
-                let farms: [UserFarm]
-                do {
-                    farms = try farmsOperation.extractResultData(
-                        throwing: DemeterFarmingServiceError.unavailable
-                    )
-                } catch {
-                    continuetion.resume(throwing: error)
-                    return
-                }
-                
-                guard let totalIssuances = try? accountPoolTotalIssuancesOperation.extractResultData()?.underlyingValue else {
-                    continuetion.resume(throwing: PoolError.noProperties)
-                    return
-                }
-                
-                let accountPoolBalanceDecimal = Decimal.fromSubstrateAmount(accountPoolBalance.value, precision: 18) ?? .zero
-                let reservesDecimal = Decimal.fromSubstrateAmount(reserves.reserves.value, precision: 18) ?? .zero
-                let totalIssuancesDecimal = Decimal.fromSubstrateAmount(totalIssuances.value, precision: 18) ?? .zero
-                let targetAssetPooledTotalDecimal = Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? .zero
-                
-                // XOR Pooled
-                let yourPoolShare = totalIssuances.value > 0 ? accountPoolBalanceDecimal / totalIssuancesDecimal * 100 : .zero
-                let xorPooled = totalIssuances.value > 0 ? reservesDecimal * accountPoolBalanceDecimal / totalIssuancesDecimal : .zero
-                let targetPooled = totalIssuances.value > 0 ? targetAssetPooledTotalDecimal * accountPoolBalanceDecimal / totalIssuancesDecimal : .zero
-                
-                let poolDetails = PoolDetails(
-                    baseAsset: baseAsset,
-                    targetAsset: targetAsset,
-                    yourPoolShare: yourPoolShare,
-                    baseAssetPooledByAccount: xorPooled,
-                    targetAssetPooledByAccount: targetPooled,
-                    baseAssetPooledTotal: reservesDecimal,
-                    targetAssetPooledTotal: targetAssetPooledTotalDecimal,
-                    totalIssuances: Decimal.fromSubstrateAmount(totalIssuances.value, precision: 18) ?? 0.0,
-                    baseAssetReserves: Decimal.fromSubstrateAmount(reserves.reserves.value, precision: 18) ?? 0.0,
-                    targetAssetReserves: Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? 0.0,
-                    accountPoolBalance: accountPoolBalanceDecimal,
-                    farms: farms)
+            let fraction = totalIssuance.value > 0 ? balanceDecimal / issuanceDecimal : .zero
+            return PoolDetails(baseAsset: baseAsset, targetAsset: targetAsset, yourPoolShare: fraction * 100,
+                baseAssetPooledByAccount: baseReserves * fraction, targetAssetPooledByAccount: targetReserves * fraction,
+                baseAssetPooledTotal: baseReserves, targetAssetPooledTotal: targetReserves,
+                totalIssuances: issuanceDecimal, baseAssetReserves: baseReserves, targetAssetReserves: targetReserves,
+                accountPoolBalance: balanceDecimal, farms: farms)
+        }
+        let dependencies: [Operation] = [properties, providers, issuance, reserves, farms]
+        dependencies.forEach { map.addDependency($0) }
+        return try await performPoolRead(map, dependencies: dependencies)
+    }
 
-                continuetion.resume(returning: poolDetails)
+    private func performPoolRead<T>(_ target: BaseOperation<T>, dependencies: [Operation]) async throws -> T {
+        try Task.checkCancellation()
+        let operations = dependencies + [target]
+        let value: T = try await withTaskCancellationHandler(operation: {
+            try await withCheckedThrowingContinuation { continuation in
+                target.completionBlock = { [weak target] in
+                    continuation.resume(with: target?.result ?? .failure(CancellationError()))
+                }
+                let queue = OperationQueue()
+                queue.qualityOfService = .utility
+                operations.forEach { queue.addOperation($0) }
             }
-            processingOperation.addDependency(poolPropertiesOperation)
-            processingOperation.addDependency(poolProvidersBalanceOperation)
-            processingOperation.addDependency(accountPoolTotalIssuancesOperation)
-            processingOperation.addDependency(reservesOperation)
-            processingOperation.addDependency(farmsOperation)
-            
-            operationQueue.addOperations([
-                poolPropertiesOperation,
-                reservesOperation,
-                poolProvidersBalanceOperation,
-                accountPoolTotalIssuancesOperation,
-                farmsOperation,
-                processingOperation
-            ], waitUntilFinished: false)
+        }, onCancel: {
+            operations.forEach { $0.cancel() }
         })
+        try Task.checkCancellation()
+        return value
     }
 }

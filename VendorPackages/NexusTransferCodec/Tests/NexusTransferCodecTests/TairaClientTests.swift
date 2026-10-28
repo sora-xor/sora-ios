@@ -67,6 +67,75 @@ final class TairaClientTests: XCTestCase {
         XCTAssertThrowsError(try value.requireFresh(now: value.createdAt + 80_000))
         XCTAssertThrowsError(try value.requireFresh(now: value.createdAt - 5_001))
     }
+    func testFreshnessAtBothClockToleranceBoundaries() throws {
+        let value = try draft(time: 100_000)
+        XCTAssertNoThrow(try value.requireFresh(now: 95_000))
+        XCTAssertThrowsError(try value.requireFresh(now: 94_999))
+        XCTAssertNoThrow(try value.requireFresh(now: 179_999))
+        XCTAssertThrowsError(try value.requireFresh(now: 180_000))
+    }
+
+    func testFreshnessHandlesExtremeTimestampsWithoutOverflow() throws {
+        let future = try draft(time: UInt64.max)
+        XCTAssertThrowsError(try future.requireFresh(now: 0))
+        XCTAssertNoThrow(try future.requireFresh(now: UInt64.max))
+        XCTAssertNoThrow(try future.requireFresh(now: UInt64.max - 5_000))
+        XCTAssertThrowsError(try future.requireFresh(now: UInt64.max - 5_001))
+        let previous = try draft(time: UInt64.max - 80_000)
+        XCTAssertThrowsError(try previous.requireFresh(now: UInt64.max))
+        XCTAssertThrowsError(try draft(time: 1).requireFresh(now: UInt64.max))
+    }
+
+    func testQuoteRejectsBadSignaturesBeforeCallingTransport() async throws {
+        let client = TairaClient(transport: { _, _ in
+            XCTFail("An unauthenticated quote request reached the transport")
+            return Data()
+        })
+        for signature in [Data(), Data(repeating: 0, count: 64)] {
+            do {
+                _ = try await client.quote(draft()) { _ in signature }
+                XCTFail("Invalid signature accepted")
+            } catch TairaClient.Failure.invalidResponse { }
+        }
+    }
+
+    func testQuotePreservesSignerErrorsWithoutSendingARequest() async throws {
+        enum SignerFailure: Error { case locked }
+        let client = TairaClient(transport: { _, _ in
+            XCTFail("A locked signer must not make a quote request")
+            return Data()
+        })
+        do {
+            _ = try await client.quote(draft()) { _ in throw SignerFailure.locked }
+            XCTFail("Signer failure swallowed")
+        } catch SignerFailure.locked { }
+    }
+
+    func testQuoteRejectsBooleanNegativeFractionalAndOverflowingObservationIntegers() throws {
+        for value in [true, -1, 1.5, "1", NSNull(), NSNumber(value: Double(UInt64.max))] as [Any] {
+            var changed = response()
+            changed["observation"] = ["ledger_time_ms": value, "next_block_height": 73, "route_dataspace_id": 0]
+            XCTAssertThrowsError(try decode(changed), "Accepted \(value)")
+        }
+        for value in [false, -1, 0, 1.5, "73"] as [Any] {
+            var changed = response()
+            changed["observation"] = ["ledger_time_ms": 1, "next_block_height": value, "route_dataspace_id": 0]
+            XCTAssertThrowsError(try decode(changed), "Accepted \(value)")
+        }
+    }
+
+    func testQuoteRejectsExtraCapacityAndUnsupportedGasLimit() throws {
+        var changed = response(); changed["capacities"] = [["amount": "1"]]
+        XCTAssertThrowsError(try decode(changed))
+        changed = response()
+        var intent = try XCTUnwrap(changed["intent"] as? [String: Any])
+        var value = try XCTUnwrap(intent["value"] as? [String: Any])
+        value["gas_limit"] = 1
+        intent["value"] = value
+        changed["intent"] = intent
+        XCTAssertThrowsError(try decode(changed))
+    }
+
     func testFeeRequestAuthenticationBindsNetworkBodyTimeAndNonce() throws {
         let body = try draft().quoteBody()
         let first = TairaClient.authMessage(body: body, timestamp: 123, nonce: "nonce1")

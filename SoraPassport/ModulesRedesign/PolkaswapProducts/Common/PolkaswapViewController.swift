@@ -107,7 +107,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         view.firstAsset.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             self?.reviewLiquidity.sora.isEnabled = false
             self?.viewModel.focusedField = .one
-            self?.viewModel.inputedFirstAmount = Decimal(string: self?.assetsView.firstAsset.textField.text ?? "", locale: Locale.current) ?? 0
+            self?.viewModel.inputedFirstAmount = Decimal.parseLocalizedAmount(self?.assetsView.firstAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel.recalculate(field: .one)
         }
         
@@ -125,7 +125,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         view.secondAsset.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             self?.reviewLiquidity.sora.isEnabled = false
             self?.viewModel.focusedField = .two
-            self?.viewModel.inputedSecondAmount = Decimal(string: self?.assetsView.secondAsset.textField.text ?? "", locale: Locale.current) ?? 0
+            self?.viewModel.inputedSecondAmount = Decimal.parseLocalizedAmount(self?.assetsView.secondAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel.recalculate(field: .two)
         }
         return view

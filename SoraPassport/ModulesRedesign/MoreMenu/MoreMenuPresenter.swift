@@ -121,8 +121,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
     }
 
     private func nodeName() -> String {
-        let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash())!
-        let node = ChainRegistryFacade.sharedRegistry.getActiveNode(for: chain.chainId)
+        let node = ChainRegistryFacade.sharedRegistry.getActiveNode(for: Chain.sora.genesisHash())
         return node?.name ?? " "
     }
 

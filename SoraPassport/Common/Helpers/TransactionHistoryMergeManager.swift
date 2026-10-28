@@ -44,8 +44,8 @@ enum TransactionHistoryMergeItem {
     func compareWithItem(_ item: TransactionHistoryMergeItem) -> Bool {
         switch (self, item) {
         case let (.local(localItem1), .local(localItem2)):
-            if localItem1.status == .pending, localItem2.status != .pending {
-                return true
+            if (localItem1.status == .pending) != (localItem2.status == .pending) {
+                return localItem1.status == .pending
             } else {
                 return compareBlockNumberIfExists(
                     number1: localItem1.blockNumber,
@@ -160,7 +160,7 @@ final class TransactionHistoryMergeManager {
         let existingHashes = Set(remoteHashes)
         let hashesToRemove = Self.identifiersToRemove(
             remoteHashes: existingHashes,
-            oldestRemoteTimestamp: remoteItems.last?.itemTimestamp,
+            oldestRemoteTimestamp: remoteItems.map(\.itemTimestamp).min(),
             localItems: localItems
         )
 

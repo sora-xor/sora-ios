@@ -88,13 +88,13 @@ extension AccountCreateInteractor: AccountCreateInteractorInputProtocol {
     
     func skipConfirmation(request: AccountCreationRequest,
                           mnemonic: IRMnemonicProtocol) {
+        guard currentOperation == nil else {
+            return
+        }
         let operation = accountOperationFactory.prepareAccountOperation(
             request: request,
             mnemonic: mnemonic
         )
-        guard currentOperation == nil else {
-            return
-        }
         let lifecycleCoordinator = WalletLifecycleCoordinator.shared
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()

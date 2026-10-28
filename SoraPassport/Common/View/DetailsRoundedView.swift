@@ -130,13 +130,13 @@ class DetailsRoundedView: BackgroundedContentControl {
         let trailing = lazyActionView?.frame.minX ?? bounds.maxX - contentInsets.right
         titleLabel.frame = CGRect(x: labelX,
                                   y: bounds.minY + contentInsets.top,
-                                  width: trailing - labelX,
+                                  width: max(0, trailing - labelX),
                                   height: titleHeight)
 
         let subtitleHeight = subtitleLabel?.intrinsicContentSize.height ?? 0.0
         subtitleLabel?.frame = CGRect(x: labelX,
                                      y: bounds.maxY - contentInsets.bottom - subtitleHeight,
-                                     width: trailing - labelX,
+                                     width: max(0, trailing - labelX),
                                      height: subtitleHeight)
 
         if let iconView = lazyIconView {
@@ -154,14 +154,14 @@ class DetailsRoundedView: BackgroundedContentControl {
         let trailing = lazyActionView?.frame.minX ?? bounds.maxX - contentInsets.right
         titleLabel.frame = CGRect(x: titleX,
                                   y: bounds.minY + contentInsets.top,
-                                  width: trailing - titleX,
+                                  width: max(0, trailing - titleX),
                                   height: titleHeight)
 
         let subtitleHeight = subtitleLabel?.intrinsicContentSize.height ?? 0.0
         let subtitleX = lazyIconView != nil ? titleX + 2.0 * iconRadius + horizontalSpacing : titleX
         subtitleLabel?.frame = CGRect(x: subtitleX,
                                       y: bounds.maxY - contentInsets.bottom - subtitleHeight,
-                                      width: trailing - subtitleX,
+                                      width: max(0, trailing - subtitleX),
                                       height: subtitleHeight)
 
         if let iconView = lazyIconView {
@@ -182,7 +182,7 @@ class DetailsRoundedView: BackgroundedContentControl {
 
         titleLabel.frame = CGRect(x: labelX,
                                   y: bounds.midY - titleHeight / 2.0,
-                                  width: trailing - labelX,
+                                  width: max(0, trailing - labelX),
                                   height: titleHeight)
 
         if let iconView = lazyIconView {

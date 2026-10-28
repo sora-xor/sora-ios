@@ -59,7 +59,8 @@ final class InputRewardAmountPresenter: InvitationsCellDelegate {
     private var items: [CellViewModel] = []
     private var currentBalance: Decimal = Decimal(0)
     private var actionButtonIsEnabled: Bool = false
-    private var currentBoundingAmount: Decimal = Decimal(0)
+    private var currentInvitationCount: Decimal = 0
+    private var submittedAmount: Decimal?
 
     init(fee: Decimal,
          previousBondedAmount: Decimal,
@@ -68,7 +69,9 @@ final class InputRewardAmountPresenter: InvitationsCellDelegate {
          feeAsset: AssetInfo) {
         self.fee = fee
         self.previousBondedAmount = previousBondedAmount
-        self.currentBondedAmount = previousBondedAmount
+        let count = type == .unbond && fee > 0 ? (previousBondedAmount / fee).rounded(mode: .down) : 0
+        self.currentInvitationCount = max(count, 0)
+        self.currentBondedAmount = max(count, 0) * fee
         self.type = type
         self.interactor = interactor
         self.feeAsset = feeAsset
@@ -88,35 +91,39 @@ extension InputRewardAmountPresenter: InputRewardAmountViewDelegate {
 
 extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol {
     func received(_ balance: Decimal) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.received(balance) }
+            return
+        }
+        self.currentBalance = balance
         let balanceText = (NumberFormatter.cryptoAssets.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
         let feeAmount = "\(fee) \(feeAsset.symbol)"
-        let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
+        let actionButtonIsEnabled = submittedAmount == nil && isActionButtonEnabled(currentInvitationCount)
         let item = InvitationsViewModel(title: type.title,
                                         description: type.descriptionText(with: feeAmount) ,
                                         fee: fee,
                                         feeSymbol: feeAsset.symbol,
                                         balance: balanceText,
-                                        bondedAmount: type == .bond ? 0 : currentBondedAmount,
+                                        bondedAmount: currentBondedAmount,
                                         buttonTitle: type.buttonTitle,
                                         isEnabled: actionButtonIsEnabled,
                                         delegate: self)
         
-        items.append(item)
+        items = [item]
         
-        DispatchQueue.main.async {
-            self.view?.setup(with: self.items)
-        }
-
         viewModel = item
-        self.currentBalance = balance
+        view?.setup(with: items)
     }
 
     func referralBalanceOperationReceived(with result: Result<String, Error>) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            let amount = self.submittedAmount ?? self.currentBondedAmount
+            self.submittedAmount = nil
+            self.viewModel?.isEnabled = self.isActionButtonEnabled(self.currentInvitationCount)
             if case .success = result {
-                let newBalanceAfterBond = self.currentBondedAmount + self.previousBondedAmount
-                let newBalanceAfterUnbond = self.previousBondedAmount - self.currentBondedAmount
+                let newBalanceAfterBond = amount + self.previousBondedAmount
+                let newBalanceAfterUnbond = self.previousBondedAmount - amount
                 let balance = self.type == .bond ? newBalanceAfterBond : newBalanceAfterUnbond
                 self.output?.updateReferral(balance: balance)
             }
@@ -124,7 +131,7 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
             self.output?.showTransactionDetails(from: self.view?.controller,
                                                 result: result,
                                                 fee: self.fee,
-                                                amount: self.currentBondedAmount,
+                                                amount: amount,
                                                 type: self.type != .bond ? .unbond : .bond,
                                                 completion: {
                 self.view?.pop()
@@ -135,6 +142,9 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
 
 extension InputRewardAmountPresenter: ButtonCellDelegate {
     func buttonTapped() {
+        guard submittedAmount == nil, viewModel?.isEnabled == true, isActionButtonEnabled(currentInvitationCount) else { return }
+        submittedAmount = currentBondedAmount
+        viewModel?.isEnabled = false
         interactor.sendReferralBalanceRequest(with: type, decimalBalance: currentBondedAmount)
     }
     
@@ -143,6 +153,7 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
     }
 
     func isPlusEnabled(_ currentInvitationCount: Decimal) -> Bool {
+        guard validCount(currentInvitationCount), fee > 0 else { return false }
         switch type {
         case .bond:
             return isBalanceEnoughToBond(currentInvitationCount + 1)
@@ -153,8 +164,9 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
 
     func userChanged(_ currentInvitationCount: Decimal) {
         guard let viewModel = viewModel else { return }
+        self.currentInvitationCount = currentInvitationCount
         currentBondedAmount = currentInvitationCount * fee
-        viewModel.isEnabled = isActionButtonEnabled(currentInvitationCount)
+        viewModel.isEnabled = submittedAmount == nil && isActionButtonEnabled(currentInvitationCount)
     }
     
     func networkFeeInfoButtonTapped() {
@@ -165,7 +177,12 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
         )
     }
 
+    private func validCount(_ count: Decimal) -> Bool {
+        count >= 0 && count.rounded(mode: .down) == count
+    }
+
     private func isActionButtonEnabled(_ invitations: Decimal) -> Bool {
+        guard validCount(invitations), fee > 0 else { return false }
         switch type {
         case .bond:
             return isBalanceEnoughToBond(invitations) && invitations > 0

@@ -39,6 +39,7 @@ final class RecentActivityItemService {
                                                                      ActivityContentViewModel() ]
     
     var updateHandler: (() -> Void)?
+    private var loadTask: Task<Void, Never>?
     private let assetId: String
     private let historyService: HistoryServiceProtocol
     private let viewModelFactory: ActivityViewModelFactoryProtocol
@@ -60,9 +61,23 @@ final class RecentActivityItemService {
         self.assetsProvider.add(observer: self)
     }
     
+    deinit {
+        loadTask?.cancel()
+        eventCenter.remove(observer: self)
+        assetsProvider.remove(observer: self)
+    }
+
     func setup() {
-        Task {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.setup() }
+            return
+        }
+        loadTask?.cancel()
+        let historyService = self.historyService
+        let assetId = self.assetId
+        loadTask = Task { @MainActor [weak self] in
             let transactions = ((try? await historyService.getHistory(count: 100, assetId: assetId)) ?? []).prefix(3)
+            guard !Task.isCancelled, let self else { return }
             historyViewModels = transactions.compactMap { viewModelFactory.createActivityViewModel(with: $0) }
             updateHandler?()
         }

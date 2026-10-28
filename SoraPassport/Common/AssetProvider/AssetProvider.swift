@@ -273,8 +273,12 @@ extension AssetProvider: AssetProviderProtocol {
     }
 
     func remove(observer: AssetProviderObserverProtocol) {
+        let identity = ObjectIdentifier(observer)
         syncQueue.async {
-            self.observers = self.observers.filter { $0.observer != nil && $0.observer !== observer }
+            self.observers.removeAll {
+                guard let current = $0.observer else { return true }
+                return ObjectIdentifier(current) == identity
+            }
         }
     }
     
