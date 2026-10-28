@@ -13,6 +13,12 @@ public enum BasisNodes {
             U64Node(),
             U128Node(),
             U256Node(),
+            I8Node(),
+            I16Node(),
+            I32Node(),
+            I64Node(),
+            I128Node(),
+            I256Node(),
             BoolNode(),
             StringNode(),
         ]

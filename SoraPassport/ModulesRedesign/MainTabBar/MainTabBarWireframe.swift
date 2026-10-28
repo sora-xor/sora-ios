@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 
@@ -231,6 +218,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     private var walletContextWalletId: String?
     private(set) var accountSwitchRecoveryActive = false
     private var accountBindingId = UUID()
+    private let assemblyEnvironment: WalletTabAssemblyEnvironment
     private let assetListEnvironment: AssetListEnvironment
     let assetListRebuild: WalletAssetListRebuild
 
@@ -238,9 +226,11 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     ///   were built from an empty asset list.
     init(walletContext: CommonWalletContextProtocol,
          isBuiltWithoutAssets: Bool = false,
-         assetListEnvironment: AssetListEnvironment = .app) {
+         assetListEnvironment: AssetListEnvironment = .app,
+         assemblyEnvironment: WalletTabAssemblyEnvironment = .app) {
         self.walletContext = walletContext
         self.assetListEnvironment = assetListEnvironment
+        self.assemblyEnvironment = assemblyEnvironment
         walletContextWalletId = assetListEnvironment.selectedWalletId()
         assetListRebuild = WalletAssetListRebuild(isBuiltWithoutAssets: isBuiltWithoutAssets,
                                                   schedule: assetListEnvironment.schedule)
@@ -396,7 +386,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         guard let tabBarController = view as? UITabBarController else {
             return
         }
-        let selectedAccount = SelectedWalletSettings.shared.currentAccount
+        let environment = assemblyEnvironment
+        let selectedAccount = environment.selectedAccount()
         let selectedWalletId = selectedAccount?.address
         let requiresRecovery = MainTabBarAccountRebindPolicy
             .requiresRecoveryAfterRebuildFailure(
@@ -404,15 +395,15 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                 selectedWalletId: selectedWalletId
             )
 
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
+        let assetManager = environment.assetManager()
+        environment.prepareAssets(assetManager)
 
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+        let primitiveFactory = WalletPrimitiveFactory(keystore: environment.keystore())
         
         guard
             let selectedAccount,
             let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())
+            let connection = environment.connection()
         else {
             handleAccountBoundRebuildFailure(
                 requiresRecovery: requiresRecovery,
@@ -424,11 +415,12 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         
         let farmingService = DemeterFarmingService(
             operationFactory: DemeterFarmingOperationFactory(engine: connection),
-            fiatService: FiatService.shared,
-            assetManager: assetManager
+            fiatService: environment.fiatService,
+            assetManager: assetManager,
+            runtimeOperation: { environment.runtime()?.fetchCoderFactoryOperation() }
         )
         
-        guard let walletContext = try? WalletContextFactory().createContext(connection: connection,
+        guard let walletContext = try? environment.contextFactory().createContext(connection: connection,
                                                                             assetManager: assetManager,
                                                                             accountSettings: accountSettings,
                                                                             demeterFarmingService: farmingService) else {
@@ -458,10 +450,10 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         
         let factory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
-                                           fiatService: FiatService.shared)
+                                           fiatService: environment.fiatService)
         
-        let poolsViewModelService = PoolsItemService(marketCapService: MarketCapService.shared,
-                                           fiatService: FiatService.shared,
+        let poolsViewModelService = PoolsItemService(marketCapService: environment.marketCapService,
+                                           fiatService: environment.fiatService,
                                            poolViewModelsFactory: factory)
         poolsService.appendDelegate(delegate: poolsViewModelService)
         
@@ -482,7 +474,10 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                     accountSettings: accountSettings,
                     farmingService: farmingService,
                     feeProvider: feeProvider,
-                    localizationManager: LocalizationManager.shared
+                    localizationManager: environment.localizationManager,
+                    connection: connection, runtimeRegistry: environment.runtime(),
+                    fiatService: environment.fiatService, marketCapService: environment.marketCapService,
+                    selectedAccount: selectedAccount, configureAPY: environment.configureAPY
                 ),
             let investController = MainTabBarViewFactory.createInvestController(
                 walletContext: walletContext,
@@ -494,18 +489,21 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                 assetsProvider: assetsProvider,
                 farmingService: farmingService,
                 feeProvider: feeProvider,
-                walletAssets: assetInfos
+                walletAssets: assetInfos, connection: connection, runtimeRegistry: environment.runtime(),
+                fiatService: environment.fiatService, marketCapService: environment.marketCapService,
+                selectedAccount: selectedAccount
             ),
             let activityController = MainTabBarViewFactory
                 .createActivityController(
                     with: assetManager,
-                    assetInfos: assetInfos
+                    assetInfos: assetInfos, localizationManager: environment.localizationManager, selectedAccount: selectedAccount
                 ),
             let settingsController = MainTabBarViewFactory
                 .createMoreMenuController(
                     walletContext: walletContext,
                     assetsProvider: assetsProvider,
-                    accountSettings: accountSettings
+                    accountSettings: accountSettings, assetManager: assetManager,
+                    fiatService: environment.fiatService, selectedAccount: selectedAccount
                 )
         else {
             handleAccountBoundRebuildFailure(
@@ -523,8 +521,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                 self.accountBindingId == replacementBindingId,
                 MainTabBarAccountRebindPolicy.canPresentAccountBoundRoute(
                     boundWalletId: self.walletContextWalletId,
-                    selectedWalletId: SelectedWalletSettings.shared
-                        .currentAccount?.address,
+                    selectedWalletId: environment.selectedAccount()?.address,
                     routeWalletId: selectedAccount.address,
                     recoveryActive: self.accountSwitchRecoveryActive
                 )
@@ -536,7 +533,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                     walletContext: walletContext,
                     assetManager: assetManager,
                     assetsProvider: assetsProvider,
-                    localizationManager: LocalizationManager.shared
+                    localizationManager: environment.localizationManager, connection: environment.connection(),
+                    fiatService: environment.fiatService, marketCapService: environment.marketCapService
                 )
             else {
                 return
@@ -551,8 +549,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                             MainTabBarAccountRebindPolicy
                                 .canPresentAccountBoundRoute(
                                     boundWalletId: self.walletContextWalletId,
-                                    selectedWalletId: SelectedWalletSettings
-                                        .shared.currentAccount?.address,
+                                    selectedWalletId: environment.selectedAccount()?.address,
                                     routeWalletId: selectedAccount.address,
                                     recoveryActive:
                                         self.accountSwitchRecoveryActive
@@ -560,10 +557,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                         else {
                             return
                         }
-                        UserDefaults.standard.set(
-                            true,
-                            forKey: "isDisclamerShown"
-                        )
+                        environment.markDisclaimerShown()
                         view?.controller.present(
                             swapViewController,
                             animated: true
@@ -574,7 +568,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                 return
             }
 
-            if ApplicationConfig.shared.isDisclamerShown {
+            if environment.hasShownDisclaimer() {
                 view?.controller.present(swapViewController, animated: true)
             } else {
                 view?.controller.present(containerView, animated: true)
@@ -600,7 +594,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         ]
         guard replacementViewControllers.count ==
             MainTabBarAccountRebindPolicy.expectedTabCount,
-            SelectedWalletSettings.shared.currentAccount?.address ==
+            environment.selectedAccount()?.address ==
                 selectedAccount.address
         else {
             handleAccountBoundRebuildFailure(
@@ -618,7 +612,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         tabBarController.viewControllers = replacementViewControllers
         tabBarController.tabBar.isHidden = false
         
-        tabBarController.tabBar.semanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        tabBarController.tabBar.semanticContentAttribute = environment.localizationManager.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
     }
 
     /// The tabs could not be built for the selected wallet. Not private:

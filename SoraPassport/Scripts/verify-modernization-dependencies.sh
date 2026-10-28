@@ -4045,7 +4045,7 @@ if ! /usr/bin/grep -Fq "private static let lock = NSLock()" "${wallet_network_mo
    ! /usr/bin/grep -Fq "accountDeletionBlocked(" "${account_options}" ||
    ! /usr/bin/grep -Fq "forgetOperation.addDependency(recordRemovalOperation)" "${account_options}" ||
    ! /usr/bin/grep -Fq "countOperation.addDependency(forgetOperation)" "${account_options}" ||
-   ! /usr/bin/grep -Fq "guard try WalletNetworkStore().load() == networkSnapshot" "${account_options}" ||
+   ! /usr/bin/grep -Fq "guard try self.networkStore().load() == networkSnapshot" "${account_options}" ||
    ! /usr/bin/grep -Fq "verifyAndCommitExplicitRemovalMetadata(" "${account_options}" ||
    ! /usr/bin/grep -Fq "WalletExplicitRemovalIdentityPolicy.plan(" "${account_options}" ||
    ! /usr/bin/grep -Fq "LegacySoraIdentityValidator.validate(" "${account_options}" ||
@@ -4141,7 +4141,7 @@ if ! /usr/bin/grep -Fq "final class WalletLifecycleCoordinator" "${wallet_networ
    ! /usr/bin/grep -Fq "isSelected: existing.isSelected" "${selected_wallet_settings}" ||
    ! /usr/bin/grep -Fq "accountSettings?.performUpdateAssetSettings(" "${asset_manager}" ||
    /usr/bin/grep -Fq "accountRepository.saveOperation" "${asset_manager}" ||
-   ! /usr/bin/grep -Fq "SelectedWalletSettings.shared.performUpdateName(" "${account_options}" ||
+   ! /usr/bin/grep -Fq "selectedSettings.performUpdateName(" "${account_options}" ||
    ! /usr/bin/grep -Fq "makeAcquireOperation()" "${account_confirm}" ||
    ! /usr/bin/grep -Fq "makeAcquireOperation()" "${account_import_commit}" ||
    ! /usr/bin/grep -Fq "makeAcquireOperation()" "${add_account_confirm}" ||

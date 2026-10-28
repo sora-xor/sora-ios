@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 
@@ -65,7 +52,7 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
 
             let dateOrder = Calendar.current.compare(transactionDate, to: currentDate ?? Date(), toGranularity: .day)
 
-            if let currentDate = currentDate, dateOrder != .orderedSame {
+            if let currentDate = currentDate, dateOrder != .orderedSame, !items.isEmpty {
                 sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
                                                 items: items))
                 items = []
@@ -161,7 +148,7 @@ private extension ActivityViewModelFactory {
     }
 
     func transferTransactionViewModel(from transaction: TransferTransaction) -> ActivityContentViewModel {
-        let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId })
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
         
         let isRTL = LocalizationManager.shared.isRightToLeft
@@ -188,13 +175,13 @@ private extension ActivityViewModelFactory {
         var fromAsset = walletAssets.first(where: { $0.identifier == swap.fromTokenId  })
         if fromAsset == nil {
             let fromAssetId = swap.fromTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  })
         }
         
         var toAsset = walletAssets.first(where: { $0.identifier == swap.toTokenId  })
         if toAsset == nil {
             let toAssetId = swap.toTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  })
         }
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
@@ -237,13 +224,13 @@ private extension ActivityViewModelFactory {
         var fromAsset = walletAssets.first(where: { $0.identifier == liquidity.firstTokenId  })
         if fromAsset == nil {
             let fromAssetId = liquidity.firstTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            fromAsset = walletAssets.first(where: { $0.identifier == fromAssetId  })
         }
         
         var toAsset = walletAssets.first(where: { $0.identifier == liquidity.secondTokenId })
         if toAsset == nil {
             let toAssetId = liquidity.secondTokenId.replacingOccurrences(of: "{\"code\":\"", with: "").replacingOccurrences(of: "\"}", with: "")
-            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  }) ?? walletAssets.first { $0.isFeeAsset }
+            toAsset = walletAssets.first(where: { $0.identifier == toAssetId  })
         }
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
@@ -251,7 +238,7 @@ private extension ActivityViewModelFactory {
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = liquidity.type == .add ? .fgPrimary : .statusSuccess
-        let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
+        let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
         let fromText = liquidity.type == .withdraw ? "+ \(fromBalance) \(fromAsset?.symbol ?? "")" : "\(fromBalance) \(fromAsset?.symbol ?? "")"
         let fromTextReversed = liquidity.type == .withdraw ? "\(fromAsset?.symbol ?? "") \(fromBalance) +" : "\(fromAsset?.symbol ?? "") \(fromBalance)"
         let fromBalanceText = SoramitsuTextItem(text: isRTL ? fromTextReversed : fromText,
@@ -264,7 +251,7 @@ private extension ActivityViewModelFactory {
                                                 textColor: textColor,
                                                 alignment: isRTL ? .left : .right)
         
-        let toBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
+        let toBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
         let toText = liquidity.type == .withdraw ? "+ \(toBalance) \(toAssetInfo?.symbol ?? "")" : "\(toBalance) \(toAssetInfo?.symbol ?? "")"
         let toTextReversed = liquidity.type == .withdraw ? "\(toAssetInfo?.symbol ?? "") \(toBalance) +" : "\(toAssetInfo?.symbol ?? "") \(toBalance)"
         let toBalanceText = SoramitsuTextItem(text: isRTL ? toTextReversed : toText,
@@ -341,7 +328,7 @@ private extension ActivityViewModelFactory {
     }
     
     func claimRewardTransactionViewModel(from transaction: ClaimReward) -> ActivityContentViewModel {
-        let asset = walletAssets.first(where: { $0.identifier == transaction.rewardTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let asset = walletAssets.first(where: { $0.identifier == transaction.rewardTokenId })
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
         
         var symbolViewModel: WalletImageViewModelProtocol?
@@ -370,10 +357,10 @@ private extension ActivityViewModelFactory {
     }
     
     func farmLiquidityTransactionViewModel(from transaction: FarmLiquidity) -> ActivityContentViewModel {
-        let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId })
         let baseAssetInfo = assetManager.assetInfo(for: baseAsset?.identifier ?? "")
         
-        let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId })
         let poolAssetInfo = assetManager.assetInfo(for: poolAsset?.identifier ?? "")
         
         let isRTL = LocalizationManager.shared.isRightToLeft

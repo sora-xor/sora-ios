@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import Foundation
 import RobinHood
@@ -130,11 +130,14 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     private let nexusReader: PortfolioNexusBalanceReading
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let cache: PortfolioReadCache
+    private let priceService: PriceInfoServiceProtocol
     private var wallets: [PortfolioWalletSource] = []
     /// Each wallet's accounts on networks other than SORA2 (public addresses only), for the reads.
     private var networkAccounts: [String: [PortfolioNetwork: NetworkAccount]] = [:]
     private var refreshTask: Task<Void, Never>?
     private var pendingForce = false
+    private var pendingRefresh = false
+    private var selectedBalanceRevision: UInt64 = 0
     private var timer: Timer?
     private var started = false
     private var selectedDirty = false
@@ -148,12 +151,14 @@ final class LivePortfolioDataSource: PortfolioDataSource {
          accountRepository: AnyDataProviderRepository<AccountItem> = AnyDataProviderRepository(
              UserDataStorageFacade.shared.createRepository(filter: nil, sortDescriptors: [],
                                                            mapper: AnyCoreDataMapper(AccountItemMapper()))),
-         cache: PortfolioReadCache = .shared) {
+         cache: PortfolioReadCache = .shared,
+         priceService: PriceInfoServiceProtocol = PriceInfoService.shared) {
         self.assetManager = assetManager
         self.sora2Reader = sora2Reader
         self.nexusReader = nexusReader
         self.accountRepository = accountRepository
         self.cache = cache
+        self.priceService = priceService
         wallets = cache.wallets
         firstPassDone = !cache.reads.isEmpty
         EventCenter.shared.add(observer: self, dispatchIn: .main)
@@ -213,21 +218,32 @@ final class LivePortfolioDataSource: PortfolioDataSource {
     private func refresh(force: Bool) {
         guard refreshTask == nil else {
             pendingForce = pendingForce || force
+            pendingRefresh = true
             return
         }
         refreshTask = Task { [weak self] in
             await self?.performRefresh(force: force)
             guard let self else { return }
             self.refreshTask = nil
-            if self.pendingForce {
+            if self.pendingRefresh {
+                let force = self.pendingForce
                 self.pendingForce = false
-                self.refresh(force: true)
+                self.pendingRefresh = false
+                self.refresh(force: force)
             }
         }
     }
 
     private func performRefresh(force: Bool) async {
-        await loadWallets()
+        do {
+            try await loadWallets()
+        } catch {
+            // A failed repository read says nothing about whether stored wallets were deleted.
+            // Keep the last snapshot until an authoritative account list is available.
+            firstPassDone = true
+            publish()
+            return
+        }
         let assets = self.assets
         guard !assets.isEmpty else {
             publish()
@@ -240,6 +256,7 @@ final class LivePortfolioDataSource: PortfolioDataSource {
                 PortfolioFreshnessPolicy.isDue(lastAttempt: state.lastAttempt, now: Date())
             guard due, !Task.isCancelled else { continue }
             state.lastAttempt = Date()
+            let readRevision = selectedBalanceRevision
             var failed: [PortfolioNetwork] = []
             do {
                 state.sora2 = try await sora2Reader.balances(address: wallet.id, assets: readable)
@@ -257,7 +274,7 @@ final class LivePortfolioDataSource: PortfolioDataSource {
             if !failed.contains(.sora2) { state.lastRead = Date() }
             state.failed = failed
             cache.reads[wallet.id] = state
-            if wallet.isSelected { selectedDirty = false }
+            if wallet.isSelected { selectedDirty = selectedBalanceRevision != readRevision }
             if firstPassDone { publish() }
         }
         await loadPrices(assets: assets)
@@ -265,11 +282,15 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         publish()
     }
 
-    private func loadWallets() async {
-        let accounts: [AccountItem] = await withCheckedContinuation { continuation in
+    private func loadWallets() async throws {
+        let accounts: [AccountItem] = try await withCheckedThrowingContinuation { continuation in
             let operation = accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
             operation.completionBlock = {
-                continuation.resume(returning: (try? operation.extractNoCancellableResultData()) ?? [])
+                do {
+                    continuation.resume(returning: try operation.extractNoCancellableResultData())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
             OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
         }
@@ -301,7 +322,7 @@ final class LivePortfolioDataSource: PortfolioDataSource {
         } + [PortfolioSnapshotBuilder.xorId])
         let ids = assets.map(\.id).filter { held.contains($0) }
         guard !ids.isEmpty else { return }
-        let info = await PriceInfoService.shared.getPriceInfo(for: ids)
+        let info = await priceService.getPriceInfo(for: ids)
         var prices = cache.prices
         for fiat in info.fiatData {
             if let price = fiat.priceUsd?.decimalValue { prices.usd[fiat.id] = price }
@@ -340,6 +361,7 @@ extension LivePortfolioDataSource: EventVisitorProtocol {
     }
 
     private func selectedBalanceChanged() {
+        selectedBalanceRevision &+= 1
         selectedDirty = true
         if started { refresh(force: false) }
     }

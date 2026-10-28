@@ -39,6 +39,104 @@ final class TransferTests: XCTestCase {
         XCTAssertEqual(try NexusTransferCodec.canonicalQuantity("0", allowZero: true), "0")
     }
 
+    func testCanonicalQuantityRejectsTrailingLineTerminatorsAndEmbeddedWhitespace() {
+        for invalid in ["1\n", "1\r", "1\r\n", "1\u{0085}", "1\u{2028}", "1\u{2029}",
+                        "1\t", "1 ", "1\n2", "1\0", "١", "１", "+1", "NaN"] {
+            XCTAssertThrowsError(try NexusTransferCodec.canonicalQuantity(invalid), "Accepted \(invalid.debugDescription)")
+            XCTAssertThrowsError(try NexusTransferCodec.canonicalQuantity(invalid, allowZero: true),
+                                 "Fee amount accepted \(invalid.debugDescription)")
+        }
+    }
+
+    func testQuantityCanonicalizationPreservesSmallestUnitAndRejectsZeroTransfers() throws {
+        XCTAssertEqual(try NexusTransferCodec.canonicalQuantity("0.000000001"), "0.000000001")
+        XCTAssertEqual(try NexusTransferCodec.canonicalQuantity("100.000000000"), "100")
+        XCTAssertEqual(try NexusTransferCodec.canonicalQuantity("0.000000000", allowZero: true), "0")
+        XCTAssertThrowsError(try NexusTransferCodec.canonicalQuantity("0.000000000"))
+        XCTAssertThrowsError(try NexusTransferCodec.canonicalQuantity(String(repeating: "9", count: 165)))
+        XCTAssertEqual(try NexusTransferCodec.quantity("1.230000000", allowZero: false),
+                       try NexusTransferCodec.quantity("1.23", allowZero: false))
+    }
+
+    func testQuantityEncodingUsesMinimalPositiveSignedMagnitude() throws {
+        // Each magnitude is framed as a four-byte byte count plus little-endian signed bytes,
+        // followed by the four-byte decimal scale. 128 needs an extra zero sign byte.
+        XCTAssertEqual(try NexusTransferCodec.quantity("127", allowZero: false),
+                       Data([5, 1, 0, 0, 0, 127, 4, 0, 0, 0, 0]))
+        XCTAssertEqual(try NexusTransferCodec.quantity("128", allowZero: false),
+                       Data([6, 2, 0, 0, 0, 128, 0, 4, 0, 0, 0, 0]))
+        XCTAssertEqual(try NexusTransferCodec.quantity("0.000000001", allowZero: false),
+                       Data([5, 1, 0, 0, 0, 1, 4, 9, 0, 0, 0]))
+        XCTAssertEqual(try NexusTransferCodec.quantity("0", allowZero: true),
+                       Data([5, 1, 0, 0, 0, 0, 4, 0, 0, 0, 0]))
+    }
+
+    func testQuantityEncodingHonorsSigned512BitBoundary() throws {
+        let largest = "6703903964971298549787012499102923063739682910296196688861780721860882015036773488400937149083451713845015929093243025426876941405973284973216824503042047"
+        let overflow = "6703903964971298549787012499102923063739682910296196688861780721860882015036773488400937149083451713845015929093243025426876941405973284973216824503042048"
+        let expected = Data([68, 64, 0, 0, 0]) + Data(repeating: 255, count: 63)
+            + Data([127, 4, 0, 0, 0, 0])
+        XCTAssertEqual(try NexusTransferCodec.quantity(largest, allowZero: false), expected)
+        XCTAssertThrowsError(try NexusTransferCodec.quantity(overflow, allowZero: false))
+        XCTAssertThrowsError(try NexusTransferCodec.quantity(String(repeating: "9", count: 164), allowZero: false))
+    }
+
+    func testPayloadRejectsInvalidLifetimeAndOverflow() throws {
+        for (creation, ttl, nonce) in [(UInt64(0), UInt64(1), UInt32?.none),
+                                      (1, 0, nil), (1, 100_001, nil), (1, 1, 0),
+                                      (UInt64.max, 1, nil), (UInt64.max - 99_999, 100_000, nil)] {
+            XCTAssertThrowsError(try payload(creation: creation, ttl: ttl, nonce: nonce))
+        }
+        XCTAssertNoThrow(try payload(creation: 1, ttl: 1, nonce: nil))
+        XCTAssertNoThrow(try payload(creation: UInt64.max - 100_000, ttl: 100_000, nonce: UInt32.max))
+    }
+
+    func testPayloadRejectsInvalidNetworkAndAccountKeys() throws {
+        for invalid in [Data(), Data(repeating: 1, count: 31), Data(repeating: 1, count: 33),
+                        Data(repeating: 2, count: 32)] {
+            XCTAssertThrowsError(try payload(network: invalid))
+        }
+        for invalid in [Data(), Data(repeating: 1, count: 31), Data(repeating: 1, count: 33),
+                        Data(repeating: 0, count: 32)] {
+            XCTAssertThrowsError(try payload(sender: invalid))
+            XCTAssertThrowsError(try payload(recipient: invalid))
+        }
+    }
+
+    func testMetadataIsDeterministicAndInvalidNamesAreRejected() throws {
+        var left: [String: String] = [:]
+        left["z"] = "last"; left["a"] = "first"
+        var right: [String: String] = [:]
+        right["a"] = "first"; right["z"] = "last"
+        XCTAssertEqual(try payload(metadata: left), try payload(metadata: right))
+        XCTAssertNotEqual(try payload(metadata: left), try payload(metadata: ["z": "changed", "a": "first"]))
+        XCTAssertNoThrow(try payload(metadata: [String(repeating: "a", count: 255): ""]))
+        for name in ["", " ", "a b", "a#b", "a$b", "a@b", "a\n", "日本語", String(repeating: "a", count: 256)] {
+            XCTAssertThrowsError(try payload(metadata: [name: "value"]), "Accepted \(name.debugDescription)")
+        }
+    }
+
+    func testFeeOrderingAndInvalidAssetsAreRejected() throws {
+        let asset = "6TEAJqbb8oEPmLncoNiMRbLEK6tw"
+        let nexus = NexusTransferCodec.FeeLimit(kind: 0, assetDefinition: asset, maximum: "0")
+        let gas = NexusTransferCodec.FeeLimit(kind: 1, assetDefinition: asset, maximum: "1")
+        XCTAssertNoThrow(try fixturePayload(fees: [nexus, gas]))
+        XCTAssertThrowsError(try fixturePayload(fees: [gas, nexus]))
+        XCTAssertThrowsError(try fixturePayload(fees: [.init(kind: 0, assetDefinition: asset, maximum: "-1")]))
+        XCTAssertThrowsError(try fixturePayload(fees: [.init(kind: 0, assetDefinition: asset + "x", maximum: "1")]))
+        XCTAssertThrowsError(try NexusTransferCodec.transferFrame(authorityKey: sender, recipientKey: recipient,
+                                                                 assetDefinition: asset + "x", amount: "1"))
+    }
+
+    private func payload(network: Data? = nil, sender: Data? = nil, recipient: Data? = nil,
+                         creation: UInt64 = 1_700_000_000_000, ttl: UInt64 = 30_000,
+                         nonce: UInt32? = 7, metadata: [String: String] = [:]) throws -> Data {
+        try NexusTransferCodec.payload(network: network ?? self.network, authorityKey: sender ?? self.sender,
+                                       recipientKey: recipient ?? self.recipient,
+                                       assetDefinition: "53SSUt68Qn5PdKMMrViDK57X6DG2", amount: "12.34",
+                                       creationTimeMs: creation, ttlMs: ttl, nonce: nonce, metadata: metadata)
+    }
+
     func testFeesAreSignedAndKindsCannotRepeat() throws {
         let fee = NexusTransferCodec.FeeLimit(kind: 0, assetDefinition: "6TEAJqbb8oEPmLncoNiMRbLEK6tw", maximum: "0.01")
         XCTAssertNotEqual(try fixturePayload(), try fixturePayload(fees: [fee]))

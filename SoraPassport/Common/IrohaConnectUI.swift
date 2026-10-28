@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import CryptoKit
 import UIKit
@@ -100,7 +100,9 @@ final class IrohaConnectViewController: UIViewController {
     private let account: IrohaConnectWalletContext
     private let walletProvider: IrohaConnectWalletProvider
     private let engine: IrohaConnectSessionEngine
-    private let authenticator = IrohaConnectAuthenticator()
+    private let authenticator: IrohaConnectAuthenticating
+    private let socketFactory: (URL, String) -> IrohaConnectTransport
+    private let signMessage: (Data, IrohaConnectWalletContext) throws -> Data
     private let diagnosticView = UITextView()
     private lazy var detailsButton: UIButton = WalletUX.button("Technical details") { [weak self] in
         guard let self else { return }
@@ -115,7 +117,7 @@ final class IrohaConnectViewController: UIViewController {
     private let primaryButton = UIButton(type: .system)
     private let secondaryButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
-    private var socket: IrohaConnectWebSocket?
+    private var socket: IrohaConnectTransport?
     private var expiryTimer: Timer?
     private var action: Action = .none
     private var connectedApp: IrohaConnectAppMetadata?
@@ -126,11 +128,19 @@ final class IrohaConnectViewController: UIViewController {
     init(
         launch: IrohaConnectLaunch,
         account: IrohaConnectWalletContext,
-        walletProvider: IrohaConnectWalletProvider
+        walletProvider: IrohaConnectWalletProvider,
+        authenticator: IrohaConnectAuthenticating = IrohaConnectAuthenticator(),
+        socketFactory: @escaping (URL, String) -> IrohaConnectTransport = {
+            IrohaConnectWebSocket(url: $0, protocol: $1)
+        },
+        signer: ((Data, IrohaConnectWalletContext) throws -> Data)? = nil
     ) {
         self.launch = launch
         self.account = account
         self.walletProvider = walletProvider
+        self.authenticator = authenticator
+        self.socketFactory = socketFactory
+        signMessage = signer ?? { try walletProvider.sign($0, context: $1) }
         engine = IrohaConnectSessionEngine(launch: launch)
         super.init(nibName: nil, bundle: nil)
     }
@@ -152,7 +162,7 @@ final class IrohaConnectViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        guard !didStart else { return }
+        guard !didStart, !isTerminal, !didFinish else { return }
         didStart = true
         startConnection()
     }
@@ -162,6 +172,7 @@ final class IrohaConnectViewController: UIViewController {
     }
 
     func showTransientMessage(_ message: String) {
+        guard !isTerminal, !didFinish else { return }
         statusLabel.text = WalletUX.text(message)
         UIAccessibility.post(notification: .announcement, argument: message)
     }
@@ -276,10 +287,7 @@ final class IrohaConnectViewController: UIViewController {
         expiryTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
             self?.fail(IrohaConnectError.expired)
         }
-        let socket = IrohaConnectWebSocket(
-            url: launch.webSocketURL,
-            protocol: launch.webSocketProtocol
-        )
+        let socket = socketFactory(launch.webSocketURL, launch.webSocketProtocol)
         socket.onOpen = { [weak self] in
             guard let self, !self.isTerminal, !self.didFinish else { return }
             self.statusLabel.text = WalletUX.text("Secure relay ready — waiting for the app")
@@ -428,7 +436,7 @@ final class IrohaConnectViewController: UIViewController {
             case .success:
                 do {
                     let frame = try self.engine.approve(account: self.account) { preimage in
-                        try self.walletProvider.sign(preimage, context: self.account)
+                        try self.signMessage(preimage, self.account)
                     }
                     self.socket?.send(frame)
                     self.expiryTimer?.invalidate()
@@ -459,7 +467,7 @@ final class IrohaConnectViewController: UIViewController {
             case .success:
                 do {
                     let frame = try self.engine.approvePendingSignature(account: self.account) { message in
-                        try self.walletProvider.sign(message, context: self.account)
+                        try self.signMessage(message, self.account)
                     }
                     self.socket?.send(frame)
                     self.expiryTimer?.invalidate()
@@ -502,6 +510,12 @@ final class IrohaConnectViewController: UIViewController {
     }
 
     private func setAction(_ action: Action, title: String) {
+        if action != .sign {
+            diagnosticView.text = nil
+            diagnosticView.isHidden = true
+            detailsButton.isHidden = true
+            detailsButton.accessibilityValue = WalletUX.text("Collapsed")
+        }
         self.action = action
         primaryButton.configuration?.title = WalletUX.text(title)
         primaryButton.isEnabled = action != .none

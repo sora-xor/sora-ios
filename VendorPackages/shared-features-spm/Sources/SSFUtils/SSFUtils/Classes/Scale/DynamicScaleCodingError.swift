@@ -7,6 +7,7 @@ public enum DynamicScaleCoderError: Error {
 }
 
 public enum DynamicScaleEncoderError: Error {
+    case integerOutOfRange(json: JSON, bits: Int, signed: Bool)
     case arrayExpected(json: JSON)
     case dictExpected(json: JSON)
     case unsignedIntExpected(json: JSON)

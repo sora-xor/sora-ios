@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import SoraFoundation
 @testable import SoraPassport
@@ -504,4 +504,374 @@ final class PortfolioCaptureSwapPresentation: LiquidityViewModelProtocol {
     func reviewButtonTapped() {}
     func recalculate(field: FocusedField) {}
     func didSelect(variant: Decimal) {}
+}
+
+/// Regular functional tests of the production UIKit portfolio. These use only invented local
+/// balances and exercise rendered controls; no screenshot driver or live wallet is required.
+@MainActor
+final class PortfolioScreenBehaviorTests: XCTestCase {
+    private var window: UIWindow!
+    private var previousWindow: UIWindow?
+    private var cleanupGlobals: (() -> Void)?
+    private var host: PortfolioCaptureHost?
+    private var defaults: UserDefaults!
+    private var defaultsName = ""
+
+    override func setUp() async throws {
+        try await super.setUp()
+        let theme = SoramitsuUI.shared.themeMode
+        let language = LocalizationManager.shared.selectedLocalization
+        let locale = PortfolioFormat.locale
+        let animations = UIView.areAnimationsEnabled
+        cleanupGlobals = {
+            SoramitsuUI.shared.themeMode = theme
+            LocalizationManager.shared.selectedLocalization = language
+            PortfolioFormat.locale = locale
+            UIView.setAnimationsEnabled(animations)
+        }
+        LocalizationManager.shared.selectedLocalization = "en"
+        PortfolioFormat.locale = Locale(identifier: "en_US")
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        UIView.setAnimationsEnabled(false)
+        defaultsName = "portfolio.functional.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: defaultsName)!
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        previousWindow = scene?.windows.first { $0.isKeyWindow }
+        window = scene.map(UIWindow.init(windowScene:)) ?? UIWindow(frame: UIScreen.main.bounds)
+        window.frame = scene?.coordinateSpace.bounds ?? UIScreen.main.bounds
+    }
+
+    override func tearDown() async throws {
+        host?.home.viewDidDisappear()
+        await host?.dismissPresented()
+        host = nil
+        window?.isHidden = true
+        window?.rootViewController = nil
+        window = nil
+        previousWindow?.makeKeyAndVisible()
+        defaults?.removePersistentDomain(forName: defaultsName)
+        defaults = nil
+        cleanupGlobals?()
+        cleanupGlobals = nil
+        try await super.tearDown()
+    }
+
+    private func show(_ variant: PortfolioSampleData.Variant = .full,
+                      dark: Bool = true, largeText: Bool = false) async -> PortfolioCaptureHost {
+        host?.home.viewDidDisappear()
+        let next = PortfolioCaptureHost(variant: variant, defaults: defaults)
+        host = next
+        SoramitsuUI.shared.themeMode = .manual(dark ? .dark : .light)
+        window.overrideUserInterfaceStyle = dark ? .dark : .light
+        if #available(iOS 17.0, *) {
+            window.traitOverrides.preferredContentSizeCategory = largeText ? .accessibilityExtraLarge : .large
+        }
+        window.rootViewController = next.tabBar
+        window.makeKeyAndVisible()
+        next.tabBar.loadViewIfNeeded()
+        next.homeController.loadViewIfNeeded()
+        next.home.viewWillAppear()
+        await settle()
+        return next
+    }
+
+    private func settle() async {
+        await Task.yield()
+        window.layoutIfNeeded()
+        // UIKit presentation completion callbacks are scheduled on a later main-loop turn even
+        // when animations are disabled; keep this bounded and independent of remote data.
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        window.layoutIfNeeded()
+    }
+
+    private func descendants<T: UIView>(_ type: T.Type, in view: UIView) -> [T] {
+        ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { descendants(type, in: $0) }
+    }
+
+    private func labels(in view: UIView) -> [String] {
+        descendants(UILabel.self, in: view).compactMap { $0.text ?? $0.attributedText?.string }
+    }
+
+    private func presented<T: UIViewController>(_ type: T.Type, from host: PortfolioCaptureHost) throws -> T {
+        try XCTUnwrap((host.homeController.navigationController?.presentedViewController ??
+                      host.homeController.presentedViewController) as? T)
+    }
+
+    private func mount(_ controller: UIViewController) {
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.loadViewIfNeeded()
+        window.layoutIfNeeded()
+    }
+
+    func testWalletHomeRendersAllLensesAndExpandedRowsInBothThemes() async throws {
+        for dark in [true, false] {
+            let host = await show(dark: dark)
+            let model = host.home.viewModel
+            XCTAssertEqual(model.state.scope, .allWallets)
+            for lens in PortfolioLens.allCases {
+                host.home.lensItem.onSelect?(lens)
+                await settle()
+                XCTAssertEqual(model.render?.list.lens, lens)
+                let rows = try XCTUnwrap(model.render?.list.rows)
+                XCTAssertFalse(rows.isEmpty)
+                let row = try XCTUnwrap(rows.first { $0.isExpandable })
+                host.home.listItem.onRow?(row)
+                host.scrollList()
+                await settle()
+                XCTAssertTrue(model.state.expanded.contains(row.key))
+                XCTAssertTrue(labels(in: host.homeController.view).contains(row.title))
+                host.home.listItem.onRow?(row)
+                XCTAssertFalse(model.state.expanded.contains(row.key))
+            }
+            XCTAssertEqual(host.tabBar.viewControllers?.count, 5)
+            XCTAssertEqual(host.tabBar.selectedIndex, 0)
+            XCTAssertFalse(host.tabBar.viewControllers?[2].tabBarItem.isEnabled ?? true)
+        }
+    }
+
+    func testEmptyLoadingPartialAndOfflineStatesRenderTheirDistinctMessage() async throws {
+        for variant in [PortfolioSampleData.Variant.empty, .loading, .partial, .offline] {
+            let host = await show(variant)
+            let render = try XCTUnwrap(host.home.viewModel.render)
+            XCTAssertEqual(host.home.heroItem.model, render.hero)
+            XCTAssertEqual(host.home.listItem.model, render.list)
+            if variant == .empty || variant == .loading {
+                XCTAssertTrue(render.list.rows.isEmpty)
+            } else {
+                XCTAssertFalse(render.list.rows.isEmpty)
+            }
+            XCTAssertFalse(labels(in: host.homeController.view).isEmpty)
+            host.coordinator.showFreshness(variant == .partial ? [.sora2] : [])
+            await settle()
+            let sheet = try presented(PortfolioInfoSheet.self, from: host)
+            XCTAssertEqual(sheet.paragraphs.count, 1)
+            XCTAssertTrue(labels(in: sheet.view).contains(sheet.paragraphs[0]))
+            await host.dismissPresented()
+        }
+    }
+
+    func testWalletSheetSelectionChangesScopeAndRemovesWalletLens() async throws {
+        let host = await show()
+        host.home.viewModel.selectLens(.wallets)
+        host.home.heroItem.onScope?()
+        await settle()
+        let sheet = try presented(PortfolioWalletsSheet.self, from: host)
+        XCTAssertEqual(sheet.entries.count, 4)
+        let rows = descendants(PortfolioOptionRow.self, in: sheet.view)
+        XCTAssertEqual(rows.count, 4)
+        XCTAssertTrue(rows[0].accessibilityTraits.contains(.selected))
+        rows[2].sendActions(for: .touchUpInside)
+        await settle()
+        XCTAssertEqual(host.home.viewModel.state.scope, .wallet(PortfolioSampleData.savingsId))
+        XCTAssertEqual(host.home.viewModel.state.lens, .tokens)
+        XCTAssertFalse(host.home.lensItem.lenses.contains(.wallets))
+        XCTAssertEqual(PortfolioPreferences(defaults: defaults).scope, .wallet(PortfolioSampleData.savingsId))
+    }
+
+    func testWalletSheetManageAssetsAndWalletsDispatchCorrectRoutes() async throws {
+        let host = await show()
+        for (title, expected) in [("Manage wallets", "manage"), ("Manage selected wallet's assets", "manage-assets")] {
+            host.coordinator.showWallets()
+            await settle()
+            let sheet = try presented(PortfolioWalletsSheet.self, from: host)
+            let button = try XCTUnwrap(descendants(UIButton.self, in: sheet.view).first { $0.currentTitle == title || $0.configuration?.attributedTitle.map { String($0.characters) } == title })
+            button.sendActions(for: .touchUpInside)
+            await settle()
+            XCTAssertEqual(host.router.handoffs.last, expected)
+        }
+        XCTAssertEqual(host.router.handoffs, ["manage", "manage-assets"])
+    }
+
+    func testCountingExplanationIncludesHiddenUnpricedAndTestnetExclusions() async throws {
+        let host = await show()
+        host.home.heroItem.onCaption?()
+        await settle()
+        let sheet = try presented(PortfolioInfoSheet.self, from: host)
+        XCTAssertEqual(sheet.bullets.count, 3)
+        for bullet in sheet.bullets {
+            XCTAssertTrue(labels(in: sheet.view).contains("•  " + bullet))
+        }
+        XCTAssertTrue(sheet.bullets.contains { $0.contains("hidden") })
+        XCTAssertTrue(sheet.bullets.contains { $0.contains("unpriced") })
+        XCTAssertTrue(sheet.bullets.contains { $0.contains("testnet") })
+    }
+
+    func testDetailRendersEachHoldingAndSelectedActionsAtLargeTextSize() async throws {
+        let host = await show(largeText: true)
+        let holding = "\(PortfolioSampleData.mainId)|sora2|\(PortfolioSampleData.xor.id)"
+        host.coordinator.showDetail(tokenId: PortfolioSampleData.xor.id, holdingId: holding)
+        await settle()
+        let detail = try XCTUnwrap(host.homeController.navigationController?.topViewController as? PortfolioDetailViewController)
+        XCTAssertTrue(labels(in: detail.view).contains("XOR"))
+        let rows = descendants(PortfolioDetailHoldingRow.self, in: detail.view)
+        let expected = try XCTUnwrap(host.home.viewModel.detailModel(tokenId: PortfolioSampleData.xor.id, holdingId: holding))
+        XCTAssertEqual(rows.count, expected.holdings.count)
+        XCTAssertEqual(rows.filter { $0.accessibilityTraits.contains(.selected) }.count, 1)
+        host.scrollDetail(to: .greatestFiniteMagnitude)
+        XCTAssertNotNil(detail.navigationItem.title)
+        for row in rows {
+            row.sendActions(for: .touchUpInside)
+            await settle()
+            XCTAssertEqual(descendants(PortfolioDetailHoldingRow.self, in: detail.view)
+                .filter { $0.accessibilityTraits.contains(.selected) }.count, 1)
+            XCTAssertFalse(descendants(PortfolioPrimaryButton.self, in: detail.view).isEmpty)
+        }
+        host.popToRoot()
+        await settle()
+        XCTAssertTrue(host.homeController.navigationController?.topViewController === host.homeController)
+    }
+
+    func testSampleSendAndNetworkRoutesCannotReachWalletRouter() async throws {
+        let host = await show()
+        host.coordinator.perform(.send(assetId: PortfolioSampleData.xor.id, recipient: PortfolioSampleData.savingsId,
+                                       amount: .exact(1)), walletId: PortfolioSampleData.mainId, confirmed: true)
+        await settle()
+        let alert = try presented(UIAlertController.self, from: host)
+        XCTAssertTrue(alert.message?.contains("Send stays closed") == true)
+        XCTAssertTrue(host.router.handoffs.isEmpty)
+        await host.dismissPresented()
+        host.coordinator.openNetwork(.taira)
+        await settle()
+        XCTAssertTrue(try presented(UIAlertController.self, from: host).message?.contains("real selected wallet") == true)
+        XCTAssertTrue(host.router.handoffs.isEmpty)
+    }
+
+    func testSampleReceiveUsesSelectedWalletButRejectsUnselectedWallet() async throws {
+        let host = await show()
+        host.coordinator.perform(.receive, walletId: PortfolioSampleData.mainId, confirmed: true)
+        XCTAssertEqual(host.router.handoffs, ["receive"])
+        host.coordinator.perform(.receiveOnSora2, walletId: PortfolioSampleData.mainId, confirmed: true)
+        XCTAssertEqual(host.router.handoffs, ["receive", "sora2-receive"])
+        host.coordinator.perform(.receive, walletId: PortfolioSampleData.savingsId, confirmed: true)
+        await settle()
+        XCTAssertTrue(try presented(UIAlertController.self, from: host).message?.contains("cannot be selected") == true)
+        XCTAssertEqual(host.router.handoffs.count, 2)
+    }
+
+    func testSwapSheetRebuildPreservesTargetAndDispatchesChosenToken() throws {
+        let sheet = PortfolioSwapSheet(title: "Swap")
+        sheet.holding = PortfolioSampleData.snapshot().holdings.first
+        sheet.walletName = "Main"
+        sheet.targets = [.init(id: "val", symbol: "VAL", icon: nil), .init(id: "pswap", symbol: "PSWAP", icon: nil)]
+        sheet.checks = [.init(text: "Available on SORA2", isMet: true), .init(text: "Price pending", isMet: false)]
+        var selected: PortfolioSwapSheet.Target?
+        sheet.onOpen = { selected = $0 }
+        mount(sheet)
+        let chips = descendants(PortfolioTargetChip.self, in: sheet.view)
+        XCTAssertEqual(chips.count, 2)
+        XCTAssertTrue(chips[0].accessibilityTraits.contains(.selected))
+        chips[1].sendActions(for: .touchUpInside)
+        let updated = descendants(PortfolioTargetChip.self, in: sheet.view)
+        XCTAssertTrue(updated[1].accessibilityTraits.contains(.selected))
+        sheet.rebuild()
+        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: sheet.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(selected?.id, "pswap")
+        XCTAssertEqual(descendants(PortfolioTargetChip.self, in: sheet.view).count, 2)
+    }
+
+    func testNonSoraSwapOffersReceiveWithoutSwapTargets() throws {
+        let sheet = PortfolioSwapSheet(title: "Swap")
+        sheet.holding = PortfolioSampleData.snapshot().holdings.first { $0.network == .taira }
+        var receives = 0
+        sheet.onReceiveOnSora2 = { receives += 1 }
+        mount(sheet)
+        XCTAssertTrue(descendants(PortfolioTargetChip.self, in: sheet.view).isEmpty)
+        let button = try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: sheet.view).first)
+        XCTAssertEqual(button.accessibilityLabel, PortfolioStrings.receiveOnSora2)
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(receives, 1)
+    }
+
+    func testMoveDestinationChangePreservesExactAmountAndMaxChoice() throws {
+        let sheet = PortfolioMoveSheet(title: "Move")
+        sheet.holding = PortfolioSampleData.snapshot().holdings.first
+        sheet.amountLocale = Locale(identifier: "en_US")
+        sheet.sourceWalletName = "Main"
+        sheet.destinations = [.init(walletId: "savings", name: "Savings", address: "savings-address"),
+                              .init(walletId: "trading", name: "Trading", address: "trading-address")]
+        var selections: [(String, PortfolioAmountChoice?)] = []
+        sheet.onReview = { selections.append(($0.walletId, $1)) }
+        mount(sheet)
+        let field = try XCTUnwrap(descendants(UITextField.self, in: sheet.view).first)
+        field.text = "123.4567"
+        field.sendActions(for: .editingChanged)
+        let destination = try XCTUnwrap(descendants(PortfolioOptionRow.self, in: sheet.view)
+            .first { $0.accessibilityLabel?.hasPrefix("Trading,") == true })
+        destination.sendActions(for: .touchUpInside)
+        XCTAssertEqual(field.text, "123.4567")
+        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: sheet.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(selections.first?.0, "trading")
+        XCTAssertEqual(selections.first?.1, .exact(Decimal(string: "123.4567")!))
+        let maxButton = try XCTUnwrap(descendants(UIButton.self, in: sheet.view).first { $0.currentTitle == PortfolioStrings.max || $0.configuration?.attributedTitle.map { String($0.characters) } == PortfolioStrings.max })
+        maxButton.sendActions(for: .touchUpInside)
+        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: sheet.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(selections.last?.1, .max)
+        field.text = "10"
+        field.sendActions(for: .editingChanged)
+        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: sheet.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(selections.last?.1, .exact(10))
+    }
+
+    func testNexusMoveCopiesOnlySelectedDestinationAndHasNoAmountInput() throws {
+        let sheet = PortfolioMoveSheet(title: "Move")
+        sheet.holding = PortfolioSampleData.snapshot().holdings.first { $0.network == .taira }
+        sheet.availability = .nexusSend
+        sheet.destinations = [.init(walletId: "first", name: "First", address: "first-address"),
+                              .init(walletId: "second", name: "Second", address: "second-address")]
+        var copied: [String] = []
+        sheet.onCopyAddress = { copied.append($0) }
+        mount(sheet)
+        XCTAssertTrue(descendants(UITextField.self, in: sheet.view).isEmpty)
+        try XCTUnwrap(descendants(PortfolioOptionRow.self, in: sheet.view)
+            .first { $0.accessibilityLabel?.hasPrefix("Second,") == true }).sendActions(for: .touchUpInside)
+        try XCTUnwrap(descendants(UIButton.self, in: sheet.view)
+            .first { $0.currentTitle == "Copy address" }).sendActions(for: .touchUpInside)
+        XCTAssertEqual(copied, ["second-address"])
+    }
+
+    func testUnavailableMoveAndMissingDestinationDisableReview() throws {
+        for destinations in [[], [PortfolioMoveSheet.Destination(walletId: "other", name: "Other", address: "address")]] {
+            let sheet = PortfolioMoveSheet(title: "Move")
+            sheet.holding = PortfolioSampleData.snapshot().holdings.first
+            sheet.destinations = destinations
+            sheet.availability = destinations.isEmpty ? .send : .unavailable("Network is read-only")
+            mount(sheet)
+            let button = try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: sheet.view).first)
+            XCTAssertFalse(button.isEnabled)
+            XCTAssertTrue(button.accessibilityTraits.contains(.notEnabled))
+            if !destinations.isEmpty { XCTAssertTrue(labels(in: sheet.view).contains("Network is read-only")) }
+        }
+    }
+
+    func testPickerInfoAndSwitchSheetsDispatchExactlyOnceAfterRebuild() throws {
+        let picker = PortfolioPickerSheet(title: "Pick")
+        picker.note = "Choose a wallet"
+        picker.options = [.init(id: "one", icon: .allWallets, title: "One", subtitle: "Local", value: "$1", detail: nil)]
+        var picked: [String] = []
+        picker.onPick = { picked.append($0) }
+        mount(picker)
+        picker.rebuild()
+        try XCTUnwrap(descendants(PortfolioOptionRow.self, in: picker.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(picked, ["one"])
+        XCTAssertTrue(labels(in: picker.view).contains("Choose a wallet"))
+        let info = PortfolioInfoSheet(title: "Info")
+        info.paragraphs = ["First", "Second"]
+        info.bullets = ["Third"]
+        info.buttonTitle = "Continue"
+        var calls = 0
+        info.onButton = { calls += 1 }
+        mount(info)
+        try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: info.view).first).sendActions(for: .touchUpInside)
+        XCTAssertEqual(calls, 1)
+        XCTAssertTrue(labels(in: info.view).contains("•  Third"))
+        let confirmation = PortfolioSwitchSheet(title: "Switch")
+        confirmation.walletName = "Savings"
+        confirmation.onConfirm = { calls += 1 }
+        mount(confirmation)
+        let button = try XCTUnwrap(descendants(PortfolioPrimaryButton.self, in: confirmation.view).first)
+        XCTAssertEqual(button.accessibilityLabel, PortfolioStrings.switchAndReview("Savings"))
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(calls, 2)
+    }
 }

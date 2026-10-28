@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -34,7 +21,9 @@ import SoraUIKit
 typealias AuthorizationCompletionBlock = (Bool) -> Void
 
 protocol AuthorizationPresentable: ScreenAuthorizationWireframeProtocol {
-    func authorize(animated: Bool,
+    @MainActor var authorizationPresentingController: UIViewController? { get }
+    @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController?
+    @MainActor func authorize(animated: Bool,
                    cancellable: Bool,
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock)
@@ -52,11 +41,25 @@ private struct AuthorizationConstants {
     static var inViewKey: String = "co.jp.sora.auth.inView"
 }
 
+extension AuthorizationPresentable {
+    @MainActor var authorizationPresentingController: UIViewController? {
+        UIApplication.shared.keyWindow?.rootViewController?.topModalViewController
+    }
+
+    @MainActor func createAuthorizationView(cancellable: Bool) -> UIViewController? {
+        let authorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
+        let view = BlurViewController()
+        view.modalPresentationStyle = .overFullScreen
+        view.add(authorizeView?.controller)
+        return view
+    }
+}
+
 extension AuthorizationAccessible {
     var isAuthorizing: Bool {
         let view = objc_getAssociatedObject(authorization,
                                             &AuthorizationConstants.authorizationViewKey)
-            as? PinSetupViewProtocol
+            as? UIViewController
 
         return view != nil
     }
@@ -111,7 +114,7 @@ extension AuthorizationPresentable {
 }
 
 extension AuthorizationPresentable {
-    func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock) {
+    @MainActor func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock) {
         authorize(animated: animated, cancellable: false, inView: nil, with: completionBlock)
     }
 
@@ -120,18 +123,16 @@ extension AuthorizationPresentable {
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock) {
 
-        guard let presentingController = UIApplication.shared.keyWindow?
-            .rootViewController?.topModalViewController else {
+        guard !isAuthorizing else {
+            completionBlock(false)
             return
         }
+        guard let presentingController = authorizationPresentingController else {
+            completionBlock(false)
+            return
+        }
+        let view = createAuthorizationView(cancellable: cancellable)
 
-        let view: UIViewController?
-
-        let auhorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
-        view = BlurViewController()
-        view?.modalPresentationStyle = .overFullScreen
-        view?.add(auhorizeView?.controller)
-        
         guard let authorizationView = view else {
             completionBlock(false)
             return
@@ -155,10 +156,11 @@ extension AuthorizationPresentable {
 
     func removeExistingAuthViewIfPresented(completion: @escaping ()->()) {
         if let authorizationView = authorizationView {
-            dismissAuthorizationView(authorizationView, completionBlock: completionBlock, result: false)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let previousCompletion = completionBlock
+            dismissAuthorizationView(authorizationView, completionBlock: { result in
+                previousCompletion?(result)
                 completion()
-            }
+            }, result: false)
         } else {
             completion()
         }
@@ -180,21 +182,24 @@ extension AuthorizationPresentable {
         dismissAuthorizationView(authorizationView, completionBlock: completionBlock, result: result)
     }
 
-    func dismissAuthorizationView(_ authorizationView:  UIViewController, completionBlock: AuthorizationCompletionBlock?, result: Bool) {
-        if let inView = self.inView {
+    func dismissAuthorizationView(_ authorizationView: UIViewController, completionBlock: AuthorizationCompletionBlock?, result: Bool) {
+        let navigation = self.inView
+        self.completionBlock = nil
+        self.authorizationView = nil
+        self.inView = nil
 
+        if let navigation {
+            navigation.setViewControllers(
+                navigation.viewControllers.filter { $0 !== authorizationView },
+                animated: false
+            )
             completionBlock?(result)
-            let controllerToRemove = inView.viewControllers.remove(at: 1)
-            self.authorizationView?.dismiss(animated: false)
-
-            self.authorizationView = nil
-            self.inView = nil
-
-        } else {
-            authorizationView.presentingViewController?.dismiss(animated: true) {
-                self.authorizationView = nil
+        } else if let presenter = authorizationView.presentingViewController {
+            presenter.dismiss(animated: true) {
                 completionBlock?(result)
             }
+        } else {
+            completionBlock?(result)
         }
     }
 }

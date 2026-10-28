@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -54,6 +41,7 @@ final class ConfirmRemoveLiquidityViewModel {
     let operationFactory: WalletNetworkOperationFactoryProtocol
     let feeChangeHandler: () -> Void
     let walletService: WalletServiceProtocol
+    private let reviewedAccount: AccountItem?
     private var isSubmitting = false
     private var feeReviewInvalidated = false
     private var preflightTask: Task<Void, Never>?
@@ -82,6 +70,7 @@ final class ConfirmRemoveLiquidityViewModel {
         fee: Decimal
     ) {
         self.poolInfo = poolInfo
+        reviewedAccount = SelectedWalletSettings.shared.currentAccount
         self.wireframe = wireframe
         self.poolsService = poolsService
         self.assetManager = assetManager
@@ -112,10 +101,10 @@ extension ConfirmRemoveLiquidityViewModel: ConfirmViewModelProtocol {
 extension ConfirmRemoveLiquidityViewModel {
     func updateContent() {
         let firstAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)
-        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: 8)
+        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAsset?.precision ?? 18)
 
         let secondAsset = self.assetManager.assetInfo(for: self.poolInfo.targetAssetId)
-        let secondAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: 8)
+        let secondAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: secondAsset?.precision ?? 18)
 
         let firstAssetImageModel = ConfirmAssetViewModel(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset?.icon ?? ""),
                                                          amountText: firstAssetFormatter.stringFromDecimal(self.firstAssetAmount) ?? "",
@@ -159,6 +148,7 @@ extension ConfirmRemoveLiquidityViewModel {
     func submit() {
         guard !isSubmitting, !feeReviewInvalidated else { return }
         guard isConfirmationActive,
+              isReviewedWalletSelected,
               fee > 0,
               firstAssetAmount > 0,
               secondAssetAmount > 0,
@@ -174,16 +164,21 @@ extension ConfirmRemoveLiquidityViewModel {
             return
         }
 
+        guard let reviewInfo = try? makeTransferInfo(fee: .zero) else {
+            presentPreflightError(.unavailable)
+            return
+        }
         isSubmitting = true
         wireframe?.showActivityIndicator()
         preflightTask = Task { @MainActor [weak self] in
-            await self?.runPreflight()
+            await self?.runPreflight(reviewInfo: reviewInfo)
         }
     }
 
     @MainActor
-    private func runPreflight() async {
+    private func runPreflight(reviewInfo: TransferInfo) async {
         do {
+            try requireReviewedContext(reviewInfo)
             let pairState = try await poolsService.loadPairState(
                 baseAssetId: poolInfo.baseAssetId,
                 targetAssetId: poolInfo.targetAssetId
@@ -198,7 +193,7 @@ extension ConfirmRemoveLiquidityViewModel {
 
             try validateLivePool(freshPool)
             let xorBalance = try await fetchLiveXORBalance()
-            let reviewInfo = try makeTransferInfo(fee: .zero)
+            try requireReviewedContext(reviewInfo)
             try Task.checkCancellation()
             try signingAuthorization.requireAuthorized()
             guard isConfirmationActive else {
@@ -212,6 +207,7 @@ extension ConfirmRemoveLiquidityViewModel {
                     }
                 )
             defer { prepared.discard() }
+            try requireReviewedContext(reviewInfo)
             let freshFee = prepared.fee
             guard LiquidityFeeQualification.accepts(freshFee: freshFee, reviewedFee: fee) else {
                 throw LiquidityConfirmationPreflightError.feeChanged
@@ -241,7 +237,8 @@ extension ConfirmRemoveLiquidityViewModel {
                     )
                 handlePreparedTransfer(
                     transactionHash: transactionHash,
-                    rawFee: prepared.rawFee
+                    rawFee: prepared.rawFee,
+                    reviewInfo: reviewInfo
                 )
             } catch let transportError as PreparedExtrinsicTransportError {
                 switch transportError {
@@ -336,7 +333,9 @@ extension ConfirmRemoveLiquidityViewModel {
     }
 
     private func makeTransferInfo(fee freshFee: Decimal) throws -> TransferInfo {
-        let shareOfPool = details.first(where: { $0.title == Constants.apyTitle })?
+        let shareOfPool = details.first(where: {
+            $0.title == R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale)
+        })?
             .assetAmountText.text ?? ""
         let apy = details.first(where: { $0.title == Constants.apyTitle })?
             .assetAmountText.text ?? ""
@@ -364,6 +363,23 @@ extension ConfirmRemoveLiquidityViewModel {
         }
         guard isConfirmationActive else { return }
         presentPreflightError(error)
+    }
+
+    private var isReviewedWalletSelected: Bool {
+        guard let reviewedAccount, let current = SelectedWalletSettings.shared.currentAccount else { return false }
+        return current.address == reviewedAccount.address && current.publicKeyData == reviewedAccount.publicKeyData &&
+            current.cryptoType == reviewedAccount.cryptoType && current.networkType == reviewedAccount.networkType &&
+            current.isSelected && reviewedAccount.isSelected
+    }
+
+    private func requireReviewedContext(_ review: TransferInfo) throws {
+        guard isReviewedWalletSelected else { throw LiquidityConfirmationPreflightError.unavailable }
+        let current = try makeTransferInfo(fee: .zero)
+        guard current.source == review.source, current.destination == review.destination,
+              current.asset == review.asset, current.amount.decimalValue == review.amount.decimalValue,
+              current.context == review.context else {
+            throw LiquidityConfirmationPreflightError.unavailable
+        }
     }
 
     private var isConfirmationActive: Bool {
@@ -419,13 +435,17 @@ extension ConfirmRemoveLiquidityViewModel {
 
     private func handlePreparedTransfer(
         transactionHash: Data,
-        rawFee: String
+        rawFee: String,
+        reviewInfo: TransferInfo
     ) {
         isSubmitting = false
         preflightTask = nil
         wireframe?.hideActivityIndicator()
-        guard isConfirmationActive,
-              let exactFee = Amount(string: rawFee) else { return }
+        guard let exactFee = Amount(string: rawFee),
+              let firstAmountText = reviewInfo.context?[TransactionContextKeys.firstAssetAmount],
+              let secondAmountText = reviewInfo.context?[TransactionContextKeys.secondAssetAmount],
+              let firstAmount = AmountDecimal(string: firstAmountText),
+              let secondAmount = AmountDecimal(string: secondAmountText) else { return }
         let base = TransactionBase(
                                    txHash: transactionHash.toHex(includePrefix: true),
                                    blockHash: "",
@@ -433,12 +453,16 @@ extension ConfirmRemoveLiquidityViewModel {
                                    status: .pending,
                                    timestamp: "\(Date().timeIntervalSince1970)")
         let swapTransaction = Liquidity(base: base,
-                                        firstTokenId: poolInfo.targetAssetId,
-                                        secondTokenId: poolInfo.baseAssetId,
-                                        firstAmount: Amount(value: firstAssetAmount),
-                                        secondAmount: Amount(value: secondAssetAmount),
+                                        firstTokenId: reviewInfo.asset,
+                                        secondTokenId: reviewInfo.destination,
+                                        firstAmount: Amount(value: firstAmount.decimalValue),
+                                        secondAmount: Amount(value: secondAmount.decimalValue),
                                         type: .withdraw)
-        EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: swapTransaction))
+        EventCenter.shared.notify(with: NewTransactionCreatedEvent(
+            item: swapTransaction,
+            accountAddress: reviewedAccount?.address
+        ))
+        guard isConfirmationActive else { return }
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
             self?.view?.dismiss(competion: self?.completionHandler)
         }

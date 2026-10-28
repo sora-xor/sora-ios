@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import UIKit
@@ -43,8 +30,11 @@ final class TransitionManager: NSObject, UIViewControllerAnimatedTransitioning {
     }
 
     func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
-        guard let fromView = transitionContext.view(forKey: .from) else { return }
-        guard let toView = transitionContext.view(forKey: .to) else { return }
+        guard let fromView = transitionContext.view(forKey: .from),
+              let toView = transitionContext.view(forKey: .to) else {
+            transitionContext.completeTransition(false)
+            return
+        }
 
         let duration = transitionDuration(using: transitionContext)
 
@@ -56,6 +46,9 @@ final class TransitionManager: NSObject, UIViewControllerAnimatedTransitioning {
         }
 
         let toViewFrame = toView.frame
+        let fromViewFrame = fromView.frame
+        let fromAlpha = fromView.alpha
+        let toAlpha = toView.alpha
         toView.frame = CGRect(x: presenting ? toView.frame.width : -toView.frame.width, y: toView.frame.origin.y, width: toView.frame.width, height: toView.frame.height)
 
         let animations = {
@@ -81,8 +74,17 @@ final class TransitionManager: NSObject, UIViewControllerAnimatedTransitioning {
                                 options: .calculationModeCubic,
                                 animations: animations,
                                 completion: { finished in
-                                    container.addSubview(toView)
-                                    transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
+                                    let completed = !transitionContext.transitionWasCancelled
+                                    if completed {
+                                        container.addSubview(toView)
+                                    } else {
+                                        fromView.frame = fromViewFrame
+                                        fromView.alpha = fromAlpha
+                                        toView.frame = toViewFrame
+                                        toView.alpha = toAlpha
+                                        toView.removeFromSuperview()
+                                    }
+                                    transitionContext.completeTransition(completed)
         })
     }
 }
@@ -139,15 +141,25 @@ extension UINavigationController {
             return
         }
 
-        let percent = gestureRecognizer.translation(in: gestureRecognizerView).x / gestureRecognizerView.bounds.size.width
+        let width = gestureRecognizerView.bounds.width
+        guard width > 0 else {
+            transitionCoordinatorHelper?.interactionController?.cancel()
+            transitionCoordinatorHelper?.interactionController = nil
+            return
+        }
+        let rawPercent = gestureRecognizer.translation(in: gestureRecognizerView).x / width
+        let percent = rawPercent.isFinite ? min(1, max(0, rawPercent)) : 0
 
         if gestureRecognizer.state == .began {
             transitionCoordinatorHelper?.interactionController = UIPercentDrivenInteractiveTransition()
             popViewController(animated: true)
         } else if gestureRecognizer.state == .changed {
             transitionCoordinatorHelper?.interactionController?.update(percent)
+        } else if gestureRecognizer.state == .cancelled || gestureRecognizer.state == .failed {
+            transitionCoordinatorHelper?.interactionController?.cancel()
+            transitionCoordinatorHelper?.interactionController = nil
         } else if gestureRecognizer.state == .ended {
-            if percent > 0.5 && gestureRecognizer.state != .cancelled {
+            if percent > 0.5 {
                 transitionCoordinatorHelper?.interactionController?.finish()
             } else {
                 transitionCoordinatorHelper?.interactionController?.cancel()

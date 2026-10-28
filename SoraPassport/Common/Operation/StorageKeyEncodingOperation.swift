@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SSFUtils
@@ -139,32 +126,33 @@ class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
                 keyType = doubleMapEntry.key1
                 hasher = doubleMapEntry.hasher
             case let .nMap(nMapEntry):
-                guard
-                    let firstKey = try nMapEntry.keys(using: factory.metadata.schemaResolver).first,
-                    let firstHasher = nMapEntry.hashers.first else {
+                let keyTypes = try nMapEntry.keys(using: factory.metadata.schemaResolver)
+                guard let firstKey = keyTypes.first,
+                      let firstHasher = nMapEntry.hashers.first else {
                     throw StorageKeyEncodingOperationError.missingRequiredParams
                 }
 
-                keyType = firstKey
+                // V14 also represents a single tuple key as an N-map. A single
+                // hasher covers the encoded tuple, while multiple hashers support
+                // a query prefix made from the first dimension.
+                keyType = nMapEntry.hashers.count == 1 && keyTypes.count > 1
+                    ? "(\(keyTypes.joined(separator: ", ")))" : firstKey
                 hasher = firstHasher
             case .plain:
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
             
-            let encoder = factory.createEncoder()
-            keyParams.forEach { keyParam in
-                try? encoder.append(keyParam, ofType: keyType)
-            }
-            let encodedParam = try encoder.encode()
-
-            let keys: [Data] = [
-                try storageKeyFactory.createStorageKey(
+            let keys: [Data] = try keyParams.map { keyParam in
+                let encoder = factory.createEncoder()
+                try encoder.append(keyParam, ofType: keyType)
+                let encodedParam = try encoder.encode()
+                return try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
                     key: encodedParam,
                     hasher: hasher
                 )
-            ]
+            }
 
             result = .success(keys)
         } catch {
@@ -236,33 +224,32 @@ class DoubleMapKeyEncodingOperation<T1: Encodable, T2: Encodable>: BaseOperation
                 throw StorageKeyEncodingOperationError.invalidStoragePath
             }
 
-            guard case let .doubleMap(doubleMapEntry) = entry.type else {
+            let keyTypes: [String]
+            let hashers: [StorageHasher]
+            switch entry.type {
+            case let .doubleMap(map):
+                keyTypes = [map.key1, map.key2]
+                hashers = [map.hasher, map.key2Hasher]
+            case let .nMap(map):
+                keyTypes = try map.keys(using: factory.metadata.schemaResolver)
+                hashers = map.hashers
+                guard keyTypes.count == 2, hashers.count == 1 || hashers.count == 2 else {
+                    throw StorageKeyEncodingOperationError.incompatibleStorageType
+                }
+            default:
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
 
             let keys: [Data] = try zip(keyParams1, keyParams2).map { param in
-                let encodedParam1 = try encodeParam(
-                    param.0,
-                    factory: factory,
-                    type: doubleMapEntry.key1
-                )
-
-                let encodedParam2 = try encodeParam(
-                    param.1,
-                    factory: factory,
-                    type: doubleMapEntry.key2
-                )
-
+                let first = try encodeParam(param.0, factory: factory, type: keyTypes[0])
+                let second = try encodeParam(param.1, factory: factory, type: keyTypes[1])
                 return try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
-                    key1: encodedParam1,
-                    hasher1: doubleMapEntry.hasher,
-                    key2: encodedParam2,
-                    hasher2: doubleMapEntry.key2Hasher
+                    keys: hashers.count == 1 ? [first + second] : [first, second],
+                    hashers: hashers
                 )
             }
-
             result = .success(keys)
         } catch {
             result = .failure(error)
@@ -329,12 +316,19 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
             }
 
             let keyEntries = try nMapEntry.keys(using: factory.metadata.schemaResolver)
-            guard keyEntries.count == keyParams.count else {
+            guard !keyEntries.isEmpty,
+                  keyEntries.count == keyParams.count,
+                  (nMapEntry.hashers.count == 1 || keyEntries.count == nMapEntry.hashers.count) else {
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
 
+            let rowCount = keyParams[0].count
+            guard keyParams.allSatisfy({ $0.count == rowCount }) else {
+                throw StorageKeyEncodingOperationError.missingRequiredParams
+            }
+
             var params: [[NMapKeyParamProtocol]] = []
-            for index in 0 ..< keyParams[0].count {
+            for index in 0 ..< rowCount {
                 var array: [NMapKeyParamProtocol] = []
                 for param in keyParams {
                     array.append(param[index])
@@ -350,7 +344,8 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
                 return try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
-                    keys: encodedParams,
+                    keys: nMapEntry.hashers.count == 1
+                        ? [encodedParams.reduce(into: Data()) { $0.append($1) }] : encodedParams,
                     hashers: nMapEntry.hashers
                 )
             }

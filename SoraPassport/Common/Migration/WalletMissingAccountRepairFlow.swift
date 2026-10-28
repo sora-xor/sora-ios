@@ -1,5 +1,5 @@
 // Copyright (c) 2026, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import UIKit
 import SoraKeystore
@@ -11,12 +11,22 @@ final class WalletMissingAccountRepairFlow {
     private let keystore: KeystoreProtocol
     private let selection: SelectedWalletSettingsProtocol
     private var request: Request?
+    private let loadAccounts: () throws -> [AccountItem]
+
+    static func currentAccountsForRepair() throws -> [AccountItem] {
+        let lease = WalletLifecycleCoordinator.shared.acquire()
+        defer { lease.release() }
+        try WalletRecoveryCapabilityGate.shared.requireCredentialRepairAccess()
+        return try WalletAccountCapability.currentAccounts()
+    }
 
     init(controller: UIViewController, keystore: KeystoreProtocol,
-         selection: SelectedWalletSettingsProtocol) {
+         selection: SelectedWalletSettingsProtocol,
+         loadAccounts: @escaping () throws -> [AccountItem] = WalletMissingAccountRepairFlow.currentAccountsForRepair) {
         self.controller = controller
         self.keystore = keystore
         self.selection = selection
+        self.loadAccounts = loadAccounts
     }
 
     /// Read-only, called while the ordinary import holds its lifecycle lease.
@@ -63,12 +73,10 @@ final class WalletMissingAccountRepairFlow {
                     Task { @MainActor in self?.cancelBeforeConfirmation() }
                 })
             }
+            let loadAccounts = flow.loadAccounts
             DispatchQueue.global(qos: .userInitiated).async { [self] in
                 let result = Result<[AccountItem], Error> {
-                    let lease = WalletLifecycleCoordinator.shared.acquire()
-                    defer { lease.release() }
-                    try WalletRecoveryCapabilityGate.shared.requireCredentialRepairAccess()
-                    return try WalletAccountCapability.currentAccounts()
+                    try loadAccounts()
                 }
                 Task { @MainActor in
                     guard self.completion != nil else { return }

@@ -54,7 +54,9 @@ public class DynamicScaleDecoder {
 
     private func decodeFixedInt(length: Int) throws -> JSON {
         let data = try decoder.readAndConfirm(count: length)
-        let value = BigInt(Data(data.reversed()))
+        let unsigned = BigInt(BigUInt(Data(data.reversed())))
+        let value = data.last.map { $0 & 0x80 != 0 } == true
+            ? unsigned - (BigInt(1) << (length * 8)) : unsigned
         return .stringValue(String(value))
     }
 

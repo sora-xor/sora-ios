@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -52,10 +39,11 @@ final class InvitationsCell: SoramitsuTableViewCell {
     private weak var delegate: InvitationsCellDelegate?
     
     private var fee: Decimal = Decimal(0)
+    private var feeSymbol = "XOR"
     private var currentInvitationCount: Decimal = Decimal(0) {
         didSet {
             amountView.textField.sora.text =  "\(currentInvitationCount)"
-            amountView.underMinusLabel.sora.text =  "\(currentInvitationCount * fee) XOR"
+            amountView.underMinusLabel.sora.text =  "\(currentInvitationCount * fee) \(feeSymbol)"
             delegate?.userChanged(currentInvitationCount)
         }
     }
@@ -64,12 +52,13 @@ final class InvitationsCell: SoramitsuTableViewCell {
     private var cancellables: Set<AnyCancellable> = []
     private weak var viewModel: InvitationsViewModel? {
         didSet {
-            guard let viewModel = viewModel else { return }
+            cancellables.removeAll()
+            guard let viewModel else { return }
             viewModel.$isEnabled
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in
+                .sink { [weak self] enabled in
                     guard let self = self else { return }
-                    self.button.sora.isEnabled = viewModel.isEnabled ?? false
+                    self.button.sora.isEnabled = enabled ?? false
                 }
                 .store(in: &cancellables)
         }
@@ -183,6 +172,7 @@ final class InvitationsCell: SoramitsuTableViewCell {
     }
     
     private func buttonTapped() {
+        guard viewModel?.isEnabled == true else { return }
         delegate?.buttonTapped()
     }
     
@@ -198,7 +188,8 @@ final class InvitationsCell: SoramitsuTableViewCell {
 
     private func textFieldChanged() {
         let text = amountView.textField.sora.text ?? "0"
-        currentInvitationCount = Decimal(string: text) ?? Decimal(0)
+        let isWholeNumber = text.range(of: #"[0-9]+\z"#, options: [.regularExpression, .anchored]) != nil
+        currentInvitationCount = isWholeNumber ? (AmountDecimal(string: text)?.decimalValue ?? 0) : 0
     }
     
     private func networkFeeInfoButtonTapped() {
@@ -219,15 +210,12 @@ extension InvitationsCell: Reusable {
         amountView.underMinusLabel.sora.text = "\(viewModel.bondedAmount) \(viewModel.feeSymbol)"
         amountView.underPlusLabel.sora.text = R.string.localizable.commonBalance(preferredLanguages: .currentLocale) + ":\(viewModel.balance)"
         
-        let invitationCount = (viewModel.bondedAmount / viewModel.fee).rounded(mode: .down)
-        
-        if invitationCount > 0 {
-            amountView.textField.sora.text = "\(invitationCount)"
-        }
-        
-        self.currentInvitationCount = invitationCount
+        let invitationCount = viewModel.fee > 0 && viewModel.bondedAmount >= 0
+            ? (viewModel.bondedAmount / viewModel.fee).rounded(mode: .down) : 0
         self.fee = viewModel.fee
+        self.feeSymbol = viewModel.feeSymbol
         self.delegate = viewModel.delegate
         self.viewModel = viewModel
+        self.currentInvitationCount = invitationCount
     }
 }

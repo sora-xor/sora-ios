@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import UIKit
@@ -41,12 +28,15 @@ final class ChangeAccountPresenter {
     var wireframe: ChangeAccountWireframeProtocol!
     var endUpdatingBlock: (() -> Void)?
 
+    private let capabilityProbe: (AccountItem, @escaping (WalletAccountCapability.State) -> Void) -> Void
+    private let retainedWallets: (Set<String>) -> [RetainedKeychainWallet]
     private let settingsManager: SelectedWalletSettingsProtocol
     private let eventCenter: EventCenterProtocol
     private var mode: ChangeAccountViewController.Mode = .view
     private var accounts: [AccountItem] = []
     private var accountViewModels: [AccountMenuItem] = []
     private var capabilityGeneration = UUID()
+    private var accountLoadGeneration = UUID()
     private var isSwitchingAccount = false
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let operationManager: OperationManagerProtocol
@@ -57,7 +47,13 @@ final class ChangeAccountPresenter {
          eventCenter: EventCenterProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          operationManager: OperationManagerProtocol,
-         serviceCoordinator: ServiceCoordinatorProtocol) {
+         serviceCoordinator: ServiceCoordinatorProtocol,
+         capabilityProbe: @escaping (AccountItem, @escaping (WalletAccountCapability.State) -> Void) -> Void = WalletAccountCapability.probe,
+         retainedWallets: @escaping (Set<String>) -> [RetainedKeychainWallet] = {
+             WalletRecoveryStateProbe.retainedWalletsAfterSetup(keystore: Keychain(), existingAddresses: $0)
+         }) {
+        self.capabilityProbe = capabilityProbe
+        self.retainedWallets = retainedWallets
         self.accountRepository = accountRepository
         self.operationManager = operationManager
         self.settingsManager = settingsManager
@@ -66,6 +62,8 @@ final class ChangeAccountPresenter {
     }
     
     private func getAccounts() {
+        let generation = UUID()
+        accountLoadGeneration = generation
         let persistentOperation = accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
         
         persistentOperation.completionBlock = { [weak self] in
@@ -74,7 +72,8 @@ final class ChangeAccountPresenter {
             }
             
             DispatchQueue.main.async {
-                self?.handle(accounts: accounts)
+                guard let self, self.accountLoadGeneration == generation else { return }
+                self.handle(accounts: accounts)
             }
         }
         OperationQueue().addOperation(persistentOperation)
@@ -92,7 +91,7 @@ final class ChangeAccountPresenter {
         
         view?.update(with: accountViewModels)
         for (index, account) in accounts.enumerated() {
-            WalletAccountCapability.probe(account: account) { [weak self] state in
+            capabilityProbe(account) { [weak self] state in
                 guard let self, self.capabilityGeneration == generation,
                       self.accountViewModels.indices.contains(index) else { return }
                 self.accountViewModels[index].capabilityBadge = state.badge
@@ -102,7 +101,7 @@ final class ChangeAccountPresenter {
     }
     
     private func makeModels(from accounts: [AccountItem], selectedAccountAddress: String) -> [AccountMenuItem] {
-        return accounts.enumerated().map { [weak self] (index, account) -> AccountMenuItem in
+        return accounts.map { [weak self] account -> AccountMenuItem in
             
             let icon = try? iconGenerator.generateFromAddress(account.address)
                 .imageWithFillColor(UIColor.white,
@@ -113,8 +112,14 @@ final class ChangeAccountPresenter {
                                    image: icon,
                                    isSelected: account.address == selectedAccountAddress,
                                    isMultiselectionMode: mode == .edit,
-                                   onTap: { self?.selectItem(at: index) },
-                                   onMore: { self?.editItem(at: index) })
+                                   onTap: {
+                                       guard let self, let currentIndex = self.accounts.firstIndex(where: { $0.address == account.address }) else { return }
+                                       self.selectItem(at: currentIndex)
+                                   },
+                                   onMore: {
+                                       guard let self, let currentIndex = self.accounts.firstIndex(where: { $0.address == account.address }) else { return }
+                                       self.editItem(at: currentIndex)
+                                   })
         }
     }
     
@@ -231,7 +236,6 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         let accountItemsToExport: [AccountItem] = accountViewModels
             .enumerated()
             .filter { $1.isSelected }
-            .enumerated()
             .compactMap { index, _ in
                 if accounts.indices.contains(index) {
                     return accounts[index]
@@ -250,9 +254,9 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         let existing = Set(accounts.map(\.address))
         // Wallets an earlier install left in the Keychain stay restorable
         // after setup with that install's PIN (see `WalletRetainedPinGate`).
+        let discoverRetainedWallets = retainedWallets
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let retained = WalletRecoveryStateProbe.retainedWalletsAfterSetup(
-                keystore: Keychain(), existingAddresses: existing)
+            let retained = discoverRetainedWallets(existing)
             DispatchQueue.main.async {
                 guard let self, !self.isSwitchingAccount else { return }
                 guard !retained.isEmpty else {

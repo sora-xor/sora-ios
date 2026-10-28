@@ -1,10 +1,11 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import Combine
 import Foundation
 import RobinHood
 import SSFUtils
+import SoraFoundation
 import SoraKeystore
 import SoraUIKit
 import UIKit
@@ -7074,6 +7075,7 @@ final class PIActivityRefreshTests: XCTestCase {
         let viewModel = viewModel(history)
         viewModel.title = "Activity"
         let controller = ActivityViewController(viewModel: viewModel)
+        controller.localizationManager = LocalizationManager.shared
         viewModel.view = controller
 
         let window = try window(showing: controller)
@@ -7142,6 +7144,7 @@ final class PIActivityRefreshTests: XCTestCase {
         let viewModel = viewModel(history)
         viewModel.title = "Activity"
         let controller = ActivityViewController(viewModel: viewModel)
+        controller.localizationManager = LocalizationManager.shared
         viewModel.view = controller
         let window = try window(showing: controller)
         defer { window.isHidden = true }
@@ -7203,6 +7206,7 @@ final class PIActivityRefreshTests: XCTestCase {
         history.set(1, page(["a1", "a2"], cachedAt: savedAt, endReached: true))
         let viewModel = viewModel(history)
         let controller = ActivityViewController(viewModel: viewModel)
+        controller.localizationManager = LocalizationManager.shared
         viewModel.view = controller
 
         let window = try window(showing: controller)

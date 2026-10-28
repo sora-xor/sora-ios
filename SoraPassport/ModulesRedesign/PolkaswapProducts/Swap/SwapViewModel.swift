@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -209,6 +196,7 @@ final class SwapViewModel {
     var swapVariant: SwapVariant = .desiredInput
     var marketSourcer: SwapMarketSourcerProtocol?
 
+    private var quoteRevision = UUID()
     private var quote: SwapValues?
     private var quoteParams: PolkaswapMainInteractorQuoteParams?
     
@@ -295,7 +283,7 @@ final class SwapViewModel {
         assetManager: AssetManagerProtocol?,
         detailsFactory: DetailViewModelFactoryProtocol,
         eventCenter: EventCenterProtocol,
-        interactor: PolkaswapMainInteractor,
+        interactor: PolkaswapMainInteractorInputProtocol,
         networkFacade: WalletNetworkOperationFactoryProtocol?,
         assetsProvider: AssetProviderProtocol?,
         lpServiceFee: LPFeeServiceProtocol,
@@ -336,7 +324,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
             let value = firstAssetBalance.balance.decimalValue * variant
             let afterFee = isFeeAsset ? value - fee : value
-            inputedFirstAmount = afterFee < 0 ? value : afterFee
+            inputedFirstAmount = max(0, afterFee)
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
@@ -346,8 +334,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             let isFeeAsset = assetManager?.assetInfo(for: secondAssetId)?.isFeeAsset ?? false
             let value = secondAssetBalance.balance.decimalValue * variant
             let afterFee = isFeeAsset ? value - fee : value
-            inputedSecondAmount = afterFee < 0 ? value : afterFee
-            let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
+            inputedSecondAmount = max(0, afterFee)
+            let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
         }
     }
@@ -446,7 +434,10 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
-        guard let assetManager = assetManager, let amounts = amounts, let quoteParams = quoteParams else { return }
+        updateAssetsBalance()
+        guard updateButtonState(), checkBalances(),
+              let assetManager, let amounts, let quoteParams,
+              matchesCurrentRequest(quoteParams) else { return }
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
                                         baseAssetId: firstAssetId,
                                         targetAssetId: secondAssetId,
@@ -474,7 +465,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
 
 extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     func didCheckPath(fromAssetId: String, toAssetId: String, isAvailable: Bool) {
-        guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
+        guard fromAssetId == firstAssetId, toAssetId == secondAssetId,
+              !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
 
         if !isAvailable {
             view?.setupButton(isEnabled: false)
@@ -485,7 +477,8 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     }
     
     func didLoadMarketSources(_ serverMarketSources: [String], fromAssetId: String, toAssetId: String) {
-        guard !firstAssetId.isEmpty, !secondAssetId.isEmpty, let marketSourcer = marketSourcer else { return }
+        guard fromAssetId == firstAssetId, toAssetId == secondAssetId,
+              !firstAssetId.isEmpty, !secondAssetId.isEmpty, let marketSourcer = marketSourcer else { return }
 
         marketSourcer.didLoad(serverMarketSources)
         view?.setupMarketButton(isLoadingState: false)
@@ -494,12 +487,14 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     }
     
     func didLoadQuote(_ quote: SwapValues?, dexId: UInt32, params: PolkaswapMainInteractorQuoteParams) {
+        guard matchesCurrentRequest(params) else { return }
         guard updateButtonState()  else {
             view?.update(isNeedLoadingState: false)
             return
         }
 
         guard let quote = quote else {
+            invalidateQuote()
             view?.setupButton(isEnabled: false)
             view?.update(isNeedLoadingState: false)
             view?.updateReviewButton(title: R.string.localizable.polkaswapNoSuchPool(preferredLanguages: .currentLocale))
@@ -540,15 +535,14 @@ extension SwapViewModel: AssetProviderObserverProtocol {
 extension SwapViewModel {
     
     func updateAssetsBalance() {
-        if !firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first {
-            self.firstAssetBalance = firstAssetBalance
-        }
-        
-        if !secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [secondAssetId]).first {
-            self.secondAssetBalance = secondAssetBalance
-        }
+        firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId])
+            .first(where: { $0.identifier == firstAssetId && !$0.isUnavailable })
+            ?? BalanceData(identifier: firstAssetId, balance: AmountDecimal(value: 0))
+        secondAssetBalance = assetsProvider?.getBalances(with: [secondAssetId])
+            .first(where: { $0.identifier == secondAssetId && !$0.isUnavailable })
+            ?? BalanceData(identifier: secondAssetId, balance: AmountDecimal(value: 0))
     }
-    
+
     func setupFullBalanceText(from balanceData: BalanceData) -> String {
         let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
         var fiatBalanceText = ""
@@ -583,12 +577,22 @@ extension SwapViewModel {
         // amounts: they are read on the side and filled in when they arrive,
         // so a slow or failed price read never holds Review back.
         loadFiatData()
+        let revision = UUID()
+        quoteRevision = revision
+        let expectedVariant = swapVariant
+        let expectedSlippage = slippageTolerance
+        let expectedMarket = selectedMarket
 
         // On the main actor, like the price task beside it: the two change
         // the same texts and details and must not do so at the same time.
         Task { @MainActor [weak self] in
             guard let self else { return }
             let fee = await self.feeProvider.getFee(for: .swap)
+            guard self.quoteRevision == revision,
+                  self.swapVariant == expectedVariant,
+                  self.slippageTolerance == expectedSlippage,
+                  self.selectedMarket == expectedMarket,
+                  params.map(self.matchesCurrentRequest) ?? true else { return }
             // The balances are read again on every update, as they were
             // when the prices were set at this point.
             self.updateAssetsBalance()
@@ -667,7 +671,29 @@ extension SwapViewModel {
         }
     }
 
+    private func matchesCurrentRequest(_ params: PolkaswapMainInteractorQuoteParams) -> Bool {
+        let id = swapVariant == .desiredInput ? firstAssetId : secondAssetId
+        let amount = swapVariant == .desiredInput ? inputedFirstAmount : inputedSecondAmount
+        guard params.fromAssetId == firstAssetId, params.toAssetId == secondAssetId,
+              firstAssetId != secondAssetId, params.swapVariant == swapVariant,
+              amount > 0, let asset = assetManager?.assetInfo(for: id),
+              let precision = Int16(exactly: asset.precision),
+              let raw = amount.toSubstrateAmount(precision: precision) else { return false }
+        return params.amount == String(raw)
+    }
+
+    private func invalidateQuote() {
+        quoteRevision = UUID()
+        quote = nil
+        quoteParams = nil
+        amounts = nil
+        slippageLimit = 0
+        details = []
+        view?.setupButton(isEnabled: false)
+    }
+
     func loadQuote() {
+        invalidateQuote()
         view?.updateReviewButton(title: R.string.localizable.review(preferredLanguages: .currentLocale))
 
         let amountValue: Decimal
@@ -714,7 +740,7 @@ extension SwapViewModel {
     }
     
     func updateButtonState() -> Bool {
-        guard !firstAssetId.isEmpty && !secondAssetId.isEmpty else {
+        guard !firstAssetId.isEmpty && !secondAssetId.isEmpty && firstAssetId != secondAssetId else {
             view?.setupButton(isEnabled: false)
             return false
         }
@@ -724,10 +750,10 @@ extension SwapViewModel {
             return false
         }
 
-        if swapVariant == .desiredInput && inputedFirstAmount == 0.0 {
+        if swapVariant == .desiredInput && !(inputedFirstAmount > 0) {
             view?.setupButton(isEnabled: false)
             return false
-        } else if swapVariant == .desiredOutput && inputedSecondAmount == 0.0 {
+        } else if swapVariant == .desiredOutput && !(inputedSecondAmount > 0) {
             view?.setupButton(isEnabled: false)
             return false
         }

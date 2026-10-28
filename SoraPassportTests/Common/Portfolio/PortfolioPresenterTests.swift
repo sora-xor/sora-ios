@@ -1,8 +1,9 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 @testable import SoraPassport
 import XCTest
+import UIKit
 
 final class PortfolioMemorySlots: PortfolioSlotStoring {
     var store: [String: [String: Int]] = [:]
@@ -316,5 +317,139 @@ final class PortfolioViewModelTests: XCTestCase {
         // Only a send without a token, recipient or amount leaves the network choice to the Wallet tab.
         XCTAssertTrue(PortfolioHandoff.send(assetId: nil, recipient: nil, amount: nil).isPlainSend)
         XCTAssertFalse(PortfolioHandoff.send(assetId: "XOR", recipient: nil, amount: nil).isPlainSend)
+    }
+}
+
+final class PortfolioAmountParsingTests: XCTestCase {
+    func testUngroupedAmountsRoundTripAcrossDecimalSeparatorsAndDigits() throws {
+        for identifier in ["en_US", "de_DE", "fr_FR", "ar_SA"] {
+            let locale = Locale(identifier: identifier)
+            for raw in ["0", "1.25", "0.000000000000000001", "9007199254740993"] {
+                let amount = try XCTUnwrap(Decimal(string: raw))
+                let text = PortfolioFormat.plain(amount, maxFraction: 18, locale: locale)
+                XCTAssertEqual(PortfolioFormat.parseAmount(text, locale: locale), amount, "\(identifier): \(text)")
+            }
+        }
+    }
+
+    func testMalformedAndGroupedAmountsNeverBecomeAPartialNumber() {
+        let english = Locale(identifier: "en_US")
+        for raw in ["", ".", "1..2", "1.2.3", "1,000", "1,25", "1e2", "1XOR", "1 2", "NaN", "-1", "+1"] {
+            XCTAssertNil(PortfolioFormat.parseAmount(raw, locale: english), raw)
+        }
+        let german = Locale(identifier: "de_DE")
+        for raw in ["1.5", "1.234,5", "1,,2", "1,2,3"] {
+            XCTAssertNil(PortfolioFormat.parseAmount(raw, locale: german), raw)
+        }
+    }
+
+    func testLocaleParsingPreservesCanonicalValueWithoutSilentPrecisionLoss() {
+        let locale = Locale(identifier: "en_US")
+        XCTAssertEqual(PortfolioFormat.parseAmount(" 0001.2500\n", locale: locale), Decimal(string: "1.25"))
+        XCTAssertEqual(PortfolioFormat.parseAmount(".5", locale: locale), Decimal(string: "0.5"))
+        XCTAssertEqual(PortfolioFormat.parseAmount("1.", locale: locale), 1)
+        XCTAssertNil(PortfolioFormat.parseAmount("123456789012345678901234567890123456789012345678901", locale: locale))
+    }
+
+    func testArabicDecimalDigitsAreAcceptedWithTheirDecimalSeparator() {
+        XCTAssertEqual(PortfolioFormat.parseAmount("١٢٫٥", locale: Locale(identifier: "ar_SA")), Decimal(string: "12.5"))
+        XCTAssertNil(PortfolioFormat.parseAmount("Ⅻ", locale: Locale(identifier: "ar_SA")))
+    }
+
+    func testHalfCentNeverDisplaysAsAZeroBalance() {
+        let saved = PortfolioFormat.locale
+        defer { PortfolioFormat.locale = saved }
+        PortfolioFormat.locale = Locale(identifier: "en_US")
+        XCTAssertEqual(PortfolioFormat.fiat(0), "$0.00")
+        XCTAssertEqual(PortfolioFormat.fiat(Decimal(string: "0.005")!), "<$0.01")
+        XCTAssertEqual(PortfolioFormat.fiat(Decimal(string: "0.0051")!), "$0.01")
+        let parts = PortfolioFormat.fiatParts(Decimal(string: "0.005")!)
+        XCTAssertEqual(parts.whole, "<$0.01")
+        XCTAssertEqual(parts.fraction, "")
+    }
+
+    func testFlatPercentMatchesBankersRoundingAtTheHalfStep() {
+        XCTAssertTrue(PortfolioFormat.isFlat(nil))
+        for raw in ["0", "0.0049", "0.005", "-0.005"] {
+            XCTAssertTrue(PortfolioFormat.isFlat(Decimal(string: raw)), raw)
+        }
+        for raw in ["0.0051", "-0.0051"] {
+            XCTAssertFalse(PortfolioFormat.isFlat(Decimal(string: raw)), raw)
+        }
+    }
+}
+
+@MainActor
+final class PortfolioMoveSheetInputTests: XCTestCase {
+    func testRepeatedDecimalSeparatorsDisableReviewInsteadOfSendingThePrefix() throws {
+        let (sheet, field, button) = try makeSheet(locale: Locale(identifier: "en_US"))
+        defer { withExtendedLifetime(sheet) {} }
+        var reviews = 0
+        sheet.onReview = { _, _ in reviews += 1 }
+        for raw in ["1..2", "1.2.3", "1,25", "1e2"] {
+            field.text = raw
+            field.sendActions(for: .editingChanged)
+            XCTAssertFalse(button.isEnabled, raw)
+        }
+        XCTAssertEqual(reviews, 0)
+    }
+
+    func testLocalizedAmountIsHandedToSendExactly() throws {
+        let (sheet, field, button) = try makeSheet(locale: Locale(identifier: "de_DE"))
+        defer { withExtendedLifetime(sheet) {} }
+        var reviews: [PortfolioAmountChoice?] = []
+        sheet.onReview = { destination, amount in
+            XCTAssertEqual(destination.walletId, "B")
+            reviews.append(amount)
+        }
+        field.text = "1,25"
+        field.sendActions(for: .editingChanged)
+        XCTAssertTrue(button.isEnabled)
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(reviews, [.exact(Decimal(string: "1.25")!)])
+        field.text = "1.5"
+        field.sendActions(for: .editingChanged)
+        XCTAssertFalse(button.isEnabled, "A foreign separator must not silently turn 1.5 into 15")
+    }
+
+    func testAmountMustBePositiveAndWithinTransferableBalance() throws {
+        let (sheet, field, button) = try makeSheet(locale: Locale(identifier: "en_US"))
+        defer { withExtendedLifetime(sheet) {} }
+        for raw in ["0", "10.000000000000000001"] {
+            field.text = raw
+            field.sendActions(for: .editingChanged)
+            XCTAssertFalse(button.isEnabled, raw)
+        }
+        field.text = "10"
+        field.sendActions(for: .editingChanged)
+        XCTAssertTrue(button.isEnabled)
+    }
+
+    func testArabicKeyboardDigitsAreAcceptedAndPreservedInTheHandoff() throws {
+        let (sheet, field, button) = try makeSheet(locale: Locale(identifier: "ar_SA"))
+        defer { withExtendedLifetime(sheet) {} }
+        XCTAssertTrue(sheet.textField(field, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "١٫٢٥"))
+        var amount: PortfolioAmountChoice?
+        sheet.onReview = { _, choice in amount = choice }
+        field.text = "١٫٢٥"
+        field.sendActions(for: .editingChanged)
+        XCTAssertTrue(button.isEnabled)
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(amount, .exact(Decimal(string: "1.25")!))
+    }
+
+    private func makeSheet(locale: Locale) throws -> (PortfolioMoveSheet, UITextField, PortfolioPrimaryButton) {
+        let sheet = PortfolioMoveSheet(title: "Move")
+        sheet.amountLocale = locale
+        sheet.holding = PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.xor, "20", transferable: "10")
+        sheet.destinations = [.init(walletId: "B", name: "Beta", address: "destination")]
+        sheet.loadViewIfNeeded()
+        let views = descendants(sheet.view)
+        return (sheet, try XCTUnwrap(views.compactMap { $0 as? UITextField }.first),
+                try XCTUnwrap(views.compactMap { $0 as? PortfolioPrimaryButton }.first))
+    }
+
+    private func descendants(_ view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + descendants($0) }
     }
 }

@@ -453,7 +453,7 @@ final class RetainedMigrationEvidenceHarness {
     }
 }
 
-private extension RetainedMigrationEvidenceHarness {
+extension RetainedMigrationEvidenceHarness {
     enum EvidenceCaseKind: String, Codable {
         case keychain
         case device
@@ -741,6 +741,9 @@ private extension RetainedMigrationEvidenceHarness {
         }
     }
 
+}
+
+extension RetainedMigrationEvidenceHarness {
     struct StateTransition: Codable {
         let sequence: Int
         let launchCount: Int
@@ -779,6 +782,9 @@ private extension RetainedMigrationEvidenceHarness {
         var stateAuthenticationHmacSha256: String
     }
 
+}
+
+private extension RetainedMigrationEvidenceHarness {
     struct ActiveContext {
         let request: AuthorizationRequest
         let requestData: Data
@@ -1051,7 +1057,7 @@ private extension RetainedMigrationEvidenceHarness {
                 maximumBytes: Self.maximumStateBytes,
                 label: "harness state"
             )
-            state = try loadState(
+            state = try Self.loadState(
                 stateBytes,
                 request: request,
                 requestSha: requestSha,
@@ -1141,6 +1147,9 @@ private extension RetainedMigrationEvidenceHarness {
         return active
     }
 
+}
+
+extension RetainedMigrationEvidenceHarness {
     func verifyAuthorizationSignature(
         requestData: Data,
         signatureData: Data,
@@ -1188,86 +1197,10 @@ private extension RetainedMigrationEvidenceHarness {
     }
 }
 
-private extension RetainedMigrationEvidenceHarness {
-    func transition(
-        _ active: inout ActiveContext,
-        phase: String,
-        kind: String,
-        checkpoint: String?,
-        now: Int64 = Int64(Date().timeIntervalSince1970.rounded(.down))
-    ) throws {
-        guard
-            Self.isSafeIdentifier(kind),
-            Self.isSafeIdentifier(phase),
-            active.state.transitions.count < 128
-        else {
-            throw HarnessError.stateFailure
-        }
-        let previousSha = active.stateBytes.isEmpty
-            ? nil
-            : Self.sha256Hex(active.stateBytes)
-        active.state.previousStateSha256 = previousSha
-        active.state.phase = phase
-        active.state.transitions.append(
-            StateTransition(
-                sequence: active.state.transitions.count + 1,
-                launchCount: active.state.launchCount,
-                kind: kind,
-                checkpoint: checkpoint,
-                occurredAtEpochSeconds: now,
-                previousStateSha256: previousSha
-            )
-        )
-        try writeState(&active)
-    }
-
-    func rewriteCurrentState(
-        _ active: inout ActiveContext,
-        phase: String
-    ) throws {
-        let previousSha = Self.sha256Hex(active.stateBytes)
-        active.state.previousStateSha256 = previousSha
-        active.state.phase = phase
-        try writeState(&active)
-    }
-
-    func writeState(_ active: inout ActiveContext) throws {
-        active.state.stateAuthenticationHmacSha256 = ""
-        let authenticatedPayload = try StrictEvidenceJSON.canonicalData(
-            encodable: active.state,
-            maximumBytes: Self.maximumStateBytes
-        )
-        let authenticationCode = HMAC<SHA256>.authenticationCode(
-            for: authenticatedPayload,
-            using: active.stateAuthenticationKey
-        )
-        active.state.stateAuthenticationHmacSha256 = Self.lowerHex(
-            Data(authenticationCode)
-        )
-        let bytes = try StrictEvidenceJSON.canonicalData(
-            encodable: active.state,
-            maximumBytes: Self.maximumStateBytes
-        )
-        let url = active.directory.appendingPathComponent(Self.stateFileName)
-        try DurableFileWriter.write(
-            bytes,
-            to: url,
-            fileManager: .default,
-            protection: .complete
-        )
-        let retained = try Self.readStableRegularFile(
-            url,
-            maximumBytes: Self.maximumStateBytes,
-            label: "harness state"
-        )
-        guard retained == bytes else {
-            throw HarnessError.stateFailure
-        }
-        try requireCompleteProtection(url)
-        active.stateBytes = bytes
-    }
-
-    func loadState(
+// Pure authenticated-state validation is shared with isolated regression tests.
+// It does not read or write the app container, Keychain, or harness context.
+extension RetainedMigrationEvidenceHarness {
+    static func loadState(
         _ data: Data,
         request: AuthorizationRequest,
         requestSha: String,
@@ -1413,6 +1346,87 @@ private extension RetainedMigrationEvidenceHarness {
         return state
     }
 
+}
+
+private extension RetainedMigrationEvidenceHarness {
+    func transition(
+        _ active: inout ActiveContext,
+        phase: String,
+        kind: String,
+        checkpoint: String?,
+        now: Int64 = Int64(Date().timeIntervalSince1970.rounded(.down))
+    ) throws {
+        guard
+            Self.isSafeIdentifier(kind),
+            Self.isSafeIdentifier(phase),
+            active.state.transitions.count < 128
+        else {
+            throw HarnessError.stateFailure
+        }
+        let previousSha = active.stateBytes.isEmpty
+            ? nil
+            : Self.sha256Hex(active.stateBytes)
+        active.state.previousStateSha256 = previousSha
+        active.state.phase = phase
+        active.state.transitions.append(
+            StateTransition(
+                sequence: active.state.transitions.count + 1,
+                launchCount: active.state.launchCount,
+                kind: kind,
+                checkpoint: checkpoint,
+                occurredAtEpochSeconds: now,
+                previousStateSha256: previousSha
+            )
+        )
+        try writeState(&active)
+    }
+
+    func rewriteCurrentState(
+        _ active: inout ActiveContext,
+        phase: String
+    ) throws {
+        let previousSha = Self.sha256Hex(active.stateBytes)
+        active.state.previousStateSha256 = previousSha
+        active.state.phase = phase
+        try writeState(&active)
+    }
+
+    func writeState(_ active: inout ActiveContext) throws {
+        active.state.stateAuthenticationHmacSha256 = ""
+        let authenticatedPayload = try StrictEvidenceJSON.canonicalData(
+            encodable: active.state,
+            maximumBytes: Self.maximumStateBytes
+        )
+        let authenticationCode = HMAC<SHA256>.authenticationCode(
+            for: authenticatedPayload,
+            using: active.stateAuthenticationKey
+        )
+        active.state.stateAuthenticationHmacSha256 = Self.lowerHex(
+            Data(authenticationCode)
+        )
+        let bytes = try StrictEvidenceJSON.canonicalData(
+            encodable: active.state,
+            maximumBytes: Self.maximumStateBytes
+        )
+        let url = active.directory.appendingPathComponent(Self.stateFileName)
+        try DurableFileWriter.write(
+            bytes,
+            to: url,
+            fileManager: .default,
+            protection: .complete
+        )
+        let retained = try Self.readStableRegularFile(
+            url,
+            maximumBytes: Self.maximumStateBytes,
+            label: "harness state"
+        )
+        guard retained == bytes else {
+            throw HarnessError.stateFailure
+        }
+        try requireCompleteProtection(url)
+        active.stateBytes = bytes
+    }
+
     func finalize(route: RetainedMigrationEvidenceApplicationRoute) {
         lock.lock()
         guard var active = context,
@@ -1423,107 +1437,12 @@ private extension RetainedMigrationEvidenceHarness {
         do {
             let after = try KeychainSnapshot.capture()
             let comparison = active.baselineKeychain.compare(with: after)
-            let caseValue = active.request.evidenceCase
-            let recoveryEntered = route == .recovery
-            let routeMatches: Bool
-            if let recoveryExpected = caseValue.recoveryExpected {
-                routeMatches = recoveryExpected == recoveryEntered &&
-                    (recoveryExpected || route.isSuccessfulWalletRoute)
-            } else if caseValue.interruptionCheckpoint != nil {
-                let checkpointObserved =
-                    active.state.checkpointSequence.contains(
-                        caseValue.interruptionCheckpoint!.rawValue
-                    )
-                if caseValue == .interruptionBeforeSecretRetention {
-                    routeMatches = checkpointObserved &&
-                        !recoveryEntered && route.isSuccessfulWalletRoute
-                } else {
-                    routeMatches = checkpointObserved && recoveryEntered
-                }
-            } else {
-                routeMatches = true
-            }
-            let processRestartMatches =
-                caseValue != .processDeathRestart ||
-                (
-                    active.state.launchCount >= 2 &&
-                    active.state.checkpointSequence.contains(
-                        RetainedMigrationEvidenceCheckpoint
-                            .afterCoreDataCommit.rawValue
-                    )
-                )
-            let rollbackMatches =
-                caseValue != .rollback ||
-                (
-                    active.state.rollbackInjectionObserved &&
-                    active.state.rollbackRestorationVerified &&
-                    active.state.rollbackBeforeStoreTreeSha256 != nil &&
-                    active.state.rollbackReplacementStoreTreeSha256 != nil &&
-                    active.state.rollbackBeforeStoreTreeSha256 !=
-                        active.state.rollbackReplacementStoreTreeSha256 &&
-                    active.state.rollbackRestoredStoreTreeSha256 ==
-                        active.state.rollbackBeforeStoreTreeSha256
-                )
-            let beforeSecretRetentionMatches =
-                caseValue != .interruptionBeforeSecretRetention ||
-                (
-                    comparison.identifierSetUnchanged &&
-                    comparison.valuesByteForByteUnchanged &&
-                    comparison.accessibilityUnchanged &&
-                    !comparison.credentialRewriteObserved
-                )
-            let lowStorageMatches =
-                caseValue != .lowStorage ||
-                active.state.lowStorageConditionObserved == true
-            let deviceActionMatches =
-                (caseValue != .recoveryArchiveExport ||
-                    active.state.recoveryArchiveExportVerified) &&
-                processRestartMatches && rollbackMatches &&
-                beforeSecretRetentionMatches && lowStorageMatches
-
-            let expectedSigning = caseValue.signingExpected
-            let observedExpected = active.state.signingExpectedObserved
-            let observedSucceeded = active.state.signingSucceededObserved
-            let behaviorPassed: Bool
-            if let expectedSigning {
-                if expectedSigning {
-                    behaviorPassed =
-                        active.state.credentialBehaviorProbePassed == true &&
-                        observedExpected == true &&
-                        observedSucceeded == true
-                } else if caseValue == .watchOnly {
-                    behaviorPassed =
-                        active.state.credentialBehaviorProbePassed == true &&
-                        observedExpected == false &&
-                        observedSucceeded == false
-                } else {
-                    // Missing/corrupt material must reach recovery without a
-                    // successful signature. The production validator's
-                    // rejection plus unchanged Keychain bytes is the bounded
-                    // behavior probe for these failure cohorts.
-                    behaviorPassed = recoveryEntered &&
-                        observedSucceeded != true
-                }
-            } else {
-                behaviorPassed = true
-            }
-
-            let keychainPassed = comparison.identifierSetUnchanged &&
-                comparison.valuesByteForByteUnchanged &&
-                comparison.accessibilityUnchanged &&
-                !comparison.credentialRewriteObserved &&
-                behaviorPassed
-            let outcome: String
-            if active.request.caseKind == .keychain {
-                outcome = routeMatches && keychainPassed ? "passed" : "failed"
-            } else {
-                // Device assertions are independently derived by the outer
-                // controller from protected app-container and devicectl raw
-                // receipts. The app records only the facts it directly saw.
-                outcome = routeMatches && deviceActionMatches
-                    ? "observed"
-                    : "failed"
-            }
+            let (outcome, behaviorPassed, recoveryEntered) = Self.evaluateObservation(
+                request: active.request,
+                state: active.state,
+                route: route,
+                comparison: comparison
+            )
 
             try transition(
                 &active,
@@ -1532,8 +1451,11 @@ private extension RetainedMigrationEvidenceHarness {
                 checkpoint: route.rawValue
             )
             let stateSha = Self.sha256Hex(active.stateBytes)
-            let receipt = try makeReceipt(
-                active: active,
+            let receipt = try Self.makeReceipt(
+                request: active.request,
+                requestSha256: active.requestSha256,
+                state: active.state,
+                finishedAtEpochSeconds: Int64(Date().timeIntervalSince1970.rounded(.down)),
                 stateSha256: stateSha,
                 route: route,
                 outcome: outcome,
@@ -1598,8 +1520,125 @@ private extension RetainedMigrationEvidenceHarness {
         }
     }
 
-    func makeReceipt(
-        active: ActiveContext,
+}
+
+extension RetainedMigrationEvidenceHarness {
+    static func evaluateObservation(
+        request: AuthorizationRequest,
+        state: HarnessState,
+        route: RetainedMigrationEvidenceApplicationRoute,
+        comparison: KeychainComparison
+    ) -> (outcome: String, behaviorPassed: Bool, recoveryEntered: Bool) {
+        let caseValue = request.evidenceCase
+        let recoveryEntered = route == .recovery
+        let routeMatches: Bool
+        if let recoveryExpected = caseValue.recoveryExpected {
+            routeMatches = recoveryExpected == recoveryEntered &&
+                (recoveryExpected || route.isSuccessfulWalletRoute)
+        } else if caseValue.interruptionCheckpoint != nil {
+            let checkpointObserved =
+                state.checkpointSequence.contains(
+                    caseValue.interruptionCheckpoint!.rawValue
+                )
+            if caseValue == .interruptionBeforeSecretRetention {
+                routeMatches = checkpointObserved &&
+                    !recoveryEntered && route.isSuccessfulWalletRoute
+            } else {
+                routeMatches = checkpointObserved && recoveryEntered
+            }
+        } else {
+            routeMatches = true
+        }
+        let processRestartMatches =
+            caseValue != .processDeathRestart ||
+            (
+                state.launchCount >= 2 &&
+                state.checkpointSequence.contains(
+                    RetainedMigrationEvidenceCheckpoint
+                        .afterCoreDataCommit.rawValue
+                )
+            )
+        let rollbackMatches =
+            caseValue != .rollback ||
+            (
+                state.rollbackInjectionObserved &&
+                state.rollbackRestorationVerified &&
+                state.rollbackBeforeStoreTreeSha256 != nil &&
+                state.rollbackReplacementStoreTreeSha256 != nil &&
+                state.rollbackBeforeStoreTreeSha256 !=
+                    state.rollbackReplacementStoreTreeSha256 &&
+                state.rollbackRestoredStoreTreeSha256 ==
+                    state.rollbackBeforeStoreTreeSha256
+            )
+        let beforeSecretRetentionMatches =
+            caseValue != .interruptionBeforeSecretRetention ||
+            (
+                comparison.identifierSetUnchanged &&
+                comparison.valuesByteForByteUnchanged &&
+                comparison.accessibilityUnchanged &&
+                !comparison.credentialRewriteObserved
+            )
+        let lowStorageMatches =
+            caseValue != .lowStorage ||
+            state.lowStorageConditionObserved == true
+        let deviceActionMatches =
+            (caseValue != .recoveryArchiveExport ||
+                state.recoveryArchiveExportVerified) &&
+            processRestartMatches && rollbackMatches &&
+            beforeSecretRetentionMatches && lowStorageMatches
+
+        let expectedSigning = caseValue.signingExpected
+        let observedExpected = state.signingExpectedObserved
+        let observedSucceeded = state.signingSucceededObserved
+        let behaviorPassed: Bool
+        if let expectedSigning {
+            if expectedSigning {
+                behaviorPassed =
+                    state.credentialBehaviorProbePassed == true &&
+                    observedExpected == true &&
+                    observedSucceeded == true
+            } else if caseValue == .watchOnly {
+                behaviorPassed =
+                    state.credentialBehaviorProbePassed == true &&
+                    observedExpected == false &&
+                    observedSucceeded == false
+            } else {
+                // Missing/corrupt material must reach recovery without a
+                // successful signature. The production validator's
+                // rejection plus unchanged Keychain bytes is the bounded
+                // behavior probe for these failure cohorts.
+                behaviorPassed = recoveryEntered &&
+                    observedSucceeded != true
+            }
+        } else {
+            behaviorPassed = true
+        }
+
+        let keychainPassed = comparison.identifierSetUnchanged &&
+            comparison.valuesByteForByteUnchanged &&
+            comparison.accessibilityUnchanged &&
+            !comparison.credentialRewriteObserved &&
+            behaviorPassed
+        let outcome: String
+        if request.caseKind == .keychain {
+            outcome = routeMatches && keychainPassed ? "passed" : "failed"
+        } else {
+            // Device assertions are independently derived by the outer
+            // controller from protected app-container and devicectl raw
+            // receipts. The app records only the facts it directly saw.
+            outcome = routeMatches && deviceActionMatches
+                ? "observed"
+                : "failed"
+        }
+
+        return (outcome, behaviorPassed, recoveryEntered)
+    }
+
+    static func makeReceipt(
+        request: AuthorizationRequest,
+        requestSha256: String,
+        state: HarnessState,
+        finishedAtEpochSeconds: Int64,
         stateSha256: String,
         route: RetainedMigrationEvidenceApplicationRoute,
         outcome: String,
@@ -1607,10 +1646,10 @@ private extension RetainedMigrationEvidenceHarness {
         behaviorPassed: Bool,
         recoveryEntered: Bool
     ) throws -> [String: Any] {
-        let started = active.state.transitions.first?
+        let started = state.transitions.first?
             .occurredAtEpochSeconds ??
-            Int64(Date().timeIntervalSince1970.rounded(.down))
-        let finished = Int64(Date().timeIntervalSince1970.rounded(.down))
+            finishedAtEpochSeconds
+        let finished = finishedAtEpochSeconds
         var receipt: [String: Any] = [
             "schemaVersion": 3,
             "contractId":
@@ -1618,40 +1657,40 @@ private extension RetainedMigrationEvidenceHarness {
             "platform": "ios",
             "status": "observed",
             "releaseAuthorized": false,
-            "authorizationId": active.request.authorizationId,
-            "authorizationKeyId": active.request.authorizationKeyId,
-            "authorizationRequestSha256": active.requestSha256,
-            "runId": active.request.runId,
-            "runChallengeSha256": active.request.runChallengeSha256,
-            "sourceRevision": active.request.sourceRevision,
+            "authorizationId": request.authorizationId,
+            "authorizationKeyId": request.authorizationKeyId,
+            "authorizationRequestSha256": requestSha256,
+            "runId": request.runId,
+            "runChallengeSha256": request.runChallengeSha256,
+            "sourceRevision": request.sourceRevision,
             "qualificationContractSha256":
-                active.request.qualificationContractSha256,
-            "productionIpaSha256": active.request.productionIpaSha256,
+                request.qualificationContractSha256,
+            "productionIpaSha256": request.productionIpaSha256,
             "installedAppRawTreeSha256":
-                active.request.installedAppRawTreeSha256,
+                request.installedAppRawTreeSha256,
             "installedExecutableSha256":
-                active.request.installedExecutableSha256,
+                request.installedExecutableSha256,
             "productionCanonicalProjectionSha256":
-                active.request.productionCanonicalProjectionSha256,
+                request.productionCanonicalProjectionSha256,
             "installedCanonicalProjectionSha256":
-                active.request.installedCanonicalProjectionSha256,
+                request.installedCanonicalProjectionSha256,
             "canonicalProjectionReceiptSha256":
-                active.request.canonicalProjectionReceiptSha256,
+                request.canonicalProjectionReceiptSha256,
             "canonicalProjectorSourceSha256":
-                active.request.canonicalProjectorSourceSha256,
+                request.canonicalProjectorSourceSha256,
             "preparedWalletInputTreeSha256":
-                active.request.preparedWalletInputTreeSha256,
-            "caseKind": active.request.caseKind.rawValue,
-            "caseId": active.request.evidenceCase.rawValue,
+                request.preparedWalletInputTreeSha256,
+            "caseKind": request.caseKind.rawValue,
+            "caseId": request.evidenceCase.rawValue,
             "outcome": outcome,
             "startedAtEpochSeconds": started,
             "finishedAtEpochSeconds": finished,
-            "launchCount": active.state.launchCount,
+            "launchCount": state.launchCount,
             "harnessStateSha256": stateSha256,
-            "checkpointSequence": active.state.checkpointSequence,
+            "checkpointSequence": state.checkpointSequence,
             "applicationRoute": route.rawValue,
         ]
-        if active.request.caseKind == .keychain {
+        if request.caseKind == .keychain {
             receipt["keychainObservation"] = [
                 "identifierSetUnchanged":
                     comparison.identifierSetUnchanged,
@@ -1663,50 +1702,50 @@ private extension RetainedMigrationEvidenceHarness {
                     comparison.credentialRewriteObserved,
                 "credentialBehaviorProbePassed": behaviorPassed,
                 "signingExpected":
-                    active.request.evidenceCase.signingExpected ?? false,
+                    request.evidenceCase.signingExpected ?? false,
                 "signingSucceeded":
-                    active.state.signingSucceededObserved ?? false,
+                    state.signingSucceededObserved ?? false,
                 "recoveryRouteEntered": recoveryEntered,
             ]
         } else {
             var observation: [String: Any] = [
                 "recoveryRouteEntered": recoveryEntered,
                 "recoveryArchiveExportVerified":
-                    active.state.recoveryArchiveExportVerified,
+                    state.recoveryArchiveExportVerified,
                 "processDeathRestartObserved":
-                    active.request.evidenceCase == .processDeathRestart &&
-                    active.state.launchCount >= 2 &&
-                    active.state.checkpointSequence.contains(
+                    request.evidenceCase == .processDeathRestart &&
+                    state.launchCount >= 2 &&
+                    state.checkpointSequence.contains(
                         RetainedMigrationEvidenceCheckpoint
                             .afterCoreDataCommit.rawValue
                     ),
                 "controllerValidationRequired": true,
             ]
-            if active.request.evidenceCase == .rollback {
+            if request.evidenceCase == .rollback {
                 guard
                     let before =
-                        active.state.rollbackBeforeStoreTreeSha256,
+                        state.rollbackBeforeStoreTreeSha256,
                     let replacement =
-                        active.state.rollbackReplacementStoreTreeSha256,
+                        state.rollbackReplacementStoreTreeSha256,
                     let restored =
-                        active.state.rollbackRestoredStoreTreeSha256
+                        state.rollbackRestoredStoreTreeSha256
                 else {
                     throw HarnessError.stateFailure
                 }
                 observation["rollbackInjectionObserved"] =
-                    active.state.rollbackInjectionObserved
+                    state.rollbackInjectionObserved
                 observation["rollbackRestorationVerified"] =
-                    active.state.rollbackRestorationVerified
+                    state.rollbackRestorationVerified
                 observation["rollbackBeforeStoreTreeSha256"] = before
                 observation["rollbackReplacementStoreTreeSha256"] =
                     replacement
                 observation["rollbackRestoredStoreTreeSha256"] = restored
             }
-            if active.request.evidenceCase == .lowStorage {
+            if request.evidenceCase == .lowStorage {
                 observation["lowStorageConditionObserved"] =
-                    active.state.lowStorageConditionObserved == true
+                    state.lowStorageConditionObserved == true
             }
-            if active.request.evidenceCase ==
+            if request.evidenceCase ==
                 .interruptionBeforeSecretRetention {
                 observation["retainedKeychainIdentifierSetUnchanged"] =
                     comparison.identifierSetUnchanged
@@ -1721,7 +1760,7 @@ private extension RetainedMigrationEvidenceHarness {
     }
 }
 
-private extension RetainedMigrationEvidenceHarness {
+extension RetainedMigrationEvidenceHarness {
     struct KeychainRecord: Codable, Equatable {
         let applicationTag: Data
         let value: Data
@@ -1741,6 +1780,11 @@ private extension RetainedMigrationEvidenceHarness {
             ]
             var result: CFTypeRef?
             let status = SecItemCopyMatching(query as CFDictionary, &result)
+            return try parse(status: status, result: result)
+        }
+
+        /// Interprets Security.framework's result without changing or fetching keys.
+        static func parse(status: OSStatus, result: CFTypeRef?) throws -> KeychainSnapshot {
             if status == errSecItemNotFound {
                 return KeychainSnapshot(records: [])
             }
@@ -1843,6 +1887,9 @@ private extension RetainedMigrationEvidenceHarness {
         let credentialRewriteObserved: Bool
     }
 
+}
+
+private extension RetainedMigrationEvidenceHarness {
     func writeSealedKeychainBaseline(
         _ snapshot: KeychainSnapshot,
         at url: URL,
@@ -1964,7 +2011,7 @@ private extension RetainedMigrationEvidenceHarness {
     }
 }
 
-private enum StrictEvidenceJSON {
+enum StrictEvidenceJSON {
     static func object(
         fromCanonicalData data: Data,
         maximumBytes: Int,
@@ -2053,7 +2100,10 @@ private enum StrictEvidenceJSON {
             throw RetainedMigrationEvidenceHarness.HarnessError
                 .invalidAuthorization
         }
-        return number.int64Value
+        guard let integer = Int64(number.stringValue) else {
+            throw RetainedMigrationEvidenceHarness.HarnessError.invalidAuthorization
+        }
+        return integer
     }
 
     private static func validate(_ value: Any, depth: Int) throws {
@@ -2171,6 +2221,9 @@ private extension RetainedMigrationEvidenceHarness {
         }
     }
 
+}
+
+extension RetainedMigrationEvidenceHarness {
     static func requireVerifiedRecoveryArchive(_ url: URL) throws {
         guard
             let caches = FileManager.default.urls(
@@ -2221,15 +2274,18 @@ private extension RetainedMigrationEvidenceHarness {
             opened.st_size > 0,
             opened.st_size <= 2 * 1_024 * 1_024 * 1_024,
             stableIdentity(opened, named),
-            let protection = try FileManager.default
-                .attributesOfItem(atPath: standardized.path)[.protectionKey]
-                as? FileProtectionType,
+            let protection = FileProtectionMetadata.normalized(
+                try FileManager.default.attributesOfItem(atPath: standardized.path)[.protectionKey]
+            ),
             protection == .complete
         else {
             throw HarnessError.identityMismatch
         }
     }
 
+}
+
+private extension RetainedMigrationEvidenceHarness {
     static func evidenceDirectoryURL() throws -> URL {
         guard let applicationSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
@@ -2252,6 +2308,9 @@ private extension RetainedMigrationEvidenceHarness {
         return directory
     }
 
+}
+
+extension RetainedMigrationEvidenceHarness {
     func requireSafeEvidenceDirectory(_ url: URL) throws {
         try Self.requireOwnedDirectoryNoFollow(
             url.deletingLastPathComponent()
@@ -2310,8 +2369,7 @@ private extension RetainedMigrationEvidenceHarness {
             atPath: url.path
         )
         guard
-            let protection = attributes[.protectionKey]
-                as? FileProtectionType,
+            let protection = FileProtectionMetadata.normalized(attributes[.protectionKey]),
             protection == .complete
         else {
             throw HarnessError.unsafeEvidenceNamespace
@@ -2372,6 +2430,9 @@ private extension RetainedMigrationEvidenceHarness {
         return data
     }
 
+}
+
+private extension RetainedMigrationEvidenceHarness {
     static func hashStableRegularFile(
         _ url: URL,
         maximumBytes: Int64,
@@ -2468,14 +2529,14 @@ private extension RetainedMigrationEvidenceHarness {
     }
 }
 
-private struct EvidenceTreeFile {
+struct EvidenceTreeFile {
     let relativePath: String
     let executable: Bool
     let byteCount: Int64
     let sha256: Data
 }
 
-private enum EvidenceTreeScanner {
+enum EvidenceTreeScanner {
     private static let maximumFileBytes: Int64 =
         2 * 1_024 * 1_024 * 1_024
     private static let maximumTotalBytes: Int64 =
@@ -2681,7 +2742,7 @@ private enum EvidenceTreeScanner {
     }
 }
 
-private enum AppBundleTreeRecord {
+enum AppBundleTreeRecord {
     private static let prefix = Data(
         "SORA-IOS-MIGRATION-RAW-APP-TREE-V1\0".utf8
     )
@@ -2717,7 +2778,7 @@ private enum AppBundleTreeRecord {
     }
 }
 
-private enum RollbackStoreTreeRecord {
+enum RollbackStoreTreeRecord {
     private static let prefix = Data(
         "SORA-IOS-MIGRATION-ROLLBACK-STORE-BUNDLE-V1\0".utf8
     )
@@ -2779,7 +2840,7 @@ private enum RollbackStoreTreeRecord {
     }
 }
 
-private enum PreparedWalletTreeRecord {
+enum PreparedWalletTreeRecord {
     private static let prefix = Data(
         "SORA-IOS-MIGRATION-WALLET-INPUT-TREE-V1\0".utf8
     )
@@ -2812,6 +2873,17 @@ private enum PreparedWalletTreeRecord {
             fileURLWithPath: NSHomeDirectory(),
             isDirectory: true
         ).standardizedFileURL
+        return try sha256(for: evidenceCase, home: home,
+                          documents: documents, applicationSupport: applicationSupport)
+    }
+
+    /// Hash the same validated namespace in an isolated caller-owned container.
+    static func sha256(
+        for evidenceCase: RetainedMigrationEvidenceHarness.EvidenceCase,
+        home: URL,
+        documents: URL,
+        applicationSupport: URL
+    ) throws -> String {
         let library = home.appendingPathComponent(
             "Library",
             isDirectory: true

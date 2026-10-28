@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // https://github.com/MarioIannotta/PullUpController
 
@@ -129,7 +116,8 @@ open class PullUpController: UIViewController {
     private var panGestureRecognizer: UIPanGestureRecognizer?
 
     private var isPortrait: Bool {
-        return UIScreen.main.bounds.height > UIScreen.main.bounds.width
+        let size = parent?.view.bounds.size ?? UIScreen.main.bounds.size
+        return size.height > size.width
     }
 
     private var portraitPreviousStickyPointIndex: Int?
@@ -280,6 +268,10 @@ open class PullUpController: UIViewController {
     }
 
     private func setupPanGestureRecognizer() {
+        removeInternalScrollViewPanGestureRecognizer()
+        if let panGestureRecognizer {
+            view.removeGestureRecognizer(panGestureRecognizer)
+        }
         addInternalScrollViewPanGesture()
         panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePanGestureRecognizer(_:)))
         panGestureRecognizer?.minimumNumberOfTouches = 1
@@ -292,6 +284,9 @@ open class PullUpController: UIViewController {
     private func setupConstraints() {
         guard let parentView = parent?.view else { return }
 
+        NSLayoutConstraint.deactivate([
+            topConstraint, leftConstraint, widthConstraint, heightConstraint, bottomConstraint
+        ].compactMap { $0 })
         topConstraint = view.topAnchor.constraint(equalTo: parentView.topAnchor)
         leftConstraint = view.leftAnchor.constraint(equalTo: parentView.leftAnchor)
         widthConstraint = view.widthAnchor.constraint(equalToConstant: pullUpControllerPreferredSize.width)
@@ -369,7 +364,7 @@ open class PullUpController: UIViewController {
             setTopOffset(topConstraint.constant + yTranslation - initialInternalScrollViewContentOffset.y)
             gestureRecognizer.setTranslation(initialInternalScrollViewContentOffset, in: scrollView)
 
-        case .ended:
+        case .ended, .cancelled, .failed:
             scrollView.bounces = true
             goToNearestStickyPoint(verticalVelocity: gestureRecognizer.velocity(in: view).y)
 
@@ -389,7 +384,7 @@ open class PullUpController: UIViewController {
             setTopOffset(topConstraint.constant + yTranslation, allowBounce: true)
             gestureRecognizer.setTranslation(.zero, in: view)
 
-        case .ended:
+        case .ended, .cancelled, .failed:
             goToNearestStickyPoint(verticalVelocity: gestureRecognizer.velocity(in: view).y)
 
         default:
@@ -569,6 +564,7 @@ extension UIScrollView {
      - parameter pullUpController: the pull up controller to be removed from controlling the scroll view.
      */
     open func detach(from pullUpController: PullUpController) {
+        guard pullUpController.internalScrollView === self else { return }
         pullUpController.removeInternalScrollViewPanGestureRecognizer()
         pullUpController.internalScrollView = nil
     }

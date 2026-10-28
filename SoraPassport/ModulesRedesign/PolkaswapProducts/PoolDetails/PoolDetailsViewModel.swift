@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -41,6 +28,9 @@ final class PoolDetailsViewModel {
     var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { $snapshot }
     
     private var cancellables: Set<AnyCancellable> = []
+    private var catalogTask: Task<Void, Never>?
+    private var subscriptionTask: Task<Void, Never>?
+    private var loadID = UUID()
     
     var dismiss: (() -> Void)?
     var dismissHandler: (() -> Void)?
@@ -88,7 +78,8 @@ final class PoolDetailsViewModel {
     }
     
     deinit {
-        print("deinited " + String(describing: type(of: self)))
+        catalogTask?.cancel()
+        subscriptionTask?.cancel()
     }
     
     func dismissIfNeeded() {
@@ -100,35 +91,44 @@ final class PoolDetailsViewModel {
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
+        catalogTask?.cancel()
+        subscriptionTask?.cancel()
+        cancellables.removeAll()
+        let requestID = UUID()
+        loadID = requestID
         snapshot = createSnapshot(with: poolInfo, farms: poolInfo.farms)
-        
-        Task { [weak self, weak poolDetailsService] in
-            guard let self, let poolDetailsService else { return }
-            self.detailsContent = await (try? self.farmingService.getAllFarms().filter {
+        let farmingService = farmingService
+        catalogTask = Task { @MainActor [weak self] in
+            let farms = (try? await farmingService.getAllFarms()) ?? []
+            guard let self, !Task.isCancelled, loadID == requestID else { return }
+            detailsContent = farms.filter {
                 $0.baseAsset?.assetId == self.poolInfo.baseAssetId &&
                 $0.poolAsset?.assetId == self.poolInfo.targetAssetId
-            }) ?? []
-
-            self.snapshot = self.createSnapshot(with: poolInfo, farms: poolInfo.farms)
+            }
+            snapshot = createSnapshot(with: poolInfo, farms: poolInfo.farms)
             poolDetailsService.setup(with: poolInfo)
         }
-        
-        Task { [weak self, weak poolDetailsService] in
-            guard let self, let poolDetailsService else { return }
-            try? await self.userFarmService.subscribeUserFarms(to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            await self.userFarmService.userFarms
-                .dropFirst()
-                .sink(
-                    receiveValue: { [weak self] values in
-                        guard let self else { return }
-                        self.poolInfo.farms = values
-                        self.snapshot = self.createSnapshot(with: poolInfo, farms: values)
-                        poolDetailsService.setup(with: poolInfo)
+        let userFarmService = userFarmService
+        subscriptionTask = Task { @MainActor [weak self] in
+            let publisher = await userFarmService.userFarms
+            guard let self, !Task.isCancelled, loadID == requestID else { return }
+            publisher.receive(on: DispatchQueue.main)
+                .sink { [weak self] values in
+                    guard let self, loadID == requestID else { return }
+                    let matching = values.filter {
+                        $0.baseAssetId == self.poolInfo.baseAssetId &&
+                        $0.poolAssetId == self.poolInfo.targetAssetId
                     }
-                ).store(in: &self.cancellables)
+                    poolInfo.farms = matching
+                    snapshot = createSnapshot(with: poolInfo, farms: matching)
+                    poolDetailsService.setup(with: poolInfo)
+                }.store(in: &cancellables)
+            try? await userFarmService.subscribeUserFarms(
+                to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId
+            )
         }
     }
-    
+
     private func createSnapshot(with poolInfo: PoolInfo, farms: [UserFarm]) -> PoolDetailsSnapshot {
         var snapshot = PoolDetailsSnapshot()
         
@@ -237,12 +237,13 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
 
 extension PoolDetailsViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
-        guard let pool = pools.first(where: { $0.baseAssetId == poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }) else {
+        guard let pool = pools.first(where: { $0.baseAssetId == self.poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }) else {
             isDeletedPool = true
             dismiss?()
             return
         }
 
+        isDeletedPool = false
         poolInfo = pool
         snapshot = createSnapshot(with: pool, farms: pool.farms)
         poolDetailsService.setup(with: pool)

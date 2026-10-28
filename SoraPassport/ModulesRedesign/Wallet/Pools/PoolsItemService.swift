@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import Combine
@@ -58,6 +45,7 @@ final class PoolsItemService {
     private var priceRetry: Task<Void, Never>?
     private var priceFailures = 0
     private var lastPools: [PoolInfo]?
+    private var valuationID = UUID()
     private var pricesObserver: NSObjectProtocol?
 
     deinit {
@@ -78,6 +66,16 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.setup(with: pools) }
+            return
+        }
+        let id = UUID()
+        valuationID = id
+        priceRetryLock.lock()
+        priceRetry?.cancel()
+        priceRetry = nil
+        priceRetryLock.unlock()
         lastPools = pools
         if pricesObserver == nil {
             // Prices were refreshed in the background, or the app came back
@@ -92,49 +90,44 @@ final class PoolsItemService {
             }
         }
         if fiatData.isEmpty {
-            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
-            }
-
-            updateHandler?()
-        }
-        
-        Task { [weak self] in
-            guard let self else { return }
-
-            let fiatData = await self.fiatService?.getFiat() ?? []
-            self.fiatData = fiatData
-            
-            let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in
-                if let baseAssetPriceUsd = fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
-                   let targetAssetPriceUsd = fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
-                   let baseAssetPooledByAccount = pool.baseAssetPooledByAccount,
-                   let targetAssetPooledByAccount = pool.targetAssetPooledByAccount {
-
-                    let baseAssetFiatAmount = baseAssetPooledByAccount * baseAssetPriceUsd
-                    let targetAssetFiatAmount = targetAssetPooledByAccount * targetAssetPriceUsd
-                    return partialResult + baseAssetFiatAmount + targetAssetFiatAmount
-                }
-                return partialResult
-            })
-            
-            // As for the liquid assets: with pooled tokens and no price for
-            // any of the pools, the value is unknown, not "$0". Asking
-            // again only helps when the prices could not be read.
-            let pricesAvailable = Self.pricesKnown(for: pools.filter { $0.isFavorite }, fiatData: fiatData)
-            priceIsUnavailable = !pricesAvailable
-            moneyText = WalletUX.fiatTotalText(fiatDecimal, pricesAvailable: pricesAvailable)
-            schedulePriceRetry(needed: fiatData.isEmpty, pools: pools)
-            
-            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                var viewModel = self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
-                // The price read is over: a pool without a price shows no
-                // value instead of a placeholder that never ends.
-                viewModel?.priceLoadFinished = true
-                return viewModel
+            poolViewModels = pools.filter { $0.isFavorite }.compactMap {
+                poolViewModelsFactory.createPoolViewModel(with: $0, fiatData: [], mode: .view)
             }
             updateHandler?()
+        } else {
+            publish(pools: pools, prices: fiatData)
         }
+
+        guard valuationID == id else { return }
+        let fiatService = self.fiatService
+        Task { @MainActor [weak self] in
+            let prices = await fiatService?.getFiat() ?? []
+            guard let self, self.valuationID == id else { return }
+            self.fiatData = prices
+            self.publish(pools: pools, prices: prices)
+            guard self.valuationID == id else { return }
+            self.schedulePriceRetry(needed: prices.isEmpty, pools: pools)
+        }
+    }
+
+    private func publish(pools: [PoolInfo], prices: [PIExactFiatData]) {
+        let favorites = pools.filter { $0.isFavorite }
+        let total = favorites.reduce(Decimal(0)) { result, pool in
+            guard let basePrice = prices.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
+                  let targetPrice = prices.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
+                  let baseAmount = pool.baseAssetPooledByAccount,
+                  let targetAmount = pool.targetAssetPooledByAccount else { return result }
+            return result + baseAmount * basePrice + targetAmount * targetPrice
+        }
+        let pricesAvailable = Self.pricesKnown(for: favorites, fiatData: prices)
+        priceIsUnavailable = !pricesAvailable
+        moneyText = WalletUX.fiatTotalText(total, pricesAvailable: pricesAvailable)
+        poolViewModels = favorites.compactMap {
+            var model = poolViewModelsFactory.createPoolViewModel(with: $0, fiatData: prices, mode: .view)
+            model?.priceLoadFinished = true
+            return model
+        }
+        updateHandler?()
     }
 }
 

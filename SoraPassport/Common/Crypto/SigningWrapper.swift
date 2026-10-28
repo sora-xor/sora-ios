@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import IrohaCrypto
@@ -221,9 +208,24 @@ enum Sora2SignatureVerifier {
 final class SigningWrapper: LifecycleSigningWrapperProtocol {
     let keystore: KeystoreProtocol
     let account: AccountItem
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
+    private let recoveryGate: WalletRecoveryCapabilityGate
+    private let selectedAccount: () -> AccountItem?
+    private let networkSnapshot: () throws -> WalletNetworkSnapshot?
+    private let isWatchOnly: (String) -> Bool
     var signingAccount: AccountItem { account }
 
-    init(keystore: KeystoreProtocol, account: AccountItem) {
+    init(keystore: KeystoreProtocol, account: AccountItem,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+         selectedAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
+         networkSnapshot: @escaping () throws -> WalletNetworkSnapshot? = { try WalletNetworkStore().load() },
+         isWatchOnly: @escaping (String) -> Bool = { SettingsManager.shared.bool(for: "wallet.watchOnly.\($0)") == true }) {
+        self.lifecycleCoordinator = lifecycleCoordinator
+        self.recoveryGate = recoveryGate
+        self.selectedAccount = selectedAccount
+        self.networkSnapshot = networkSnapshot
+        self.isWatchOnly = isWatchOnly
         self.keystore = keystore
         self.account = account
     }
@@ -231,7 +233,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
         guard
             let lifecycleLease =
-                try WalletLifecycleCoordinator.shared
+                try lifecycleCoordinator
                     .tryAcquireForMutableWalletAccess()
         else {
             // A caller already inside a lifecycle transaction must use the
@@ -250,7 +252,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         _ originalData: Data,
         lifecycleLease: WalletLifecycleLease
     ) throws -> IRSignatureProtocol {
-        try WalletLifecycleCoordinator.shared.withExclusiveAccess(
+        try lifecycleCoordinator.withExclusiveAccess(
             using: lifecycleLease
         ) {
             try signLocked(originalData)
@@ -263,14 +265,14 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         // Recheck the full recovery capability boundary immediately before
         // touching encrypted signing material. This also covers callers that
         // supply an existing lease through background transaction routes.
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireMutableWalletAccess()
         try validateSelectedSora2Identity()
         let resolved: Data?
         do {
             resolved = try LegacySoraSecretResolver.resolve(
                 account: account,
-                keystore: keystore
+                keystore: keystore, recoveryGate: recoveryGate
             )
         } catch SigningWrapperError.identityMismatch {
             throw SigningWrapperError.keysNotVerified
@@ -314,7 +316,7 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
 
     private func validateSelectedSora2Identity() throws {
         guard
-            let selected = SelectedWalletSettings.shared.currentAccount,
+            let selected = selectedAccount(),
             selected.isSelected,
             selected.address == account.address,
             selected.publicKeyData == account.publicKeyData,
@@ -324,8 +326,8 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
             throw SigningWrapperError.missingSelectedAccount
         }
 
-        let snapshot = try WalletNetworkStore().load()
-        guard SettingsManager.shared.bool(for: "wallet.watchOnly.\(account.address)") != true,
+        let snapshot = try networkSnapshot()
+        guard !isWatchOnly(account.address),
               snapshot?.wallets.first(where: { $0.id == account.address })?.secretSource != .watchOnly else {
             throw SigningWrapperError.keysNotVerified
         }
@@ -357,14 +359,16 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
         }
 
         do {
-            guard var secret = try LegacySoraSecretResolver.resolve(account: account, keystore: keystore) else {
+            guard var secret = try LegacySoraSecretResolver.resolve(account: account, keystore: keystore, recoveryGate: recoveryGate) else {
                 throw SigningWrapperError.keysNotOnThisDevice
             }
             defer { secret.resetBytes(in: secret.startIndex ..< secret.endIndex) }
             try LegacySoraIdentityValidator.validateSigningSecret(
                 address: account.address, publicKey: account.publicKeyData,
                 cryptoType: account.cryptoType, networkType: account.networkType,
-                secret: secret, recoveryGate: .shared)
+                secret: secret, recoveryGate: recoveryGate)
+        } catch SigningWrapperError.keysNotOnThisDevice {
+            throw SigningWrapperError.keysNotOnThisDevice
         } catch where LegacySoraIdentityValidator.isAccountIdentityFailure(error) {
             throw SigningWrapperError.keysNotVerified
         }

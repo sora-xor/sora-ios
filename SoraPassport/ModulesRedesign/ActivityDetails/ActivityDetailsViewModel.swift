@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -41,7 +28,7 @@ final class ActivityDetailsViewModel {
     var setupItem: (([SoramitsuTableViewItemProtocol]) -> Void)?
     
     var items: [SoramitsuTableViewItemProtocol] = []
-    let model: Transaction
+    private(set) var model: Transaction
     let assetManager: AssetManagerProtocol
     let detailsFactory: ActivityDetailsViewModelFactoryProtocol
     let historyService: HistoryServiceProtocol
@@ -145,10 +132,11 @@ extension ActivityDetailsViewModel: ActivityDetailsViewModelProtocol {
 extension ActivityDetailsViewModel: EventVisitorProtocol {
     
     func processNewTransaction(event: WalletNewTransactionInserted) {
-        if let transaction = event.items.first, self.model.base.txHash == transaction.extrinsicHash.toHex(includePrefix: true) {
+        if let transaction = event.items.first(where: { self.model.base.txHash.caseInsensitiveCompare($0.extrinsicHash.toHex(includePrefix: true)) == .orderedSame }) {
             
             var updatedModel = model
             updatedModel.base.status = transaction.processingResult.isSuccess ? .success : .failed
+            model = updatedModel
             if let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel) {
                 (self.items.first as? HeaderActivityDetailsItem)?.details = headerItem.details
             }
@@ -179,6 +167,7 @@ extension ActivityDetailsViewModel: EventVisitorProtocol {
         if let submitted = updatedModel as? SubmittedTransaction {
             updatedModel = SubmittedTransaction(base: submitted.base, outcome: outcome)
         }
+        model = updatedModel
         guard let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel),
               let shown = items.first as? HeaderActivityDetailsItem else { return }
         shown.details = headerItem.details
@@ -359,14 +348,14 @@ extension ActivityDetailsViewModel {
         let toAssetInfo = assetManager.assetInfo(for: liquidity.secondTokenId)
         
         let textColor: SoramitsuColor = liquidity.type == .withdraw ? .statusSuccess : .fgPrimary
-        let fromBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
+        let fromBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
         let fromText = liquidity.type == .withdraw ? "+ \(fromBalance) \(fromAssetInfo?.symbol ?? "")" : "\(fromBalance) \(fromAssetInfo?.symbol ?? "")"
         let fromBalanceText = SoramitsuTextItem(text: fromText,
                                                 fontData: FontType.headline3,
                                                 textColor: textColor,
                                                 alignment: .right)
         
-        let toBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
+        let toBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
         let toText = liquidity.type == .withdraw ? "+ \(toBalance) \(toAssetInfo?.symbol ?? "")" : "\(toBalance) \(toAssetInfo?.symbol ?? "")"
         let toBalanceText = SoramitsuTextItem(text: toText,
                                               fontData: FontType.headline3,
@@ -386,8 +375,8 @@ extension ActivityDetailsViewModel {
                                          actionTransactionImage: R.image.wallet.detailsPlus(),
                                          firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
                                          secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
-                                         firstBalanceText: toBalanceText.attributedString,
-                                         secondBalanceText: fromBalanceText.attributedString,
+                                         firstBalanceText: fromBalanceText.attributedString,
+                                         secondBalanceText: toBalanceText.attributedString,
                                          details: details)
     }
     
@@ -416,7 +405,7 @@ extension ActivityDetailsViewModel {
     func headerSetReferrerTransactionViewModel(from setReferrer: SetReferrerTransaction) -> HeaderActivityDetailsItem {
         let assetInfo = assetManager.assetInfo(for: setReferrer.tokenId)
         
-        let balance = NumberFormatter.historyAmount.stringFromDecimal(setReferrer.base.fee.decimalValue) ?? ""
+        let balance = NumberFormatter.historyAmount.stringFromDecimal(setReferrer.base.fee.decimalValue / Decimal(1_000_000_000_000_000_000)) ?? ""
         let xorText = "\(balance) \(assetInfo?.symbol ?? "")"
         let invitationText = R.string.localizable.activityInvitationCount("1", preferredLanguages: .currentLocale)
         let balanceText = SoramitsuTextItem(text: setReferrer.isMyReferrer ? xorText : invitationText,

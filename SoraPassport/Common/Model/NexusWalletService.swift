@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import BigInt
 import Foundation
@@ -5386,6 +5386,9 @@ actor NexusTransactionCoordinator {
     private let pendingStore: NexusPendingTransactionStore
     private let settings: SettingsManagerProtocol
     private let featureClient: PIIndexerClient
+    private let networkStore: () throws -> WalletNetworkStore
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
+    private let recoveryGate: WalletRecoveryCapabilityGate
     private var activeSubmissionIds = Set<UUID>()
 
     init(
@@ -5396,7 +5399,10 @@ actor NexusTransactionCoordinator {
         finalityReader: NexusFinalityReading = TairaToriiConfirmationReader(),
         pendingStore: NexusPendingTransactionStore,
         settings: SettingsManagerProtocol = SettingsManager.shared,
-        featureClient: PIIndexerClient = PIIndexerClient()
+        featureClient: PIIndexerClient = PIIndexerClient(),
+        networkStore: @escaping () throws -> WalletNetworkStore = { try WalletNetworkStore() },
+        lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
     ) {
         self.readClient = readClient
         self.submissionClient = submissionClient
@@ -5405,6 +5411,9 @@ actor NexusTransactionCoordinator {
         self.pendingStore = pendingStore
         self.settings = settings
         self.featureClient = featureClient
+        self.networkStore = networkStore
+        self.lifecycleCoordinator = lifecycleCoordinator
+        self.recoveryGate = recoveryGate
     }
 
     func balance(
@@ -5481,6 +5490,7 @@ actor NexusTransactionCoordinator {
         _ request: NexusTransferRequest,
         selectedAccount: @MainActor @escaping () -> NetworkAccount?
     ) async throws -> NexusPreparedTransfer {
+        try Task.checkCancellation()
         guard
             let configuration = NexusNetworkConfiguration.configuration(
                 for: request.networkId
@@ -5550,6 +5560,7 @@ actor NexusTransactionCoordinator {
             throw NexusToriiError.insufficientBalance
         }
 
+        try Task.checkCancellation()
         return NexusPreparedTransfer(
             request: request,
             canonicalReceiver: request.receiver,
@@ -5723,7 +5734,7 @@ actor NexusTransactionCoordinator {
         do {
             guard
                 let lifecycleLease =
-                    try WalletLifecycleCoordinator.shared
+                    try lifecycleCoordinator
                         .tryAcquireForMutableWalletAccess()
             else {
                 throw WalletNetworkMigrationError
@@ -5777,7 +5788,7 @@ actor NexusTransactionCoordinator {
         defer { transportLease.release() }
 
         do {
-            try WalletRecoveryCapabilityGate.shared
+            try recoveryGate
                 .requireAuthorizedLifecycleContinuation()
         } catch {
             pending.state = .failedBeforeSubmission
@@ -5849,7 +5860,7 @@ actor NexusTransactionCoordinator {
         pending: NexusPendingTransaction
     ) {
         let lifecycleLease =
-            try await WalletLifecycleCoordinator.shared
+            try await lifecycleCoordinator
                 .acquireForMutableWalletAccessAsync()
         defer { lifecycleLease.release() }
         try Task.checkCancellation()
@@ -6001,7 +6012,7 @@ actor NexusTransactionCoordinator {
         selected: NetworkAccount
     ) throws {
         guard
-            let snapshot = try WalletNetworkStore().load(),
+            let snapshot = try networkStore().load(),
             snapshot.selectedWalletId == request.walletId,
             snapshot.wallets.contains(where: {
                 $0.id == request.walletId &&
@@ -6248,17 +6259,17 @@ actor NexusTransactionCoordinator {
                     return transaction
                 }
             }
-            let lifecycleLease = await WalletLifecycleCoordinator.shared
+            let lifecycleLease = await lifecycleCoordinator
                 .acquireAsync()
             defer { lifecycleLease.release() }
             do {
-                try WalletRecoveryCapabilityGate.shared
+                try recoveryGate
                     .requireAuthorizedLifecycleContinuation()
             } catch {
                 return transaction
             }
             guard
-                let store = try? WalletNetworkStore(),
+                let store = try? networkStore(),
                 let snapshot = try? store.load(),
                 let account = snapshot.accounts.first(where: {
                     $0.walletId == transaction.walletId &&
@@ -6314,6 +6325,8 @@ actor NexusTransactionCoordinator {
                 }
                 transaction.state = .committed
                 transaction.historyReconciledAt = Date()
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 return transaction
             }

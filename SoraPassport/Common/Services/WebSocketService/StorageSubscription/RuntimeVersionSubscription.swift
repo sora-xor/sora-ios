@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import RobinHood
@@ -51,6 +38,29 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
     private let dataOperationFactory = DataOperationFactory()
 
     private var subscriptionId: UInt16?
+    private let updateLock = NSLock()
+    private var latestVersion: (spec: UInt32, transaction: UInt32)?
+    private var latestUpdateID: UUID?
+
+    private func beginUpdate(_ version: RuntimeVersion) -> UUID? {
+        updateLock.lock()
+        defer { updateLock.unlock() }
+        if let latestVersion,
+           latestVersion.spec > version.specVersion ||
+           (latestVersion.spec == version.specVersion && latestVersion.transaction > version.transactionVersion) {
+            return nil
+        }
+        latestVersion = (version.specVersion, version.transactionVersion)
+        let identifier = UUID()
+        latestUpdateID = identifier
+        return identifier
+    }
+
+    private func isCurrentUpdate(_ identifier: UUID) -> Bool {
+        updateLock.lock()
+        defer { updateLock.unlock() }
+        return latestUpdateID == identifier
+    }
 
     init(
         chain: Chain,
@@ -105,6 +115,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
     }
 
     private func handle(runtimeVersion: RuntimeVersion) {
+        guard let updateID = beginUpdate(runtimeVersion) else { return }
         let breakingUpgradeState = chain.metadataBreakingUpgradeState(for: runtimeVersion.specVersion)
         var forceOverridesOperation: BaseOperation<Data>?
         if case let .forceResponse(_, url) = breakingUpgradeState, let url = url {
@@ -125,7 +136,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
         let saveOperation = createSaveOperation(
             dependingOn: metaOperation,
             runtimeOverrides: forceOverridesOperation,
-            runtimeVersion: runtimeVersion
+            runtimeVersion: runtimeVersion,
+            updateID: updateID
         )
 
         if let forceOverridesOperation = forceOverridesOperation {
@@ -133,7 +145,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
         }
         saveOperation.addDependency(metaOperation)
 
-        saveOperation.completionBlock = {
+        saveOperation.completionBlock = { [weak self, weak saveOperation] in
+            guard let self, let saveOperation else { return }
             do {
                 _ = try saveOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -185,7 +198,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
             parameters: parameters
         )
 
-        metaOperation.configurationBlock = {
+        metaOperation.configurationBlock = { [weak metaOperation] in
+            guard let metaOperation else { return }
             do {
                 switch breakingUpgradeState {
                 case let .forceResponse(response, _):
@@ -197,7 +211,8 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                 let currentItem = try localFetch
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-                if let item = currentItem, item.version == runtimeVersion.specVersion {
+                if let item = currentItem, item.version > runtimeVersion.specVersion ||
+                    (item.version == runtimeVersion.specVersion && item.txVersion >= runtimeVersion.transactionVersion) {
                     switch breakingUpgradeState {
                     case .notAffected:
                         metaOperation.result = .failure(RuntimeVersionSubscriptionError.skipUnchangedVersion)
@@ -217,9 +232,14 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
     private func createSaveOperation(
         dependingOn meta: BaseOperation<String>,
         runtimeOverrides: BaseOperation<Data>?,
-        runtimeVersion: RuntimeVersion
+        runtimeVersion: RuntimeVersion,
+        updateID: UUID
     ) -> BaseOperation<Void> {
-        storage.saveOperation({
+        let chain = chain
+        return storage.saveOperation({ [weak self] in
+            guard self?.isCurrentUpdate(updateID) == true else {
+                throw RuntimeVersionSubscriptionError.skipUnchangedVersion
+            }
             let metadataHex = try meta
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
             var rawMetadata = try Data(hexStringSSF: metadataHex)
@@ -321,7 +341,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
             }
 
             let item = RuntimeMetadataItem(
-                chain: self.chain.genesisHash(),
+                chain: chain.genesisHash(),
                 version: runtimeVersion.specVersion,
                 txVersion: runtimeVersion.transactionVersion,
                 metadata: rawMetadata,

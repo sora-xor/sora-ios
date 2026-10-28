@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import CoreData
@@ -55,13 +42,30 @@ final class WalletContextFactory {
     let applicationConfig: ApplicationConfigProtocol
     let logger: LoggerProtocol
     let primitiveFactory: WalletPrimitiveFactoryProtocol
+    private let selectedAccount: () -> AccountItem?
+    private let runtimeProvider: () -> RuntimeProviderProtocol?
+    private let substrateStorage: StorageFacadeProtocol?
+    private let accountStorage: StorageFacadeProtocol?
+    private let localizationManager: LocalizationManagerProtocol
 
     init(keychain: KeystoreProtocol = Keychain(),
          applicationConfig: ApplicationConfigProtocol = ApplicationConfig.shared,
-         logger: LoggerProtocol = Logger.shared) {
+         logger: LoggerProtocol = Logger.shared,
+         selectedAccount: @escaping () -> AccountItem? = { SelectedWalletSettings.shared.currentAccount },
+         runtimeProvider: @escaping () -> RuntimeProviderProtocol? = {
+             ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
+         },
+         substrateStorage: StorageFacadeProtocol? = nil,
+         accountStorage: StorageFacadeProtocol? = nil,
+         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) {
         self.keychain = keychain
         self.applicationConfig = applicationConfig
         self.logger = logger
+        self.selectedAccount = selectedAccount
+        self.runtimeProvider = runtimeProvider
+        self.substrateStorage = substrateStorage
+        self.accountStorage = accountStorage
+        self.localizationManager = localizationManager
 
         primitiveFactory = WalletPrimitiveFactory(keystore: keychain)
     }
@@ -91,7 +95,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                        accountSettings: WalletAccountSettingsProtocol,
                        demeterFarmingService: DemeterFarmingServiceProtocol) throws -> CommonWalletContextProtocol {
 
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+        guard let selectedAccount = selectedAccount() else {
             throw WalletContextFactoryError.missingAccount
         }
 
@@ -99,15 +103,15 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 
         let networkType = selectedAccount.addressType
 
-        let accountSigner = SigningWrapper(keystore: Keychain(), account: selectedAccount)
+        let accountSigner = SigningWrapper(keystore: keychain, account: selectedAccount)
         let dummySigner = try DummySigner(cryptoType: selectedAccount.cryptoType)
 
-        let substrateStorageFacade = SubstrateDataStorageFacade.shared
+        let substrateStorageFacade = substrateStorage ?? SubstrateDataStorageFacade.shared
         let chainStorage: CoreDataRepository<ChainStorageItem, CDChainStorageItem> =
             substrateStorageFacade.createRepository()
 
         let localStorageIdFactory = try ChainStorageIdFactory(chain: Chain.sora)
-        guard let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+        guard let runtime = runtimeProvider() else {
             throw WalletContextFactoryError.missingConnection
         }
         let extrinsicService = ExtrinsicService(address: selectedAccount.address,
@@ -136,13 +140,13 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 
         let txFilter = NSPredicate.filterTransactionsBy(address: selectedAccount.address)
         let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
-            SubstrateDataStorageFacade.shared.createRepository(filter: txFilter)
+            substrateStorageFacade.createRepository(filter: txFilter)
 
         let contactOperationFactory = WalletContactOperationFactory(storageFacade: substrateStorageFacade,
                                                                     targetAddress: selectedAccount.address)
 
         let accountStorage: CoreDataRepository<AccountItem, CDAccountItem> =
-            UserDataStorageFacade.shared
+            (self.accountStorage ?? UserDataStorageFacade.shared)
             .createRepository(filter: NSPredicate.filterAccountBy(networkType: networkType),
                               sortDescriptors: [NSSortDescriptor.accountsByOrder],
                               mapper: AnyCoreDataMapper(AccountItemMapper()))
@@ -171,10 +175,10 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         let builder = CommonWalletBuilder.builder(with: accountSettings,
                                                   networkOperationFactory: networkFacade)
 
-        let context = try builder.with(localizationManager: LocalizationManager.shared).build()
+        let context = try builder.with(localizationManager: localizationManager).build()
 
         subscribeContextToLanguageSwitch(context,
-                                         localizationManager: LocalizationManager.shared,
+                                         localizationManager: localizationManager,
                                          logger: logger)
 
         return context

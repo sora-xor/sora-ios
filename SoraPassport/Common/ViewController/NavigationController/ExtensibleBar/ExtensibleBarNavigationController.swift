@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 
@@ -49,6 +36,8 @@ public class ExtensibleBarNavigationController: UINavigationController {
     private var navBarExtensionTopConstraint: NSLayoutConstraint?
     private var toolbarBottomConstraint: NSLayoutConstraint?
 
+    private let appliedExtensionHeights = NSMapTable<UIViewController, NSNumber>(keyOptions: .weakMemory, valueOptions: .strongMemory)
+
     private var navBarAdditionalSize: CGFloat = 0 {
         didSet {
             let needsToShowExtension = self.needsToShowExtension(for: topViewController)
@@ -56,15 +45,18 @@ public class ExtensibleBarNavigationController: UINavigationController {
             navBarExtensionTopConstraint?.constant = -navBarAdditionalSize
             navBarExtensionContainerBottomConstraint?.constant = navBarAdditionalSize
             toolbarBottomConstraint?.constant = -navBarAdditionalSize
-            topViewController?.additionalSafeAreaInsets = extensionSafeAreaInsets
+            if let topViewController { applyExtensionInsets(to: topViewController) }
         }
     }
 
-    /// Extension view additional safe area insets
-    private var extensionSafeAreaInsets: UIEdgeInsets {
-        let needsToShowExtension = self.needsToShowExtension(for: topViewController)
-        return needsToShowExtension ?
-            UIEdgeInsets(top: navBarAdditionalSize, left: 0, bottom: 0, right: 0) : .zero
+    /// Own only the inset contributed by this extension. Screen-specific insets remain intact.
+    private func applyExtensionInsets(to controller: UIViewController) {
+        let previous = CGFloat(appliedExtensionHeights.object(forKey: controller)?.doubleValue ?? 0)
+        let next = needsToShowExtension(for: controller) ? navBarAdditionalSize : 0
+        var insets = controller.additionalSafeAreaInsets
+        insets.top += next - previous
+        controller.additionalSafeAreaInsets = insets
+        appliedExtensionHeights.setObject(NSNumber(value: Double(next)), forKey: controller)
     }
 
     public var extensionAppearingIsAnimatable = false
@@ -103,6 +95,10 @@ public class ExtensibleBarNavigationController: UINavigationController {
     // MARK: - ExtensibleBarNavigationController
 
     public func setNavigationBarExtensionView(_ view: UIView?, forHeight height: CGFloat = 0) {
+        navBarExtensionTopConstraint?.isActive = false
+        navBarExtensionBottomConstraint?.isActive = false
+        navBarExtensionTopConstraint = nil
+        navBarExtensionBottomConstraint = nil
         navBarExtensionView?.removeFromSuperview()
         guard let view = view else {
             self.navBarExtensionView = nil
@@ -155,8 +151,8 @@ public class ExtensibleBarNavigationController: UINavigationController {
     // MARK: - UINavigationController
 
     override public func pushViewController(_ viewController: UIViewController, animated: Bool) {
-        super.pushViewController(viewController, animated: true)
-        viewController.additionalSafeAreaInsets = extensionSafeAreaInsets
+        super.pushViewController(viewController, animated: animated)
+        applyExtensionInsets(to: viewController)
     }
 
     // MARK: - Private
@@ -231,6 +227,7 @@ extension ExtensibleBarNavigationController: UINavigationControllerDelegate {
             navigationController, willShow: viewController, animated: animated
         )
 
+        applyExtensionInsets(to: viewController)
         let needsToShowExtension = self.needsToShowExtension(for: viewController)
         updateShadowImage()
 

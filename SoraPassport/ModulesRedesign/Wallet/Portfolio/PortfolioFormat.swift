@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import Foundation
 
@@ -31,14 +31,31 @@ enum PortfolioFormat {
         formatter.locale = locale
         formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = maxFraction
-        formatter.roundingMode = .down
-        return formatter.string(from: value as NSDecimalNumber) ?? "\(value)"
+        formatter.maximumFractionDigits = 0
+        // NumberFormatter can round large NSDecimalNumber integers through a
+        // Double. Editable fields must retain every unit of the Decimal value.
+        var input = value
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &input, max(0, maxFraction), value < 0 ? .up : .down)
+        let digits = (0...9).map { formatter.string(from: NSNumber(value: $0)) ?? String($0) }
+        let text = abs(rounded).stringWithPointSeparator.map { character -> String in
+            if character == "." { return formatter.decimalSeparator ?? "." }
+            if let digit = character.wholeNumberValue { return digits[digit] }
+            return String(character)
+        }.joined()
+        return (rounded < 0 ? formatter.negativePrefix : formatter.positivePrefix) + text
+            + (rounded < 0 ? formatter.negativeSuffix : formatter.positiveSuffix)
+    }
+
+    /// Editable amounts are ungrouped, as produced by `plain`. Reject the whole
+    /// input when it is malformed or cannot be represented exactly by Decimal.
+    static func parseAmount(_ raw: String, locale: Locale) -> Decimal? {
+        Decimal.parseLocalizedAmount(raw, locale: locale)
     }
 
     /// "$12,480.55" (always cents). Below one cent but above zero: "<$0.01".
     static func fiat(_ value: Decimal) -> String {
-        if value > 0 && value < Decimal(string: "0.005")! { return "<$0.01" }
+        if value > 0 && value <= Decimal(string: "0.005")! { return "<$0.01" }
         return "$" + string(value, minFraction: 2, maxFraction: 2)
     }
 
@@ -92,7 +109,7 @@ enum PortfolioFormat {
     /// The change is flat when it rounds to 0.00 %.
     static func isFlat(_ percent: Decimal?) -> Bool {
         guard let percent else { return true }
-        return abs(percent) < Decimal(string: "0.005")!
+        return abs(percent) <= Decimal(string: "0.005")!
     }
 
     /// A short address for rows: "cnTQ1k…X9wd".

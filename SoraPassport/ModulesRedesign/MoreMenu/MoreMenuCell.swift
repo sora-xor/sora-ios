@@ -1,38 +1,40 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import SoraUIKit
 import Anchorage
 import SoraFoundation
 
 final class MoreMenuCell: SoramitsuTableViewCell {
+    private var subtitleTask: Task<Void, Never>?
+    private var circleTask: Task<Void, Never>?
+
+    deinit {
+        subtitleTask?.cancel()
+        circleTask?.cancel()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        subtitleTask?.cancel()
+        circleTask?.cancel()
+        subtitleTask = nil
+        circleTask = nil
+    }
 
     let categoryItem: CategoryItem = {
         let view = CategoryItem(frame: .zero)
@@ -79,6 +81,10 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
             return
         }
 
+        subtitleTask?.cancel()
+        circleTask?.cancel()
+        subtitleTask = nil
+        circleTask = nil
         categoryItem.titleLabel.sora.text = item.title
         categoryItem.subtitleLabel.sora.text = item.subtitle
         categoryItem.rightImageView.sora.picture = item.picture
@@ -91,22 +97,24 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
         }
 
         if let circleColorStream = item.circleColorStream {
-            Task {
+            circleTask = Task { @MainActor [weak self] in
                 for await color in circleColorStream {
-                    if let color = color {
-                        categoryItem.addCircle()
-                        categoryItem.circle.sora.backgroundColor = color
+                    guard !Task.isCancelled else { return }
+                    if let color {
+                        self?.categoryItem.addCircle()
+                        self?.categoryItem.circle.sora.backgroundColor = color
                     } else {
-                        categoryItem.hideCircle()
+                        self?.categoryItem.hideCircle()
                     }
                 }
             }
         }
 
         if let subtitleStream = item.subtitleStream {
-            Task {
+            subtitleTask = Task { @MainActor [weak self] in
                 for await subtitle in subtitleStream {
-                    categoryItem.subtitleLabel.sora.text = subtitle
+                    guard !Task.isCancelled else { return }
+                    self?.categoryItem.subtitleLabel.sora.text = subtitle
                 }
             }
         }

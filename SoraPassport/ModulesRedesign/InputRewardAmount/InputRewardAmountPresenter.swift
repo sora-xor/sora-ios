@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import UIKit
@@ -59,7 +46,8 @@ final class InputRewardAmountPresenter: InvitationsCellDelegate {
     private var items: [CellViewModel] = []
     private var currentBalance: Decimal = Decimal(0)
     private var actionButtonIsEnabled: Bool = false
-    private var currentBoundingAmount: Decimal = Decimal(0)
+    private var currentInvitationCount: Decimal = 0
+    private var submittedAmount: Decimal?
 
     init(fee: Decimal,
          previousBondedAmount: Decimal,
@@ -68,7 +56,9 @@ final class InputRewardAmountPresenter: InvitationsCellDelegate {
          feeAsset: AssetInfo) {
         self.fee = fee
         self.previousBondedAmount = previousBondedAmount
-        self.currentBondedAmount = previousBondedAmount
+        let count = type == .unbond && fee > 0 ? (previousBondedAmount / fee).rounded(mode: .down) : 0
+        self.currentInvitationCount = max(count, 0)
+        self.currentBondedAmount = max(count, 0) * fee
         self.type = type
         self.interactor = interactor
         self.feeAsset = feeAsset
@@ -88,35 +78,39 @@ extension InputRewardAmountPresenter: InputRewardAmountViewDelegate {
 
 extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol {
     func received(_ balance: Decimal) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.received(balance) }
+            return
+        }
+        self.currentBalance = balance
         let balanceText = (NumberFormatter.cryptoAssets.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
         let feeAmount = "\(fee) \(feeAsset.symbol)"
-        let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
+        let actionButtonIsEnabled = submittedAmount == nil && isActionButtonEnabled(currentInvitationCount)
         let item = InvitationsViewModel(title: type.title,
                                         description: type.descriptionText(with: feeAmount) ,
                                         fee: fee,
                                         feeSymbol: feeAsset.symbol,
                                         balance: balanceText,
-                                        bondedAmount: type == .bond ? 0 : currentBondedAmount,
+                                        bondedAmount: currentBondedAmount,
                                         buttonTitle: type.buttonTitle,
                                         isEnabled: actionButtonIsEnabled,
                                         delegate: self)
         
-        items.append(item)
+        items = [item]
         
-        DispatchQueue.main.async {
-            self.view?.setup(with: self.items)
-        }
-
         viewModel = item
-        self.currentBalance = balance
+        view?.setup(with: items)
     }
 
     func referralBalanceOperationReceived(with result: Result<String, Error>) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            let amount = self.submittedAmount ?? self.currentBondedAmount
+            self.submittedAmount = nil
+            self.viewModel?.isEnabled = self.isActionButtonEnabled(self.currentInvitationCount)
             if case .success = result {
-                let newBalanceAfterBond = self.currentBondedAmount + self.previousBondedAmount
-                let newBalanceAfterUnbond = self.previousBondedAmount - self.currentBondedAmount
+                let newBalanceAfterBond = amount + self.previousBondedAmount
+                let newBalanceAfterUnbond = self.previousBondedAmount - amount
                 let balance = self.type == .bond ? newBalanceAfterBond : newBalanceAfterUnbond
                 self.output?.updateReferral(balance: balance)
             }
@@ -124,7 +118,7 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
             self.output?.showTransactionDetails(from: self.view?.controller,
                                                 result: result,
                                                 fee: self.fee,
-                                                amount: self.currentBondedAmount,
+                                                amount: amount,
                                                 type: self.type != .bond ? .unbond : .bond,
                                                 completion: {
                 self.view?.pop()
@@ -135,6 +129,9 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
 
 extension InputRewardAmountPresenter: ButtonCellDelegate {
     func buttonTapped() {
+        guard submittedAmount == nil, viewModel?.isEnabled == true, isActionButtonEnabled(currentInvitationCount) else { return }
+        submittedAmount = currentBondedAmount
+        viewModel?.isEnabled = false
         interactor.sendReferralBalanceRequest(with: type, decimalBalance: currentBondedAmount)
     }
     
@@ -143,6 +140,7 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
     }
 
     func isPlusEnabled(_ currentInvitationCount: Decimal) -> Bool {
+        guard validCount(currentInvitationCount), fee > 0 else { return false }
         switch type {
         case .bond:
             return isBalanceEnoughToBond(currentInvitationCount + 1)
@@ -153,8 +151,9 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
 
     func userChanged(_ currentInvitationCount: Decimal) {
         guard let viewModel = viewModel else { return }
+        self.currentInvitationCount = currentInvitationCount
         currentBondedAmount = currentInvitationCount * fee
-        viewModel.isEnabled = isActionButtonEnabled(currentInvitationCount)
+        viewModel.isEnabled = submittedAmount == nil && isActionButtonEnabled(currentInvitationCount)
     }
     
     func networkFeeInfoButtonTapped() {
@@ -165,7 +164,12 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
         )
     }
 
+    private func validCount(_ count: Decimal) -> Bool {
+        count >= 0 && count.rounded(mode: .down) == count
+    }
+
     private func isActionButtonEnabled(_ invitations: Decimal) -> Bool {
+        guard validCount(invitations), fee > 0 else { return false }
         switch type {
         case .bond:
             return isBalanceEnoughToBond(invitations) && invitations > 0

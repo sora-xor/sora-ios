@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import RobinHood
@@ -52,6 +39,7 @@ enum RuntimeProviderError: Error {
 
 final class RuntimeProvider {
     struct PendingRequest {
+        let id = UUID()
         let resultClosure: (RuntimeCoderFactoryProtocol?) -> Void
         let queue: DispatchQueue?
     }
@@ -71,6 +59,7 @@ final class RuntimeProvider {
     private(set) var pendingRequests: [PendingRequest] = []
     private(set) var currentWrapper: CompoundOperationWrapper<RuntimeSnapshot?>?
     private var mutex = NSLock()
+    private var currentBuildID: UUID?
 
     private var commonTypesFetched: Bool = false
     private var chainTypesFetched: Bool = false
@@ -103,6 +92,11 @@ final class RuntimeProvider {
         eventCenter.add(observer: self, dispatchIn: DispatchQueue.global())
     }
 
+    deinit {
+        cleanup()
+        eventCenter.remove(observer: self)
+    }
+
     private func buildSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
         guard commonTypesFetched, chainTypesFetched, chainMetadataFetched else {
             return
@@ -113,40 +107,47 @@ final class RuntimeProvider {
             dataHasher: dataHasher
         )
 
+        let buildID = UUID()
         wrapper.targetOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
-                self?.handleCompletion(result: wrapper.targetOperation.result)
+                self?.handleCompletion(result: wrapper.targetOperation.result, buildID: buildID)
             }
         }
 
+        currentBuildID = buildID
         currentWrapper = wrapper
 
         operationQueue.addOperations(wrapper.allOperations, waitUntilFinished: false)
     }
 
     private func buildHotSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
-        let wrapper = snapshotHotOperationFactory?.createRuntimeSnapshotWrapper(
+        guard let wrapper = snapshotHotOperationFactory?.createRuntimeSnapshotWrapper(
             for: typesUsage,
             dataHasher: dataHasher
-        )
+        ) else { return }
 
-        wrapper?.targetOperation.completionBlock = { [weak self] in
+        let buildID = UUID()
+        wrapper.targetOperation.completionBlock = { [weak self] in
             DispatchQueue.global(qos: .userInitiated).async {
-                self?.handleCompletion(result: wrapper?.targetOperation.result)
+                self?.handleCompletion(result: wrapper.targetOperation.result, buildID: buildID)
             }
         }
 
+        currentBuildID = buildID
         currentWrapper = wrapper
-
-        operationQueue.addOperations(wrapper?.allOperations ?? [], waitUntilFinished: false)
+        operationQueue.addOperations(wrapper.allOperations, waitUntilFinished: false)
     }
 
-    private func handleCompletion(result: Result<RuntimeSnapshot?, Error>?) {
+    private func handleCompletion(result: Result<RuntimeSnapshot?, Error>?, buildID: UUID) {
         mutex.lock()
 
         defer {
             mutex.unlock()
         }
+
+        guard currentBuildID == buildID else { return }
+        currentBuildID = nil
+        currentWrapper = nil
 
         switch result {
         case let .success(snapshot):
@@ -163,16 +164,19 @@ final class RuntimeProvider {
 
                 let event = RuntimeCoderCreated(chainId: chainId)
                 eventCenter.notify(with: event)
+            } else {
+                resolveRequests()
             }
         case let .failure(error):
             currentWrapper = nil
 
             logger?.debug("Runtime snapshot build failed")
+            resolveRequests()
 
             let event = RuntimeCoderCreationFailed(chainId: chainId, error: error)
             eventCenter.notify(with: event)
         case .none:
-            break
+            resolveRequests()
         }
     }
 
@@ -238,6 +242,7 @@ final class RuntimeProvider {
 
     private func fetchCoderFactory(
         runCompletionIn queue: DispatchQueue?,
+        timeout: TimeInterval? = nil,
         executing closure: @escaping (RuntimeCoderFactoryProtocol?) -> Void
     ) {
         mutex.lock()
@@ -250,9 +255,28 @@ final class RuntimeProvider {
 
         if let snapshot = snapshot {
             deliver(snapshot: snapshot, to: request)
+        } else if let timeout, !timeout.isFinite || timeout <= 0 {
+            deliver(snapshot: nil, to: request)
         } else {
             pendingRequests.append(request)
+            if let timeout {
+                let requestID = request.id
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) { [weak self] in
+                    self?.expireRequest(requestID)
+                }
+            }
         }
+    }
+
+    private func expireRequest(_ id: UUID) {
+        mutex.lock()
+        guard let index = pendingRequests.firstIndex(where: { $0.id == id }) else {
+            mutex.unlock()
+            return
+        }
+        let request = pendingRequests.remove(at: index)
+        mutex.unlock()
+        deliver(snapshot: nil, to: request)
     }
 
     func fetchCoderFactoryOperation() -> BaseOperation<RuntimeCoderFactoryProtocol> {
@@ -265,8 +289,7 @@ final class RuntimeProvider {
 
             let semaphore = DispatchSemaphore(value: 0)
 
-            let queue = DispatchQueue(label: "jp.co.soramitsu.fearless.fetchCoder.\(self.chainId)", qos: .utility)
-            self.fetchCoderFactory(runCompletionIn: queue) { factory in
+            self.fetchCoderFactory(runCompletionIn: nil) { factory in
                 fetchedFactory = factory
                 semaphore.signal()
             }
@@ -282,12 +305,16 @@ final class RuntimeProvider {
     }
 
     func fetchCoderFactoryOperation(
-        with _: TimeInterval,
+        with timeout: TimeInterval,
         closure _: RuntimeMetadataClosure?
     ) -> BaseOperation<RuntimeCoderFactoryProtocol> {
         AwaitOperation { [weak self] in
             try await withCheckedThrowingContinuation { continuation in
-                self?.fetchCoderFactory(runCompletionIn: nil) { factory in
+                guard let self else {
+                    continuation.resume(throwing: RuntimeProviderError.providerUnavailable)
+                    return
+                }
+                self.fetchCoderFactory(runCompletionIn: nil, timeout: timeout) { factory in
                     guard let factory = factory else {
                         continuation.resume(with: .failure(RuntimeProviderError.providerUnavailable))
                         return
@@ -349,6 +376,7 @@ extension RuntimeProvider: RuntimeProviderProtocol {
             return
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -366,6 +394,7 @@ extension RuntimeProvider: RuntimeProviderProtocol {
 
         snapshot = nil
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -389,6 +418,7 @@ extension RuntimeProvider: EventVisitorProtocol {
             return
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -410,6 +440,7 @@ extension RuntimeProvider: EventVisitorProtocol {
             mutex.unlock()
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 
@@ -435,6 +466,7 @@ extension RuntimeProvider: EventVisitorProtocol {
             return
         }
 
+        currentBuildID = nil
         currentWrapper?.cancel()
         currentWrapper = nil
 

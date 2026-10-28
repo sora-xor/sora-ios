@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import RobinHood
@@ -49,6 +36,12 @@ final class AccountOptionsInteractor {
     private var chain: ChainModel
     private let mnemonicCreator: IRMnemonicCreatorProtocol
     private var cloudStorageService: CloudStorageServiceProtocol
+    private let recoveryGate: WalletRecoveryCapabilityGate
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
+    private let networkStore: () throws -> WalletNetworkStore
+    private let selectedSettings: SelectedWalletSettingsProtocol
+    private let pendingJournals: WalletPendingDeletionJournals
+    private let stopWalletServices: () -> Void
 
     init(keystore: KeystoreProtocol,
          settings: SettingsManagerProtocol,
@@ -61,7 +54,13 @@ final class AccountOptionsInteractor {
          operationManager: OperationManagerProtocol,
          eventCenter: EventCenterProtocol,
          mnemonicCreator: IRMnemonicCreatorProtocol,
-         cloudStorageService: CloudStorageServiceProtocol) {
+         cloudStorageService: CloudStorageServiceProtocol,
+         recoveryGate: WalletRecoveryCapabilityGate = .shared,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
+         networkStore: @escaping () throws -> WalletNetworkStore = { try WalletNetworkStore() },
+         selectedSettings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared,
+         pendingJournals: WalletPendingDeletionJournals = WalletPendingDeletionJournals(),
+         stopWalletServices: @escaping () -> Void = { ServiceCoordinator.shared.throttle() }) {
         self.keystore = keystore
         self.settings = settings
         self.cacheFacade = cacheFacade
@@ -74,11 +73,17 @@ final class AccountOptionsInteractor {
         self.chain = chain
         self.mnemonicCreator = mnemonicCreator
         self.cloudStorageService = cloudStorageService
+        self.recoveryGate = recoveryGate
+        self.lifecycleCoordinator = lifecycleCoordinator
+        self.networkStore = networkStore
+        self.selectedSettings = selectedSettings
+        self.pendingJournals = pendingJournals
+        self.stopWalletServices = stopWalletServices
         self.eventCenter.add(observer: self)
     }
     
     private func loadPhrase() throws -> IRMnemonicProtocol? {
-        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore)
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore, recoveryGate: recoveryGate)
         defer { backup.wipe() }
         guard let entropy = backup.entropy else { return nil }
         let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
@@ -109,7 +114,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
 
     func updateUsername(_ username: String) {
-        SelectedWalletSettings.shared.performUpdateName(
+        selectedSettings.performUpdateName(
             account: account,
             displayName: username
         ) { [weak self] result in
@@ -134,38 +139,60 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     func deleteBackup(completion: @escaping (Error?) -> Void) {
         let account = OpenBackupAccount(address: currentAccount.address)
         Task { [weak self] in
+            guard let self else {
+                await MainActor.run { completion(CancellationError()) }
+                return
+            }
             do {
-                try WalletRecoveryCapabilityGate.shared
-                    .requireAuthorizedLifecycleContinuation()
-                try await self?.cloudStorageService.deleteBackup(account: account)
-                try WalletRecoveryCapabilityGate.shared
-                    .requireAuthorizedLifecycleContinuation()
-                let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.currentAccount.address }
-                completion(nil)
+                try recoveryGate.requireAuthorizedLifecycleContinuation()
+                try await cloudStorageService.deleteBackup(account: account)
+                try recoveryGate.requireAuthorizedLifecycleContinuation()
+                await MainActor.run {
+                    let addresses = ApplicationConfig.shared.backupedAccountAddresses
+                    ApplicationConfig.shared.backupedAccountAddresses = addresses.filter { $0 != account.address }
+                    completion(nil)
+                }
             } catch {
-                completion(error)
+                await MainActor.run { completion(error) }
             }
         }
     }
 
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) {
         Task { [weak self] in
-            guard let result = try await self?.cloudStorageService.signInIfNeeded(), result == .authorized, let self = self else {
-                completion?(nil)
+            guard let self else {
+                await MainActor.run { completion?(nil) }
                 return
             }
-
-            let metadata = self.getMetadata()
-            let account = OpenBackupAccount(name: self.currentAccount.username,
-                                            address: self.currentAccount.address,
-                                            passphrase: metadata?.mnemonic.joined(separator: " ") ?? "",
-                                            cryptoType: currentAccount.cryptoType.typeString,
-                                            substrateDerivationPath: "")
-            completion?(account)
+            do {
+                guard try await cloudStorageService.signInIfNeeded() == .authorized else {
+                    await MainActor.run { completion?(nil) }
+                    return
+                }
+                var material = try WalletBackupMaterial.load(
+                    for: account, keystore: keystore, recoveryGate: recoveryGate
+                )
+                defer { material.wipe() }
+                guard let entropy = material.entropy else {
+                    await MainActor.run { completion?(nil) }
+                    return
+                }
+                let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
+                let backup = OpenBackupAccount(
+                    name: account.username,
+                    address: account.address,
+                    passphrase: mnemonic.allWords().joined(separator: " "),
+                    cryptoType: account.cryptoType.typeString,
+                    substrateDerivationPath: material.derivationPath ?? ""
+                )
+                try recoveryGate.requireAuthorizedLifecycleContinuation()
+                await MainActor.run { completion?(backup) }
+            } catch {
+                await MainActor.run { completion?(nil) }
+            }
         }
     }
-    
+
     func checkCurrentAccountBackedup() async -> Bool {
         do {
             let accounts = try await cloudStorageService.getBackupAccounts()
@@ -179,7 +206,6 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
 
     func logoutAndClean() {
-        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
         let lifecycleOperation =
             lifecycleCoordinator.makeAcquireOperation()
         let idToRemove = self.account.identifier
@@ -187,7 +213,9 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             WalletPendingDeletionPreflightOperation(
                 lifecycleOperation: lifecycleOperation,
                 walletId: idToRemove,
-                soraAddress: account.address
+                soraAddress: account.address,
+                recoveryGate: recoveryGate,
+                journals: pendingJournals
             )
         pendingTransactionPreflight.addDependency(lifecycleOperation)
         let inventoryOperation = accountRepository.fetchAllOperation(
@@ -200,7 +228,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     .extractNoCancellableResultData()
                 _ = try pendingTransactionPreflight
                     .extractNoCancellableResultData()
-                try WalletRecoveryCapabilityGate.shared
+                try self.recoveryGate
                     .requireAuthorizedLifecycleContinuation()
                 let accounts = try inventoryOperation
                     .extractNoCancellableResultData()
@@ -221,7 +249,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     .extractNoCancellableResultData()
                 _ = try identityPreflightOperation
                     .extractNoCancellableResultData()
-                try WalletRecoveryCapabilityGate.shared
+                try self.recoveryGate
                     .requireAuthorizedLifecycleContinuation()
                 let accounts = try inventoryOperation
                     .extractNoCancellableResultData()
@@ -246,7 +274,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     throw WalletNetworkMigrationError
                         .explicitRemovalSelectionMismatch
                 }
-                return try WalletNetworkStore().recordExplicitRemoval(
+                return try self.networkStore().recordExplicitRemoval(
                     walletId: idToRemove,
                     expectedWalletIds: walletIds,
                     selectedWalletId: selectedAccount.identifier
@@ -257,13 +285,13 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         recordRemovalOperation.addDependency(identityPreflightOperation)
 
         let forgetOperation = accountRepository.saveOperation {
-            try WalletRecoveryCapabilityGate.shared
+            try self.recoveryGate
                 .requireAuthorizedLifecycleContinuation()
             let accounts = try inventoryOperation
                 .extractNoCancellableResultData()
             let networkSnapshot = try recordRemovalOperation
                 .extractNoCancellableResultData()
-            guard try WalletNetworkStore().load() == networkSnapshot else {
+            guard try self.networkStore().load() == networkSnapshot else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
             }
@@ -296,11 +324,11 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                 )
             }
         } _: {
-            try WalletRecoveryCapabilityGate.shared
+            try self.recoveryGate
                 .requireAuthorizedLifecycleContinuation()
             let networkSnapshot = try recordRemovalOperation
                 .extractNoCancellableResultData()
-            guard try WalletNetworkStore().load() == networkSnapshot else {
+            guard try self.networkStore().load() == networkSnapshot else {
                 throw WalletNetworkMigrationError
                     .snapshotVerificationFailed
             }
@@ -325,7 +353,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                 return
             }
             do {
-                try WalletRecoveryCapabilityGate.shared
+                try self.recoveryGate
                     .requireAuthorizedLifecycleContinuation()
                 let networkSnapshot = try recordRemovalOperation
                     .extractNoCancellableResultData()
@@ -349,7 +377,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     )
                     return
                 }
-                SelectedWalletSettings.shared.performSelectAfterRemoval(
+                self.selectedSettings.performSelectAfterRemoval(
                     value: selectedAccount,
                     lifecycleLease: lifecycleLease
                 ) { [weak self] result in
@@ -487,6 +515,21 @@ enum WalletPendingDeletionPolicy {
     }
 }
 
+struct WalletPendingDeletionJournals {
+    var nexus: () async throws -> [NexusPendingTransaction] = {
+        try await NexusPendingTransactionStore().all()
+    }
+    var polkamarkt: () async throws -> [PolkamarktPendingMutation] = {
+        try await PolkamarktPendingStore().all()
+    }
+    var sora2: () throws -> [Sora2PendingSubmission] = {
+        try Sora2PendingSubmissionStore().all()
+    }
+    var sora2PredatesSubmissionWindow: () -> Bool = {
+        Sora2PendingSubmissionStore.journalPredatesSubmissionWindow(now: Date())
+    }
+}
+
 private final class WalletPendingDeletionPreflightOperation:
     PIAsyncOperation<Void>,
     @unchecked Sendable
@@ -494,25 +537,31 @@ private final class WalletPendingDeletionPreflightOperation:
     private let lifecycleOperation: BaseOperation<WalletLifecycleLease>
     private let walletId: String
     private let soraAddress: String
+    private let recoveryGate: WalletRecoveryCapabilityGate
+    private let journals: WalletPendingDeletionJournals
 
     init(
         lifecycleOperation: BaseOperation<WalletLifecycleLease>,
         walletId: String,
-        soraAddress: String
+        soraAddress: String,
+        recoveryGate: WalletRecoveryCapabilityGate,
+        journals: WalletPendingDeletionJournals
     ) {
         self.lifecycleOperation = lifecycleOperation
         self.walletId = walletId
         self.soraAddress = soraAddress
+        self.recoveryGate = recoveryGate
+        self.journals = journals
     }
 
     override func execute() async throws {
         _ = try lifecycleOperation.extractNoCancellableResultData()
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireAuthorizedLifecycleContinuation()
 
         let nexusTransactions: [NexusPendingTransaction]
         do {
-            nexusTransactions = try await NexusPendingTransactionStore().all()
+            nexusTransactions = try await journals.nexus()
         } catch {
             throw WalletPendingDeletionPreflightError
                 .nexusJournalUnavailable
@@ -520,7 +569,7 @@ private final class WalletPendingDeletionPreflightOperation:
 
         let polkamarktTransactions: [PolkamarktPendingMutation]
         do {
-            polkamarktTransactions = try await PolkamarktPendingStore().all()
+            polkamarktTransactions = try await journals.polkamarkt()
         } catch {
             throw WalletPendingDeletionPreflightError
                 .polkamarktJournalUnavailable
@@ -528,15 +577,14 @@ private final class WalletPendingDeletionPreflightOperation:
 
         let sora2Submissions: [Sora2PendingSubmission]
         do {
-            sora2Submissions = try Sora2PendingSubmissionStore().all()
+            sora2Submissions = try journals.sora2()
         } catch {
             // Removal waits only for a transaction that may still be
             // entering the network, and such an entry was written within
             // the submission window. A journal that cannot be read and was
             // last written before that holds none, so it does not block
             // removal for good.
-            guard Sora2PendingSubmissionStore
-                .journalPredatesSubmissionWindow(now: Date())
+            guard journals.sora2PredatesSubmissionWindow()
             else {
                 throw WalletPendingDeletionPreflightError
                     .sora2JournalUnavailable
@@ -892,9 +940,9 @@ private extension AccountOptionsInteractor {
         accounts: [AccountItem],
         walletId: String
     ) throws -> WalletExplicitRemovalPlan {
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireAuthorizedLifecycleContinuation()
-        guard let snapshot = try WalletNetworkStore().load() else {
+        guard let snapshot = try networkStore().load() else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
         let plan = try WalletExplicitRemovalIdentityPolicy.plan(
@@ -903,7 +951,8 @@ private extension AccountOptionsInteractor {
             walletId: walletId,
             snapshot: snapshot,
             keystore: keystore,
-            settings: settings
+            settings: settings,
+            recoveryGate: recoveryGate
         )
         _ = try MigrationAccountCompletionStore.contains(
             accountAddress: account.address,
@@ -917,9 +966,9 @@ private extension AccountOptionsInteractor {
         networkSnapshot: WalletNetworkSnapshot,
         removedWalletId: String
     ) throws -> AccountItem? {
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireAuthorizedLifecycleContinuation()
-        guard try WalletNetworkStore().load() == networkSnapshot else {
+        guard try networkStore().load() == networkSnapshot else {
             throw WalletNetworkMigrationError.snapshotVerificationFailed
         }
         let selectedAccount = try verifyExplicitRemovalState(
@@ -963,7 +1012,7 @@ private extension AccountOptionsInteractor {
         guard
             Set(accountIds).count == accountIds.count,
             !accountIds.contains(removedWalletId),
-            let activeSnapshot = try WalletNetworkStore().load(),
+            let activeSnapshot = try networkStore().load(),
             !activeSnapshot.wallets.contains(where: {
                 $0.id == removedWalletId
             }),
@@ -1004,7 +1053,7 @@ private extension AccountOptionsInteractor {
         plan: WalletExplicitRemovalPlan
     ) {
         do {
-            try WalletRecoveryCapabilityGate.shared
+            try recoveryGate
                 .requireAuthorizedLifecycleContinuation()
         } catch {
             enterDeletionRecovery(
@@ -1070,7 +1119,7 @@ private extension AccountOptionsInteractor {
         leavingPin: Bool = true,
         plan: WalletExplicitRemovalPlan
     ) throws {
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireAuthorizedLifecycleContinuation()
         let address = account.address
         try WalletExplicitRemovalIdentityPolicy.removeKeychainItems(
@@ -1095,17 +1144,17 @@ private extension AccountOptionsInteractor {
     }
 
     func stopServices() {
-        ServiceCoordinator.shared.throttle()
+        stopWalletServices()
     }
 
     func cleanSettings() throws {
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireAuthorizedLifecycleContinuation()
         settings.removeAll()
     }
 
     func cleanCoreData() throws {
-        try WalletRecoveryCapabilityGate.shared
+        try recoveryGate
             .requireAuthorizedLifecycleContinuation()
         try? cacheFacade.databaseService.close()
         try? cacheFacade.databaseService.drop()
@@ -1143,8 +1192,8 @@ private extension AccountOptionsInteractor {
         let persistentOperation = accountRepository.fetchAllOperation(with: .none)
 
         persistentOperation.completionBlock = {
-            guard let accounts = try? persistentOperation.extractNoCancellableResultData() else { return }
-            completion(accounts)
+            let accounts = (try? persistentOperation.extractNoCancellableResultData()) ?? []
+            DispatchQueue.main.async { completion(accounts) }
         }
 
         operationManager.enqueue(operations: [persistentOperation], in: .transient)

@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import CryptoKit
 import Foundation
@@ -592,7 +592,11 @@ final class IrohaConnectSessionEngine {
     }
 }
 
-final class IrohaConnectAuthenticator {
+protocol IrohaConnectAuthenticating: AnyObject {
+    func authenticate(reason: String, completion: @escaping (Result<Void, Error>) -> Void)
+}
+
+final class IrohaConnectAuthenticator: IrohaConnectAuthenticating {
     func authenticate(reason: String, completion: @escaping (Result<Void, Error>) -> Void) {
         let context = LAContext()
         context.localizedCancelTitle = "Cancel"
@@ -613,7 +617,17 @@ final class IrohaConnectAuthenticator {
     }
 }
 
-final class IrohaConnectWebSocket: NSObject, URLSessionWebSocketDelegate {
+protocol IrohaConnectTransport: AnyObject {
+    var onOpen: (() -> Void)? { get set }
+    var onData: ((Data) -> Void)? { get set }
+    var onClosed: ((String) -> Void)? { get set }
+    var onFailure: ((Error) -> Void)? { get set }
+    func connect()
+    func send(_ data: Data)
+    func cancel()
+}
+
+final class IrohaConnectWebSocket: NSObject, URLSessionWebSocketDelegate, IrohaConnectTransport {
     var onOpen: (() -> Void)?
     var onData: ((Data) -> Void)?
     var onClosed: ((String) -> Void)?

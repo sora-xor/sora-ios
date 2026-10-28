@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraKeystore
@@ -355,6 +342,24 @@ protocol MigrationServiceProtocol {
     func requestMigration(completion completionClosure: @escaping MigrationResultClosure)
 }
 
+protocol MigrationExtrinsicSubmitting {
+    func submit(
+        _ closure: @escaping ExtrinsicBuilderClosure,
+        signer: SigningWrapperProtocol,
+        lifecycleLease: WalletLifecycleLease?,
+        purpose: Sora2PendingSubmissionPurpose,
+        preSigningValidation: (() throws -> Void)?,
+        runningIn queue: DispatchQueue,
+        completion: @escaping ExtrinsicSubmitClosure
+    )
+}
+
+extension ExtrinsicService: MigrationExtrinsicSubmitting {}
+
+typealias MigrationExtrinsicFactory = (
+    AccountItem, RuntimeCodingServiceProtocol, JSONRPCEngine, OperationManagerProtocol
+) -> MigrationExtrinsicSubmitting
+
 class MigrationService: MigrationServiceProtocol {
 
     private static let finalityRetryNanoseconds: UInt64 = 6_000_000_000
@@ -371,6 +376,8 @@ class MigrationService: MigrationServiceProtocol {
     let logger: LoggerProtocol
     let keystore: KeystoreProtocol
     private let eligibilityGate = MigrationEligibilityCheckGate()
+    private let extrinsicFactory: MigrationExtrinsicFactory
+    private let pendingStore: () throws -> Sora2PendingSubmissionStore
     private let finalityLock = NSLock()
     private var finalityRecovery: MigrationFinalityRecoveryHandle?
 
@@ -378,7 +385,14 @@ class MigrationService: MigrationServiceProtocol {
          keystore: KeystoreProtocol,
          settings: SettingsManagerProtocol,
          operationManager: OperationManagerProtocol,
-         logger: LoggerProtocol) {
+         logger: LoggerProtocol,
+         pendingStore: @escaping () throws -> Sora2PendingSubmissionStore = { try Sora2PendingSubmissionStore() },
+         extrinsicFactory: @escaping MigrationExtrinsicFactory = { account, runtime, engine, manager in
+             ExtrinsicService(address: account.address, cryptoType: account.cryptoType,
+                              runtimeRegistry: runtime, engine: engine, operationManager: manager)
+         }) {
+        self.extrinsicFactory = extrinsicFactory
+        self.pendingStore = pendingStore
         self.settings = settings
         self.eventCenter = eventCenter
         self.logger = logger
@@ -398,6 +412,7 @@ class MigrationService: MigrationServiceProtocol {
     func checkMigration() {
         guard
             let account = SelectedWalletSettings.shared.currentAccount,
+            account.networkType == Chain.sora.addressType(),
             let sourceEngine = engine
         else {
             eligibilityGate.invalidate()
@@ -502,7 +517,8 @@ class MigrationService: MigrationServiceProtocol {
     }
 
     func requestMigration(completion completionClosure: @escaping MigrationResultClosure) {
-        guard let account = SelectedWalletSettings.shared.currentAccount else {
+        guard let account = SelectedWalletSettings.shared.currentAccount,
+              account.networkType == Chain.sora.addressType() else {
             logger.error("Migration account not found")
             completionClosure(.failure(MigrationServiceError.startMigrationFail))
             return
@@ -655,13 +671,7 @@ class MigrationService: MigrationServiceProtocol {
             keystore: keystore,
             identifier: "iroha"
         )
-        let extrinsicService = ExtrinsicService(
-            address: account.address,
-            cryptoType: account.cryptoType,
-            runtimeRegistry: runtimeRegistry,
-            engine: engine,
-            operationManager: operationManager
-        )
+        let extrinsicService = extrinsicFactory(account, runtimeRegistry, engine, operationManager)
         let irohaKey = irohaKeyPair.publicKey().rawData().toHex()
         guard
             let message = (did + irohaKey).data(using: .utf8),
@@ -728,6 +738,7 @@ class MigrationService: MigrationServiceProtocol {
                     self.logger.error(
                         "Migration submission hash validation failed"
                     )
+                    completionClosure(.failure(MigrationServiceError.startMigrationFail))
                     return
                 }
                 localHash = normalized
@@ -768,7 +779,7 @@ class MigrationService: MigrationServiceProtocol {
     ) -> Bool {
         let values: [Sora2PendingSubmission]
         do {
-            values = try Sora2PendingSubmissionStore().all()
+            values = try pendingStore().all()
         } catch {
             logger.error("Migration pending journal is unavailable")
             failAttachedMigrationRequest(completion)
@@ -922,7 +933,7 @@ class MigrationService: MigrationServiceProtocol {
             guard let self else { return }
             let store: Sora2PendingSubmissionStore
             do {
-                store = try Sora2PendingSubmissionStore()
+                store = try self.pendingStore()
             } catch {
                 self.logger.error("Migration recovery journal unavailable")
                 outcome = .recoveryUnavailable

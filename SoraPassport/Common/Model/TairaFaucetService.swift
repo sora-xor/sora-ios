@@ -1,5 +1,5 @@
 // This file is part of the SORA network and Polkaswap app.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
 import CryptoKit
 import Foundation
@@ -9,7 +9,17 @@ import NexusTransferCodec
 /// Faucet claims use only a public receive address. The pending hash is saved
 /// before dispatch so reopening the screen checks that claim instead of minting
 /// again after a lost response.
-actor TairaFaucetService {
+protocol TairaFaucetServing: Sendable {
+    func hasPending(account: String) async throws -> Bool
+    func request(
+        account: NetworkAccount,
+        configuration: NexusNetworkConfiguration,
+        contextIsCurrent: @escaping @Sendable () async -> Bool,
+        progress: @escaping @Sendable (TairaFaucetService.Phase) async -> Void
+    ) async throws -> TairaFaucetClient.Outcome
+}
+
+actor TairaFaucetService: TairaFaucetServing {
     static let shared = TairaFaucetService()
 
     enum Phase { case preparing, submitting, checking }
