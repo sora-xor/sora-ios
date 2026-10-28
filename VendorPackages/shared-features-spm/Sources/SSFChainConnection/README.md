@@ -26,4 +26,4 @@ Radmir Dzhurabaev, dzhurabaev@soramitsu.co.jp
 
 ## License
 
-SSFChainConnection is available under the MIT license. See the LICENSE file for more info.
+SSFChainConnection is available under Apache-2.0 OR MIT, at your option. See LICENSE for the license choices and original notices.

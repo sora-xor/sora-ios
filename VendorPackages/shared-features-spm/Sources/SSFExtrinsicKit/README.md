@@ -136,4 +136,4 @@ Alex Lebedko, lebedko@soramitsu.co.jp
 
 ## License
 
-SSFExtrinsicKit is available under the MIT license. See the LICENSE file for more info.
+SSFExtrinsicKit is available under Apache-2.0 OR MIT, at your option. See LICENSE for the license choices and original notices.

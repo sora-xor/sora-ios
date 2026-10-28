@@ -1,3 +1,10 @@
+SPDX-License-Identifier: Apache-2.0 OR MIT
+
+This module is available under either the Apache License, Version 2.0
+(see ../../LICENSE), or the MIT license reproduced below, at your option.
+
+MIT license:
+
 Copyright (c) 2023 Radmir Dzhurabaev <dzhurabaev@soramitsu.co.jp>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
