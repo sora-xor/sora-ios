@@ -50,7 +50,7 @@ class KeyboardService: NSObject {
 
     private func observeKeyboard() {
         let field = UITextField()
-        UIApplication.shared.windows.first?.addSubview(field)
+        UIApplication.shared.soraWindowScene?.windows.first?.addSubview(field)
         field.becomeFirstResponder()
         field.resignFirstResponder()
         field.removeFromSuperview()

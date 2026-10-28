@@ -44,6 +44,7 @@ class CommonTypesSyncService {
     let retryStrategy: ReconnectionStrategyProtocol
     let operationQueue: OperationQueue
     let dataHasher: StorageHasher
+    let usesReviewedSoraBundle: Bool
 
     private(set) var isSyncing: Bool = false
     private(set) var retryAttempt: Int = 0
@@ -62,7 +63,8 @@ class CommonTypesSyncService {
         eventCenter: EventCenterProtocol,
         operationQueue: OperationQueue,
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
-        dataHasher: StorageHasher = .twox256
+        dataHasher: StorageHasher = .twox256,
+        usesReviewedSoraBundle: Bool = false
     ) {
         self.url = url
         self.filesOperationFactory = filesOperationFactory
@@ -71,6 +73,7 @@ class CommonTypesSyncService {
         self.retryStrategy = retryStrategy
         self.operationQueue = operationQueue
         self.dataHasher = dataHasher
+        self.usesReviewedSoraBundle = usesReviewedSoraBundle
     }
 
     private func performSyncUpIfNeeded(with dataHasher: StorageHasher) {
@@ -78,16 +81,29 @@ class CommonTypesSyncService {
             return
         }
 
-        guard let url = url else {
-            assertionFailure()
-            return
-        }
-
         isSyncing = true
 
-        let fetchOperation = dataOperationFactory.fetchData(from: url)
+        let fetchOperation: BaseOperation<Data>
+        if usesReviewedSoraBundle {
+            fetchOperation = ClosureOperation {
+                try ReviewedSoraRuntimeSnapshotAdmission
+                    .loadReviewedCommonTypes()
+            }
+        } else {
+            guard let url = url else {
+                assertionFailure()
+                isSyncing = false
+                return
+            }
+            fetchOperation = dataOperationFactory.fetchData(from: url)
+        }
         let saveOperation = filesOperationFactory.saveCommonTypesOperation {
-            try fetchOperation.extractNoCancellableResultData()
+            let data = try fetchOperation.extractNoCancellableResultData()
+            if self.usesReviewedSoraBundle {
+                try ReviewedSoraRuntimeSnapshotAdmission
+                    .validateReviewedCommonTypes(data)
+            }
+            return data
         }
 
         saveOperation.addDependency(operations: [fetchOperation])
@@ -97,6 +113,10 @@ class CommonTypesSyncService {
                 do {
                     _ = try saveOperation.targetOperation.extractNoCancellableResultData()
                     let data = try fetchOperation.extractNoCancellableResultData()
+                    if self?.usesReviewedSoraBundle == true {
+                        try ReviewedSoraRuntimeSnapshotAdmission
+                            .validateReviewedCommonTypes(data)
+                    }
 
                     let remoteHash = try dataHasher.hash(data: data)
 

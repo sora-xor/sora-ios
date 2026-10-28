@@ -113,7 +113,8 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
 
     func share() {
         guard let phrase = metadata?.mnemonic.joined(separator: " ") else { return }
-        UIPasteboard.general.string = phrase
+        UIPasteboard.general.setItems([["public.utf8-plain-text": phrase]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(45)])
     }
 
     func proceed() {
@@ -199,6 +200,10 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
 }
 
 extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
+    func didReceive(backupDerivationPath: String) {
+        view?.set(backupDerivationPath: backupDerivationPath)
+    }
+
     func didReceive(words: [String], afterConfirmationFail: Bool) {
     }
     

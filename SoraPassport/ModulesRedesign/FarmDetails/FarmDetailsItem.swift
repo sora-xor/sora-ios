@@ -31,6 +31,52 @@
 import Foundation
 import SoraUIKit
 
+enum FarmDetailsBottomButtonState {
+    case startStacking
+    case startStackingWithRewards
+    case editFarm
+    case stackingUnavailable
+    
+    var title: String {
+        switch self {
+        case .editFarm:
+            return R.string.localizable.editFarm(preferredLanguages: .currentLocale)
+        case .startStacking, .stackingUnavailable, .startStackingWithRewards:
+            return R.string.localizable.startStaking(preferredLanguages: .currentLocale)
+        }
+    }
+    
+    var buttonTitleColor: SoramitsuColor {
+        switch self {
+        case .editFarm, .startStackingWithRewards:
+            // On the Polkaswap container: the text token, not the brand fill.
+            return .additionalPolkaswapText
+        case .startStacking:
+            // On the swap gradient: ink in dark, white in light (spec §2.6-1).
+            return .fgInverted
+        case .stackingUnavailable:
+            return .fgTertiary
+        }
+    }
+    
+    var backgroundColor: SoramitsuColor {
+        switch self {
+        case .editFarm, .startStackingWithRewards:
+            return .additionalPolkaswapContainer
+        case .startStacking:
+            return .additionalPolkaswap
+        case .startStacking:
+            return .additionalPolkaswap
+        case .stackingUnavailable:
+            return .bgSurfaceVariant
+        }
+    }
+    
+    var isUserInteractionEnabled: Bool {
+        return self != .stackingUnavailable
+    }
+}
+
 final class FarmDetailsItem: NSObject {
 
     var title: String
@@ -40,8 +86,9 @@ final class FarmDetailsItem: NSObject {
     let rewardAssetImage: UIImage?
     var detailsViewModel: [DetailViewModel] = []
     let typeImage: PoollProductType
-    let isEnabled: Bool
-    let isStaked: Bool
+    let areThereRewards: Bool
+    let stackingState: FarmDetailsBottomButtonState
+    let supplyItem: SupplyPoolItem?
     var onTapTopButton: (() -> Void)?
     var onTapBottomButton: (() -> Void)?
 
@@ -52,8 +99,9 @@ final class FarmDetailsItem: NSObject {
          rewardAssetImage: UIImage?,
          detailsViewModel: [DetailViewModel],
          typeImage: PoollProductType,
-         isEnabled: Bool,
-         isStaked: Bool) {
+         stackingState: FarmDetailsBottomButtonState,
+         areThereRewards: Bool,
+         supplyItem: SupplyPoolItem?) {
         self.title = title
         self.subtitle = subtitle
         self.typeImage = typeImage
@@ -61,8 +109,9 @@ final class FarmDetailsItem: NSObject {
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage
         self.detailsViewModel = detailsViewModel
-        self.isEnabled = isEnabled
-        self.isStaked = isStaked
+        self.areThereRewards = areThereRewards
+        self.stackingState = stackingState
+        self.supplyItem = supplyItem
     }
 }
 

@@ -35,6 +35,7 @@ import SSFUtils
 import BigInt
 import sorawallet
 import IrohaCrypto
+import SSFStorageQueryKitFixed
 
 final class FriendsInteractor {
     weak var presenter: FriendsInteractorOutputProtocol?
@@ -225,8 +226,8 @@ private extension FriendsInteractor {
                 self?.presenter?.updateReferral(balance: referralBalance)
             }
 
-            let failureClosure: (Swift.Error, Bool) -> Void = { error, _ in
-                print("referrerBalances failureClosure: \(error)")
+            let failureClosure: (Swift.Error, Bool) -> Void = { _, _ in
+                print("Referrer-balance subscription failed")
             }
 
             let subscriptionId = try engine.subscribe(RPCMethod.storageSubscribe,
@@ -235,7 +236,7 @@ private extension FriendsInteractor {
                                                       failureClosure: failureClosure)
             subscriptionIds.append(subscriptionId)
         } catch {
-            print("Can't subscribe to storage:  \(error)")
+            print("Referrer-balance storage subscription failed")
         }
     }
 
@@ -261,8 +262,8 @@ private extension FriendsInteractor {
                 }
             }
 
-            let failureClosure: (Swift.Error, Bool) -> Void = { error, _ in
-                print("referrer failureClosure: \(error)")
+            let failureClosure: (Swift.Error, Bool) -> Void = { _, _ in
+                print("Referrer subscription failed")
             }
 
             let subscriptionId = try engine.subscribe(RPCMethod.storageSubscribe,
@@ -271,7 +272,7 @@ private extension FriendsInteractor {
                                                       failureClosure: failureClosure)
             subscriptionIds.append(subscriptionId)
         } catch {
-            print("Can't subscribe to storage:  \(error)")
+            print("Referrer storage subscription failed")
         }
     }
 
@@ -294,8 +295,8 @@ private extension FriendsInteractor {
                 })
             }
 
-            let failureClosure: (Swift.Error, Bool) -> Void = { error, _ in
-                print("referral failureClosure: \(error)")
+            let failureClosure: (Swift.Error, Bool) -> Void = { _, _ in
+                print("Referral subscription failed")
             }
 
             let subscriptionId = try engine.subscribe(RPCMethod.storageSubscribe,
@@ -304,7 +305,7 @@ private extension FriendsInteractor {
                                                       failureClosure: failureClosure)
             subscriptionIds.append(subscriptionId)
         } catch {
-            print("Can't subscribe to storage:  \(error)")
+            print("Referral storage subscription failed")
         }
     }
 

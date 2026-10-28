@@ -1,4 +1,4 @@
-"NSCameraUsageDescription" = "Camera is used to capture QR code";
-"NSFaceIDUsageDescription" = "Face ID is used to authorize in application";
-"NSPhotoLibraryUsageDescription" = "Load photos from library";
-"NSPhotoLibraryAddUsageDescription" = "Save transfer request as a qr code";
+"NSCameraUsageDescription" = "SORA Wallet uses the camera to scan QR codes.";
+"NSFaceIDUsageDescription" = "SORA Wallet uses Face ID to unlock your wallet and confirm sensitive actions.";
+"NSPhotoLibraryUsageDescription" = "SORA Wallet reads a QR code from a photo you choose.";
+"NSPhotoLibraryAddUsageDescription" = "SORA Wallet saves a QR code image to your photos when you choose Save Image.";

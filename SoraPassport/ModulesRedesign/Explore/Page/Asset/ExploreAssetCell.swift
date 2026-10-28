@@ -60,8 +60,6 @@ final class ExploreAssetCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExploreAssetViewModel) {
-        assetView.serialNumber.sora.text = viewModel.serialNumber
-        
         if let icon = viewModel.icon {
             assetView.assetImageView.sora.picture = .logo(image: icon)
             assetView.assetImageView.sora.loadingPlaceholder.type = .none
@@ -72,20 +70,20 @@ final class ExploreAssetCell: SoramitsuTableViewCell {
             assetView.titleLabel.sora.loadingPlaceholder.type = .none
         }
         
-        if let subtitle = viewModel.marketCap {
-            assetView.subtitleLabel.sora.text = subtitle
-            assetView.subtitleLabel.sora.loadingPlaceholder.type = .none
+        if let marketCap = viewModel.marketCap.value {
+            assetView.subtitleLabel.sora.text = marketCap
         }
+        assetView.subtitleLabel.sora.loadingPlaceholder.type = viewModel.marketCap.shimmerType
         
         if let price = viewModel.price {
             assetView.amountUpLabel.sora.text = price
             assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
         }
         
-        if let delta = viewModel.deltaPrice {
+        if let delta = viewModel.deltaPrice.value {
             assetView.amountDownLabel.sora.attributedText = delta
-            assetView.amountDownLabel.sora.loadingPlaceholder.type = .none
         }
+        assetView.amountDownLabel.sora.loadingPlaceholder.type = viewModel.deltaPrice.shimmerType
     }
 }
 
@@ -95,7 +93,7 @@ extension ExploreAssetCell: CellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        
+        assetView.serialNumber.sora.text = item.serialNumber
         updateContent(with: item.assetViewModel)
     }
 }

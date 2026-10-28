@@ -30,7 +30,8 @@
 
 import SoraUIKit
 import UIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 final class RecipientAddressCell: SoramitsuTableViewCell {
     private let generator = PolkadotIconGenerator()
@@ -69,7 +70,7 @@ extension RecipientAddressCell: SoramitsuTableViewCellProtocol {
         
         recipientView.contactView.accountTitle.sora.text = item.address
         recipientView.contactView.accountImageView.image = try? generator.generateFromAddress(item.address)
-            .imageWithFillColor(.white,
+            .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
     }

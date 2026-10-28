@@ -38,6 +38,9 @@ final class AssetListItem: NSObject {
     var assetHandler: ((String) -> Void)?
     var favoriteHandle: ((AssetListItem) -> Void)?
     var balance: Decimal
+    /// The balance could not be read: the row says "Balance unavailable",
+    /// `balance` is a placeholder and no value is worked out from it.
+    var balanceUnavailable = false
     
     var canFavorite: Bool {
         assetInfo.symbol != .xor

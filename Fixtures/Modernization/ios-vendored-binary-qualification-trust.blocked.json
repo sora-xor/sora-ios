@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "contractId": "sora-ios-vendored-binary-qualification-trust-v1",
+  "platform": "ios",
+  "status": "blocked",
+  "signatureAlgorithm": "ecdsa-p256-sha256",
+  "authorities": {
+    "artifactEvidenceProducer": {
+      "role": "artifact-evidence-producer",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    },
+    "independentReviewer": {
+      "role": "independent-reviewer",
+      "keyId": null,
+      "publicKeyPemSha256": null,
+      "enabled": false
+    }
+  },
+  "replayPolicy": {
+    "maximumQualificationAgeSeconds": 2592000,
+    "maximumRunDurationSeconds": 172800,
+    "maximumReviewDelaySeconds": 86400
+  },
+  "blockingReasons": [
+    "No independently protected artifact-evidence-producer or reviewer public-key pins have been supplied by the iOS release authority."
+  ]
+}

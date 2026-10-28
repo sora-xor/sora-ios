@@ -36,6 +36,10 @@ enum UserStorageParams {
     static let modelVersion: UserStorageVersion = .version2
     static let modelDirectory: String = "UserDataModel.momd"
     static let databaseName = "UserDataModel.sqlite"
+    // This is a production wallet-identity boundary. RobinHood's `.removeStore`
+    // strategy deletes an incompatible SQLite store before Core Data opens it,
+    // so the authoritative wallet database must remain fail-closed here.
+    static let incompatibleModelStrategy: IncompatibleModelHandlingStrategy = .ignore
 
     static let storageDirectoryURL: URL = {
         let baseURL = FileManager.default.urls(
@@ -77,7 +81,7 @@ class UserDataStorageFacade: StorageFacadeProtocol {
         let persistentSettings = CoreDataPersistentSettings(
             databaseDirectory: UserStorageParams.storageDirectoryURL,
             databaseName: UserStorageParams.databaseName,
-            incompatibleModelStrategy: .ignore
+            incompatibleModelStrategy: UserStorageParams.incompatibleModelStrategy
         )
 
         let configuration = CoreDataServiceConfiguration(

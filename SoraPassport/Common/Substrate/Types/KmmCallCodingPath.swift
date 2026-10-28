@@ -39,6 +39,10 @@ extension KmmCallCodingPath {
     static var transfer: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "assets", callName: "transfer")
     }
+    
+    static var adarTransfer: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "assets", callName: "Transfer")
+    }
 
     static var transferKeepAlive: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "assets", callName: "transferKeepAlive")
@@ -78,10 +82,22 @@ extension KmmCallCodingPath {
     static var batchAllUtility: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "utility", callName: "batchAll")
     }
+    
+    static var getRewards: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "getRewards")
+    }
+    
+    static var farmDeposit: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "deposit")
+    }
+    
+    static var farmWithdraw: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "withdraw")
+    }
 
 
     var isTransfer: Bool {
-        [.transfer, .transferKeepAlive].contains(self)
+        [.transfer, .transferKeepAlive, .adarTransfer].contains(self)
     }
 
     var isSwap: Bool {
@@ -102,5 +118,17 @@ extension KmmCallCodingPath {
 
     var isReferral: Bool {
         [.setReferral, .bondReferralBalance, .unbondReferralBalance].contains(self)
+    }
+    
+    var isClaimReward: Bool {
+        [.getRewards].contains(self)
+    }
+    
+    var isDepositFarmLiquidity: Bool {
+        [.farmDeposit].contains(self)
+    }
+
+    var isWithdrawFarmLiquidity: Bool {
+        [.farmWithdraw].contains(self)
     }
 }

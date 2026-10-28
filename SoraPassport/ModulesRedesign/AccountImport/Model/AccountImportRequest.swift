@@ -37,6 +37,8 @@ struct AccountImportMnemonicRequest {
     let networkType: Chain
     let derivationPath: String
     let cryptoType: CryptoType
+    /// Required for historical 3/6/9-word phrases; checked again before persistence.
+    var expectedAddress: String? = nil
 }
 
 struct AccountImportSeedRequest {

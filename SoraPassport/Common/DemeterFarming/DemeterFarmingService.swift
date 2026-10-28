@@ -33,9 +33,17 @@ import IrohaCrypto
 import RobinHood
 import SSFUtils
 
+enum DemeterFarmingServiceError: Error {
+    case unavailable
+}
+
 protocol DemeterFarmingServiceProtocol: AnyObject {
-    func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?, completion: @escaping ([UserFarm]) -> Void)
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm]
+    func loadUserFarmInfos(
+        baseAssetId: String?,
+        targetAssetId: String?,
+        accountId: Data
+    ) async throws -> [UserFarm]
     
     func getAllFarms() async throws -> [Farm]
     func getFarm(with id: String) -> Farm?
@@ -66,138 +74,142 @@ final class DemeterFarmingService {
 extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     
     func getAllFarms() async throws -> [Farm] {
-        return await withCheckedContinuation { continuation in
-            Task {
-                if !farms.isEmpty {
-                    continuation.resume(returning: farms)
-                    return
-                }
-
-                let poolsKeys = (try? await getPoolKeys()) ?? []
-                
-                async let farmList = poolsKeys.concurrentMap { [weak self] key in
-                    let data = String(key.dropFirst(2))
-                    let assetId = data.components(withMaxLength: 64)
-                    let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
-                    return pools
-                }
-
-                let reducedFarms = (try? await farmList.reduce([], +)) ?? []
-                
-                let rewardTokenInfosKeys = (try? await getTokenInfosKeys()) ?? []
-                
-                async let rewardTokenInfos = rewardTokenInfosKeys.concurrentMap { [weak self] key in
-                    let data = String(key.dropFirst(2))
-                    let assetId = "0x\(data.components(withMaxLength: 64).last ?? "")"
-                    let pools = try? await self?.getRewardTokenInfos(with: assetId)
-                    return pools
-                }
-                
-                let finalRewardTokenInfos = try? await rewardTokenInfos
-                
-                let fiatData = await fiatService.getFiat()
-                
-                async let farms = try? reducedFarms.concurrentMap { [weak self] pool in
-                    let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
-                    let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
-                    let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
-                    
-                    let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
-                    let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
-                    let rewardTokenInfo = finalRewardTokenInfos?.first { $0.assetId == pool.rewardAssetId }
-                    let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
-                    let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
-
-                    let price = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
-                    
-                    let blockPerYear = Decimal(5256000)
-                    let rewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
-                    let depositFee = pool.depositFee * 100
-
-                    return Farm(id: id,
-                                name: name,
-                                baseAsset: baseAsset,
-                                poolAsset: poolAsset,
-                                rewardAsset: rewardAsset,
-                                tvl: tvl,
-                                apr: apr / 100,
-                                depositFee: depositFee,
-                                usdPrice: price)
-                }
-                
-                let finalfarms = await farms ?? []
-                self.farms = finalfarms
-                continuation.resume(returning: finalfarms)
-            }
+        if !farms.isEmpty {
+            return farms
         }
+        
+        let poolsKeys = (try? await getPoolKeys()) ?? []
+        
+        async let farmList = poolsKeys.concurrentMap { [weak self] key -> [FarmedPool]? in
+            let data = String(key.dropFirst(2))
+            let assetId = data.components(withMaxLength: 64)
+            guard assetId.count > 2 else {
+                return nil
+            }
+            let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
+            return pools
+        }
+        
+        let reducedFarms = (try? await farmList.reduce([], +)) ?? []
+        
+        let rewardTokenInfosKeys = (try? await getTokenInfosKeys()) ?? []
+        
+        async let rewardTokenInfos = rewardTokenInfosKeys.concurrentMap { [weak self] key in
+            let data = String(key.dropFirst(2))
+            let assetId = "0x\(data.components(withMaxLength: 64).last ?? "")"
+            let pools = try? await self?.getRewardTokenInfos(with: assetId)
+            return pools
+        }
+        
+        let finalRewardTokenInfos = try? await rewardTokenInfos
+        
+        let fiatData = await fiatService.getFiat()
+        
+        async let farms = try? reducedFarms.concurrentMap { [weak self] pool in
+            let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
+            let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
+            let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
+            
+            let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
+            let id = "\(baseAsset?.assetId ?? "")-\(poolAsset?.assetId ?? "")-\(rewardAsset?.assetId ?? "")"
+            let rewardTokenInfo = finalRewardTokenInfos?.first { $0.assetId == pool.rewardAssetId }
+            let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
+            let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
+            
+            // A price that is not known leaves the value and the rate
+            // unknown; they are not shown as "$0" and "0%".
+            let knownPrice = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue
+            let price = knownPrice ?? Decimal(0)
+            let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
+            
+            let blockPerYear = Decimal(5256000)
+            let knownRewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue
+            let rewardAssetPrice = knownRewardAssetPrice ?? Decimal(0)
+            let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
+            let depositFee = pool.depositFee * 100
+            
+            return Farm(id: id,
+                        name: name,
+                        baseAsset: baseAsset,
+                        poolAsset: poolAsset,
+                        rewardAsset: rewardAsset,
+                        tvl: tvl,
+                        apr: apr / 100,
+                        depositFee: depositFee,
+                        tvlIsKnown: knownPrice != nil,
+                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
+        }
+        
+        let finalfarms = await farms ?? []
+        self.farms = finalfarms
+        return finalfarms
     }
     
     func getFarm(with id: String) -> Farm? {
-        guard let farm = farms.first(where: { $0.id == id })  else { return nil }
-        return farm
+        return farms.first(where: { $0.id == id })
     }
     
     func getFarmDetails(baseAssetId: String, poolAssetId: String, rewardAssetId: String) async throws -> [Farm] {
-        return await withCheckedContinuation { continuation in
-            farmsTask?.cancel()
-            farmsTask = Task {
-                async let farmedPools = (try? getPools(poolAssetId: poolAssetId, rewardAssetId: rewardAssetId)) ?? []
+        async let farmedPools = (try? getPools(poolAssetId: poolAssetId, rewardAssetId: rewardAssetId)) ?? []
+        
+        async let rewardTokenInfos = try? getRewardTokenInfos(with: rewardAssetId)
+        
+        async let fiatData = self.fiatService.getFiat()
+        
+        let results = await (farmedPools: farmedPools.filter { $0.baseAssetId == baseAssetId },
+                             rewardTokenInfos: rewardTokenInfos,
+                             fiatData: fiatData)
+        
+        async let farms = try? results.farmedPools.concurrentMap { [weak self] pool in
+            let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
+            let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
+            let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
             
-                async let rewardTokenInfos = try? getRewardTokenInfos(with: rewardAssetId)
-                
-                async let fiatData = self.fiatService.getFiat()
-                
-                let results = await (farmedPools: farmedPools.filter { $0.baseAssetId == baseAssetId },
-                                     rewardTokenInfos: rewardTokenInfos,
-                                     fiatData: fiatData)
-                
-                async let farms = try? results.farmedPools.concurrentMap { [weak self] pool in
-                    let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
-                    let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
-                    let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
-                    
-                    let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
-                    let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
-                    let rewardTokenInfo = results.rewardTokenInfos
-                    let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
-                    let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
-
-                    let price = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
-                    
-                    let blockPerYear = Decimal(5256000)
-                    let rewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
-                    let depositFee = pool.depositFee * 100
-
-                    return Farm(id: id,
-                                name: name,
-                                baseAsset: baseAsset,
-                                poolAsset: poolAsset,
-                                rewardAsset: rewardAsset,
-                                tvl: tvl,
-                                apr: apr / 100,
-                                depositFee: depositFee,
-                                usdPrice: price)
-                }
-                
-                let finalfarms = await farms ?? []
-                continuation.resume(returning: finalfarms)
-            }
+            let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
+            let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
+            let rewardTokenInfo = results.rewardTokenInfos
+            let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
+            let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
+            
+            // A price that is not known leaves the value and the rate
+            // unknown; they are not shown as "$0" and "0%".
+            let knownPrice = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue
+            let price = knownPrice ?? Decimal(0)
+            let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
+            
+            let blockPerYear = Decimal(5256000)
+            let knownRewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue
+            let rewardAssetPrice = knownRewardAssetPrice ?? Decimal(0)
+            let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
+            let depositFee = pool.depositFee * 100
+            
+            return Farm(id: id,
+                        name: name,
+                        baseAsset: baseAsset,
+                        poolAsset: poolAsset,
+                        rewardAsset: rewardAsset,
+                        tvl: tvl,
+                        apr: apr / 100,
+                        depositFee: depositFee,
+                        tvlIsKnown: knownPrice != nil,
+                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
         }
+
+        return await farms ?? []
     }
     
     func getPoolKeys() async throws -> [String] {
         guard let keysOperation = try? operationFactory.poolsKeysPagedOperation() else { return [] }
-        operationManager.enqueue(operations: [keysOperation], in: .transient)
-        
+
         return await withCheckedContinuation { continuation in
             keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else { return }
+                guard let pools = try? keysOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 continuation.resume(returning: pools)
             }
+            operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
     }
     
@@ -210,12 +222,11 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             return []
         }
 
-        operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
                     guard let allFarmInfos = try poolsOperation.targetOperation.extractResultData()?.filter({ $0.isFarm && !$0.isRemoved }) else {
+                        continuation.resume(returning: [])
                         return
                     }
                     
@@ -240,18 +251,22 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     continuation.resume(returning: [])
                 }
             }
+            operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
     }
     
     func getTokenInfosKeys() async throws -> [String] {
         guard let keysOperation = try? operationFactory.tokenInfosKeysPagedOperation() else { return [] }
-        operationManager.enqueue(operations: [keysOperation], in: .transient)
-        
+
         return await withCheckedContinuation { continuation in
             keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else { return }
+                guard let pools = try? keysOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 continuation.resume(returning: pools)
             }
+            operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
     }
     
@@ -262,12 +277,13 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             return nil
         }
 
-        operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
-                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else { return }
+                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
                     
                     let rewardAssetInfo = FarmedRewardTokenInfo(
                         assetId: assetId,
@@ -279,50 +295,82 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     )
 
                     continuation.resume(returning: rewardAssetInfo)
-                } catch { }
+                } catch {
+                    continuation.resume(returning: nil)
+                }
             }
+            operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
     }
-    
 
-    @available(*, renamed: "getFarmedPools(baseAssetId:targetAssetId:)")
-    func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?, completion: @escaping ([UserFarm]) -> Void) {
-        Task {
-            let result = await getUserFarmInfos(baseAssetId: baseAssetId, targetAssetId: targetAssetId)
-            completion(result)
-        }
-    }
-    
-    
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm] {
+        guard let account = SelectedWalletSettings.shared.currentAccount,
+              let accountId = try? SS58AddressFactory().accountId(
+                fromAddress: account.address,
+                type: account.networkType
+              ) else {
+            return []
+        }
+        return (try? await loadUserFarmInfos(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            accountId: accountId
+        )) ?? []
+    }
+
+    func loadUserFarmInfos(
+        baseAssetId: String?,
+        targetAssetId: String?,
+        accountId: Data
+    ) async throws -> [UserFarm] {
         guard let baseAssetId, let targetAssetId,
-              let account = SelectedWalletSettings.shared.currentAccount,
-              let accountId = try? SS58AddressFactory().accountId(fromAddress: account.address, type: account.networkType),
+              !accountId.isEmpty,
               let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
               let farmedPoolsOperation = try? operationFactory.userInfo(
                 accountId: accountId,
                 runtimeOperation: runtimeService.fetchCoderFactoryOperation()
               ) else {
-            return []
+            throw DemeterFarmingServiceError.unavailable
         }
-        operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
-        
-        return await withCheckedContinuation { continuation in
+        return try await withCheckedThrowingContinuation { continuation in
             farmedPoolsOperation.targetOperation.completionBlock = {
-                guard let userFarms = try? farmedPoolsOperation.targetOperation.extractResultData() else { return }
-                let filtredUserFarms = userFarms.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
-                let farms = filtredUserFarms.map {
-                    UserFarm(
-                        baseAssetId: $0.baseAsset.value,
-                        poolAssetId: $0.poolAsset.value,
-                        rewardAssetId: $0.rewardAsset.value,
-                        isFarm: $0.isFarm,
-                        pooledTokens: Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero,
-                        rewards: Decimal.fromSubstrateAmount($0.rewards, precision: 18) ?? .zero
-                    )
+                do {
+                    let userFarms = try farmedPoolsOperation.targetOperation
+                        .extractResultData(
+                            throwing: DemeterFarmingServiceError.unavailable
+                        )
+                    let filtredUserFarms = userFarms.filter {
+                        baseAssetId == $0.baseAsset.value
+                            && targetAssetId == $0.poolAsset.value
+                            && $0.isFarm
+                    }
+                    let farms = try filtredUserFarms.map {
+                        guard let pooledTokens = Decimal.fromSubstrateAmount(
+                            $0.pooledTokens,
+                            precision: 18
+                        ), let rewards = Decimal.fromSubstrateAmount(
+                            $0.rewards,
+                            precision: 18
+                        ) else {
+                            throw DemeterFarmingServiceError.unavailable
+                        }
+
+                        return UserFarm(
+                            id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",
+                            baseAssetId: $0.baseAsset.value,
+                            poolAssetId: $0.poolAsset.value,
+                            rewardAssetId: $0.rewardAsset.value,
+                            isFarm: $0.isFarm,
+                            pooledTokens: pooledTokens,
+                            rewards: rewards
+                        )
+                    }
+                    continuation.resume(returning: farms)
+                } catch {
+                    continuation.resume(throwing: error)
                 }
-                continuation.resume(returning: farms)
             }
+            operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
         }
     }
 
@@ -335,11 +383,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                 runtimeOperation: runtimeService.fetchCoderFactoryOperation()
               )
         else {
+            completion([])
             return
         }
 
         farmedPoolsOperation.targetOperation.completionBlock = {
-            guard let pools = try? farmedPoolsOperation.targetOperation.extractResultData() else { return }
+            guard let pools = try? farmedPoolsOperation.targetOperation.extractResultData() else {
+                completion([])
+                return
+            }
             let xorId = WalletAssetId.xor.rawValue
             let filtredPools = pools.filter { $0.poolAsset.value == xorId && !($0.isFarm) }
             completion(filtredPools)

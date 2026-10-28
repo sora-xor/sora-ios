@@ -102,6 +102,33 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
         )
         return RuntimeCall<DepositLiquidityCall>.depositLiquidity(call)
     }
+
+    func depositLiquidityScaleCompatibleJSON(
+        dexId: String,
+        assetA: String,
+        assetB: String,
+        desiredA: BigUInt,
+        desiredB: BigUInt,
+        minA: BigUInt,
+        minB: BigUInt
+    ) throws -> JSON {
+        let call: RuntimeCall<DepositLiquidityCall> = try depositLiquidity(
+            dexId: dexId,
+            assetA: assetA,
+            assetB: assetB,
+            desiredA: desiredA,
+            desiredB: desiredB,
+            minA: minA,
+            minB: minB
+        )
+        return try call.toScaleCompatibleJSON()
+    }
+
+    func scaleCompatibleJSON<Arguments: Codable>(
+        for call: RuntimeCall<Arguments>
+    ) throws -> JSON {
+        try call.toScaleCompatibleJSON()
+    }
     
     func withdrawLiquidityCall(
         dexId: String,
@@ -136,5 +163,54 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
     func unreserveReferralBalance(balance: BigUInt) throws -> RuntimeCall<ReferralBalanceCall> {
         let call = ReferralBalanceCall(balance: balance)
         return RuntimeCall<ReferralBalanceCall>.unreserveReferralBalance(call)
+    }
+    
+    func claimRewardFromDemeterFarmCall(
+        baseAssetId: String,
+        targetAssetId: String,
+        rewardAssetId: String,
+        isFarm: Bool
+    ) throws -> RuntimeCall<DemeterFarmingClaimRewardCall> {
+        let call = DemeterFarmingClaimRewardCall(
+            baseAssetId: AssetId.init(wrappedValue: baseAssetId),
+            targetAssetId: AssetId.init(wrappedValue: targetAssetId),
+            rewardAssetId: AssetId.init(wrappedValue: rewardAssetId),
+            isFarm: isFarm
+        )
+        return RuntimeCall<DemeterFarmingClaimRewardCall>.claimRewardDemeter(call)
+    }
+
+    func depositLiquidityToDemeterFarmCall(
+        baseAssetId: String,
+        targetAssetId: String,
+        rewardAssetId: String,
+        isFarm: Bool,
+        amount: BigUInt
+    ) throws -> RuntimeCall<DemeterFarmingDepositLiquidityCall> {
+        let call = DemeterFarmingDepositLiquidityCall(
+            baseAssetId: AssetId.init(wrappedValue: baseAssetId),
+            targetAssetId: AssetId.init(wrappedValue: targetAssetId),
+            rewardAssetId: AssetId.init(wrappedValue: rewardAssetId),
+            isFarm: isFarm,
+            amount: amount
+        )
+        return RuntimeCall<DemeterFarmingDepositLiquidityCall>.depositLiquidityDemeter(call)
+    }
+    
+    func withdrawLiquidityFromDemeterFarmCall(
+        baseAssetId: String,
+        targetAssetId: String,
+        rewardAssetId: String,
+        isFarm: Bool,
+        amount: BigUInt
+    ) throws -> RuntimeCall<DemeterFarmingWithdrawLiquidityCall> {
+        let call = DemeterFarmingWithdrawLiquidityCall(
+            baseAssetId: AssetId.init(wrappedValue: baseAssetId),
+            targetAssetId: AssetId.init(wrappedValue: targetAssetId),
+            rewardAssetId: AssetId.init(wrappedValue: rewardAssetId),
+            isFarm: isFarm,
+            amount: amount
+        )
+        return RuntimeCall<DemeterFarmingWithdrawLiquidityCall>.withdrawLiquidityDemeter(call)
     }
 }

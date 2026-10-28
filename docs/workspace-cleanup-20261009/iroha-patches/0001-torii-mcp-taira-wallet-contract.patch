@@ -1,0 +1,1423 @@
+diff --git a/crates/iroha_torii/src/lib.rs b/crates/iroha_torii/src/lib.rs
+index 869f458aebb451c018140609a5a7f70902c3dbba..d5fa95059cfec6c28ac2194b4cf6ca7814e0a0d1 100644
+--- a/crates/iroha_torii/src/lib.rs
++++ b/crates/iroha_torii/src/lib.rs
+@@ -5512,6 +5512,8 @@ struct ExplorerInstructionsQuery {
+     kind: Option<String>,
+     #[norito(default)]
+     asset_id: Option<String>,
++    #[norito(default)]
++    asset_definition_id: Option<String>,
+ }
+ 
+ #[cfg(feature = "app_api")]
+@@ -6006,6 +6008,27 @@ fn parse_asset_id(raw: &str) -> Result<AssetId, Error> {
+         .map_err(|_| Error::Query(iroha_data_model::ValidationFail::TooComplex))
+ }
+ 
++#[cfg(feature = "app_api")]
++fn parse_explorer_instruction_asset_filters(
++    app: &AppState,
++    asset_id: Option<String>,
++    asset_definition_id: Option<String>,
++) -> Result<(Option<AssetId>, Option<AssetDefinitionId>), Error> {
++    let asset_id = asset_id.filter(|raw| !raw.trim().is_empty());
++    let asset_definition_id = asset_definition_id.filter(|raw| !raw.trim().is_empty());
++    if asset_id.is_some() && asset_definition_id.is_some() {
++        return Err(conversion_error(
++            "asset_id and asset_definition_id filters are mutually exclusive".to_owned(),
++        ));
++    }
++    Ok((
++        asset_id.map(|raw| parse_asset_id(&raw)).transpose()?,
++        asset_definition_id
++            .map(|raw| parse_asset_definition_id(app, &raw))
++            .transpose()?,
++    ))
++}
++
+ #[cfg(feature = "app_api")]
+ fn parse_transaction_hash(raw: &str) -> Result<HashOf<TransactionEntrypoint>, Error> {
+     raw.trim()
+@@ -6398,6 +6421,7 @@ async fn handler_explorer_instructions_list(
+         block,
+         kind,
+         asset_id,
++        asset_definition_id,
+     } = query;
+     if let Some(block_height) = block {
+         if block_height == 0 {
+@@ -6437,11 +6461,8 @@ async fn handler_explorer_instructions_list(
+         ),
+         None => None,
+     };
+-    let asset_id = match asset_id {
+-        Some(raw) if raw.trim().is_empty() => None,
+-        Some(raw) => Some(parse_asset_id(&raw)?),
+-        None => None,
+-    };
++    let (asset_id, asset_definition_id) =
++        parse_explorer_instruction_asset_filters(app.as_ref(), asset_id, asset_definition_id)?;
+     let allowed = limits::is_allowed_by_cidr(&headers, Some(remote_ip), &app.allow_nets);
+     if !allowed {
+         check_access(&app, &headers, Some(remote_ip), "v1/explorer/instructions").await?;
+@@ -6458,6 +6479,7 @@ async fn handler_explorer_instructions_list(
+             block,
+             kind,
+             asset_id,
++            asset_definition_id,
+         },
+     )
+     .await
+@@ -6481,6 +6503,7 @@ async fn handler_explorer_instructions_latest(
+         block,
+         kind,
+         asset_id,
++        asset_definition_id,
+     } = query;
+     if let Some(block_height) = block {
+         if block_height == 0 {
+@@ -6520,11 +6543,8 @@ async fn handler_explorer_instructions_latest(
+         ),
+         None => None,
+     };
+-    let asset_id = match asset_id {
+-        Some(raw) if raw.trim().is_empty() => None,
+-        Some(raw) => Some(parse_asset_id(&raw)?),
+-        None => None,
+-    };
++    let (asset_id, asset_definition_id) =
++        parse_explorer_instruction_asset_filters(app.as_ref(), asset_id, asset_definition_id)?;
+     let allowed = limits::is_allowed_by_cidr(&headers, Some(remote_ip), &app.allow_nets);
+     if !allowed {
+         check_access(
+@@ -6547,6 +6567,7 @@ async fn handler_explorer_instructions_latest(
+             block,
+             kind,
+             asset_id,
++            asset_definition_id,
+         },
+     )
+     .await
+@@ -28959,13 +28980,17 @@ fn pipeline_status_terminal_or_state_entry(
+         }
+     }
+ 
+-    if let Some(entry) = pipeline_status_from_state(app.as_ref(), hash) {
+-        app.pipeline_status_cache
+-            .record_entry(hash.clone(), entry.clone());
+-        return Some((entry, "state"));
+-    }
++    pipeline_status_state_entry(app, hash)
++}
+ 
+-    None
++fn pipeline_status_state_entry(
++    app: &SharedAppState,
++    hash: &HashOf<SignedTransaction>,
++) -> Option<(PipelineStatusEntry, &'static str)> {
++    let entry = pipeline_status_from_state(app.as_ref(), hash)?;
++    app.pipeline_status_cache
++        .record_entry(hash.clone(), entry.clone());
++    Some((entry, "state"))
+ }
+ 
+ fn pipeline_status_local_entry(
+@@ -29039,10 +29064,10 @@ fn execute_pipeline_status_local_read(
+     let read_scope = parse_pipeline_status_scope(query.scope.as_deref())?;
+     let hash = parse_signed_transaction_hash(hash_raw)?;
+ 
+-    let local_entry = if matches!(read_scope, PipelineStatusReadScope::Local) {
+-        pipeline_status_local_entry(app, &hash)
+-    } else {
+-        pipeline_status_terminal_or_state_entry(app, &hash)
++    let local_entry = match read_scope {
++        PipelineStatusReadScope::Local => pipeline_status_local_entry(app, &hash),
++        PipelineStatusReadScope::Auto => pipeline_status_terminal_or_state_entry(app, &hash),
++        PipelineStatusReadScope::Global => pipeline_status_state_entry(app, &hash),
+     };
+ 
+     if let Some((entry, resolved_from)) = local_entry {
+@@ -42984,6 +43009,63 @@ pub(crate) mod tests_runtime_handlers {
+         );
+     }
+ 
++    #[tokio::test]
++    async fn pipeline_status_handler_global_scope_ignores_terminal_cache_and_reads_state() {
++        let app = mk_app_state_for_tests();
++        let (block, _) = make_signed_block(1, None);
++        let header = block.header();
++        let tx_hash = block.external_transactions().next().expect("tx").hash();
++        store_block(&app, block);
++
++        app.pipeline_status_cache.record_entry(
++            tx_hash,
++            PipelineStatusEntry::fresh(PipelineStatusKind::Applied, None, None),
++        );
++
++        let height = header.height();
++        let height_usize = usize::try_from(height.get()).expect("height usize");
++        let height_nz = NonZeroUsize::new(height_usize).expect("height");
++        let mut state_block = app.state.block(header);
++        let tx_hashes: HashSet<_> = [tx_hash].into_iter().collect();
++        state_block.transactions.insert_block(tx_hashes, height_nz);
++        state_block.commit().expect("commit");
++
++        let response = super::handler_pipeline_transaction_status(
++            State(app),
++            HeaderMap::new(),
++            crate::loopback_connect_info(),
++            None,
++            crate::NoritoQuery(PipelineStatusQuery {
++                hash: Some(tx_hash.to_string()),
++                scope: Some("global".to_owned()),
++            }),
++        )
++        .await
++        .expect("global state status");
++        assert_eq!(response.status(), StatusCode::OK);
++        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
++            .await
++            .expect("body");
++        let payload: norito::json::Value = norito::json::from_slice(&body).expect("json");
++        assert_eq!(
++            payload.get("scope").and_then(norito::json::Value::as_str),
++            Some("global")
++        );
++        assert_eq!(
++            payload
++                .get("resolved_from")
++                .and_then(norito::json::Value::as_str),
++            Some("state")
++        );
++        assert_eq!(
++            payload
++                .get("status")
++                .and_then(|status| status.get("block_height"))
++                .and_then(norito::json::Value::as_u64),
++            Some(1)
++        );
++    }
++
+     #[tokio::test]
+     async fn pipeline_status_handler_encodes_rejection_as_base64() {
+         let app = mk_app_state_for_tests();
+diff --git a/crates/iroha_torii/src/mcp.rs b/crates/iroha_torii/src/mcp.rs
+index 54d2f66e09228128840906268405cf5305066fc1..313697ec9fabffc303c87ccb8e032cbf19102b1b 100644
+--- a/crates/iroha_torii/src/mcp.rs
++++ b/crates/iroha_torii/src/mcp.rs
+@@ -5173,6 +5173,7 @@ async fn dispatch_iroha_contracts_call_and_wait(
+         timeout_ms,
+         poll_interval_ms,
+         terminal_statuses,
++        false,
+     )
+     .await
+ }
+@@ -6445,8 +6446,7 @@ async fn dispatch_iroha_instructions_list(
+     inbound_headers: &HeaderMap,
+     arguments: &Map,
+ ) -> Result<Value, String> {
+-    let query = collect_query_arguments(arguments, &["query", "headers", "accept"])?;
+-    let route = append_query("/v1/explorer/instructions".to_owned(), query.as_ref())?;
++    let route = build_iroha_instructions_list_route(arguments)?;
+     dispatch_route(
+         app,
+         inbound_headers,
+@@ -6463,6 +6463,43 @@ async fn dispatch_iroha_instructions_list(
+     .await
+ }
+ 
++fn build_iroha_instructions_list_route(arguments: &Map) -> Result<String, String> {
++    reject_unknown_arguments(
++        arguments,
++        &[
++            "query",
++            "page",
++            "per_page",
++            "authority",
++            "account",
++            "transaction_hash",
++            "transaction_status",
++            "block",
++            "kind",
++            "asset_id",
++            "asset_definition_id",
++            "headers",
++            "accept",
++        ],
++        "explorer instruction listing",
++    )?;
++    let query = collect_query_arguments(arguments, &["query", "headers", "accept"])?;
++    if let Some(query) = query.as_ref().and_then(Value::as_object) {
++        let has_nonempty_string = |key: &str| {
++            query
++                .get(key)
++                .and_then(Value::as_str)
++                .is_some_and(|value| !value.trim().is_empty())
++        };
++        if has_nonempty_string("asset_id") && has_nonempty_string("asset_definition_id") {
++            return Err(
++                "`asset_id` and `asset_definition_id` filters are mutually exclusive".to_owned(),
++            );
++        }
++    }
++    append_query("/v1/explorer/instructions".to_owned(), query.as_ref())
++}
++
+ async fn dispatch_iroha_instructions_get(
+     app: &SharedAppState,
+     inbound_headers: &HeaderMap,
+@@ -6759,12 +6796,7 @@ async fn dispatch_iroha_transactions_submit_and_wait(
+         return Ok(submit);
+     }
+ 
+-    let tx_hash = extract_optional_transaction_hash_argument(arguments)
+-        .or_else(|| extract_transaction_hash_from_submit_result(&submit).ok())
+-        .ok_or_else(|| {
+-            "could not resolve transaction hash; provide `hash`/`transaction_hash` explicitly"
+-                .to_owned()
+-        })?;
++    let (submit, tx_hash) = normalize_verified_transaction_submission(submit, arguments)?;
+ 
+     wait_for_terminal_transaction_status(
+         app,
+@@ -6775,6 +6807,7 @@ async fn dispatch_iroha_transactions_submit_and_wait(
+         timeout_ms,
+         poll_interval_ms,
+         terminal_statuses,
++        true,
+     )
+     .await
+ }
+@@ -6810,6 +6843,7 @@ async fn dispatch_iroha_transactions_wait(
+         timeout_ms,
+         poll_interval_ms,
+         terminal_statuses,
++        false,
+     )
+     .await
+ }
+@@ -6824,6 +6858,7 @@ async fn wait_for_terminal_transaction_status(
+     timeout_ms: u64,
+     poll_interval_ms: u64,
+     terminal_statuses: Vec<String>,
++    require_authoritative_global_applied: bool,
+ ) -> Result<Value, String> {
+     let start = tokio::time::Instant::now();
+     let timeout = Duration::from_millis(timeout_ms);
+@@ -6840,12 +6875,12 @@ async fn wait_for_terminal_transaction_status(
+     loop {
+         attempts = attempts.saturating_add(1);
+ 
+-        let mut status_arguments = Map::new();
+-        status_arguments.insert("hash".into(), Value::String(tx_hash.clone()));
+-        status_arguments.insert("accept".into(), Value::String(status_accept.clone()));
+-        if let Some(headers) = arguments.get("headers") {
+-            status_arguments.insert("headers".into(), headers.clone());
+-        }
++        let status_arguments = build_transaction_status_poll_arguments(
++            arguments,
++            &tx_hash,
++            &status_accept,
++            require_authoritative_global_applied,
++        );
+ 
+         let status_result =
+             dispatch_iroha_transactions_status(app, inbound_headers, &status_arguments).await?;
+@@ -6859,7 +6894,13 @@ async fn wait_for_terminal_transaction_status(
+                 "status polling response is missing `body.status.kind`".to_owned()
+             })?;
+             last_kind = Some(kind.to_owned());
+-            if is_terminal_pipeline_status(kind, &terminal_statuses) {
++            if is_ready_terminal_pipeline_status(
++                kind,
++                &terminal_statuses,
++                &status_result,
++                &tx_hash,
++                require_authoritative_global_applied,
++            ) {
+                 let mut out = Map::new();
+                 out.insert("status".into(), Value::from(status_code));
+                 out.insert("hash".into(), Value::String(tx_hash.clone()));
+@@ -6917,6 +6958,51 @@ async fn wait_for_terminal_transaction_status(
+     ))
+ }
+ 
++fn build_transaction_status_poll_arguments(
++    arguments: &Map,
++    tx_hash: &str,
++    status_accept: &str,
++    require_authoritative_global_applied: bool,
++) -> Map {
++    let mut status_arguments = Map::new();
++    status_arguments.insert("hash".into(), Value::String(tx_hash.to_owned()));
++    status_arguments.insert("accept".into(), Value::String(status_accept.to_owned()));
++    if require_authoritative_global_applied {
++        status_arguments.insert("scope".into(), Value::String("global".to_owned()));
++    }
++    if let Some(headers) = arguments.get("headers") {
++        status_arguments.insert("headers".into(), headers.clone());
++    }
++    status_arguments
++}
++
++fn is_ready_terminal_pipeline_status(
++    kind: &str,
++    terminal_statuses: &[String],
++    status_result: &Value,
++    expected_hash: &str,
++    require_authoritative_global_applied: bool,
++) -> bool {
++    if !is_terminal_pipeline_status(kind, terminal_statuses) {
++        return false;
++    }
++    if !require_authoritative_global_applied || !kind.eq_ignore_ascii_case("Applied") {
++        return true;
++    }
++    let Some(body) = status_result.get("body").and_then(Value::as_object) else {
++        return false;
++    };
++    body.get("hash").and_then(Value::as_str) == Some(expected_hash)
++        && body.get("scope").and_then(Value::as_str) == Some("global")
++        && body.get("resolved_from").and_then(Value::as_str) == Some("state")
++        && body
++            .get("status")
++            .and_then(Value::as_object)
++            .and_then(|status| status.get("block_height"))
++            .and_then(Value::as_u64)
++            .is_some_and(|height| height > 0)
++}
++
+ async fn dispatch_iroha_transactions_status(
+     app: &SharedAppState,
+     inbound_headers: &HeaderMap,
+@@ -7203,12 +7289,112 @@ fn extract_transaction_hash_from_submit_result(submit_result: &Value) -> Result<
+ }
+ 
+ fn decode_transaction_hash_from_receipt_base64(encoded_receipt: &str) -> Option<String> {
+-    let bytes = decode_base64_any(encoded_receipt)?;
+-    let receipt: iroha_data_model::transaction::TransactionSubmissionReceipt =
+-        norito::decode_from_bytes(&bytes).ok()?;
++    let receipt = decode_verified_transaction_submission_receipt(encoded_receipt).ok()?;
+     Some(receipt.payload.tx_hash.to_string())
+ }
+ 
++fn normalize_verified_transaction_submission(
++    mut submit_result: Value,
++    arguments: &Map,
++) -> Result<(Value, String), String> {
++    let status = submit_result
++        .get("status")
++        .and_then(Value::as_u64)
++        .ok_or_else(|| "submit response missing HTTP status".to_owned())?;
++    if !(200..300).contains(&status) {
++        return Err(format!(
++            "submit response status `{status}` is not successful"
++        ));
++    }
++
++    let content_type = submit_result
++        .get("content_type")
++        .and_then(Value::as_str)
++        .ok_or_else(|| "submit response missing content type".to_owned())?;
++    if content_type != crate::utils::NORITO_MIME_TYPE {
++        return Err(format!(
++            "submit response content type `{content_type}` is not `{}`",
++            crate::utils::NORITO_MIME_TYPE
++        ));
++    }
++    let encoded_receipt = submit_result
++        .get("body")
++        .and_then(Value::as_str)
++        .filter(|body| !body.is_empty())
++        .ok_or_else(|| "submit response missing Norito receipt body".to_owned())?;
++    let receipt = decode_verified_transaction_submission_receipt(encoded_receipt)?;
++    let receipt_hash = receipt.payload.tx_hash.to_string();
++
++    for field in ["hash", "transaction_hash"] {
++        let Some(value) = arguments.get(field) else {
++            continue;
++        };
++        let supplied_hash = value
++            .as_str()
++            .filter(|hash| !hash.is_empty())
++            .ok_or_else(|| format!("`{field}` must be a non-empty string"))?;
++        if supplied_hash != receipt_hash {
++            return Err(format!(
++                "supplied `{field}` does not match verified submission receipt `payload.tx_hash`"
++            ));
++        }
++    }
++
++    let mut receipt_json = json::to_value(&receipt)
++        .map_err(|err| format!("encode verified submission receipt as JSON: {err}"))?;
++    let receipt_payload = receipt_json
++        .get_mut("payload")
++        .and_then(Value::as_object_mut)
++        .ok_or_else(|| "verified submission receipt JSON missing payload object".to_owned())?;
++    // `HashOf`'s lossless Norito JSON form includes a type/checksum wrapper. MCP transaction
++    // status and wallet contracts use the raw lowercase 64-hex hash, so expose that verified
++    // value in this projection. The canonical receipt was verified before this projection; the
++    // original signature and signer remain available for audit rather than JSON re-signing.
++    receipt_payload.insert("tx_hash".to_owned(), Value::String(receipt_hash.clone()));
++    let submit = submit_result
++        .as_object_mut()
++        .ok_or_else(|| "submit response must be an object".to_owned())?;
++    let headers = submit
++        .get_mut("headers")
++        .and_then(Value::as_object_mut)
++        .ok_or_else(|| "submit response headers must be an object".to_owned())?;
++    let header_hash = headers
++        .get("x-iroha-transaction-hash")
++        .and_then(Value::as_str)
++        .ok_or_else(|| "submit response missing `x-iroha-transaction-hash` header".to_owned())?;
++    if header_hash != receipt_hash {
++        return Err(
++            "submit response `x-iroha-transaction-hash` does not match verified submission receipt `payload.tx_hash`"
++                .to_owned(),
++        );
++    }
++    headers.insert(
++        header::CONTENT_TYPE.as_str().to_owned(),
++        Value::String("application/json".to_owned()),
++    );
++    submit.insert("body".into(), receipt_json);
++    submit.insert(
++        "content_type".into(),
++        Value::String("application/json".to_owned()),
++    );
++
++    Ok((submit_result, receipt_hash))
++}
++
++fn decode_verified_transaction_submission_receipt(
++    encoded_receipt: &str,
++) -> Result<iroha_data_model::transaction::TransactionSubmissionReceipt, String> {
++    let bytes = decode_base64_any(encoded_receipt)
++        .ok_or_else(|| "submit response receipt body is not valid base64".to_owned())?;
++    let receipt: iroha_data_model::transaction::TransactionSubmissionReceipt =
++        norito::decode_from_bytes(&bytes)
++            .map_err(|err| format!("decode transaction submission receipt: {err}"))?;
++    receipt
++        .verify()
++        .map_err(|err| format!("verify transaction submission receipt signature: {err}"))?;
++    Ok(receipt)
++}
++
+ fn extract_pipeline_status_kind(status_result: &Value) -> Option<&str> {
+     let body = status_result.get("body")?;
+     body.get("status")
+@@ -8271,6 +8457,12 @@ fn decode_response_body(bytes: &[u8], content_type: Option<&str>) -> Value {
+     if bytes.is_empty() {
+         return Value::Null;
+     }
++    let media_type = content_type
++        .and_then(|value| value.split(';').next())
++        .map(str::trim);
++    if media_type.is_some_and(|value| value.eq_ignore_ascii_case(crate::utils::NORITO_MIME_TYPE)) {
++        return Value::String(base64::engine::general_purpose::STANDARD.encode(bytes));
++    }
+     if content_type.is_some_and(|ct| ct.to_ascii_lowercase().contains("json"))
+         && let Ok(value) = json::from_slice::<Value>(bytes)
+     {
+@@ -11786,7 +11978,7 @@ fn iroha_account_assets_tool() -> ToolSpec {
+         path_template: "/v1/accounts/{account_id}/assets".to_owned(),
+         input_schema: norito::json!({
+             "type": "object",
+-            "additionalProperties": true,
++            "additionalProperties": false,
+             "properties": {
+                 "account_id": {
+                     "type": "string",
+@@ -11806,7 +11998,14 @@ fn iroha_account_assets_tool() -> ToolSpec {
+                 },
+                 "limit": { "type": "integer" },
+                 "offset": { "type": "integer" },
+-                "asset_id": { "type": "string" },
++                "asset": {
++                    "type": "string",
++                    "description": "Filter by asset definition selector."
++                },
++                "scope": {
++                    "type": "string",
++                    "description": "Filter by balance scope (`global` or `dataspace:<id>`)."
++                },
+                 "headers": {
+                     "type": "object",
+                     "additionalProperties": { "type": "string" }
+@@ -13255,11 +13454,23 @@ fn iroha_instructions_list_tool() -> ToolSpec {
+         path_template: "/v1/explorer/instructions".to_owned(),
+         input_schema: norito::json!({
+             "type": "object",
+-            "additionalProperties": true,
++            "additionalProperties": false,
+             "properties": {
+                 "query": {
+                     "type": "object",
+-                    "additionalProperties": true
++                    "additionalProperties": false,
++                    "properties": {
++                        "page": { "type": "integer" },
++                        "per_page": { "type": "integer" },
++                        "authority": { "type": "string" },
++                        "account": { "type": "string" },
++                        "transaction_hash": { "type": "string" },
++                        "transaction_status": { "type": "string" },
++                        "block": { "type": "integer" },
++                        "kind": { "type": "string" },
++                        "asset_id": { "type": "string" },
++                        "asset_definition_id": { "type": "string" }
++                    }
+                 },
+                 "page": { "type": "integer" },
+                 "per_page": { "type": "integer" },
+@@ -13269,7 +13480,14 @@ fn iroha_instructions_list_tool() -> ToolSpec {
+                 "transaction_status": { "type": "string" },
+                 "block": { "type": "integer" },
+                 "kind": { "type": "string" },
+-                "asset_id": { "type": "string" },
++                "asset_id": {
++                    "type": "string",
++                    "description": "Filter by an exact account-owned asset ID; mutually exclusive with `asset_definition_id`."
++                },
++                "asset_definition_id": {
++                    "type": "string",
++                    "description": "Filter asset instructions by asset definition across source and destination accounts; mutually exclusive with `asset_id`."
++                },
+                 "headers": {
+                     "type": "object",
+                     "additionalProperties": { "type": "string" }
+@@ -13445,7 +13663,7 @@ fn iroha_transactions_submit_and_wait_tool() -> ToolSpec {
+                 },
+                 "hash": {
+                     "type": "string",
+-                    "description": "Optional known transaction hash; if omitted the tool attempts to decode it from the submission receipt."
++                    "description": "Optional expected transaction hash; when supplied it must match the verified submission receipt `payload.tx_hash`."
+                 },
+                 "transaction_hash": {
+                     "type": "string",
+@@ -13546,7 +13764,7 @@ fn iroha_transactions_status_tool() -> ToolSpec {
+         path_template: "/v1/pipeline/transactions/status".to_owned(),
+         input_schema: norito::json!({
+             "type": "object",
+-            "additionalProperties": true,
++            "additionalProperties": false,
+             "properties": {
+                 "hash": {
+                     "type": "string",
+@@ -13556,6 +13774,10 @@ fn iroha_transactions_status_tool() -> ToolSpec {
+                     "type": "string",
+                     "description": "Alias for `hash`."
+                 },
++                "scope": {
++                    "type": "string",
++                    "description": "Read scope (`local`, `auto`, or `global`)."
++                },
+                 "query": {
+                     "type": "object",
+                     "additionalProperties": false,
+@@ -13564,6 +13786,10 @@ fn iroha_transactions_status_tool() -> ToolSpec {
+                         "transaction_hash": {
+                             "type": "string",
+                             "description": "Alias for `query.hash`."
++                        },
++                        "scope": {
++                            "type": "string",
++                            "description": "Read scope (`local`, `auto`, or `global`)."
+                         }
+                     }
+                 },
+@@ -13624,6 +13850,9 @@ mod tests {
+     use super::*;
+     use crate::tests_runtime_handlers::mk_app_state_for_tests;
+     use iroha_config::parameters::actual::ToriiMcpProfile;
++    use iroha_data_model::transaction::{
++        TransactionSubmissionReceipt, TransactionSubmissionReceiptPayload,
++    };
+ 
+     static MCP_ASYNC_JOBS_TEST_LOCK: LazyLock<std::sync::Mutex<()>> =
+         LazyLock::new(|| std::sync::Mutex::new(()));
+@@ -13631,6 +13860,91 @@ mod tests {
+     const TEST_ACCOUNT_I105: &str = "sorauﾛ1NﾗhBUd2BﾂｦﾄiﾔﾆﾂﾇKSﾃaﾘﾒﾓQﾗrﾒoﾘﾅnｳﾘbQｳQJﾆLJ5HSE";
+     const TEST_ASSET_ID: &str = "62Fk4FPcMuLvW5QjDGNF2a4jAmjM";
+ 
++    fn transaction_submission_receipt_fixture(
++        hash_byte: u8,
++    ) -> (TransactionSubmissionReceipt, String) {
++        let key_pair = iroha_crypto::KeyPair::random();
++        let tx_hash = iroha_crypto::HashOf::from_untyped_unchecked(iroha_crypto::Hash::prehashed(
++            [hash_byte; 32],
++        ));
++        let payload = TransactionSubmissionReceiptPayload {
++            tx_hash,
++            submitted_at_ms: 1,
++            submitted_at_height: 1,
++            signer: key_pair.public_key().clone(),
++        };
++        let receipt = TransactionSubmissionReceipt::sign(payload, &key_pair);
++        let tx_hash = receipt.payload.tx_hash.to_string();
++        (receipt, tx_hash)
++    }
++
++    #[test]
++    fn decode_response_body_always_base64_encodes_norito_even_when_utf8() {
++        let bytes = b"valid utf8 norito bytes";
++        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
++
++        assert_eq!(
++            decode_response_body(bytes, Some(crate::utils::NORITO_MIME_TYPE)),
++            Value::String(encoded.clone())
++        );
++        assert_eq!(
++            decode_response_body(bytes, Some("Application/X-Norito; version=1")),
++            Value::String(encoded)
++        );
++        assert_eq!(
++            decode_response_body(br#"{"ok":true}"#, Some("application/json")),
++            norito::json!({"ok": true})
++        );
++        assert_eq!(
++            decode_response_body(b"healthy", Some("text/plain")),
++            Value::String("healthy".to_owned())
++        );
++    }
++
++    fn submit_result_with_receipt(receipt: &TransactionSubmissionReceipt) -> Value {
++        let receipt_bytes = norito::to_bytes(receipt).expect("receipt bytes");
++        let encoded =
++            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, receipt_bytes);
++        let mut headers = Map::new();
++        headers.insert(
++            header::CONTENT_TYPE.as_str().to_owned(),
++            Value::String(crate::utils::NORITO_MIME_TYPE.to_owned()),
++        );
++        headers.insert(
++            "x-iroha-transaction-hash".to_owned(),
++            Value::String(receipt.payload.tx_hash.to_string()),
++        );
++        let mut submit = Map::new();
++        submit.insert("status".to_owned(), Value::from(202_u64));
++        submit.insert("headers".to_owned(), Value::Object(headers));
++        submit.insert(
++            "content_type".to_owned(),
++            Value::String(crate::utils::NORITO_MIME_TYPE.to_owned()),
++        );
++        submit.insert("body".to_owned(), Value::String(encoded));
++        Value::Object(submit)
++    }
++
++    fn applied_pipeline_status_result(
++        hash: &str,
++        scope: &str,
++        resolved_from: &str,
++        block_height: u64,
++    ) -> Value {
++        norito::json!({
++            "status": 200,
++            "body": {
++                "hash": hash,
++                "scope": scope,
++                "resolved_from": resolved_from,
++                "status": {
++                    "kind": "Applied",
++                    "block_height": block_height
++                }
++            }
++        })
++    }
++
+     fn sample_tool(name: &str, method: Method) -> ToolSpec {
+         ToolSpec {
+             name: name.to_owned(),
+@@ -13862,6 +14176,92 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn account_assets_and_transaction_status_schemas_advertise_routed_query_keys() {
++        let assets_tool = iroha_account_assets_tool();
++        let assets_schema = assets_tool.input_schema.as_object().expect("assets schema");
++        assert_eq!(
++            assets_schema
++                .get("additionalProperties")
++                .and_then(Value::as_bool),
++            Some(false)
++        );
++        let assets_properties = assets_schema
++            .get("properties")
++            .and_then(Value::as_object)
++            .expect("assets properties");
++        assert!(assets_properties.contains_key("asset"));
++        assert!(assets_properties.contains_key("scope"));
++        assert!(!assets_properties.contains_key("asset_id"));
++
++        let status_tool = iroha_transactions_status_tool();
++        let status_schema = status_tool.input_schema.as_object().expect("status schema");
++        assert_eq!(
++            status_schema
++                .get("additionalProperties")
++                .and_then(Value::as_bool),
++            Some(false)
++        );
++        let status_properties = status_schema
++            .get("properties")
++            .and_then(Value::as_object)
++            .expect("status properties");
++        assert!(status_properties.contains_key("scope"));
++        let status_query_properties = status_properties
++            .get("query")
++            .and_then(|query| query.get("properties"))
++            .and_then(Value::as_object)
++            .expect("status query properties");
++        assert!(status_query_properties.contains_key("scope"));
++    }
++
++    #[test]
++    fn instruction_list_schema_and_dispatch_advertise_asset_definition_filter() {
++        let tool = iroha_instructions_list_tool();
++        let schema = tool.input_schema.as_object().expect("instruction schema");
++        assert_eq!(
++            schema.get("additionalProperties").and_then(Value::as_bool),
++            Some(false)
++        );
++        let properties = schema
++            .get("properties")
++            .and_then(Value::as_object)
++            .expect("instruction properties");
++        assert!(properties.contains_key("asset_id"));
++        assert!(properties.contains_key("asset_definition_id"));
++        let query_properties = properties
++            .get("query")
++            .and_then(|query| query.get("properties"))
++            .and_then(Value::as_object)
++            .expect("instruction query properties");
++        assert!(query_properties.contains_key("asset_definition_id"));
++
++        let mut arguments = Map::new();
++        arguments.insert(
++            "asset_definition_id".to_owned(),
++            Value::String(TEST_ASSET_ID.to_owned()),
++        );
++        arguments.insert("kind".to_owned(), Value::String("Transfer".to_owned()));
++        let route = build_iroha_instructions_list_route(&arguments).expect("instruction route");
++        assert!(route.starts_with("/v1/explorer/instructions?"));
++        assert!(route.contains(&format!("asset_definition_id={TEST_ASSET_ID}")));
++        assert!(route.contains("kind=Transfer"));
++
++        arguments.insert(
++            "asset_id".to_owned(),
++            Value::String("asset#account".to_owned()),
++        );
++        let error = build_iroha_instructions_list_route(&arguments)
++            .expect_err("asset filters must be mutually exclusive");
++        assert!(error.contains("mutually exclusive"));
++        arguments.remove("asset_id");
++
++        arguments.insert("undeclared".to_owned(), Value::Bool(true));
++        let error = build_iroha_instructions_list_route(&arguments)
++            .expect_err("undeclared instruction filters must fail closed");
++        assert!(error.contains("undeclared"));
++    }
++
+     #[test]
+     fn tool_descriptor_sanitizes_top_level_function_schema_keywords() {
+         let tool = ToolSpec {
+@@ -15397,6 +15797,115 @@ mod tests {
+         assert_eq!(hash, tx_hash.to_string());
+     }
+ 
++    #[test]
++    fn normalize_verified_transaction_submission_projects_json_receipt() {
++        let (receipt, tx_hash) = transaction_submission_receipt_fixture(0xAB);
++        let submit = submit_result_with_receipt(&receipt);
++        let mut arguments = Map::new();
++        arguments.insert("hash".to_owned(), Value::String(tx_hash.clone()));
++
++        let (normalized, actual_hash) =
++            normalize_verified_transaction_submission(submit.clone(), &arguments)
++                .expect("verified receipt");
++
++        assert_eq!(actual_hash, tx_hash);
++        assert_eq!(normalized.get("status"), submit.get("status"));
++        let mut expected_headers = submit.get("headers").cloned().expect("submit headers");
++        expected_headers
++            .as_object_mut()
++            .expect("headers object")
++            .insert(
++                header::CONTENT_TYPE.as_str().to_owned(),
++                Value::String("application/json".to_owned()),
++            );
++        assert_eq!(normalized.get("headers"), Some(&expected_headers));
++        assert_eq!(
++            normalized.get("content_type").and_then(Value::as_str),
++            Some("application/json")
++        );
++        let mut expected_body = json::to_value(&receipt).expect("receipt JSON");
++        expected_body
++            .get_mut("payload")
++            .and_then(Value::as_object_mut)
++            .expect("receipt payload")
++            .insert("tx_hash".to_owned(), Value::String(tx_hash.clone()));
++        assert_eq!(normalized.get("body"), Some(&expected_body));
++        assert_eq!(
++            normalized
++                .get("body")
++                .and_then(|body| body.get("payload"))
++                .and_then(|payload| payload.get("tx_hash"))
++                .and_then(Value::as_str),
++            Some(tx_hash.as_str())
++        );
++        let normalized_body = normalized
++            .get("body")
++            .and_then(Value::as_object)
++            .expect("normalized receipt body");
++        assert!(normalized_body.contains_key("signature"));
++        assert!(
++            normalized_body
++                .get("payload")
++                .and_then(Value::as_object)
++                .is_some_and(|payload| payload.contains_key("signer"))
++        );
++    }
++
++    #[test]
++    fn normalize_verified_transaction_submission_rejects_explicit_hash_mismatch() {
++        let (receipt, tx_hash) = transaction_submission_receipt_fixture(0xAB);
++        let submit = submit_result_with_receipt(&receipt);
++        let (_, other_hash) = transaction_submission_receipt_fixture(0xCD);
++        let mut arguments = Map::new();
++        arguments.insert("hash".to_owned(), Value::String(other_hash.clone()));
++
++        let error = normalize_verified_transaction_submission(submit.clone(), &arguments)
++            .expect_err("mismatched hash must fail");
++        assert!(error.contains("`hash`"));
++        assert!(error.contains("`payload.tx_hash`"));
++
++        let mut arguments = Map::new();
++        arguments.insert("hash".to_owned(), Value::String(tx_hash));
++        arguments.insert("transaction_hash".to_owned(), Value::String(other_hash));
++        let error = normalize_verified_transaction_submission(submit, &arguments)
++            .expect_err("any mismatched hash alias must fail");
++        assert!(error.contains("`transaction_hash`"));
++    }
++
++    #[test]
++    fn normalize_verified_transaction_submission_rejects_response_header_hash_mismatch() {
++        let (receipt, tx_hash) = transaction_submission_receipt_fixture(0xAB);
++        let mut submit = submit_result_with_receipt(&receipt);
++        let (_, other_hash) = transaction_submission_receipt_fixture(0xCD);
++        submit
++            .get_mut("headers")
++            .and_then(Value::as_object_mut)
++            .expect("submit headers")
++            .insert(
++                "x-iroha-transaction-hash".to_owned(),
++                Value::String(other_hash),
++            );
++        let mut arguments = Map::new();
++        arguments.insert("hash".to_owned(), Value::String(tx_hash));
++
++        let error = normalize_verified_transaction_submission(submit, &arguments)
++            .expect_err("mismatched response header hash must fail");
++        assert!(error.contains("`x-iroha-transaction-hash`"));
++        assert!(error.contains("`payload.tx_hash`"));
++    }
++
++    #[test]
++    fn normalize_verified_transaction_submission_rejects_invalid_signature() {
++        let (mut receipt, _) = transaction_submission_receipt_fixture(0xAB);
++        receipt.payload.submitted_at_ms = receipt.payload.submitted_at_ms.saturating_add(1);
++        let submit = submit_result_with_receipt(&receipt);
++        let arguments = Map::new();
++
++        let error = normalize_verified_transaction_submission(submit, &arguments)
++            .expect_err("tampered receipt must fail");
++        assert!(error.contains("verify transaction submission receipt signature"));
++    }
++
+     #[test]
+     fn extract_transaction_hash_from_submit_result_accepts_tx_hash_hex_field() {
+         let submit_result = norito::json!({
+@@ -15427,6 +15936,73 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn canonical_submit_wait_status_poll_forces_global_scope() {
++        let arguments = Map::new();
++        let status_arguments = build_transaction_status_poll_arguments(
++            &arguments,
++            "deadbeef",
++            "application/json",
++            true,
++        );
++        assert_eq!(
++            status_arguments.get("hash").and_then(Value::as_str),
++            Some("deadbeef")
++        );
++        assert_eq!(
++            status_arguments.get("scope").and_then(Value::as_str),
++            Some("global")
++        );
++
++        let ordinary_wait = build_transaction_status_poll_arguments(
++            &arguments,
++            "deadbeef",
++            "application/json",
++            false,
++        );
++        assert!(!ordinary_wait.contains_key("scope"));
++    }
++
++    #[test]
++    fn authoritative_global_applied_status_requires_state_and_positive_block() {
++        let terminal_statuses = vec!["Applied".to_owned()];
++        let cached = applied_pipeline_status_result("deadbeef", "global", "cache", 7);
++        assert!(!is_ready_terminal_pipeline_status(
++            "Applied",
++            &terminal_statuses,
++            &cached,
++            "deadbeef",
++            true,
++        ));
++
++        let zero_height = applied_pipeline_status_result("deadbeef", "global", "state", 0);
++        assert!(!is_ready_terminal_pipeline_status(
++            "Applied",
++            &terminal_statuses,
++            &zero_height,
++            "deadbeef",
++            true,
++        ));
++
++        let wrong_hash = applied_pipeline_status_result("cafebabe", "global", "state", 7);
++        assert!(!is_ready_terminal_pipeline_status(
++            "Applied",
++            &terminal_statuses,
++            &wrong_hash,
++            "deadbeef",
++            true,
++        ));
++
++        let authoritative = applied_pipeline_status_result("deadbeef", "global", "state", 7);
++        assert!(is_ready_terminal_pipeline_status(
++            "Applied",
++            &terminal_statuses,
++            &authoritative,
++            "deadbeef",
++            true,
++        ));
++    }
++
+     #[test]
+     fn resolve_submit_wait_terminal_statuses_accepts_custom_values() {
+         let args = norito::json!({
+diff --git a/crates/iroha_torii/src/routing.rs b/crates/iroha_torii/src/routing.rs
+index 2cf73c6f0f593b7c310cf3b43193365b393ac755..fcb71583a403a0e8c13a6a0cbbc87773987be634 100644
+--- a/crates/iroha_torii/src/routing.rs
++++ b/crates/iroha_torii/src/routing.rs
+@@ -31049,6 +31049,74 @@ fn instruction_matches_asset_id(
+     false
+ }
+ 
++#[cfg(feature = "app_api")]
++fn instruction_matches_asset_definition_id(
++    instr: &iroha_data_model::isi::InstructionBox,
++    expected: &AssetDefinitionId,
++) -> bool {
++    let mut asset_ids = Vec::new();
++    append_asset_ids_from_instruction(&mut asset_ids, instr);
++    asset_ids
++        .iter()
++        .any(|asset_id| asset_id.definition() == expected)
++}
++
++#[cfg(feature = "app_api")]
++fn instruction_matches_account_and_asset_definition_id(
++    instr: &iroha_data_model::isi::InstructionBox,
++    account: &AccountId,
++    expected: &AssetDefinitionId,
++) -> bool {
++    use iroha_data_model::isi::{
++        BurnBox, CustomInstruction, MintBox, RemoveAssetKeyValue, SetAssetKeyValue,
++        TransferAssetBatch, TransferBox, staking::RecordPublicLaneRewards,
++    };
++    use iroha_executor_data_model::isi::multisig::MultisigInstructionBox;
++
++    let asset_matches =
++        |asset: &AssetId| asset.definition() == expected && asset.account() == account;
++    let any = instr.as_any();
++    if let Some(transfer) = any.downcast_ref::<TransferBox>() {
++        return match transfer {
++            TransferBox::Asset(inner) => {
++                inner.source().definition() == expected
++                    && (inner.source().account() == account || inner.destination() == account)
++            }
++            _ => false,
++        };
++    }
++    if let Some(batch) = any.downcast_ref::<TransferAssetBatch>() {
++        return batch.entries().iter().any(|entry| {
++            entry.asset_definition() == expected
++                && (entry.from() == account || entry.to() == account)
++        });
++    }
++    if let Some(mint) = any.downcast_ref::<MintBox>() {
++        return matches!(mint, MintBox::Asset(inner) if asset_matches(inner.destination()));
++    }
++    if let Some(burn) = any.downcast_ref::<BurnBox>() {
++        return matches!(burn, BurnBox::Asset(inner) if asset_matches(inner.destination()));
++    }
++    if let Some(set) = any.downcast_ref::<SetAssetKeyValue>() {
++        return asset_matches(set.asset());
++    }
++    if let Some(remove) = any.downcast_ref::<RemoveAssetKeyValue>() {
++        return asset_matches(remove.asset());
++    }
++    if let Some(rewards) = any.downcast_ref::<RecordPublicLaneRewards>() {
++        return asset_matches(rewards.reward_asset());
++    }
++    if let Some(custom) = any.downcast_ref::<CustomInstruction>()
++        && let Ok(MultisigInstructionBox::Propose(propose)) =
++            MultisigInstructionBox::try_from(custom.payload())
++    {
++        return propose.instructions.iter().any(|nested| {
++            instruction_matches_account_and_asset_definition_id(nested, account, expected)
++        });
++    }
++    false
++}
++
+ #[cfg(feature = "app_api")]
+ fn instruction_matches_account_id(
+     instr: &iroha_data_model::isi::InstructionBox,
+@@ -34859,6 +34927,22 @@ mod tx_query_filter_tests {
+         test_asset_definition_id_from_hex("550e8400e29b41d4a7164466554400aa")
+     }
+ 
++    fn explorer_instruction_filters_for_definition(
++        account: Option<dm::AccountId>,
++        asset_definition_id: dm::AssetDefinitionId,
++    ) -> ExplorerInstructionFilters {
++        ExplorerInstructionFilters {
++            account,
++            authority: None,
++            transaction_hash: None,
++            status: None,
++            block: None,
++            kind: Some(crate::explorer::ExplorerInstructionKind::Transfer),
++            asset_id: None,
++            asset_definition_id: Some(asset_definition_id),
++        }
++    }
++
+     fn dummy_proof<T>() -> iroha_crypto::MerkleProof<T> {
+         iroha_crypto::MerkleProof::from_audit_path(0, Vec::new())
+     }
+@@ -35036,6 +35120,69 @@ mod tx_query_filter_tests {
+         assert!(!instruction_matches_asset_id(&instruction, &other_asset_id));
+     }
+ 
++    #[test]
++    fn explorer_instruction_definition_filter_matches_transfer_in_both_directions() {
++        let (alice, _) = account_with_key();
++        let (bob, _) = account_with_key();
++        let (carol, _) = account_with_key();
++        let definition = test_asset_definition_id();
++        let other_definition =
++            test_asset_definition_id_from_hex("550e8400e29b41d4a7164466554400bb");
++        let source = dm::AssetId::new(definition.clone(), alice.clone());
++        let instruction: dm::InstructionBox =
++            dm::Transfer::asset_numeric(source, 10_u32, bob.clone()).into();
++        let kind = crate::explorer::instruction_kind(&instruction);
++
++        let outgoing = explorer_instruction_filters_for_definition(Some(alice), definition.clone());
++        assert!(outgoing.matches_instruction(&instruction, kind));
++
++        let incoming = explorer_instruction_filters_for_definition(Some(bob), definition.clone());
++        assert!(incoming.matches_instruction(&instruction, kind));
++
++        let unrelated_account =
++            explorer_instruction_filters_for_definition(Some(carol), definition);
++        assert!(!unrelated_account.matches_instruction(&instruction, kind));
++
++        let wrong_definition = explorer_instruction_filters_for_definition(None, other_definition);
++        assert!(!wrong_definition.matches_instruction(&instruction, kind));
++    }
++
++    #[test]
++    fn explorer_instruction_definition_filter_conjoins_batch_account_and_definition_per_entry() {
++        let (alice, _) = account_with_key();
++        let (bob, _) = account_with_key();
++        let (carol, _) = account_with_key();
++        let (dave, _) = account_with_key();
++        let definition_a = test_asset_definition_id();
++        let definition_b = test_asset_definition_id_from_hex("550e8400e29b41d4a7164466554400bb");
++        let batch = dm::TransferAssetBatch::new(vec![
++            dm::TransferAssetBatchEntry::new(
++                alice.clone(),
++                bob.clone(),
++                definition_a.clone(),
++                1_u32,
++            ),
++            dm::TransferAssetBatchEntry::new(carol, dave.clone(), definition_b.clone(), 2_u32),
++        ]);
++        let instruction: dm::InstructionBox = batch.into();
++        let kind = crate::explorer::instruction_kind(&instruction);
++
++        let outgoing =
++            explorer_instruction_filters_for_definition(Some(alice), definition_a.clone());
++        assert!(outgoing.matches_instruction(&instruction, kind));
++
++        let incoming = explorer_instruction_filters_for_definition(Some(bob), definition_a.clone());
++        assert!(incoming.matches_instruction(&instruction, kind));
++
++        let other_entry =
++            explorer_instruction_filters_for_definition(Some(dave.clone()), definition_b);
++        assert!(other_entry.matches_instruction(&instruction, kind));
++
++        let cross_entry_mismatch =
++            explorer_instruction_filters_for_definition(Some(dave), definition_a);
++        assert!(!cross_entry_mismatch.matches_instruction(&instruction, kind));
++    }
++
+     #[test]
+     fn instruction_matches_account_id_matches_transfer_asset_accounts() {
+         let (alice, _) = account_with_key();
+@@ -35742,6 +35889,7 @@ mod explorer_lookup_tests {
+             block: None,
+             kind: None,
+             asset_id: None,
++            asset_definition_id: None,
+         };
+ 
+         let (items, pagination) = collect_instruction_history(
+@@ -35807,6 +35955,7 @@ mod explorer_lookup_tests {
+             block: None,
+             kind: None,
+             asset_id: None,
++            asset_definition_id: None,
+         };
+ 
+         let items = collect_latest_instruction_history(
+@@ -35879,6 +36028,7 @@ mod explorer_lookup_tests {
+                                 block: None,
+                                 kind: None,
+                                 asset_id: None,
++                                asset_definition_id: None,
+                             },
+                         )
+                         .await
+@@ -35966,6 +36116,7 @@ mod explorer_lookup_tests {
+                                 block: None,
+                                 kind: None,
+                                 asset_id: None,
++                                asset_definition_id: None,
+                             },
+                         )
+                         .await
+@@ -42066,6 +42217,7 @@ fn populate_explorer_queue(
+                 block: Some(height),
+                 kind: None,
+                 asset_id: None,
++                asset_definition_id: None,
+             };
+             match collect_instruction_history_from_kura(kura, height, &filters) {
+                 Ok(items) => {
+@@ -59867,6 +60019,7 @@ struct ExplorerInstructionFilters {
+     block: Option<u64>,
+     kind: Option<ExplorerInstructionKind>,
+     asset_id: Option<iroha_data_model::asset::AssetId>,
++    asset_definition_id: Option<AssetDefinitionId>,
+ }
+ 
+ #[cfg(feature = "app_api")]
+@@ -59903,8 +60056,42 @@ impl ExplorerInstructionFilters {
+         true
+     }
+ 
+-    fn matches_instruction(&self, kind: ExplorerInstructionKind) -> bool {
+-        self.kind.map_or(true, |expected| expected == kind)
++    fn matches_instruction(
++        &self,
++        instruction: &iroha_data_model::isi::InstructionBox,
++        kind: ExplorerInstructionKind,
++    ) -> bool {
++        if self.kind.is_some_and(|expected| expected != kind) {
++            return false;
++        }
++        match (&self.account, &self.asset_definition_id) {
++            (Some(account), Some(definition)) => {
++                if !instruction_matches_account_and_asset_definition_id(
++                    instruction,
++                    account,
++                    definition,
++                ) {
++                    return false;
++                }
++            }
++            (Some(account), None) => {
++                if !instruction_matches_account_id(instruction, account) {
++                    return false;
++                }
++            }
++            (None, Some(definition)) => {
++                if !instruction_matches_asset_definition_id(instruction, definition) {
++                    return false;
++                }
++            }
++            (None, None) => {}
++        }
++        if let Some(expected) = self.asset_id.as_ref()
++            && !instruction_matches_asset_id(instruction, expected)
++        {
++            return false;
++        }
++        true
+     }
+ }
+ 
+@@ -60131,6 +60318,7 @@ pub struct ExplorerInstructionQuery {
+     pub block: Option<u64>,
+     pub kind: Option<ExplorerInstructionKind>,
+     pub asset_id: Option<iroha_data_model::asset::AssetId>,
++    pub asset_definition_id: Option<AssetDefinitionId>,
+ }
+ 
+ #[cfg(feature = "app_api")]
+@@ -60152,6 +60340,7 @@ pub async fn handle_v1_explorer_instructions(
+             block,
+             kind,
+             asset_id,
++            asset_definition_id,
+         } = query;
+         if let Some(block_height) = block {
+             if block_height > max_height {
+@@ -60175,6 +60364,7 @@ pub async fn handle_v1_explorer_instructions(
+             block,
+             kind,
+             asset_id,
++            asset_definition_id,
+         };
+         let (items, pagination_meta) = collect_instruction_history(
+             state.as_ref(),
+@@ -60217,6 +60407,7 @@ pub async fn handle_v1_explorer_instructions_latest(
+             block,
+             kind,
+             asset_id,
++            asset_definition_id,
+         } = query;
+         if let Some(block_height) = block {
+             if block_height > max_height {
+@@ -60235,6 +60426,7 @@ pub async fn handle_v1_explorer_instructions_latest(
+             block,
+             kind,
+             asset_id,
++            asset_definition_id,
+         };
+         let items = collect_latest_instruction_history(
+             state.as_ref(),
+@@ -60495,19 +60687,9 @@ fn collect_instruction_history_from_kura(
+             };
+             for (idx, instruction) in instructions.iter().enumerate() {
+                 let kind = crate::explorer::instruction_kind(instruction);
+-                if !filters.matches_instruction(kind) {
++                if !filters.matches_instruction(instruction, kind) {
+                     continue;
+                 }
+-                if let Some(expected) = filters.account.as_ref() {
+-                    if !instruction_matches_account_id(instruction, expected) {
+-                        continue;
+-                    }
+-                }
+-                if let Some(expected) = filters.asset_id.as_ref() {
+-                    if !instruction_matches_asset_id(instruction, expected) {
+-                        continue;
+-                    }
+-                }
+                 let index = u32::try_from(idx).unwrap_or(u32::MAX);
+                 out.push(crate::explorer::instruction_dto_with_kind(
+                     tx,
+@@ -60564,19 +60746,9 @@ fn collect_latest_instruction_history(
+             };
+             for (idx, instruction) in instructions.iter().enumerate() {
+                 let kind = crate::explorer::instruction_kind(instruction);
+-                if !filters.matches_instruction(kind) {
++                if !filters.matches_instruction(instruction, kind) {
+                     continue;
+                 }
+-                if let Some(expected) = filters.account.as_ref() {
+-                    if !instruction_matches_account_id(instruction, expected) {
+-                        continue;
+-                    }
+-                }
+-                if let Some(expected) = filters.asset_id.as_ref() {
+-                    if !instruction_matches_asset_id(instruction, expected) {
+-                        continue;
+-                    }
+-                }
+                 let index = u32::try_from(idx).unwrap_or(u32::MAX);
+                 out.push(crate::explorer::instruction_dto_with_kind(
+                     tx,
+@@ -60644,19 +60816,9 @@ fn collect_instruction_history(
+             };
+             for (idx, instruction) in instructions.iter().enumerate() {
+                 let kind = crate::explorer::instruction_kind(instruction);
+-                if !filters.matches_instruction(kind) {
++                if !filters.matches_instruction(instruction, kind) {
+                     continue;
+                 }
+-                if let Some(expected) = filters.account.as_ref() {
+-                    if !instruction_matches_account_id(instruction, expected) {
+-                        continue;
+-                    }
+-                }
+-                if let Some(expected) = filters.asset_id.as_ref() {
+-                    if !instruction_matches_asset_id(instruction, expected) {
+-                        continue;
+-                    }
+-                }
+                 if total_items >= start_index && total_items < end_index {
+                     let index = u32::try_from(idx).unwrap_or(u32::MAX);
+                     out.push(crate::explorer::instruction_dto_with_kind(
+diff --git a/status.md b/status.md
+index c49578d532d38b85cce564a711d03c6a4a4d38d2..cfe0208370ad2e69dd8e7e7567b50a9a8ef69c8f 100644
+--- a/status.md
++++ b/status.md
+@@ -1,6 +1,33 @@
+ # Status
+ 
+-Last updated: 2026-05-05
++Last updated: 2026-08-29
++
++## 2026-08-29 Torii MCP wallet submission and instruction filters
++
++- `iroha.transactions.submit_and_wait` now decodes and verifies Torii's signed
++  Norito submission receipt, rejects caller-supplied hash mismatches, polls the
++  verified receipt hash through authoritative global state finality, and
++  returns a coherent JSON receipt projection with the raw transaction hash
++  used by MCP status responses. Norito HTTP bodies are always represented as
++  base64 in MCP results, even when their bytes also happen to be valid UTF-8.
++- Explorer instruction queries now accept an explicit `asset_definition_id`
++  filter. Combined account/definition filtering matches the same transfer or
++  batch leg, so incoming and outgoing wallet history are both included without
++  cross-entry false positives.
++- Curated MCP schemas now advertise the routed `asset`/`scope` account-assets
++  keys, transaction-status `scope`, and the strict instruction-definition
++  filter instead of relying on permissive undeclared properties.
++- Validation:
++  - `cargo fmt --all -- --check`
++  - `cargo test -p iroha_torii normalize_verified_transaction_submission --lib -- --nocapture`
++  - `cargo test -p iroha_torii canonical_submit_wait_status_poll_forces_global_scope --lib -- --nocapture`
++  - `cargo test -p iroha_torii authoritative_global_applied_status_requires_state_and_positive_block --lib -- --nocapture`
++  - `cargo test -p iroha_torii pipeline_status_handler_global_scope_ignores_terminal_cache_and_reads_state --lib -- --nocapture`
++  - `cargo test -p iroha_torii instruction_list_schema_and_dispatch_advertise_asset_definition_filter --lib -- --nocapture`
++  - `cargo test -p iroha_torii account_assets_and_transaction_status_schemas_advertise_routed_query_keys --lib -- --nocapture`
++  - `cargo test -p iroha_torii explorer_instruction_definition_filter --lib -- --nocapture`
++  - `cargo test -p iroha_torii extract_transaction_hash_from_submit_result_decodes_submission_receipt --lib -- --nocapture`
++  - `cargo test -p iroha_torii decode_response_body_always_base64_encodes_norito_even_when_utf8 --lib -- --nocapture`
+ 
+ ## 2026-05-05 Durable Space Directory snapshot restore
+ 
+

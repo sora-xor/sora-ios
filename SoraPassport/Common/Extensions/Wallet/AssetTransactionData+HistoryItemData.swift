@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+//
 import BigInt
 import IrohaCrypto
 import SSFUtils
@@ -74,6 +74,17 @@ extension AssetTransactionData {
             )
         }
 
+        if item.callPath.isUtilityBatch,
+           depositLiquidityCall(from: item) != nil {
+            return createTransactionForDepositLiquidity(
+                from: item,
+                address: address,
+                networkType: networkType,
+                asset: asset,
+                addressFactory: addressFactory
+            )
+        }
+
         if item.callPath.isWithdrawLiquidity {
             return createTransactionForWithdrawLiquidity(
                 from: item,
@@ -94,7 +105,6 @@ extension AssetTransactionData {
             )
         }
 
-        // TODO: add other types of transactions
         return createLocalExtrinsic(
             from: item,
             address: address,
@@ -112,7 +122,7 @@ extension AssetTransactionData {
         addressFactory: SS58AddressFactoryProtocol
     ) -> AssetTransactionData {
 
-        let deposit = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<DepositLiquidityCall>.self, from: item.call).args
+        let deposit = depositLiquidityCall(from: item)
 
         let desiredA = deposit?.desiredA ?? 0
         let desiredB = deposit?.desiredB ?? 0
@@ -133,14 +143,6 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let lpFeeDecimal: Decimal = Decimal(string: item.lpFee ?? "") ?? .zero
-        let lpFee = AssetTransactionFee(
-            identifier: asset.identifier,
-            assetId: asset.identifier,
-            amount: AmountDecimal(value: lpFeeDecimal),
-            context: ["type": TransactionType.swap.rawValue]
-        )
-
         return AssetTransactionData(
             transactionId: item.txHash,
             status: item.status.walletValue,
@@ -151,12 +153,42 @@ extension AssetTransactionData {
             peerName: deposit?.assetA.value,
             details: desiredADecimal.description,
             amount: AmountDecimal(value: desiredBDecimal),
-            fees: [fee, lpFee],
+            fees: [fee],
             timestamp: item.timestamp,
             type: TransactionType.liquidityAdd.rawValue,
             reason: nil,
             context: nil
         )
+    }
+
+    static func depositLiquidityCall(
+        from item: TransactionHistoryItem
+    ) -> DepositLiquidityCall? {
+        if let directCall = try? JSONDecoder.scaleCompatible().decode(
+            RuntimeCall<DepositLiquidityCall>.self,
+            from: item.call
+        ), directCall.moduleName == CallCodingPath.depositLiquidity.moduleName,
+           directCall.callName == CallCodingPath.depositLiquidity.callName {
+            return directCall.args
+        }
+
+        guard let batchCall = try? JSONDecoder.scaleCompatible().decode(
+            RuntimeCall<BatchArgs>.self,
+            from: item.call
+        ), batchCall.moduleName == KnowRuntimeModule.Utitlity.name,
+           (
+               batchCall.callName == KnowRuntimeModule.Utitlity.batch
+                   || batchCall.callName == KnowRuntimeModule.Utitlity.batchAll
+           ) else {
+            return nil
+        }
+
+        return batchCall.args.calls.lazy.compactMap { encodedCall in
+            try? encodedCall.map(to: RuntimeCall<DepositLiquidityCall>.self)
+        }.first(where: { call in
+            call.moduleName == CallCodingPath.depositLiquidity.moduleName
+                && call.callName == CallCodingPath.depositLiquidity.callName
+        })?.args
     }
 
     private static func createTransactionForWithdrawLiquidity(
@@ -188,14 +220,6 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let lpFeeDecimal: Decimal = Decimal(string: item.lpFee ?? "") ?? .zero
-        let lpFee = AssetTransactionFee(
-            identifier: asset.identifier,
-            assetId: asset.identifier,
-            amount: AmountDecimal(value: lpFeeDecimal),
-            context: ["type": TransactionType.swap.rawValue]
-        )
-
         let assetId: String = withdraw?.assetB.value ?? "?"
         let peerId: String = withdraw?.assetA.value ?? "??"
 
@@ -209,7 +233,7 @@ extension AssetTransactionData {
             peerName: assetId,
             details: desiredADecimal.description,
             amount: AmountDecimal(value: desiredBDecimal),
-            fees: [fee, lpFee],
+            fees: [fee],
             timestamp: item.timestamp,
             type: TransactionType.liquidityRemoval.rawValue,
             reason: nil,
@@ -309,21 +333,6 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let lpFeeDecimal: Decimal = {
-            guard let feeValue = BigUInt(item.lpFee ?? "") else {
-                return Decimal(string: item.lpFee ?? "") ?? .zero
-            }
-
-            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
-        }()
-
-        let lpFee = AssetTransactionFee(
-            identifier: asset.identifier,
-            assetId: asset.identifier,
-            amount: AmountDecimal(value: lpFeeDecimal),
-            context: ["type": TransactionType.swap.rawValue]
-        )
-
         return AssetTransactionData(
             transactionId: item.txHash,
             status: item.status.walletValue,
@@ -334,7 +343,7 @@ extension AssetTransactionData {
             peerName: marketType.rawValue,
             details: fromAmountDecimal.description,
             amount: AmountDecimal(value: amountDecimal),
-            fees: [fee, lpFee],
+            fees: [fee],
             timestamp: item.timestamp,
             type: TransactionType.swap.rawValue,
             reason: nil,

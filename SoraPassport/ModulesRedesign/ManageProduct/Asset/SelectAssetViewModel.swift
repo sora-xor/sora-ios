@@ -30,7 +30,7 @@
 
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import SoraFoundation
 
@@ -43,7 +43,7 @@ final class SelectAssetViewModel {
     var setupNavigationBar: ((WalletViewMode) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
+    var dismiss: ((Bool) -> Void)?
     var selectionCompletion: ((String) -> Void)?
 
     var assetItems: [AssetListItem] = [] {
@@ -66,21 +66,20 @@ final class SelectAssetViewModel {
         }
     }
     
-    var poolItemInfo: PriceInfo? {
+    var priceInfo: PriceInfo? {
         didSet {
-            let fiatData = poolItemInfo?.fiatData ?? []
-            let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+            let fiatData = priceInfo?.fiatData ?? []
+            let marketCapInfo = priceInfo?.marketCapInfo ?? []
             
             assetItems.forEach { item in
+                // No value is worked out from a balance that was not read.
+                guard !item.balanceUnavailable else { return }
                 
                 let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
-                
-                let deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
-                                                                   marketCapInfo: marketCapInfo,
-                                                                   assetId: item.assetViewModel.identifier)
+                let deltaPrice = marketCapInfo.first(where: { $0.assetId == item.assetInfo.assetId })?.hourDelta
                 
                 item.assetViewModel.fiatText = fiatText
-                item.assetViewModel.deltaPriceText = deltaArributedText
+                item.assetViewModel.deltaPriceText = deltaPrice.priceDeltaAttributedText()
             }
             
             DispatchQueue.main.async {
@@ -105,7 +104,7 @@ final class SelectAssetViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
-    private let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    private let priceInfoService: PriceInfoServiceProtocol
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -119,7 +118,7 @@ final class SelectAssetViewModel {
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
         self.marketCapService = marketCapService
-        self.poolItemInfo = PriceInfoService.shared.priceInfo
+        self.priceInfoService = PriceInfoService.shared
     }
 }
 
@@ -134,7 +133,7 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        if let balanceData = assetsProvider?.getBalances(with: assetIds) {            
+        if let balanceData = assetsProvider?.getBalances(with: assetIds) {
             Task { [weak self] in
                 await self?.items(with: balanceData)
             }
@@ -144,39 +143,35 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) async {
-        let fiatData = poolItemInfo?.fiatData ?? []
-        let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
-        
-        assetItems = balanceItems.compactMap { balance in
-            
-            let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
-                                                             fiatData: fiatData,
-                                                             marketCapInfo: marketCapInfo)
-            
-            guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
-                  let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                  assetInfo: assetInfo,
-                                                                                  fiatData: fiatData,
-                                                                                  mode: self.mode,
-                                                                                  priceDelta: deltaPrice) else {
-                return nil
-            }
-            
-            let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
-            
+        let mode = self.mode
+        let factory = assetViewModelFactory
+        // An asset whose balance could not be read can still be chosen;
+        // its row says "Balance unavailable".
+        let items = factory.assetListItems(
+            assetIds: assetIds,
+            balances: balanceItems,
+            unavailable: assetsProvider?.unavailableBalanceAssetIds(among: assetIds) ?? [],
+            mode: mode
+        ) { balance, assetInfo in
+            factory.createAssetViewModel(with: balance,
+                                         assetInfo: assetInfo,
+                                         fiatData: [],
+                                         mode: mode)
+        }
+        items.forEach { item in
             item.assetHandler = { [weak self] identifier in
-                self?.dissmiss?(true)
+                self?.dismiss?(true)
                 self?.selectionCompletion?(identifier)
             }
             
             item.favoriteHandle = { item in
                 item.assetInfo.visible = !item.assetInfo.visible
             }
-            return item
-        }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+        }
+        assetItems = items.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
         let assetIds = balanceItems.map { $0.identifier }
-        poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+        priceInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
     }
 
     func filterAssetList(with query: String) {

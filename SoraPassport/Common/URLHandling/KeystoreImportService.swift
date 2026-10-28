@@ -75,12 +75,11 @@ extension KeystoreImportService: KeystoreImportServiceProtocol {
                 wrapper.observer?.didUpdateDefinition(from: oldDefinition)
             }
 
-            let address = definition.address ?? "no address"
-            logger.debug("Imported keystore for address: \(address)")
+            logger.debug("Keystore definition imported")
 
             return true
         } catch {
-            logger.warning("Error while parsing keystore from url: \(error)")
+            logger.warning("Keystore definition import failed")
             return false
         }
     }

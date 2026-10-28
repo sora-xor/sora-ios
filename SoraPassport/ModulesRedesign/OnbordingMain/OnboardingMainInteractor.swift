@@ -70,8 +70,8 @@ extension OnboardingMainInteractor: OnboardingMainInteractorInputProtocol {
         backupService.disconnect()
     }
     
-    func getBackupedAccounts(completion: @escaping (Result<[OpenBackupAccount], Error>) -> Void) {
-        backupService.getBackupAccounts(completion: completion)
+    func getBackupedAccounts() async throws -> [OpenBackupAccount] {
+        return try await backupService.getBackupAccounts()
     }
 }
 

@@ -67,19 +67,6 @@ extension ImageViewModel: ImageViewModelProtocol {
             return currentImage
         }
 
-//TODO: disk cache?
-//        if let currentImage = KingfisherManager.shared.cache
-//            .retrieveImageInDiskCache(forKey: url.absoluteString, options: options, completionHandler: { result in
-//                switch result {
-//                case .success(let image):
-//                return image
-//                default:
-//                    print("no image")
-//                }
-//            })
-
-
-
         return nil
     }
 
@@ -99,10 +86,6 @@ extension ImageViewModel: ImageViewModelProtocol {
             case .success(let value):
                 completionBlock(value.image, nil)
             case .failure(let error):
-                //TODO: cancelling error?
-//                if error != KingfisherError.requestError(reason: .taskCancelled(task: self?.imageTask, token: self?.imageTask?.cancelToken)) {
-//                    self?.imageTask = nil
-//                }
                 completionBlock(nil, error)
             }
         }

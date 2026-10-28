@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+
 import SoraUIKit
 import UIKit
 import sorawallet
@@ -38,7 +38,8 @@ import SoraFoundation
 protocol ActivityViewModelFactoryProtocol {
     var currentDate: Date? { get set } 
     func createActivityViewModels(with transactions: [Transaction],
-                                  tapHandler: @escaping (Transaction) -> Void) -> [SoramitsuTableViewItemProtocol]
+                                  tapHandler: @escaping (Transaction) -> Void) -> [ActivitySection]
+    func createActivityShimmerModels() -> [ActivitySection]
     func createActivityViewModel(with transaction: Transaction) -> ActivityContentViewModel?
 }
 
@@ -55,79 +56,113 @@ final class ActivityViewModelFactory {
 
 extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
     func createActivityViewModels(with transactions: [Transaction],
-                                  tapHandler: @escaping (Transaction) -> Void) -> [SoramitsuTableViewItemProtocol] {
-        var models: [SoramitsuTableViewItemProtocol] = []
-        
+                                  tapHandler: @escaping (Transaction) -> Void) -> [ActivitySection] {
+        var sections: [ActivitySection] = []
+        var items: [ActivitySectionItem] = []
+
         transactions.forEach { transaction in
             let transactionDate = Date(timeIntervalSince1970: Double(transaction.base.timestamp) ?? 0)
-            
+
             let dateOrder = Calendar.current.compare(transactionDate, to: currentDate ?? Date(), toGranularity: .day)
-            
-            if currentDate == nil || dateOrder != .orderedSame {
-                let dateFormatter = EventListDateFormatterFactory.createDateFormatter()
-                dateFormatter.locale = LocalizationManager.shared.selectedLocale
-                let dateText = dateFormatter.string(from: transactionDate)
-                let dateItem = ActivityDateItem(text: dateText)
-                models.append(dateItem)
-                currentDate = transactionDate
-                
-                
-                if let transactionModel = createActivityViewModel(with: transaction) {
-                    let activityModel = ActivityItem(model: transactionModel)
-                    activityModel.handler = {
-                        tapHandler(transaction)
-                    }
-                    models.append(activityModel)
+
+            if let currentDate = currentDate, dateOrder != .orderedSame {
+                sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
+                                                items: items))
+                items = []
+            }
+
+            currentDate = transactionDate
+
+            if let transactionModel = createActivityViewModel(with: transaction) {
+                let activityItem = ActivityItem(model: transactionModel)
+                activityItem.handler = {
+                    tapHandler(transaction)
                 }
-            } else {
-                if let transactionModel = createActivityViewModel(with: transaction) {
-                    let activityModel = ActivityItem(model: transactionModel)
-                    activityModel.handler = {
-                        tapHandler(transaction)
-                    }
-                    models.append(activityModel)
-                }
+                items.append(.activity(activityItem))
             }
         }
-        
-        return models
+
+        if let currentDate = currentDate, !items.isEmpty {
+            sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
+                                            items: items))
+        }
+
+        return sections
     }
-    
+
     func createActivityViewModel(with transaction: Transaction) -> ActivityContentViewModel? {
         if let transferTransaction = transaction as? TransferTransaction {
             return transferTransactionViewModel(from: transferTransaction)
         }
-        
+
         if let swapTransaction = transaction as? Swap {
             return swapTransactionViewModel(from: swapTransaction)
         }
-        
+
         if let liquidityTransaction = transaction as? Liquidity {
             return liquidityTransactionViewModel(from: liquidityTransaction)
         }
-        
+
         if let bondTransaction = transaction as? ReferralBondTransaction {
             return bondTransactionViewModel(from: bondTransaction)
         }
-        
+
         if let setReferrerTransaction = transaction as? SetReferrerTransaction {
             return setReferrerTransactionViewModel(from: setReferrerTransaction)
         }
+
+        if let claimRewardTransaction = transaction as? ClaimReward {
+            return claimRewardTransactionViewModel(from: claimRewardTransaction)
+        }
         
+        if let farmLiquidity = transaction as? FarmLiquidity {
+            return farmLiquidityTransactionViewModel(from: farmLiquidity)
+        }
+
+        if let submitted = transaction as? SubmittedTransaction {
+            return submittedTransactionViewModel(from: submitted)
+        }
+      
         return nil
+    }
+
+    func createActivityShimmerModels() -> [ActivitySection] {
+        let shimmerItems: [ActivitySectionItem] = (1...20).map { index in
+            let model = ActivityContentViewModel(txHash: "\(index)")
+            let item = ActivityItem(model: model)
+            return .activity(item)
+        }
+
+        let spaceSection = ActivitySection(items: [.space(SoramitsuTableViewSpacerItem(space: 24,
+                                                                                 radius: .extraLarge,
+                                                                                 mask: .top))])
+
+        let shimmerSection = ActivitySection(date: DateFormatter.activityDate.string(from: Date()),
+                                             items: shimmerItems)
+
+        return [spaceSection, shimmerSection]
     }
 }
 
 private extension ActivityViewModelFactory {
+    /// A sent transaction known only from the app's own journal: what it
+    /// is and what became of it. The journal does not keep amounts, so the
+    /// row shows none; the network's fee token stands for the network.
+    func submittedTransactionViewModel(from transaction: SubmittedTransaction) -> ActivityContentViewModel {
+        let feeAsset = walletAssets.first { $0.isFeeAsset }
+        let assetInfo = assetManager.assetInfo(for: feeAsset?.identifier ?? "")
+        return ActivityContentViewModel(txHash: transaction.base.txHash,
+                                        title: SubmittedTransaction.title,
+                                        subtitle: transaction.outcome.explanation,
+                                        typeTransactionImage: R.image.wallet.send(),
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
+                                        fiatText: "",
+                                        status: transaction.base.status)
+    }
+
     func transferTransactionViewModel(from transaction: TransferTransaction) -> ActivityContentViewModel {
         let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId }) ?? walletAssets.first { $0.isFeeAsset }
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
-        
-        var symbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
@@ -143,7 +178,7 @@ private extension ActivityViewModelFactory {
                                         title: transaction.transferType.title,
                                         subtitle: transaction.peer,
                                         typeTransactionImage: transaction.transferType.image,
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: firstBalanceText,
                                         fiatText: "",
                                         status: transaction.base.status)
@@ -164,16 +199,6 @@ private extension ActivityViewModelFactory {
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
         let toAssetInfo = assetManager.assetInfo(for: toAsset?.identifier ?? "")
-        
-        var fromSymbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = fromAssetInfo?.icon {
-            fromSymbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
-        
-        var toSymbolViewModel: WalletImageViewModelProtocol?
-        if let toIconString = toAssetInfo?.icon {
-            toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(swap.fromAmount.decimalValue) ?? ""
@@ -200,8 +225,8 @@ private extension ActivityViewModelFactory {
                                         title: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
                                         subtitle: subtitle,
                                         typeTransactionImage: R.image.wallet.swap(),
-                                        firstAssetImageViewModel: fromSymbolViewModel,
-                                        secondAssetImageViewModel: toSymbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
+                                        secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: swap.base.status,
@@ -223,16 +248,6 @@ private extension ActivityViewModelFactory {
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
         let toAssetInfo = assetManager.assetInfo(for: toAsset?.identifier ?? "")
-        
-        var fromSymbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = fromAssetInfo?.icon {
-            fromSymbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
-        
-        var toSymbolViewModel: WalletImageViewModelProtocol?
-        if let toIconString = toAssetInfo?.icon {
-            toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = liquidity.type == .add ? .fgPrimary : .statusSuccess
@@ -266,8 +281,8 @@ private extension ActivityViewModelFactory {
                                         title: title,
                                         subtitle: subtitle,
                                         typeTransactionImage: liquidity.type.image,
-                                        firstAssetImageViewModel: toSymbolViewModel,
-                                        secondAssetImageViewModel: fromSymbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
+                                        secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: liquidity.base.status,
@@ -276,11 +291,6 @@ private extension ActivityViewModelFactory {
     
     func bondTransactionViewModel(from bond: ReferralBondTransaction) -> ActivityContentViewModel {
         let assetInfo = assetManager.assetInfo(for: bond.tokenId)
-        
-        var symbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = bond.type == .unbond ? .statusSuccess : .fgPrimary
@@ -296,7 +306,7 @@ private extension ActivityViewModelFactory {
                                         title: bond.type.detailsTitle,
                                         subtitle: SelectedWalletSettings.shared.currentAccount?.address ?? "",
                                         typeTransactionImage: bond.type.image,
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: bond.base.status,
@@ -323,10 +333,67 @@ private extension ActivityViewModelFactory {
                                         title: title,
                                         subtitle: subtitle,
                                         typeTransactionImage: R.image.wallet.send(),
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: setReferrer.base.status,
                                         isNeedTwoImage: false)
+    }
+    
+    func claimRewardTransactionViewModel(from transaction: ClaimReward) -> ActivityContentViewModel {
+        let asset = walletAssets.first(where: { $0.identifier == transaction.rewardTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
+        
+        var symbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = assetInfo?.icon {
+            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
+        let text = "+ \(firstBalance) \(assetInfo?.symbol ?? "")"
+        let textReversed = "\(assetInfo?.symbol ?? "") \(firstBalance) +"
+        let firstBalanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
+                                                 fontData: FontType.textM,
+                                                 textColor: .statusSuccess,
+                                                 alignment: isRTL ? .left : .right)
+        
+        return ActivityContentViewModel(txHash: transaction.base.txHash,
+                                        title: R.string.localizable.demeterClaimedReward(preferredLanguages: .currentLocale),
+                                        subtitle: R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale),
+                                        typeTransactionImage: R.image.wallet.claimStar(),
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
+                                        firstBalanceText: firstBalanceText,
+                                        fiatText: "",
+                                        status: transaction.base.status)
+    }
+    
+    func farmLiquidityTransactionViewModel(from transaction: FarmLiquidity) -> ActivityContentViewModel {
+        let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let baseAssetInfo = assetManager.assetInfo(for: baseAsset?.identifier ?? "")
+        
+        let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let poolAssetInfo = assetManager.assetInfo(for: poolAsset?.identifier ?? "")
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
+        let text = "\(firstBalance) \(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
+        let textReversed = "\(poolAsset?.symbol ?? "")-\(baseAsset?.symbol ?? "") \(firstBalance)"
+        let firstBalanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
+                                                 fontData: FontType.textM,
+                                                 textColor: .fgPrimary,
+                                                 alignment: isRTL ? .left : .right)
+        
+        return ActivityContentViewModel(txHash: transaction.base.txHash,
+                                        title: transaction.type.subtitle,
+                                        subtitle: R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale),
+                                        typeTransactionImage: transaction.type.image,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: baseAssetInfo?.icon ?? ""),
+                                        secondAssetImageViewModel: RemoteSerializer.shared.image(with: poolAssetInfo?.icon ?? ""),
+                                        firstBalanceText: firstBalanceText,
+                                        fiatText: "",
+                                        status: transaction.base.status,
+                                        isNeedTwoImage: true)
     }
 }

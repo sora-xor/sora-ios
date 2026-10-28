@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 
-final class SupplyPoolItem: NSObject {
+final class SupplyPoolItem {
 
     var poolViewModel: ExplorePoolViewModel
     var onTap: (() -> Void)?
@@ -39,13 +39,5 @@ final class SupplyPoolItem: NSObject {
     init(poolViewModel: ExplorePoolViewModel) {
         self.poolViewModel = poolViewModel
     }
-}
-
-extension SupplyPoolItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { SupplyPoolCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
 }
 

@@ -1,0 +1,121 @@
+{
+  "schema": "sora-wallet-taira-https-transfer-canary-v1",
+  "executedAtUTC": "2026-10-13T06:53:27.875000+00:00",
+  "endpoint": "https://taira.sora.org",
+  "networkId": "hash:5C3E66C94E079079FF4FC46F59810B9C4EC7B2646DD45CE937831C0FDCE20C9B#44D9",
+  "confirmationPolicy": "Canonical HTTPS Torii node confirmation; not independently verified consensus finality.",
+  "implementation": "sora-ios/VendorPackages/NexusTransferCodec, compiled with the wallet IrohaAddressCodec in a temporary Swift command-line harness.",
+  "signing": "Ephemeral CryptoKit Ed25519 key held only in memory; no private key file or remote signing.",
+  "sender": "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH",
+  "recipient": "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6",
+  "assetDefinitionId": "6TEAJqbb8oEPmLncoNiMRbLEK6tw",
+  "amount": "0.001",
+  "quotedMaximumFee": "0.01",
+  "balanceBefore": "25000",
+  "balanceAfter": "24999.989",
+  "transactionHash": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1",
+  "appliedBlockHeight": 74,
+  "receipt": {
+    "content": [
+      {
+        "type": "text",
+        "text": "http 200"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete",
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "iroha-torii-mcp",
+        "version": "2.0.0-rc.2.0"
+      }
+    },
+    "structuredContent": {
+      "attempts": 3,
+      "elapsed_ms": 1489,
+      "hash": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1",
+      "status": 200,
+      "terminal_kind": "Applied",
+      "final": {
+        "body": {
+          "hash": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1",
+          "resolved_from": "state",
+          "scope": "global",
+          "status": {
+            "block_height": 74,
+            "kind": "Applied"
+          }
+        },
+        "content_type": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "vary": "Accept"
+        },
+        "status": 200
+      },
+      "submit": {
+        "body": {
+          "payload": {
+            "entrypoint_hash": "hash:4A48384AD05A8E1669BAF4CD0ED83773F006F178E486AD421BCF2ABCADD658A1#EC45",
+            "signed_transaction_hash": "hash:4A48384AD05A8E1669BAF4CD0ED83773F006F178E486AD421BCF2ABCADD658A1#EC45",
+            "signer": "e7012102B9A460EEDA8A8FE990F963BF58084A9D6E6DAB8C6267454A9DEE9A369BBD3D8B",
+            "submitted_at_height": 73,
+            "submitted_at_ms": 1791874407875
+          },
+          "signature": "67A6412192176609480398C63614A09959B9FA853747FF3EC269519D3E8D6D760C339392AB80DCAA8BE58C263DFA40013DE6531EB19F08B19B37A9419F4526DD"
+        },
+        "content_type": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8",
+          "x-iroha-entrypoint-hash": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1",
+          "x-iroha-route-dataspace-id": "0",
+          "x-iroha-route-lane-id": "0",
+          "x-iroha-routed-by": "local",
+          "x-iroha-signed-transaction-hash": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1",
+          "vary": "Accept"
+        },
+        "status": 202
+      }
+    }
+  },
+  "history": {
+    "items": [
+      {
+        "account_id": "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH",
+        "amount": "0.001",
+        "asset_definition_id": "6TEAJqbb8oEPmLncoNiMRbLEK6tw",
+        "asset_id": "6TEAJqbb8oEPmLncoNiMRbLEK6tw#testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH",
+        "block_height": 74,
+        "block_index": 0,
+        "counterparty_account_id": "testuﾛ1Pｷﾁﾉﾛｶﾋ2rﾃﾏjﾑtﾒﾛヱﾑ6783ｸwoZPi5ﾑﾇfM5JﾌｼzﾕT5VTX6",
+        "direction": "outgoing",
+        "id": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1:testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH:0",
+        "movement_index": 0,
+        "result_ok": true,
+        "source": "transaction",
+        "status": "SUCCESS",
+        "timestamp_ms": 1791874407517,
+        "tx_hash": "4a48384ad05a8e1669baf4cd0ed83773f006f178e486ad421bcf2abcadd658a1",
+        "type": "TRANSFER"
+      }
+    ],
+    "next_cursor": null
+  },
+  "balance": {
+    "items": [
+      {
+        "account_id": "testuﾛ1PﾍeｸﾊVZeｸYjﾛABRiﾕLｱｦｺjMﾀMAdYqﾊﾊCﾇｿﾓfreﾙ9M8GPH",
+        "asset": "6TEAJqbb8oEPmLncoNiMRbLEK6tw",
+        "asset_alias": "xor#universal",
+        "asset_name": "XOR",
+        "quantity": "24999.989",
+        "scope": "global"
+      }
+    ],
+    "next_cursor": null
+  },
+  "limitations": [
+    "This record proves the shared Swift protocol and live transport, not an automated UI send or independent consensus verification.",
+    "Production network remains undeployed; this is not a production release qualification receipt."
+  ]
+}

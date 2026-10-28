@@ -30,7 +30,6 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
 
 enum WalletServiceError: Error {
     case invalidPageHash
@@ -127,6 +126,28 @@ extension WalletService: WalletServiceProtocol {
                                      waitUntilFinished: false)
 
         return operationWrapper
+    }
+
+    func prepareTransferSubmission(
+        for info: TransferInfo,
+        preSigningValidation: @escaping () throws -> Void
+    ) async throws -> PreparedSora2TransferSubmission {
+        try await operationFactory.prepareTransferSubmission(
+            for: info,
+            preSigningValidation: preSigningValidation
+        )
+    }
+
+    func submitPreparedTransfer(
+        _ submission: PreparedSora2TransferSubmission,
+        info: TransferInfo,
+        preTransportValidation: @escaping () throws -> Void
+    ) async throws -> Data {
+        try await operationFactory.submitPreparedTransfer(
+            submission,
+            info: info,
+            preTransportValidation: preTransportValidation
+        )
     }
 
     @discardableResult

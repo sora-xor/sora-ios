@@ -34,6 +34,7 @@ import SSFCloudStorage
 
 protocol AccountCreateViewProtocol: ControllerBackedProtocol {
     func set(mnemonic: [String])
+    func set(backupDerivationPath: String)
     func showLoading()
     func hideLoading()
 }
@@ -55,6 +56,7 @@ protocol AccountCreateInteractorInputProtocol: SignInGoogle {
 
 protocol AccountCreateInteractorOutputProtocol: AnyObject {
     func didReceive(metadata: AccountCreationMetadata)
+    func didReceive(backupDerivationPath: String)
     func didReceiveMnemonicGeneration(error: Swift.Error)
     func didReceive(words: [String], afterConfirmationFail: Bool)
     func didCompleteConfirmation(for account: AccountItem)
@@ -81,4 +83,12 @@ protocol Authorizable {
 
 extension Authorizable {
     func authorize() {}
+}
+
+// New-account flows have no retained backup path to present.
+extension AccountCreateViewProtocol {
+    func set(backupDerivationPath: String) {}
+}
+extension AccountCreateInteractorOutputProtocol {
+    func didReceive(backupDerivationPath: String) {}
 }

@@ -31,6 +31,7 @@
 import Foundation
 import RobinHood
 import SSFUtils
+import SSFStorageQueryKitFixed
 
 final class StorageSubscriptionContainer: WebSocketSubscribing {
     let children: [StorageChildSubscribing]
@@ -63,8 +64,8 @@ final class StorageSubscriptionContainer: WebSocketSubscribing {
                 self?.handleUpdate(update.params.result)
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] error, unsubscribed in
-                self?.logger.error("Did receive subscription error: \(error) \(unsubscribed)")
+            let failureClosure: (Error, Bool) -> Void = { [weak self] _, _ in
+                self?.logger.error("Storage subscription failed")
             }
 
             subscriptionId = try engine.subscribe(
@@ -74,7 +75,7 @@ final class StorageSubscriptionContainer: WebSocketSubscribing {
                 failureClosure: failureClosure
             )
         } catch {
-            logger.error("Can't subscribe to storage: \(error)")
+            logger.error("Storage subscription setup failed")
         }
     }
 

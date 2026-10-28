@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraFoundation
+import SoraKeystore
 import SoraUIKit
 
 
@@ -88,30 +89,20 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                     onTap: { self.showAccounts() })
         items.append(accounts)
         
-        if ConfigService.shared.config.isSoraCardEnabled {
-            let soraCard = MoreMenuItem(title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: languages),
-                                        subtitle: R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages),
-                                        picture: .icon(image: R.image.iconCard()!, color: .accentTertiary),
-                                        onTap: { self.showSoraCard() })
-            
-            items.append(soraCard)
-        }
-       
-
         return MoreMenuSection(items: items)
     }
 
     private func secondSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
         let nodes = MoreMenuItem(title: R.string.localizable.settingsNodes(preferredLanguages: languages),
-                                 subtitle: nodeName(), //TODO: node address/description here
+                                 subtitle: nodeName(),
                                  picture: .icon(image: R.image.iconNode()!,
                                                 color: .accentTertiary),
                                  circleColor: .statusSuccess,
                                  onTap: { self.showNodes()}
         )
         let appSettings = MoreMenuItem(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
-                                       subtitle: R.string.localizable.profileLanguageTitle(preferredLanguages: languages),
+                                       subtitle: R.string.localizable.settingsAppSubtitle(preferredLanguages: languages),
                                        picture: .icon(image: R.image.iconSettingsAltFill()!,
                                                       color: .accentTertiary),
                                        onTap: { self.showAppSettings() }
@@ -164,8 +155,12 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
         wireframe.showChangeAccountView(from: view)
     }
 
-    func showSoraCard() {
-        wireframe.showSoraCard(from: view)
+    func showNexusPortfolio() {
+        wireframe.showNexusPortfolio(from: view)
+    }
+
+    func showPolkamarkt() {
+        wireframe.showPolkamarkt(from: view)
     }
 
     func showNodes() {

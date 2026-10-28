@@ -63,6 +63,7 @@ protocol ApplicationConfigProtocol {
     var parliamentURL: URL { get }
     var phishingListURL: URL { get }
     var shareURL: URL { get }
+    var polkaswapIndexerURL: URL { get }
     var subqueryUrl: URL { get }
     var addressType: SNAddressType { get }
     var defaultChainNodes: Set<ChainNodeModel> { get }
@@ -297,39 +298,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var defaultChainNodes: Set<ChainNodeModel> {
-    #if F_RELEASE
-        return [
-            ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.mof2.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.mof3.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://sora.api.onfinality.io/public-ws")!, name: "Sora onFinality", apikey: nil),
-        ]
+        Set(SoraNodeConnectionPolicy.bundledMainnetNodes)
+    }
 
-    #elseif F_STAGING || F_TEST
-        return [
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-4.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-        ]
-    #else
-        return [
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-1.r0.dev", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-2.r0.dev", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-3.r0.dev", apikey: nil),
-        ]
-
-    #endif
+    var polkaswapIndexerURL: URL {
+        return URL(string: "https://pi.soramitsu.io/graphql")!
     }
 
     var subqueryUrl: URL {
-        #if F_RELEASE
-            return URL(string: "https://subquery.q1.sora2.soramitsu.co.jp")!
-        #elseif F_STAGING || F_TEST
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging__c29yY")!
-        #else
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
-        #endif
+        return polkaswapIndexerURL
     }
     
     var isDisclamerShown: Bool {
@@ -349,22 +326,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var nodesURL: URL? {
-        var stand = ""
-
-        #if F_RELEASE
-        stand = "prod"
-        #elseif F_STAGING || F_TEST
-        stand = "stage"
-        #else
-        stand = "dev"
-        #endif
-
-        return GitHubUrl.url(suffix: "sora2_config.json",
-                             branch: "sora2-substrate-js-library/metadata14/packages/types/src/metadata/\(stand)/")
+        // Nodes come from the bundled policy and the validated indexer response.
+        nil
     }
 
     var commonTypesURL: URL? {
-        GitHubUrl.url(suffix: "types_scalecodec_mobile.json", branch: "sora2-substrate-js-library/metadata14ios/packages/types/src/metadata/\(GitHubUrl.repoPrefix)/")
+        // Preserve this build's reviewed schema without a remote repository dependency.
+        let resourcePath: String? = R.file.runtimeSoraJson.path()
+        guard let path = resourcePath else { return nil }
+        return URL(fileURLWithPath: path)
     }
 
     var chainListURL: URL? {
@@ -462,4 +432,3 @@ private enum GitHubUrl {
         baseUrl?.appendingPathComponent(branch).appendingPathComponent(suffix)
     }
 }
-

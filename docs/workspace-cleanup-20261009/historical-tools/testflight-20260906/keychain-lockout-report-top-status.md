@@ -1,0 +1,7 @@
+## TestFlight upgrade lockout correction — September 7, 2026
+
+An upgrade to SORA 3.8.7 (2026090704) left the installed app on the wallet recovery screen with `unexpected_failure`. Source comparison reproduced a regression that rejected unrelated framework Keychain objects with absent or opaque application tags. This is a confirmed code regression and a plausible contributor to the reported failure; the generic device message does not establish it as the sole device-specific cause.
+
+The correction restores compatible Keychain inventory handling and adds full revalidation for a previously latched generic startup failure. The ordinary wallet gate stays closed while the database, account inventory, selected identity, signing material, and network snapshot are checked. Only the verified marker generation is cleared, and the recovery screen can restart those checks with **Try again**. Keys and legacy accounts are preserved throughout; unresolved or conflicting evidence remains available for recovery.
+
+The Release build and all 253 wallet regression tests passed with zero failures or skips. The 5 focused tests also passed separately and are included in 253. All 6,085 tracked file hashes were identical before and after validation. Publication of replacement build 2026090706 remains pending. Build 2026090705 has been withdrawn from Apple beta review, and the existing external groups and public TestFlight links remain intact. These automated results do not establish that every physical-device upgrade has been qualified.

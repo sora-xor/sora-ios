@@ -29,9 +29,9 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
-import CommonWallet
+
 import SoraFoundation
-import CommonWallet
+
 import Combine
 
 enum TransferableActionType {
@@ -39,8 +39,6 @@ enum TransferableActionType {
     case receive
     case swap
     case frozenDetails
-// TODO: Temporary Removal of X1
-//    case buy
 }
 
 final class TransferableCell: SoramitsuTableViewCell {
@@ -50,25 +48,34 @@ final class TransferableCell: SoramitsuTableViewCell {
     private var transferableItem: TransferableItem? {
         didSet {
             guard let item = transferableItem else { return }
+            // The cell is reused: what an earlier item published is not
+            // for this one.
+            cancellables.removeAll()
+            item.service.$balanceUnavailable
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.showBalance()
+                }
+                .store(in: &cancellables)
             item.service.$balanceAmount
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] value in
-                    guard let value = value, let item = self?.transferableItem else { return }
-                    self?.update(balance: value, symbol: item.assetInfo.symbol )
-                    self?.sendButton.sora.isHidden = value.isZero
+                .sink { [weak self] _ in
+                    self?.showBalance()
                 }
                 .store(in: &cancellables)
             item.service.$fiatBalanceText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let value = value, !value.isEmpty else { return }
+                    guard let value = value, !value.isEmpty,
+                          self?.transferableItem?.service.balanceUnavailable == false else { return }
                     self?.fiatLabel.sora.text = value
                 }
                 .store(in: &cancellables)
             item.service.$publishedFrozenAmount
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let value = value, let item = self?.transferableItem else { return }
+                    guard let value = value, let item = self?.transferableItem,
+                          !item.service.balanceUnavailable else { return }
                     self?.frozenContainerView.sora.isHidden = (value.decimalValue ).isZero
                     self?.frozenAmountLabel.sora.text = (value.stringValue ) + " " + item.assetInfo.symbol
                 }
@@ -76,7 +83,8 @@ final class TransferableCell: SoramitsuTableViewCell {
             item.service.$frozenFiat
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let value = value, !value.isEmpty else { return }
+                    guard let value = value, !value.isEmpty,
+                          self?.transferableItem?.service.balanceUnavailable == false else { return }
                     self?.frozenFiatAmountLabel.sora.text = value
                 }
                 .store(in: &cancellables)
@@ -228,19 +236,6 @@ final class TransferableCell: SoramitsuTableViewCell {
         return view
     }()
 
-// TODO: Temporary Removal of X1
-//    private lazy var buyFiatButton: AssetActionView = {
-//        let view = AssetActionView()
-//        view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
-//        view.button.sora.leftImage = R.image.wallet.buy()
-//        view.button.sora.horizontalOffset = 16
-//        view.accessibilityIdentifier = "assetDetails.buy"
-//        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-//            self?.transferableItem?.actionHandler?(.buy)
-//        }
-//        return view
-//    }()
-
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupView()
@@ -252,7 +247,7 @@ final class TransferableCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubview(containerView)
-        actionsStackView.addArrangedSubviews(sendButton, receiveButton, swapButton) //, buyFiatButton) TODO: Temporary Removal of X1 
+        actionsStackView.addArrangedSubviews(sendButton, receiveButton, swapButton)
         transferableContainerView.addSubviews(transferableLabel, fiatLabel, balanceLabel)
         frozenContainerView.addSubviews(frozenTitleLabel, frozenAmountLabel, frozenFiatAmountLabel, logoImageView)
         containerView.addArrangedSubviews(transferableContainerView, frozenContainerView, separatorView, actionsStackView)
@@ -331,15 +326,57 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
         }
         transferableItem = item
         
+        if item.balanceUnavailable {
+            showBalanceUnavailable()
+            return
+        }
+
         update(balance: item.balance.decimalValue, symbol: item.assetInfo.symbol)
         sendButton.sora.isHidden = item.balance.decimalValue.isZero
         
         fiatLabel.sora.text = item.fiat
-// TODO: Temporary Removal of X1
-//        buyFiatButton.sora.isHidden = item.assetInfo != .xor
         frozenContainerView.sora.isHidden = (item.frozenAmount?.decimalValue ?? Decimal(0)).isZero
         frozenAmountLabel.sora.text = (item.frozenAmount?.stringValue ?? "") + " " + item.assetInfo.symbol
         frozenFiatAmountLabel.sora.text = item.frozenFiatAmount
+    }
+}
+
+private extension TransferableCell {
+    /// The balance line as the service has it now: "Balance unavailable",
+    /// or the amount that was read. Runs on the main thread.
+    func showBalance() {
+        guard let item = transferableItem else { return }
+        if item.service.balanceUnavailable {
+            showBalanceUnavailable()
+            return
+        }
+        guard let value = item.service.balanceAmount else { return }
+        update(balance: value, symbol: item.assetInfo.symbol)
+        sendButton.sora.isHidden = value.isZero
+        // The value and the frozen part of the balance that was read; they
+        // were cleared while it was unavailable.
+        if let fiat = item.service.fiatBalanceText {
+            fiatLabel.sora.text = fiat
+        }
+        if let frozen = item.service.publishedFrozenAmount {
+            frozenContainerView.sora.isHidden = frozen.decimalValue.isZero
+            frozenAmountLabel.sora.text = frozen.stringValue + " " + item.assetInfo.symbol
+        }
+        if let frozenFiat = item.service.frozenFiat {
+            frozenFiatAmountLabel.sora.text = frozenFiat
+        }
+    }
+
+    /// No amount, no value and no frozen part: none of them is known. An
+    /// amount of zero next to the notice would contradict it. Nothing can
+    /// be sent from a balance that is not known either.
+    func showBalanceUnavailable() {
+        balanceLabel.sora.text = WalletUX.balanceUnavailableText
+        fiatLabel.sora.text = ""
+        sendButton.sora.isHidden = true
+        frozenContainerView.sora.isHidden = true
+        frozenAmountLabel.sora.text = ""
+        frozenFiatAmountLabel.sora.text = ""
     }
 }
 

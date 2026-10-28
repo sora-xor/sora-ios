@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "platform": "ios",
+  "assessedAt": "2026-08-02",
+  "status": "blocked",
+  "releaseEnabled": false,
+  "productionReachable": true,
+  "completeInventory": true,
+  "artifacts": [
+    {
+      "id": "shared-blake2lib",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/blake2lib.xcframework",
+      "status": "blocked",
+      "reviewedFileCount": null,
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-blake2lib.sha256",
+      "contentManifestSha256": null,
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-blake2lib.provenance.json",
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityProven": false,
+      "licenseAndNoticeReviewed": false,
+      "sbomReviewed": false,
+      "buildProvenanceReviewed": false,
+      "artifactAttestationReviewed": false
+    },
+    {
+      "id": "shared-libed25519",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/libed25519.xcframework",
+      "status": "blocked",
+      "reviewedFileCount": null,
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-libed25519.sha256",
+      "contentManifestSha256": null,
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-libed25519.provenance.json",
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityProven": false,
+      "licenseAndNoticeReviewed": false,
+      "sbomReviewed": false,
+      "buildProvenanceReviewed": false,
+      "artifactAttestationReviewed": false
+    },
+    {
+      "id": "shared-sr25519lib",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/sr25519lib.xcframework",
+      "status": "blocked",
+      "reviewedFileCount": null,
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-sr25519lib.sha256",
+      "contentManifestSha256": null,
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-sr25519lib.provenance.json",
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityProven": false,
+      "licenseAndNoticeReviewed": false,
+      "sbomReviewed": false,
+      "buildProvenanceReviewed": false,
+      "artifactAttestationReviewed": false
+    },
+    {
+      "id": "shared-sorawallet",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/sorawallet.xcframework",
+      "status": "blocked",
+      "reviewedFileCount": null,
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-sorawallet.sha256",
+      "contentManifestSha256": null,
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-sorawallet.provenance.json",
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityProven": false,
+      "licenseAndNoticeReviewed": false,
+      "sbomReviewed": false,
+      "buildProvenanceReviewed": false,
+      "artifactAttestationReviewed": false
+    },
+    {
+      "id": "shared-mpqr-core-sdk",
+      "treePath": "VendorPackages/shared-features-spm/Binaries/MPQRCoreSDK.xcframework",
+      "status": "blocked",
+      "reviewedFileCount": null,
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/shared-mpqr-core-sdk.sha256",
+      "contentManifestSha256": null,
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/shared-mpqr-core-sdk.provenance.json",
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityProven": false,
+      "licenseAndNoticeReviewed": false,
+      "sbomReviewed": false,
+      "buildProvenanceReviewed": false,
+      "artifactAttestationReviewed": false
+    },
+    {
+      "id": "sora-wallet-binary-sorawallet",
+      "treePath": "VendorPackages/SoraWalletBinary/Binaries/sorawallet.xcframework",
+      "status": "blocked",
+      "reviewedFileCount": null,
+      "contentManifestPath": "Fixtures/Modernization/VendoredBinaries/sora-wallet-binary-sorawallet.sha256",
+      "contentManifestSha256": null,
+      "provenancePath": "Fixtures/Modernization/VendoredBinaries/sora-wallet-binary-sorawallet.provenance.json",
+      "provenanceSha256": null,
+      "sourceOrVendorIdentityProven": false,
+      "licenseAndNoticeReviewed": false,
+      "sbomReviewed": false,
+      "buildProvenanceReviewed": false,
+      "artifactAttestationReviewed": false
+    }
+  ],
+  "duplicateAssertions": [
+    {
+      "leftId": "shared-sorawallet",
+      "rightId": "sora-wallet-binary-sorawallet",
+      "byteIdentical": false
+    }
+  ],
+  "releaseCriteria": {
+    "completeContentManifestsReviewed": false,
+    "sourceOrVendorProvenanceReviewed": false,
+    "licensesAndNoticesReviewed": false,
+    "sbomsReviewed": false,
+    "buildProvenanceReviewed": false,
+    "artifactAttestationsReviewed": false,
+    "duplicateSorawalletByteIdentityProven": false
+  },
+  "blocker": {
+    "code": "production_vendored_xcframeworks_unverified",
+    "reason": "Six production-reachable XCFramework trees have no independently reviewed whole-tree content manifests or provenance receipts. The two sorawallet copies have not been proven byte-identical."
+  },
+  "exitCriteria": [
+    "inventory every regular file and reject symlinks, special nodes, missing files, and unlisted files",
+    "independently review and pin source or vendor identity, licenses, SBOMs, build provenance, and attestations",
+    "publish exact SHA-256 manifests and hashed provenance receipts for all six trees",
+    "prove the two production sorawallet XCFramework trees are byte-identical or remove one copy"
+  ]
+}

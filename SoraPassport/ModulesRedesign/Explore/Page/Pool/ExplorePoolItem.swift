@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import BigInt
 
@@ -48,9 +48,12 @@ struct ExplorePoolViewModel: Hashable {
 
 final class ExplorePoolItem: ItemProtocol {
 
+    let serialNumber: String
     let poolViewModel: ExplorePoolViewModel
 
-    init(poolViewModel: ExplorePoolViewModel) {
+    init(serialNumber: String,
+         poolViewModel: ExplorePoolViewModel) {
+        self.serialNumber = serialNumber
         self.poolViewModel = poolViewModel
     }
 }

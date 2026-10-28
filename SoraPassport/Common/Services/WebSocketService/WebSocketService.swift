@@ -35,26 +35,12 @@ import IrohaCrypto
 import SSFUtils
 
 final class WebSocketService: WebSocketServiceProtocol {
-    //Should be used only once, at startup
-    static let shared: WebSocketService = {
-        let lastUrl: URL
-        if let url = SettingsManager.shared.lastSuccessfulUrl {
-            lastUrl = url
-        } else {
-            lastUrl = ApplicationConfig.shared.defaultChainNodes.first!.url
-        }
-
-        let settings = WebSocketServiceSettings(
-            url: lastUrl,
-            addressType: ApplicationConfig.shared.addressType,
-            address: nil
-        )
-        let storageFacade = SubstrateDataStorageFacade.shared
-        return WebSocketService(
-            settings: settings,
-            applicationHandler: ApplicationHandler()
-        )
-    }()
+    // There is no process-wide instance any more. Startup used one socket,
+    // opened to the saved `lastSuccessfulUrl` (or to an arbitrary bundled node
+    // on a fresh install) and kept on that URL for the life of the process, so
+    // a dead saved node stopped the app on the splash. The asset list is now
+    // loaded over the chain registry's connection, which fails over between
+    // nodes (see `StartupNetworkCoordinator`).
 
     enum State {
         case throttled

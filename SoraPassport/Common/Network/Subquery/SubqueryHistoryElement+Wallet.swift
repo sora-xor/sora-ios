@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import BigInt
-import CommonWallet
+
 import Foundation
 import IrohaCrypto
 
@@ -98,7 +98,6 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
             )
         }
 
-        print("Error: No tx type for: \(data)")
         return nil
     }
 
@@ -293,7 +292,7 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
         return AssetTransactionData(
             transactionId: identifier,
             status: status,
-            assetId: liquidity.targetAssetId, // TODO: check
+            assetId: liquidity.targetAssetId,
             peerId: liquidity.baseAssetId,
             peerFirstName: nil,
             peerLastName: nil,

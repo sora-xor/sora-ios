@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+import UIKit
 
 typealias MoreMenuDataSource = UITableViewDiffableDataSource<MoreMenuSection, MoreMenuItem>
 typealias MoreMenuSnapshot = NSDiffableDataSourceSnapshot<MoreMenuSection, MoreMenuItem>
@@ -52,7 +52,8 @@ protocol MoreMenuPresenterProtocol: AnyObject {
 
 protocol MoreMenuWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPresentable, WebPresentable {
     func showChangeAccountView(from view: MoreMenuViewProtocol?)
-    func showSoraCard(from view: MoreMenuViewProtocol?)
+    func showNexusPortfolio(from view: MoreMenuViewProtocol?)
+    func showPolkamarkt(from view: MoreMenuViewProtocol?)
     func showFriendsView(from view: MoreMenuViewProtocol?)
     func showNodes(from view: MoreMenuViewProtocol?)
     func showInformation(from view: MoreMenuViewProtocol?)

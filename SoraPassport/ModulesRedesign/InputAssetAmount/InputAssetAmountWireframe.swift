@@ -31,7 +31,7 @@
 import Foundation
 import UIKit
 import RobinHood
-import CommonWallet
+
 import SoraUIKit
 
 protocol InputAssetAmountWireframeProtocol: AlertPresentable {
@@ -71,6 +71,7 @@ protocol InputAssetAmountWireframeProtocol: AlertPresentable {
 
 final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
 
+    @MainActor
     func showChoiceBaseAsset(on controller: UIViewController?,
                              assetManager: AssetManagerProtocol,
                              fiatService: FiatServiceProtocol,
@@ -99,6 +100,7 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showSelectAddress(on controller: UIViewController?,
                            assetId: String,
                            dataProvider: SingleValueProvider<[SearchData]>,

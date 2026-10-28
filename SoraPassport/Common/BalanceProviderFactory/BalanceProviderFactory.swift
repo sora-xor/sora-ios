@@ -30,7 +30,8 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+import CoreData
+import SSFSingleValueCache
 
 class BalanceProviderFactory {
 
@@ -56,7 +57,13 @@ class BalanceProviderFactory {
     public func createBalanceDataProvider(for assets: [AssetInfo], onlyVisible: Bool) throws -> SingleValueProvider<[BalanceData]> {
         let source: AnySingleValueProviderSource<[BalanceData]> = AnySingleValueProviderSource {
             let assets = assets.map { $0.assetId }
-            let operation = (self.networkOperationFactory as? WalletNetworkFacade)?.fetchBalanceOperation(assets, onlyVisible: onlyVisible)
+            // The provider keeps an asset whose balance could not be read,
+            // marked as such; `AssetProvider` shows it as unavailable.
+            let operation = (self.networkOperationFactory as? WalletNetworkFacade)?.fetchBalanceOperation(
+                assets,
+                onlyVisible: onlyVisible,
+                markingUnavailable: true
+            )
             return operation!
         }
 
@@ -64,7 +71,7 @@ class BalanceProviderFactory {
 
         let targetId = identifierFactory.balanceIdentifierForAccountId(accountId)
 
-        let cache = createSingleValueCache()
+        let cache = SingleValueCacheRepositoryFactoryDefault().createSingleValueCacheRepository()
 
         return SingleValueProvider(targetIdentifier: targetId,
                                    source: source,
@@ -80,7 +87,7 @@ class BalanceProviderFactory {
             return operation
         }
         
-        let cache = createSingleValueCache()
+        let cache = SingleValueCacheRepositoryFactoryDefault().createSingleValueCacheRepository()
         
         let updateTrigger = DataProviderEventTrigger.onAddObserver
 
@@ -92,11 +99,5 @@ class BalanceProviderFactory {
                                    updateTrigger: updateTrigger,
                                    executionQueue: BalanceProviderFactory.executionQueue,
                                    serialSyncQueue: BalanceProviderFactory.contactsSyncQueue)
-    }
-    
-
-    private func createSingleValueCache()
-        -> CoreDataRepository<SingleValueProviderObject, CDCWSingleValue> {
-            return cacheFacade.createCoreDataCache(filter: nil)
     }
 }

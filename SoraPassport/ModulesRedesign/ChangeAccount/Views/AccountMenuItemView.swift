@@ -49,6 +49,17 @@ final class AccountMenuItemView: SoramitsuView {
         }
     }()
 
+    private let capabilityLabel: UILabel = {
+        let label = UILabel()
+        label.font = .preferredFont(forTextStyle: .caption1)
+        label.adjustsFontForContentSizeCategory = true
+        label.numberOfLines = 0
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.textColor = WalletUX.foreground
+        label.accessibilityIdentifier = "wallet-account-capability-badge"
+        return label
+    }()
+
     private let iconView: UIImageView = {
         UIImageView().then {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -58,6 +69,8 @@ final class AccountMenuItemView: SoramitsuView {
     private lazy var moreButton: ImageButton = {
         ImageButton(size: CGSize(width: 44, height: 44)).then {
             $0.sora.image = R.image.iconMenuInfo()
+            $0.accessibilityIdentifier = "wallet-account-options"
+            $0.accessibilityLabel = R.string.localizable.accountOptions(preferredLanguages: .currentLocale)
             $0.sora.tintColor = .accentTertiary
             $0.sora.addHandler(for: .touchUpInside) { [weak self] in
                 self?.onMoreTap()
@@ -74,7 +87,11 @@ final class AccountMenuItemView: SoramitsuView {
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(checkmarkView)
         addSubview(iconView)
-        addSubview(titleLabel)
+        let labels = UIStackView(arrangedSubviews: [titleLabel, capabilityLabel])
+        labels.axis = .vertical
+        labels.spacing = 3
+        labels.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(labels)
         addSubview(moreButton)
 
         checkmarkView.do {
@@ -88,14 +105,16 @@ final class AccountMenuItemView: SoramitsuView {
             $0.centerYAnchor == centerYAnchor
             $0.leadingAnchor == checkmarkView.trailingAnchor + 21
             $0.sizeAnchors == CGSize(width: 40, height: 40)
-            $0.topAnchor == topAnchor + 16
-            $0.bottomAnchor == bottomAnchor - 16
+            $0.topAnchor >= topAnchor + 16
+            $0.bottomAnchor <= bottomAnchor - 16
         }
 
-        titleLabel.do {
+        labels.do {
             $0.leadingAnchor == iconView.trailingAnchor + 8
             $0.trailingAnchor == moreButton.leadingAnchor - 8
             $0.centerYAnchor == centerYAnchor
+            $0.topAnchor >= topAnchor + 16
+            $0.bottomAnchor <= bottomAnchor - 16
         }
 
         moreButton.do {
@@ -113,6 +132,8 @@ final class AccountMenuItemView: SoramitsuView {
 
     func bind(model: AccountMenuItem) {
         titleLabel.sora.text = model.title
+        capabilityLabel.text = model.capabilityBadge
+        capabilityLabel.isHidden = model.capabilityBadge == nil
         checkmarkView.image = model.isSelected ?
         (model.isMultiselectionMode ? R.image.checkboxSelected() : R.image.checkSmall()?.tinted(with: UIColor(hex: "#EE2233"))) : (model.isMultiselectionMode ? R.image.checkboxDefault() : nil)
 

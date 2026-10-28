@@ -38,13 +38,13 @@ protocol Produtable: AnyObject {
     var setupNavigationBar: ((WalletViewMode) -> Void)? { get set }
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var dissmiss: ((Bool) -> Void)? { get set }
+    var dismiss: ((Bool) -> Void)? { get set }
     var navigationTitle: String { get }
     func viewDidLoad()
-    func viewDissmissed()
+    func viewdismissed()
 }
 
 extension Produtable {
-    func viewDissmissed() {}
+    func viewdismissed() {}
     var navigationTitle: String { "" }
 }

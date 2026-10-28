@@ -40,14 +40,15 @@ final class PoolsCell: SoramitsuTableViewCell {
     private var poolsItem: PoolsItem? {
         didSet {
             guard let item = poolsItem else { return }
-            item.service.$moneyText
+            item.service?.$moneyText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.text = value
+                    self?.applyTotalStyle()
                 }
                 .store(in: &cancellables)
-            item.service.$poolViewModels
+            item.service?.$poolViewModels
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
@@ -240,10 +241,13 @@ final class PoolsCell: SoramitsuTableViewCell {
         }
         poolView?.subtitleLabel.sora.loadingPlaceholder.type = !poolModel.subtitle.isEmpty ? .none : .shimmer
 
-        if !poolModel.fiatText.isEmpty {
+        // Once the price read has finished, a pool without a price shows
+        // no value instead of a loading placeholder that never ends.
+        let waiting = !poolModel.priceLoadFinished
+        if !poolModel.fiatText.isEmpty || !waiting {
             poolView?.amountUpLabel.sora.text = poolModel.fiatText
         }
-        poolView?.amountUpLabel.sora.loadingPlaceholder.type = !poolModel.fiatText.isEmpty ? .none : .shimmer
+        poolView?.amountUpLabel.sora.loadingPlaceholder.type = poolModel.fiatText.isEmpty && waiting ? .shimmer : .none
         
         let rewardPictures: [Picture] = poolModel.farmedRewardAssetsImages.map { .logo(image: $0) }
         poolView?.setupFarmedAssetImages(pictures: rewardPictures)
@@ -258,6 +262,15 @@ final class PoolsCell: SoramitsuTableViewCell {
     
 }
 
+private extension PoolsCell {
+    /// "Price unavailable" is a quiet notice, not an amount.
+    func applyTotalStyle() {
+        let unavailable = poolsItem?.service?.priceIsUnavailable ?? false
+        moneyLabel.sora.font = unavailable ? FontType.textS : FontType.headline2
+        moneyLabel.sora.textColor = unavailable ? .fgSecondary : .fgPrimary
+    }
+}
+
 extension PoolsCell: SoramitsuTableViewCellProtocol {
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
         guard let item = item as? PoolsItem else {
@@ -268,12 +281,13 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             poolsItem = item
         }
        
-        moneyLabel.sora.text = item.service.moneyText
+        moneyLabel.sora.text = item.service?.moneyText
+        applyTotalStyle()
         moneyLabel.sora.alignment = localizationManager.isRightToLeft ? .left : .right
 
         arrowButton.configure(title: item.title, isExpand: item.isExpand)
 
-        let viewModels = Array(item.service.poolViewModels)
+        let viewModels = Array(item.service?.poolViewModels ?? [])
         updateContent(with: viewModels)
 
         openFullListPoolsButton.sora.isHidden = !item.isExpand
@@ -281,7 +295,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
                                                                           fontData: FontType.buttonM,
                                                                           textColor: .accentPrimary,
                                                                           alignment: localizationManager.isRightToLeft ? .right : .left)
-        heightConstraint?.isActive = item.service.poolViewModels.isEmpty || item.isHidden
+        heightConstraint?.isActive = item.service?.poolViewModels.isEmpty ?? true || item.isHidden
     }
 }
 

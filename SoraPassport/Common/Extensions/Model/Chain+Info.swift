@@ -104,10 +104,6 @@ extension Chain {
         }
     }
 
-    func preparedWhiteListPath() -> String? {
-        return R.file.whitelistJson.path()
-    }
-
     func preparedDefaultTypeDefPath() -> String? {
         return R.file.runtimeDefaultJson.path()
     }
@@ -130,8 +126,7 @@ extension Chain {
         let base = URL(string: "https://raw.githubusercontent.com/polkascan/py-scale-codec/master/scalecodec/type_registry")
         switch self {
         case .sora:
-            let url = "https://raw.githubusercontent.com/sora-xor/sora2-substrate-js-library/master/packages/types/src/metadata/\(repoPrefix)/types_scalecodec_mobile.json"
-            return URL(string: url)
+            return ApplicationConfig.shared.commonTypesURL
         case .polkadot:
             return base?.appendingPathComponent("polkadot.json")
         }
