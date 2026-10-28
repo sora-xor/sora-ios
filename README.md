@@ -94,3 +94,9 @@ python3 SoraPassport/Scripts/audit-swiftpm-advisories.py --output /absolute/path
 
 It checks immutable SwiftPM source revisions; vendored source and native binaries
 retain their separate qualification requirements. An incomplete scan fails.
+
+## License
+
+Polka Biome and Soramitsu-owned source is available under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for retained copyright,
+third-party licensing and historical provenance exceptions.

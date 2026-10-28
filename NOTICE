@@ -1,0 +1,27 @@
+SORA Wallet iOS
+Copyright (c) 2020, 2021, 2022, 2023 Polka Biome Ltd.
+Copyright Soramitsu Co., Ltd.
+
+Polka Biome and Soramitsu-owned application source is licensed under the
+Apache License, Version 2.0 (see LICENSE). Existing copyright notices are
+retained. This includes the owned SoraFoundation, SoraUI, SoraUIKit,
+NexusTransferCodec and shared-feature source packages where present.
+
+SSF modules that previously carried MIT grants are also available under
+Apache-2.0; their module LICENSE files preserve the original copyright and
+MIT permission text as an alternative (Apache-2.0 OR MIT).
+
+Third-party code, fonts, tools and binary frameworks retain their original
+terms and attribution. In particular, FireMock, Rswift and Sourcery retain
+MIT terms; the Inter font retains its SIL Open Font License; Google source
+packages retain their Apache notices; keccak retains CC0 terms; scrypt
+retains Colin Percival's BSD notices and the SSE2NEON compatibility header
+retains its MIT notice. Embedded binary frameworks retain their upstream
+terms, including MasterCard and Muchamad Chozinul Amri notices where present.
+The root Apache license does not relicense third-party binary components.
+
+Fixtures/Modernization contains verbatim historical source and license
+snapshots used for provenance and regression evidence. These snapshots and
+their recorded hashes remain unchanged and retain their original notices
+and license conditions, including BSD advertising acknowledgments where
+applicable. They do not change the license of current owned source.
