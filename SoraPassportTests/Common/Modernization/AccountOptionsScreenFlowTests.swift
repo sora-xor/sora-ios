@@ -1,5 +1,5 @@
 import SSFCloudStorage
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 import SoraFoundation
 import SoraUIKit
 import UIKit

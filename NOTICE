@@ -1,0 +1,15 @@
+SORA Wallet iOS
+Copyright (c) 2020, 2021, 2022, 2023 Polka Biome Ltd.
+Copyright Soramitsu Co., Ltd.
+
+Polka Biome and Soramitsu-owned application source is licensed under the
+Apache License, Version 2.0 (see LICENSE). Existing copyright notices are
+retained. External dependencies and files bearing third-party notices retain
+their original licenses and attribution; the root Apache license does not
+relicense third-party code or binary frameworks.
+
+Historical source fixtures in Fixtures/Modernization retain their original
+license and copyright notices as provenance evidence.
+The SimulatorReleased386AccountItemMapper.swift and
+SimulatorReleased386AccountOperationFactory.swift test copies likewise retain
+the original notices required by their historical-source provenance.

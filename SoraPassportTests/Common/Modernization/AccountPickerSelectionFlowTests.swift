@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 import RobinHood
 import UIKit
