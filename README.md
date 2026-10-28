@@ -4,3 +4,9 @@ Supported features:
 - XOR, VAL, and PSWAP tokens on SORA v2 network are supported in this first release
 - Asset management: show, hide and change the order of assets in the app
 - Send XOR, VAL, PSWAP to other accounts in the SORA Network
+
+## License
+
+Polka Biome and Soramitsu-owned source is available under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for retained copyright,
+third-party licensing and historical provenance exceptions.
