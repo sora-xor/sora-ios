@@ -2,6 +2,9 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import SoraFoundation
+import SSFUtils
+import SSFCloudStorage
+import SoraKeystore
 import UIKit
 import XCTest
 @testable import SoraPassport
@@ -202,4 +205,166 @@ private final class ImportFlowRoutes: AccountImportWireframeProtocol {
     func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {}
     func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?, completion: @escaping () -> Void) {}
     func present(viewModel: AlertPresentableViewModel, style: UIAlertController.Style, from view: ControllerBackedProtocol?) {}
+}
+
+final class AccountImportPreparationBoundaryTests: XCTestCase {
+    private let phrase = Array(repeating: "abandon", count: 11).joined(separator: " ") + " about"
+    private struct Fixture {
+        let interactor: PreparationOnlyImport; let output: PreparationImportOutput; let imports: PreparationImportService
+        let cloud: PreparationImportCloud; let keys: InMemoryKeychain; let factory: AccountOperationFactory
+    }
+    private func fixture() -> Fixture {
+        let keys = InMemoryKeychain(), settings = InMemorySettingsManager(), cloud = PreparationImportCloud(), imports = PreparationImportService(), output = PreparationImportOutput()
+        let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false })
+        let factory = AccountOperationFactory(keystore: keys, recoveryGate: gate)
+        let subject = PreparationOnlyImport(accountOperationFactory: factory, accountRepository: AnyDataProviderRepository(InMemoryDataProviderRepository<AccountItem>()), operationManager: OperationManager(), keystoreImportService: imports, supportedNetworks: [.sora], defaultNetwork: .sora, cloudStorage: cloud)
+        subject.presenter = output
+        return Fixture(interactor: subject, output: output, imports: imports, cloud: cloud, keys: keys, factory: factory)
+    }
+    private func mnemonic(_ text: String? = nil, path: String = "", expected: String? = nil) -> AccountImportMnemonicRequest {
+        AccountImportMnemonicRequest(mnemonic: text ?? phrase, username: "Public fixture", networkType: .sora, derivationPath: path, cryptoType: .sr25519, expectedAddress: expected)
+    }
+    private func expected(_ f: Fixture, path: String = "") throws -> AccountItem {
+        let op = try f.interactor.prepareMnemonic(mnemonic(path: path)); op.start(); let prepared = try op.extractNoCancellableResultData(); defer { prepared.discard() }; return prepared.account
+    }
+    private func definition(crypto: String = "sr25519") -> KeystoreDefinition {
+        KeystoreDefinition(address: nil, encoded: "AA==", encoding: KeystoreEncoding(content: ["pkcs8", crypto], type: ["scrypt", "xsalsa20-poly1305"], version: "3"), meta: nil)
+    }
+    private func backup(_ f: Fixture, value: OpenBackupAccount, password: String = "fixture password") async {
+        let done = expectation(description: "backup preparation completed")
+        f.interactor.onPrepared = { done.fulfill() }; f.output.onError = { done.fulfill() }
+        f.cloud.account = value; f.interactor.importBackedupAccount(request: AccountImportBackedupRequest(account: OpenBackupAccount(address: value.address), password: password))
+        await fulfillment(of: [done], timeout: 3)
+    }
+    func testSetupPublishesTheSupportedImportChoicesAndRegistersForKeystoreFiles() throws {
+        let f = fixture(); f.interactor.setup(); let metadata = try XCTUnwrap(f.output.metadata.first)
+        XCTAssertEqual(metadata.availableSources, AccountImportSource.allCases); XCTAssertEqual(metadata.defaultSource, .mnemonic)
+        XCTAssertEqual(metadata.availableNetworks, [.sora]); XCTAssertEqual(metadata.defaultNetwork, .sora)
+        XCTAssertEqual(metadata.availableCryptoTypes, CryptoType.allCases); XCTAssertEqual(metadata.defaultCryptoType, .sr25519)
+        XCTAssertTrue(f.imports.observer === f.interactor)
+    }
+    func testPendingKeystoreIsConsumedOnceAndSuggestedWithoutImportingSecrets() throws {
+        let f = fixture(); f.imports.definition = definition(); f.interactor.setup()
+        XCTAssertNil(f.imports.definition); XCTAssertEqual(f.imports.clears, 1); XCTAssertEqual(f.output.suggestions.count, 1)
+        let decoded = try JSONDecoder().decode(KeystoreDefinition.self, from: Data(f.output.suggestions[0].utf8))
+        XCTAssertEqual(decoded.encoded, "AA=="); XCTAssertEqual(f.output.infos.first??.cryptoType, .sr25519)
+        XCTAssertEqual(f.interactor.imports, 0); f.interactor.didUpdateDefinition(from: nil); XCTAssertEqual(f.output.suggestions.count, 1)
+    }
+    func testInvalidKeystoreMetadataIsReportedWithoutAttemptingAnImport() {
+        let f = fixture(); f.imports.definition = definition(crypto: "unknown"); f.interactor.setup()
+        XCTAssertEqual(f.output.errors.count, 1); XCTAssertTrue(f.output.suggestions.isEmpty); XCTAssertEqual(f.interactor.imports, 0)
+    }
+    func testManualKeystoreMetadataRetainsTheRealCryptoScheme() throws {
+        let f = fixture(), json = String(data: try JSONEncoder().encode(definition(crypto: "ed25519")), encoding: .utf8)!
+        f.interactor.deriveMetadataFromKeystore(json)
+        XCTAssertEqual(f.output.suggestions, [json]); XCTAssertEqual(f.output.infos.first??.cryptoType, .ed25519)
+        XCTAssertEqual(f.output.infos.first??.networkType, .sora); XCTAssertEqual(f.output.infos.first??.networkTypeConfirmed, false)
+    }
+    func testMalformedManualKeystoreDoesNotReplaceTheCurrentSuggestion() {
+        let f = fixture(); f.interactor.deriveMetadataFromKeystore("not-json"); XCTAssertTrue(f.output.suggestions.isEmpty); XCTAssertEqual(f.interactor.imports, 0)
+    }
+    func testMnemonicPreparationReturnsTheDerivedAccountWithoutPersistingItsKeys() throws {
+        let f = fixture(), account = try expected(f); var result: AccountItem?
+        f.interactor.importAccountWithMnemonic(request: mnemonic()) { result = try? $0?.get() }
+        XCTAssertEqual(result?.address, account.address); XCTAssertEqual(f.interactor.imports, 1)
+        XCTAssertFalse(try f.keys.checkKey(for: KeystoreTag.entropyTagForAddress(account.address)))
+        XCTAssertFalse(try f.keys.checkKey(for: KeystoreTag.secretKeyTagForAddress(account.address)))
+    }
+    func testInvalidMnemonicReportsFailureToBothPresenterAndCompletion() {
+        let f = fixture(); var failed = false
+        f.interactor.importAccountWithMnemonic(request: mnemonic("invalid phrase")) { if case .failure? = $0 { failed = true } }
+        XCTAssertTrue(failed); XCTAssertEqual(f.output.errors.count, 1); XCTAssertEqual(f.interactor.imports, 0)
+    }
+    func testInvalidValidationUsesItsCompletionWithoutDuplicatePresenterError() {
+        let f = fixture(); var failed = false
+        f.interactor.validateAccountWithMnemonic(request: mnemonic("invalid phrase")) { if case .failure? = $0 { failed = true } }
+        XCTAssertTrue(failed); XCTAssertTrue(f.output.errors.isEmpty); XCTAssertEqual(f.interactor.validations, 0)
+    }
+    func testInvalidValidationWithoutCompletionUsesThePresenter() {
+        let f = fixture(); f.interactor.validateAccountWithMnemonic(request: mnemonic("invalid phrase"), completion: nil)
+        XCTAssertEqual(f.output.errors.count, 1); XCTAssertEqual(f.interactor.validations, 0)
+    }
+    func testValidMnemonicValidationDoesNotBecomeAnImport() throws {
+        let f = fixture(); var account: AccountItem?
+        f.interactor.validateAccountWithMnemonic(request: mnemonic()) { account = try? $0?.get() }
+        XCTAssertEqual(account?.address, try expected(f).address); XCTAssertEqual(f.interactor.validations, 1); XCTAssertEqual(f.interactor.imports, 0)
+    }
+    func testSeedPreparationAndValidationUseTheRequestedSchemeWithoutPersistence() throws {
+        let f = fixture(), request = AccountImportSeedRequest(seed: "0x" + String(repeating: "07", count: 32), username: "Seed fixture", networkType: .sora, derivationPath: "", cryptoType: .ed25519)
+        var imported: AccountItem?, validated: AccountItem?
+        f.interactor.importAccountWithSeed(request: request) { imported = try? $0?.get() }
+        f.interactor.validateAccountWithSeed(request: request) { validated = try? $0?.get() }
+        XCTAssertNotNil(imported); XCTAssertEqual(imported, validated); XCTAssertEqual(imported?.cryptoType, .ed25519)
+        XCTAssertEqual(f.interactor.imports, 1); XCTAssertEqual(f.interactor.validations, 1)
+        XCTAssertFalse(try f.keys.checkKey(for: KeystoreTag.seedTagForAddress(try XCTUnwrap(imported).address)))
+    }
+    func testInvalidEncryptedKeystoreCannotProduceAnAccountInEitherMode() {
+        let f = fixture(), request = AccountImportKeystoreRequest(keystore: "invalid", password: "fixture", username: "Fixture", networkType: .sora, cryptoType: .sr25519)
+        f.interactor.importAccountWithKeystore(request: request, completion: nil); f.interactor.validateAccountWithKeystore(request: request, completion: nil)
+        XCTAssertEqual(f.interactor.failures.count, 2); XCTAssertTrue(f.interactor.accounts.isEmpty)
+    }
+    func testCloudPhraseMustMatchTheSavedAddressBeforeAnyKeysArePersisted() async throws {
+        let f = fixture(), account = try expected(f)
+        await backup(f, value: OpenBackupAccount(name: "Cloud fixture", address: account.address, passphrase: phrase))
+        XCTAssertEqual(f.interactor.accounts.first?.address, account.address); XCTAssertEqual(f.interactor.accounts.first?.username, "Cloud fixture")
+        XCTAssertEqual(f.cloud.passwords, ["fixture password"]); XCTAssertTrue(f.interactor.failures.isEmpty)
+        XCTAssertFalse(try f.keys.checkKey(for: KeystoreTag.entropyTagForAddress(account.address)))
+    }
+    func testCloudPhraseKeepsItsOriginalDerivationPath() async throws {
+        let f = fixture(), account = try expected(f, path: "//public-fixture")
+        await backup(f, value: OpenBackupAccount(address: account.address, passphrase: phrase, substrateDerivationPath: "//public-fixture"))
+        XCTAssertEqual(f.interactor.accounts.first?.address, account.address)
+    }
+    func testCloudBackupForAnotherAddressCannotImportAValidPhrase() async {
+        let f = fixture(); await backup(f, value: OpenBackupAccount(address: "another-wallet", passphrase: phrase))
+        XCTAssertTrue(f.interactor.accounts.isEmpty); XCTAssertEqual(f.interactor.failures.count, 1)
+    }
+    func testCloudSeedRestoresOnlyItsMatchingIdentity() async throws {
+        let f = fixture(), seed = "0x" + String(repeating: "07", count: 32)
+        let op = f.factory.prepareAccountOperation(request: AccountImportSeedRequest(seed: seed, username: "", networkType: .sora, derivationPath: "", cryptoType: .ed25519))
+        op.start(); let prepared = try op.extractNoCancellableResultData(); let expected = prepared.account; prepared.discard()
+        await backup(f, value: OpenBackupAccount(address: expected.address, cryptoType: "ED25519", encryptedSeed: .init(substrateSeed: seed)))
+        XCTAssertEqual(f.interactor.accounts.first?.address, expected.address); XCTAssertEqual(f.interactor.accounts.first?.cryptoType, .ed25519)
+    }
+    func testCloudBackupWithNoUsableMaterialFailsInsteadOfCreatingAnAccount() async {
+        let f = fixture(); await backup(f, value: OpenBackupAccount(address: "public-fixture", passphrase: "invalid", json: .init(substrateJson: "invalid-json")))
+        XCTAssertTrue(f.interactor.accounts.isEmpty); XCTAssertEqual(f.interactor.failures.count, 1)
+    }
+    func testCloudReadFailureIsReportedWithoutStartingPreparation() async {
+        let f = fixture(); f.cloud.failure = NSError(domain: "cloud-fixture", code: 1)
+        await backup(f, value: OpenBackupAccount(address: "public-fixture"))
+        XCTAssertEqual(f.output.errors.count, 1); XCTAssertEqual(f.interactor.imports, 0)
+    }
+}
+private final class PreparationOnlyImport: BaseAccountImportInteractor {
+    var imports = 0, validations = 0; var accounts: [AccountItem] = [], failures: [Error] = []; var onPrepared: (() -> Void)?
+    private func prepare(_ operation: BaseOperation<PreparedAccount>) -> Result<AccountItem, Error> {
+        operation.start()
+        let result = Result { let value = try operation.extractNoCancellableResultData(); defer { value.discard() }; return value.account }
+        switch result { case .success(let account): accounts.append(account); case .failure(let error): failures.append(error) }
+        return result
+    }
+    override func importAccountUsingOperation(_ operation: BaseOperation<PreparedAccount>, completion: ((Result<AccountItem, Error>?) -> Void)?) { imports += 1; let result = prepare(operation); completion?(result); onPrepared?() }
+    override func validateAccountUsingOperation(_ operation: BaseOperation<PreparedAccount>, completion: ((Result<AccountItem?, Error>?) -> Void)?) { validations += 1; completion?(prepare(operation).map { Optional($0) }) }
+}
+private final class PreparationImportOutput: AccountImportInteractorOutputProtocol {
+    var metadata: [AccountImportMetadata] = [], suggestions: [String] = [], infos: [AccountImportPreferredInfo?] = [], errors: [Error] = []; var onError: (() -> Void)?
+    func didReceiveAccountImport(metadata: AccountImportMetadata) { self.metadata.append(metadata) }
+    func didCompleteAccountImport() { XCTFail("Preparation must not persist an account") }
+    func didReceiveAccountImport(error: Error) { errors.append(error); onError?() }
+    func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?) { suggestions.append(text); infos.append(preferredInfo) }
+}
+private final class PreparationImportService: KeystoreImportServiceProtocol {
+    var definition: KeystoreDefinition?; weak var observer: KeystoreImportObserver?; var clears = 0
+    func add(observer: KeystoreImportObserver) { self.observer = observer }; func remove(observer: KeystoreImportObserver) { self.observer = nil }
+    func clear() { clears += 1; definition = nil }; func handle(url: URL) -> Bool { false }
+}
+private final class PreparationImportCloud: CloudStorageServiceProtocol {
+    var isUserAuthorized: Bool { true }; var account = OpenBackupAccount(address: "fixture"), passwords: [String] = []; var failure: Error?
+    func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
+    func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
+    func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { passwords.append(password); if let failure { throw failure }; return self.account }
+    func saveBackup(account: OpenBackupAccount, password: String) async throws { XCTFail("No cloud writes allowed") }
+    func deleteBackup(account: OpenBackupAccount) async throws { XCTFail("No cloud deletions allowed") }
+    func disconnect() {}
 }
