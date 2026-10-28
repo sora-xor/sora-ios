@@ -12,6 +12,87 @@ import SSFStorageQueryKitFixed
 import XCTest
 @testable import SoraPassport
 
+extension WalletNetworkOperationFactoryCoverageTests {
+    private func pendingHistory(_ info: TransferInfo, sender: String = "bound-history-owner") throws -> TransactionHistoryItem {
+        try TransactionHistoryItem.createFromTransferInfo(info, transactionHash: Data([1, 2, 3]), senderAddress: sender,
+            networkType: 69, addressFactory: SS58AddressFactory())
+    }
+    private func pendingCall<T: Decodable>(_ item: TransactionHistoryItem, as type: T.Type) throws -> T {
+        try JSONDecoder.scaleCompatible(snakeCase: false).decode(type, from: XCTUnwrap(item.call))
+    }
+    func testPendingSwapHistoryKeepsTheReviewedAmountsAndMarket() throws {
+        let history = try pendingHistory(product(.swap))
+        let call = try pendingCall(history, as: RuntimeCall<SwapCall>.self)
+        XCTAssertEqual(call.args.inputAssetId.value, xor); XCTAssertEqual(call.args.outputAssetId.value, val)
+        XCTAssertEqual(call.args.amount[.desiredInput]?.desired, BigUInt("1000000000000000000"))
+        XCTAssertEqual(call.args.amount[.desiredInput]?.slip, BigUInt("1990000000000000000"))
+        XCTAssertEqual(call.args.liquiditySourceType, [["XYKPool", nil]])
+        XCTAssertEqual(history.sender, "bound-history-owner"); XCTAssertEqual(history.receiver, val)
+        XCTAssertEqual(history.txHash, "0x010203"); XCTAssertEqual(history.status, .pending)
+        XCTAssertNil(history.blockNumber); XCTAssertNil(history.txIndex)
+    }
+    func testPendingSwapHistoryRejectsIncompleteOrInconsistentReviewContext() {
+        for changes in [[TransactionContextKeys.marketType: "unknown"], [TransactionContextKeys.desire: "invalid"],
+                        [TransactionContextKeys.minMaxValue: "1"], [TransactionContextKeys.slippage: "invalid"]] {
+            XCTAssertThrowsError(try pendingHistory(product(.swap, changes: changes)))
+        }
+    }
+    func testPendingClaimHistoryKeepsBothAssetsRewardAssetAndFarmFlag() throws {
+        for farm in ["0", "1"] {
+            let history = try pendingHistory(product(.demeterClaimReward, changes: [TransactionContextKeys.isFarm: farm]))
+            let call = try pendingCall(history, as: RuntimeCall<DemeterFarmingClaimRewardCall>.self)
+            XCTAssertEqual(call.callName, "get_rewards"); XCTAssertEqual(call.args.baseAssetId.value, xor)
+            XCTAssertEqual(call.args.targetAssetId.value, val); XCTAssertEqual(call.args.rewardAssetId.value, WalletAssetId.pswap.rawValue)
+            XCTAssertEqual(call.args.isFarm, farm == "1")
+        }
+    }
+    func testPendingFarmDepositKeepsEveryAtomicUnit() throws {
+        let history = try pendingHistory(product(.demeterDeposit, amount: Decimal(string: "1.234567890123456789")!))
+        let call = try pendingCall(history, as: RuntimeCall<DemeterFarmingDepositLiquidityCall>.self)
+        XCTAssertEqual(call.callName, "deposit"); XCTAssertEqual(call.args.amount, BigUInt("1234567890123456789"))
+        XCTAssertEqual(call.args.baseAssetId.value, xor); XCTAssertEqual(call.args.targetAssetId.value, val)
+        XCTAssertTrue(call.args.isFarm)
+    }
+    func testPendingFarmWithdrawalKeepsOneAtomicUnitAndNonFarmFlag() throws {
+        let history = try pendingHistory(product(.demeterWithdraw, amount: Decimal(string: "0.000000000000000001")!, changes: [TransactionContextKeys.isFarm: "0"]))
+        let call = try pendingCall(history, as: RuntimeCall<DemeterFarmingWithdrawLiquidityCall>.self)
+        XCTAssertEqual(call.callName, "withdraw"); XCTAssertEqual(call.args.amount, 1); XCTAssertFalse(call.args.isFarm)
+        XCTAssertEqual(call.args.rewardAssetId.value, WalletAssetId.pswap.rawValue)
+    }
+    func testPendingFarmHistoryCannotInventMissingPairOrRewardContext() {
+        for type in [TransactionType.demeterDeposit, .demeterWithdraw, .demeterClaimReward] {
+            for info in [product(type, source: ""), product(type, destination: ""),
+                         product(type, changes: [TransactionContextKeys.rewardAsset: ""]),
+                         product(type, changes: [TransactionContextKeys.isFarm: "true"])] {
+                XCTAssertThrowsError(try pendingHistory(info))
+            }
+        }
+    }
+    func testPendingFarmHistoryRejectsNonpositiveAndSubAtomicAmounts() {
+        for type in [TransactionType.demeterDeposit, .demeterWithdraw] {
+            for amount in [Decimal.zero, -1, Decimal(string: "0.0000000000000000001")!] {
+                XCTAssertThrowsError(try pendingHistory(product(type, amount: amount)))
+            }
+        }
+    }
+    func testPendingTransferHistoryRequiresSenderAssetAndPositiveAtomicAmount() {
+        XCTAssertThrowsError(try pendingHistory(transfer(), sender: ""))
+        XCTAssertThrowsError(try pendingHistory(transfer(asset: "")))
+        for amount in [Decimal.zero, -1, Decimal(string: "0.0000000000000000001")!] {
+            XCTAssertThrowsError(try pendingHistory(transfer(amount: amount)))
+        }
+    }
+    func testPendingHistoryUsesOnlyTheNetworkFeeAndConvertsItExactly() throws {
+        let original = transfer()
+        let fees = [Fee(value: AmountDecimal(value: 99), feeDescription: FeeDescription(identifier: "provider", assetId: xor, type: "provider", parameters: [])),
+                    Fee(value: AmountDecimal(string: "0.000000000000000007")!, feeDescription: FeeDescription(identifier: "network", assetId: xor, type: "fee", parameters: []))]
+        let info = TransferInfo(source: original.source, destination: original.destination, amount: original.amount,
+            asset: original.asset, details: original.details, fees: fees, context: original.context)
+        XCTAssertEqual(try pendingHistory(info).fee, "7")
+        XCTAssertEqual(try pendingHistory(original).fee, "0")
+    }
+}
+
 /// Runs the production factory and call constructors with an in-memory service boundary.
 /// The recording service executes each builder closure; it never signs or contacts a node.
 @MainActor

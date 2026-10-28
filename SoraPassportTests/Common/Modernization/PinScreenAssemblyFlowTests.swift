@@ -246,3 +246,143 @@ private final class PinPresenterRoute: PinSetupWireframeProtocol {
     func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?, completion: @escaping () -> Void) { messages.append(message ?? "") }
     func present(viewModel: AlertPresentableViewModel, style: UIAlertController.Style, from view: ControllerBackedProtocol?) { XCTFail("Unexpected custom alert") }
 }
+
+@MainActor
+final class LocalAuthLifecycleBoundaryTests: XCTestCase {
+    private struct Fixture {
+        let subject: LocalAuthInteractor; let store: InMemoryKeychainManager; let settings: InMemorySettingsManager
+        let output: AuthBoundaryOutput; let biometry: AuthBoundaryBiometry
+    }
+    private func fixture(pin: String? = "123456", enabled: Bool? = true, type: AvailableBiometryType = .touchId,
+                         failCount: Int = 0, accounts: @escaping () throws -> [AccountItem] = { [] }) throws -> Fixture {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager(), output = AuthBoundaryOutput(), biometry = AuthBoundaryBiometry()
+        if let pin { try store.keychain.saveKey(Data(pin.utf8), with: KeystoreTag.pincode.rawValue) }
+        settings.biometryEnabled = enabled; settings.failInputPinCount = failCount; biometry.availableBiometryType = type
+        let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }, credentialRepairPending: { false })
+        let subject = LocalAuthInteractor(secretManager: store, settingsManager: settings, biometryAuth: biometry,
+            locale: Locale(identifier: "en"), ownerPINKeystore: store.keychain, recoveryGate: gate, accounts: accounts)
+        subject.presenter = output
+        return Fixture(subject: subject, store: store, settings: settings, output: output, biometry: biometry)
+    }
+    private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
+        let deadline = Date().addingTimeInterval(3)
+        while !predicate() && Date() < deadline { try? await Task.sleep(nanoseconds: 5_000_000) }
+        XCTAssertTrue(predicate(), file: file, line: line)
+    }
+    private func authenticate(_ f: Fixture, pin: String = "123456") async {
+        f.subject.process(pin: pin); await waitUntil { f.subject.state != .checkingPincode }
+    }
+    func testCooldownScheduleAndLastChanceAreExplicitForEveryAttempt() {
+        let minutes = [0, 0, 0, 1, 5, 15, 30, 30, 30, 30, 30]
+        for count in 0...10 { let value = FailureAuthCount(value: count)
+            XCTAssertEqual(value.cooldownMinutes, minutes[count]); XCTAssertEqual(value.isLastTry, count == 2)
+            XCTAssertEqual(value.isBlockedTry, count >= 3)
+        }
+        XCTAssertEqual(FailureAuthCount(value: -1), .unknown); XCTAssertEqual(FailureAuthCount(value: 900), .unknown)
+    }
+    func testManualBiometryAndSavedBlockDateComeFromTheInjectedSettings() throws {
+        let f = try fixture(enabled: nil); XCTAssertFalse(f.subject.allowManualBiometryAuth); XCTAssertNil(f.subject.getInputBlockDate())
+        f.settings.biometryEnabled = true; f.settings.inputBlockTimeInterval = 1234
+        XCTAssertTrue(f.subject.allowManualBiometryAuth); XCTAssertEqual(f.subject.getInputBlockDate(), Date(timeIntervalSince1970: 1234))
+    }
+    func testPinLengthIsReadFromTheIsolatedSecretStore() async throws {
+        for pin in ["1234", "123456"] { let f = try fixture(pin: pin); f.subject.getPinCodeCount(); await waitUntil { !f.output.lengths.isEmpty }; XCTAssertEqual(f.output.lengths, [pin.count]) }
+    }
+    func testPinLengthFailureDoesNotInventAnEntryLength() async throws {
+        let f = try fixture(accounts: { throw AuthBoundaryFailure.unavailable }); f.subject.getPinCodeCount()
+        await waitUntil { f.output.failures == 1 }; XCTAssertTrue(f.output.lengths.isEmpty)
+    }
+    func testFourDigitPinRequiresManualEntryEvenWhenBiometryIsEnabled() async throws {
+        let f = try fixture(pin: "1234"); f.subject.startAuth(completion: nil)
+        await waitUntil { f.subject.state == .waitingPincode }; XCTAssertEqual(f.biometry.requests, 0)
+    }
+    func testDisabledBiometryReturnsToPinEntryWithoutAuthenticating() async throws {
+        for enabled in [nil, false] { let f = try fixture(enabled: enabled); f.subject.startAuth(completion: nil)
+            await waitUntil { f.subject.state == .waitingPincode }; XCTAssertEqual(f.biometry.requests, 0); XCTAssertEqual(f.output.completions, 0)
+        }
+    }
+    func testUnavailableBiometryCallsTheFallbackCompletionOnce() async throws {
+        let f = try fixture(type: .none); var completions = 0; f.subject.startAuth { completions += 1 }
+        await waitUntil { completions == 1 }; XCTAssertEqual(f.subject.state, .waitingPincode); XCTAssertEqual(f.biometry.requests, 0)
+    }
+    func testBiometrySuccessCompletesAuthAndResetsTheFailureCounter() async throws {
+        let f = try fixture(failCount: 2); f.subject.startAuth(completion: nil)
+        await waitUntil { f.biometry.requests == 1 }; XCTAssertEqual(f.subject.state, .checkingBiometry)
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }
+        XCTAssertEqual(f.subject.state, .completed); XCTAssertEqual(f.settings.failInputPinCount, 0)
+        XCTAssertFalse(f.biometry.reasons[0].isEmpty)
+    }
+    func testBiometryCancellationReturnsToPinWithoutCountingAWrongPin() async throws {
+        let f = try fixture(failCount: 1); f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        f.biometry.complete(false); await waitUntil { f.subject.state == .waitingPincode }
+        XCTAssertEqual(f.output.wrong, 0); XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.settings.failInputPinCount, 1)
+    }
+    func testRepeatedStartWhileBiometryIsPendingDoesNotIssueAnotherPrompt() async throws {
+        let f = try fixture(); f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        f.subject.startAuth(completion: nil); XCTAssertEqual(f.biometry.requests, 1)
+        f.biometry.complete(false); await waitUntil { f.subject.state == .waitingPincode }
+    }
+    func testBiometricSuccessCannotGrantPermissionToChangeThePin() async throws {
+        let f = try fixture(); f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }
+        f.subject.updatePin(pin: "654321", completion: { XCTFail("Biometry cannot authorize PIN rotation") })
+        XCTAssertEqual(f.output.failures, 1); XCTAssertEqual(try f.store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("123456".utf8))
+    }
+    func testLateBiometryCallbackCannotCompleteAnAlreadyCompletedPinCheckTwice() async throws {
+        let f = try fixture(); f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        await authenticate(f); f.biometry.complete(true); await Task.yield()
+        XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.subject.state, .completed)
+    }
+    func testPreparationFailurePreventsBiometryAndMarksUnexpectedFailure() async throws {
+        let f = try fixture(accounts: { throw AuthBoundaryFailure.unavailable }); f.subject.startAuth(completion: nil)
+        await waitUntil { f.output.failures == 1 }; XCTAssertEqual(f.subject.state, .unexpectedFail); XCTAssertEqual(f.biometry.requests, 0)
+    }
+    func testSecondWrongPinShowsTheLastChanceAndThirdAddsABlockDate() async throws {
+        let f = try fixture(failCount: 1); await authenticate(f, pin: "000000")
+        XCTAssertEqual(f.output.lastChance, 1); XCTAssertEqual(f.settings.failInputPinCount, 2)
+        await authenticate(f, pin: "000000"); XCTAssertEqual(f.output.wrong, 2); XCTAssertEqual(f.settings.failInputPinCount, 3)
+        XCTAssertEqual(f.output.blocks.count, 1); XCTAssertGreaterThan(try XCTUnwrap(f.subject.getInputBlockDate()), Date())
+    }
+    func testDurableThrottleRejectsFurtherAttemptsWithoutCountingAnotherWrongPin() async throws {
+        let f = try fixture()
+        for _ in 0..<3 { await authenticate(f, pin: "000000") }
+        let wrong = f.output.wrong; await authenticate(f)
+        XCTAssertEqual(f.output.wrong, wrong); XCTAssertEqual(f.output.completions, 0); XCTAssertFalse(f.output.blocks.isEmpty)
+    }
+    func testMissingPinIsAnUnexpectedFailureAndCannotAuthorize() async throws {
+        let f = try fixture(pin: nil); await authenticate(f)
+        XCTAssertEqual(f.output.failures, 1); XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.subject.state, .waitingPincode)
+    }
+    func testCorrectPinGrantsOneSuccessfulRotationAndConsumesTheGrant() async throws {
+        let f = try fixture(); await authenticate(f); XCTAssertEqual(f.output.completions, 1)
+        var saved = false; f.subject.updatePin(pin: "654321") { saved = true }; await waitUntil { saved }
+        XCTAssertEqual(try f.store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("654321".utf8))
+        f.subject.updatePin(pin: "111111", completion: { XCTFail("Rotation requires a new PIN entry") })
+        XCTAssertEqual(f.output.failures, 1)
+    }
+    func testInvalidReplacementPinFailsWithoutChangingTheExistingSecret() async throws {
+        let f = try fixture(); await authenticate(f); f.subject.updatePin(pin: "bad", completion: { XCTFail("Invalid PIN saved") })
+        await waitUntil { f.output.failures == 1 }; XCTAssertEqual(f.subject.state, .unexpectedFail); XCTAssertNil(f.subject.pincode)
+        XCTAssertEqual(try f.store.keychain.fetchKey(for: KeystoreTag.pincode.rawValue), Data("123456".utf8))
+    }
+    func testCompletedAuthIgnoresAdditionalPinSubmissions() async throws {
+        let f = try fixture(); await authenticate(f); f.subject.process(pin: "000000")
+        XCTAssertEqual(f.subject.state, .completed); XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.output.wrong, 0)
+    }
+}
+private enum AuthBoundaryFailure: Error { case unavailable }
+private final class AuthBoundaryBiometry: BiometryAuthProtocol {
+    var availableBiometryType: AvailableBiometryType = .touchId
+    var requests = 0, reasons: [String] = []; private var callback: (() -> Void)?; private var delivery: ((Bool) -> Void)?
+    func authenticate(localizedReason: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        requests += 1; reasons.append(localizedReason); delivery = { value in completionQueue.async { completionBlock(value) } }
+    }
+    func complete(_ result: Bool) { delivery?(result) }
+}
+private final class AuthBoundaryOutput: LocalAuthInteractorOutputProtocol {
+    var wrong = 0, lastChance = 0, completions = 0, failures = 0
+    var lengths: [Int] = [], blocks: [Date] = [], states: [LocalAuthInteractor.LocalAuthState] = []
+    func didEnterWrongPincode() { wrong += 1 }; func blockUserInputUntil(date: Date) { blocks.append(date) }
+    func reachedLastChancePinInput() { lastChance += 1 }; func didChangeState(from state: LocalAuthInteractor.LocalAuthState) { states.append(state) }
+    func didCompleteAuth() { completions += 1 }; func didUnexpectedFail() { failures += 1 }; func setupPinCodeSymbols(with count: Int) { lengths.append(count) }
+}
