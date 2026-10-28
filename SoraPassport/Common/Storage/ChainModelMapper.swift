@@ -1,51 +1,46 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import CoreData
 import RobinHood
 
+enum ChainModelMapperError: Error {
+    /// A chain object without its id. Core Data does not return stored rows that lack
+    /// required text (it logs "missing mandatory text data" and skips them), so this is
+    /// only reachable for an object built in memory.
+    case incompleteChain
+}
+
+/// Rows that are incomplete are skipped (assets, nodes) instead of crashing the app, as in
+/// App Store 3.8.6. A chain without a name is read with an empty name, so the next chain
+/// sync sees a changed chain and writes the name again (see `ChainStoreRepair`).
 final class ChainModelMapper {
     var entityIdentifierFieldName: String { #keyPath(CDChain.chainId) }
 
     typealias DataProviderModel = ChainModel
     typealias CoreDataEntity = CDChain
 
-    // TODO: replace precondition failure to optional
-    private func createAsset(from entity: CDAssetInfo, chainId: String) -> AssetModel {
+    private func createAsset(from entity: CDAssetInfo, chainId: String) -> AssetModel? {
         guard
             let id = entity.assetId,
-//            let chainId = entity.identifier,
             let symbol = entity.symbol
         else {
-            preconditionFailure()
+            return nil
         }
 
         return AssetModel(
@@ -65,10 +60,11 @@ final class ChainModelMapper {
         )
     }
 
-    private func createChainAsset(from entity: CDChainAsset, parentChain: ChainModel) -> ChainAssetModel {
+    private func createChainAsset(from entity: CDChainAsset, parentChain: ChainModel) -> ChainAssetModel? {
         guard let assetId = entity.assetId,
-              let asset = entity.asset else {
-            preconditionFailure()
+              let assetEntity = entity.asset,
+              let asset = createAsset(from: assetEntity, chainId: parentChain.chainId) else {
+            return nil
         }
         let staking: StakingType?
         if let entityStaking = entity.staking {
@@ -84,12 +80,15 @@ final class ChainModelMapper {
             staking: staking,
             purchaseProviders: purchaseProviders,
             type: createChainAssetModelType(from: entity.type),
-            asset: createAsset(from: asset, chainId: parentChain.chainId),
+            asset: asset,
             chain: parentChain
         )
     }
 
-    private func createChainNode(from entity: CDChainNode) -> ChainNodeModel {
+    private func createChainNode(from entity: CDChainNode) -> ChainNodeModel? {
+        guard let url = entity.url, let name = entity.name else {
+            return nil
+        }
         let apiKey: ChainNodeModel.ApiKey?
 
         if let queryName = entity.apiQueryName, let keyName = entity.apiKeyName {
@@ -99,8 +98,8 @@ final class ChainModelMapper {
         }
 
         return ChainNodeModel(
-            url: entity.url!,
-            name: entity.name!,
+            url: url,
+            name: name,
             apikey: apiKey
         )
     }
@@ -184,7 +183,8 @@ final class ChainModelMapper {
         from model: ChainModel,
         context: NSManagedObjectContext
     ) {
-        let nodeEntities: [CDChainNode] = model.nodes.map { node in
+        let customNodeEntities = entity.customNodes as? Set<CDChainNode> ?? []
+        let nodeEntities: [CDChainNode] = model.nodes.compactMap { node in
             let nodeEntity: CDChainNode
 
             let maybeExistingEntity = entity.nodes?
@@ -192,6 +192,16 @@ final class ChainModelMapper {
 
             if let existingEntity = maybeExistingEntity {
                 nodeEntity = existingEntity
+            } else if let storedEntity = Self.storedNode(url: node.url, in: context) {
+                // The node URL is unique across the store. A row with this URL
+                // can already exist outside `nodes` (a selected node saved on
+                // its own by an older release). Reuse it instead of inserting a
+                // duplicate that would fail the save. A custom node row stays
+                // the user's custom node.
+                guard !customNodeEntities.contains(storedEntity) else {
+                    return nil
+                }
+                nodeEntity = storedEntity
             } else {
                 nodeEntity = CDChainNode(context: context)
             }
@@ -208,8 +218,10 @@ final class ChainModelMapper {
 
         if let oldNodes = entity.nodes as? Set<CDChainNode> {
             for oldNode in oldNodes {
-                if !existingNodeIds.contains(oldNode.url!) {
+                // A row without a URL cannot be used; it goes like any row not in the model.
+                guard let url = oldNode.url, existingNodeIds.contains(url) else {
                     context.delete(oldNode)
+                    continue
                 }
             }
         }
@@ -250,8 +262,10 @@ final class ChainModelMapper {
 
         if let oldNodes = entity.customNodes as? Set<CDChainNode> {
             for oldNode in oldNodes {
-                if !existingNodeIds.contains(oldNode.url!) {
+                // A row without a URL cannot be used; it goes like any row not in the model.
+                guard let url = oldNode.url, existingNodeIds.contains(url) else {
                     context.delete(oldNode)
+                    continue
                 }
             }
         }
@@ -284,6 +298,11 @@ final class ChainModelMapper {
 
         if let existingEntity = maybeExistingEntity {
             nodeEntity = existingEntity
+        } else if let storedEntity = Self.storedNode(url: node.url, in: context) {
+            // A selected node outside `nodes` and `customNodes` is saved as
+            // its own row. Reuse that row on later saves instead of inserting
+            // a second row with the same unique URL.
+            nodeEntity = storedEntity
         } else {
             nodeEntity = CDChainNode(context: context)
         }
@@ -294,6 +313,18 @@ final class ChainModelMapper {
         nodeEntity.apiKeyName = node.apikey?.keyName
 
         entity.selectedNode = nodeEntity
+    }
+
+    /// The live (not deleted) node row with this URL, including rows inserted
+    /// earlier in the same save.
+    private static func storedNode(
+        url: URL,
+        in context: NSManagedObjectContext
+    ) -> CDChainNode? {
+        let request = NSFetchRequest<CDChainNode>(entityName: "CDChainNode")
+        request.predicate = NSPredicate(format: "url == %@", url as NSURL)
+        request.includesPendingChanges = true
+        return (try? context.fetch(request))?.first { !$0.isDeleted }
     }
 
     private func createExternalApi(from entity: CDChain) -> ChainModel.ExternalApiSet? {
@@ -349,6 +380,10 @@ final class ChainModelMapper {
 
 extension ChainModelMapper: CoreDataMapperProtocol {
     func transform(entity: CDChain) throws -> ChainModel {
+        guard let chainId = entity.chainId else {
+            throw ChainModelMapperError.incompleteChain
+        }
+        let chainName = entity.name ?? ""
         let nodes: [ChainNodeModel] = entity.nodes?.compactMap { anyNode in
             guard let node = anyNode as? CDChainNode else {
                 return nil
@@ -370,11 +405,7 @@ extension ChainModelMapper: CoreDataMapperProtocol {
             customNodesSet = Set(nodes)
         }
 
-        var selectedNode: ChainNodeModel?
-
-        if let selectedNodeEntity = entity.selectedNode {
-            selectedNode = createChainNode(from: selectedNodeEntity)
-        }
+        let selectedNode = entity.selectedNode.flatMap { createChainNode(from: $0) }
 
         let types: ChainModel.TypesSettings?
 
@@ -409,9 +440,9 @@ extension ChainModelMapper: CoreDataMapperProtocol {
         let externalApiSet = createExternalApi(from: entity)
 
         let chainModel = ChainModel(
-            chainId: entity.chainId!,
+            chainId: chainId,
             parentId: entity.parentId,
-            name: entity.name!,
+            name: chainName,
             nodes: Set(nodes),
             addressPrefix: UInt16(bitPattern: entity.addressPrefix),
             types: types,

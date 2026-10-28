@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import os
@@ -63,6 +50,7 @@ protocol ApplicationConfigProtocol {
     var parliamentURL: URL { get }
     var phishingListURL: URL { get }
     var shareURL: URL { get }
+    var polkaswapIndexerURL: URL { get }
     var subqueryUrl: URL { get }
     var addressType: SNAddressType { get }
     var defaultChainNodes: Set<ChainNodeModel> { get }
@@ -297,39 +285,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var defaultChainNodes: Set<ChainNodeModel> {
-    #if F_RELEASE
-        return [
-            ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.mof2.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.mof3.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://sora.api.onfinality.io/public-ws")!, name: "Sora onFinality", apikey: nil),
-        ]
+        Set(SoraNodeConnectionPolicy.bundledMainnetNodes)
+    }
 
-    #elseif F_STAGING || F_TEST
-        return [
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-4.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-        ]
-    #else
-        return [
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-1.r0.dev", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-2.r0.dev", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-3.r0.dev", apikey: nil),
-        ]
-
-    #endif
+    var polkaswapIndexerURL: URL {
+        return URL(string: "https://pi.soramitsu.io/graphql")!
     }
 
     var subqueryUrl: URL {
-        #if F_RELEASE
-            return URL(string: "https://subquery.q1.sora2.soramitsu.co.jp")!
-        #elseif F_STAGING || F_TEST
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging__c29yY")!
-        #else
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
-        #endif
+        return polkaswapIndexerURL
     }
     
     var isDisclamerShown: Bool {
@@ -349,22 +313,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var nodesURL: URL? {
-        var stand = ""
-
-        #if F_RELEASE
-        stand = "prod"
-        #elseif F_STAGING || F_TEST
-        stand = "stage"
-        #else
-        stand = "dev"
-        #endif
-
-        return GitHubUrl.url(suffix: "sora2_config.json",
-                             branch: "sora2-substrate-js-library/metadata14/packages/types/src/metadata/\(stand)/")
+        // Nodes come from the bundled policy and the validated indexer response.
+        nil
     }
 
     var commonTypesURL: URL? {
-        GitHubUrl.url(suffix: "types_scalecodec_mobile.json", branch: "sora2-substrate-js-library/metadata14ios/packages/types/src/metadata/\(GitHubUrl.repoPrefix)/")
+        // Preserve this build's reviewed schema without a remote repository dependency.
+        let resourcePath: String? = R.file.runtimeSoraJson.path()
+        guard let path = resourcePath else { return nil }
+        return URL(fileURLWithPath: path)
     }
 
     var chainListURL: URL? {
@@ -462,4 +419,3 @@ private enum GitHubUrl {
         baseUrl?.appendingPathComponent(branch).appendingPathComponent(suffix)
     }
 }
-

@@ -1,38 +1,23 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import SoraUIKit
 import sorawallet
 import SoraFoundation
-
-import SCard
 
 final class AssetDetailsItemFactory {
     
@@ -60,37 +45,62 @@ final class AssetDetailsItemFactory {
         self.transferableItemService = transferableItemService
     }
     
+    /// - Parameters:
+    ///   - usdPrice: `nil` when the price is not known.
+    ///   - pricesLoaded: The price read has finished. An unknown price then
+    ///     reads "Price unavailable"; before, it is left blank.
     func createPriceItem(with asset: AssetInfo, 
-                         usdPrice: Decimal,
-                         priceInfo: PriceInfo) -> SoramitsuTableViewItemProtocol {
+                         usdPrice: Decimal?,
+                         priceInfo: PriceInfo,
+                         pricesLoaded: Bool = true) -> SoramitsuTableViewItemProtocol {
         let priceDelta = priceInfo.marketCapInfo.first(where: { $0.assetId == asset.identifier })?.hourDelta
         let priceDeltaText = priceDelta.priceDeltaAttributedText()
         
         return PriceItem(icon: asset.icon,
                          tokenName: asset.name,
                          tokenSymbol: asset.symbol,
-                         priceText: usdPrice.assetDetailPriceText(),
+                         priceText: Self.priceText(usdPrice: usdPrice, pricesLoaded: pricesLoaded),
                          deltaPriceText: priceDeltaText)
     }
     
+    /// The headline price: the price, nothing while it is loading, or the
+    /// "Price unavailable" notice. Never "$0" for want of a price.
+    static func priceText(usdPrice: Decimal?, pricesLoaded: Bool) -> String {
+        if let usdPrice {
+            return usdPrice.assetDetailPriceText()
+        }
+        return pricesLoaded ? WalletUX.priceUnavailableText : ""
+    }
+
     func createTranferableItem(with assetInfo: AssetInfo,
-                               usdPrice: Decimal,
+                               usdPrice: Decimal?,
                                referralBalance: Decimal?,
                                wireframe: AssetDetailsWireframeProtocol,
                                frozenDetailsHandler: ((BalanceContext) -> Void)?
     ) -> TransferableItem {
-        let balance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first ?? BalanceData(identifier: "",
-                                                                                                     balance: AmountDecimal(value: 0))
+        let readBalance = assetsProvider?.getBalances(with: [assetInfo.identifier]).first
+        // A balance that could not be read is shown as unavailable, not as
+        // the zero the placeholder below carries, and no value or frozen
+        // part is worked out from that zero.
+        let balanceUnavailable = readBalance == nil && (assetsProvider?
+            .unavailableBalanceAssetIds(among: [assetInfo.identifier])
+            .contains(assetInfo.identifier) ?? false)
+        let balance = readBalance ?? BalanceData(identifier: "",
+                                                 balance: AmountDecimal(value: 0))
 
-        let fiatDecimal = balance.balance.decimalValue * usdPrice
-        let fiatBalanceText = fiatDecimal.priceText()
+        // Without a price the value is unknown: no fiat text, not "$0".
+        let fiatBalanceText = balanceUnavailable
+            ? ""
+            : WalletUX.balanceFiatText(amount: balance.balance.decimalValue, price: usdPrice)
 
         let balanceContext = BalanceContext(context: balance.context ?? [:])
         let frozen = balanceContext.frozen
         let referral = referralBalance ?? Decimal(0)
-        let frozenAmount = Amount(value: frozen + referral)
+        let frozenAmount = Amount(value: balanceUnavailable ? 0 : frozen + referral)
 
-        let frozenFiat = (frozenAmount.decimalValue * usdPrice).priceText()
+        let frozenFiat = balanceUnavailable
+            ? ""
+            : WalletUX.balanceFiatText(amount: frozenAmount.decimalValue, price: usdPrice)
         
         transferableItemService.usdPrice = usdPrice
         transferableItemService.balanceContext = balanceContext
@@ -101,7 +111,8 @@ final class AssetDetailsItemFactory {
                                                 frozenAmount: frozenAmount,
                                                 frozenFiatAmount: frozenFiat,
                                                 service: transferableItemService,
-                                                balanceData: balance)
+                                                balanceData: balance,
+                                                balanceUnavailable: balanceUnavailable)
 
         transferableItem.actionHandler = { [weak self] type in
             switch type {
@@ -113,17 +124,13 @@ final class AssetDetailsItemFactory {
                 self?.wireframe.showReceive()
             case .swap:
                 self?.wireframe.showSwap()
-// TODO: Temporary Removal of X1
-//            case .buy:
-//                guard let scard = SCard.shared else { return }
-//                self?.wireframe.showXOne(service: scard)
             }
         }
     
         return transferableItem
     }
     
-    func createPooledItem(with assetInfo: AssetInfo, fiatData: [FiatData]) -> PooledItem? {
+    func createPooledItem(with assetInfo: AssetInfo, fiatData: [PIExactFiatData]) -> PooledItem? {
         guard let pools = poolsService?.loadPools(currentAsset: assetInfo), !pools.isEmpty else {
             return nil
         }

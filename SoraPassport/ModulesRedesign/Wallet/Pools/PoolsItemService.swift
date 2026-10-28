@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import Combine
@@ -37,7 +24,7 @@ final class PoolsItemService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let poolViewModelsFactory: PoolViewModelFactory
-    var fiatData: [FiatData] = []
+    var fiatData: [PIExactFiatData] = []
     var updateHandler: (() -> Void)?
     
     @Published var poolViewModels: [PoolViewModel] = [
@@ -48,8 +35,25 @@ final class PoolsItemService {
         PoolViewModel(identifier: "5", title: "", subtitle: "", fiatText: "")
     ]
     
+    /// Empty while loading, the total once prices are known, or the "price
+    /// unavailable" notice. Never "$0" for want of prices.
     @Published var moneyText: String = ""
-    
+    /// Set before `moneyText`, so the cell can style the notice.
+    private(set) var priceIsUnavailable = false
+
+    private let priceRetryLock = NSLock()
+    private var priceRetry: Task<Void, Never>?
+    private var priceFailures = 0
+    private var lastPools: [PoolInfo]?
+    private var pricesObserver: NSObjectProtocol?
+
+    deinit {
+        priceRetry?.cancel()
+        if let pricesObserver {
+            NotificationCenter.default.removeObserver(pricesObserver)
+        }
+    }
+
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
@@ -61,6 +65,19 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        lastPools = pools
+        if pricesObserver == nil {
+            // Prices were refreshed in the background, or the app came back
+            // to the foreground: value the pools again.
+            pricesObserver = NotificationCenter.default.addObserver(
+                forName: PICatalogs.pricesDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self, let pools = self.lastPools else { return }
+                self.setup(with: pools)
+            }
+        }
         if fiatData.isEmpty {
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
@@ -88,12 +105,62 @@ final class PoolsItemService {
                 return partialResult
             })
             
-            moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+            // As for the liquid assets: with pooled tokens and no price for
+            // any of the pools, the value is unknown, not "$0". Asking
+            // again only helps when the prices could not be read.
+            let pricesAvailable = Self.pricesKnown(for: pools.filter { $0.isFavorite }, fiatData: fiatData)
+            priceIsUnavailable = !pricesAvailable
+            moneyText = WalletUX.fiatTotalText(fiatDecimal, pricesAvailable: pricesAvailable)
+            schedulePriceRetry(needed: fiatData.isEmpty, pools: pools)
             
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                var viewModel = self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                // The price read is over: a pool without a price shows no
+                // value instead of a placeholder that never ends.
+                viewModel?.priceLoadFinished = true
+                return viewModel
             }
             updateHandler?()
+        }
+    }
+}
+
+extension PoolsItemService {
+    /// Whether a total can be given for these pool positions: the prices
+    /// were read, and at least one position has a price for both of its
+    /// assets (or there is no position at all).
+    static func pricesKnown(for pools: [PoolInfo], fiatData: [PIExactFiatData]) -> Bool {
+        guard !fiatData.isEmpty else { return false }
+        let held = pools.filter {
+            ($0.baseAssetPooledByAccount ?? 0) > 0 || ($0.targetAssetPooledByAccount ?? 0) > 0
+        }
+        guard !held.isEmpty else { return true }
+        return held.contains { pool in
+            fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue != nil &&
+                fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue != nil
+        }
+    }
+}
+
+private extension PoolsItemService {
+    /// While prices are unavailable, asks again by itself so the notice is
+    /// replaced as soon as PI answers; nothing is asked of the user.
+    func schedulePriceRetry(needed: Bool, pools: [PoolInfo]) {
+        priceRetryLock.lock()
+        defer { priceRetryLock.unlock() }
+        // A newer pool list replaces a retry planned for an older one.
+        priceRetry?.cancel()
+        priceRetry = nil
+        guard needed else {
+            priceFailures = 0
+            return
+        }
+        let delay = WalletUX.priceRetryDelay(afterFailures: priceFailures)
+        priceFailures += 1
+        priceRetry = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.setup(with: pools)
         }
     }
 }

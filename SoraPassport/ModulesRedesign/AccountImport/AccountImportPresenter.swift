@@ -1,35 +1,23 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraFoundation
+import SSFUtils
 import RobinHood
 
 enum AccountImportContext: String {
@@ -54,6 +42,7 @@ final class AccountImportPresenter {
     private(set) var selectedCryptoType: CryptoType?
     private(set) var selectedNetworkType: Chain?
     private var isRawSeedWarningShown: Bool = false
+    private var expectedAddress: String?
 
     private(set) var sourceViewModel: InputViewModelProtocol?
     private(set) var usernameViewModel: InputViewModelProtocol?
@@ -130,7 +119,7 @@ final class AccountImportPresenter {
                 predicate: NSPredicate.seed
             )
             viewModel = InputViewModel(inputHandler: inputHandler, placeholder: placeholder)
-        default: viewModel = InputViewModel(inputHandler: InputHandler())
+        default: viewModel = InputViewModel(inputHandler: InputHandler(value: value))
         }
 
         sourceViewModel = viewModel
@@ -202,7 +191,9 @@ final class AccountImportPresenter {
 
         switch selectedSourceType {
         case .mnemonic, .seed:
-//            applyCryptoTypeViewModel(preferredInfo)
+            if let selectedCryptoType, let metadata {
+                view?.setCryptoType(selectedCryptoType, available: metadata.availableCryptoTypes)
+            }
             applyDerivationPathViewModel()
 //            applyNetworkTypeViewModel(preferredInfo)
         case .keystore:
@@ -242,7 +233,8 @@ final class AccountImportPresenter {
             }
         }
 
-        let inputHandling = InputHandler(required: false, predicate: predicate)
+        let inputHandling = InputHandler(value: derivationPathViewModel?.inputHandler.value ?? "",
+                                        required: false, predicate: predicate)
 
         let viewModel = InputViewModel(inputHandler: inputHandling,
                                        placeholder: placeholder)
@@ -329,6 +321,13 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
     func setup() {
         interactor.setup()
     }
+
+    func selectCryptoType(_ type: CryptoType) {
+        guard metadata?.availableCryptoTypes.contains(type) == true,
+              selectedSourceType != .keystore else { return }
+        selectedCryptoType = type
+        applyAdvanced(nil)
+    }
     
     func validateAccount(completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
         guard 
@@ -349,7 +348,8 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                                                        username: username,
                                                        networkType: networkType,
                                                        derivationPath: derivationPath,
-                                                       cryptoType: cryptoType)
+                                                       cryptoType: cryptoType,
+                                                       expectedAddress: expectedAddress)
             interactor.validateAccountWithMnemonic(request: request, completion: completion)
         case .seed:
             let seed = sourceViewModel.inputHandler.value
@@ -363,13 +363,21 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             interactor.validateAccountWithSeed(request: request, completion: completion)
         case .keystore:
             let keystore = sourceViewModel.inputHandler.value
+            guard let data = keystore.data(using: .utf8),
+                  let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: data),
+                  let info = try? AccountImportJsonFactory().createInfo(from: definition),
+                  let jsonCrypto = info.cryptoType else {
+                completion?(.failure(AccountCreateError.invalidKeystore))
+                return
+            }
+            selectedCryptoType = jsonCrypto
             let password = passwordViewModel?.inputHandler.value ?? ""
             let username = usernameViewModel.inputHandler.value
             let request = AccountImportKeystoreRequest(keystore: keystore,
                                                        password: password,
                                                        username: username,
                                                        networkType: networkType,
-                                                       cryptoType: cryptoType)
+                                                       cryptoType: jsonCrypto)
 
             interactor.validateAccountWithKeystore(request: request, completion: completion)
         }
@@ -404,17 +412,49 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             return
         }
         
+        let isShortPhrase = selectedSourceType == .mnemonic &&
+            WalletMnemonicWordPolicy.retainedShortWordCounts.contains(
+                sourceViewModel.inputHandler.value.split(whereSeparator: { $0.isWhitespace }).count)
+        if isShortPhrase && expectedAddress == nil {
+            wireframe.requestKnownAddress(from: view) { [weak self] address in
+                guard let self, let address else { return }
+                self.expectedAddress = address
+                self.proceed()
+            }
+            return
+        }
+        if !isShortPhrase { expectedAddress = nil }
+
         validateAccount { [weak self] result in
             switch result {
-            case .success:
+            case .success(let existing):
+                if let existing, let self, let controller = self.view?.controller {
+                    let repairSource: WalletCredentialRepair.Source
+                    switch selectedSourceType {
+                    case .mnemonic: repairSource = .phrase
+                    case .seed: repairSource = .seed
+                    case .keystore: repairSource = .json
+                    }
+                    Task { @MainActor in
+                        WalletAccountCapability.presentRepair(account: existing, from: controller,
+                            configure: { repair in
+                                repair.setSuppliedMaterial(source: repairSource,
+                                    text: sourceViewModel.inputHandler.value,
+                                    derivationPath: self.derivationPathViewModel?.inputHandler.value ?? "",
+                                    backupPassword: self.passwordViewModel?.inputHandler.value ?? "")
+                            })
+                    }
+                    return
+                }
                 self?.wireframe.proceed(from: self?.view,
                                         sourceType: selectedSourceType,
-                                        cryptoType: selectedCryptoType,
+                                        cryptoType: self?.selectedCryptoType ?? selectedCryptoType,
                                         networkType: selectedNetworkType,
                                         sourceViewModel: sourceViewModel,
                                         usernameViewModel: usernameViewModel,
                                         passwordViewModel: self?.passwordViewModel,
-                                        derivationPathViewModel: self?.derivationPathViewModel)
+                                        derivationPathViewModel: self?.derivationPathViewModel,
+                                        expectedAddress: self?.expectedAddress)
             case .failure(let error):
                 self?.didReceiveAccountImport(error: error)
             case .none:
@@ -446,6 +486,7 @@ extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
     func didCompleteAccountImport() {}
 
     func didReceiveAccountImport(error: Error) {
+        expectedAddress = nil
         let locale = localizationManager?.selectedLocale ?? Locale.current
 
         guard !wireframe.present(error: error, from: view, locale: locale, completion: { [weak self] in

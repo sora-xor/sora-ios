@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import CoreData
@@ -37,9 +24,7 @@ import IrohaCrypto
 class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
     var isSelected: Bool = false
     var order: Int32 = 0
-    private var privateKeysUsed: [Data] = []
-
-    private lazy var addressFactory = SS58AddressFactory()
+    private var migratedAddresses: Set<String> = []
 
     override func createDestinationInstances(
         forSource accountItem: NSManagedObject,
@@ -48,13 +33,13 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
     ) throws {
 
         guard let sourceAddress = accountItem.value(forKey: "identifier") as? AccountAddress else {
-            fatalError("Unexpected empty source address")
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
-        let accountId = try addressFactory.accountId(from: sourceAddress)
-
-        if privateKeysUsed.contains(accountId) {
-            return
+        // Distinct network addresses can share one public key. Every retained
+        // account is an independent inventory row and must survive migration.
+        guard migratedAddresses.insert(sourceAddress).inserted else {
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
         try super.createDestinationInstances(forSource: accountItem, in: mapping, manager: manager)
@@ -63,34 +48,35 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
             forEntityMappingName: mapping.name,
             sourceInstances: [accountItem]
         ).first else {
-            return
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
-        privateKeysUsed.append(accountId)
-
-        if let lookup = SettingsManager.shared.value(of: [String: Int].self, for: SettingsKey.assetList.rawValue) {
-            let newOrder = lookup.keys.sorted(by: { key0, key1 in
-                return lookup[key0]! < lookup[key1]!
-            })
-
+        if let orderedAssetIds =
+            manager.userInfo?[UserStorageMigratorKeys.orderedAssetIds] as? [String] {
             let context = manager.destinationContext
             let settings = CDAccountSettings(entity: NSEntityDescription.entity(forEntityName: "CDAccountSettings", in: context)!, insertInto: context)
-            settings.orderedAssets = newOrder as NSArray
+            settings.orderedAssets = orderedAssetIds as NSArray
             metaAccount.setValue(settings, forKey: "settings")
         }
 
-        if let selectedAccount = SettingsManager.shared.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) {
-            let isSelected = selectedAccount.identifier == sourceAddress
+        if let selectedAddress =
+            manager.userInfo?[UserStorageMigratorKeys.selectedAddress] as? String {
+            let isSelected = selectedAddress == sourceAddress
             metaAccount.setValue(isSelected, forKey: "isSelected")
         }
 
-        metaAccount.setValue(order, forKey: "order")
+        let retainedOrder =
+            (accountItem.value(forKey: "order") as? NSNumber)?.int32Value
+                ?? order
+        metaAccount.setValue(retainedOrder, forKey: "order")
         order += 1
 
     }
 
     override func end(_ mapping: NSEntityMapping, manager: NSMigrationManager) throws {
-        SettingsManager.shared.removeValue(for: SettingsKey.assetList.rawValue)
+        // This policy runs against a staging store. Mutating live preferences
+        // here would violate copy-on-write migration if a later validation
+        // fails, so the legacy preference remains for dual-read compatibility.
         try super.end(mapping, manager: manager)
     }
 }

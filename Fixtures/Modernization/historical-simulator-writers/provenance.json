@@ -1,0 +1,64 @@
+[
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/Common/Operation/AccountOperationFactory.swift",
+    "sha256": "7d057c6c8da0d78f97cb8310cb976713997c243f3101d86c588bb60c22128703",
+    "compilationEdits": [
+      "prefix type names with SimulatorReleased386",
+      "add @testable import SoraPassport"
+    ],
+    "limitation": "Uses current pinned dependencies; independently generated original-dependency vectors are compared before launch."
+  },
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/Common/Model/AccountItemMapper.swift",
+    "sha256": "3cdd96fa9002a75e07eefac5e01fb7507f1ced1e89629c872dcf7df343133427",
+    "compilationEdits": [
+      "prefix type names with SimulatorReleased386",
+      "add @testable import SoraPassport"
+    ],
+    "limitation": "Uses current pinned dependencies; independently generated original-dependency vectors are compared before launch."
+  },
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/Common/Storage/UserDataModel.xcdatamodeld/UserDataModel.xcdatamodel/contents",
+    "sha256": "bbcfdb3104bbbc226767832bccea5695b08777e669b80fafdfd30f033a022cfa",
+    "currentModelIdentical": true
+  },
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/Common/Storage/UserDataModel.xcdatamodeld/UserDataModel 2.xcdatamodel/contents",
+    "sha256": "c25544fcd28950f58255d6711a6b8fc4df2c9211c691043eabdef3b78f58c57d",
+    "currentModelIdentical": true
+  },
+  {
+    "commit": "e52beedd",
+    "releaseSource": "2.3.1 merge commit 2022-05-25",
+    "path": "SoraPassport/Common/Model/ManagedAccountItemMapper.swift",
+    "sha256": "b8b36bf9e6e81259b9629d06179bf56a4dba765e16e109225de8abdf8aa23fff",
+    "compiledMethod": "populate(entity:from:using:) body verbatim",
+    "compilationEdits": [
+      "static method under test-only namespace",
+      "DataProviderModel alias to current AccountItem exposing same six stored fields"
+    ],
+    "storedSchema": "UserDataModel version1, no settings entity or selected flag"
+  },
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/ModulesRedesign/Root/RootInteractor.swift",
+    "sha256": "ff16c94bbd25920e009191d471ef12a362273a68ce2df419623ad233610b44c7",
+    "scope": "Verbatim routing and inconsistent-state method bodies with explicit test adapters; selected rows read with original mapper. Not a signed old-app execution."
+  },
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/Common/Migration/InconsistentStateMigrator.swift",
+    "sha256": "67acb4389e437b5cc38ec823f72e97f6dfc3e3d17d831afcfd729d66837f6ae4",
+    "scope": "Verbatim routing and inconsistent-state method bodies with explicit test adapters; selected rows read with original mapper. Not a signed old-app execution."
+  },
+  {
+    "commit": "354f176c",
+    "path": "SoraPassport/Common/Storage/SelectedWalletSettings.swift",
+    "sha256": "db4dc7518ead1ea2001229528b8f60e16557846c6c1184aa19f7dfc3e49120eb",
+    "scope": "Verbatim routing and inconsistent-state method bodies with explicit test adapters; selected rows read with original mapper. Not a signed old-app execution."
+  }
+]

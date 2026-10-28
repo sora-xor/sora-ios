@@ -1,36 +1,24 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUI
-#if F_DEV
+import SoraUIKit
+#if F_DEV && canImport(FLEX)
 import FLEX
 #endif
 
@@ -43,6 +31,36 @@ final class SoraWindow: UIWindow {
     }
 
     private var statusView: ApplicationStatusView?
+
+    override init(windowScene: UIWindowScene) {
+        super.init(windowScene: windowScene)
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    /// "System" theme: follow the device appearance while the app is open
+    /// (for example the automatic sunset switch).
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            SoramitsuUI.shared.refreshSystemTheme()
+        }
+    }
+
+    /// The Root module of the latest startup. Nothing else keeps it alive
+    /// once launch routing has returned, but its screens call back into it
+    /// (Welcome back, the 1.x upgrade confirmation and its import
+    /// completion). The next startup replaces it.
+    var rootModule: AnyObject?
 
     override func addSubview(_ view: UIView) {
         super.addSubview(view)
@@ -57,7 +75,7 @@ final class SoraWindow: UIWindow {
     }
     
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        #if F_DEV
+        #if F_DEV && canImport(FLEX)
         if motion == .motionShake {
             FLEXManager.shared.showExplorer()
         }
@@ -77,8 +95,9 @@ final class SoraWindow: UIWindow {
     }
 
     private func prepareStatusView() -> ApplicationStatusView {
-        let topMargin = UIApplication.shared.statusBarFrame.size.height
-        let width = UIApplication.shared.statusBarFrame.size.width
+        let statusBarFrame = windowScene?.statusBarManager?.statusBarFrame ?? .zero
+        let topMargin = statusBarFrame.height > 0 ? statusBarFrame.height : safeAreaInsets.top
+        let width = statusBarFrame.width > 0 ? statusBarFrame.width : bounds.width
         let height = topMargin + Constants.statusHeight
 
         let origin = CGPoint(x: 0.0, y: -height)
@@ -197,5 +216,12 @@ extension UIWindow {
             return controller
         }
         return nil
+    }
+}
+
+extension SoraWindow: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        guard options.contains(.palette) else { return }
+        backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
     }
 }

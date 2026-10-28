@@ -1,0 +1,8 @@
+{
+  "historical386Vectors": 20,
+  "stableIdentitySeedChaincodeScalarMatches": true,
+  "historicalSignatureAndEncryptedJSONRoundTripsPassedBothRuns": true,
+  "fullSr25519SecretDifferencesAcrossRuns": 2,
+  "oneXUpstreamKnownAnswerPassed": true,
+  "oneXVectorCount": 2
+}

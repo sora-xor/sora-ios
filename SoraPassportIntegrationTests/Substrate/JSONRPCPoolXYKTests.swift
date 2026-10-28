@@ -14,17 +14,17 @@ import XCTest
 class JSONRPCPoolXYKTests: NetworkBaseTests {
 
     func testBalance() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
         let asset = "0x0200040000000000000000000000000000000000000000000000000000000000"
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let key = try! StorageKeyFactory().accountsKey(
             account: address.accountId!,
-            asset: Data(hex: asset)
+            asset: try! Data.sora(hex: asset)
         ).toHex(includePrefix: true)
 
         let operation = JSONRPCListOperation<JSONScaleDecodable<OrmlAccountData>>(
@@ -43,24 +43,24 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 return
             }
 
-            Logger.shared.debug("balance: \(balances)")
+            Logger.shared.debug("Pool account balance response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool account balance request failed")
         }
     }
 
     func testBalances() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let key = try! StorageKeyFactory().accountsKey(
             account: address.accountId!,
-            asset: Data(hex: WalletAssetId.val.rawValue)
+            asset: try! Data.sora(hex: WalletAssetId.val.rawValue)
         ).toHex(includePrefix: true)
 
         let operation = JSONRPCListOperation<JSONScaleDecodable<OrmlAccountData>>(
@@ -79,20 +79,20 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 return
             }
 
-            Logger.shared.debug("balances: \(balances)")
+            Logger.shared.debug("Pool account balances response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool account balances request failed")
         }
     }
 
     func testXorPools() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let storageFactory = StorageKeyFactory()
 
@@ -114,20 +114,20 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
             }
 
             XCTAssertFalse(pools.assetIds.isEmpty)
-            Logger.shared.debug("Account pools: \(pools)")
+            Logger.shared.debug("Account pools response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Account pools request failed")
         }
     }
 
     func testXstusdPools() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let storageFactory = StorageKeyFactory()
         let xstusdIdData = try! Data(hexStringSSF: WalletAssetId.xstusd.rawValue)
@@ -148,21 +148,21 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
             }
 
             XCTAssertFalse(pools.assetIds.isEmpty)
-            Logger.shared.debug("Account pools: \(pools)")
+            Logger.shared.debug("Account pools response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Account pools request failed")
         }
     }
 
     //TODO: try to get all account's pools in one request (now 1 request for XOR-pools and 1 request for XSTUSD-pools)
 //    func testPools() {
-//        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+//        let url: URL = URL(string: "wss://mof2.sora.org")!
 //        let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        let storageFactory = StorageKeyFactory()
 //
@@ -198,19 +198,19 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
     //    properties(AssetId, AssetId): Option<(AccountId,AccountId)>
     //    Properties of particular pool. Base Asset => Target Asset => (Reserves Account Id, Fees Account Id)
     func testPoolProperties() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let baseAsset = "0x0200000000000000000000000000000000000000000000000000000000000000"
         let targetAsset = "0x0200040000000000000000000000000000000000000000000000000000000000"
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let storageFactory = StorageKeyFactory()
 
         let key = try! storageFactory.poolPropertiesKey(
-            baseAssetId: Data(hex: baseAsset),
-            targetAssetId: Data(hex: targetAsset)
+            baseAssetId: try! Data.sora(hex: baseAsset),
+            targetAssetId: try! Data.sora(hex: targetAsset)
         )
         .toHex(includePrefix: true)
 
@@ -229,28 +229,29 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 XCTFail("No PoolProperties")
                 return
             }
-            Logger.shared.debug("PoolProperties: \(poolProperties)")
-            Logger.shared.debug("reservesAccount address: \(poolProperties.reservesAccountId)")
+            Logger.shared.debug("Pool properties response received")
+            // Account identifiers are not diagnostic material, even in CI.
+            Logger.shared.debug("Pool reserves account resolved")
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool properties request failed")
         }
     }
 
     func testPoolReserves() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let baseAsset = "0200000000000000000000000000000000000000000000000000000000000000"
         let targetAsset = "0200040000000000000000000000000000000000000000000000000000000000"
         let logger = Logger.shared
         let operationQueue = OperationQueue()
 
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         let storageFactory = StorageKeyFactory()
 
         // reserves(AssetId, AssetId): (Balance,Balance) Updated after last liquidity change operation.
         let key = try! storageFactory.poolReservesKey(
-            baseAssetId: Data(hex: baseAsset),
-            targetAssetId: Data(hex: targetAsset)
+            baseAssetId: try! Data.sora(hex: baseAsset),
+            targetAssetId: try! Data.sora(hex: targetAsset)
         )
         .toHex(includePrefix: true)
 
@@ -268,20 +269,20 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 return
             }
 
-            Logger.shared.debug("poolReserves: \(poolReserves)")
+            Logger.shared.debug("Pool reserves response received")
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool reserves request failed")
         }
     }
 
 //    func testPoolProviders() {
-//        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+//        let url: URL = URL(string: "wss://mof2.sora.org")!
 //        let reservesAccount = "cnTQ1kbv7PBNNQrEb1tZpmK7f4sMKaWQF583on92JL48B9kjq"
 //        let account = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        let storageFactory = StorageKeyFactory()
 //
@@ -316,12 +317,12 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
 //    //    totalIssuances(AccountIdOf): Option<Balance>
 //    //    Total issuance of particular pool.
 //    func testPoolTotalIssuances() {
-//        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+//        let url: URL = URL(string: "wss://mof2.sora.org")!
 //        let reservesAccount: AccountAddress = "cnTQ1kbv7PBNNQrEb1tZpmK7f4sMKaWQF583on92JL48B9kjq"
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
 //
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //
 //        let storageFactory = StorageKeyFactory()
 //
@@ -366,12 +367,12 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
 //    //    Your pool share:
 //    //    {{ Receiving account's pool balance return }} / {{  Receiving total issuances return }} * 100%
 //    func testPoolsDetails() {
-//        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+//        let url: URL = URL(string: "wss://mof2.sora.org")!
 //        let baseAsset = "0200000000000000000000000000000000000000000000000000000000000000"
 //        let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
 //        let logger = Logger.shared
 //        let operationQueue = OperationQueue()
-//        let engine = WebSocketEngine(url: url, logger: logger)
+//        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 //        let storageFactory = StorageKeyFactory()
 //
 //        // accountPoolsOperation
@@ -464,11 +465,11 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
 //
 //    func getPoolList() -> BaseOperation<[PoolDetails]> {
 //        let processingOperation: BaseOperation<[PoolDetails]> = ClosureOperation {
-//            let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+//            let url: URL = URL(string: "wss://mof2.sora.org")!
 //            let baseAsset = "0200000000000000000000000000000000000000000000000000000000000000"
 //            let address: AccountAddress = "cnVkoGs3rEMqLqY27c2nfVXJRGdzNJk2ns78DcqtppaSRe8qm"
 //            let operationQueue = OperationQueue()
-//            let engine = WebSocketEngine(url: url, logger: Logger.shared)
+//            let engine = WebSocketEngine(connectionName: nil, url: url, logger: Logger.shared)
 //            let storageFactory = StorageKeyFactory()
 //
 //            var poolsDetails: [PoolDetails] = []
@@ -603,7 +604,7 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
 //        let keystore = InMemoryKeychain()
 //        let settings = InMemorySettingsManager()
 //        let passphrase = "street firm worth record skin taste legend lobster magnet stove drive side"
-//        let url = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+//        let url = URL(string: "wss://mof2.sora.org")!
 //
 //        try! AccountCreationHelper.createAccountFromMnemonic(passphrase,
 //                                                            cryptoType: .sr25519,

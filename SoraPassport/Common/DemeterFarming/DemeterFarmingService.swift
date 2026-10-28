@@ -1,40 +1,36 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import IrohaCrypto
 import RobinHood
 import SSFUtils
 
+enum DemeterFarmingServiceError: Error {
+    case unavailable
+}
+
 protocol DemeterFarmingServiceProtocol: AnyObject {
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm]
+    func loadUserFarmInfos(
+        baseAssetId: String?,
+        targetAssetId: String?,
+        accountId: Data
+    ) async throws -> [UserFarm]
     
     func getAllFarms() async throws -> [Farm]
     func getFarm(with id: String) -> Farm?
@@ -71,9 +67,12 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
         
         let poolsKeys = (try? await getPoolKeys()) ?? []
         
-        async let farmList = poolsKeys.concurrentMap { [weak self] key in
+        async let farmList = poolsKeys.concurrentMap { [weak self] key -> [FarmedPool]? in
             let data = String(key.dropFirst(2))
             let assetId = data.components(withMaxLength: 64)
+            guard assetId.count > 2 else {
+                return nil
+            }
             let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
             return pools
         }
@@ -104,11 +103,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
             
-            let price = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            // A price that is not known leaves the value and the rate
+            // unknown; they are not shown as "$0" and "0%".
+            let knownPrice = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue
+            let price = knownPrice ?? Decimal(0)
             let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
             
             let blockPerYear = Decimal(5256000)
-            let rewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let knownRewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue
+            let rewardAssetPrice = knownRewardAssetPrice ?? Decimal(0)
             let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
             let depositFee = pool.depositFee * 100
             
@@ -119,7 +122,9 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         rewardAsset: rewardAsset,
                         tvl: tvl,
                         apr: apr / 100,
-                        depositFee: depositFee)
+                        depositFee: depositFee,
+                        tvlIsKnown: knownPrice != nil,
+                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
         }
         
         let finalfarms = await farms ?? []
@@ -153,11 +158,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
             
-            let price = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            // A price that is not known leaves the value and the rate
+            // unknown; they are not shown as "$0" and "0%".
+            let knownPrice = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue
+            let price = knownPrice ?? Decimal(0)
             let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
             
             let blockPerYear = Decimal(5256000)
-            let rewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let knownRewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue
+            let rewardAssetPrice = knownRewardAssetPrice ?? Decimal(0)
             let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
             let depositFee = pool.depositFee * 100
             
@@ -168,7 +177,9 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         rewardAsset: rewardAsset,
                         tvl: tvl,
                         apr: apr / 100,
-                        depositFee: depositFee)
+                        depositFee: depositFee,
+                        tvlIsKnown: knownPrice != nil,
+                        aprIsKnown: knownPrice != nil && knownRewardAssetPrice != nil)
         }
 
         return await farms ?? []
@@ -176,13 +187,16 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     
     func getPoolKeys() async throws -> [String] {
         guard let keysOperation = try? operationFactory.poolsKeysPagedOperation() else { return [] }
-        operationManager.enqueue(operations: [keysOperation], in: .transient)
-        
+
         return await withCheckedContinuation { continuation in
             keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else { return }
+                guard let pools = try? keysOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 continuation.resume(returning: pools)
             }
+            operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
     }
     
@@ -195,12 +209,11 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             return []
         }
 
-        operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
                     guard let allFarmInfos = try poolsOperation.targetOperation.extractResultData()?.filter({ $0.isFarm && !$0.isRemoved }) else {
+                        continuation.resume(returning: [])
                         return
                     }
                     
@@ -225,18 +238,22 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     continuation.resume(returning: [])
                 }
             }
+            operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
     }
     
     func getTokenInfosKeys() async throws -> [String] {
         guard let keysOperation = try? operationFactory.tokenInfosKeysPagedOperation() else { return [] }
-        operationManager.enqueue(operations: [keysOperation], in: .transient)
-        
+
         return await withCheckedContinuation { continuation in
             keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else { return }
+                guard let pools = try? keysOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 continuation.resume(returning: pools)
             }
+            operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
     }
     
@@ -247,12 +264,13 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             return nil
         }
 
-        operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
-                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else { return }
+                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
                     
                     let rewardAssetInfo = FarmedRewardTokenInfo(
                         assetId: assetId,
@@ -264,41 +282,82 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     )
 
                     continuation.resume(returning: rewardAssetInfo)
-                } catch { }
+                } catch {
+                    continuation.resume(returning: nil)
+                }
             }
+            operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
     }
 
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm] {
+        guard let account = SelectedWalletSettings.shared.currentAccount,
+              let accountId = try? SS58AddressFactory().accountId(
+                fromAddress: account.address,
+                type: account.networkType
+              ) else {
+            return []
+        }
+        return (try? await loadUserFarmInfos(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            accountId: accountId
+        )) ?? []
+    }
+
+    func loadUserFarmInfos(
+        baseAssetId: String?,
+        targetAssetId: String?,
+        accountId: Data
+    ) async throws -> [UserFarm] {
         guard let baseAssetId, let targetAssetId,
-              let account = SelectedWalletSettings.shared.currentAccount,
-              let accountId = try? SS58AddressFactory().accountId(fromAddress: account.address, type: account.networkType),
+              !accountId.isEmpty,
               let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
               let farmedPoolsOperation = try? operationFactory.userInfo(
                 accountId: accountId,
                 runtimeOperation: runtimeService.fetchCoderFactoryOperation()
               ) else {
-            return []
+            throw DemeterFarmingServiceError.unavailable
         }
-        operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
-        
-        return await withCheckedContinuation { continuation in
+        return try await withCheckedThrowingContinuation { continuation in
             farmedPoolsOperation.targetOperation.completionBlock = {
-                guard let userFarms = try? farmedPoolsOperation.targetOperation.extractResultData() else { return }
-                let filtredUserFarms = userFarms.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
-                let farms = filtredUserFarms.map {
-                    UserFarm(
-                        id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",
-                        baseAssetId: $0.baseAsset.value,
-                        poolAssetId: $0.poolAsset.value,
-                        rewardAssetId: $0.rewardAsset.value,
-                        isFarm: $0.isFarm,
-                        pooledTokens: Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero,
-                        rewards: Decimal.fromSubstrateAmount($0.rewards, precision: 18) ?? .zero
-                    )
+                do {
+                    let userFarms = try farmedPoolsOperation.targetOperation
+                        .extractResultData(
+                            throwing: DemeterFarmingServiceError.unavailable
+                        )
+                    let filtredUserFarms = userFarms.filter {
+                        baseAssetId == $0.baseAsset.value
+                            && targetAssetId == $0.poolAsset.value
+                            && $0.isFarm
+                    }
+                    let farms = try filtredUserFarms.map {
+                        guard let pooledTokens = Decimal.fromSubstrateAmount(
+                            $0.pooledTokens,
+                            precision: 18
+                        ), let rewards = Decimal.fromSubstrateAmount(
+                            $0.rewards,
+                            precision: 18
+                        ) else {
+                            throw DemeterFarmingServiceError.unavailable
+                        }
+
+                        return UserFarm(
+                            id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",
+                            baseAssetId: $0.baseAsset.value,
+                            poolAssetId: $0.poolAsset.value,
+                            rewardAssetId: $0.rewardAsset.value,
+                            isFarm: $0.isFarm,
+                            pooledTokens: pooledTokens,
+                            rewards: rewards
+                        )
+                    }
+                    continuation.resume(returning: farms)
+                } catch {
+                    continuation.resume(throwing: error)
                 }
-                continuation.resume(returning: farms)
             }
+            operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
         }
     }
 
@@ -311,11 +370,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                 runtimeOperation: runtimeService.fetchCoderFactoryOperation()
               )
         else {
+            completion([])
             return
         }
 
         farmedPoolsOperation.targetOperation.completionBlock = {
-            guard let pools = try? farmedPoolsOperation.targetOperation.extractResultData() else { return }
+            guard let pools = try? farmedPoolsOperation.targetOperation.extractResultData() else {
+                completion([])
+                return
+            }
             let xorId = WalletAssetId.xor.rawValue
             let filtredPools = pools.filter { $0.poolAsset.value == xorId && !($0.isFarm) }
             completion(filtredPools)

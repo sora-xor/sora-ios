@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import RobinHood
@@ -38,30 +25,66 @@ protocol ConfigServiceProtocol: AnyObject {
 }
 
 struct RemoteConfig {
-    var subqueryURL: URL
+    var polkaswapIndexerURL: URL
+    var subqueryURL: URL { polkaswapIndexerURL }
     var defaultNodes: Set<ChainNodeModel>
     var typesURL: URL?
-    var isSoraCardEnabled: Bool
     
-    init(subqueryUrlString: String = ApplicationConfig.shared.subqueryUrl.absoluteString,
-         typesUrlString: String = ApplicationConfig.shared.subqueryUrl.absoluteString,
-         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes,
-         isSoraCardEnabled: Bool = false) {
-        self.subqueryURL = URL(string: subqueryUrlString) ?? ApplicationConfig.shared.subqueryUrl
-        self.typesURL = URL(string: typesUrlString)
-        self.defaultNodes = defaultNodes
-        self.isSoraCardEnabled = isSoraCardEnabled
+    init(polkaswapIndexerUrlString: String = ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
+         typesUrlString: String? = ApplicationConfig.shared.commonTypesURL?.absoluteString,
+         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes) {
+        self.polkaswapIndexerURL = Self.validHTTPURL(from: polkaswapIndexerUrlString) ?? ApplicationConfig.shared.polkaswapIndexerURL
+        self.typesURL = typesUrlString.flatMap(Self.validRuntimeTypesURL)
+        self.defaultNodes = Set(defaultNodes.filter { SoraNodeConnectionPolicy.isAllowedEndpoint($0.url) })
+    }
+
+    private static func validRuntimeTypesURL(from string: String) -> URL? {
+        guard let url = URL(string: string), url.isFileURL,
+              url == ApplicationConfig.shared.commonTypesURL else { return nil }
+        return url
+    }
+
+    private static func validHTTPURL(from string: String) -> URL? {
+        guard let url = URL(string: string),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host?.isEmpty == false else {
+            return nil
+        }
+
+        return url
     }
 }
 
 final class ConfigService {
     static let shared = ConfigService()
     private let operationManager: OperationManager = OperationManager()
-    var config: RemoteConfig = RemoteConfig()
+    private let configLock = NSLock()
+    private var storedConfig = RemoteConfig()
+
+    /// The bundled configuration until the remote one has been answered.
+    /// Startup does not wait for that answer, so it can be written while the
+    /// chain sync reads the node list: access is locked.
+    var config: RemoteConfig {
+        get {
+            configLock.lock()
+            defer { configLock.unlock() }
+            return storedConfig
+        }
+        set {
+            configLock.lock()
+            storedConfig = newValue
+            configLock.unlock()
+        }
+    }
 }
 
 extension ConfigService: ConfigServiceProtocol {
-    
+
+    /// Asks PI for the remote configuration. `completion` is called when the
+    /// request has ended, with or without an answer; this can take as long as
+    /// the request's own time limits allow, so nothing at launch may wait
+    /// for it (see `StartupNetworkCoordinator`).
     func setupConfig(completion: @escaping () -> Void) {
         let queryOperation = SubqueryConfigInfoOperation<SoraConfig>()
         
@@ -70,14 +93,19 @@ extension ConfigService: ConfigServiceProtocol {
                 completion()
                 return
             }
-            let nodes: Set<ChainNodeModel> = Set(response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address) else { return nil }
+            // The bundled nodes and type registry always stay. PI may add
+            // nodes at other URLs; a URL that is already bundled keeps its
+            // bundled entry.
+            let bundled = ApplicationConfig.shared.defaultChainNodes
+            let bundledURLs = Set(bundled.map(\.url))
+            let remote: [ChainNodeModel] = response.nodes.compactMap({ node in
+                guard let url = URL(string: node.address), SoraNodeConnectionPolicy.isAllowedEndpoint(url),
+                      !bundledURLs.contains(url) else { return nil }
                 return ChainNodeModel(url: url, name: node.name, apikey: nil)
-            }))
-            self.config = RemoteConfig(subqueryUrlString: response.blockExplorerUrl,
-                                       typesUrlString: response.substrateTypesUrl,
-                                       defaultNodes: nodes,
-                                       isSoraCardEnabled: response.soracard)
+            })
+            self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
+                                       typesUrlString: ApplicationConfig.shared.commonTypesURL?.absoluteString,
+                                       defaultNodes: bundled.union(remote))
             completion()
         }
         

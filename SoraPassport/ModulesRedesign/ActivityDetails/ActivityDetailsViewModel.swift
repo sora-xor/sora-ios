@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -51,20 +38,37 @@ final class ActivityDetailsViewModel {
     var completion: (() -> Void)?
     private var appEventService = AppEventService()
     private let lpServiceFee: LPFeeServiceProtocol
+    /// What the app's journal of sent transactions says became of a
+    /// transaction of the selected account, or nil while it has no final
+    /// result. Reads a file: called off the main thread.
+    private let journalOutcome: (String) -> SubmittedTransaction.Outcome?
     
     init(model: Transaction,
          wireframe: ActivityDetailsWireframeProtocol?,
          assetManager: AssetManagerProtocol,
          detailsFactory: ActivityDetailsViewModelFactoryProtocol,
          historyService: HistoryServiceProtocol,
-         lpServiceFee: LPFeeServiceProtocol) {
+         lpServiceFee: LPFeeServiceProtocol,
+         journalOutcome: @escaping (String) -> SubmittedTransaction.Outcome? = ActivityDetailsViewModel.journalOutcome) {
         self.model = model
         self.wireframe = wireframe
         self.assetManager = assetManager
         self.detailsFactory = detailsFactory
         self.historyService = historyService
         self.lpServiceFee = lpServiceFee
+        self.journalOutcome = journalOutcome
         EventCenter.shared.add(observer: self)
+    }
+
+    static func journalOutcome(transactionHash: String) -> SubmittedTransaction.Outcome? {
+        guard let address = SelectedWalletSettings.shared.currentAccount?.address else {
+            return nil
+        }
+        return SentTransactionJournalOverlay.finalOutcome(
+            transactionHash: transactionHash,
+            address: address,
+            journal: HistoryService.sentTransactionJournal()
+        )
     }
     
     func networkFeeInfoButtonTapped() {
@@ -133,11 +137,40 @@ extension ActivityDetailsViewModel: EventVisitorProtocol {
             var updatedModel = model
             updatedModel.base.status = transaction.processingResult.isSuccess ? .success : .failed
             if let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel) {
-                (self.items[0] as? HeaderActivityDetailsItem)?.details = headerItem.details
+                (self.items.first as? HeaderActivityDetailsItem)?.details = headerItem.details
             }
             
             self.view?.update(items: self.items)
         }
+    }
+
+    /// A pass over the sent transactions gave some of them their final
+    /// status. If the one on screen is still shown as pending, it takes
+    /// the status the journal now has for it: succeeded, failed, or not
+    /// included.
+    func processPendingSubmissionsResolved(event _: Sora2PendingSubmissionsResolved) {
+        let hash = model.base.txHash
+        guard model.base.status == .pending, !hash.isEmpty else { return }
+        let journalOutcome = self.journalOutcome
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let outcome = journalOutcome(hash) else { return }
+            DispatchQueue.main.async {
+                self?.show(outcome)
+            }
+        }
+    }
+
+    private func show(_ outcome: SubmittedTransaction.Outcome) {
+        var updatedModel = model
+        updatedModel.base.status = outcome.status
+        if let submitted = updatedModel as? SubmittedTransaction {
+            updatedModel = SubmittedTransaction(base: submitted.base, outcome: outcome)
+        }
+        guard let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel),
+              let shown = items.first as? HeaderActivityDetailsItem else { return }
+        shown.details = headerItem.details
+        shown.firstBalanceText = headerItem.firstBalanceText
+        view?.update(items: items)
     }
 }
 
@@ -177,8 +210,34 @@ extension ActivityDetailsViewModel {
             assetId = transferTransaction.rewardTokenId
             return farmLiquidityTransactionViewModel(from: transferTransaction)
         }
+
+        if let submitted = transaction as? SubmittedTransaction {
+            return headerSubmittedTransactionViewModel(from: submitted)
+        }
         
         return nil
+    }
+
+    /// A sent transaction known only from the app's own journal: its
+    /// status, when it was sent and one line saying what became of it.
+    func headerSubmittedTransactionViewModel(from transaction: SubmittedTransaction) -> HeaderActivityDetailsItem {
+        let feeAssetId = assetManager.getAssetList()?.first { $0.isFeeAsset }?.identifier ?? ""
+        assetId = feeAssetId
+        let assetInfo = assetManager.assetInfo(for: feeAssetId)
+        let explanation = SoramitsuTextItem(text: transaction.outcome.explanation,
+                                            fontData: FontType.textM,
+                                            textColor: .fgSecondary,
+                                            alignment: .center)
+        let details = detailsFactory.createHeaderActivityDetailsViewModels(
+            transactionBase: transaction.base,
+            isHideFeeDetails: true,
+            tapHandler: nil
+        )
+        return HeaderActivityDetailsItem(typeText: SubmittedTransaction.title,
+                                         typeTransactionImage: R.image.wallet.send(),
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
+                                         firstBalanceText: explanation.attributedString,
+                                         details: details)
     }
     
     func headerTransferTransactionViewModel(from transaction: TransferTransaction) -> HeaderActivityDetailsItem {
@@ -392,6 +451,10 @@ extension ActivityDetailsViewModel {
         
         if let transferTransaction = transaction as? FarmLiquidity {
             return detailsFarmLiquidityTransactionViewModel(from: transferTransaction)
+        }
+
+        if let submitted = transaction as? SubmittedTransaction {
+            return detailsCommonTransactionViewModel(from: submitted)
         }
         
         return nil

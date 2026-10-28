@@ -1,0 +1,893 @@
+{
+  "vectors" : [
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "CR4rwY2InCqoFw2zKvNrIng8VQu8fp0Ko08DVVB1UI8AgAAAAQAAAAgAAACqggBuJcMASnrUHafm4fK3\/knYzP8aahRVLtoqFbnZ34UxFl5cp\/sqN8GBVBdXZynRamiWRD6y7PpVqNSo8k\/8d3vfQ1CBPtwZeOiVJyipIztN8bA8WFdUDJHfv+uyqRNLTFgooVAULY78MyndwDE5x3wl9VmTc4k6dIfsDwA1GAtfNH7X1TjlGEfEzGL+pVU3LRZ3Rg5VIV+uJYPq",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-3words-0",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-3words-0",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "448372ddeebeff83ce395b060b0b27ec11f6fcbbc9f7f886e3e9e686ad797a29f68d268810d525d66bd19fa830c06beded76b58dc5991cf78f82fbc3ee497386",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "VRcZIZIyfdnvmqtJ0C01vghgKFfumeY+e77K6J2UrUwAgAAAAQAAAAgAAAAaCZivIm29zHBN6iP3JjaTtOMlqQtRa3lO4Xb1YKlL0hPz5S6DmeJt2aOT7AcgZjmBD5KXtN8F9FLawM5mcYDXzG3TAG+y87myS1yUzya0xkhoD7ds2BPCJ1iCJ9oTqRjCBidR1g3dVHYwHIdg8OVIJCuA8zjLxtq0XcEC\/Q==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-3words-1",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-3words-1",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "71af39eacd063db1c1f1964707371e372cf97814123508f7156798c528edc4265dba3b63bad8957cee5fa0a5befafdf4c19469fac70f71100fc04b76ab35ab0e",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "00000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "TZfr3vgVe1bdaQhM79xksS1xQm5qWOlVznszarDl6FEAgAAAAQAAAAgAAADsLupXF9Z5ASOSMLtXAGOTiilhE7Hm\/+nCVv1\/AQk56iJ++d3BhqsK6049lUugzeTC7\/WZW2x2bqb2k79LPdlUXHJ7BcCvtkGtGM8WLkX53SIodgb1roWblCm2bKEErBtF5dfOmKEm\/GMoK+vDKeP7rm0tx3wxasl1fd4cP58=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ecdsa-3words-2",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ecdsa-3words-2",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon ability",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 3
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "+thghmKUVvxyX31euyVG2QiOkRgueQB++3SSYzRViQoAgAAAAQAAAAgAAABnkWVfO8TmGpM6+sSqUvTMU+WZ0Gfk+hY9zSFCxN+aLx5Uwaw831i\/rWrIK38aVg\/gOMIioPV8gyqeV+4x5J7F9JuhWLpOmcELZOgAU\/86hvGu4YRZGhu9LS1iQu7EFrWkynmpNESNZkC4\/d1vZxAZw02kf5Ovfbr2NP+PhgtaRewaCpuUp4HnSJaamdbkAmNH0Hpl6OmWAOUfrtqz",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-6words-3",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-6words-3",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "ae4461c5cb3e4e81e00a96ebbbd68f479c8763d722038720c35e4e03a3249c4b44e9874a03db52f67d82e741f119ec018439098522bfca4d25520969e5a03e8b",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "9mKaX8VBvTpbU076k1kKuA5IsLORbGiAFMt1tCJwU+oAgAAAAQAAAAgAAADFqglGnfzTVv9XRTM93Xi7B9f3dEtz+krjV0351CDhUwy3faoICPD\/21upXX6Jd5q3VFjNphem8Qj5SzlIZjq6z01Ogqm3luaMFGiciR8mA1CGz0rHRFjMfTvVkKq7Xt8SHhCUQc7L+jY3tG2WJT2uXKDSNPiq7CctE5wdGA==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-6words-4",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-6words-4",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "7d9ce7d2939862bf5d68491b13be06f28d439f1db8bb01d962920ac10e09cd9d0cdd11100ca02614cab86f537ecf1427167a94aac161e180c8c379d8d438b408",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "9ajQUQgv+1Ly7NJtdYlHd\/z9XLO6GNEdkC\/OCtX2A1cAgAAAAQAAAAgAAACZrwMkqRa1NoB9QDJhu6VjHP+8W7iAAD2R25gq91e+ZOEZSKA1jKUcBz15gFB7SKoX0Va3OveVQImHXjzP2dZ0GrqOUxgafmO3XOjMpYmZ2zZbVD998S7Q0D7WN7RhIp1A1zEK2FgwJ3aVAo8pPE\/1RrXbPpLXBRLaYtMYXSQ=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ecdsa-6words-5",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ecdsa-6words-5",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon able",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 6
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "eDmMR8Sfk93EX4sKOYTGW4sFG\/R8gZVsLT9qUnBg5d4AgAAAAQAAAAgAAADfzAHtJOg2EKqEvTi7HasnE6cauILElMmNU4RuKw978L9aefdIQR4oCHSAWrpoHlt\/Y0KMleQB+0957yZWweUbD8im\/GNka1oZs7ctdk59x4JrCzheUwY6BY+z\/G5vWQzSTtmkj\/6IgPKwpWuZZOFvDW\/kpQ59zjn1gskdR3s6QT\/uky3Oj4lHbRPoaWmm3LwJRgk6euNano57KGQV",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-9words-6",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-9words-6",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "cea52c5085141072813ede2de58856b71de43b6f5076b05daa21f4bc336c0e15b22c121a3a303768c3fc73c036a1591d84900aba18e1d91c0148f122ebb68788",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "FaKx2nFeEf\/TonnnliNjoZ5\/noTJEeiaG3yUIf2eaPMAgAAAAQAAAAgAAABgCY2XDO4KvDu6D3eXMLlLhdyytPyB4dkPhlnKfjW2dvJRAKF9JH+l4f5J7NrHdokmOd2s1MY+J4vM8Smw3+\/Hz8IcgFd\/u5IuUNLWCcYp3IOi\/GQb5mp66vlPQBj7qjQvpE2HmfnfkMKzfmMTZYjFRc6qpb7PNPSm5jk5vA==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-9words-7",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-9words-7",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "9b81c79245edc96545f933d1e0a1df7fd835ffc25fb640c712fa4e61edf4ff591ba7c745297a4368fd2f5190b62fe404e8878de9ce73e6e9dd8f75854eddb809",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "X9nKgTxzK0+s\/af6kuqdtel\/NqR+e7NgLr6m7\/6Uy7EAgAAAAQAAAAgAAADFGcrq7APj6lD\/rGRTdq3TnaSbTm5oWtb3nG8QZJD0F22PX2NY9BwNk+1vaTS+kTB9ej6lJpC9G6Be26VeTmtCtLMLG96bolLYW14eZxyMq6znJvU9tFVPww+qhTepKRIoZ5vOcxexM\/demS8TeABXBEJlQ2t5d1hfsuaSPOw=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ecdsa-9words-8",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ecdsa-9words-8",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 9
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "XV5dNefeSzCnr0KM5k4GwgrwIYdxjDSZsDIreWxYzBsAgAAAAQAAAAgAAAAIaq6PTghIxvjdh0x7SqlJLVtj8CF8lECJ1aveRGFa68mbx0nLgF8Xy5qsGIakSGvk0Lbn3xWIqcLoKAatGt9LvZA8GvDf7z+\/CvabrkTzlypcEwm1vfAo1i+ASKCsIOEgjzt5mVoxgawTRwXfCqu728Wktf5\/g4cR7j7lvPsg0HRvMfDDl9GW2feGTuLI0AsJI+mCTN6icC9yRvFD",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-12words-9",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-12words-9",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "2069f6964356e06cf25036e9247c7cf23e356fa931df85c7d5a679c310130c62b39460c8b5beb286cc4b25c5f2d6701a783bff10e22fe864496246d15fe73586",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnUmbhFDT8FYAw7nvxFdJm7ZrTJAN6KqGguJaYrUmn8ZAihcQ",
+        "encoded" : "PUKP6ZpEKot2DKB2IlRKPvvZmC0dz3+c8THrAg+W3LcAgAAAAQAAAAgAAAD20hovV4g8M+cWljpfnmxBc+RKqJJnhcW0D0DJeZM0nF9hCak9WQte+PeuC3BFmMbrsJ9ie6bEgKPIog+NAoBUAOC+WILnGfHNe\/kBxlEmt6M860Q3I1Wl9r2AIpUBIFBiGbqgOAN9f4ouqchUddRCJ9QV9khk5ZMrYUPWqg==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-12words-10",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-12words-10",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "9125f505bdef2cb5825b9931769316d3e2f22150786489a04f39b434ec9fb294",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "4b2bb1deabd1bcc662cc2416710cd3a225ca6d7788cda7727ef1bd87d3e35c6c041ed2062e2aa21de32983ef4fb141e1085139b56f5c727b4acac72d4dfb1a09",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTPqVE7Qx7JDhnzYheVUReevxM2szZeLkUP6PXDiCkJNVchL",
+        "encoded" : "T9hExA+sBKujdritAji+VccTXrNOl3D6CtvAwslo1fAAgAAAAQAAAAgAAABciFXXqYnKpAVRnEKYKf6Vw56OW1JbnYzIyzET4oWeADlh4MwePmBzlnapYjm0IH7VgeTriUE66Z9pb2elJ6ghBD6TDV4VzJw6TaiQQk0J3dfvEIp5KXmKfbGhkpEgECdpjSDTv1+Mqihzwrwmj6on7USdozhQkUszbzb5dG0=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ecdsa-12words-11",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ecdsa-12words-11",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "035c080d535720870caab8d33acdbc59f4cede44fe599980289a1c01fcec2a4112",
+      "secretKeyHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e8c8c7135192b4fb5c42daa24a7fcae4e4d047fcb8beade5ca2d0b66ccf6d1c25cdf8fadef85eed26e83cc2c79f27ea4f282de558c615262028ba0ed76c0287400",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSDNEeuQo5V7Arauy6YLaLXjMiTEuDk6acpYjyKkALoUikqP",
+      "chaincodes" : [
+        {
+          "dataHex" : "10736f6674000000000000000000000000000000000000000000000000000000",
+          "type" : "soft"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/soft",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSDNEeuQo5V7Arauy6YLaLXjMiTEuDk6acpYjyKkALoUikqP",
+        "encoded" : "Sv2xrS\/QBku8o9bnyOr\/cdV1b0jwQMeGNZuBPxe9w8MAgAAAAQAAAAgAAAB9cr8GfJ3C23mTLfebQb+uIyCB\/j0tk6R+4pnJfzUlruAX87Hi0Tvhvkq93Uy5GXM+luuqUY+BbRyjfH4HMcubIF1WHZXb0lo6Nn6fHBOff6gEjj2gamw8c11CXnCRUNL1lTg4HRjLw4QYlqxNLOGdbXIK+1WSoPAMXsCkVQW3rKAoFl7\/gRvMA04FRppzfbr2jUz0EaLX6\/HkV0oT",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-12words-12",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-12words-12",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "201854fe65987d8bf30ae6ebe6df154dfd18a9b551ec0bd81a1faad0ab7de806",
+      "secretKeyHex" : "52f51d0d767ae92464b22d2d6ed128b96ad18ef777e036e8b9a86aa30e7e52063c1fe508af5b3e9bdb89ce479a6b5a248eb79f8241be4ea1f1b1bb83ed585889",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "e095424fd9dce6530140215fac9241b41d64d1f855cf6208c10fb3f69ee39a471cf3ccf8bfec607f10b1523e45c4ef510d9aa42b7d5290103ca72966f102b980",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnWCPDsxY4eDuL22eq9d3sE29vkCmqR5dgy8JieE1NnaDVPB7",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnWCPDsxY4eDuL22eq9d3sE29vkCmqR5dgy8JieE1NnaDVPB7",
+        "encoded" : "UV7sEF58\/qxp2kTWBeEtZG29uPms9GC\/zieUwGbIzz8AgAAAAQAAAAgAAAAspHDcvjn6SVOgFPJMZYrlBPoby3N9\/CdXWxEGGnu0tJXdGz\/J8bzE0T6DD7jIgDFWZgD4kqJicuNPy79sGUOHwlOrvzNDcEgfoV5w8MW+2Ee5Wae5xn7p0NhmZ9iVX27ZntY8IvNSgZEbhBrnMr\/NQ1+wkFP9HLP24tuvyzjKHmYPcEP3Ma1\/cFS1slg+ziUgU7Q640rEyOqxfkyx",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-12words-13",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-12words-13",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "d049577c1d14856730aa4af5a9401b5534b72c5eae4f0226c42615d47983ad22",
+      "secretKeyHex" : "4a8533a0b395c68b759dc2f695ef29e9e205e505efd42c1884a9fb1f1f403c0a99901f1382e95013693f6b559f4d07b68634db1b2210753fdc473f45cd077af4",
+      "secretShape" : "direct",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "5863601dc9bfa3c581a9e7a6467a5bd46a2de469595620dfa129d95dfd1af253029ccc31138c081e03c0d8beba508cd38e6fbac5cfb8c711f4b5ee98f383808d",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnW2mFQrGyR8T1Sbvr5RhHTYqXGVUJhNLudvgRf21om2q6QkB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        },
+        {
+          "dataHex" : "10736f6674000000000000000000000000000000000000000000000000000000",
+          "type" : "soft"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "\/\/hard\/soft\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnW2mFQrGyR8T1Sbvr5RhHTYqXGVUJhNLudvgRf21om2q6QkB",
+        "encoded" : "jv3SWFypV\/p0sILIWAWKwPp0iLePzUwaSj5JyibBXWAAgAAAAQAAAAgAAAC\/raq3Cbs1y3XNXsrUKD0xCVXLbzEwJWlB8mjAMTkSNLtvCcc149a2NwqwHOQzXN3hnCG7i5zivD1X9BzaBidcodoyrVdUPNLTKpuXy9bSAbw\/uw4eNHiyyosMvJqVi9FP7Lrrz4Kq01I7LqhEhn3LrJq8nWmpdmJyBIoGS98J4KrsT+Du+c2dsUJq1VJVGpccjdS5WR9TiQTlc09w",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-12words-14",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-12words-14",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "c8f309060af081350b965e752d9c0bb98a41536b8e8b491836bd8efaacbde06d",
+      "secretKeyHex" : "a8355f89bdbba287e19212ed53b4bc34e34ff0b852b7a1f854056a5d020e02047bef1ed20bd42950659ab091bfcf755fcc62f461d383932f3d3fad20902ef040",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "aa595b80ece39c2a6de82162a417d0a65c2f078077066ba38fbf944ce7ed88206fade080c11a63c879400439e77893f24d36e526e646a0ab42dcf8a6917f2282",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSf2zzDeNach9r6KUPbMdEKCz9RikY222bELEuHmcKi4Ug7W",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "60344d9cb12026aaa8cb32575ba017b6a4c7169a2075c5915c3e0ef707dddf23",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSf2zzDeNach9r6KUPbMdEKCz9RikY222bELEuHmcKi4Ug7W",
+        "encoded" : "we0xsiRzff9g4fPvZ8MHi7rk1lbI98SKXPMG8id0BvkAgAAAAQAAAAgAAADKCQX+ZkY3D\/sr13OkjpB8rRE6XBAIhPNCkjFKH1WmalV9EJiQQL\/8c2ZPlqMAyiZRzcCtuRZ7KubFcHyYLpL0oupXgkxhCLQanVrU8b5JfRkUDYHCS35Uq0dGduhyNjBeoJ7GO8mcP0EKOUc0O6G0+MaWJwV9agd4qn4BYA==",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-12words-15",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-12words-15",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "33abf5a7c429eb677fe06794fdc7a8807e6f555149d3673b3daf361ecbd0459c",
+      "secretKeyHex" : "60344d9cb12026aaa8cb32575ba017b6a4c7169a2075c5915c3e0ef707dddf23",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "e3906bb91cbda69b9d78e38c65cd0e87017e65eaca9e150625541829a5c045eed48cc13ca3b9a305532be75169d3d28dc672e44881b2354e88b7408148691704",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnWkaPjXd5sgFeAz83pmCWqQKXK9Z3cUqBv5xWfEYc3vTi9sn",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "a329e47dbcad237812d586ef591e17f22c910adda6e526c4fbd6b22a26b56625",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ecdsa",
+      "derivationPath" : "\/\/hard\/\/\/public-path-password",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnWkaPjXd5sgFeAz83pmCWqQKXK9Z3cUqBv5xWfEYc3vTi9sn",
+        "encoded" : "\/tEX3xOkjHzkFedla5IfmZ+DiPIddQrqv2pcLSWbkLoAgAAAAQAAAAgAAADBCfMzHAQDgyb48OTYjlfFwVeJsXBKPGZaQOsxsE29luWmjqvIORZRxPr0ajHRTtC+sXYd5Ast3P14YZ\/\/iZu\/X4ymdjbaqg6+yJl0R9iRqb9CQxAZ1fy7oMVoPuhdFppLkLIgBisRwLI1O4G58tv5hPWjhhs7AvhV9sR8RtE=",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ecdsa"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ecdsa-12words-16",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ecdsa-12words-16",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "02101e34aa67f5d4653e7416457f8329e8f97759fcd7f03b33af5ec2de47c3ac56",
+      "secretKeyHex" : "a329e47dbcad237812d586ef591e17f22c910adda6e526c4fbd6b22a26b56625",
+      "secretShape" : "direct",
+      "seedHex" : "b127205b27c458730cbee91fc32c829987779af345215f02067cfc8962639640",
+      "signatureHex" : "6259de27c46714791791d6f33faf5d167bb5c916ecd823a2752a27fca2cdee907400ad7d7feda9d42ef9867e2493d1842783bad3daacfca4f37b230c55320e0900",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+        "encoded" : "x1blAJARRh24IozW4IrY7MVP+tMGhqMZsoLuoyOSudUAgAAAAQAAAAgAAAAtHWMJU\/vZQlyZrGc85jgouqILxplot0TYoFYq5UfILkl8+yZyjT3340YlyN060CZcwA2ohXYINlq2dynajAHJzheIC7YDJZyDskb\/UXKTE4IPTXOt28zTwiNKSxCIrIiRx4fzdO6eQzGws35tT6S+PZ7qNF1uDaANJB6zuY8Fkv0UOCfmDXzZ92IikbB0GqpUGL5cJhc03do+gEZM",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-12words-17",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-12words-17",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretKeyHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretShape" : "json64",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "69c018314bd91732e2696b671b00419c625bcd1c14d1146c16c31857e63319f76f48de8739e449e702a67eaa2628bbd8869099a2fe6e8c7f59bb727a8e7f1102",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+      "chaincodes" : [
+        {
+          "dataHex" : "1068617264000000000000000000000000000000000000000000000000000000",
+          "type" : "hard"
+        }
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "childSeedHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aa",
+      "childSeedImportSameIdentity" : true,
+      "cryptoType" : "ed25519",
+      "derivationPath" : "\/\/hard",
+      "entropyHex" : "00000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnSHhMptgb8smQHdjEGkDywvtHJfmTyq7G9LRibKBXUTTqCaB",
+        "encoded" : "MIkQZDeUEEQbJNEyXaGGhSVyySNMOYecSmUYcb6h\/ZcAgAAAAQAAAAgAAABroHIff4bDK0+3DG2A9Hipsxf35gDDeUwYeRrRrIYPgu1i2dn+\/Y8OMXjHlvcOQCmLHXly5YxryElAHO5oXyXg9jG6bE7\/jAG63LLCpj266XW5xPjWjagakA9OpdQlhK1R2Z0IeRT5pJYoo5Dt+0Qrrpt9EZuH1D1fDkpUbKWoZtzSwZBUdax+mbTcSS\/xNQhjoQvFl0ionpcpF9Mi",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "ed25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-ed25519-12words-18",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-ed25519-12words-18",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "publicKeyHex" : "2365b08976e7a3932208b25a66ba0482510511f55e5530ea7784ef6d413598f8",
+      "secretKeyHex" : "b8ce81519db253085d01a40ba779c5d315032dc87df45e690ae0565f79ae32aaa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "secretShape" : "json64-stale-redundant-half",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "6ee40315b115ed2fb9cbba00ab4aa5993be94e0142aa3cb736ac7ade59b817d6393fdc8e0c1f8a148a5854254d9e1701fb7a44ca7c656196278a6d7abdd23109",
+      "signatureVerified" : true,
+      "wordCount" : 12
+    },
+    {
+      "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+      "chaincodes" : [
+
+      ],
+      "challengeHex" : "534f524120686973746f726963616c206669787475726520617564697420323032362d31302d3132",
+      "cryptoType" : "sr25519",
+      "derivationPath" : "",
+      "entropyHex" : "0000000000000000000000000000000000000000",
+      "exportedJSON" : {
+        "address" : "cnTon6cV8Ze8ATHT1tZdHregCc3wBc8vfg7P5o2TtwdUoRf4m",
+        "encoded" : "etX5Qhr055Nc07vZ0G+8ONhkswbsOamQ\/elAYxCuOKEAgAAAAQAAAAgAAACp9rYZKD2q03Off6Bo4kRankbSwOlwMItGqgdnFOtOMwXTVo1N0baEiB0+4JgNO7tgQljmrmJnno7FImhIpKl+SqK6I\/LK8JkJQ2wPtn87jhMAQqHj39pAOw9s9M\/Io7cVlO3Fr6WTe\/Td\/3GmfbQT0K9Ru\/iYtYblVnDMtu7oZ+rSdygwdHD30pg\/34HyCf+vEpbuBAyBtQ7gVFd6",
+        "encoding" : {
+          "content" : [
+            "pkcs8",
+            "sr25519"
+          ],
+          "type" : [
+            "scrypt",
+            "xsalsa20-poly1305"
+          ],
+          "version" : "3"
+        },
+        "meta" : {
+          "name" : "ios-386-sr25519-15words-19",
+          "whenCreated" : 0
+        }
+      },
+      "exportRoundTripVerified" : true,
+      "family" : "shared-features-spm-ada44b24",
+      "id" : "ios-386-sr25519-15words-19",
+      "jsonPassword" : "public-json-fixture-password",
+      "networkType" : 69,
+      "phrase" : "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon address",
+      "publicKeyHex" : "66933bd1f37070ef87bd1198af3dacceb095237f803f3d32b173e6b425ed7972",
+      "secretKeyHex" : "2ec306fc1c5bc2f0e3a2c7a6ec6014ca4a0823a7d7d42ad5e9d7f376a1c36c0d14a2ddb1ef1df4adba49f3a4d8c0f6205117907265f09a53ccf07a4e8616dfd8",
+      "secretShape" : "legacy-phrase-migration",
+      "seedHex" : "4ed8d4b17698ddeaa1f1559f152f87b5d472f725ca86d341bd0276f1b61197e2",
+      "signatureHex" : "344edc2a8b3086b77fcc9d1ffdb96e224baa263e61230af489c64fd098624610e7823fbf2b75c9a3db463da7b3fb1c95d311781ad13f89910f385e77b017f383",
+      "signatureVerified" : true,
+      "wordCount" : 15
+    }
+  ]
+}

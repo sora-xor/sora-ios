@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import SoraUIKit
 
@@ -71,6 +58,8 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
         contentView.addSubview(errorView)
     }
 
+    private lazy var errorViewTop = errorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8)
+
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
@@ -78,9 +67,11 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
             
-            errorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            // 24 at the sides, as the rows of the list have: a text of
+            // more than one line must not run into the rounded corners.
+            errorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             errorView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            errorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            errorViewTop,
             errorView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
         ])
     }
@@ -94,6 +85,66 @@ extension ActivityErrorCell: CellProtocol {
         }
 
         errorItem = item
+        // The cell is reused: set the text for every item. A row with its
+        // own text is the first of the list, under the rounded corners.
+        errorView.titleLabel.sora.text = item.title
+            ?? R.string.localizable.activityDataNotUpToDateTitle(preferredLanguages: .currentLocale)
+        errorViewTop.constant = item.title == nil ? 8 : 20
+        containerView.sora.cornerMask = item.roundsTop ? .top : .none
     }
 }
 
+
+/// Shows an `ActivityNoticeItem`: informational text only, no action.
+final class ActivityNoticeCell: SoramitsuTableViewCell {
+
+    private let containerView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.cornerMask = .top
+        view.sora.cornerRadius = .extraLarge
+        return view
+    }()
+
+    private let noticeLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.paragraphM
+        label.sora.textColor = .fgSecondary
+        label.sora.alignment = .center
+        label.sora.numberOfLines = 0
+        return label
+    }()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        contentView.addSubview(containerView)
+        contentView.addSubview(noticeLabel)
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            noticeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            noticeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            noticeLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            noticeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+extension ActivityNoticeCell: CellProtocol {
+    func set(item: ItemProtocol) {
+        guard let item = item as? ActivityNoticeItem else {
+            assertionFailure("Incorect type of item")
+            return
+        }
+
+        noticeLabel.sora.text = item.text
+        accessibilityLabel = item.text
+        containerView.sora.cornerMask = item.roundsTop ? .top : .none
+    }
+}

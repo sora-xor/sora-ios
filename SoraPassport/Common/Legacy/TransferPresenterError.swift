@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: GPL-3.0
+* SPDX-License-Identifier: Apache-2.0
 */
 
 
@@ -25,6 +25,7 @@ extension TransferPresenterError: WalletErrorContentConvertible {
             message = L10n.Amount.Error.transfer
         }
 
-        return WalletErrorContent(title: L10n.Common.error, message: message)
+        return WalletErrorContent(title: R.string.localizable
+            .commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages), message: message)
     }
 }

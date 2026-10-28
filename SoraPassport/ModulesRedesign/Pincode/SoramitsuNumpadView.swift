@@ -1,40 +1,29 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-import Foundation
+import UIKit
 import SoraUIKit
+import SoraFoundation
 
 public protocol SoramitsuNumpadDelegate: AnyObject {
     func numpadView(_ view: SoramitsuNumpadView, didSelectNumAt index: Int)
     func numpadViewDidSelectBackspace(_ view: SoramitsuNumpadView)
     func numpadViewDidSelectAccessoryControl(_ view: SoramitsuNumpadView)
+    func numpadViewDidClearInput(_ view: SoramitsuNumpadView)
 }
 
 public protocol SoramitsuNumpadAccessibilitySupportProtocol: AnyObject {
@@ -45,68 +34,88 @@ public protocol SoramitsuNumpadAccessibilitySupportProtocol: AnyObject {
 
 public class SoramitsuNumpadView: SoramitsuView {
 
-    lazy var buttons: [SoramitsuButton] = {
-        var buttons: [SoramitsuButton] = []
-        for i in 0...10 {
-            let text = SoramitsuTextItem(text: "\(i)",
-                                         fontData: FontType.displayL,
-                                         textColor: .fgSecondary,
-                                         alignment: .center)
-            let view = SoramitsuButton()
-            view.translatesAutoresizingMaskIntoConstraints = false
-            view.sora.tintColor = .fgSecondary
-            view.sora.backgroundColor = .bgSurface
-            view.sora.shadow = .small
-            view.sora.attributedText = text
-            view.sora.cornerRadius = .circle
-            view.widthAnchor.constraint(equalToConstant: 80).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 80).isActive = true
-            view.sora.addHandler(for: .touchUpInside) { [weak self] in
+    lazy var buttons: [NeumorphicControl] = {
+        (0...9).map { i in
+            let view = makeKey()
+            view.tag = i
+            view.accessibilityLabel = "\(i)"
+            let label = SoramitsuLabel()
+            label.sora.text = "\(i)"
+            label.sora.font = FontType.pinDigit
+            label.sora.textColor = .fgPrimary
+            label.sora.alignment = .center
+            label.isAccessibilityElement = false
+            view.contentView.addSubview(label)
+            NSLayoutConstraint.activate([
+                label.centerXAnchor.constraint(equalTo: view.contentView.centerXAnchor),
+                label.centerYAnchor.constraint(equalTo: view.contentView.centerYAnchor)
+            ])
+            view.addAction(UIAction { [weak self] _ in
                 guard let self = self else { return }
                 self.delegate?.numpadView(self, didSelectNumAt: i)
-            }
-            buttons.append(view)
+            }, for: .touchUpInside)
+            return view
         }
-        return buttons
     }()
     
-    lazy var backspaceButton: SoramitsuButton = {
-        let view = SoramitsuButton()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.sora.tintColor = .fgSecondary
-        view.sora.backgroundColor = .bgSurface
-        view.sora.shadow = .small
-        view.sora.leftImage = R.image.wallet.delete()
-        view.sora.imageSize = CGFloat(32)
-        view.sora.cornerRadius = .circle
-        view.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        view.heightAnchor.constraint(equalToConstant: 80).isActive = true
-        view.setContentCompressionResistancePriority(.required, for: .horizontal)
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
+    lazy var backspaceButton: NeumorphicControl = {
+        let view = makeKey(image: R.image.wallet.delete(), color: .fgSecondary, imageSize: 24)
+        view.accessibilityLabel = R.string.localizable.commonDelete(preferredLanguages: .currentLocale)
+        view.addAction(UIAction { [weak self] _ in
             guard let self = self else { return }
             self.delegate?.numpadViewDidSelectBackspace(self)
-        }
+        }, for: .touchUpInside)
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(clearInput(_:)))
+        hold.minimumPressDuration = 0.5
+        view.addGestureRecognizer(hold)
+        view.accessibilityCustomActions = [UIAccessibilityCustomAction(
+            name: R.string.localizable.neonPinClear(preferredLanguages: .currentLocale),
+            actionHandler: { [weak self] _ in
+                guard let self else { return false }
+                self.delegate?.numpadViewDidClearInput(self)
+                return true
+            })]
         return view
     }()
     
-    lazy var accessoryButton: SoramitsuButton = {
-        let view = SoramitsuButton()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.sora.tintColor = .fgSecondary
-        view.sora.backgroundColor = .bgSurface
-        view.sora.shadow = .small
-        view.sora.leftImage = R.image.wallet.faceId()
-        view.sora.cornerRadius = .circle
-        view.sora.imageSize = CGFloat(32)
-        view.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        view.heightAnchor.constraint(equalToConstant: 80).isActive = true
-        view.setContentCompressionResistancePriority(.required, for: .horizontal)
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
+    lazy var accessoryButton: NeumorphicControl = {
+        let view = makeKey(image: R.image.wallet.faceId(), color: .statusInfo, imageSize: 28)
+        view.accessibilityLabel = R.string.localizable.profileBiometryTitle(preferredLanguages: .currentLocale)
+        view.addAction(UIAction { [weak self] _ in
             guard let self = self else { return }
             self.delegate?.numpadViewDidSelectAccessoryControl(self)
-        }
+        }, for: .touchUpInside)
         return view
     }()
+
+    private func makeKey(image: UIImage? = nil, color: SoramitsuColor = .fgPrimary,
+                         imageSize: CGFloat = 28) -> NeumorphicControl {
+        let key = NeumorphicControl(frame: .zero)
+        key.translatesAutoresizingMaskIntoConstraints = false
+        key.isAccessibilityElement = true
+        key.accessibilityTraits = .button
+        key.isFlat = image != nil
+        key.widthAnchor.constraint(equalTo: key.heightAnchor).isActive = true
+        if let image {
+            let icon = SoramitsuImageView()
+            icon.sora.picture = .icon(image: image, color: color)
+            icon.isAccessibilityElement = false
+            key.contentView.addSubview(icon)
+            NSLayoutConstraint.activate([
+                icon.centerXAnchor.constraint(equalTo: key.contentView.centerXAnchor),
+                icon.centerYAnchor.constraint(equalTo: key.contentView.centerYAnchor),
+                icon.widthAnchor.constraint(equalToConstant: imageSize),
+                icon.heightAnchor.constraint(equalToConstant: imageSize)
+            ])
+        }
+        return key
+    }
+
+    @objc private func clearInput(_ recognizer: UILongPressGestureRecognizer) {
+        guard recognizer.state == .began else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        delegate?.numpadViewDidClearInput(self)
+    }
     
     private var accessoryButtonId: String?
 
@@ -124,10 +133,11 @@ public class SoramitsuNumpadView: SoramitsuView {
     }
     
     func setupConstraint() {
-        var mainStackView = SoramitsuStackView()
+        let mainStackView = SoramitsuStackView()
         mainStackView.sora.backgroundColor = .custom(uiColor: .clear)
         mainStackView.sora.axis = .vertical
-        mainStackView.sora.distribution = .equalSpacing
+        mainStackView.sora.distribution = .fillEqually
+        mainStackView.spacing = 16
         mainStackView.sora.alignment = .fill
         mainStackView.sora.clipsToBounds = false
         
@@ -138,8 +148,7 @@ public class SoramitsuNumpadView: SoramitsuView {
         firstRowStackView.sora.distribution = .fillEqually
         firstRowStackView.sora.alignment = .fill
         firstRowStackView.sora.clipsToBounds = false
-        firstRowStackView.spacing = 16
-        firstRowStackView.heightAnchor.constraint(equalToConstant: 80).isActive = true
+        firstRowStackView.spacing = 24
         firstRowStackView.addArrangedSubviews(Array(buttons[1...3]))
         
         let secondRowStackView = SoramitsuStackView()
@@ -149,8 +158,7 @@ public class SoramitsuNumpadView: SoramitsuView {
         secondRowStackView.sora.distribution = .fillEqually
         secondRowStackView.sora.alignment = .fill
         secondRowStackView.sora.clipsToBounds = false
-        secondRowStackView.spacing = 16
-        secondRowStackView.heightAnchor.constraint(equalToConstant: 80).isActive = true
+        secondRowStackView.spacing = 24
         secondRowStackView.addArrangedSubviews(Array(buttons[4...6]))
         
         let thirdRowStackView = SoramitsuStackView()
@@ -160,8 +168,7 @@ public class SoramitsuNumpadView: SoramitsuView {
         thirdRowStackView.sora.distribution = .fillEqually
         thirdRowStackView.sora.alignment = .fill
         thirdRowStackView.sora.clipsToBounds = false
-        thirdRowStackView.spacing = 16
-        thirdRowStackView.heightAnchor.constraint(equalToConstant: 80).isActive = true
+        thirdRowStackView.spacing = 24
         thirdRowStackView.addArrangedSubviews(Array(buttons[7...9]))
         
         let forthRowStackView = SoramitsuStackView()
@@ -170,9 +177,8 @@ public class SoramitsuNumpadView: SoramitsuView {
         forthRowStackView.sora.axis = .horizontal
         forthRowStackView.sora.distribution = .fillEqually
         forthRowStackView.sora.alignment = .fill
-        forthRowStackView.spacing = 16
+        forthRowStackView.spacing = 24
         forthRowStackView.sora.clipsToBounds = false
-        forthRowStackView.heightAnchor.constraint(equalToConstant: 80).isActive = true
         forthRowStackView.addArrangedSubviews([accessoryButton, buttons[0], backspaceButton])
         
         mainStackView.addArrangedSubviews(firstRowStackView, secondRowStackView, thirdRowStackView, forthRowStackView)
@@ -197,7 +203,7 @@ extension SoramitsuNumpadView: SoramitsuNumpadAccessibilitySupportProtocol {
                 button.accessibilityTraits = UIAccessibilityTraits.button
             } else {
                 button.accessibilityIdentifier = nil
-                button.accessibilityTraits = UIAccessibilityTraits.none
+                button.accessibilityTraits = UIAccessibilityTraits.button
             }
         }
     }

@@ -1,39 +1,111 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraUIKit
 import UIKit
 
+/// Exact slippage used by every legacy Polkaswap quote and signed limit.
+///
+/// A percent is stored as basis points so values never pass through Float/Double.
+/// Context parsing intentionally accepts legacy canonical decimal forms such as
+/// `0.50` and `1.0`, while all new writes use `contextValue`.
+struct PolkaswapSlippage: Equatable, Sendable {
+    static let defaultValue = PolkaswapSlippage(uncheckedBasisPoints: 50)
+    static let maximumBasisPoints: UInt16 = 1_000
+
+    let basisPoints: UInt16
+
+    init?(basisPoints: UInt16) {
+        guard (1...Self.maximumBasisPoints).contains(basisPoints) else {
+            return nil
+        }
+        self.basisPoints = basisPoints
+    }
+
+    init?(percent: Decimal) {
+        guard percent > 0, percent <= 10 else {
+            return nil
+        }
+
+        var scaled = percent * 100
+        var integral = Decimal()
+        NSDecimalRound(&integral, &scaled, 0, .plain)
+        guard integral == scaled else {
+            return nil
+        }
+
+        let rawValue = NSDecimalNumber(decimal: integral).uint64Value
+        guard rawValue <= UInt64(Self.maximumBasisPoints) else {
+            return nil
+        }
+        self.init(basisPoints: UInt16(rawValue))
+    }
+
+    init?(contextValue: String) {
+        guard contextValue.range(
+            of: #"^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$"#,
+            options: .regularExpression
+        ) != nil,
+        let percent = Decimal(string: contextValue, locale: Locale(identifier: "en_US_POSIX")) else {
+            return nil
+        }
+        self.init(percent: percent)
+    }
+
+    var percent: Decimal {
+        Decimal(Int(basisPoints)) / 100
+    }
+
+    var fraction: Decimal {
+        Decimal(Int(basisPoints)) / 10_000
+    }
+
+    var contextValue: String {
+        let whole = Int(basisPoints) / 100
+        let remainder = Int(basisPoints) % 100
+        if remainder == 0 {
+            return "\(whole)"
+        }
+        if remainder.isMultiple(of: 10) {
+            return "\(whole).\(remainder / 10)"
+        }
+        return "\(whole).\(remainder < 10 ? "0" : "")\(remainder)"
+    }
+
+    var displayValue: String {
+        "\(contextValue)%"
+    }
+
+    func minimumAmount(for amount: Decimal) -> Decimal {
+        amount * Decimal(10_000 - Int(basisPoints)) / 10_000
+    }
+
+    func maximumAmount(for amount: Decimal) -> Decimal {
+        amount * Decimal(10_000 + Int(basisPoints)) / 10_000
+    }
+
+    private init(uncheckedBasisPoints: UInt16) {
+        basisPoints = uncheckedBasisPoints
+    }
+}
+
 protocol SlippageToleranceViewDelegate: AnyObject {
-    func slippageToleranceChanged(_ to: Float)
+    func slippageToleranceChanged(_ to: PolkaswapSlippage?)
 }
 
 final class SlippageToleranceView: SoramitsuView {
@@ -66,26 +138,28 @@ final class SlippageToleranceView: SoramitsuView {
         field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             guard let self = self else { return }
             
-            var currentValue = Float(self.field.textField.text?
+            let rawValue = self.field.textField.text?
                 .replacingOccurrences(of: "%", with: "", options: .literal, range: nil)
-                .replacingOccurrences(of: ",", with: ".", options: .literal, range: nil) ?? "")
+                .replacingOccurrences(of: ",", with: ".", options: .literal, range: nil) ?? ""
+            var currentValue = PolkaswapSlippage(contextValue: rawValue)
             
             if (self.field.textField.text?.contains("%") ?? false) {
                 self.field.textField.sora.text?.removeLast()
             }
 
-            if let value = currentValue, value > 10 {
+            if let decimalValue = Decimal(
+                string: rawValue,
+                locale: Locale(identifier: "en_US_POSIX")
+            ), decimalValue > 10 {
                 self.field.textField.sora.text = "10"
-                currentValue = 10
+                currentValue = PolkaswapSlippage(contextValue: "10")
             }
             
             if let text = self.field.textField.text {
                 self.field.sora.text = "\(text)%"
             }
             
-            if let value = currentValue {
-                self.delegate?.slippageToleranceChanged(value)
-            }
+            self.delegate?.slippageToleranceChanged(currentValue)
         }
         field.textField.autocorrectionType = .no
         return field

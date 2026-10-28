@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import UIKit
@@ -42,26 +29,31 @@ final class ContactsViewController: SoramitsuViewController {
         let field = InputField()
         field.sora.state = .default
         field.textField.autocorrectionType = .no
+        field.textField.autocapitalizationType = .none
+        field.textField.spellCheckingType = .no
         field.textField.returnKeyType = .done
         field.sora.buttonImage = R.image.wallet.qrScan()
         field.sora.buttonImageTintColor = .fgSecondary
         field.translatesAutoresizingMaskIntoConstraints = false
         field.sora.titleLabelText = R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale)
-        field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+        field.sora.textFieldPlaceholder = R.string.localizable.selectAccountAddress1(preferredLanguages: .currentLocale)
+        field.textField.sora.addHandler(for: .editingChanged) { [weak self, weak field] in
+            guard let field else { return }
             let text = field.textField.text ?? ""
+            field.sora.resetValidation()
             self?.viewModel.search(text)
             
             field.sora.buttonImage = text.isEmpty ? R.image.wallet.qrScan() : R.image.wallet.cross()
         }
-        field.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        field.button.sora.addHandler(for: .touchUpInside) { [weak self, weak field] in
+            guard let field else { return }
             let text = field.textField.text ?? ""
             
             if text.isEmpty {
                 self?.viewModel.openQR()
             } else {
-                field.textField.sora.text = ""
-                field.sora.buttonImage = R.image.wallet.qrScan()
-                field.titleLabel.sora.isHidden = true
+                field.sora.text = ""
+                field.textField.sendActions(for: .editingChanged)
             }
         }
         return field

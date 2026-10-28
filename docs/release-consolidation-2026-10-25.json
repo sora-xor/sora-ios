@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-25",
+  "purpose": "Consolidate the modernize line and retained release fixes before master integration",
+  "reconciliation": {
+    "baseline": "39d6429ecb708292f6434d24343779fa71d8809b",
+    "preservedSnapshot": "7cfc1b060e42cea79f2479584d5c41838293fa67",
+    "method": "Selectively restore missing dependency, pricing and release-check fixes; retain the current portfolio, recovery, analytics and local validation behavior.",
+    "included": [
+      "Current portfolio dashboard and removal of the obsolete wallet home",
+      "Lost-key recovery and cancellation-state fix already in modernize",
+      "Bundled SORA runtime types and retired-node filtering for remote, saved custom and selected endpoints",
+      "Pinned dependency updates and advisory scanner",
+      "Fresh positive CoinGecko quote admission and bounded ephemeral requests",
+      "Concurrent isolated release-case execution with secure artifact hash checks"
+    ],
+    "excludedSnapshotChanges": [
+      "Obsolete analytics disabling",
+      "Retired hosted workflow and Jenkins requirements",
+      "Superseded UI and recovery implementations"
+    ],
+    "history": "Original refs and dirty worktree patches are retained; no historical branch was blindly merged or deleted.",
+    "dashboardCommit": "a535753d3208a564fbccc127c2728d841024b5da"
+  },
+  "dependencies": {
+    "appPins": 55,
+    "rSwiftPins": 3,
+    "packageResolvedSHA256": "e2c11bd69ed1c98439ec9aa28bdea79ffb1fb9fece0d9ea7968c1c471ac4d6e0",
+    "resolution": "Passed using only Package.resolved versions; lock unchanged",
+    "advisoryScan": {
+      "checkedCommits": 58,
+      "affected": 0,
+      "coverage": "SwiftPM source commit queries only; excludes vendored source and binary qualification",
+      "source": "https://api.osv.dev/v1/querybatch"
+    }
+  },
+  "validation": {
+    "nativeTests": {
+      "configuration": "Debug, iOS 27.1 simulator",
+      "fullRun": {
+        "executed": 955,
+        "passed": 942,
+        "skipped": 12,
+        "failed": 1,
+        "failure": "PortfolioPresenterTests.testNetworkRowsTakeTheAppsNamesTagsAndOrder expected an English literal on a Japanese simulator"
+      },
+      "correction": "Use the same WalletUX localization lookup as the UI for the expected Address ready label; test-only change.",
+      "rebuiltFocusedRun": {
+        "executed": 25,
+        "passed": 25,
+        "skipped": 0,
+        "failed": 0,
+        "suites": [
+          "AnalyticsPriceAdmissionTests",
+          "ApplicationConfigTests",
+          "PortfolioPresenterTests"
+        ]
+      },
+      "outstandingFailures": 0,
+      "limitations": "The full suite was not repeated after the one-line test-only expectation correction. Main Thread Checker warnings in test UI inspection and QoS warnings remain recorded in the original xcresult."
+    },
+    "debugBuildForTesting": "passed, including normal modernization dependency gate",
+    "releaseConditionalCompile": {
+      "status": "passed",
+      "configuration": "Debug simulator with inherited defines plus F_RELEASE; migration evidence harness disabled",
+      "limitations": "Existing Debug F_DEV and ENABLE_UITUNNEL flags remain. This is not a Release archive or production promotion.",
+      "adHocSignatureVerified": true
+    },
+    "pythonTests": {
+      "swiftPMAdvisoryScanner": 6,
+      "productionPromotion": 25,
+      "migrationReleaseBoundary": 15,
+      "status": "passed"
+    },
+    "independentSourceReview": "No actionable regressions identified in restored quote admission, local runtime schema admission, node filtering or release-case isolation",
+    "sourceIdentity": {
+      "comparedTrackedPaths": 5994,
+      "primaryMatchesValidatedCandidate": true,
+      "note": "The primary checkout includes the completed dashboard commit. Every tracked source path was compared with the isolated candidate after integration."
+    }
+  },
+  "releaseBoundary": {
+    "physicalDeviceVerification": "Deferred by user; simulator checks authorized",
+    "newTestFlightUpload": false,
+    "newStoreRelease": false,
+    "productionArchiveQualification": false,
+    "remoteMasterMerge": "Requires an independent approving review after the final push; protected linear history requires squash integration"
+  },
+  "localEvidenceDirectory": ".derived/release-consolidation-20261025",
+  "pullRequest": "https://github.com/sora-xor/sora-ios/pull/490",
+  "localEvidenceFiles": [
+    "ios-candidate-tests.xcresult",
+    "ios-candidate-tests-summary.json",
+    "ios-candidate-focused.xcresult",
+    "ios-candidate-focused-summary.json",
+    "ios-shipping-compile.json",
+    "ios-advisory-report.json",
+    "ios-source-integration.json",
+    "ios-final-source-sha256.json"
+  ]
+}

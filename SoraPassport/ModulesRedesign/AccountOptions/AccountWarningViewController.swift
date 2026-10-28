@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraFoundation
@@ -42,6 +29,8 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
     }
 
     var completion: (() -> ())?
+
+    private let scrollView = UIScrollView()
 
     private var containerView: SoramitsuView = {
         SoramitsuView().then {
@@ -64,17 +53,16 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
     private var titleLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
             $0.sora.font = FontType.textM
+            $0.sora.dynamicTextStyle = .body
             $0.sora.textColor = .fgPrimary
             $0.numberOfLines = 0
         }
     }()
 
-    var submitButton: SoramitsuButton = {
-        SoramitsuButton().then {
-            $0.sora.isEnabled = false
-            $0.sora.cornerRadius = .circle
-            $0.addTarget(nil, action: #selector(completeTapped), for: .touchUpInside)
-        }
+    private lazy var submitButton: UIButton = {
+        let button = WalletUX.button(R.string.localizable.transactionContinue(preferredLanguages: languages), primary: true) { [weak self] in self?.completeTapped() }
+        button.isEnabled = false
+        return button
     }()
 
     init(warningType: WarningType) {
@@ -102,7 +90,20 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
             titleLabel.sora.text = R.string.localizable.exportProtectionJsonDescription(preferredLanguages: languages)
         }
 
-        view.addSubview(containerView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
+        ])
 
         let warnings: [String]
 
@@ -133,20 +134,15 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
         stackView.addArrangedSubviews(
             warnings.map{
                 CheckView(title: $0).then{
-                    $0.addTapGesture { [weak self] recognizer in
-                        self?.checkBoxTapped(sender: recognizer.view as? CheckView)
-                    }
+                    let check = $0
+                    check.onActivate = { [weak self, weak check] in self?.checkBoxTapped(sender: check) }
+                    check.addTapGesture { [weak check] _ in check?.onActivate?() }
                 }
             }
         )
         stackView.setCustomSpacing(24, after: stackView.arrangedSubviews.last!)
         stackView.addArrangedSubview(submitButton)
         stackView.setCustomSpacing(20, after: titleLabel)
-        containerView.do {
-            $0.horizontalAnchors == view.horizontalAnchors + 16
-            $0.topAnchor == view.soraSafeTopAnchor
-
-        }
         stackView.do {
             $0.horizontalAnchors == containerView.horizontalAnchors + 24
             $0.verticalAnchors == containerView.verticalAnchors + 24
@@ -155,7 +151,7 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
 
     var selectionCount = 0 {
         didSet {
-            submitButton.sora.isEnabled = selectionCount == 3
+            submitButton.isEnabled = selectionCount == 3
         }
     }
 
@@ -172,6 +168,7 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
 
     @objc
     func completeTapped(){
+        guard selectionCount == 3 else { return }
         completion?()
     }
 
@@ -184,11 +181,17 @@ extension AccountWarningViewController: Localizable {
     }
 
     func applyLocalization() {
-        submitButton.sora.title = R.string.localizable.transactionContinue(preferredLanguages: languages)
+        submitButton.configuration?.title = R.string.localizable.transactionContinue(preferredLanguages: languages)
     }
 }
 
 final class CheckView: SoramitsuView {
+    var onActivate: (() -> Void)?
+    override func accessibilityActivate() -> Bool {
+        guard let onActivate else { return false }
+        onActivate()
+        return true
+    }
 
     private lazy var checkView: SoramitsuImageView = {
         SoramitsuImageView().then {
@@ -213,6 +216,7 @@ final class CheckView: SoramitsuView {
             checkView.image = isSelected ? R.image.checkboxSelected() : nil
             checkView.sora.borderWidth = isSelected ? 0 : 1
             sora.borderColor = isSelected ? .accentPrimary : .bgSurfaceVariant
+            accessibilityTraits = isSelected ? [.button, .selected] : .button
         }
     }
     
@@ -221,6 +225,9 @@ final class CheckView: SoramitsuView {
         super.init(frame: .zero)
 
         translatesAutoresizingMaskIntoConstraints = false
+        isAccessibilityElement = true
+        accessibilityLabel = title
+        accessibilityTraits = .button
 
         addSubview(checkView)
         addSubview(textLabel)
@@ -244,6 +251,7 @@ final class CheckView: SoramitsuView {
             $0.trailingAnchor == trailingAnchor - 16
             $0.sora.text = title
             $0.sora.font = FontType.textS
+            $0.sora.dynamicTextStyle = .body
             $0.sora.textColor = .fgPrimary
         }
 

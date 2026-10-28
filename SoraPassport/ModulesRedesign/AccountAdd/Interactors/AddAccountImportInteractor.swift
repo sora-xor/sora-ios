@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import IrohaCrypto
@@ -38,6 +25,7 @@ import SSFCloudStorage
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
+    private let lifecycleCoordinator: WalletLifecycleCoordinator
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -45,9 +33,11 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol,
-         cloudStorage: CloudStorageServiceProtocol? = nil) {
+         cloudStorage: CloudStorageServiceProtocol? = nil,
+         lifecycleCoordinator: WalletLifecycleCoordinator = .shared) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.lifecycleCoordinator = lifecycleCoordinator
 
         super.init(accountOperationFactory: accountOperationFactory,
                    accountRepository: accountRepository,
@@ -58,105 +48,141 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                    cloudStorage: cloudStorage)
     }
 
-    private func importAccountItem(_ item: AccountItem, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        let checkOperation = accountRepository.fetchOperation(by: item.address,
-                                                              options: RepositoryFetchOptions())
-
-        let persistentOperation = accountRepository.saveOperation({
-            if try checkOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled) != nil {
-                throw AccountCreateError.duplicated
+    override func importAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
+    ) {
+        let lifecycleCoordinator = self.lifecycleCoordinator
+        let lifecycleOperation =
+            lifecycleCoordinator.makeAcquireOperation()
+        importOperation.addDependency(lifecycleOperation)
+        let selectionEventCenter = eventCenter
+        importOperation.completionBlock = { [weak self] in
+            let leaseResult = Result {
+                try lifecycleOperation.extractNoCancellableResultData()
             }
-
-            return [item]
-        }, { [] })
-
-        persistentOperation.addDependency(checkOperation)
-
-        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
-            if case .failure(let error) = persistentOperation.result {
-                throw error
+            let preparedResult = Result {
+                try importOperation.extractNoCancellableResultData()
             }
-
-            return item
-        }
-
-        connectionOperation.addDependency(persistentOperation)
-
-        connectionOperation.completionBlock = { [weak self] in
-            DispatchQueue.main.async {
-                switch connectionOperation.result {
-                case .success(let accountItem):
-                    self?.settings.save(value: accountItem)
-                    self?.eventCenter.notify(with: SelectedAccountChanged())
-                    self?.presenter?.didCompleteAccountImport()
-                case .failure(let error):
-                    self?.presenter?.didReceiveAccountImport(error: error)
-                case .none:
-                    let error = BaseOperationError.parentOperationCancelled
-                    self?.presenter?.didReceiveAccountImport(error: error)
-                }
-                
-                completion?(connectionOperation.result)
-            }
-        }
-
-        operationManager.enqueue(operations: [checkOperation, persistentOperation, connectionOperation],
-                                 in: .sync)
-    }
-    
-    private func validateAccountItem(_ item: AccountItem, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let checkOperation = accountRepository.fetchOperation(by: item.address,
-                                                              options: RepositoryFetchOptions())
-        
-        checkOperation.completionBlock = {
-            guard let account = try? checkOperation.extractNoCancellableResultData() else {
-                DispatchQueue.main.async {
-                    completion?(.success(item))
-                }
+            guard let self else {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
                 return
             }
-            
-            DispatchQueue.main.async {
-                completion?(.failure(AccountCreateError.duplicated))
-            }
-        }
-        
-        operationManager.enqueue(operations: [checkOperation], in: .sync)
-    }
-
-    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        importOperation.completionBlock = { [weak self] in
-            DispatchQueue.main.async {
-                switch importOperation.result {
-                case .success(let accountItem):
-                    self?.importAccountItem(accountItem, completion: completion)
-                case .failure(let error):
-                    self?.presenter?.didReceiveAccountImport(error: error)
-                case .none:
-                    let error = BaseOperationError.parentOperationCancelled
-                    self?.presenter?.didReceiveAccountImport(error: error)
+            do {
+                let lifecycleLease = try leaseResult.get()
+                let prepared = try preparedResult.get()
+                if try self.requestExplicitCredentialRepairIfNeeded(prepared, lifecycleLease: lifecycleLease,
+                    eventCenter: selectionEventCenter, completion: completion) { return }
+                self.settings.performInsertAndSelect(
+                    prepared: prepared,
+                    persistSecrets: {
+                        try self.accountOperationFactory
+                            .persistPreparedAccount(prepared)
+                    },
+                    lifecycleLease: lifecycleLease
+                ) { [weak self] result in
+                    lifecycleLease.release()
+                    DispatchQueue.main.async {
+                        switch result {
+                        case let .success(accountItem):
+                            selectionEventCenter.notify(
+                                with: SelectedAccountChanged(),
+                                completionOnMain: { [weak self] in
+                                    self?.presenter?
+                                        .didCompleteAccountImport()
+                                    completion?(.success(accountItem))
+                                }
+                            )
+                        case let .failure(error):
+                            self?.presenter?
+                                .didReceiveAccountImport(error: error)
+                            completion?(.failure(error))
+                        }
+                    }
+                }
+            } catch {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                DispatchQueue.main.async { [weak self] in
+                    self?.presenter?
+                        .didReceiveAccountImport(error: error)
+                    completion?(.failure(error))
                 }
             }
         }
 
-        operationManager.enqueue(operations: [importOperation], in: .sync)
+        lifecycleCoordinator.enqueueOwnedAcquireOperation(
+            lifecycleOperation
+        )
+        operationManager.enqueue(
+            operations: [importOperation],
+            in: .sync
+        )
     }
     
-    override func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Error>?) -> Void)?) {
+    override func validateAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem?, Error>?) -> Void)?
+    ) {
+        let lifecycleCoordinator = self.lifecycleCoordinator
+        let lifecycleOperation =
+            lifecycleCoordinator.makeAcquireOperation()
+        importOperation.addDependency(lifecycleOperation)
         importOperation.completionBlock = { [weak self] in
-            switch importOperation.result {
-            case .success(let accountItem):
-                self?.validateAccountItem(accountItem, completion: completion)
-            case .failure(let error):
-                self?.presenter?.didReceiveAccountImport(error: error)
-            case .none:
-                let error = BaseOperationError.parentOperationCancelled
-                self?.presenter?.didReceiveAccountImport(error: error)
+            do {
+                let lifecycleLease = try lifecycleOperation
+                    .extractNoCancellableResultData()
+                let prepared = try importOperation
+                    .extractNoCancellableResultData()
+                guard let self else {
+                    prepared.discard()
+                    lifecycleLease.release()
+                    return
+                }
+                let checkOperation = self.accountRepository.fetchOperation(
+                    by: prepared.account.address,
+                    options: RepositoryFetchOptions()
+                )
+                checkOperation.completionBlock = {
+                    defer {
+                        prepared.discard()
+                        lifecycleLease.release()
+                    }
+                    let result: Result<AccountItem?, Error>
+                    do {
+                        result = .success(try self.existingAccountRequiringRepair(
+                            checkOperation.extractNoCancellableResultData(), prepared: prepared, selection: self.settings))
+                    } catch {
+                        result = .failure(error)
+                    }
+                    DispatchQueue.main.async {
+                        completion?(result)
+                    }
+                }
+                self.operationManager.enqueue(
+                    operations: [checkOperation],
+                    in: .sync
+                )
+            } catch {
+                (try? importOperation
+                    .extractNoCancellableResultData())?.discard()
+                (try? lifecycleOperation
+                    .extractNoCancellableResultData())?.release()
+                DispatchQueue.main.async { [weak self] in
+                    self?.presenter?
+                        .didReceiveAccountImport(error: error)
+                    completion?(.failure(error))
+                }
             }
         }
         
-        operationManager.enqueue(operations: [importOperation], in: .sync)
+        lifecycleCoordinator.enqueueOwnedAcquireOperation(
+            lifecycleOperation
+        )
+        operationManager.enqueue(
+            operations: [importOperation],
+            in: .sync
+        )
     }
 }
-

@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import sorawallet
 import BigInt
@@ -136,17 +123,21 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             }
         }
 
-        print("Error: No tx type for: \(data)")
         return nil
     }
     
     private func createTransactionForSwap(
         _ swap: SubquerySwap
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: swap.targetAssetAmount) ?? .zero
-
-        let feeDecimal = Decimal(string: self.networkFee) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(swap.targetAssetAmount),
+            validatedDecimal(swap.baseAssetAmount) != nil,
+            let feeDecimal = validatedIntegerDecimal(self.networkFee),
+            let lpFeeDecimal = validatedDecimal(swap.liquidityProviderFee)
+        else {
+            return nil
+        }
         let fee = AssetTransactionFee(
             identifier: swap.targetAssetId,
             assetId: swap.targetAssetId,
@@ -154,7 +145,6 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             context: nil
         )
 
-        let lpFeeDecimal = Decimal(string: swap.liquidityProviderFee) ?? .zero
         let lpFee = AssetTransactionFee(
             identifier: swap.baseAssetId,
             assetId: swap.baseAssetId,
@@ -186,11 +176,16 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
-        let amount = Decimal.fromSubstrateAmount(
-            BigUInt(extrinsic.fee) ?? 0,
+    ) -> AssetTransactionData? {
+        guard
+            let rawFee = BigUInt(extrinsic.fee),
+            let amount = Decimal.fromSubstrateAmount(
+            rawFee,
             precision: asset.precision
-        ) ?? 0.0
+            )
+        else {
+            return nil
+        }
 
         let accountId = try? addressFactory.accountId(
             fromAddress: address,
@@ -225,7 +220,7 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status = success ? AssetTransactionStatus.commited : AssetTransactionStatus.rejected
 
         let peerAddress = transfer.sender == address ? transfer.receiver : transfer.sender
@@ -235,8 +230,12 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             type: networkType
         )
 
-        let amountDecimal = Decimal(string: transfer.amount) ?? .zero
-        let feeDecimal = Decimal(string: self.networkFee) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(transfer.amount),
+            let feeDecimal = validatedIntegerDecimal(self.networkFee)
+        else {
+            return nil
+        }
 
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
@@ -276,11 +275,16 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
     private func createTransactionForRewardOrSlash(
         _ rewardOrSlash: SubqueryRewardOrSlash,
         asset: WalletAsset
-    ) -> AssetTransactionData {
-        let amount = Decimal.fromSubstrateAmount(
-            BigUInt(rewardOrSlash.amount) ?? 0,
+    ) -> AssetTransactionData? {
+        guard
+            let rawAmount = BigUInt(rewardOrSlash.amount),
+            let amount = Decimal.fromSubstrateAmount(
+            rawAmount,
             precision: asset.precision
-        ) ?? 0.0
+            )
+        else {
+            return nil
+        }
 
         let type = rewardOrSlash.isReward ? TransactionType.reward.rawValue : TransactionType.slash.rawValue
 
@@ -318,13 +322,19 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: liquidity.targetAssetAmount) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(liquidity.targetAssetAmount),
+            validatedDecimal(liquidity.baseAssetAmount) != nil,
+            let feeDecimal = validatedIntegerDecimal(self.networkFee)
+        else {
+            return nil
+        }
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
-            amount: AmountDecimal(value: Decimal(string: self.networkFee) ?? .zero),
+            amount: AmountDecimal(value: feeDecimal),
             context: nil
         )
 
@@ -352,13 +362,19 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         networkType: SNAddressType,
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: liquidity.inputADesired) ?? .zero
+        guard
+            let amountDecimal = validatedDecimal(liquidity.inputADesired),
+            validatedDecimal(liquidity.inputBDesired) != nil,
+            let feeDecimal = validatedIntegerDecimal(self.networkFee)
+        else {
+            return nil
+        }
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
-            amount: AmountDecimal(value: Decimal(string: self.networkFee) ?? .zero),
+            amount: AmountDecimal(value: feeDecimal),
             context: nil
         )
 
@@ -387,13 +403,24 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
         asset: WalletAsset,
         reason: String,
         addressFactory: SS58AddressFactoryProtocol
-    ) -> AssetTransactionData {
+    ) -> AssetTransactionData? {
         let status: AssetTransactionStatus = success ? .commited : .rejected
-        let amountDecimal = Decimal(string: referral.amount ?? "") ?? .zero
+        guard let feeDecimal = validatedIntegerDecimal(networkFee) else {
+            return nil
+        }
+        let amountDecimal: Decimal
+        if let rawAmount = referral.amount {
+            guard let value = validatedDecimal(rawAmount) else {
+                return nil
+            }
+            amountDecimal = value
+        } else {
+            amountDecimal = .zero
+        }
         let fee = AssetTransactionFee(
             identifier: asset.identifier,
             assetId: asset.identifier,
-            amount: AmountDecimal(value: Decimal(string: networkFee) ?? .zero),
+            amount: AmountDecimal(value: feeDecimal),
             context: nil
         )
 
@@ -425,5 +452,13 @@ extension TxHistoryItem: WalletRemoteHistoryItemProtocol {
             reason: nil,
             context: context
         )
+    }
+
+    private func validatedDecimal(_ rawValue: String) -> Decimal? {
+        try? HistoryTransactionMapper.validatedAmount(rawValue).decimalValue
+    }
+
+    private func validatedIntegerDecimal(_ rawValue: String) -> Decimal? {
+        try? HistoryTransactionMapper.validatedFee(rawValue).decimalValue
     }
 }

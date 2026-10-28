@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import IrohaCrypto
@@ -66,26 +53,14 @@ final class AccountCreateInteractor {
         self.eventCenter = eventCenter
     }
     
-    private func handleResult(_ result: Result<AccountItem, Error>?) {
-        switch result {
-        case .success(let accountItem):
-            settings.save(value: accountItem)
-            eventCenter.notify(with: SelectedAccountChanged())
-
-            presenter.didCompleteConfirmation(for: accountItem)
-        case .failure(let error):
-            presenter.didReceive(error: error)
-        case .none:
-            let error = BaseOperationError.parentOperationCancelled
-            presenter.didReceive(error: error)
-        }
-    }
 }
 
 extension AccountCreateInteractor: AccountCreateInteractorInputProtocol {
     func setup() {
         do {
-            let mnemonic = try mnemonicCreator.randomMnemonic(.entropy128)
+            // New wallets use 24 words. Existing 12/24-word imports and every
+            // legacy account keep their original entropy and derivation.
+            let mnemonic = try mnemonicCreator.randomMnemonic(.entropy256)
 
             let metadata = AccountCreationMetadata(mnemonic: mnemonic.allWords(),
                                                    availableNetworks: supportedNetworkTypes,
@@ -100,39 +75,82 @@ extension AccountCreateInteractor: AccountCreateInteractorInputProtocol {
     
     func skipConfirmation(request: AccountCreationRequest,
                           mnemonic: IRMnemonicProtocol) {
-        let operation = accountOperationFactory.newAccountOperation(request: request, mnemonic: mnemonic)
+        let operation = accountOperationFactory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
         guard currentOperation == nil else {
             return
         }
+        let lifecycleCoordinator = WalletLifecycleCoordinator.shared
+        let lifecycleOperation =
+            lifecycleCoordinator.makeAcquireOperation()
+        operation.addDependency(lifecycleOperation)
 
-        let persistentOperation = accountRepository.saveOperation({
-            let accountItem = try operation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            return [accountItem]
-        }, { [] })
+        currentOperation = operation
+        let selectionEventCenter = eventCenter
 
-        persistentOperation.addDependency(operation)
-
-        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
-            let accountItem = try operation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-
-            return accountItem
-        }
-
-        connectionOperation.addDependency(persistentOperation)
-
-        currentOperation = connectionOperation
-
-        connectionOperation.completionBlock = { [weak self] in
-            DispatchQueue.main.async {
-                self?.currentOperation = nil
-
-                self?.handleResult(connectionOperation.result)
+        operation.completionBlock = { [weak self] in
+            let leaseResult = Result {
+                try lifecycleOperation.extractNoCancellableResultData()
+            }
+            let preparedResult = Result {
+                try operation.extractNoCancellableResultData()
+            }
+            guard let self else {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                return
+            }
+            do {
+                let lifecycleLease = try leaseResult.get()
+                let prepared = try preparedResult.get()
+                self.settings.performInsertAndSelect(
+                    prepared: prepared,
+                    persistSecrets: {
+                        try self.accountOperationFactory
+                            .persistPreparedAccount(prepared)
+                    },
+                    lifecycleLease: lifecycleLease
+                ) { [weak self] result in
+                    lifecycleLease.release()
+                    DispatchQueue.main.async {
+                        self?.currentOperation = nil
+                        switch result {
+                        case let .success(accountItem):
+                            selectionEventCenter.notify(
+                                with: SelectedAccountChanged(),
+                                completionOnMain: { [weak self] in
+                                    self?.presenter?
+                                        .didCompleteConfirmation(
+                                            for: accountItem
+                                        )
+                                }
+                            )
+                        case let .failure(error):
+                            self?.presenter?.didReceive(error: error)
+                        }
+                    }
+                }
+            } catch {
+                try? preparedResult.get().discard()
+                try? leaseResult.get().release()
+                DispatchQueue.main.async { [weak self] in
+                    self?.currentOperation = nil
+                    self?.presenter?.didReceive(error: error)
+                }
             }
         }
 
-        operationManager.enqueue(operations: [operation, persistentOperation, connectionOperation], in: .sync)
+        lifecycleCoordinator.enqueueOwnedAcquireOperation(
+            lifecycleOperation
+        )
+        operationManager.enqueue(
+            operations: [
+                operation,
+            ],
+            in: .sync
+        )
     }
 }
 
@@ -155,8 +173,11 @@ class AccountBackupInteractor {
 
 extension AccountBackupInteractor: AccountCreateInteractorInputProtocol {
     private func loadPhrase() throws -> IRMnemonicProtocol {
-        let entropy = try keystore.fetchEntropyForAddress(account.address)
-        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy!)
+        var backup = try WalletBackupMaterial.load(for: account, keystore: keystore)
+        defer { backup.wipe() }
+        guard let entropy = backup.entropy else { throw WalletBackupMaterial.Failure.noMatchingPhrase }
+        presenter.didReceive(backupDerivationPath: backup.derivationPath ?? "")
+        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
         return mnemonic
     }
 
@@ -168,7 +189,7 @@ extension AccountBackupInteractor: AccountCreateInteractorInputProtocol {
                                                    availableNetworks: Chain.allCases,
                                                    defaultNetwork: .sora,
                                                    availableCryptoTypes: CryptoType.allCases,
-                                                   defaultCryptoType: .sr25519)
+                                                   defaultCryptoType: account.cryptoType)
             presenter.didReceive(metadata: metadata)
         } catch {
             presenter.didReceiveMnemonicGeneration(error: error)

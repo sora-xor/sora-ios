@@ -1,184 +1,271 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
-import Firebase
-import SCard
+#if !NO_FIREBASE
+import FirebaseCore
+import FirebaseAnalytics
+#endif
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
-#if F_DEV
-import FLEX
-#endif
+import SoraKeystore
 
-@UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+@main
+final class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    /// The process-wide root window. It is created once by
+    /// `attachRootWindow(to:)` and reached by many presenters through
+    /// `UIApplication.shared.delegate?.window`.
     var window: UIWindow?
+
+    private var migrationEvidenceDecision: RetainedMigrationEvidenceHarness.BootstrapDecision = .inactive
+    private var hasEnteredBackground = false
+    private var detachedSceneWindows: [UIWindow] = []
+    private weak var detachedKeyWindow: UIWindow?
 
     var isUnitTesting: Bool {
         return ProcessInfo.processInfo.arguments.contains("-UNITTEST")
     }
 
+    /// External URLs and universal links are routed only to the wallet UI,
+    /// never to the migration-evidence screen or to a unit-test host.
+    var acceptsExternalRoutes: Bool {
+        window != nil && migrationEvidenceDecision != .evidenceOnly
+    }
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        if !isUnitTesting { applyFreshInstallAppearance() }
+        migrationEvidenceDecision =
+            RetainedMigrationEvidenceHarness.shared.bootstrap()
+        if migrationEvidenceDecision == .evidenceOnly {
+            return true
+        }
+
         if !isUnitTesting {
+            #if !NO_FIREBASE
             FirebaseApp.configure()
+            // Metrics remain available, but wallet activity is never eligible for ads.
+            // Repeat at startup because persisted SDK consent overrides plist defaults.
+            Analytics.setConsent([
+                .adStorage: .denied,
+                .adUserData: .denied,
+                .adPersonalization: .denied
+            ])
+            Analytics.setUserProperty("false", forName: AnalyticsUserPropertyAllowAdPersonalizationSignals)
+            #endif
 
-            initFlex()
             setupLanguage()
-            
-            let rootWindow = SoraWindow()
-            rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
-            window = rootWindow
-
-            SplashPresenterFactory.createSplashPresenter(with: rootWindow)
-
-            rootWindow.makeKeyAndVisible()
         }
 
         return true
     }
 
-    func application(_ application: UIApplication,
-                     continue userActivity: NSUserActivity,
-                     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+    /// A missing theme key also means an existing user's System choice.
+    /// Only an otherwise empty installation may receive the new default.
+    private func applyFreshInstallAppearance() {
+        guard let identifier = Bundle.main.bundleIdentifier else { return }
+        let manager = FileManager.default
+        let directories = [FileManager.SearchPathDirectory.documentDirectory, .applicationSupportDirectory]
+            .compactMap { manager.urls(for: $0, in: .userDomainMask).first }
+        guard directories.count == 2 else { return }
+        Self.applyFreshInstallAppearance(defaults: .standard, identifier: identifier,
+            storageDirectories: directories,
+            keychainIsEmpty: { (try? Keychain().allKeyIdentifiers().isEmpty) == true })
+    }
 
-            let isHandled = DeepLinkService.shared.handle(url: url)
-
-            if !isHandled {
-                Logger.shared.warning("Can't continue activity for url \(url)")
+    static func applyFreshInstallAppearance(defaults: UserDefaults, identifier: String,
+                                           storageDirectories: [URL], keychainIsEmpty: () -> Bool) {
+        let marker = "sora.neon.appearance-default-reviewed"
+        guard !defaults.bool(forKey: marker), !storageDirectories.isEmpty else { return }
+        let domain = defaults.persistentDomain(forName: identifier) ?? [:]
+        let ignored = Set(["AppleLanguages", "AppleLocale"])
+        let hasPreferences = domain.keys.contains { !ignored.contains($0) }
+        let manager = FileManager.default
+        var hasFiles = false
+        for url in storageDirectories {
+            if manager.fileExists(atPath: url.path) {
+                hasFiles = hasFiles || ((try? manager.contentsOfDirectory(atPath: url.path).isEmpty) != true)
             }
+        }
+        // Do not write even an appearance marker into retained settings: an
+        // interrupted upgrade may need to compare them with its saved snapshot.
+        guard !hasPreferences && !hasFiles else { return }
+        // Never interpret locked, unreadable or retained Keychain data as new.
+        guard keychainIsEmpty() else { return }
+        SoramitsuUI.shared.themeMode = .manual(.dark)
+        defaults.set(true, forKey: marker)
+    }
 
-            return isHandled
-        } else {
-            return false
+    // MARK: - Scene life cycle
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        Self.sceneConfiguration(for: connectingSceneSession.role)
+    }
+
+    /// Only the device's own interactive application scene hosts the wallet
+    /// (the application role, or the Assistive Access application role on
+    /// iOS 26+). Any other role (AirPlay mirroring, a USB-C/HDMI display)
+    /// gets no delegate, so the system mirrors the phone screen and never
+    /// moves the wallet's windows there or sends that scene's life-cycle
+    /// events to the app.
+    static func sceneConfiguration(for role: UISceneSession.Role) -> UISceneConfiguration {
+        guard role.isSoraWalletScene else {
+            return UISceneConfiguration(name: nil, sessionRole: role)
+        }
+
+        let configuration = UISceneConfiguration(
+            name: "Default Configuration",
+            sessionRole: role
+        )
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
+    }
+
+    /// Shows the app's UI in `windowScene` and returns the root window, or nil
+    /// for a unit-test host.
+    ///
+    /// The root window and the Splash flow are created at most once per
+    /// process: creating Splash starts wallet storage migration, so a scene
+    /// that reconnects gets the existing windows moved to it instead.
+    func attachRootWindow(to windowScene: UIWindowScene) -> UIWindow? {
+        guard windowScene.session.role.isSoraWalletScene else {
+            return nil
+        }
+
+        if let window {
+            reattachWindows(rootWindow: window, to: windowScene)
+            return window
+        }
+
+        if migrationEvidenceDecision == .evidenceOnly {
+            let evidenceWindow = UIWindow(windowScene: windowScene)
+            evidenceWindow.backgroundColor = .systemBackground
+            evidenceWindow.rootViewController =
+                RetainedMigrationEvidenceHarness.shared
+                    .makeEvidenceOnlyViewController()
+            window = evidenceWindow
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: evidenceWindow)
+            evidenceWindow.makeKeyAndVisible()
+            return evidenceWindow
+        }
+
+        guard !isUnitTesting else {
+            return nil
+        }
+
+        // The device appearance is known once the scene is connected. Read it
+        // before the first screen is built, then make system UI (alerts,
+        // keyboards, sheets, Liquid Glass) follow the in-app theme.
+        SoramitsuUI.shared.refreshSystemTheme()
+        let rootWindow = SoraWindow(windowScene: windowScene)
+        SoramitsuUI.shared.applyInterfaceStyle(to: rootWindow)
+        rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
+        window = rootWindow
+
+        SplashPresenterFactory.createSplashPresenter(with: rootWindow)
+
+        if migrationEvidenceDecision == .authorized {
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: rootWindow)
+        }
+
+        rootWindow.makeKeyAndVisible()
+        return rootWindow
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        guard let windowScene = scene as? UIWindowScene,
+              windowScene.session.role.isSoraWalletScene else {
+            return
+        }
+        // Keep the app's own windows (root, PIN lock, loading and toast
+        // overlays) so a later scene shows them unchanged. UIKit's private
+        // windows (keyboard, text effects) belong to the old scene.
+        detachedKeyWindow = windowScene.keyWindow
+        detachedSceneWindows = windowScene.windows.filter { candidate in
+            candidate === window ||
+                candidate is SoraWindow ||
+                candidate is SilentWindow ||
+                type(of: candidate) == UIWindow.self
         }
     }
 
-    private func initFlex() {
-        #if F_DEV
-
-        FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
-            let isUserSignIn = SCard.shared?.isUserSignIn ?? false
-            let message = "User is signed in: \(isUserSignIn)"
-            let title = "Reset SORA Card Token"
-            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = message
-            }
-            let removeAction = UIAlertAction(title: "Logout",  style: .destructive) { _ in
-                SCard.shared?.logout()
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-            alertController.addAction(removeAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
+    func sceneWillEnterForeground() {
+        // UIKit also calls this when the scene first connects. Match the old
+        // applicationWillEnterForeground, which ran only after a background.
+        guard !isUnitTesting, hasEnteredBackground else {
+            return
         }
-
-        guard let url = Bundle.main.url(forResource: "/Podfile", withExtension: "lock") else { return }
-        let data = try? String(contentsOf: url, encoding: .utf8)
-
-        let scardInfo = data?.groups(for: "SCard:\n\\s*:[a-z]*:.*\n\\s*:[a-z]*:.*")
-        let commit = scardInfo?[safe: 1]?[safe: 0]?.groups(for: ":commit: (.*)")[safe: 0]?[safe: 1]?.prefix(10) ?? "-"
-        let scardInfoMessage = scardInfo?.flatMap{ $0 }.joined()
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard commit:\(commit)") { tableViewController in
-
-            let title = "SCard pod version"
-            let alertController = UIAlertController(title: title, message: scardInfoMessage, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
-
-            let title = "SCard Config"
-
-            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard update version") { tableViewController in
-
-            let title = "SCard update version"
-
-            let alertController = UIAlertController(title: title, message: SCard.currentSDKVersion, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        #endif
+        resumePendingNexusTransactions()
     }
-    
+
+    func sceneDidEnterBackground() {
+        hasEnteredBackground = true
+        IrohaConnectCoordinator.shared.applicationDidEnterBackground()
+    }
+
+    private func reattachWindows(rootWindow: UIWindow, to windowScene: UIWindowScene) {
+        let detachedWindows = detachedSceneWindows
+        let previousKeyWindow = detachedKeyWindow
+        detachedSceneWindows = []
+        detachedKeyWindow = nil
+
+        if rootWindow.windowScene !== windowScene {
+            rootWindow.windowScene = windowScene
+        }
+        for detached in detachedWindows where detached !== rootWindow && detached.windowScene !== windowScene {
+            detached.windowScene = windowScene
+        }
+
+        rootWindow.makeKeyAndVisible()
+
+        // A PIN lock or loading window that was key stays key and on top.
+        if let previousKeyWindow,
+           previousKeyWindow !== rootWindow,
+           previousKeyWindow.windowScene === windowScene,
+           !previousKeyWindow.isHidden {
+            previousKeyWindow.makeKey()
+        }
+    }
+
     func setupLanguage() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
+    }
+
+    private func resumePendingNexusTransactions() {
+        Task { @MainActor in
+            // Reconcile every network journal entry regardless of selected
+            // wallet or Taira visibility. This path performs status lookups
+            // only and never retries, signs, or submits a transaction.
+            NexusTransactionRuntime.shared.resumePendingAfterProcessStart()
+            // Ordinary SORA2 ambiguity recovery is also status-only. Its
+            // runtime independently requires both verified wallet storage and
+            // a ready canonical SORA2 chain before doing any RPC work.
+            Sora2PendingSubmissionRecoveryRuntime.shared
+                .resumePendingAfterProcessStart()
+        }
     }
 }
 
@@ -198,8 +285,8 @@ fileprivate extension String {
                     return String(text[range])
                 }
             }
-        } catch let error {
-            print("invalid regex: \(error.localizedDescription)")
+        } catch {
+            print("Invalid application URL regex")
             return []
         }
     }
@@ -211,23 +298,5 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
-    }
-}
-
-
-extension SCard.Config: CustomDebugStringConvertible {
-    public var debugDescription: String {
-
-        """
-        SCard.Config
-        backendUrl: \(backendUrl)
-        pwAuthDomain: \(pwAuthDomain)
-        pwApiKey: \(pwApiKey)
-        kycUrl: \(kycUrl)
-        kycUsername: \(kycUsername)
-        kycPassword: \(kycPassword)
-        environmentType: \(environmentType)
-        themeMode: \(themeMode)
-        """
     }
 }

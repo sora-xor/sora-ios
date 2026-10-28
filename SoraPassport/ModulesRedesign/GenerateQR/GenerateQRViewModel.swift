@@ -1,34 +1,22 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
+import IrohaCrypto
 import SoraUIKit
 
 import RobinHood
@@ -261,18 +249,78 @@ private extension GenerateQRViewModel {
               let networkFacade = networkFacade else { return }
         
         if let amount = result.receiverInfo?.amount {
-            feeProvider.getFee(for: .outgoing) { [weak self] fee in
-                self?.wireframe?.showConfirmSendingAsset(on: self?.view?.controller,
-                                                   assetId: result.receiverInfo?.assetId ?? .xor,
-                                                   walletService: WalletService(operationFactory: networkFacade),
-                                                   assetManager: assetManager,
-                                                   fiatService: fiatService,
-                                                   recipientAddress: result.firstName,
-                                                   firstAssetAmount: amount.decimalValue,
-                                                   fee: fee,
-                                                   assetsProvider: assetsProvider)
+            Task { @MainActor [weak self] in
+                guard let self,
+                      let selectedAccount = SelectedWalletSettings.shared
+                        .currentAccount,
+                      selectedAccount.isSelected else {
+                    return
+                }
+                do {
+                    let reviewedRecipient = result.firstName
+                    let reviewedAmount = amount
+                    let addressFactory = SS58AddressFactory()
+                    let source = try addressFactory.accountId(
+                        fromAddress: selectedAccount.address,
+                        type: selectedAccount.addressType
+                    ).toHex()
+                    let destination = try addressFactory.accountId(
+                        fromAddress: reviewedRecipient,
+                        type: selectedAccount.addressType
+                    ).toHex()
+                    let assetId = result.receiverInfo?.assetId ?? .xor
+                    let info = TransferInfo(
+                        source: source,
+                        destination: destination,
+                        amount: reviewedAmount,
+                        asset: assetId,
+                        details: "",
+                        fees: [],
+                        context: [
+                            TransactionContextKeys.transactionType:
+                                TransactionType.outgoing.rawValue
+                        ]
+                    )
+                    let exactFee = try await networkFacade
+                        .estimateTransferFee(for: info)
+                    try Task.checkCancellation()
+                    guard exactFee > 0 else {
+                        throw WalletNetworkOperationFactoryError.invalidFee
+                    }
+                    guard
+                        let currentAccount = SelectedWalletSettings.shared
+                            .currentAccount,
+                        currentAccount.isSelected,
+                        currentAccount.address == selectedAccount.address,
+                        currentAccount.publicKeyData ==
+                            selectedAccount.publicKeyData,
+                        currentAccount.cryptoType == selectedAccount.cryptoType,
+                        currentAccount.networkType == selectedAccount.networkType
+                    else {
+                        throw WalletNetworkOperationFactoryError.invalidContext
+                    }
+                    self.wireframe?.showConfirmSendingAsset(
+                        on: self.view?.controller,
+                        assetId: assetId,
+                        walletService: WalletService(
+                            operationFactory: networkFacade
+                        ),
+                        assetManager: assetManager,
+                        fiatService: fiatService,
+                        recipientAddress: reviewedRecipient,
+                        firstAssetAmount: reviewedAmount.decimalValue,
+                        fee: exactFee,
+                        assetsProvider: assetsProvider
+                    )
+                } catch {
+                    self.wireframe?.showFeeEstimationError(
+                        on: self.view?.controller,
+                        retry: { [weak self] in
+                            self?.handle(result)
+                        }
+                    )
+                }
             }
-            
             return
         }
         wireframe?.showSend(on: view?.controller,

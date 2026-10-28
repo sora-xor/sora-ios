@@ -1,4 +1,4 @@
-"NSCameraUsageDescription" = "カメラはQRコードを読み取るのに使われます";
-"NSFaceIDUsageDescription" = "Face IDはログイン認証の際に使われます";
-"NSPhotoLibraryUsageDescription" = "ライブラリから写真をアップロードする";
-"NSPhotoLibraryAddUsageDescription" = "QRコードで取引リクエストを保存する";
+"NSCameraUsageDescription" = "SORA Wallet は QR コードを読み取るためにカメラを使用します。";
+"NSFaceIDUsageDescription" = "SORA Wallet は、ウォレットのロック解除と重要な操作の確認に Face ID を使用します。";
+"NSPhotoLibraryUsageDescription" = "SORA Wallet は、選択した写真から QR コードを読み取ります。";
+"NSPhotoLibraryAddUsageDescription" = "「画像を保存」を選んだとき、SORA Wallet は QR コード画像を写真に保存します。";

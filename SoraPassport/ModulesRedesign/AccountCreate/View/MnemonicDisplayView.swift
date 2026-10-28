@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraUIKit
@@ -93,7 +80,7 @@ private final class WordColumnView: SoramitsuView {
         }
 
         return CGSize(width: indexSize.width + horizontalSpacing + wordsSize.width,
-                      height: max(indexSize.height, wordsSize.height) + CGFloat(words.count - 1) * verticalSpacing)
+                      height: max(indexSize.height, wordsSize.height) + CGFloat(max(0, words.count - 1)) * verticalSpacing)
     }
 
     override func layoutSubviews() {
@@ -133,6 +120,9 @@ private final class WordColumnView: SoramitsuView {
             if word != "" {
                 self.words[wordIndex].sora.text = word
                 self.indexes[wordIndex].sora.text = String(index + wordIndex)
+            } else {
+                self.words[wordIndex].sora.text = nil
+                self.indexes[wordIndex].sora.text = nil
             }
         }
 
@@ -157,17 +147,20 @@ private final class WordColumnView: SoramitsuView {
             indexes.append(contentsOf: newIndexes)
             words.append(contentsOf: newWords)
         } else if words.count > count {
-            let removedIndexes = indexes.dropLast(words.count - count)
-            let removedWords = words.dropLast(words.count - count)
+            let removedIndexes = indexes.suffix(words.count - count)
+            let removedWords = words.suffix(words.count - count)
 
             removedIndexes.forEach { $0.removeFromSuperview() }
             removedWords.forEach { $0.removeFromSuperview() }
+            indexes.removeLast(words.count - count)
+            words.removeLast(words.count - count)
         }
     }
 
     func applyIndexStyle(to list: [SoramitsuLabel]) {
         list.forEach { label in
             label.sora.font = indexFont
+            label.sora.dynamicTextStyle = .caption1
             label.sora.textColor = indexTitleColor
         }
     }
@@ -176,12 +169,13 @@ private final class WordColumnView: SoramitsuView {
         list.forEach { label in
             label.sora.textColor = wordTitleColor
             label.sora.font = wordFont
+            label.sora.dynamicTextStyle = .body
         }
     }
 }
 
 final class MnemonicDisplayView: SoramitsuView {
-    var columnsSpacing: CGFloat = 80.0 {
+    var columnsSpacing: CGFloat = 24.0 {
         didSet {
             invalidateIntrinsicContentSize()
             setNeedsLayout()
@@ -319,6 +313,8 @@ final class MnemonicDisplayView: SoramitsuView {
 
             allColumns[columnIndex].bind(words: Array(words[start..<end]), starting: start + 1)
         }
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
     }
 
     // MARK: Private
@@ -347,8 +343,10 @@ final class MnemonicDisplayView: SoramitsuView {
 
             otherColumns.append(contentsOf: newColumns)
         } else if allColumns.count > count {
-            let removedColumns = otherColumns.dropLast(allColumns.count - count)
+            let removeCount = allColumns.count - count
+            let removedColumns = otherColumns.suffix(removeCount)
             removedColumns.forEach { $0.removeFromSuperview() }
+            otherColumns.removeLast(removeCount)
         }
     }
 }

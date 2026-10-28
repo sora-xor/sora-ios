@@ -12,7 +12,8 @@ final class AccountCreationHelper {
                                           networkType: Chain = .sora,
                                           derivationPath: String = "",
                                           keychain: KeystoreProtocol,
-                                          settings: SettingsManagerProtocol) throws {
+                                          settings: SettingsManagerProtocol &
+                                              SelectedWalletSettingsProtocol) throws {
         let mnemonic: IRMnemonicProtocol
 
         if let mnemonicString = mnemonicString {
@@ -26,13 +27,21 @@ final class AccountCreationHelper {
                                              derivationPath: derivationPath,
                                              cryptoType: cryptoType)
 
-        let operation = AccountOperationFactory(keystore: keychain)
-            .newAccountOperation(request: request, mnemonic: mnemonic)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: isolatedRecoveryGate(settings: settings)
+        )
+        let operation = factory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
 
-        let accountItem = try operation
+        let prepared = try operation
             .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        try factory.persistPreparedAccount(prepared)
+        let accountItem = prepared.account
 
         try selectAccount(accountItem, settings: settings)
     }
@@ -43,20 +52,26 @@ final class AccountCreationHelper {
                                       networkType: Chain = .sora,
                                       derivationPath: String = "",
                                       keychain: KeystoreProtocol,
-                                      settings: SettingsManagerProtocol) throws {
+                                      settings: SettingsManagerProtocol &
+                                          SelectedWalletSettingsProtocol) throws {
         let request = AccountImportSeedRequest(seed: seed,
                                                username: name,
                                                networkType: networkType,
                                                derivationPath: derivationPath,
                                                cryptoType: cryptoType)
 
-        let operation = AccountOperationFactory(keystore: keychain)
-            .newAccountOperation(request: request)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: isolatedRecoveryGate(settings: settings)
+        )
+        let operation = factory.prepareAccountOperation(request: request)
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
 
-        let accountItem = try operation
+        let prepared = try operation
         .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        try factory.persistPreparedAccount(prepared)
+        let accountItem = prepared.account
 
         try selectAccount(accountItem, settings: settings)
     }
@@ -65,7 +80,8 @@ final class AccountCreationHelper {
                                           password: String,
                                           username: String,
                                           keychain: KeystoreProtocol,
-                                          settings: SettingsManagerProtocol ) throws {
+                                          settings: SettingsManagerProtocol &
+                                              SelectedWalletSettingsProtocol) throws {
         guard let url = Bundle(for: AccountCreationHelper.self).url(forResource: filename, withExtension: "json") else {
             return
         }
@@ -88,7 +104,8 @@ final class AccountCreationHelper {
     static func createAccountFromKeystoreData(_ data: Data,
                                               password: String,
                                               keychain: KeystoreProtocol,
-                                              settings: SettingsManagerProtocol,
+                                              settings: SettingsManagerProtocol &
+                                                  SelectedWalletSettingsProtocol,
                                               networkType: Chain,
                                               cryptoType: SoraPassport.CryptoType,
                                               username: String) throws {
@@ -102,24 +119,40 @@ final class AccountCreationHelper {
                                                    networkType: networkType,
                                                    cryptoType: cryptoType)
 
-        let operation = AccountOperationFactory(keystore: keychain)
-            .newAccountOperation(request: request)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: isolatedRecoveryGate(settings: settings)
+        )
+        let operation = factory.prepareAccountOperation(request: request)
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
 
-        let accountItem = try operation
+        let prepared = try operation
         .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        try factory.persistPreparedAccount(prepared)
+        let accountItem = prepared.account
 
         try selectAccount(accountItem, settings: settings)
     }
 
-    static func selectAccount(_ accountItem: AccountItem, settings: SettingsManagerProtocol) throws {
-        let type = try SS58AddressFactory().type(fromAddress: accountItem.address)
+    static func selectAccount(
+        _ accountItem: AccountItem,
+        settings: SettingsManagerProtocol & SelectedWalletSettingsProtocol
+    ) throws {
+        _ = try SS58AddressFactory().type(fromAddress: accountItem.address)
 
-        var currentSettings = settings
-        currentSettings.set(value: accountItem, for: SettingsKey.selectedAccount.rawValue)
+        settings.set(value: accountItem, for: SettingsKey.selectedAccount.rawValue)
+        settings.save(value: accountItem)
+    }
 
-        SelectedWalletSettings.shared.save(value: accountItem)
+    private static func isolatedRecoveryGate(
+        settings: SettingsManagerProtocol
+    ) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(
+            settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
     }
 }
 
@@ -133,7 +166,60 @@ extension InMemorySettingsManager: SelectedWalletSettingsProtocol {
     }
 
     public func performSave(value: SoraPassport.AccountItem, completionClosure: @escaping (Result<SoraPassport.AccountItem, Error>) -> Void) {
+        save(value: value)
+        completionClosure(.success(value))
+    }
 
+    public func performInsertAndSelect(
+        prepared: PreparedAccount,
+        persistSecrets: @escaping () throws -> Void,
+        lifecycleLease: WalletLifecycleLease,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        do {
+            try persistSecrets()
+            save(value: prepared.account)
+            completionClosure(.success(prepared.account))
+        } catch {
+            completionClosure(.failure(error))
+        }
+    }
+
+    public func performSelectAfterRemoval(
+        value: SoraPassport.AccountItem,
+        lifecycleLease: WalletLifecycleLease,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        save(value: value)
+        completionClosure(.success(value))
+    }
+
+    public func performUpdateName(
+        account: SoraPassport.AccountItem,
+        displayName: String,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        let updated = account.replacingUsername(displayName)
+        save(value: updated)
+        completionClosure(.success(updated))
+    }
+
+    public func performUpdateAssetSettings(
+        account: SoraPassport.AccountItem,
+        settings: AccountSettings,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        let updated = account.replacingSettings(settings)
+        save(value: updated)
+        completionClosure(.success(updated))
     }
 
     public func performSetup(completionClosure: @escaping (Result<SoraPassport.AccountItem?, Error>) -> Void) {

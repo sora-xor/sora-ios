@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraKeystore
@@ -38,15 +25,16 @@ protocol ScreenAuthorizationWireframeProtocol: AnyObject {
 
 final class PinViewFactory {
     
-    fileprivate static func extractedFunc(_ config: ApplicationConfig) -> PinSetupInteractor {
+    fileprivate static func extractedFunc(_ config: ApplicationConfig, authorization: WalletOwnerPIN.Authorization) -> PinSetupInteractor {
         return PinSetupInteractor(secretManager: KeychainManager.shared,
                                   settingsManager: SettingsManager.shared,
                                   biometryAuth: BiometryAuth(),
-                                  config: config as ApplicationConfigProtocol
+                                  config: config as ApplicationConfigProtocol,
+                                  authorization: authorization
         )
     }
     
-    static func createRedesignPinEditView() -> PinSetupViewProtocol? {
+    static func createRedesignPinEditView(authorization: WalletOwnerPIN.Authorization) -> PinSetupViewProtocol? {
         let pinSetupView = PincodeViewController()
 
         pinSetupView.mode = .create
@@ -58,7 +46,7 @@ final class PinViewFactory {
         )
 
         let config = ApplicationConfig.shared!
-        let interactor = extractedFunc(config)
+        let interactor = extractedFunc(config, authorization: authorization)
 
         pinSetupView.presenter = presenter
         presenter.view = pinSetupView
@@ -70,6 +58,30 @@ final class PinViewFactory {
         return pinSetupView
     }
     
+    /// A conflict repair during empty onboarding may already have completed
+    /// explicit new-PIN setup. Never ask to overwrite that PIN a second time.
+    static func createPostImportPinView() -> PinSetupViewProtocol? {
+        guard let account = SelectedWalletSettings.shared.currentAccount else {
+            return createRedesignPinSetupView()
+        }
+        do {
+            let needsSetup = try needsPostImportPINSetup(keystore: Keychain(),
+                settings: SettingsManager.shared, accounts: [account])
+            return needsSetup ? createRedesignPinSetupView() : createRedesignSecuredPinView()
+        } catch {
+            // A secured screen cannot approve access without resolving the
+            // underlying Keychain failure; retry keeps the wallet protected.
+            return createRedesignSecuredPinView()
+        }
+    }
+
+    static func needsPostImportPINSetup(keystore: KeystoreProtocol, settings: SettingsManagerProtocol,
+                                       accounts: [AccountItem]) throws -> Bool {
+        if accounts.isEmpty { return true }
+        if try !keystore.checkKey(for: KeystoreTag.pincode.rawValue) { return true }
+        return try WalletOwnerPIN(keystore: keystore, settings: settings).requiresInitialSetup(accounts: accounts)
+    }
+
     static func createRedesignPinSetupView() -> PinSetupViewProtocol? {
         let pinSetupView = PincodeViewController()
 
@@ -84,7 +96,8 @@ final class PinViewFactory {
         let interactor = PinSetupInteractor(secretManager: KeychainManager.shared,
                                             settingsManager: SettingsManager.shared,
                                             biometryAuth: BiometryAuth(),
-                                            config: config as ApplicationConfigProtocol
+                                            config: config as ApplicationConfigProtocol,
+                                            ownerPINKeystore: Keychain()
         )
 
         pinSetupView.presenter = presenter

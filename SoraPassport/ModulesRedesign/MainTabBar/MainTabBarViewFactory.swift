@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import UIKit
 import SoraKeystore
@@ -36,15 +23,32 @@ import SoraUIKit
 import IrohaCrypto
 import SSFUtils
 
+enum WalletOpeningError: String, Error {
+    case recoveryRequired = "recovery_required"
+    case servicesNotReady = "services_not_ready"
+    case connectionNotReady = "connection_not_ready"
+    case accountNotReady = "account_not_ready"
+    case assetsNotReady = "assets_not_ready"
+    case contextNotReady = "context_not_ready"
+    case screensNotReady = "screens_not_ready"
+}
+
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
     
     @MainActor
     static func createView() -> MainTabBarViewProtocol? {
-        
+        try? createViewOrThrow()
+    }
+
+    @MainActor
+    static func createViewOrThrow() throws -> MainTabBarViewProtocol {
+        guard !SettingsManager.shared.walletMigrationRecoveryRequired else {
+            throw WalletOpeningError.recoveryRequired
+        }
         guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared.findService() else {
             Logger.shared.error("Can't find required keystore import service")
-            return nil
+            throw WalletOpeningError.servicesNotReady
         }
         
         let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
@@ -56,16 +60,24 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return nil
+        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil else {
+            throw WalletOpeningError.connectionNotReady
         }
         
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         assetManager.setup(for: SelectedWalletSettings.shared)
 
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
-            return nil
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+            throw WalletOpeningError.accountNotReady
+        }
+        let accountSettings: WalletAccountSettingsProtocol
+        do {
+            accountSettings = try primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
+        } catch WalletPrimitiveFactoryError.undefinedAssets {
+            throw WalletOpeningError.assetsNotReady
+        } catch {
+            throw WalletOpeningError.accountNotReady
         }
         
         let farmingService = DemeterFarmingService(
@@ -78,7 +90,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                             assetManager: assetManager,
                                                                             accountSettings: accountSettings, 
                                                                             demeterFarmingService: farmingService) else {
-            return nil
+            throw WalletOpeningError.contextNotReady
         }
         
         let feeProvider = FeeProvider()
@@ -89,14 +101,19 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                               accountSettings: accountSettings, 
                                                               feeProvider: feeProvider,
                                                               farmingService: farmingService) else {
-            return nil
+            throw WalletOpeningError.screensNotReady
         }
         
         view.viewControllers = viewControllers
         
         let presenter = MainTabBarPresenter()
         
-        let wireframe = MainTabBarWireframe(walletContext: walletContext)
+        // The tabs above were built from this list, in this same pass on the
+        // main thread.
+        let wireframe = MainTabBarWireframe(
+            walletContext: walletContext,
+            isBuiltWithoutAssets: (assetManager.getAssetList() ?? []).isEmpty
+        )
         
         view.presenter = presenter
         presenter.view = view
@@ -142,26 +159,15 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
-        
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: FiatService.shared)
-        
-        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                                       fiatService: FiatService.shared,
-                                                       assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetManager: assetManager,
-                                                       assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-        
+
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
-        
+
         let poolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
                                               networkFacade: walletContext.networkOperationFactory,
                                               polkaswapNetworkFacade: polkaswapContext,
                                               config: ApplicationConfig.shared)
         farmingService.poolsService = poolsService
-        
+
         let poolViewModelsfactory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                            fiatService: FiatService.shared)
@@ -181,9 +187,8 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
-                                                                    accountSettings: accountSettings, 
+                                                                    accountSettings: accountSettings,
                                                                     farmingService: farmingService,
                                                                     feeProvider: feeProvider,
                                                                     localizationManager: localizationManager) else {
@@ -230,18 +235,7 @@ extension MainTabBarViewFactory {
         
         let assetInfos = assetManager.getAssetList() ?? []
         let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
-        
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
-                                            assetManager: assetManager,
-                                            fiatService: FiatService.shared)
-        
-        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                                       fiatService: FiatService.shared,
-                                                       assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetManager: assetManager,
-                                                       assetProvider: assetsProvider)
-        assetsProvider.add(observer: assetsViewModelService)
-        
+
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
             return nil
         }
@@ -270,10 +264,9 @@ extension MainTabBarViewFactory {
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
-                                                                    accountSettings: accountSettings, 
-                                                                    farmingService: farmingService, 
+                                                                    accountSettings: accountSettings,
+                                                                    farmingService: farmingService,
                                                                     feeProvider: feeProvider) else {
             return nil
         }
@@ -329,7 +322,6 @@ extension MainTabBarViewFactory {
                                                poolsService: PoolsServiceInputProtocol,
                                                assetsProvider: AssetProviderProtocol,
                                                poolsViewModelService: PoolsItemService,
-                                               assetsViewModelService: AssetsItemService,
                                                editViewService: EditViewServiceProtocol,
                                                accountSettings: WalletAccountSettingsProtocol,
                                                farmingService: DemeterFarmingServiceProtocol,
@@ -385,7 +377,6 @@ extension MainTabBarViewFactory {
                                                                     assetsProvider: assetsProvider,
                                                                     walletContext: walletContext,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
                                                                     marketCapService: marketCapService,
                                                                     editViewService: editViewService, 
                                                                     feeProvider: feeProvider)
@@ -609,6 +600,16 @@ extension MainTabBarViewFactory {
             viewModels: [assetsPageViewModel, poolsPageViewModel, farmsPageViewModel],
             searchViewModel: searchViewModel
         )
+        view.showPredictionMarkets = { [weak view] in
+            guard
+                ProductSurfacePolicy.showsPolkamarkt,
+                SettingsManager.shared.polkamarktEnabled
+            else { return }
+            let markets = PolkamarktViewController(walletContext: walletContext)
+            markets.localizationManager = LocalizationManager.shared
+            markets.hidesBottomBarWhenPushed = true
+            view?.navigationController?.pushViewController(markets, animated: true)
+        }
         view.wireframe = wireframe
         view.localizationManager = LocalizationManager.shared
         
@@ -693,7 +694,7 @@ private extension MainTabBarViewFactory {
     
     static func createNetworkStatusPresenter(localizationManager: LocalizationManagerProtocol = LocalizationManager.shared)
     -> NetworkAvailabilityLayerInteractorOutputProtocol? {
-        guard let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable else {
+        guard let window = UIApplication.shared.soraStatusPresentableWindow else {
             return nil
         }
         

@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraKeystore
@@ -45,7 +32,8 @@ final class CustomNodeInteractor {
     private let repository: AnyDataProviderRepository<ChainModel>
     private let nodeRepository: AnyDataProviderRepository<ChainNodeModel>
     private let substrateOperationFactory: SubstrateOperationFactoryProtocol
-    private var addCustomNodeOperationFactory: CustomNodeOperationFactoryProtocol?
+    private let genesisOperationFactory: (URL) -> BaseOperation<String>
+    private let signingRouteProbe: (URL) async -> Sora2NodeSigningRoute
 
     init(settings: SettingsManagerProtocol,
          eventCenter: EventCenterProtocol,
@@ -54,7 +42,15 @@ final class CustomNodeInteractor {
          nodeRepository: AnyDataProviderRepository<ChainNodeModel>,
          substrateOperationFactory: SubstrateOperationFactoryProtocol,
          chain: ChainModel,
-         mode: NodeAction) {
+         mode: NodeAction,
+         signingRouteProbe: @escaping (URL) async -> Sora2NodeSigningRoute = {
+             await Sora2NodeSigningRoute.probe(nodeURL: $0)
+         },
+         genesisOperationFactory: @escaping (URL) -> BaseOperation<String> = {
+             CustomNodeOperationFactory(url: $0).createGetGenesisBlockOperation()
+         }) {
+        self.genesisOperationFactory = genesisOperationFactory
+        self.signingRouteProbe = signingRouteProbe
         self.settings = settings
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -73,25 +69,80 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
         checkGenesisBlock(url: url, name: name)
         return
         #endif
-        updateConnection(url: url, name: name)
+        checkSigningRoute(url: url, name: name)
     }
 
     private func checkGenesisBlock(url: URL, name: String) {
-        let addCustomNodeOperationFactory = CustomNodeOperationFactory(url: url)
-
-        let operation = addCustomNodeOperationFactory.createGetGenesisBlockOperation()
+        let operation = genesisOperationFactory(url)
 
         operation.completionBlock = { [weak self] in
             guard let self = self else { return }
 
             let genesisBlock = try? operation.extractResultData()
 
-            guard self.settings.externalGenesis == genesisBlock else { return }
+            guard Self.isExpectedGenesis(
+                genesisBlock,
+                externalGenesis: self.settings.externalGenesis,
+                chainId: self.chain.chainId
+            ) else {
+                // No answer, or another network. Say so; the form stays
+                // open instead of waiting without end.
+                DispatchQueue.main.async {
+                    self.presenter?.didReceive(error: .invalidConnection)
+                }
+                return
+            }
 
-            self.updateConnection(url: url, name: name)
+            self.checkSigningRoute(url: url, name: name)
         }
 
         operationManager.enqueue(operations: [operation], in: .transient)
+    }
+
+    /// Whether a node's block zero is the network this app is on: the
+    /// genesis learned from the connected node at start, or, when none was
+    /// learned yet, the chain's own id. No answer is never a match (it used
+    /// to be one while no genesis had been learned).
+    static func isExpectedGenesis(
+        _ answer: String?,
+        externalGenesis: String?,
+        chainId: String
+    ) -> Bool {
+        guard let answer, !answer.isEmpty else {
+            return false
+        }
+        return answer.lowercased() == (externalGenesis ?? chainId).lowercased()
+    }
+
+    /// Fee estimates and sends on SORA mainnet go to the node as one-shot
+    /// HTTPS requests at the node's own address, while balances use its
+    /// WebSocket. A node that serves only the WebSocket would show balances
+    /// and fail every send, so such a node is not saved and the user is told
+    /// why.
+    private func checkSigningRoute(url: URL, name: String) {
+        guard SoraNodeConnectionPolicy.isMainnet(
+            chainId: chain.chainId,
+            addressPrefix: chain.addressPrefix
+        ) else {
+            updateConnection(url: url, name: name)
+            return
+        }
+        Task { [weak self, signingRouteProbe] in
+            let route = await signingRouteProbe(url)
+            guard let self else { return }
+            switch route {
+            case .available:
+                self.updateConnection(url: url, name: name)
+            case .anotherNetwork:
+                await MainActor.run {
+                    self.presenter?.didReceive(error: .invalidConnection)
+                }
+            case .missing:
+                await MainActor.run {
+                    self.presenter?.didReceive(error: .noSigningRoute)
+                }
+            }
+        }
     }
 
     private func updateConnection(url: URL, name: String) {
@@ -168,6 +219,10 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
             }
         }
 
+        // The duplicate lookup and network probe run independently. Saving
+        // must wait for both, otherwise a faster probe can make an unfinished
+        // lookup look cancelled (or race the uniqueness check).
+        saveOperation.addDependency(fetchNodeOperation)
         saveOperation.addDependency(fetchNetworkOperation)
 
         operationManager.enqueue(operations: [fetchNodeOperation, fetchNetworkOperation, saveOperation], in: .transient)

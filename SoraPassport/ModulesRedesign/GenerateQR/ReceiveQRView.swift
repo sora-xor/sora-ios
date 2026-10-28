@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import SoraUIKit
 import SSFUtils
@@ -49,6 +36,7 @@ final class ReceiveQRView: SoramitsuView {
         didSet {
             guard let viewModel = viewModel else { return }
             accountAddress.sora.text = viewModel.address
+            accountContainerView.accessibilityLabel = [viewModel.name, viewModel.address].filter { !$0.isEmpty }.joined(separator: ", ")
             accountImageView.image = try? generator.generateFromAddress(viewModel.address)
                 .imageWithFillColor(UIColor.white,
                                     size: CGSize(width: 40.0, height: 40.0),
@@ -63,14 +51,19 @@ final class ReceiveQRView: SoramitsuView {
 
     private let qrContainerView: SoramitsuView = {
         var view = SoramitsuView()
-        view.sora.backgroundColor = .bgSurface
+        view.sora.backgroundColor = .custom(uiColor: .white)
+        view.sora.material = .solid
         view.sora.cornerRadius = .max
         view.sora.shadow = .small
+        view.semanticContentAttribute = .forceLeftToRight
         return view
     }()
     
     private let qrImageView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
+        imageView.layer.magnificationFilter = .nearest
+        imageView.layer.minificationFilter = .nearest
+        imageView.isAccessibilityElement = false
         return imageView
     }()
     
@@ -79,6 +72,8 @@ final class ReceiveQRView: SoramitsuView {
         view.sora.backgroundColor = .bgSurface
         view.sora.cornerRadius = .max
         view.sora.shadow = .small
+        view.isAccessibilityElement = true
+        view.accessibilityTraits = .button
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel?.accountTapHandler?()
         }
@@ -116,8 +111,10 @@ final class ReceiveQRView: SoramitsuView {
     private let accountAddress: SoramitsuLabel = {
         var label = SoramitsuLabel()
         label.sora.textColor = .fgPrimary
-        label.sora.font = FontType.textS
-        label.sora.numberOfLines = 2
+        label.sora.font = FontType.mono
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
+        label.semanticContentAttribute = .forceLeftToRight
         label.isUserInteractionEnabled = false
         label.setContentCompressionResistancePriority(.required, for: .vertical)
         return label
@@ -195,7 +192,7 @@ final class ReceiveQRView: SoramitsuView {
             accountContainerView.topAnchor.constraint(equalTo: qrContainerView.bottomAnchor, constant: 16),
             accountContainerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             accountContainerView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            accountContainerView.heightAnchor.constraint(equalToConstant: 88),
+            accountContainerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 88),
             
             accountImageView.heightAnchor.constraint(equalToConstant: 40),
             accountImageView.widthAnchor.constraint(equalToConstant: 40),
@@ -204,18 +201,18 @@ final class ReceiveQRView: SoramitsuView {
             
             mainStackView.leadingAnchor.constraint(equalTo: accountImageView.trailingAnchor, constant: 8),
             mainStackView.trailingAnchor.constraint(equalTo: accountContainerView.trailingAnchor, constant: -16),
-            mainStackView.topAnchor.constraint(greaterThanOrEqualTo: accountContainerView.topAnchor, constant: 8),
+            mainStackView.topAnchor.constraint(equalTo: accountContainerView.topAnchor, constant: 16),
             mainStackView.centerYAnchor.constraint(equalTo: accountContainerView.centerYAnchor),
             
             shareButton.topAnchor.constraint(equalTo: accountContainerView.bottomAnchor, constant: 15),
             shareButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             shareButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            shareButton.heightAnchor.constraint(equalToConstant: 56),
+            shareButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
             
             scanQrButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 15),
             scanQrButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             scanQrButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            scanQrButton.heightAnchor.constraint(equalToConstant: 56),
+            scanQrButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 56),
             scanQrButton.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }

@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import RobinHood
@@ -37,6 +24,16 @@ protocol RuntimeSyncServiceProtocol {
     func register(chain: ChainModel, with connection: ChainConnection)
     func unregister(chainId: ChainModel.Id)
     func apply(version: RuntimeVersion, for chainId: ChainModel.Id)
+    /// Like `apply`, but re-downloads the metadata even when a copy for the
+    /// same spec version is stored (used when signing found that copy differs
+    /// from what the live node runs). The stored copy is replaced only after
+    /// the download passes admission. A replacement that is already running
+    /// or scheduled for this version is left alone, and its retries keep
+    /// replacing.
+    func applyReplacingCachedMetadata(
+        version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    )
 
     func hasChain(with chainId: ChainModel.Id) -> Bool
     func isChainSyncing(_ chainId: ChainModel.Id) -> Bool
@@ -74,10 +71,16 @@ final class RuntimeSyncService {
     let operationQueue: OperationQueue
     let dataHasher: StorageHasher
     let logger: LoggerProtocol?
+    let liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache
+    let metadataEngine: (JSONRPCEngine) -> JSONRPCEngine
 
     private(set) var knownChains: [ChainModel.Id: SyncInfo] = [:]
     private(set) var syncingChains: [ChainModel.Id: CompoundOperationWrapper<SyncResult>] = [:]
     private(set) var retryAttempts: [ChainModel.Id: RetryAttempt] = [:]
+    /// Runtime versions whose stored metadata must be downloaded again even
+    /// though a copy for that spec version exists. Every sync of that version
+    /// (first attempt, retries, `apply`) replaces until one succeeds.
+    private(set) var metadataReplacements: [ChainModel.Id: RuntimeVersion] = [:]
     private var mutex = NSLock()
     private var retryScheduler: Scheduler?
 
@@ -89,7 +92,11 @@ final class RuntimeSyncService {
         retryStrategy: ReconnectionStrategyProtocol = ExponentialReconnection(),
         maxConcurrentSyncRequests: Int = 8,
         dataHasher: StorageHasher = .twox256,
-        logger: LoggerProtocol? = nil
+        logger: LoggerProtocol? = nil,
+        liveRuntimeIdentityCache: Sora2LiveRuntimeIdentityCache = .shared,
+        metadataEngine: @escaping (JSONRPCEngine) -> JSONRPCEngine = {
+            Sora2BoundedHTTPJSONRPCEngine.wrapping($0)
+        }
     ) {
         self.repository = repository
         self.filesOperationFactory = filesOperationFactory
@@ -98,11 +105,24 @@ final class RuntimeSyncService {
         self.eventCenter = eventCenter
         self.dataHasher = dataHasher
         self.logger = logger
+        self.liveRuntimeIdentityCache = liveRuntimeIdentityCache
+        self.metadataEngine = metadataEngine
 
         let operationQueue = OperationQueue()
         operationQueue.maxConcurrentOperationCount = maxConcurrentSyncRequests
         operationQueue.qualityOfService = .userInitiated
         self.operationQueue = operationQueue
+    }
+
+    private static func isSameRuntime(
+        _ lhs: RuntimeVersion?,
+        _ rhs: RuntimeVersion?
+    ) -> Bool {
+        guard let lhs, let rhs else {
+            return false
+        }
+        return lhs.specVersion == rhs.specVersion &&
+            lhs.transactionVersion == rhs.transactionVersion
     }
 
     private func performSync(
@@ -113,16 +133,42 @@ final class RuntimeSyncService {
         guard let syncInfo = knownChains[chainId] else {
             return
         }
+        let replacingCachedMetadata = Self.isSameRuntime(
+            metadataReplacements[chainId],
+            newVersion
+        )
 
-        let chainTypesSyncWrapper = shouldSyncTypes ? syncInfo.typesURL.map {
-            createChainTypesSyncOperation(chainId, hasher: dataHasher, url: $0)
-        } : nil
+        let chainTypesSyncWrapper: CompoundOperationWrapper<String>?
+        if shouldSyncTypes {
+            let typesDataOperation: BaseOperation<Data>?
+            if ReviewedSoraRuntimeSnapshotAdmission
+                .isReviewedSoraChain(chainId) {
+                typesDataOperation = ClosureOperation {
+                    try ReviewedSoraRuntimeSnapshotAdmission
+                        .loadReviewedChainTypes()
+                }
+            } else {
+                typesDataOperation = syncInfo.typesURL.map {
+                    dataOperationFactory.fetchData(from: $0)
+                }
+            }
+            chainTypesSyncWrapper = typesDataOperation.map {
+                createChainTypesSyncOperation(
+                    chainId,
+                    hasher: dataHasher,
+                    typesDataOperation: $0
+                )
+            }
+        } else {
+            chainTypesSyncWrapper = nil
+        }
 
         let metadataSyncWrapper = newVersion.map {
             createMetadataSyncOperation(
                 for: chainId,
                 runtimeVersion: $0,
-                connection: syncInfo.connection
+                connection: syncInfo.connection,
+                replacingCachedMetadata: replacingCachedMetadata
             )
         }
 
@@ -182,6 +228,14 @@ final class RuntimeSyncService {
         }
 
         syncingChains[result.chainId] = nil
+
+        if case .success = result.metadataSyncResult,
+           Self.isSameRuntime(
+               metadataReplacements[result.chainId],
+               result.runtimeVersion
+           ) {
+            metadataReplacements[result.chainId] = nil
+        }
 
         addRetryRequestIfNeeded(for: result)
 
@@ -260,53 +314,99 @@ final class RuntimeSyncService {
     private func createChainTypesSyncOperation(
         _ chainId: ChainModel.Id,
         hasher: StorageHasher,
-        url: URL
+        typesDataOperation: BaseOperation<Data>
     ) -> CompoundOperationWrapper<String> {
-        let remoteFileOperation = dataOperationFactory.fetchData(from: url)
-
         let fileSaveWrapper = filesOperationFactory.saveChainTypesOperation(for: chainId) {
-            try remoteFileOperation.extractNoCancellableResultData()
+            let data = try typesDataOperation.extractNoCancellableResultData()
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: chainId,
+                data: data
+            )
+            return data
         }
 
-        fileSaveWrapper.addDependency(operations: [remoteFileOperation])
+        fileSaveWrapper.addDependency(operations: [typesDataOperation])
 
         let mapOperation = ClosureOperation<String> {
             _ = try fileSaveWrapper.targetOperation.extractNoCancellableResultData()
-            let data = try remoteFileOperation.extractNoCancellableResultData()
+            let data = try typesDataOperation.extractNoCancellableResultData()
+            try ReviewedSoraRuntimeSnapshotAdmission.validateChainTypes(
+                chainId: chainId,
+                data: data
+            )
 
             return try hasher.hash(data: data).toHex()
         }
 
         mapOperation.addDependency(fileSaveWrapper.targetOperation)
-        mapOperation.addDependency(remoteFileOperation)
+        mapOperation.addDependency(typesDataOperation)
 
         return CompoundOperationWrapper(
             targetOperation: mapOperation,
-            dependencies: [remoteFileOperation] + fileSaveWrapper.allOperations
+            dependencies: [typesDataOperation] + fileSaveWrapper.allOperations
         )
     }
 
     private func createMetadataSyncOperation(
         for chainId: ChainModel.Id,
         runtimeVersion: RuntimeVersion,
-        connection: JSONRPCEngine
+        connection: JSONRPCEngine,
+        replacingCachedMetadata: Bool = false
     ) -> CompoundOperationWrapper<Void> {
         let localMetadataOperation = repository.fetchOperation(
             by: chainId,
             options: RepositoryFetchOptions()
         )
 
+        let isReviewedSoraChain = ReviewedSoraRuntimeSnapshotAdmission
+            .isReviewedSoraChain(chainId)
+        let metadataConnection: JSONRPCEngine = isReviewedSoraChain
+            ? metadataEngine(connection)
+            : connection
+        let proofs = liveRuntimeIdentityCache
         let remoteMetadaOperation = JSONRPCOperation<[String], String>(
-            engine: connection,
+            engine: metadataConnection,
             method: RPCMethod.getRuntimeMetadata
         )
+        // The node the download is addressed to. A proof is recorded for
+        // it only when the connection still points at it afterwards.
+        let nodeBeforeDownload = NSLock()
+        var downloadNode: String?
 
         remoteMetadaOperation.configurationBlock = {
+            nodeBeforeDownload.lock()
+            downloadNode = Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                for: connection.url
+            )
+            nodeBeforeDownload.unlock()
+            guard !replacingCachedMetadata else {
+                // The stored copy is never deleted here; it is replaced only
+                // after the downloaded bytes pass admission below.
+                return
+            }
             do {
                 let currentItem = try localMetadataOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-                if let item = currentItem, item.version == runtimeVersion.specVersion {
-                    remoteMetadaOperation.result = .failure(RuntimeSyncServiceError.skipMetadataUnchanged)
+                if let item = currentItem,
+                   item.version == runtimeVersion.specVersion {
+                    if ReviewedSoraRuntimeSnapshotAdmission
+                        .isReviewedSoraChain(chainId) {
+                        do {
+                            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                                chainId: chainId,
+                                item: item
+                            )
+                        } catch {
+                            // A stale/corrupt same-version cache is never
+                            // admitted, but it is also not deleted in place.
+                            // Fetch the reviewed live bytes and replace it only
+                            // after their full identity check below succeeds.
+                            return
+                        }
+                    }
+                    remoteMetadaOperation.result = .failure(
+                        RuntimeSyncServiceError.skipMetadataUnchanged
+                    )
                 }
             } catch {
                 remoteMetadaOperation.result = .failure(error)
@@ -325,6 +425,10 @@ final class RuntimeSyncService {
                 metadata: rawMetadata,
                 resolver: nil
             )
+            try ReviewedSoraRuntimeSnapshotAdmission.validate(
+                chainId: chainId,
+                item: metadataItem
+            )
 
             return [metadataItem]
         }, { [] })
@@ -336,6 +440,27 @@ final class RuntimeSyncService {
                 _ = try saveMetadataOperation.extractNoCancellableResultData()
             } catch let error as RuntimeSyncServiceError where error == .skipMetadataUnchanged {
                 return
+            }
+            // Saved bytes came from the connected node and declare exactly
+            // this runtime version, so they are that node's live metadata.
+            // Signing on that node then needs only its runtime version.
+            nodeBeforeDownload.lock()
+            let node = downloadNode
+            nodeBeforeDownload.unlock()
+            if isReviewedSoraChain,
+               let node,
+               node == Sora2LiveRuntimeIdentityCache.nodeIdentity(
+                   for: connection.url
+               ),
+               let hexMetadata = try? remoteMetadaOperation
+                .extractNoCancellableResultData(),
+               let rawMetadata = try? Data(hexStringSSF: hexMetadata) {
+                proofs.recordAdmittedMetadata(
+                    rawMetadata,
+                    node: node,
+                    specVersion: runtimeVersion.specVersion,
+                    transactionVersion: runtimeVersion.transactionVersion
+                )
             }
         }
 
@@ -354,6 +479,19 @@ final class RuntimeSyncService {
         }
 
         retryAttempts[chainId] = nil
+    }
+
+    /// A sync that replaces the stored metadata for `version` is running, or
+    /// its retry is scheduled.
+    private func isReplacing(
+        _ version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    ) -> Bool {
+        guard Self.isSameRuntime(metadataReplacements[chainId], version) else {
+            return false
+        }
+        return syncingChains[chainId] != nil ||
+            Self.isSameRuntime(retryAttempts[chainId]?.runtimeVersion, version)
     }
 }
 
@@ -406,6 +544,7 @@ extension RuntimeSyncService: RuntimeSyncServiceProtocol {
 
         clearOperations(for: chainId)
         knownChains[chainId] = nil
+        metadataReplacements[chainId] = nil
     }
 
     func apply(version: RuntimeVersion, for chainId: ChainModel.Id) {
@@ -414,6 +553,38 @@ extension RuntimeSyncService: RuntimeSyncServiceProtocol {
         defer {
             mutex.unlock()
         }
+
+        if !Self.isSameRuntime(metadataReplacements[chainId], version) {
+            // A replacement requested for an earlier runtime is obsolete.
+            metadataReplacements[chainId] = nil
+        }
+
+        clearOperations(for: chainId)
+
+        performSync(for: chainId, shouldSyncTypes: true, newVersion: version)
+    }
+
+    func applyReplacingCachedMetadata(
+        version: RuntimeVersion,
+        for chainId: ChainModel.Id
+    ) {
+        mutex.lock()
+
+        defer {
+            mutex.unlock()
+        }
+
+        guard knownChains[chainId] != nil else {
+            return
+        }
+
+        // Signing asks again on every failed attempt. Restarting would cancel
+        // the download in progress and reset the retry backoff.
+        guard !isReplacing(version, for: chainId) else {
+            return
+        }
+
+        metadataReplacements[chainId] = version
 
         clearOperations(for: chainId)
 

@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import Combine
@@ -38,6 +25,7 @@ final class ExploreAssetViewModelService {
     var fiatService: FiatServiceProtocol?
     let itemFactory: ExploreItemFactory
     private let assetInfos: [AssetInfo]
+    private let priceInfoService: PriceInfoServiceProtocol
     
     @Published var viewModels: [ExploreAssetViewModel] = {
         let serialNumbers = Array(1...20)
@@ -60,28 +48,35 @@ final class ExploreAssetViewModelService {
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
         itemFactory: ExploreItemFactory,
-        assetInfos: [AssetInfo]
+        assetInfos: [AssetInfo],
+        priceInfoService: PriceInfoServiceProtocol = PriceInfoService.shared
     ) {
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.itemFactory = itemFactory
         self.assetInfos = assetInfos
+        self.priceInfoService = priceInfoService
     }
     
     func setup() async -> [ExploreAssetViewModel] {
         
         let assetIds = assetInfos.map { $0.assetId }
-        let result = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+        let result = await priceInfoService.getPriceInfo(for: assetIds)
 
+        // An asset without a price has no known market cap. It sorts last
+        // and shows neither a price nor a market cap, never "$0".
+        let prices = Self.prices(from: result.fiatData)
         let assetMarketCap = result.marketCapInfo.compactMap { asset in
-            let price = result.fiatData.first { asset.assetId == $0.id }?.priceUsd?.decimalValue ?? 0
-            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * price, oldPrice: asset.hourDelta)
+            let price = prices[asset.assetId]
+            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * (price ?? 0), oldPrice: asset.hourDelta)
         }.sorted { $0.marketCap > $1.marketCap }
         
         var fullListAssets = assetMarketCap.compactMap { marketCap in
-            let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
+            let price = prices[marketCap.tokenId]
             
-            let marketCapText = LoadingState.loaded("$" + marketCap.marketCap.formatNumber())
+            let marketCapText: LoadingState<String> = price == nil
+                ? .error
+                : .loaded("$" + marketCap.marketCap.formatNumber())
             
             let deltaArributedText = LoadingState.loaded(marketCap.oldPrice.priceDeltaAttributedText())
             
@@ -103,10 +98,22 @@ final class ExploreAssetViewModelService {
         }
     }
     
+    static func prices(from fiatData: [PIExactFiatData]) -> [String: Decimal] {
+        var prices: [String: Decimal] = [:]
+        for item in fiatData {
+            if let price = item.priceUsd?.decimalValue {
+                prices[item.id] = price
+            }
+        }
+        return prices
+    }
+
     private func assetViewModels(from assetInfos: [AssetInfo], result: PriceInfo) -> [ExploreAssetViewModel] {
 
+        let prices = Self.prices(from: result.fiatData)
         var fullListAssets = assetInfos.sorted { $0.name.lowercased() < $1.name.lowercased() }.compactMap { assetInfo in
-            let price = result.fiatData.first(where: { $0.id == assetInfo.assetId })?.priceUsd?.decimalValue ?? 0
+            // `nil` without a price: the row then shows no price at all.
+            let price = prices[assetInfo.assetId]
 
             return self.itemFactory.createExploreAssetViewModel(
                 with: assetInfo.assetId,

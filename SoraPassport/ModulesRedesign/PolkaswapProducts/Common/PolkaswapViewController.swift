@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import UIKit
@@ -157,6 +144,8 @@ final class PolkaswapViewController: SoramitsuViewController {
         button.sora.title = R.string.localizable.review(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .additionalPolkaswap
+        // The one screen-level CTA here: static glow, no pulse (spec §4.5).
+        button.sora.glows = true
         button.sora.isEnabled = false
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel.reviewButtonTapped()
@@ -188,11 +177,8 @@ final class PolkaswapViewController: SoramitsuViewController {
         setupConstraints()
         addObservers()
         
-        if let imageName = viewModel.imageName {
-            let logo = UIImage(named: imageName)
-            let imageView = UIImageView(image: logo)
-            navigationItem.titleView = imageView
-        }
+        updateNavigationLogo()
+        SoramitsuUI.updates.addObserver(self)
         
         if let title = viewModel.title {
             navigationItem.title = title
@@ -209,6 +195,19 @@ final class PolkaswapViewController: SoramitsuViewController {
         }
 
         viewModel.viewDidLoad()
+    }
+
+    private func updateNavigationLogo() {
+        guard let imageName = viewModel.imageName else { return }
+        // The app appearance can differ from the system's trait collection.
+        // Resolve the brand asset against the chosen app theme explicitly.
+        let traits = UITraitCollection(userInterfaceStyle: SoramitsuUI.shared.theme == .dark ? .dark : .light)
+        let logo = UIImage(named: imageName, in: nil, compatibleWith: traits)
+        if let imageView = navigationItem.titleView as? UIImageView {
+            imageView.image = logo
+        } else {
+            navigationItem.titleView = UIImageView(image: logo)
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -291,6 +290,12 @@ final class PolkaswapViewController: SoramitsuViewController {
         if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
             containerView.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
         }
+    }
+}
+
+extension PolkaswapViewController: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        updateNavigationLogo()
     }
 }
 

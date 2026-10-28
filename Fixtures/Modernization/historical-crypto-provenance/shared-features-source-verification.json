@@ -1,0 +1,1612 @@
+{
+  "commit": "ada44b24433a44a68c65fafc6414575454db3786",
+  "upstreamTreeURL": "https://api.github.com/repos/soramitsu/shared-features-spm/git/trees/ada44b24433a44a68c65fafc6414575454db3786?recursive=1",
+  "matches": [
+    {
+      "path": "Binaries/blake2lib.xcframework/Info.plist",
+      "gitBlob": "3b6cc2c369f4c3ff0faaa1567e8930d61c8abff5",
+      "sha256": "17ad82a593ca8ba2d37998c5d056cc4e14dd700551cff9d88784fab7a1ba2618"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/_CodeSignature/CodeDirectory",
+      "gitBlob": "df2d244328c348ec1084d82d8d38bcc89e694c0c",
+      "sha256": "86d21a61bb9aada9396ce2ce7bca46b114f0aca89dcdb11f8972a12c467c8a8b"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/_CodeSignature/CodeRequirements",
+      "gitBlob": "b81af793f8daeda3fe1e19b0a10ba10afcf85868",
+      "sha256": "740a08157df74558127347006209389d3cda770279f1264421d7edc4aba3eeb2"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "a441779d5ae4ac1c976b1f7d888b54e94d60851d",
+      "sha256": "f6fe7fa069db2a2ab56d8d936c1d861747717e5f02f5d002af145047e29b83b3"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/_CodeSignature/CodeResources",
+      "gitBlob": "06c5ab1be58f88dc80443ce6ea2bcf5408f709b6",
+      "sha256": "4e026ead8fd5df17d069b86e7e9beeceb784134a1afaf9f0914c52cb1b927713"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/_CodeSignature/CodeSignature",
+      "gitBlob": "00dd5715e9f6f8e6dd02fdbc5d505df81458c3f6",
+      "sha256": "aa30731184297abd64d81dd0f7441b597666fb196b93c391ee1a40adbf435a0a"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/Headers/blake2b.h",
+      "gitBlob": "44cdc308dd3906fb046ed9ae14d91cbd480313d2",
+      "sha256": "4ab7cacd2264cd9f25bfdab2846852d79b6b380811f0f2841fbfa3490e66dd78"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/Headers/blake2lib.h",
+      "gitBlob": "a5e51f42edac2f659392ab40644d577cff5d07a8",
+      "sha256": "436509649f413aeb4a1b4c9210f5f88877143bb11b122d0daa77d84307f562cc"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/Headers/blake2s.h",
+      "gitBlob": "612531e7ee84776a9e79673730bb8450ea3a7160",
+      "sha256": "d678ecb0247645fa753b42cf4b1f82f63f2e2c1d14f2fc544e5c6822cfb85af2"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/Info.plist",
+      "gitBlob": "8d40f61ccd18b744b682f6e5c3676cfdb6f5cd66",
+      "sha256": "6642cdb45aaa09fdd9319c3db6faf3c1d9e2d7c227b45ededc9ead1d5aa2ecab"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/Modules/module.modulemap",
+      "gitBlob": "ffc02c51f8ae252a1b47f030b50f013d09b93a91",
+      "sha256": "cf05bed96c930dd075757f57449198a8f674ab5ca61f8f1916f27613d2d28429"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/_CodeSignature/CodeDirectory",
+      "gitBlob": "eb798023bdeb65a166a0ded7c46164814175788f",
+      "sha256": "d94ac15b32859e5e6b8e3cc9e1738bed23db3540a1cec19e1736295db4e67fec"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/_CodeSignature/CodeRequirements",
+      "gitBlob": "a2559dd7eb6743cb5e54aaed4c1780497c46f096",
+      "sha256": "e3daf1be6726a75c682fc0fae39b3f5ebd743817de4dd6ffae656d8844791e62"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "b73a5b1f707184d167938166219521a71b6bce34",
+      "sha256": "9fb1d44660b9d98cc44c8a9160ff705a3bbf04793e90c721ffc8c1eba31bf1d7"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/_CodeSignature/CodeResources",
+      "gitBlob": "831d4bdc967529f4cc4d3d1aad18feb8315cfc1b",
+      "sha256": "49bf442cc49b0e295d729e34febc2fdbe3f055fd6199d6763b55601d1786ec1e"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/_CodeSignature/CodeSignature",
+      "gitBlob": "d49a64002a5589ce742b2cbcf43d51403e1b33e4",
+      "sha256": "cc2f5436d6b4bb88b11a11a99d754fcaaa3f4e54a5d9aeac35da96776afc3bd5"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/blake2lib",
+      "gitBlob": "94b85a9e72ce7f9769f34994702509df09fd0a5f",
+      "sha256": "a9756c529c8e36dc252ddbc62c7be5d2abe269987b9105899711545111c98b09"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64/blake2lib.framework/blake2lib-arm64.a",
+      "gitBlob": "df7707ecdbd6e4cb919bd7a67b880b41322be3d7",
+      "sha256": "629dc39b8cc0dcfd07804a3efbf55a122d8d82fe617f6bdbae3513aad78e5170"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/Headers/blake2b.h",
+      "gitBlob": "44cdc308dd3906fb046ed9ae14d91cbd480313d2",
+      "sha256": "4ab7cacd2264cd9f25bfdab2846852d79b6b380811f0f2841fbfa3490e66dd78"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/Headers/blake2lib.h",
+      "gitBlob": "a5e51f42edac2f659392ab40644d577cff5d07a8",
+      "sha256": "436509649f413aeb4a1b4c9210f5f88877143bb11b122d0daa77d84307f562cc"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/Headers/blake2s.h",
+      "gitBlob": "612531e7ee84776a9e79673730bb8450ea3a7160",
+      "sha256": "d678ecb0247645fa753b42cf4b1f82f63f2e2c1d14f2fc544e5c6822cfb85af2"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/Info.plist",
+      "gitBlob": "6a779d30ef95d4d27cf7e4e4cd481a0e28448bea",
+      "sha256": "1c9f60b06202b1a168046a392b9767d2566e7b42589aae992117b0a7ddb3396a"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/Modules/module.modulemap",
+      "gitBlob": "ffc02c51f8ae252a1b47f030b50f013d09b93a91",
+      "sha256": "cf05bed96c930dd075757f57449198a8f674ab5ca61f8f1916f27613d2d28429"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/_CodeSignature/CodeDirectory",
+      "gitBlob": "52176748e7f6940060036232c772cf772734d2a1",
+      "sha256": "8fa1015f340c6c84d988b51ce30c97ac1ff51e730c79929edc29492b6bd06c40"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/_CodeSignature/CodeRequirements",
+      "gitBlob": "dbf9d6144e62fc7bac2b65759cb4ce6906bc722f",
+      "sha256": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "e2ce3bfe891794f554b97e6a7516a50fa8390bf2",
+      "sha256": "6b4ae12d9500cb6aa00075833196d54f0d54bfacc7cf7f8e1babd426509bf461"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/_CodeSignature/CodeResources",
+      "gitBlob": "5049c80dc0aa70da5f3a4a0919433cd3a64e6d54",
+      "sha256": "1fe257accded8c59a6d4f0a0b4de646b65128c2b02eb46d1dcb00269565a3cbe"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/_CodeSignature/CodeSignature",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/blake2lib",
+      "gitBlob": "d3310e4c3cdc6be94277b14bef3886783c4a8e4a",
+      "sha256": "e5f22e938983271f86eb79dd6deebf8d2b7cdf134abd1ac16badf28392461d85"
+    },
+    {
+      "path": "Binaries/blake2lib.xcframework/ios-arm64_x86_64-simulator/blake2lib.framework/blake2lib-arm64.a",
+      "gitBlob": "df7707ecdbd6e4cb919bd7a67b880b41322be3d7",
+      "sha256": "629dc39b8cc0dcfd07804a3efbf55a122d8d82fe617f6bdbae3513aad78e5170"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/Info.plist",
+      "gitBlob": "25d29d8aa3c2922867f16603d8783628cd038623",
+      "sha256": "af9b20dd36e89ad7a9bec634d94c92a789b1a2cf45433f232fb2765db1150adf"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/_CodeSignature/CodeDirectory",
+      "gitBlob": "00e3e43fbb02bce68a873b2f23c2035bb2df113c",
+      "sha256": "e280117134844d5145d30af36f4fb8deecfaaaf1d4d20760ead9c513cfa482bc"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/_CodeSignature/CodeRequirements",
+      "gitBlob": "0865e1aaa885ef4af4c14015d1cb2078402e813b",
+      "sha256": "a2ddd72c4da4d836e2d645703c34c79c228c1f8d1201834c4c66692b65f35f07"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "7f5e7329f84b01b37dbc6ee3f47d048376a666e4",
+      "sha256": "00eacdb6e84e1213db0013bdc4f39497da2355c6ec46cb7ecec3fe977f61d45a"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/_CodeSignature/CodeResources",
+      "gitBlob": "3e84a74a5c2d5376ce05f56cc8fdb3320a56e827",
+      "sha256": "bb02e55b7cd1766ce8996e25764f3b8e9135311db29b588ac4fde3c928edba04"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/_CodeSignature/CodeSignature",
+      "gitBlob": "4c16d7ea05a1fa91f1d293d26f2976ba71b386b4",
+      "sha256": "0c7b282fcf61073b01d32aaad1fe9d334eded5a5ad8c2e62cbdc51741763aacf"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/Headers/ed25519.h",
+      "gitBlob": "65aa99e4d782ad56828aca3db0f383654495ceb4",
+      "sha256": "c628d1631359146c06a1b481ad2dcc72849bc91223f860f4d7434adc0bdf3099"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/Headers/ed25519_export.h",
+      "gitBlob": "18a93124d7916820811a2f30023a6fe379586a77",
+      "sha256": "3d08f63d010124794351f97f3b63d2f8517e0adfb23b4f3deded9f5201481a0e"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/Headers/ed25519_sha2.h",
+      "gitBlob": "dabc61ef81673d49f53e08457cf32b83e05017f2",
+      "sha256": "5f7b900b98470ba4abb651fc9bce482a5983a14d28a509e9bc041e4d507fdb4d"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/Headers/libed25519.h",
+      "gitBlob": "3aa1f9ed138d16841ba1e3fa5cd89c9f0fa5ed5d",
+      "sha256": "d5099206d0484759cfa73d78cfbcc827d38469d0baa5ad523662d0a6f0942b87"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/Info.plist",
+      "gitBlob": "6563d6e5169ad8c68f77a3a14f475837c3aab0b1",
+      "sha256": "6defe9656e6dcdd3e7bc4ecf1875c0d2536c4d3820c88358c48be22763d624ce"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/Modules/module.modulemap",
+      "gitBlob": "72a820bc7725d7c10783b276a34b2c8765ae3159",
+      "sha256": "62d25fe276ce37e7201d6bb2ad64d48a6c7ee2412844c974c1fca72cbd614a47"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/_CodeSignature/CodeDirectory",
+      "gitBlob": "1b96b82641ec9eae34ff74f39bcf06ca7fef3b23",
+      "sha256": "1c8c345ff7dcae7f66f824b9aaf94aecff15a9aa779a13511a20de091778ba8f"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/_CodeSignature/CodeRequirements",
+      "gitBlob": "ab52bb9c0fb1a5acedb93bd33599881d2b9b59bf",
+      "sha256": "bf274d28375a7764909e33e78a3ab3f57789db94bd56d530938881920d26aa19"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "d59574ee52e7320cfc6f52e398fc8f0573676541",
+      "sha256": "aaa885b56532fe7a5896f77efd36f1bf7935b1af6a4c5069fe0fad77a6e19d33"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/_CodeSignature/CodeResources",
+      "gitBlob": "c1e5e496f005afd12d1036d817a04bf9e1e47fef",
+      "sha256": "f1c7db74226879212667454ff99f1a5614dc98147d8c94ccac642526ddaa37e1"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/_CodeSignature/CodeSignature",
+      "gitBlob": "fc0f5fb98a7c8f28ccbde70fbf72c52537c3f308",
+      "sha256": "93d8cb6b9e55cc19d7852a3e877649cfcff2e0924a531103265d18d7be247c22"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/libed25519",
+      "gitBlob": "bc9d22f5c0237481f10e453193d5c4b0925a3440",
+      "sha256": "8977bb6e6c6ba5b6b50f8791ad32e591ca0318d2e55dcd0cb70d43fd272d6220"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/libed25519.a",
+      "gitBlob": "788585477e3c19a9f5eacce4f4322ff8cc9ff316",
+      "sha256": "aa0bc29635ab659388c4a516781c8bb85daee19b31ad15661f7c427fdf6d663c"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64/libed25519.framework/libed25519_sha2.a",
+      "gitBlob": "075c0e44869cce127c5a3d39cd00f4f3c0ff0dfc",
+      "sha256": "3a568f77be9806f448d387483fa19bebb00a02a624e9c39c7fa6deb53116f623"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/Headers/ed25519.h",
+      "gitBlob": "65aa99e4d782ad56828aca3db0f383654495ceb4",
+      "sha256": "c628d1631359146c06a1b481ad2dcc72849bc91223f860f4d7434adc0bdf3099"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/Headers/ed25519_export.h",
+      "gitBlob": "18a93124d7916820811a2f30023a6fe379586a77",
+      "sha256": "3d08f63d010124794351f97f3b63d2f8517e0adfb23b4f3deded9f5201481a0e"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/Headers/ed25519_sha2.h",
+      "gitBlob": "dabc61ef81673d49f53e08457cf32b83e05017f2",
+      "sha256": "5f7b900b98470ba4abb651fc9bce482a5983a14d28a509e9bc041e4d507fdb4d"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/Headers/libed25519.h",
+      "gitBlob": "3aa1f9ed138d16841ba1e3fa5cd89c9f0fa5ed5d",
+      "sha256": "d5099206d0484759cfa73d78cfbcc827d38469d0baa5ad523662d0a6f0942b87"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/Info.plist",
+      "gitBlob": "bb556e5552db343f8fe6505e57a71f535ddc4b4e",
+      "sha256": "9b239a05df492e19923fc015ee7a4da09f99c3ab1f0f71e39c6700a51f85e787"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/Modules/module.modulemap",
+      "gitBlob": "72a820bc7725d7c10783b276a34b2c8765ae3159",
+      "sha256": "62d25fe276ce37e7201d6bb2ad64d48a6c7ee2412844c974c1fca72cbd614a47"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/_CodeSignature/CodeDirectory",
+      "gitBlob": "9e19546fe64a6daecf6f5611c311fc073e4cf9b1",
+      "sha256": "cb7e5d54fa750e60843724aa432d02cc34108ab3b5e62659d7063494de1384db"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/_CodeSignature/CodeRequirements",
+      "gitBlob": "dbf9d6144e62fc7bac2b65759cb4ce6906bc722f",
+      "sha256": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "241b3829aa2d21a4a3e3ee68cc9139a1a0f45922",
+      "sha256": "a75b014aff24d0aa967198d9aa40268fe99445895f6e762d488608b9649cf2a3"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/_CodeSignature/CodeResources",
+      "gitBlob": "ceaaec556088a92ced9177ed3fdaa7fbc4ebd709",
+      "sha256": "de7352d6c5e8df77f41ee2144c0e85727001c13f541e8a4a3b3fcc4b0f87085d"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/_CodeSignature/CodeSignature",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/libed25519",
+      "gitBlob": "04c8cc7eed0bf0b650f1ba5b9c504ba41aa762d6",
+      "sha256": "97142c54f34a4e3e3df81f117f20cd96c60428c5be057e33d22de83c72de50f9"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/libed25519.a",
+      "gitBlob": "788585477e3c19a9f5eacce4f4322ff8cc9ff316",
+      "sha256": "aa0bc29635ab659388c4a516781c8bb85daee19b31ad15661f7c427fdf6d663c"
+    },
+    {
+      "path": "Binaries/libed25519.xcframework/ios-arm64_x86_64-simulator/libed25519.framework/libed25519_sha2.a",
+      "gitBlob": "075c0e44869cce127c5a3d39cd00f4f3c0ff0dfc",
+      "sha256": "3a568f77be9806f448d387483fa19bebb00a02a624e9c39c7fa6deb53116f623"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/Info.plist",
+      "gitBlob": "e19c97ff685ee6ef6af4b03d21354a899e0e286c",
+      "sha256": "7bde5a6b77726b6139fb3b7f925d7c2c2e9d4574dc89eaf1e048cb7ae6b3741f"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/_CodeSignature/CodeDirectory",
+      "gitBlob": "ed17e4ed233bea16b6d4d9f5c30db1f7c0d8f7f9",
+      "sha256": "d8bfe095621bfcd9fb6b5e7ca475c2a01ada737ef2fc74805718728d28e027a5"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/_CodeSignature/CodeRequirements",
+      "gitBlob": "58ec4452f535865fa6e75f1dcdfdea46356aae59",
+      "sha256": "cd9e21484c12ed07bb17fa7bbf2053ccf6b9731b35949c230122ef6353d543bd"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "7cad8b32a4e5518372059d073cf4ea68feab0e1a",
+      "sha256": "b711714329b2c72644adadbff74f589a17e1400937816e09dfa5b053cc04c27b"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/_CodeSignature/CodeResources",
+      "gitBlob": "b700070e3f7c1e7a73603d5ee55084e6d8ff724b",
+      "sha256": "4c30893fbb32baacb22d0113075517fa598cbb15363a82b5181ab1f60cfc6c36"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/_CodeSignature/CodeSignature",
+      "gitBlob": "c6f1e7435e6f69da91e3e63eaaf177fe2106b1a2",
+      "sha256": "1fc06dfe89f2c1d4f4707438d415b9d599190df4ffd8fe89431c95e7dee39f91"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/Headers/sr25519.h",
+      "gitBlob": "5f98e8d9162bfb545b431c889faa22b110db10e6",
+      "sha256": "ec6f0eea85507a9e62488bf2d324c13faaeee969bb333adee565aaa90efa6983"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/Headers/sr25519lib.h",
+      "gitBlob": "fe58d8874d0c7480ec751b1b596cf88025f51dc1",
+      "sha256": "717032dbfa2af5dbbb05cc7bfd6cc5aae82062babc029d32b8f04d782f4a1ffc"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/Info.plist",
+      "gitBlob": "91e46e62fbcf8393269c58b3462f40a492b6361e",
+      "sha256": "6209407cac3d15817b3f968ce98b1145353282680265da3a80680d85d653e0a5"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/Modules/module.modulemap",
+      "gitBlob": "bc4562153dccf555b90dfc7de51f54df19564128",
+      "sha256": "1dec5ba0eed89d97f7ce8d7321ced39eff1749c4f88c442cd304989a87e20d21"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/_CodeSignature/CodeDirectory",
+      "gitBlob": "afd2ad5a60089bef2ca7db8531b25fba9cd246f5",
+      "sha256": "ee1e8c28d3477f99e976817e74c71208cd1281014c040d504b6d4f9add61a43f"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/_CodeSignature/CodeRequirements",
+      "gitBlob": "ea0bea8e5416c9fea8861213a94f4b5b699b0db5",
+      "sha256": "f53e1b5131925756745e1491cfdcb3248a3897f9b3312711cf7adf8daa40d00a"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "5322d24aaec5c65ec06b66508082621bc5aa9b64",
+      "sha256": "c000b9feb1f9a040fff1f95b3c24b5579ffc6e38a7acb1eb5ed0fb6a328adbbd"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/_CodeSignature/CodeResources",
+      "gitBlob": "bb58e7c9aca39e2e38b75535679bdf4cf67c8043",
+      "sha256": "b89f8ab2ccdf761651ac8f7b2545588851ffde2b91cd9c4530390634b5659ff6"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/_CodeSignature/CodeSignature",
+      "gitBlob": "a71f488d7f205f30b539fbc6172170b4d0dcc604",
+      "sha256": "584cd9aa57853d3b678046070f542c538d0f52a128e11382e8cac7d6fd2276fb"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/libsr25519crust.a",
+      "gitBlob": "ebf6d7163977d10837b49dc0ea3e6e54b8cb138b",
+      "sha256": "952d6d62390323713a25608816f6c1d0b78de8342e9420196bb46d8799669582"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64/sr25519lib.framework/sr25519lib",
+      "gitBlob": "b373b5bacd3de51e3ba11961441ac8ca102ccbd9",
+      "sha256": "5a8a6a2cf08ffa66f071d4cefab159d51de8a49842bcd44f479b765f901c8886"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/Headers/sr25519.h",
+      "gitBlob": "5f98e8d9162bfb545b431c889faa22b110db10e6",
+      "sha256": "ec6f0eea85507a9e62488bf2d324c13faaeee969bb333adee565aaa90efa6983"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/Headers/sr25519lib.h",
+      "gitBlob": "fe58d8874d0c7480ec751b1b596cf88025f51dc1",
+      "sha256": "717032dbfa2af5dbbb05cc7bfd6cc5aae82062babc029d32b8f04d782f4a1ffc"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/Info.plist",
+      "gitBlob": "539a38d39fbe413814aca0116fc017240877b1ba",
+      "sha256": "dba0eec99ef249475e14cfe54abd3bb7f28f1677d68d810f77c74d08301bf39c"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/Modules/module.modulemap",
+      "gitBlob": "bc4562153dccf555b90dfc7de51f54df19564128",
+      "sha256": "1dec5ba0eed89d97f7ce8d7321ced39eff1749c4f88c442cd304989a87e20d21"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/_CodeSignature/CodeDirectory",
+      "gitBlob": "1f02d5503c7e05b9eb324869227901405ddcd383",
+      "sha256": "0fb1e609b06d02c75dcb48184645374877ad69c5c89296fb1008e3f23fbaa62d"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/_CodeSignature/CodeRequirements",
+      "gitBlob": "dbf9d6144e62fc7bac2b65759cb4ce6906bc722f",
+      "sha256": "987920904eab650e75788c054aa0b0524e6a80bfc71aa32df8d237a61743f986"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/_CodeSignature/CodeRequirements-1",
+      "gitBlob": "fb11249b0016d40986166d3dd61224b781b621df",
+      "sha256": "c087cd44f6d0a68820c87312c76920b0f05402f21657ac31c41a632812b38cc2"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/_CodeSignature/CodeResources",
+      "gitBlob": "33f9a9d8272dde974705b7c2fbbb7cb2b9df8f0b",
+      "sha256": "ebef85e6a18d89c773b168622e73c41b87dce7d8846e2a405ae38e28eb891f0f"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/_CodeSignature/CodeSignature",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/libsr25519crust.a",
+      "gitBlob": "ebf6d7163977d10837b49dc0ea3e6e54b8cb138b",
+      "sha256": "952d6d62390323713a25608816f6c1d0b78de8342e9420196bb46d8799669582"
+    },
+    {
+      "path": "Binaries/sr25519lib.xcframework/ios-arm64_x86_64-simulator/sr25519lib.framework/sr25519lib",
+      "gitBlob": "3a59eaf0159d8687799ac726c6e850f82d4cfa8f",
+      "sha256": "463048b6fd787ba0578c4d22de08d41f1ace34a4b638d564f11f38848bf3d3a3"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/BIP39/IRBIP39KeyDeriviation.m",
+      "gitBlob": "ef5a18a732bb50fc5bae3b4ca2ca7eb8db86ab4e",
+      "sha256": "087ff4694c77874320a9764fab696b315d75525c9bb8b12565587a9a58b32588"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/BIP39/IRBIP39SeedCreator.m",
+      "gitBlob": "30b4dab447f98cdeeb44e2b05b070d38fab3ab61",
+      "sha256": "7ba8005deaac4499b1941bba894652b2ee2f68bfcdba7e2236d27cd609a19c1a"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/BIP39/IRSeedCreator+BIP39.m",
+      "gitBlob": "d7876ed28ee98292505a64d73ff1d2ae012bd603",
+      "sha256": "18612abab80b4348c774eb6f90dd2b015c1cf18d3ade6b49245ec70fd4a3bad5"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/BIP39/SNBIP39SeedCreator.m",
+      "gitBlob": "719357382dda2aaf72284e9693c25222cba3eeeb",
+      "sha256": "7f5eb2d4d72206053ee644338a24c0cea861351ae709c7e0c0fca072d304314c"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Common/IRCryptoKeypair.m",
+      "gitBlob": "447099aaec811f7a6eb4254f8a5388a734a0c65f",
+      "sha256": "8f063617b122b6ee13c2e02d2358329d3adc66b38510a98edb08b523c7b9eb8c"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Common/IRMnemonicCreator.m",
+      "gitBlob": "dedf8fca8d20964c2f472435af3d9b12f52b6a56",
+      "sha256": "0f977e1e361545f52fe5c72df42c9edf83bea177acb18d548def22b05f0452b9"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Common/IRSeedCreator.m",
+      "gitBlob": "a4996d0cfd420899626bdf93dac7d2ab67f4b9f0",
+      "sha256": "5a15c811016aea9e8ed83f171c0488442efd1339ee78b615e820f34bd4414009"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Common/NSData+Base58.m",
+      "gitBlob": "8eafd5d5f320b1bdc36a608e660c5bc1b031982d",
+      "sha256": "fb287a6e8e22a39c1dc15f90fa795be957f3692a5190b475f6883a3c62d58699"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Common/NSData+Hex.m",
+      "gitBlob": "65a7a0c061e3f1e729b631126e5c856b2e9ec1f8",
+      "sha256": "13c81bc015b3c34a889d5ed3147d27f6f2404d93774bf3e17991e60e70b3d22d"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaKeyFactory.m",
+      "gitBlob": "a68fc6e21db5969cbfc67ec963d6c1dc29e582a6",
+      "sha256": "a9da4a787ebcbe6ccbe26649459fec163c3d77971648a68508a1a546844c0c90"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaPrivateKey.m",
+      "gitBlob": "c7346528433c02ed987bfd19e4299af2d36e4bf7",
+      "sha256": "d24d70d6becee6a4eb37e96c39f17a153e68cc81030e44d3e9f22cc7f520ef60"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaPublicKey.h",
+      "gitBlob": "27b6a38d7f7f01c9c142904e29d57951406e9cbb",
+      "sha256": "4a20c23a2ffa7965e87779f782e1b74d840f1a7acc99333e8580f10058cfd116"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaPublicKey.m",
+      "gitBlob": "b2d5c50b97580d018f3cda1df30b2f10079d3965",
+      "sha256": "84ec3496ab9d0a790358f5377368db2c784c537c249515dbe2ab2b3dee3faf20"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaSignature.h",
+      "gitBlob": "19977c77d85470d117ddcea77e62b7692ec57e11",
+      "sha256": "31a42a38ff25b9749d1c828d95d0c1907e802b230145036ba89084ba48b8472f"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaSignature.m",
+      "gitBlob": "50e77ba96d826a92c674b6b457e360dd9b71a63f",
+      "sha256": "501e9bd8b68141cb0dec1b66e525813a509a76fd109f73a859f53b11459c36d1"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRIrohaSigner.m",
+      "gitBlob": "f52ecd71c73571dd8948bbd2d3a760c0330956f3",
+      "sha256": "5ac6cea2c30b2e4c1076363a9ef6a307a6c96f3330be9dde716a2cd9467d35fb"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRSignatureVerifier.h",
+      "gitBlob": "5a5430fec2bb0ea215ffa268c2a2d10e15ea37ea",
+      "sha256": "1848490632134e318377282b15baa854f3ca5b70fc55b90cfa923e420c9f01b7"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/IRSignatureVerifier.m",
+      "gitBlob": "1d8fd3a2dca67b24834ebef0891e4cdc50a2be73",
+      "sha256": "8f8c51ba70ecd5efa28b756d3a438d58f1cfa97de57b63de4e1708d44520e434"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Iroha/NSData+SHA3.m",
+      "gitBlob": "dee2757bd0f4834c5d2b745d20e2d791867d785d",
+      "sha256": "b1e7d4f3868365b158f6910a71023971f82b6130e043eae145a8ebaa425de17e"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Scrypt/IRScryptKeyDeriviation.m",
+      "gitBlob": "a45637fb5fe3ef56d87917e8c28d7018ba33d151",
+      "sha256": "145562af9649b3e0dbf4890fd485720ac82259109bb6e944c124494e3e49edc5"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/Scrypt/IRSeedCreator+Scrypt.m",
+      "gitBlob": "95492d38723e405e4de9144251954e380b8d1c34",
+      "sha256": "ffa346fd02c027b7d47fa75dd4bcbaca8f03c03564b2fd209ca6d78990c06265"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/blake2/NSData+Blake2.m",
+      "gitBlob": "f850aa7af107b170c526e654088b899747655228",
+      "sha256": "ee7537d3bab192405b1ed567b74467f04358eedbd83b55bf8f42c3d9cbbfa0f9"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ed25519/EDKeyFactory.m",
+      "gitBlob": "01928214b2fa1b5f0adf8fed680540448dbe2984",
+      "sha256": "4bc22e5604ebb6bf4e7695597599bfc449538bd0ec26464c19f190e230217110"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ed25519/EDPrivateKey.m",
+      "gitBlob": "842afee2a53b376713a4efb579ebb17d7bcb51d9",
+      "sha256": "700f05229142a31197eef310c8316fae96b9e3f3314aca4411faad16734da181"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ed25519/EDPublicKey.m",
+      "gitBlob": "ef8d60e801af1d9cc6b9de317d90dd0aa6cb46c9",
+      "sha256": "cfd20cea5785022cb7bca766968654440c1a11da7d3940bd3e86452b4a45e5b0"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ed25519/EDSignature.m",
+      "gitBlob": "1a97efa1d3a2fc169b9e89d549d91005ff0b9014",
+      "sha256": "9b27dedb7f5cd5b23bcffb528ffbc3770052b09e64f0c814f25bf276679cc314"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ed25519/EDSignatureVerifier.m",
+      "gitBlob": "c334ea6d61b6b47f742a4f89e45a49f4740fef19",
+      "sha256": "16f980682b747976ee3b8f78cbf7704d8aa3d8eeb939db36c2d537e9f3369500"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ed25519/EDSigner.m",
+      "gitBlob": "318f4b4954657ae7639381528afee3f106e40943",
+      "sha256": "b0929f4c4214554fbac95142edd2469ff0a8f5c0994ee63a7838dfda1425e034"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/secp256k1/SECKeyFactory.m",
+      "gitBlob": "772448e78dbb6f25edba15e61bfbcfb02eaf4891",
+      "sha256": "6e87fccb9c90ad8a822d393f05c2f62a06d47223e27f5602b21eebd5d2c27b41"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/secp256k1/SECPrivateKey.m",
+      "gitBlob": "663e0190126edd4c9442c6f3fca263f3c1eb1f21",
+      "sha256": "cf40f2d81fde74c32d93440aa345248c0fbea76d066633e2ae3e13476855e591"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/secp256k1/SECPublicKey.m",
+      "gitBlob": "37e5ff6e5e06886ed896ae518997845bf7963645",
+      "sha256": "273b269762553a677881d039216559b58e9eabca24d7b36ce473feadba128da0"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/secp256k1/SECSignature.m",
+      "gitBlob": "3b7079feeb18f0def6ca03fd2c42d6f92fd1b756",
+      "sha256": "caf7765ae3bf4e82601863f313e4e2457c00fb6e2fe17bfdedad948cd4e885b9"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/secp256k1/SECSignatureVerifier.m",
+      "gitBlob": "94e2f5fb89970b8bb3b68eb8ae6241013770e6df",
+      "sha256": "686661c389a55acd44452036c645c90639773cf28a69100df0a2496117a3f711"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/secp256k1/SECSigner.m",
+      "gitBlob": "38f518fc967ff2d62b4f15e525ee88c9d4f48805",
+      "sha256": "86b3a354f0c0d81e175279b0c2623f8b457d51395967a1003f97dfae2281d143"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNKeyFactory.m",
+      "gitBlob": "9bb0d864d49596e31b530a2f0585772b571d0f33",
+      "sha256": "388a173d1e9bf24ed90e63dc022db52d64a538ad507fd93f868cca67dff2db29"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNKeypair.m",
+      "gitBlob": "e0dbb3cb2019b9b940239d8744eb1cc942284080",
+      "sha256": "663a0ec446f1b56b72935f2129b1255cf3126229ed4f1fd5a2d500f23b6185a7"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNPrivateKey.m",
+      "gitBlob": "aa9adf799d1fedcf072c907cb394602b80daf7f4",
+      "sha256": "cb50cec4d1f10d4dd58bd0b7435454e88c312553dfbfccb5947406d4a309145a"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNPublicKey.m",
+      "gitBlob": "0a7a3bd822f3d3e81190bfd6d855f978a858b380",
+      "sha256": "6603ff6f0611b88c5577128e0a70ff2d17a02d9760aadd3a213d7e1555142d39"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNSignature.m",
+      "gitBlob": "f8a8f00d9397c0bb7a2ee80f852f35ec7624d38d",
+      "sha256": "14b6df7a12400a45299c94964cf7fca6df851fa1e87725d11733e976b381696c"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNSignatureVerifier.m",
+      "gitBlob": "bc2837a6092a3bdab6e54e2dc22d4cf4c0d28c37",
+      "sha256": "c3b859463fe3f0366fd4b5a7f186af25d92fb7d8b4f83726ca171fb456b7bc1f"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/sr25519/SNSigner.m",
+      "gitBlob": "7285d1f49cff0c71040d1094358227fa7caf78ab",
+      "sha256": "cf8efee754387a2e9596f984439cd343e8bb97a068bc5abc39d0b2eb015b3b48"
+    },
+    {
+      "path": "Sources/IrohaCrypto/Classes/ss58/SS58AddressFactory.m",
+      "gitBlob": "b535670980c7b2dea3814a38640eb72500ddec69",
+      "sha256": "274054aa47458287cbb401d0592fdd528338e2f8f37ae8a26d25f5ebd5679d21"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/EDKeyFactory.h",
+      "gitBlob": "537f498f51902839afd4454a14096465184ffef5",
+      "sha256": "4e463a7e52c1321960371aa466a289047c690bd600f368848c3c1dce2f769a29"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/EDPrivateKey.h",
+      "gitBlob": "52bce58df524bca9b6c130f56edc2876d0ff03fe",
+      "sha256": "4045affdc3a1f798b94c605d7eab31fa67d96b4b9a9ed6db8dd80903bf1586f1"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/EDPublicKey.h",
+      "gitBlob": "70f0959e6a0b27792eb18d12dec3463851836e5f",
+      "sha256": "e6b8f8af28fef9c4396c88de56d76f8bc882bc334248c5987f5ae1e615a97886"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/EDSignature.h",
+      "gitBlob": "09582457bf1f6d93f59751062aa92b0273f953e0",
+      "sha256": "b64a0c232ebfa3377bcd36e86b76fb3e376a6f2d83317590180a7e9b963cb46b"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/EDSignatureVerifier.h",
+      "gitBlob": "5cf793efdb2598e35e11b3eb6633a93990a91a49",
+      "sha256": "30bee630ca263561fc93773490cd72ddf3294296fba1629b0d99bb440a3365f8"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/EDSigner.h",
+      "gitBlob": "8107ba71165146f96696f6ece08fbd61e1072a02",
+      "sha256": "ed18f3f8bd5962589269b05e3472bc33314d4f525f52703e4d93c482ecbfb225"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRBIP39KeyDeriviation.h",
+      "gitBlob": "07078102f86eff47db946139c83eb9f4f93455c5",
+      "sha256": "f7358e98d412c003aaa5e9e8b71f8c9d80b8c68ab0050b12a56be31decf5b37e"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRBIP39SeedCreator.h",
+      "gitBlob": "b23445bcc7131ec54166c4792afbedb775260b66",
+      "sha256": "be120038b153b23e7983b46ae431bba74b7830528d82d78b98fa4dda9b91d6f4"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRCryptoKey.h",
+      "gitBlob": "6bd7df4102ae4486e90b8574f02d86f5604d1e07",
+      "sha256": "5df18305f10676791439d3d984460bbd8b8d57be30db1c53d55c49c4c3c39afe"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRCryptoKeyFactory.h",
+      "gitBlob": "f58b7468c101121d5de8b9b66c0752eb9f1cca1c",
+      "sha256": "cf78252992c048a00a8a1e4e78d77ce5f8baea1202f561b492e6b400941c406d"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRCryptoKeypair.h",
+      "gitBlob": "797edb7e8fe0b2846b3f63c68c9e95a2f6d3db7e",
+      "sha256": "7338156b03fef87a07a401456ae1678f0fc6cf956c7d085983bdc7a333596892"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRIrohaKeyFactory.h",
+      "gitBlob": "b664e52cb35f9217fbb67f2b7808321eb57960fc",
+      "sha256": "5bf4e4c4ac0a492c068932e1dc6d56a7967c1ffa430ff9242eb17a37f29f8dcb"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRIrohaPrivateKey.h",
+      "gitBlob": "c2b549b6e8a4fefd86a81eea90fe90ec11a80e57",
+      "sha256": "3ac6c4c4e4fc59bf7b2579b3c4776a9518d704b9eeb445bb8d80a4d579cd9f2c"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRIrohaSigner.h",
+      "gitBlob": "0dcd885e9bff3b8cca545d543e48b5907d5b4c34",
+      "sha256": "1b8c06d47252a4fded60be9187d107159197a2227c51aca67b9d5c394037886c"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRKeyDeriviationFunction.h",
+      "gitBlob": "2973c430eba88b33cecb1a8cdd81fbd5aafca57d",
+      "sha256": "fd0ea757d97d9dcc3798076685c189f5006dbaa5cf2ff2faa44f6c5044af9c29"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRMnemonicCreator.h",
+      "gitBlob": "ac2e52879d80cce5978fdd307fcf3cb007da6537",
+      "sha256": "35c35745a0f7a4c12a020111d873f2cd785d0c6b1de13141038abe25cbbd968c"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRScryptKeyDeriviation.h",
+      "gitBlob": "61511500a0bd29e53e3cc153a01869067cc094b0",
+      "sha256": "b92485daac487f3c7faf6500dc42b697c9cd095a69a2c961fbfdbf10a2e008e8"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRSeedCreator+BIP39.h",
+      "gitBlob": "e02415677a71fb0b092837fcdd428515b51bc4c2",
+      "sha256": "a138ff6db8c44e1a5387ae3fa44e0ca25671231fef4a9ecba65e29878d7cbe2b"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRSeedCreator+Scrypt.h",
+      "gitBlob": "d26d22301d40fa9590fac669a3a6e389bd67a639",
+      "sha256": "344d5186135dc8907035e1d42475bc73f2485caf72841c9b2e4241e34a182a23"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRSeedCreator.h",
+      "gitBlob": "f82e0e05f5753aa6fbdbe3d78af98ab2017ec7e3",
+      "sha256": "295f1554a05dd806776428f361b990310e61c0934a8d024164c91d2acf093703"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRSignature.h",
+      "gitBlob": "39343b23bcbbc21218e679fab199452e73872323",
+      "sha256": "becef46c9b66fd06afbd2f9f656b58109bd627f3fde6b7ebfe291bfa93935053"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IRWordList.h",
+      "gitBlob": "a9e0ecbf3a05fed612a2d5112145e6cdc13506d3",
+      "sha256": "c38571506ad417a7476c93f230e0b6503ccb5fb612acfa1566b41753a5a8a2a2"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/IrohaCrypto-umbrella.h",
+      "gitBlob": "f7b42868e2b95bec2aec0b18c77dc37ad8a82149",
+      "sha256": "f05c8a5297e1fc75ce29562d7e2358678ea301306eb6d4d6730ba4ebb0ee8ba4"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/NSData+Base58.h",
+      "gitBlob": "e3727ee727b1e45877e17df4ded2d1d1f5fdf485",
+      "sha256": "8fbceb969e63af73ac6e137819afb37e38c41f71c16d5c9e7bfe0e26b2533181"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/NSData+Blake2.h",
+      "gitBlob": "bd3f72622d34b12ea8c3741537b29791eb871e82",
+      "sha256": "59b253f60fe102a88367ad355b508f97099bdd098574a0fb40cca5de6d7a4be6"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/NSData+Hex.h",
+      "gitBlob": "7a2096af8d914e8e7524f52527f3a8ff3ab2dc24",
+      "sha256": "7dc0984fc5eb20b6845f9e4392b125cd0c6c109c644fce1364f673a11fab4643"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/NSData+SHA3.h",
+      "gitBlob": "ea0ec1d8826581120483d4a57254b1c91f47ab62",
+      "sha256": "0beac0c1799b361b7a72cef211f1149ff5b1dc0954a3bb0071ff29c6146a78d3"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SECKeyFactory.h",
+      "gitBlob": "7a02e66ac6ca260051833a9f3720b72078092c0c",
+      "sha256": "7442414aa4584713df9b23ab56f0c5bcf46f21f08120bf609da9230c80fb3e6e"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SECPrivateKey.h",
+      "gitBlob": "db0c76b3a36dfcd73ed3dfd4d230843c41860334",
+      "sha256": "62c2d5faec96635905bf131cc70bf51bb24cd1f842d805e4f799a682302d3384"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SECPublicKey.h",
+      "gitBlob": "28d4664365e05e58f0f1e4a075e4d6fec9417322",
+      "sha256": "108906e970dbb1909b5df5948295c8348f17e12f0d57676d1503c0c7eae58bb9"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SECSignature.h",
+      "gitBlob": "71da6a7a5c93130527174ee772885e03a6c4e691",
+      "sha256": "fc26e6fd1e70900f1318ab21af20018523c3b5b8f8c0e163ad3fc2409afcbd34"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SECSignatureVerifier.h",
+      "gitBlob": "ea9204ea7b428af5a9466eed4d80192121481732",
+      "sha256": "ecd4c81f301511f9696071d849160bf73b507a282c1958f5583410efa4be97d2"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SECSigner.h",
+      "gitBlob": "413ac283a877d4c1f4f01451b020c2889bc90cbd",
+      "sha256": "d499baebc1574dc5df89a0b45bee7a6a5c48647c0418cb1794ed59c7314313c7"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNBIP39SeedCreator.h",
+      "gitBlob": "7cb2a58a593bb6b907bc109c24fe5d724f80a4f2",
+      "sha256": "9499d972acfafd91b85cb017202c14c8e8665036df0289bb30894bfca9f794ff"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNKeyFactory.h",
+      "gitBlob": "587e7894968705e94e7e1981e8431f5b79df2306",
+      "sha256": "3f3e1f985ad539c8d02a8d9cfc7411a5c86aca5fd8450d3ea4492ef4733d21e9"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNKeypair.h",
+      "gitBlob": "6f5e57e4351692206efd1802609717efd61be956",
+      "sha256": "2f8c8eb4cd2b33bf284862ee6cd77382825d816f4f9b762723acdb7a319257e5"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNPrivateKey.h",
+      "gitBlob": "e5505fd0bf66dd866ce6e98dbcedd967f0a1fd90",
+      "sha256": "b9d61a1f440932f650222b71b16e6271ea1507c31f9b01d616da50f1141eb1f5"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNPublicKey.h",
+      "gitBlob": "d9b049cbd7cf799083c916225773a3abe623ea72",
+      "sha256": "a3d8e24b33b958c8e599ff7ae8807c08c3ce17f999ce89cbce4ead83c82a4e62"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNSignature.h",
+      "gitBlob": "fe7ed4df14c9cd48c0368bf69c61409bc01cc88f",
+      "sha256": "1ac959160a15de7165f773ca8408441566ca32635b53f0ffe1b680c34c0784e0"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNSignatureVerifier.h",
+      "gitBlob": "f474ea8a8a2e4545f3fc062472818cf704ad67f5",
+      "sha256": "2a5cb12990cbbcb187e54c795f9b390a8287766012d8985bbc65d090e68596a3"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SNSigner.h",
+      "gitBlob": "e4bca85c64833881334b15bac972ffd6b266e403",
+      "sha256": "6f717d5f16a5c5a70c5f9d63a3a5892242e4e878614b218155469af129f57f93"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/SS58AddressFactory.h",
+      "gitBlob": "95f2aa6d03739884bdabddac275d1ad2594bce2a",
+      "sha256": "dd3c0db1b1f8e165c713c347e5b234becf068d92313978cd7e45cfc16ebda5ee"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/ed25519_export.h",
+      "gitBlob": "18a93124d7916820811a2f30023a6fe379586a77",
+      "sha256": "3d08f63d010124794351f97f3b63d2f8517e0adfb23b4f3deded9f5201481a0e"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/sha256.h",
+      "gitBlob": "7b7fe4effcbfc226d00556233add64a84b5e720a",
+      "sha256": "7c09c60781de74e34427759746a08cef03618c11aa79dee27aca1b1a7231cd7e"
+    },
+    {
+      "path": "Sources/IrohaCrypto/include/sha512.h",
+      "gitBlob": "8a622660588d6fde7a060901d9086a9c53dd37e6",
+      "sha256": "acdaabbc2b6bbf7cf3f593fc6707691904d3c65704ebc61c1f07f7525d536d2a"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/AddressConversion.swift",
+      "gitBlob": "d27de0b3e5a3596029b1725e039786f03d0720b5",
+      "sha256": "fd85b526963d25781b65aff9d8e1c1769c617f04bbe9d14195049d7542d2364d"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Data+Ethereum.swift",
+      "gitBlob": "ada0430b98ce374aadfbf652f072576e7528e586",
+      "sha256": "fbf7c1b9b20afde3cb144df8f2ef15da42e99d801c30759ecc0e95ef282600de"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Data+Keccak.swift",
+      "gitBlob": "8141805652d7abdec520f32d4bb03ffa88b9c937",
+      "sha256": "05a18f3e780a591256c3d4fc12ec95c55494f3de9d2c098616454ce290fee894"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/BIP32ExtendedKeypair.swift",
+      "gitBlob": "d94f4d2cb673bcb95f809d4059ca8221b11dcfd7",
+      "sha256": "f3d3425adff69f3c217298ed6dba3c794cf519cebe9180efcb52f0392ae146e5"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/BIP32KeyFactory.swift",
+      "gitBlob": "6674024122a92d6c1ddac892ee0201f2e44902a4",
+      "sha256": "305efcbae49e5de6e56eb6f5e7f2c68ba17ac0a1fdfb320f923634cfcda6c4dc"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/BIP32SeedFactory.swift",
+      "gitBlob": "21acc6a4398118f7f1597b98ac0913805218cf8f",
+      "sha256": "be2c895061790315d54b92287a6a306653e368d5a413cb1c9ac586a100ffa67d"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/Data+Seed.swift",
+      "gitBlob": "6d38a150d355c43d74b62c88207b0e645583e044",
+      "sha256": "6035b79ddc19f116da482c9948afe31ad26b7f87f2eafbd4e110de1e62c2329d"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/JunctionFactory/BIP32JunctionFactory.swift",
+      "gitBlob": "5b59a104cd6b0d23466324b820098bcd9eda5816",
+      "sha256": "d7de8d215767d83929ed607f929b447b5649dfb3303baed68f33e0e22749313a"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/JunctionFactory/Chaincode.swift",
+      "gitBlob": "e2347ebcac0bcc67ad5cec00bad8d29f16f1d94f",
+      "sha256": "3998db437fafbc638c77fe7cfceb88370bc49c647983b8c3c2c4efc5565b57c3"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/JunctionFactory/JunctionFactory.swift",
+      "gitBlob": "dcb6d8d2a86ef02ec8324f349e51aa11bc0e5f65",
+      "sha256": "410dcef03752a8226e56df883537f28a42437a314fa643b44574aa0146af0cef"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/JunctionFactory/SubstrateJunctionFactory.swift",
+      "gitBlob": "bf04c9d161077f935c8cca1b5e0dc32c838575c9",
+      "sha256": "d0e6dc9a77647bdd6a44d629302af9b6d74a391ade561ca41346c10c064d9991"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/KeypairFactory/BIP32KeypairFactory.swift",
+      "gitBlob": "08d0e0b8ab73db611cf6dc43b275d83c2a044b9c",
+      "sha256": "4173fa825c8c31a5d21401a70152d27ab2587ed70afefb7aa58c98fa739cbefe"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/KeypairFactory/EcdsaKeypairFactory.swift",
+      "gitBlob": "be8829d99b58c0a1b5e1fbcb4c9c87f5fc8b460e",
+      "sha256": "40d560846adda9e6a08f4977bee883a55f18ff0ddf654076253fc3d3cff897bb"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/KeypairFactory/Ed25519KeypairFactory.swift",
+      "gitBlob": "517f7a6744dac46873d23dbdf6e597589eb4c57b",
+      "sha256": "de2674e0478c0d93247a230caeaaf371902a5b46f5e7431e3253333f258f6056"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/KeypairFactory/KeypairFactory.swift",
+      "gitBlob": "bec4a5536c5f08a6c4e8ed4ff17dff8ebf06b884",
+      "sha256": "013111bd98562a15aad2da0321b607303140236a411268112566000628471608"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/KeypairFactory/SR25519KeypairFactory.swift",
+      "gitBlob": "50a59a7837c4ef09ce8523e2c2caf812331545b9",
+      "sha256": "eaa7e05875c05fdce4dcba7b7433fbe45b51e6e0f8f379622f1192605ef9ed0b"
+    },
+    {
+      "path": "Sources/SSFCrypto/Classes/Keypair/Crypto/SeedFactory.swift",
+      "gitBlob": "dcfce7f42d6488ace59c1e3564878819cbec7e30",
+      "sha256": "d9b524d1cd8112f57b57baf45c8b71fa61a24d9e11f8e4c45adfdd97334c30a5"
+    },
+    {
+      "path": "Sources/SSFCrypto/LICENSE",
+      "gitBlob": "a6321ad02f49b25e951eaae1175156a121f12215",
+      "sha256": "1dd93fdfb295e446ed369fb76da5a7a10dbafba202b537ada70d4be18591f738"
+    },
+    {
+      "path": "Sources/SSFCrypto/README.md",
+      "gitBlob": "2c0502f12fed92ad7b765d71a15d8fd27bc20e01",
+      "sha256": "dff1a1ea8c6cd0a426de06027cb82c4afdedc469f668127a60956f97121a3308"
+    },
+    {
+      "path": "Sources/SSFModels/LICENSE",
+      "gitBlob": "a6321ad02f49b25e951eaae1175156a121f12215",
+      "sha256": "1dd93fdfb295e446ed369fb76da5a7a10dbafba202b537ada70d4be18591f738"
+    },
+    {
+      "path": "Sources/SSFModels/README.md",
+      "gitBlob": "2c0502f12fed92ad7b765d71a15d8fd27bc20e01",
+      "sha256": "dff1a1ea8c6cd0a426de06027cb82c4afdedc469f668127a60956f97121a3308"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/AssetModel.swift",
+      "gitBlob": "aa861ce17bbdfe7d661fdcae03697c8b6497218b",
+      "sha256": "0bfe19fda196c550a92a211fbcb550031d1b06ac7a76c481e26118944eaf63c4"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/AssetVisibility.swift",
+      "gitBlob": "86844fec30a4f34d8a25fe314ee307e7e859ab7e",
+      "sha256": "5e776d871fcf0cdbed9ac26e8df8cd40a4b0b8b5dc66ffb3eb74c25485e668ef"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Block.swift",
+      "gitBlob": "dca375a4410385410f4102f6753188e715155f10",
+      "sha256": "7296497fcf4ca150b8e9a224e03e9c9480ed234fc4b7610d3215f473052c40b5"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Chain.swift",
+      "gitBlob": "3121e144e05b63c500f286857cd5e497ff02f140",
+      "sha256": "9ffb786ff34de330737c467d6026a059b32b66937aba96d6dd8f22e28f6f2013"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainAccountInfo.swift",
+      "gitBlob": "9ec06506298bb4fc70225f7cf876007bfda2cfbe",
+      "sha256": "bf81fb0d4c3bf276df52df1b4f63abe37cff7be5b9631dbc4c019080b89675e7"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainAccountModel.swift",
+      "gitBlob": "20ffe29c23533ac8d8cd0aa14e6950bfda5a886e",
+      "sha256": "cf82a6baef9ffefd6ed3979a3dce6959b2ae26738e923fc3843112c58bf4fa5e"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainAsset.swift",
+      "gitBlob": "45a54a11979a4a5217cb723e954734d5ef58e751",
+      "sha256": "58c71460bac44ce63289c1dac52cf51553b9e340351f46a99ac29b116343d684"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainAssetModel.swift",
+      "gitBlob": "5e6dab2f85ec12ba3cd74b69507a91171c6877f3",
+      "sha256": "b27d94b8628ee7142a3a4909b362fb28f7ca304517d560cf91a9cb99bc05f018"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainAssetType.swift",
+      "gitBlob": "f1b0452b418828992e71cf2fe132dd3509a149eb",
+      "sha256": "51aea2781959dc155821103e2c7b213ab7a927b47e0fd5c326540b8a97d909f0"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainEcosystemswift.swift",
+      "gitBlob": "1b1636dc0bc05f28d3433741bc79ac3727694f85",
+      "sha256": "8667b4b72f3d18fb94cf30e93578f650725ccb94d11bd42638680c66c1e7cc10"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainModel.swift",
+      "gitBlob": "b0147fd9301ad65569cd41e06e75757aeed11851",
+      "sha256": "275475573eac51350e287c7ed806936da00a5abb334a8e90a88b091b309a3aac"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ChainNodeModel.swift",
+      "gitBlob": "d572a55466e72fc73fb90d73db8055eb3bf814d4",
+      "sha256": "56e3d0c65d4bd53a36abeed0a332e4052548ab5e3206e16417a6cc010c91f2aa"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ConstantCodingPath.swift",
+      "gitBlob": "c26d5f297003d685e88748e0d8c38ab6b1431b9e",
+      "sha256": "d31b306ee074989988ee1783d47c3726b87b9d753f6affbfda022a46a3320c06"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Constants.swift",
+      "gitBlob": "80296138f5f6b12fc59db499e8570193f0b9427d",
+      "sha256": "3be4058ca5dc07db9726880c29dbd3782e5b85d7901adc0b5e2f35868c357614"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/CryptoType.swift",
+      "gitBlob": "4d7aadf4c323dbe73cb10ffe8e9e0fe01523b30f",
+      "sha256": "21cc85645e72c010154116368078c5c39947c06f7996713aa4769f50c4e37437"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Currency.swift",
+      "gitBlob": "75a4ab8855738d846dceeda25ad622da1fbfe1f1",
+      "sha256": "3999e42a2306e92b4bb8cfeb05f0b437f1a032763963af3c3b8212dd60f57eb6"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/CurrencyId.swift",
+      "gitBlob": "b472e19504f4f2331a90eefa2a35069d6402bd9d",
+      "sha256": "d31fec249e157024efb796ca88ba60560b44ba2ee50447139de61a2b878e2a7c"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Data+Hex.swift",
+      "gitBlob": "d23c5e227721e88dc3d3749c2fbdd2174a5764a7",
+      "sha256": "aba5f495bf9a86d9d5e95e4176804aee822dda5c97f91566fd250230010241b7"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Data+String.swift",
+      "gitBlob": "b5ce126ac9ece46450947476c3118e5a2366b1f8",
+      "sha256": "f1e77a5bb35a87aba994f8342f84a6885baf2dac3f3f63f0efdc7ecb589f222e"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/KeystoreTag.swift",
+      "gitBlob": "047cd000e2b0148a36e2deed4b221ef73ff3b01d",
+      "sha256": "3a4c5eeb411496795f68cccc0fbe3f6cf51dd10c6e563a717a3813de66576e60"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/ManagedMetaAccountModel.swift",
+      "gitBlob": "b3aaeacf1819ccf8661500649657f71610738fe2",
+      "sha256": "872f21ce032c0105d58c08f5a19b6ce9a1c1bd0283864a53f4ccfa0f4652e235"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/MetaAccountModel.swift",
+      "gitBlob": "ae3ec63ae7062ee5732fa592b50ff7e9006ce4f5",
+      "sha256": "889eb0e4ab765eada859f57e64ba9fd0a53d9a1ad47eef1bbaf99e92bb5004b9"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/PriceData.swift",
+      "gitBlob": "8c23a979e909544166e7d4c8c07749780d2915b1",
+      "sha256": "440403e8ed45a4ad52f6c094e092e019d8d5f7d6ac0d1070cd39c81008321b5a"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/PriceProvider.swift",
+      "gitBlob": "52de1d1981ee11fe293211cd96e8d20c0cc539a4",
+      "sha256": "8e2954ea984617ada14a81f5ff5544259dd3999c81c2ec0f1ec60728c3480c28"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Protocols/EthereumChain.swift",
+      "gitBlob": "c86fe845ebe9de7d29fe90cae084802d840cb203",
+      "sha256": "79f9bc653ec974263f3c715d92f2017aa81b261bbd8c14d74931e4eee6a7c31d"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/Protocols/StorageCodingPathProtocol.swift",
+      "gitBlob": "5717c58233a0416ce57db25f063a003976cc8784",
+      "sha256": "19137516a851c03e2b49975f01ae2eeef38afe09bf158ccebe4e4db39b48f077"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/RemoteChain.swift",
+      "gitBlob": "f80e8fcf5fbd8375a9abd5c5e64bd8f12fb7cc37",
+      "sha256": "234377967c491516781db81e4230422b4e3fb3681d0e96352a3dcc425b94126b"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/RuntimeMetadataItem.swift",
+      "gitBlob": "d84496290c3fda7bdfcd556721c29577c93ee54e",
+      "sha256": "b8f2f299eeb7e51e880a6fa9e91851525b53742d77dfada1f42dc822e7f304d8"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/RuntimeVersion.swift",
+      "gitBlob": "a18f1da1616594485c5ac2e47d9e7ed329a7944d",
+      "sha256": "87c49f280eca6d16e0e88837d48e946755e370bb7efa57e32d6b4877765fa89d"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/SFChainFormat.swift",
+      "gitBlob": "dd5b7829fc71716c0a4529d5c8cd990fb6484258",
+      "sha256": "6f34f93ee738cba5c686276297cbad36873271324a5ceb97663d563da44147c7"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/SNAddressType.swift",
+      "gitBlob": "de188569745632c560ef4a892a74b7a6339ec5d2",
+      "sha256": "215984bfd6533dd1c3b1e25e637873b48e593fc04c7a9ecb87782762650d0d0f"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/StorageCodingPath.swift",
+      "gitBlob": "57bd04500f951c086323c9aa50ede8ddbb9c82d9",
+      "sha256": "b3e21ce5177a0f9981dc1e6f5182d4a0ee6cac50bef151843ab6648b22bb369a"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/SubstrateAlias.swift",
+      "gitBlob": "a148a194d3b8eaa1a98d9513e16a5982ed72849e",
+      "sha256": "ec289013227d607e4085428806a0e228259b93c91c42309c787e4b587e915487"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/SubstrateAmountDecimal.swift",
+      "gitBlob": "7c7fad4f66ecb7381da94cef3391d42efd2e442a",
+      "sha256": "0e110328938f20e71a2838b09849c24389adf1b4badbb15ac417d57f8452620f"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/TokenSymbol.swift",
+      "gitBlob": "90fdd886c02f7577e5e5b8411a799800c21aef2a",
+      "sha256": "fd9fde79524e0d578684fda2523f470353440a26c5d2806f8a67a057b5751fa2"
+    },
+    {
+      "path": "Sources/SSFModels/SSFModels/XcmCallFactoryVersion.swift",
+      "gitBlob": "84ca71e93d433444b7f45e1c6cd29dfcdf7cc5ca",
+      "sha256": "9e0201e828b9b513ed5462cae5b963b1f01c2ba68d2117c3fc934883944f0861"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Array+Duplicates.swift",
+      "gitBlob": "d9640b89764130c90e8e3e3ad40766eeed561f8f",
+      "sha256": "7bda32d05b09264f79ce44e6df467e7994a7b0a16b06c5ee5be4bee21674d1ed"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/BigInt+CurveOrder.swift",
+      "gitBlob": "a71ee838f11f217730b1ee460e452270aa7ef3bf",
+      "sha256": "562cb5cb404e1f024c65a899fb026e386460900981dbd3241859480177b0cc16"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Bool+ToInt.swift",
+      "gitBlob": "f83f345684d8c3d8701d7748f68e88f637e41651",
+      "sha256": "dfbf10f17f70f963452d0204afb2e7439c520a1df09d6248a48406fb39427d32"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/ChainType.swift",
+      "gitBlob": "48bc8cd8d5d3ff6a492a7af0cc562402a53b1565",
+      "sha256": "5ea9968a869b8baeab21cd9cf2a5555c8e713704e0ab92fc197d9530b23325ae"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Data+AccountId.swift",
+      "gitBlob": "69fbdfd9e757429ae0710f71ebd135709a41aac4",
+      "sha256": "e778301057b5e44918f823c5eae9d22d6faa57ae85f10e789249a03062cece18"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Data+FixedWidthInteger.swift",
+      "gitBlob": "335f011c7409d06b3cb8fdda795b37db6ea4581d",
+      "sha256": "93afcdabb898c25069bac6672bf6743436ffba243492922a404f54e948344532"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Data+Hash.swift",
+      "gitBlob": "4c39a643978714b95c295edd4b32fd8a0f49535b",
+      "sha256": "d5b32181b0a9b9dfb3986b4bb9947a51aa2cf79b97eddcadddf47ebe565484d9"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Data+Random.swift",
+      "gitBlob": "f6fd3f81ed201470a0de765fa0c7cfc9e9b4ab66",
+      "sha256": "e707777d27fd06e9757153ad809e183698fd9ef0f4be6e5d7077b3ddaab0778b"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Decimal+Substrate.swift",
+      "gitBlob": "9b4547766cedff58017d8b22acb8bedeff5089f2",
+      "sha256": "9d77311929179eac1ad8dedc0983cfbbd34dd361dfc16a723be51f6b3cbd28c9"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/JSON.swift",
+      "gitBlob": "980e009d49f45c5416f8287d1b4162f08ee90ec6",
+      "sha256": "0dcc2fd874d72b29e0993980d742fd0d2ab4fc30e0241e22d81ec6805170e33c"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Logger.swift",
+      "gitBlob": "261a0935be23cbd9c60ee11f6608c0dd328d80e8",
+      "sha256": "34e4132b51e72886218b85b902a5c72c4701561046c896ff25358a11eb98fced"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/ReaderWriterLock.swift",
+      "gitBlob": "f11a830989b5c6431c15e2d8e1bb173d472bcfee",
+      "sha256": "eaf65fb3b2130809796e5dd18ee18ab911a6fe3d7fa82c5d8ae3d63b6beedb9b"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Scheduler.swift",
+      "gitBlob": "968c81fa311e5fcda2cb6952e7a48f8789504bfa",
+      "sha256": "8f00caff54a0721d0f7cbdeafb1f4522250483d0a5440bf419a73851854ec413"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/Sequence+Async.swift",
+      "gitBlob": "bbcbe60bd26ec4194a0835313071f9a393450970",
+      "sha256": "8b46e46defa6c630047e7dbffd2d22dad7a3a38541a8b3bc703c897f13a47bfc"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/StorageKeyFactory.swift",
+      "gitBlob": "c6a294ff43db36c1e0ad8b96b1358f9e809bb2eb",
+      "sha256": "260b49504774307ef3d429502ef1f16d052d52cbf71018695ffd02ffb3263d7a"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/String+Key.swift",
+      "gitBlob": "08bc4df11cb6ca3461c1ca1d54dbf5da46195980",
+      "sha256": "85f79ef5ab056625a34acd1d811851ada0d4424ac9c0b7bd7f0b2c13cc6dc195"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/UIColor+HSL.swift",
+      "gitBlob": "bfa5d89485d25087ba26e4e9441b4aa5b1b73b55",
+      "sha256": "0f8425e709e1e08f9c14183b5c094d5595d0294ae2d64232012859fe59a011ce"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Common/WeakWrapper.swift",
+      "gitBlob": "6f7fc4dcf624bfeabe15982ded92419a29108ecd",
+      "sha256": "58602fce67e390be655b5c51d84ad679b9325065f46318b9c5d7fe0339c1ee8e"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreBuilder.swift",
+      "gitBlob": "c4790dab5049ccb12bb260f1359605428e29bea7",
+      "sha256": "6067e72169eb0f1a057df238fc1580766578ba1a4f1da4b77939d9ea93b64ee3"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreCommon.swift",
+      "gitBlob": "05c7b1cb0547140ea963fb7b8a61efdbecf0aa0c",
+      "sha256": "ff2c1fe1710e2ce419a9a14239ec411c92760d983761c7d676693474d2abbc9c"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreData.swift",
+      "gitBlob": "deaba7bd7bee68e2acfded3ae3edaa702b7349eb",
+      "sha256": "93571bb8a4c48f0f08506297dadf682bac341c5d8d1974ef38e21bacaacb620a"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreDefinition.swift",
+      "gitBlob": "6b623cf689e20736b84bc2999a65282649cde9d7",
+      "sha256": "68537dd9c13958454637753de9b53efd8a64be7566fce9d77c2f946f559e0c21"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreExtractor.swift",
+      "gitBlob": "c433ae27d38b2ba39168103d7e5293f5ecfa0676",
+      "sha256": "a91e94a72267621f361b95093527e8ceb4f9960b41191134d6e239899f15c095"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreInfo.swift",
+      "gitBlob": "04448cbb7b0c50e05ea7aad7cd997d170ac15a72",
+      "sha256": "bdef83ade21a3355d64f8790bb6844cb2c1d1e65b16e388a5938bfaa20e34cdf"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/KeystoreInfoFactory.swift",
+      "gitBlob": "4e764f0722ce1cdc0111c3b2c1fabb8dfed43ff9",
+      "sha256": "96811502328cafca420ce24c9571aa79f30c83f53c67c6bd3e627f6d35f708c9"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Keystore/ScryptParameters.swift",
+      "gitBlob": "020cbe0f1a3e5790f7a62d90ee4c7bf3c73b8e30",
+      "sha256": "262807af350435ed383ae7da8546098bf5c9f00280646506f45938e9bf983579"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/CodableWrappers.swift",
+      "gitBlob": "a6759061e96a94e0c53268482eaae6225a8206de",
+      "sha256": "38bb7c3fdfffb04961fe9a94cb9b0777cd699a25cfe7d0c17f7e00ad3d86fc16"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/DynamicScaleCoding+Codable.swift",
+      "gitBlob": "43fc11fc117fedafe07856e8af5d45f0335f6a78",
+      "sha256": "bcf0143f2f7695a8795c08947184bf0cf0a5045d3337278ae53131f316a60914"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/DynamicScaleCoding.swift",
+      "gitBlob": "8aa350d33abf7e71f38f00c0ed83d2aae3cd483c",
+      "sha256": "38db05479684301d269e6325fd031a852d050a6d17f0dd9eaac803184610c162"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/DynamicScaleCodingError.swift",
+      "gitBlob": "ca977b849beda57347de7cf1a5cb20f663b04de3",
+      "sha256": "35433311ffb3ee082eaa3393758c029ebdecf7860134ec3b0206ed5cc800dee7"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/DynamicScaleDecoder.swift",
+      "gitBlob": "f09220451689839f425cfdb6531b23c82516a983",
+      "sha256": "db0a9eb9d25633cbef20a21125e01efd0a8fbe7ebb1e35c7cded5c1c24c08986"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/DynamicScaleEncoder.swift",
+      "gitBlob": "6f3057cfd6b647bde51e8b01d7622a0964a43a39",
+      "sha256": "ce34151ca56a50f1d06c98085a152086b552c8e2b9c29286d0400e0443dc3d71"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Array+Scale.swift",
+      "gitBlob": "3262a59c6db1ddef22014cbd05f313f3705a4a8a",
+      "sha256": "edc75e51d8440cad4b4b40a94eef067883b06fac436acae28d4da1f5d178daa5"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/BigInt+Scale.swift",
+      "gitBlob": "d952fbc12ae8920d1bcd4deb662f8685d4857a4f",
+      "sha256": "f3bcbf10b23ba5d73c4dcd0caf2fd1c67903a1b57e8ce423989e58185e07ed88"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Bool+Scale.swift",
+      "gitBlob": "bdad607174d2a672be9970c13b9a14a7b8694625",
+      "sha256": "30100b72c3a818e3e615141cfc2b078175a1c7b4cfca85d82a0aff1a17a6d027"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Data+Scale.swift",
+      "gitBlob": "f99ce3d4df111cc7e23edf3e12710af8b7efef11",
+      "sha256": "aa6e4b8e7f24c0aadd3a8b96abf4bd84349e9b1a2c0c96022a27dc99a4215299"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Int16+Scale.swift",
+      "gitBlob": "1c0fad7172c1d3056cbd515af041ad785867f3e0",
+      "sha256": "95e76033939304325407bed28b55f262689e3b9dae2f21222ba434dc1c444fc7"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Int32+Scale.swift",
+      "gitBlob": "f4f1ca4be0e97fb33fdf1999727473325e58ab08",
+      "sha256": "6feaa4d7147547b9c48ac9beaa7af87ccfefcab25758328395ebdf83afb63091"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Int64+Scale.swift",
+      "gitBlob": "e415354fbabdfad5e92e4a7c2b3c5b365292cf21",
+      "sha256": "8d9b72baadea5164c345aca81b3cdc2b596108ed0a5d1893603da804203857a5"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Int8+Scale.swift",
+      "gitBlob": "c0dcf223453f3e0d83b419c85184a436f1ba22e9",
+      "sha256": "555ab20cb5a00650ae5f7ee52495e1dba65f377089c257f50b12a66b2ad159cc"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/Result+Scale.swift",
+      "gitBlob": "023b59d5ad4cead4dded3a2ac41b2adf58bb17dc",
+      "sha256": "26df632114536a2783a5d436d0a2c55a4e4c7f1ef8f6add504237800a0865ca1"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/ScaleBoolOption.swift",
+      "gitBlob": "374b66dc12226a8e08fcdd28f3a1d815f8e98fdf",
+      "sha256": "ef32fd5225f31e9032ef87041baa60876082b9cd73e0555ff8fc0a22acf09ae8"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/ScaleOption.swift",
+      "gitBlob": "e89dfba37fd51454f27b72ec85d6cf7b85e5d3ab",
+      "sha256": "e9c6e2e6c67a1a2e5e31edfe07adbb44850dd5b84e0935155aebbdec4b4e0a02"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/ScaleTuple.swift",
+      "gitBlob": "1429cb8fe7b0437f7386b5e2c1159883d5d17586",
+      "sha256": "a3fc3f0c10cccf75073d715f37d8d531e499b053398b7d99e9d6d1e2b3979bb6"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/String+Scale.swift",
+      "gitBlob": "0f3091854aebe2b2179eb5aed2b197d7942aa78c",
+      "sha256": "d5dd7912c75fe54027802775d66eec31461a39d212a96a9cb7cd3b83c33c3186"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/UInt16+Scale.swift",
+      "gitBlob": "f5cb1cf06e0d27824912f394c885c0393e4a1e8e",
+      "sha256": "ba4ef6fe55cce47a11685a35a5047e1e6264db9d2039c2ed5af7c7200abdb477"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/UInt32+Scale.swift",
+      "gitBlob": "cf367c07021a64a527756645945dbcf3b088bea1",
+      "sha256": "b0d126be52d8a67d3ea09e83c13fa3f31f043513dba7b36e4cb9c6d47c1e8768"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/UInt64+Scale.swift",
+      "gitBlob": "ac81f2981587c172f5db1cb9af97bbfc234df3a4",
+      "sha256": "9168e5926df818eb63662e3c0134bf60cb1fb314e97d452162316ae541191fe1"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Encodable/UInt8+Scale.swift",
+      "gitBlob": "edae88bdb3fd66765f62f314bc21885a201f32e6",
+      "sha256": "d693cb088ea6731e239cf3c5d1473cd86cecb720888ab603f1a2b6c0a8741720"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/ScaleCoding.swift",
+      "gitBlob": "8f9601b2fee88a011a7196422bc369bfc0fcac2f",
+      "sha256": "ed756b1d2c8fff2e8785d11704780a51cb9a7124049de51b320a4c0d3f3cbbc6"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/ScaleCodingError.swift",
+      "gitBlob": "4a1eb1adbad87207bfa9cb0bfd84be2140c2633b",
+      "sha256": "26e56c9f766764e48500b9e4d946e151c7e88e84d87850ddd494135a3f53b74a"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/Batch.swift",
+      "gitBlob": "d4cb6021e189f7bc1b722c4668c2a1d4cfa7e145",
+      "sha256": "de9366a5e0512c35cae3ebd64dd8827a16be38250e1a3dffec3fe40036f42d09"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/ChainData+Codable.swift",
+      "gitBlob": "0ed431ee3a356a648738111b02cf1be71c019428",
+      "sha256": "e108296d504a83612abea0e71873027f010e476e5a7a751a44e9a7007a45ea07"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/ChainData.swift",
+      "gitBlob": "86f77dd43468b3c817cc64c4373541c30bf196de",
+      "sha256": "11c64fd908fa29a66ddab405c874bce4e9bd03092215d791dc989b2d1ceff6a5"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/Era.swift",
+      "gitBlob": "1574466157147336a721f7ea65accdb323e3f926",
+      "sha256": "140c79f2fb2a59d18473b02751231f51c53a9a184283d547fb4a7d96919b9f94"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/FixedLengthDataStoring.swift",
+      "gitBlob": "51dd33f966e0ab13a435d1cfb3702fdcd939214c",
+      "sha256": "cc2096871875e621127b3e76702714e900b29444234f8198e92a8e359f66deb1"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/H160.swift",
+      "gitBlob": "0f620f61e39ee2feec802b3cd90013a3e6b06dd2",
+      "sha256": "a595fa03c396c925f095c668b01cd76802bcf78d6c4a1c38fa14ed92a39ccc2c"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/H256.swift",
+      "gitBlob": "992ed300d3a000a6b9e6ccee61a4a600c1cb362b",
+      "sha256": "c17191fba130cb3cc89ee558b462ead996ad138f658b3e47816b43453b3e769c"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/H512.swift",
+      "gitBlob": "3b5f2d8efd1bd12cb0103bb2288fbbeb1afe3606",
+      "sha256": "65729c2984c1d59928c2e4147469ef35baefd1d7584af4f5a102e1ddb4c6f3a9"
+    },
+    {
+      "path": "Sources/SSFUtils/SSFUtils/Classes/Scale/Types/MultiAddress.swift",
+      "gitBlob": "74d5252f7f280b153104ea1552e20b0fdc790039",
+      "sha256": "df0c722fc22e819138a7b516dd4e6a9f0cdad4280d0c2e83d2b7799c12dc6e0b"
+    },
+    {
+      "path": "Sources/scrypt/asprintf.c",
+      "gitBlob": "d9be92463f86fcfb18234e8fb1d07c663c6d4c4c",
+      "sha256": "6947e4444ba2e0a67ef2b15fc412e390867874789e9ba9a9fee5fa2c5efbabb4"
+    },
+    {
+      "path": "Sources/scrypt/asprintf.h",
+      "gitBlob": "0c8352b910ae75c01b6bb3fc859a5b8eae750ab0",
+      "sha256": "2e7803973af1a467bd711b43ce8519b503092a21f6809ff3cacb11aae975365e"
+    },
+    {
+      "path": "Sources/scrypt/crypto_scrypt.c",
+      "gitBlob": "3d04bb579bcd948193309a9678e6ff4bd67e2734",
+      "sha256": "f316e7a9f0469ba7eeb351c2983915b88e130594d8e14404532afe96e437ff47"
+    },
+    {
+      "path": "Sources/scrypt/crypto_scrypt_smix.c",
+      "gitBlob": "04f4a4e87cce74129760a39d20a5e7598e251e5f",
+      "sha256": "0374215074b76ed4dfc82b791701741482635d6751ab147cc3226a4469cd73c2"
+    },
+    {
+      "path": "Sources/scrypt/crypto_scrypt_smix.h",
+      "gitBlob": "576cf9894098a11b3cf2f2eab20bd02d585d3371",
+      "sha256": "b73be862ab9bfe452aaec3f2ecc865709e0257b93a7c286c50faedfb7f92e76d"
+    },
+    {
+      "path": "Sources/scrypt/crypto_scrypt_smix_sse2.c",
+      "gitBlob": "c0dd97acd9d8dcf89b2942fbcc9c3ca53a6f0d37",
+      "sha256": "19132cbcb04fca8994138b94ebd552f5bbc97ada22ca3472d129721b2a428e64"
+    },
+    {
+      "path": "Sources/scrypt/crypto_scrypt_smix_sse2.h",
+      "gitBlob": "4a403f7d89375aa3673780931c5e76900786c076",
+      "sha256": "13aabf07be3fdeb05d46fd54ff0549de5df2f33cafaa5550f09429589d987dca"
+    },
+    {
+      "path": "Sources/scrypt/entropy.c",
+      "gitBlob": "9f83f3e722eff6901ecfd82d39c48354045c5312",
+      "sha256": "24b5c4b19e8d18d9e1ab2b5cd8322b99943f7b14ffe05a48432bdcc1a3f82c55"
+    },
+    {
+      "path": "Sources/scrypt/entropy.h",
+      "gitBlob": "fa6f1cf3901ffec71ebbe240ecbc515acafb90ee",
+      "sha256": "45ae5f1cb9f2d84b9ff8b9744826b6d38224bfa54aeda0a011f2dd09185c02dd"
+    },
+    {
+      "path": "Sources/scrypt/getopt.c",
+      "gitBlob": "949036f8711393463df8f5dc081ed8e51c8a33c7",
+      "sha256": "4e90b54f4133895c13eaeb69c6bd1a01f50909aa8fdb7d1a0a17dafb769ef1d3"
+    },
+    {
+      "path": "Sources/scrypt/getopt.h",
+      "gitBlob": "b788f34ed33881381e2b517847b97028ae77a7b1",
+      "sha256": "ca50144792272e3c8b338b940a3da3233c38772249e86d067582735142241b8b"
+    },
+    {
+      "path": "Sources/scrypt/humansize.c",
+      "gitBlob": "dfc4e59f2334562f62ce57f7a48bd338224664ae",
+      "sha256": "c32413410af8de852b0a418c69f6ecc0c896f894a6bd4c90a7588fd77cd64e4b"
+    },
+    {
+      "path": "Sources/scrypt/humansize.h",
+      "gitBlob": "f67d8c0f9e367c02107c41ba30eafdf3664b2946",
+      "sha256": "9873213beb56370f875d2dd57418bf7a9f0eb1ebd859da2e9cdb61413ebfb5ff"
+    },
+    {
+      "path": "Sources/scrypt/include/scrypt.h",
+      "gitBlob": "e7e008293a007fca86102fddb948fe43ba6ac53c",
+      "sha256": "1d51981fadb02bb34404540178f0a7a6b0bc08ad757e1cd9ccb03a170df161a3"
+    },
+    {
+      "path": "Sources/scrypt/insecure_memzero.c",
+      "gitBlob": "bd26bac4314e950941bf0ef7df3b50c4927a43e8",
+      "sha256": "881027e26ef782484205ddaef70486c4a398079ab5c50a41d997466965cc12bf"
+    },
+    {
+      "path": "Sources/scrypt/insecure_memzero.h",
+      "gitBlob": "1c3f06b0841b915a4313fb18a938bd2a101cef31",
+      "sha256": "e5e1c01a194687cc501ea6a36a646af5f740d06f3c1729a7b853d50f69d4d741"
+    },
+    {
+      "path": "Sources/scrypt/parsenum.h",
+      "gitBlob": "d9f7ab61ed0655014c06e2fe71a3e3173460596f",
+      "sha256": "3a0a4169f399dca9a698441444252ed1c848108fb6fc2e518ad3481e1532f7be"
+    },
+    {
+      "path": "Sources/scrypt/readpass.c",
+      "gitBlob": "69897137b4bdad14f90ea79b434e3a90193349c3",
+      "sha256": "8e414261ea9cf90df6c9e6a642c901e50c69a25b6fa8d1ee49c3bc59350c1890"
+    },
+    {
+      "path": "Sources/scrypt/readpass.h",
+      "gitBlob": "390c816bfeaa43c0379c59f8f3df4daf48ee2f76",
+      "sha256": "c0dc579ffb852cb80c4911b2daddcaf526d5c79fd7e25e894e04cda8baa61eb1"
+    },
+    {
+      "path": "Sources/scrypt/sha256.c",
+      "gitBlob": "7f615a50da2251afc75ebbe8026eec6e27f4b518",
+      "sha256": "d0bdcf0d1e8072a905098d55920a730f0588c7a084dd9a071a12c435edf14995"
+    },
+    {
+      "path": "Sources/scrypt/sha256.h",
+      "gitBlob": "9ed27c9c273859a5e3690357b49951030bb0d992",
+      "sha256": "f09d13922b0e05af4fbdd047fa9a6e74897a1db72f7a920f003a80f340242ee1"
+    },
+    {
+      "path": "Sources/scrypt/sse2neon.h",
+      "gitBlob": "f690ec387ca0824a4aa642f80667907d28086431",
+      "sha256": "0dbd327e81ba4ed1c4e008b3e07809251ddc5e5defe031b361ae9bf7310b5962"
+    },
+    {
+      "path": "Sources/scrypt/sysendian.h",
+      "gitBlob": "fc6d0980fe1fb0ae1d44ec2f21189c006ba3b170",
+      "sha256": "e86a30aaa3b18b914f7107287bf532dbd89df5e9c10bbb8eb8786c0975ed8bb0"
+    },
+    {
+      "path": "Sources/scrypt/warnp.c",
+      "gitBlob": "2ec5a5790a2616f7073776ea49948cbdb0430cca",
+      "sha256": "3ee7a419c355b44fadee324ccc2751775692ecb16895c55e5e89488ca20c420d"
+    },
+    {
+      "path": "Sources/scrypt/warnp.h",
+      "gitBlob": "8d900e3f2ffaddaee477f2d913a0a2d74b873fe7",
+      "sha256": "498ae550cbd2347c76c658535b620acfdf6f170b31f82f510174a48c2744fe44"
+    }
+  ],
+  "mismatches": []
+}

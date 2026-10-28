@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import SoraUIKit
 
@@ -50,25 +37,34 @@ final class TransferableCell: SoramitsuTableViewCell {
     private var transferableItem: TransferableItem? {
         didSet {
             guard let item = transferableItem else { return }
+            // The cell is reused: what an earlier item published is not
+            // for this one.
+            cancellables.removeAll()
+            item.service.$balanceUnavailable
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.showBalance()
+                }
+                .store(in: &cancellables)
             item.service.$balanceAmount
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] value in
-                    guard let value = value, let item = self?.transferableItem else { return }
-                    self?.update(balance: value, symbol: item.assetInfo.symbol )
-                    self?.sendButton.sora.isHidden = value.isZero
+                .sink { [weak self] _ in
+                    self?.showBalance()
                 }
                 .store(in: &cancellables)
             item.service.$fiatBalanceText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let value = value, !value.isEmpty else { return }
+                    guard let value = value, !value.isEmpty,
+                          self?.transferableItem?.service.balanceUnavailable == false else { return }
                     self?.fiatLabel.sora.text = value
                 }
                 .store(in: &cancellables)
             item.service.$publishedFrozenAmount
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let value = value, let item = self?.transferableItem else { return }
+                    guard let value = value, let item = self?.transferableItem,
+                          !item.service.balanceUnavailable else { return }
                     self?.frozenContainerView.sora.isHidden = (value.decimalValue ).isZero
                     self?.frozenAmountLabel.sora.text = (value.stringValue ) + " " + item.assetInfo.symbol
                 }
@@ -76,7 +72,8 @@ final class TransferableCell: SoramitsuTableViewCell {
             item.service.$frozenFiat
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    guard let value = value, !value.isEmpty else { return }
+                    guard let value = value, !value.isEmpty,
+                          self?.transferableItem?.service.balanceUnavailable == false else { return }
                     self?.frozenFiatAmountLabel.sora.text = value
                 }
                 .store(in: &cancellables)
@@ -331,6 +328,11 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
         }
         transferableItem = item
         
+        if item.balanceUnavailable {
+            showBalanceUnavailable()
+            return
+        }
+
         update(balance: item.balance.decimalValue, symbol: item.assetInfo.symbol)
         sendButton.sora.isHidden = item.balance.decimalValue.isZero
         
@@ -340,6 +342,45 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
         frozenContainerView.sora.isHidden = (item.frozenAmount?.decimalValue ?? Decimal(0)).isZero
         frozenAmountLabel.sora.text = (item.frozenAmount?.stringValue ?? "") + " " + item.assetInfo.symbol
         frozenFiatAmountLabel.sora.text = item.frozenFiatAmount
+    }
+}
+
+private extension TransferableCell {
+    /// The balance line as the service has it now: "Balance unavailable",
+    /// or the amount that was read. Runs on the main thread.
+    func showBalance() {
+        guard let item = transferableItem else { return }
+        if item.service.balanceUnavailable {
+            showBalanceUnavailable()
+            return
+        }
+        guard let value = item.service.balanceAmount else { return }
+        update(balance: value, symbol: item.assetInfo.symbol)
+        sendButton.sora.isHidden = value.isZero
+        // The value and the frozen part of the balance that was read; they
+        // were cleared while it was unavailable.
+        if let fiat = item.service.fiatBalanceText {
+            fiatLabel.sora.text = fiat
+        }
+        if let frozen = item.service.publishedFrozenAmount {
+            frozenContainerView.sora.isHidden = frozen.decimalValue.isZero
+            frozenAmountLabel.sora.text = frozen.stringValue + " " + item.assetInfo.symbol
+        }
+        if let frozenFiat = item.service.frozenFiat {
+            frozenFiatAmountLabel.sora.text = frozenFiat
+        }
+    }
+
+    /// No amount, no value and no frozen part: none of them is known. An
+    /// amount of zero next to the notice would contradict it. Nothing can
+    /// be sent from a balance that is not known either.
+    func showBalanceUnavailable() {
+        balanceLabel.sora.text = WalletUX.balanceUnavailableText
+        fiatLabel.sora.text = ""
+        sendButton.sora.isHidden = true
+        frozenContainerView.sora.isHidden = true
+        frozenAmountLabel.sora.text = ""
+        frozenFiatAmountLabel.sora.text = ""
     }
 }
 

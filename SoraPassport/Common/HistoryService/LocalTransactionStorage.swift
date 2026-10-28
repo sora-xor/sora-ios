@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 
@@ -34,33 +21,54 @@ protocol LocalTransactionStorageProtocol {
     var transactions: [String: [Transaction]] { get set }
 }
 
+/// The transactions sent in this run of the app, by account, until the
+/// indexer lists them. Events arrive on the event center's queue and the
+/// history is read on others, so every access goes through one lock.
 final class LocalTransactionStorage: LocalTransactionStorageProtocol {
     
     static let shared = LocalTransactionStorage()
-    var transactions: [String: [Transaction]] = [:]
+    private let lock = NSLock()
+    private var stored: [String: [Transaction]] = [:]
+    var transactions: [String: [Transaction]] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return stored
+        }
+        set {
+            lock.lock()
+            stored = newValue
+            lock.unlock()
+        }
+    }
     var currentAccount = SelectedWalletSettings.shared
     
     init() {
         EventCenter.shared.add(observer: self)
+    }
+
+    private func update(_ address: String, _ change: (inout [Transaction]) -> Void) {
+        lock.lock()
+        var list = stored[address] ?? []
+        change(&list)
+        stored[address] = list
+        lock.unlock()
     }
 }
 
 extension LocalTransactionStorage: EventVisitorProtocol {
     func processNewTransactionCreated(event: NewTransactionCreatedEvent) {
         guard let address = currentAccount.currentAccount?.address else { return }
-        var transactions = transactions[address] ?? []
-        transactions.append(event.item)
-        self.transactions[address] = transactions
+        update(address) { $0.append(event.item) }
     }
     
     func processNewTransaction(event: WalletNewTransactionInserted) {
-        if let transaction = event.items.first,
-           let address = currentAccount.currentAccount?.address,
-           var transactions = transactions[address],
-           let foundedTransactionIndex = transactions.firstIndex(where: { $0.base.txHash == transaction.extrinsicHash.toHex(includePrefix: true) }) {
-            
-            transactions[foundedTransactionIndex].base.status = transaction.processingResult.isSuccess ? .success : .failed
-            self.transactions[address] = transactions
+        guard let transaction = event.items.first,
+              let address = currentAccount.currentAccount?.address else { return }
+        let hash = transaction.extrinsicHash.toHex(includePrefix: true)
+        update(address) { list in
+            guard let index = list.firstIndex(where: { $0.base.txHash == hash }) else { return }
+            list[index].base.status = transaction.processingResult.isSuccess ? .success : .failed
         }
     }
 }

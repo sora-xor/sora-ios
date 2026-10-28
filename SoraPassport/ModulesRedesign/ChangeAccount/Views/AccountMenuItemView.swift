@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import SoraUIKit
@@ -49,6 +36,17 @@ final class AccountMenuItemView: SoramitsuView {
         }
     }()
 
+    private let capabilityLabel: UILabel = {
+        let label = UILabel()
+        label.font = .preferredFont(forTextStyle: .caption1)
+        label.adjustsFontForContentSizeCategory = true
+        label.numberOfLines = 0
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.textColor = WalletUX.foreground
+        label.accessibilityIdentifier = "wallet-account-capability-badge"
+        return label
+    }()
+
     private let iconView: UIImageView = {
         UIImageView().then {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -58,6 +56,8 @@ final class AccountMenuItemView: SoramitsuView {
     private lazy var moreButton: ImageButton = {
         ImageButton(size: CGSize(width: 44, height: 44)).then {
             $0.sora.image = R.image.iconMenuInfo()
+            $0.accessibilityIdentifier = "wallet-account-options"
+            $0.accessibilityLabel = R.string.localizable.accountOptions(preferredLanguages: .currentLocale)
             $0.sora.tintColor = .accentTertiary
             $0.sora.addHandler(for: .touchUpInside) { [weak self] in
                 self?.onMoreTap()
@@ -74,7 +74,11 @@ final class AccountMenuItemView: SoramitsuView {
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(checkmarkView)
         addSubview(iconView)
-        addSubview(titleLabel)
+        let labels = UIStackView(arrangedSubviews: [titleLabel, capabilityLabel])
+        labels.axis = .vertical
+        labels.spacing = 3
+        labels.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(labels)
         addSubview(moreButton)
 
         checkmarkView.do {
@@ -88,14 +92,16 @@ final class AccountMenuItemView: SoramitsuView {
             $0.centerYAnchor == centerYAnchor
             $0.leadingAnchor == checkmarkView.trailingAnchor + 21
             $0.sizeAnchors == CGSize(width: 40, height: 40)
-            $0.topAnchor == topAnchor + 16
-            $0.bottomAnchor == bottomAnchor - 16
+            $0.topAnchor >= topAnchor + 16
+            $0.bottomAnchor <= bottomAnchor - 16
         }
 
-        titleLabel.do {
+        labels.do {
             $0.leadingAnchor == iconView.trailingAnchor + 8
             $0.trailingAnchor == moreButton.leadingAnchor - 8
             $0.centerYAnchor == centerYAnchor
+            $0.topAnchor >= topAnchor + 16
+            $0.bottomAnchor <= bottomAnchor - 16
         }
 
         moreButton.do {
@@ -113,6 +119,8 @@ final class AccountMenuItemView: SoramitsuView {
 
     func bind(model: AccountMenuItem) {
         titleLabel.sora.text = model.title
+        capabilityLabel.text = model.capabilityBadge
+        capabilityLabel.isHidden = model.capabilityBadge == nil
         checkmarkView.image = model.isSelected ?
         (model.isMultiselectionMode ? R.image.checkboxSelected() : R.image.checkSmall()?.tinted(with: UIColor(hex: "#EE2233"))) : (model.isMultiselectionMode ? R.image.checkboxDefault() : nil)
 

@@ -1,83 +1,94 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-import RobinHood
 import sorawallet
 import Foundation
+import SoraKeystore
 
-public final class SubqueryConfigInfoOperation<ResultType>: BaseOperation<ResultType> {
-
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let configBuilder: SoraRemoteConfigBuilder
+public final class SubqueryConfigInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
+    private let client = PIIndexerClient()
 
     public override init() {
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        configBuilder = provider.provide()
-
         super.init()
     }
 
-    override public func main() {
-        super.main()
-
-        if isCancelled {
-            return
+    override public func execute() async throws -> ResultType {
+        let capabilitySession = ProductionRemoteCapabilitySession.shared
+        // A request in flight is not fresh mutation authority. Read-only
+        // cached configuration remains available through its separate paths.
+        let refreshToken = capabilitySession.beginLiveRefresh()
+        let checkedHealth: PIHealth
+        let config: PIMobileConfig
+        do {
+            // Bind the legacy projection and mutation publication to the
+            // exact live health preflight that qualified this config. An
+            // independent cached health read could describe another
+            // checkpoint and must not be combined with live capabilities.
+            let qualified = try await client.qualifiedMobileConfig(
+                requireLive: true
+            )
+            guard
+                let qualification = qualified.qualification,
+                qualification.source == .live
+            else {
+                throw PIIndexerError.invalidResponse
+            }
+            checkedHealth = qualification.health
+            config = qualified.value
+        } catch {
+            // Cached visibility can remain available, but mutation kill
+            // switches require a fresh qualified response.
+            capabilitySession.invalidate(refreshToken)
+            throw error
         }
 
-        if result != nil {
-            return
+        let legacy = SoraConfig(
+            remote: true,
+            blockExplorerUrl: config.blockExplorerUrl.absoluteString,
+            blockExplorerType: ConfigExplorerType(
+                fiat: "pi",
+                reward: "pi",
+                sbapy: "pi",
+                assets: "pi"
+            ),
+            nodes: config.nodes.map {
+                SoraConfigNode(
+                    chain: checkedHealth.chainId,
+                    name: $0.name,
+                    address: $0.address.absoluteString
+                )
+            },
+            genesis: checkedHealth.genesisHash ?? PIIndexerClient.soraMainnetGenesis,
+            joinUrl: "",
+            substrateTypesUrl: config.substrateTypesUrl?.absoluteString ?? "",
+            soracard: false,
+            currencies: []
+        )
+        guard let result = legacy as? ResultType else {
+            throw PIIndexerError.invalidResponse
         }
-
-        let semaphore = DispatchSemaphore(value: 0)
-
-        var optionalCallResult: Result<ResultType, Swift.Error>?
-
-        DispatchQueue.main.async {
-
-            self.configBuilder.getConfig(completionHandler: { [self] config, error in
-
-                if let data = config as? ResultType {
-                    optionalCallResult = .success(data)
-                }
-
-                semaphore.signal()
-
-                result = optionalCallResult
-            })
+        // This publishes session-local mutation authority only after the full
+        // live response and its legacy projection are accepted.
+        guard SettingsManager.shared.applyPIMobileConfig(
+            config,
+            refreshToken: refreshToken
+        ) else {
+            throw PIIndexerError.invalidResponse
         }
-
-        semaphore.wait()
+        return result
     }
 }

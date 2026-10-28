@@ -1,32 +1,19 @@
 // This file is part of the SORA network and Polkaswap app.
 
 // Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
-// SPDX-License-Identifier: BSD-4-Clause
+// SPDX-License-Identifier: Apache-2.0
 
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-
-// Redistributions of source code must retain the above copyright notice, this list
-// of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// All advertising materials mentioning features or use of this software must display
-// the following acknowledgement: This product includes software developed by Polka Biome
-// Ltd., SORA, and Polkaswap.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
-// to endorse or promote products derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import SoraUIKit
 import Anchorage
@@ -96,5 +83,101 @@ extension AppSettingsCell: SoramitsuTableViewCellProtocol {
         
         updateSemantics()
     }
+}
+
+final class AppAppearanceCell: SoramitsuTableViewCell, SoramitsuTableViewCellProtocol {
+    private let title = SoramitsuLabel()
+    let selector = UISegmentedControl()
+    private var onSelect: ((Int) -> Void)?
+    private let choicesStack = UIStackView()
+    private let controlsStack = UIStackView()
+    private var choices: [UIButton] = []
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        title.sora.font = FontType.eyebrow
+        title.sora.dynamicTextStyle = .caption1
+        title.sora.textColor = .fgSecondary
+        title.sora.numberOfLines = 0
+        selector.translatesAutoresizingMaskIntoConstraints = false
+        selector.accessibilityIdentifier = "AppearanceThemeSelector"
+        selector.addTarget(self, action: #selector(selectionChanged), for: .valueChanged)
+        contentView.addSubview(title)
+        controlsStack.axis = .vertical
+        controlsStack.translatesAutoresizingMaskIntoConstraints = false
+        choicesStack.axis = .vertical
+        choicesStack.spacing = 8
+        controlsStack.addArrangedSubview(selector)
+        controlsStack.addArrangedSubview(choicesStack)
+        contentView.addSubview(controlsStack)
+        NSLayoutConstraint.activate([
+            title.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
+            title.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -32),
+            title.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            controlsStack.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 12),
+            controlsStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            controlsStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            selector.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
+            controlsStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+        guard let item = item as? AppAppearanceItem else { return }
+        title.sora.text = item.title
+        selector.removeAllSegments()
+        choicesStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        choices = []
+        for (index, choice) in item.choices.enumerated() {
+            selector.insertSegment(withTitle: choice, at: index, animated: false)
+            let button = UIButton(type: .system)
+            button.tag = index
+            button.tintColor = NeonTokens.current.cyan
+            button.setTitleColor(NeonTokens.current.textPrimary, for: .normal)
+            button.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: 24, weight: .regular), forImageIn: .normal)
+            button.setTitle(choice, for: .normal)
+            button.titleLabel?.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 16, weight: .semibold))
+            button.titleLabel?.adjustsFontForContentSizeCategory = true
+            button.titleLabel?.numberOfLines = 0
+            button.contentHorizontalAlignment = .leading
+            button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+            button.accessibilityTraits = index == item.selectedIndex ? [.button, .selected] : .button
+            button.setImage(index == item.selectedIndex ? UIImage(systemName: "checkmark.circle.fill") : UIImage(systemName: "circle"), for: .normal)
+            button.addTarget(self, action: #selector(choicePressed(_:)), for: .touchUpInside)
+            choicesStack.addArrangedSubview(button)
+            choices.append(button)
+        }
+        selector.selectedSegmentIndex = item.selectedIndex
+        selector.accessibilityLabel = item.title
+        let font = UIFontMetrics(forTextStyle: .body).scaledFont(
+            for: UIFont.systemFont(ofSize: 15, weight: .semibold), maximumPointSize: 20)
+        selector.setTitleTextAttributes([.font: font], for: .normal)
+        onSelect = item.onSelect
+        updateChoiceLayout()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateChoiceLayout()
+    }
+
+    private func updateChoiceLayout() {
+        let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        let shown: UIView = large ? choicesStack : selector
+        let hidden: UIView = large ? selector : choicesStack
+        if hidden.superview === controlsStack {
+            controlsStack.removeArrangedSubview(hidden)
+            hidden.removeFromSuperview()
+        }
+        if shown.superview !== controlsStack { controlsStack.addArrangedSubview(shown) }
+    }
+
+    @objc private func choicePressed(_ sender: UIButton) { onSelect?(sender.tag) }
+    @objc private func selectionChanged() { onSelect?(selector.selectedSegmentIndex) }
 }
 
