@@ -32,29 +32,47 @@ enum AccountOptionsDeletionPresentationPolicy {
     }
 }
 
+struct AccountOptionsRouteEnvironment {
+    var authorize: @MainActor (AuthorizationPresentable, @escaping AuthorizationCompletionBlock) -> Void
+    var passphrase: @MainActor (AccountItem) -> UIViewController?
+    var rawSeed: @MainActor (AccountItem) -> UIViewController?
+    var json: @MainActor (AccountItem) -> UIViewController?
+
+    static var app: AccountOptionsRouteEnvironment {
+        AccountOptionsRouteEnvironment(
+            authorize: { route, completion in
+                route.authorize(animated: true, cancellable: true, inView: nil, with: completion)
+            },
+            passphrase: { AccountCreateViewFactory.createViewForShowPassthrase($0)?.controller },
+            rawSeed: { AccountExportRawSeedViewFactory.createView(account: $0) as? UIViewController },
+            json: { AccountExportViewFactory.createView(accounts: [$0]) as? UIViewController }
+        )
+    }
+}
+
 final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, AuthorizationPresentable, Loadable {
 
     private(set) var localizationManager: LocalizationManagerProtocol
     var activityIndicatorWindow: UIWindow?
+    private let environment: AccountOptionsRouteEnvironment
 
-    init(localizationManager: LocalizationManagerProtocol) {
+    init(localizationManager: LocalizationManagerProtocol,
+         environment: AccountOptionsRouteEnvironment = .app) {
         self.localizationManager = localizationManager
+        self.environment = environment
     }
 
     @MainActor
     func showPassphrase(from view: AccountOptionsViewProtocol?, account: AccountItem) {
         let warning = AccountWarningViewController(warningType: .passphrase)
         warning.localizationManager = self.localizationManager
-        warning.completion = { [weak self] in
-            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
-                guard isAuthorized, let passphraseView = AccountCreateViewFactory.createViewForShowPassthrase(account) else {
-                    return
-                }
-                
-                var navigationArray = view?.controller.navigationController?.viewControllers ?? []
-                navigationArray.remove(at: navigationArray.count - 1)
-                view?.controller.navigationController?.viewControllers = navigationArray
-                view?.controller.navigationController?.pushViewController(passphraseView.controller, animated: true)
+        warning.completion = { [weak self, weak warning] in
+            guard let self, let warning else { return }
+            self.environment.authorize(self) { [weak self, weak warning] isAuthorized in
+                guard let self, let warning, isAuthorized,
+                      self.canReplaceWarning(warning, from: view),
+                      let destination = self.environment.passphrase(account) else { return }
+                self.replaceWarning(warning, with: destination, from: view)
             }
         }
         if let navigationController = view?.controller.navigationController {
@@ -87,18 +105,13 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
     func showRawSeed(from view: AccountOptionsViewProtocol?, account: AccountItem) {
         let warning = AccountWarningViewController(warningType: .rawSeed)
         warning.localizationManager = self.localizationManager
-        warning.completion = { [weak self] in
-            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
-                if isAuthorized {
-                    guard let jsonExportVC = AccountExportRawSeedViewFactory.createView(account: account) as? UIViewController else {
-                        return
-                    }
-
-                    var navigationArray = view?.controller.navigationController?.viewControllers ?? []
-                    navigationArray.remove(at: navigationArray.count - 1)
-                    view?.controller.navigationController?.viewControllers = navigationArray
-                    view?.controller.navigationController?.pushViewController(jsonExportVC, animated: true)
-                }
+        warning.completion = { [weak self, weak warning] in
+            guard let self, let warning else { return }
+            self.environment.authorize(self) { [weak self, weak warning] isAuthorized in
+                guard let self, let warning, isAuthorized,
+                      self.canReplaceWarning(warning, from: view),
+                      let destination = self.environment.rawSeed(account) else { return }
+                self.replaceWarning(warning, with: destination, from: view)
             }
         }
         if let navigationController = view?.controller.navigationController {
@@ -111,24 +124,35 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
     func showJson(account: AccountItem, from view: AccountOptionsViewProtocol?) {
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = self.localizationManager
-        warning.completion = { [weak self] in
-            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
-                if isAuthorized {
-                    guard let jsonExportVC = AccountExportViewFactory.createView(accounts: [account]) as? UIViewController else {
-                        return
-                    }
-
-                    var navigationArray = view?.controller.navigationController?.viewControllers ?? []
-                    navigationArray.remove(at: navigationArray.count - 1)
-                    view?.controller.navigationController?.viewControllers = navigationArray
-                    view?.controller.navigationController?.pushViewController(jsonExportVC, animated: true)
-                }
+        warning.completion = { [weak self, weak warning] in
+            guard let self, let warning else { return }
+            self.environment.authorize(self) { [weak self, weak warning] isAuthorized in
+                guard let self, let warning, isAuthorized,
+                      self.canReplaceWarning(warning, from: view),
+                      let destination = self.environment.json(account) else { return }
+                self.replaceWarning(warning, with: destination, from: view)
             }
         }
         if let navigationController = view?.controller.navigationController {
             warning.controller.hidesBottomBarWhenPushed = true
             navigationController.pushViewController(warning.controller, animated: true)
         }
+    }
+
+    @MainActor
+    private func canReplaceWarning(_ warning: UIViewController, from view: AccountOptionsViewProtocol?) -> Bool {
+        guard let navigation = view?.controller.navigationController else { return false }
+        return navigation.topViewController === warning
+    }
+
+    @MainActor
+    private func replaceWarning(_ warning: UIViewController, with destination: UIViewController,
+                                from view: AccountOptionsViewProtocol?) {
+        guard let navigation = view?.controller.navigationController,
+              navigation.topViewController === warning else { return }
+        // Authorization can outlive the disclosure screen. Never remove an
+        // unrelated destination or pop an empty stack when its result arrives.
+        navigation.setViewControllers(Array(navigation.viewControllers.dropLast()) + [destination], animated: true)
     }
 
     func back(from view: AccountOptionsViewProtocol?) {
@@ -189,7 +213,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         let cancelActionTitle = R.string.localizable.commonCancel(preferredLanguages: languages)
         let logoutActionTitle = R.string.localizable.profileLogoutTitle(preferredLanguages: languages)
 
-        authorize(animated: true, cancellable: true, inView: nil) { (isAuthorized) in
+        environment.authorize(self) { (isAuthorized) in
             if isAuthorized {
                 let alertView = UIAlertController(title: alertTitle, message: alertMessage, preferredStyle: .alert)
 

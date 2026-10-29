@@ -81,18 +81,23 @@ final class WalletNetworkOperationFactory {
     func createUsableBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<OrmlAccountStorage> {
         do {
             let address: AccountAddress = accountId
+            guard let publicKey = address.accountId else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
             return JSONRPCListOperation<OrmlAccountStorage>(
                 engine: engine,
                 method: RPCMethod.getStorage,
                 parameters: [
                     try StorageKeyFactory().accountsKey(
-                        account: address.accountId!,
+                        account: publicKey,
                         asset: Data.sora(hex: assetId)
                     ).toHex(includePrefix: true)
                 ]
             )
         } catch {
-            return .init(engine: engine, method: "")
+            let failed = JSONRPCListOperation<OrmlAccountStorage>(engine: engine, method: RPCMethod.getStorage)
+            failed.result = .failure(error)
+            return failed
         }
     }
     
@@ -159,6 +164,9 @@ final class WalletNetworkOperationFactory {
     func createExtrinsicNonceFetchOperation(_ chain: Chain, accountId: Data? = nil) -> BaseOperation<UInt32> {
         do {
             let identifier = try (accountId ?? Data(hexStringSSF: accountSettings.accountId))
+            guard identifier.count == 32 else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
 
             let address = try SS58AddressFactory()
                 .address(fromAccountId: identifier,

@@ -57,6 +57,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
     private let sharingFactory: AccountShareFactoryProtocol 
     private let farmingService: DemeterFarmingServiceProtocol
     private let feeProvider: FeeProviderProtocol
+    private let sendPreflight: WalletAccountCapability.SendPreflight
     
     init(
         accountId: String,
@@ -73,7 +74,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         qrEncoder: WalletQREncoderProtocol,
         sharingFactory: AccountShareFactoryProtocol,
         farmingService: DemeterFarmingServiceProtocol,
-        feeProvider: FeeProviderProtocol
+        feeProvider: FeeProviderProtocol,
+        sendPreflight: @escaping WalletAccountCapability.SendPreflight = WalletAccountCapability.liveSendPreflight
     ) {
         self.accountId = accountId
         self.address = address
@@ -90,6 +92,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         self.sharingFactory = sharingFactory
         self.farmingService = farmingService
         self.feeProvider = feeProvider
+        self.sendPreflight = sendPreflight
     }
     
 
@@ -168,7 +171,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
     }
     
     @MainActor func showSend() {
-        WalletAccountCapability.preflightSend(from: controller, expectedAddress: address) { [self] in
+        sendPreflight(controller, address) { [self] in
             let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
                                                       selectedAddress: nil,
                                                       fiatService: fiatService,

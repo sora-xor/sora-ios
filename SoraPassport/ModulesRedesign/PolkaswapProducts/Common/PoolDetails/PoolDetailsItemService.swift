@@ -39,7 +39,7 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
 
     deinit {
         if let pricesObserver {
-            NotificationCenter.default.removeObserver(pricesObserver)
+            notificationCenter.removeObserver(pricesObserver)
         }
     }
     
@@ -47,7 +47,10 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
     var detailsPublisher: Published<[DetailViewModel]>.Publisher { $details }
 
     weak var viewModel: PoolDetailsViewModelProtocol?
-    private let poolInfo: PoolInfo
+    private var poolInfo: PoolInfo
+    private let notificationCenter: NotificationCenter
+    private var valueRequest = UUID()
+    private var detailsRequest = UUID()
     private let apyService: APYServiceProtocol
     private let fiatService: FiatServiceProtocol
     private let detailsFactory: DetailViewModelFactoryProtocol
@@ -56,43 +59,58 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
         poolInfo: PoolInfo,
         apyService: APYServiceProtocol,
         fiatService: FiatServiceProtocol,
-        detailsFactory: DetailViewModelFactoryProtocol
+        detailsFactory: DetailViewModelFactoryProtocol,
+        notificationCenter: NotificationCenter = .default
     ) {
         self.poolInfo = poolInfo
         self.apyService = apyService
         self.fiatService = fiatService
         self.detailsFactory = detailsFactory
+        self.notificationCenter = notificationCenter
     }
     
     func setup(with poolInfo: PoolInfo) {
+        let changedPool = self.poolInfo.baseAssetId != poolInfo.baseAssetId ||
+            self.poolInfo.targetAssetId != poolInfo.targetAssetId
+        self.poolInfo = poolInfo
+        if changedPool {
+            tvlText = ""
+            tvlUnavailable = false
+            details = []
+        }
         if pricesObserver == nil {
             // Prices arrived or were refreshed: value the pool again.
-            pricesObserver = NotificationCenter.default.addObserver(
+            pricesObserver = notificationCenter.addObserver(
                 forName: PICatalogs.pricesDidChange,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.loadValue(of: poolInfo)
+                guard let self else { return }
+                self.loadValue(of: self.poolInfo)
             }
         }
         loadValue(of: poolInfo)
         
-        Task { [weak self] in
-            guard let self else { return }
-            let apy = await self.apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            let details = self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)
-            self.details = details
+        let request = UUID()
+        detailsRequest = request
+        Task { @MainActor [weak self, apyService] in
+            let apy = await apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
+            guard let self, self.detailsRequest == request else { return }
+            self.details = self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)
         }
     }
 
     private func loadValue(of poolInfo: PoolInfo) {
-        Task { [weak self] in
-            guard let self else { return }
-            let fiatData = await self.fiatService.getFiat()
+        let request = UUID()
+        valueRequest = request
+        Task { @MainActor [weak self, fiatService] in
+            let fiatData = await fiatService.getFiat()
+            guard let self, self.valueRequest == request else { return }
             // Without a price the value is unknown: the header shows no
             // value, neither "$0 TVL" nor a placeholder that never ends.
             guard let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue else {
                 self.tvlUnavailable = true
+                self.tvlText = ""
                 return
             }
             let reserves = poolInfo.baseAssetReserves ?? .zero

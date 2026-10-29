@@ -10,7 +10,7 @@ import SoraFoundation
 import CoreData
 import CryptoKit
 import Darwin
-import NexusTransferCodec
+@testable import NexusTransferCodec
 import SSFUtils
 import IrohaCrypto
 @testable import SoraPassport
@@ -3502,4 +3502,410 @@ private final class StoreAmountPresentation: InputAssetAmountViewModelProtocol {
     func reviewButtonTapped() {}
     func selectAddress() {}
     func didSelect(variant: Decimal) {}
+}
+
+@MainActor
+final class WalletPresentationBoundaryTests: XCTestCase {
+    private var window: UIWindow?, priorWindow: UIWindow?, host: UIViewController?
+    private var animations = true
+    override func setUp() {
+        super.setUp(); animations = UIView.areAnimationsEnabled; UIView.setAnimationsEnabled(false)
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        priorWindow = scene?.windows.first { $0.isKeyWindow }
+        window = scene.map(UIWindow.init(windowScene:)) ?? UIWindow(frame: UIScreen.main.bounds)
+        host = UIViewController(); window?.rootViewController = host; window?.makeKeyAndVisible()
+    }
+    override func tearDown() {
+        host?.dismiss(animated: false); window?.isHidden = true; window?.rootViewController = nil; host = nil; window = nil
+        priorWindow?.makeKeyAndVisible(); priorWindow = nil; UIView.setAnimationsEnabled(animations); super.tearDown()
+    }
+    private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+    private func wait(_ condition: () -> Bool) async {
+        for _ in 0..<150 { if condition() { return }; try? await Task.sleep(nanoseconds: 10_000_000) }; XCTFail("Local screen did not finish")
+    }
+    private func present(_ view: UIViewController) async {
+        let nav = UINavigationController(rootViewController: view)
+        await withCheckedContinuation { continuation in host!.present(nav, animated: false) { continuation.resume() } }
+        view.loadViewIfNeeded()
+    }
+    private func labels(_ view: UIViewController) -> [String] { descendants(view.view).compactMap { ($0 as? UILabel)?.text } }
+    func testScannerRequestsCameraAdmissionOnlyOnceAndShowsReadableDenial() async {
+        var requests = 0; var reply: ((Bool) -> Void)?
+        let scanner = WalletAddressScanner(requestCameraAccess: { requests += 1; reply = $0 }, makeCameraInput: { XCTFail("Denied permission cannot open a camera"); return nil }, completion: { _ in XCTFail("Denial must not fill a draft") })
+        await present(scanner); scanner.loadViewIfNeeded(); XCTAssertEqual(requests, 1)
+        reply?(false); await wait { self.labels(scanner).contains(WalletUX.text("Camera access is unavailable. Close this screen to paste the address, or enable Camera in Settings.")) }
+        XCTAssertEqual(scanner.title, WalletUX.text("Scan receive address")); XCTAssertNotNil(scanner.navigationItem.leftBarButtonItem)
+    }
+    func testApprovedCameraWithoutAnInputShowsTheSameRecoverableFallback() async {
+        var reply: ((Bool) -> Void)?, attempts = 0
+        let scanner = WalletAddressScanner(requestCameraAccess: { reply = $0 }, makeCameraInput: { attempts += 1; return nil }, completion: { _ in XCTFail() })
+        await present(scanner); reply?(true)
+        await wait { attempts == 1 && !self.labels(scanner).isEmpty }; scanner.viewDidLayoutSubviews()
+        XCTAssertTrue(labels(scanner).contains(WalletUX.text("Camera access is unavailable. Close this screen to paste the address, or enable Camera in Settings.")))
+    }
+    func testCameraPermissionReturningAfterDismissalDoesNotStartCapture() async {
+        var reply: ((Bool) -> Void)?, attempts = 0
+        let scanner = WalletAddressScanner(requestCameraAccess: { reply = $0 }, makeCameraInput: { attempts += 1; return nil }, completion: { _ in XCTFail() })
+        await present(scanner)
+        await withCheckedContinuation { continuation in host!.dismiss(animated: false) { continuation.resume() } }
+        reply?(true); try? await Task.sleep(nanoseconds: 30_000_000); XCTAssertEqual(attempts, 0)
+    }
+    func testCameraPermissionCallbackDoesNotRetainTheDismissedScanner() async {
+        var reply: ((Bool) -> Void)?, scanner: WalletAddressScanner? = WalletAddressScanner(requestCameraAccess: { reply = $0 }, makeCameraInput: { XCTFail(); return nil }, completion: { _ in XCTFail() })
+        weak var released = scanner; scanner?.loadViewIfNeeded(); scanner = nil; XCTAssertNil(released)
+        reply?(false); try? await Task.sleep(nanoseconds: 30_000_000)
+    }
+    func testMissingDecodedQRValueDoesNotCloseTheScreenOrFillTheDraft() async {
+        let scanner = WalletAddressScanner(requestCameraAccess: { _ in }, makeCameraInput: { nil }, completion: { _ in XCTFail() })
+        await present(scanner); scanner.acceptScannedAddress(nil)
+        XCTAssertNotNil(host?.presentedViewController); XCTAssertNotNil(scanner.view.window)
+    }
+    func testScannerReturnsOnlyTheFirstDecodedValueWithoutChangingItsNetworkSyntax() async {
+        var values = [String]()
+        let scanner = WalletAddressScanner(requestCameraAccess: { _ in }, makeCameraInput: { nil }, completion: { values.append($0) })
+        await present(scanner); scanner.acceptScannedAddress("exact-public-address?network=taira")
+        scanner.acceptScannedAddress("second-address"); await wait { values.count == 1 }
+        XCTAssertEqual(values, ["exact-public-address?network=taira"]); XCTAssertNil(host?.presentedViewController)
+    }
+    func testInlineNoticeUsesTheAccessibleMultilineLabelAndExactMessage() throws {
+        let item = WalletInlineNoticeItem("Price unavailable\nTry again later"), cell = WalletInlineNoticeCell(style: .default, reuseIdentifier: "notice")
+        XCTAssertTrue(item.cellType == WalletInlineNoticeCell.self); cell.set(item: item, context: nil)
+        let label = try XCTUnwrap(descendants(cell.contentView).compactMap { $0 as? UILabel }.first)
+        XCTAssertEqual(label.text, item.message); XCTAssertEqual(label.numberOfLines, 0); XCTAssertTrue(label.adjustsFontForContentSizeCategory)
+    }
+    func testReusedNoticeCellReplacesItsPreviousMessage() throws {
+        let cell = WalletInlineNoticeCell(style: .default, reuseIdentifier: "notice")
+        cell.set(item: WalletInlineNoticeItem("Previous"), context: nil); cell.set(item: WalletInlineNoticeItem("Current"), context: nil)
+        XCTAssertEqual(descendants(cell.contentView).compactMap { ($0 as? UILabel)?.text }, ["Current"])
+    }
+    func testReadableAttributedTextRepairsOnlyTheLowContrastRunAndKeepsOtherFormatting() throws {
+        let input = NSMutableAttributedString(string: "ab")
+        input.addAttributes([.foregroundColor: WalletUX.page, .underlineStyle: NSUnderlineStyle.single.rawValue], range: NSRange(location: 0, length: 1))
+        input.addAttribute(.foregroundColor, value: WalletUX.foreground, range: NSRange(location: 1, length: 1))
+        let output = WalletUX.readableAttributedText(input)
+        XCTAssertEqual(output.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, WalletUX.foreground)
+        XCTAssertEqual(output.attribute(.foregroundColor, at: 1, effectiveRange: nil) as? UIColor, WalletUX.foreground)
+        XCTAssertEqual(output.attribute(.underlineStyle, at: 0, effectiveRange: nil) as? Int, NSUnderlineStyle.single.rawValue)
+        XCTAssertEqual(input.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, WalletUX.page)
+    }
+    func testAttributedTextWithoutAnExplicitColorKeepsItsAttributesAndString() {
+        let input = NSAttributedString(string: "Wallet", attributes: [.kern: 2])
+        XCTAssertEqual(WalletUX.readableAttributedText(input), input)
+    }
+}
+
+@MainActor
+final class AccountBackupActionBoundaryTests: RootActionFixtureTests {
+    private let words = ["public", "synthetic", "backup", "fixture"]
+    private func make(_ mode: AccountCreateViewController.Mode = .view)
+        -> (AccountCreateViewController, BackupActionPresenter) {
+        let view = AccountCreateViewController()
+        let presenter = BackupActionPresenter()
+        view.mode = mode
+        view.presenter = presenter
+        view.localizationManager = LocalizationManager.shared
+        mount(UINavigationController(rootViewController: view))
+        view.set(mnemonic: words)
+        view.set(backupDerivationPath: "//public-fixture")
+        XCTAssertEqual(presenter.setups, 1)
+        return (view, presenter)
+    }
+    private func renderedWords(_ view: AccountCreateViewController) -> [String] {
+        all(UILabel.self, view.view).compactMap(\.text).filter { words.contains($0) }
+    }
+    private func soraButton(_ title: String, in view: AccountCreateViewController) throws -> SoramitsuButton {
+        try XCTUnwrap(all(SoramitsuButton.self, view.view).first {
+            $0.sora.title == title || $0.sora.attributedText?.attributedString.string == title
+        })
+    }
+    private func tapBarAction(_ view: AccountCreateViewController) throws {
+        let item = try XCTUnwrap(view.navigationItem.rightBarButtonItem)
+        UIApplication.shared.sendAction(try XCTUnwrap(item.action), to: item.target, from: item, for: nil)
+    }
+
+    func testContinuingRegistrationClearsTheRevealedPhraseBeforeRouting() throws {
+        let (view, presenter) = make(.registration)
+        try tap("wallet-backup-reveal", view)
+        XCTAssertEqual(renderedWords(view).count, words.count)
+        try soraButton(view.mode.nextButtonTitle, in: view).sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.proceeds, 1)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+    }
+
+    func testCopyingThePhraseRequiresRevealAndCallsThePresenterOnce() throws {
+        let (view, presenter) = make()
+        let copy = try soraButton(R.string.localizable.commonCopy(preferredLanguages: .currentLocale), in: view)
+        XCTAssertFalse(copy.isEnabled)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.shares, 0)
+        try tap("wallet-backup-reveal", view)
+        XCTAssertTrue(copy.isEnabled)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.shares, 1)
+        XCTAssertEqual(copy.sora.title, R.string.localizable.commonCopied(preferredLanguages: .currentLocale))
+    }
+
+    func testCopyingTheDerivationPathRequiresARevealedNonemptyPath() throws {
+        let (view, _) = make()
+        UIPasteboard.general.string = "untouched fixture"
+        let copy = try button("Copy derivation path", view)
+        XCTAssertTrue(copy.isHidden)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "untouched fixture")
+        try tap("wallet-backup-reveal", view)
+        XCTAssertFalse(copy.isHidden)
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
+        view.set(backupDerivationPath: "")
+        copy.sendActions(for: .touchUpInside)
+        XCTAssertEqual(UIPasteboard.general.string, "//public-fixture")
+    }
+
+    func testGoogleBackupHidesThePhraseAndDisablesDuplicateRequestsUntilLoadingEnds() throws {
+        let (view, presenter) = make(.registrationWithoutAccessToGoogle)
+        try tap("wallet-backup-reveal", view)
+        let google = try soraButton(R.string.localizable.onboardingContinueWithGoogle(preferredLanguages: .currentLocale), in: view)
+        XCTAssertFalse(google.isHidden)
+        google.sendActions(for: .touchUpInside)
+        XCTAssertEqual(presenter.googleBackups, 1)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+        XCTAssertFalse(google.isUserInteractionEnabled)
+        XCTAssertFalse(view.loadingView.isHidden)
+        view.hideLoading()
+        XCTAssertTrue(google.isUserInteractionEnabled)
+        XCTAssertTrue(view.loadingView.isHidden)
+        view.showLoading()
+        XCTAssertFalse(view.loadingView.isHidden)
+    }
+
+    func testCancellingTheSkipWarningKeepsTheBackupFlowOpen() async throws {
+        let (view, presenter) = make(.registrationWithoutAccessToGoogle)
+        try tapBarAction(view)
+        await wait { view.presentedViewController is UIAlertController }
+        let warning = try alert(view)
+        XCTAssertEqual(warning.actions.filter { $0.style == .destructive }.count, 1)
+        try await choose(R.string.localizable.commonCancel(preferredLanguages: .currentLocale), view)
+        XCTAssertEqual(presenter.skips, 0)
+        XCTAssertTrue(view.navigationController?.topViewController === view)
+    }
+
+    func testSkipRequiresConfirmationBeforeThePresenterProceeds() async throws {
+        let (view, presenter) = make(.registrationWithoutAccessToGoogle)
+        try tapBarAction(view)
+        await wait { view.presentedViewController is UIAlertController }
+        XCTAssertEqual(presenter.skips, 0)
+        try await choose(R.string.localizable.importAccountNotBackedUpAlertActionTitle(preferredLanguages: .currentLocale), view)
+        XCTAssertEqual(presenter.skips, 1)
+    }
+
+    func testRetainedBackupInfoAndForegroundActionsReachThePresenter() throws {
+        let (view, presenter) = make()
+        try tapBarAction(view)
+        XCTAssertEqual(presenter.infos, 1)
+        NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: nil)
+        XCTAssertEqual(presenter.foregrounds, 1)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+    }
+
+    func testLeavingTheScreenClearsThePhraseAndTraitChangesDoNotRevealItAgain() throws {
+        let (view, _) = make()
+        try tap("wallet-backup-reveal", view)
+        XCTAssertEqual(renderedWords(view).count, words.count)
+        view.viewWillDisappear(false)
+        XCTAssertTrue(renderedWords(view).isEmpty)
+        view.traitCollectionDidChange(UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge))
+        XCTAssertTrue(renderedWords(view).isEmpty)
+    }
+}
+
+private final class BackupActionPresenter: AccountCreatePresenterProtocol {
+    var setups = 0, infos = 0, proceeds = 0, shares = 0, foregrounds = 0, skips = 0, googleBackups = 0
+    func setup() { setups += 1 }
+    func activateInfo() { infos += 1 }
+    func proceed() { proceeds += 1 }
+    func share() { shares += 1 }
+    func restoredApp() { foregrounds += 1 }
+    func skip() { skips += 1 }
+    func backupToGoogle() { googleBackups += 1 }
+}
+
+extension TairaFaucetAppTests {
+    private func journalURL(_ directory: URL, account: String) -> URL {
+        let name = SHA256.hash(data: Data((TairaClient.networkLiteral + "\n" + account).utf8)).map { String(format: "%02x", $0) }.joined()
+        return directory.appendingPathComponent(name + ".json")
+    }
+    private func savePending(_ directory: URL, account: String, network: String = TairaClient.networkLiteral,
+                             hash: String = String(repeating: "b", count: 64), amount: String = "25000") throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let value = TairaFaucetService.PendingClaim(network: network, account: account, transactionHash: hash, amount: amount)
+        try JSONEncoder().encode(value).write(to: journalURL(directory, account: account))
+    }
+    private func claimFixture(mode: FaucetPersistenceFixture.Mode = .applied) throws -> FaucetPersistenceFixture {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf: root.appendingPathComponent("VendorPackages/NexusTransferCodec/Tests/NexusTransferCodecTests/faucet-prepared.json"))
+        return try FaucetPersistenceFixture(data: data, mode: mode)
+    }
+    func testFreshFaucetClaimPersistsBeforeDispatchAndClearsAfterApplied() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        let outcome = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira),
+            contextIsCurrent: { true }, progress: { await fixture.record($0) })
+        XCTAssertEqual(outcome.state, .applied(blockHeight: 73))
+        let pending = try await service.hasPending(account: account.address)
+        XCTAssertFalse(pending)
+        let requests = await fixture.requests(), phases = await fixture.phases()
+        XCTAssertEqual(phases, ["preparing", "submitting", "checking"])
+        XCTAssertEqual(requests.filter { $0.url?.path == "/v1/accounts/faucet" }.count, 1)
+        XCTAssertEqual(requests.last?.httpMethod, "GET")
+    }
+    func testFreshRejectedFaucetClaimClearsItsPendingRecord() async throws {
+        let fixture = try claimFixture(mode: .rejected), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        let result = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira),
+            contextIsCurrent: { true }, progress: { _ in })
+        guard case .rejected = result.state else { return XCTFail("Rejected claim was not terminal") }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+    }
+    func testFaucetRateLimitClearsOnlyTheUndispatchedPendingClaim() async throws {
+        let fixture = try claimFixture(mode: .rateLimited), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { _ in }); XCTFail("Rate limit ignored") }
+        catch { XCTAssertEqual(error as? TairaFaucetClient.Failure, .rateLimited(retryAfterSeconds: 75)) }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+    }
+    func testFaucetExpiredPreparedClaimIsRemovedWithoutDispatch() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { phase in
+            if case .submitting = phase { fixture.clock.advance() }
+        }); XCTFail("Expired claim dispatched") }
+        catch { XCTAssertEqual(error as? TairaFaucetClient.Failure, .expired) }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+        let requests = await fixture.requests(); XCTAssertFalse(requests.contains { $0.url?.path == "/v1/accounts/faucet" })
+    }
+    func testFaucetInvalidStatusKeepsThePersistedHashForReadOnlyRecovery() async throws {
+        let fixture = try claimFixture(mode: .invalidStatus), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { _ in }); XCTFail("Invalid status accepted") }
+        catch { XCTAssertEqual(error as? TairaFaucetClient.Failure, .invalidResponse) }
+        let pending = try await service.hasPending(account: account.address); XCTAssertTrue(pending)
+        let record = try JSONDecoder().decode(TairaFaucetService.PendingClaim.self, from: Data(contentsOf: journalURL(fixture.directory, account: account.address)))
+        XCTAssertEqual(record.transactionHash, fixture.hash)
+    }
+    func testFaucetContextChangedAfterPreparationCannotPersistOrSubmit() async throws {
+        let fixture = try claimFixture(), account = try account(), checks = FaucetContextChecks()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { await checks.firstOnly() }, progress: { _ in }); XCTFail("Stale wallet submitted") }
+        catch { guard case TairaFaucetService.Failure.wrongAccount = error else { return XCTFail("Unexpected error: \(error)") } }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+        let requests = await fixture.requests(); XCTAssertFalse(requests.contains { $0.url?.path == "/v1/accounts/faucet" })
+    }
+    func testFaucetContextAlreadyStaleMakesNoNetworkRequests() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { false }, progress: { _ in XCTFail("Unexpected progress") }); XCTFail("Stale wallet admitted") }
+        catch { guard case TairaFaucetService.Failure.wrongAccount = error else { return XCTFail("Unexpected error: \(error)") } }
+        let requests = await fixture.requests(); XCTAssertTrue(requests.isEmpty)
+    }
+    func testFaucetCancellationAfterPreparationDoesNotPersistOrSubmit() async throws {
+        let fixture = try claimFixture(), account = try account(), config = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        defer { fixture.remove() }
+        let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+        let task = Task {
+            try await service.request(account: account, configuration: config, contextIsCurrent: { true }, progress: { phase in
+                if case .submitting = phase { withUnsafeCurrentTask { $0?.cancel() } }
+            })
+        }
+        do { _ = try await task.value; XCTFail("Cancelled claim submitted") } catch is CancellationError { }
+        let pending = try await service.hasPending(account: account.address); XCTAssertFalse(pending)
+        let requests = await fixture.requests(); XCTAssertFalse(requests.contains { $0.url?.path == "/v1/accounts/faucet" })
+    }
+    func testFaucetCorruptAndOversizedJournalCannotStartAnotherClaim() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        try FileManager.default.createDirectory(at: fixture.directory, withIntermediateDirectories: true)
+        for bytes in [Data("invalid".utf8), Data(repeating: 32, count: 4097)] {
+            try bytes.write(to: journalURL(fixture.directory, account: account.address))
+            let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+            do { _ = try await service.request(account: account, configuration: XCTUnwrap(NexusNetworkConfiguration.taira), contextIsCurrent: { true }, progress: { _ in XCTFail("Damaged journal must not prepare") }); XCTFail("Damaged journal ignored") }
+            catch { guard case TairaFaucetService.Failure.unreadableRequest = error else { return XCTFail("Unexpected error: \(error)") } }
+        }
+        let requests = await fixture.requests(); XCTAssertTrue(requests.isEmpty)
+    }
+    func testFaucetJournalRejectsWrongNetworkAmountAndHash() async throws {
+        let fixture = try claimFixture(), account = try account()
+        defer { fixture.remove() }
+        for values in [("wrong", "25000", String(repeating: "b", count: 64)), (TairaClient.networkLiteral, "1", String(repeating: "b", count: 64)), (TairaClient.networkLiteral, "25000", "invalid")] {
+            try savePending(fixture.directory, account: account.address, network: values.0, hash: values.2, amount: values.1)
+            let service = TairaFaucetService(client: fixture.client(), directory: fixture.directory)
+            do { _ = try await service.hasPending(account: account.address); XCTFail("Invalid claim accepted") }
+            catch { guard case TairaFaucetService.Failure.unreadableRequest = error else { return XCTFail("Unexpected error: \(error)") } }
+        }
+    }
+}
+private actor FaucetContextChecks {
+    private var count = 0
+    func firstOnly() -> Bool { count += 1; return count == 1 }
+}
+private final class FaucetFixtureClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var expired = false
+    func advance() { lock.lock(); expired = true; lock.unlock() }
+    func now() -> UInt64 { lock.lock(); defer { lock.unlock() }; return expired ? 1_791_874_548_510 : 1_791_874_348_510 }
+}
+private actor FaucetFixtureRecords {
+    var requests: [URLRequest] = [], phases: [String] = []
+    func append(_ request: URLRequest) { requests.append(request) }
+    func append(_ phase: TairaFaucetService.Phase) { switch phase { case .preparing: phases.append("preparing"); case .submitting: phases.append("submitting"); case .checking: phases.append("checking") } }
+}
+private final class FaucetPersistenceFixture: @unchecked Sendable {
+    enum Mode { case applied, rejected, rateLimited, invalidStatus }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let clock = FaucetFixtureClock()
+    let hash: String, prepared: Data, policy: Data, puzzle: Data, status: Data
+    let mode: Mode
+    private let records = FaucetFixtureRecords()
+    init(data: Data, mode: Mode) throws {
+        prepared = data; self.mode = mode
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        hash = try XCTUnwrap(root["transaction_hash_hex"] as? String)
+        policy = try JSONSerialization.data(withJSONObject: ["schema_version": 1, "network_id": TairaClient.networkLiteral,
+            "network_prefix": 369, "authority": TairaFaucetClient.authority, "asset_definition_id": TairaClient.xorDefinition, "amount": TairaFaucetClient.amount])
+        puzzle = try JSONSerialization.data(withJSONObject: ["algorithm": "scrypt-leading-zero-bits-v1", "network_id": TairaClient.networkLiteral,
+            "chain_discriminant": 369, "difficulty_bits": 8, "anchor_height": 72, "anchor_block_hash_hex": String(repeating: "01", count: 32),
+            "challenge_salt_hex": NSNull(), "scrypt_log_n": 13, "scrypt_r": 8, "scrypt_p": 1, "max_anchor_age_blocks": 6])
+        status = try JSONSerialization.data(withJSONObject: ["hash": hash, "scope": "global", "resolved_from": mode == .invalidStatus ? "cache" : "state",
+            "status": ["kind": mode == .rejected ? "Rejected" : "Applied", "block_height": 73]])
+    }
+    func remove() { try? FileManager.default.removeItem(at: directory) }
+    func requests() async -> [URLRequest] { await records.requests }
+    func phases() async -> [String] { await records.phases }
+    func record(_ phase: TairaFaucetService.Phase) async { await records.append(phase) }
+    func client() -> TairaFaucetClient {
+        TairaFaucetClient(scrypt: { nonce, _, _, _, _ in Data(repeating: nonce == Data([6, 1, 0, 0, 0, 0, 0, 0]) ? 0 : 255, count: 32) }, transport: { [self] request, _ in
+            await records.append(request)
+            switch request.url?.path {
+            case "/v1/accounts/faucet/policy": return .init(data: policy)
+            case "/v1/accounts/faucet/puzzle": return .init(data: puzzle)
+            case "/v1/accounts/faucet/prepare": return .init(data: prepared)
+            case "/v1/accounts/faucet":
+                XCTAssertEqual(request.httpBody, prepared)
+                let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                XCTAssertEqual(files.count, 1, "Persist the exact claim before dispatch")
+                let saved = try JSONDecoder().decode(TairaFaucetService.PendingClaim.self, from: Data(contentsOf: XCTUnwrap(files.first)))
+                XCTAssertEqual(saved.transactionHash, hash)
+                if mode == .rateLimited { return .init(data: Data(), statusCode: 429, retryAfterSeconds: 75) }
+                return .init(data: Data("{}".utf8), statusCode: 202)
+            case "/v1/pipeline/transactions/status": return .init(data: status)
+            default: XCTFail("Unexpected request"); throw URLError(.badURL)
+            }
+        }, clock: { [clock] in clock.now() }, requestID: { "7582fe6c111c4ac1b031f8c76db1a3f9442512bb6c50448289dad334fedb9084" })
+    }
 }

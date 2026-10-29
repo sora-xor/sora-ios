@@ -5955,3 +5955,156 @@ final class WalletRecoveryConvergenceTests: XCTestCase {
         XCTAssertEqual(try owner.verifyRetained("246810", addresses: [account.address]), [account.address])
     }
 }
+
+final class RetainedMaterialPreparationBoundaryTests: XCTestCase {
+    private func cannotAuthorizeCredentialRepair(_ prepared: PreparedAccount) {
+        XCTAssertThrowsError(try prepared.credentialRepairMaterial()) {
+            guard case WalletCredentialRepair.Failure.suppliedMaterialRequired = $0 else {
+                return XCTFail("Unexpected repair authorization error: \($0)")
+            }
+        }
+    }
+    private func prepareSeedOnly(_ crypto: CryptoType) throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let seed = Data(repeating: 0x31, count: 32)
+        let expected = try HistoricalWriter.seedImport(seed, cryptoType: crypto, keystore: reference)
+        try device.keychain.base.saveSeed(seed, address: expected.address)
+        let before = try device.keychain.bytes(), gate = device.isolatedGate()
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: expected.address, keystore: device.keychain, recoveryGate: gate))
+        XCTAssertEqual(wallet.cryptoType, crypto); XCTAssertEqual(wallet.publicKey, expected.publicKeyData); XCTAssertFalse(wallet.hasPhrase)
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Retained seed", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        XCTAssertEqual(prepared.account.address, expected.address); XCTAssertEqual(prepared.account.publicKeyData, expected.publicKeyData)
+        XCTAssertEqual(prepared.account.username, "Retained seed"); XCTAssertEqual(prepared.account.cryptoType, crypto)
+        cannotAuthorizeCredentialRepair(prepared)
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty); XCTAssertFalse(device.keychain.changedExistingItems)
+    }
+    private func preparePhraseOnly(_ crypto: CryptoType, path: String) throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: Data(repeating: 0x32, count: 16))
+        let expected = try HistoricalWriter.phraseImport(mnemonic.toString(), path: path, cryptoType: crypto, keystore: reference)
+        try device.keychain.base.saveEntropy(mnemonic.entropy(), address: expected.address)
+        if !path.isEmpty { try device.keychain.base.saveDeriviation(path, address: expected.address) }
+        let before = try device.keychain.bytes(), gate = device.isolatedGate()
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: expected.address, keystore: device.keychain, recoveryGate: gate))
+        XCTAssertEqual(wallet.cryptoType, crypto); XCTAssertTrue(wallet.hasPhrase); XCTAssertEqual(wallet.derivationPath ?? "", path)
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Retained phrase", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        cannotAuthorizeCredentialRepair(prepared)
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(prepared.account.address, expected.address); XCTAssertEqual(prepared.account.publicKeyData, expected.publicKeyData)
+        XCTAssertEqual(prepared.account.cryptoType, crypto); XCTAssertEqual(prepared.account.username, "Retained phrase")
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty); XCTAssertFalse(device.keychain.changedExistingItems)
+    }
+    func testSr25519SeedAloneProvesAndPreparesTheRetainedIdentityWithoutWrites() throws { try prepareSeedOnly(.sr25519) }
+    func testEd25519SeedAloneProvesAndPreparesTheRetainedIdentityWithoutWrites() throws { try prepareSeedOnly(.ed25519) }
+    func testEcdsaSeedAloneProvesAndPreparesTheRetainedIdentityWithoutWrites() throws { try prepareSeedOnly(.ecdsa) }
+    func testSr25519PhraseAndSoftPathPrepareWithoutAddingSecretTags() throws { try preparePhraseOnly(.sr25519, path: "/soft") }
+    func testEd25519PhraseAndHardPathPrepareWithoutAddingSecretTags() throws { try preparePhraseOnly(.ed25519, path: "//hard") }
+    func testEcdsaPhraseAndHardPathPrepareWithoutAddingSecretTags() throws { try preparePhraseOnly(.ecdsa, path: "//hard") }
+    func testChangedSeedAfterDiscoveryCannotPrepareThePreviouslyProvenWallet() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x33, count: 32), cryptoType: .ed25519, keystore: reference)
+        try device.keychain.base.saveSeed(Data(repeating: 0x33, count: 32), address: account.address)
+        let gate = device.isolatedGate(), wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        try device.keychain.base.saveSeed(Data(repeating: 0x34, count: 32), address: account.address)
+        let before = try device.keychain.bytes()
+        XCTAssertThrowsError(try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Stale", keystore: device.keychain, recoveryGate: gate)) {
+            guard case AccountCreateError.retainedKeyConflict = $0 else { return XCTFail("Unexpected error: \($0)") }
+        }
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty)
+    }
+    func testSeedUnderAnotherAddressIsUnprovableAndRemainsUntouched() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x35, count: 32), cryptoType: .sr25519, keystore: reference)
+        try device.keychain.base.saveSeed(Data(repeating: 0x36, count: 32), address: account.address)
+        let before = try device.keychain.bytes()
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+    func testForeignNetworkAddressIsRejectedBeforeAdoptingItsTags() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x37, count: 32), cryptoType: .sr25519, keystore: reference)
+        let foreign = try SS58AddressFactory().address(fromAccountId: account.publicKeyData, type: 42)
+        try device.keychain.base.saveSeed(Data(repeating: 0x37, count: 32), address: foreign)
+        let before = try device.keychain.bytes()
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: foreign, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+    func testAddressWithoutRetainedMaterialDoesNotProduceARecoveryCandidate() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x38, count: 32), cryptoType: .ed25519, keystore: reference)
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertTrue(try device.keychain.bytes().isEmpty)
+    }
+    func testChangedDerivationPathCannotPrepareAnotherAccountFromTheRetainedPhrase() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: Data(repeating: 0x39, count: 16))
+        let account = try HistoricalWriter.phraseImport(mnemonic.toString(), path: "//one", keystore: reference)
+        try device.keychain.base.saveEntropy(mnemonic.entropy(), address: account.address)
+        try device.keychain.base.saveDeriviation("//two", address: account.address)
+        let before = try device.keychain.bytes()
+        XCTAssertNil(try RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        XCTAssertEqual(try device.keychain.bytes(), before)
+    }
+    func testPreparedRetainedMaterialDoesNotGrantInitialPinSetupByItself() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let seed = Data(repeating: 0x3a, count: 32)
+        let account = try HistoricalWriter.seedImport(seed, cryptoType: .ed25519, keystore: reference)
+        try device.keychain.base.saveSeed(seed, address: account.address)
+        let gate = device.isolatedGate(), wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: device.isolatedGate()))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Unowned", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        let before = try device.keychain.bytes()
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before); XCTAssertTrue(device.keychain.added.isEmpty)
+    }
+
+    func testPreparedGlobalEntropyCannotCreateAnInitialPinSetupClaim() throws {
+        let device = try Installation()
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: Data(repeating: 0x3b, count: 20))
+        _ = try HistoricalWriter.version1(phrase: mnemonic.toString(), keystore: device.keychain.base)
+        let gate = device.isolatedGate()
+        let inventory = try RetainedKeychainWalletDiscovery.inventory(keystore: device.keychain, recoveryGate: gate)
+        let wallet = try XCTUnwrap(inventory.adoptable.first(where: \.usesGlobalEntropy))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Earlier wallet", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        cannotAuthorizeCredentialRepair(prepared)
+        let before = try device.keychain.bytes()
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before)
+        XCTAssertFalse(try WalletOwnerPIN(keystore: device.keychain, settings: device.settings, recoveryGate: gate).requiresInitialSetup(accounts: [prepared.account]))
+    }
+
+    func testPreparedDirectSecretCannotCreateAnInitialPinSetupClaim() throws {
+        let device = try Installation()
+        let account = try HistoricalWriter.seedImport(Data(repeating: 0x3c, count: 32), cryptoType: .ecdsa, keystore: device.keychain.base)
+        let gate = device.isolatedGate()
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: gate))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Earlier wallet", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        let before = try device.keychain.bytes()
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertEqual(try device.keychain.bytes(), before)
+        XCTAssertFalse(try WalletOwnerPIN(keystore: device.keychain, settings: device.settings, recoveryGate: gate).requiresInitialSetup(accounts: [account]))
+    }
+
+    func testSeedOnlyPreparationCanUseASeparatelyVerifiedOwnerGrant() throws {
+        let device = try Installation(), reference = InMemoryKeychain()
+        let seed = Data(repeating: 0x3d, count: 32)
+        let account = try HistoricalWriter.seedImport(seed, cryptoType: .ed25519, keystore: reference)
+        try device.keychain.base.saveSeed(seed, address: account.address)
+        try device.keychain.base.saveKey(JSONEncoder().encode(WalletOwnerPIN.Binding(pin: "123456")), with: account.address + WalletOwnerPIN.bindingSuffix)
+        let gate = device.isolatedGate(), owner = WalletOwnerPIN(keystore: device.keychain, settings: device.settings, recoveryGate: device.isolatedGate())
+        let grant = try owner.authorizeRetained("123456", addresses: [account.address])
+        let wallet = try XCTUnwrap(RetainedKeychainWalletDiscovery.prove(address: account.address, keystore: device.keychain, recoveryGate: gate))
+        let prepared = try RetainedKeychainWalletDiscovery.preparedAccount(for: wallet, username: "Authorized wallet", keystore: device.keychain, recoveryGate: gate)
+        defer { prepared.discard() }
+        prepared.restrictToRetainedOwnership(grant)
+        try prepared.prepareInitialPINSetup(keystore: device.keychain, settings: device.settings, operationID: UUID())
+        XCTAssertTrue(try owner.requiresInitialSetup(accounts: [account]))
+        XCTAssertEqual(try device.keychain.fetchKey(for: KeystoreTag.seedTagForAddress(account.address)), seed)
+        cannotAuthorizeCredentialRepair(prepared)
+    }
+}

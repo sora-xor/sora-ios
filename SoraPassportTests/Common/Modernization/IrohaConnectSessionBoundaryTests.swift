@@ -396,3 +396,122 @@ extension Data {
     ).replacingOccurrences(of: "=", with: "")
   }
 }
+
+@MainActor
+final class IrohaConnectTransportBoundaryTests: XCTestCase {
+    private let relay = URL(string: "wss://relay.invalid/connect")!
+    private func fixture() -> (IrohaConnectWebSocket, URLSession, URLSessionWebSocketTask) {
+        let session = URLSession(configuration: .ephemeral)
+        return (IrohaConnectWebSocket(url: relay, protocol: "iroha.fixture"), session, session.webSocketTask(with: relay))
+    }
+    func testSendingBeforeConnectionReportsOneFailureWithoutStartingTransport() {
+        let (socket, session, _) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+        var errors = [IrohaConnectError]()
+        socket.onFailure = { if let error = $0 as? IrohaConnectError { errors.append(error) } }
+        socket.send(Data([1])); socket.send(Data([2]))
+        XCTAssertEqual(errors, [.connectionFailed])
+    }
+    func testOversizedFrameIsRejectedBeforeAnyConnectionExists() {
+        let (socket, session, _) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+        var failed = false; socket.onFailure = { _ in failed = true }
+        socket.send(Data(repeating: 1, count: IrohaConnectFrame.maximumBytes + 1))
+        XCTAssertTrue(failed)
+    }
+    func testLocalCancellationSuppressesSubsequentTransportFailuresAndCloseCallbacks() {
+        let (socket, session, task) = fixture(); defer { session.invalidateAndCancel() }
+        socket.onFailure = { _ in XCTFail("Cancelled transport must not report an error") }
+        socket.onClosed = { _ in XCTFail("Local cancellation is not a relay close") }
+        socket.cancel(); socket.cancel(); socket.send(Data([1]))
+        socket.urlSession(session, task: task, didCompleteWithError: URLError(.cancelled))
+        socket.urlSession(session, webSocketTask: task, didCloseWith: .goingAway, reason: nil)
+    }
+    func testNegotiatedAuthenticationProtocolIsRequiredBeforeOpenCallback() {
+        for negotiated: String? in [nil, "wrong.protocol"] {
+            let (socket, session, task) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+            var errors = [IrohaConnectError](); socket.onOpen = { XCTFail("Unauthenticated relay must not open") }
+            socket.onFailure = { if let e = $0 as? IrohaConnectError { errors.append(e) } }
+            socket.urlSession(session, webSocketTask: task, didOpenWithProtocol: negotiated)
+            XCTAssertEqual(errors, [.protocolViolation("relay did not negotiate token authentication")])
+        }
+    }
+    func testMatchingNegotiatedProtocolInvokesOpenCallback() {
+        let (socket, session, task) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+        var count = 0; socket.onOpen = { count += 1 }
+        socket.onFailure = { _ in XCTFail("Matching protocol must be admitted") }
+        socket.urlSession(session, webSocketTask: task, didOpenWithProtocol: "iroha.fixture")
+        XCTAssertEqual(count, 1)
+    }
+    func testTaskCompletionReportsItsUnderlyingFailureOnlyOnce() {
+        let (socket, session, task) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+        var codes = [Int](); socket.onFailure = { codes.append(($0 as NSError).code) }
+        socket.urlSession(session, task: task, didCompleteWithError: nil)
+        XCTAssertTrue(codes.isEmpty)
+        socket.urlSession(session, task: task, didCompleteWithError: URLError(.timedOut))
+        socket.urlSession(session, task: task, didCompleteWithError: URLError(.networkConnectionLost))
+        XCTAssertEqual(codes, [URLError.timedOut.rawValue])
+    }
+    func testRelayCloseReasonIsLimitedTo512Characters() {
+        let (socket, session, task) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+        var reasons = [String](); socket.onClosed = { reasons.append($0) }
+        socket.urlSession(session, webSocketTask: task, didCloseWith: .normalClosure, reason: Data(String(repeating: "界", count: 600).utf8))
+        XCTAssertEqual(reasons, [String(repeating: "界", count: 512)])
+    }
+    func testMissingOrNonUtf8RelayCloseReasonUsesReadableFallback() {
+        for reason: Data? in [nil, Data([0xff, 0xfe])] {
+            let (socket, session, task) = fixture(); defer { socket.cancel(); session.invalidateAndCancel() }
+            var value: String?; socket.onClosed = { value = $0 }
+            socket.urlSession(session, webSocketTask: task, didCloseWith: .normalClosure, reason: reason)
+            XCTAssertEqual(value, "The relay closed the connection.")
+        }
+    }
+}
+
+extension IrohaConnectSessionBoundaryTests {
+    func testServerEventSequenceRejectsReplayAndGapsIndependentlyOfAppFrames() throws {
+        for sequence: UInt64 in [0, 2, UInt64.max] {
+            let f = try make(connected: true)
+            let bytes = IrohaConnectWire.encodeServerEventForTesting(sid: f.launch.sid, sequence: sequence, height: 7, entryHash: "entry", proofsJSON: "{}")
+            XCTAssertThrowsError(try f.engine.receive(bytes, now: f.now))
+            XCTAssertTrue(f.engine.isClosed); XCTAssertNil(f.engine.approvedAccount)
+        }
+        let f = try make(connected: true)
+        let bytes = IrohaConnectWire.encodeServerEventForTesting(sid: f.launch.sid, sequence: 1, height: 7, entryHash: "entry", proofsJSON: "{}")
+        XCTAssertEqual(try f.engine.receive(bytes, now: f.now).event, .none)
+        XCTAssertThrowsError(try f.engine.receive(bytes, now: f.now))
+    }
+    func testWrongSessionOrDirectionCannotEnterTheApprovedSession() throws {
+        for wrongDirection in [false, true] {
+            let f = try make(connected: true)
+            let bytes = IrohaConnectWire.encodeCiphertext(sid: wrongDirection ? f.launch.sid : Data(repeating: 0, count: 32), direction: wrongDirection ? 1 : 0, sequence: 2, bytes: Data(repeating: 1, count: 32))
+            XCTAssertThrowsError(try f.engine.receive(bytes, now: f.now))
+            XCTAssertTrue(f.engine.isClosed); XCTAssertNil(f.engine.pendingRequest)
+        }
+    }
+    func testFirstApplicationFrameMustBeTheBoundOpenRequest() throws {
+        let f = try make(open: false)
+        let bytes = IrohaConnectWire.encodeCiphertext(sid: f.launch.sid, direction: 0, sequence: 1, bytes: Data(repeating: 1, count: 32))
+        XCTAssertThrowsError(try f.engine.receive(bytes, now: f.now)); XCTAssertTrue(f.engine.isClosed)
+    }
+    func testApplicationCannotSendEncryptedDataWhileConsentIsPending() throws {
+        let f = try make()
+        let bytes = IrohaConnectWire.encodeCiphertext(sid: f.launch.sid, direction: 0, sequence: 2, bytes: Data(repeating: 1, count: 32))
+        XCTAssertThrowsError(try f.engine.receive(bytes, now: f.now)); XCTAssertTrue(f.engine.isClosed)
+    }
+    func testSignatureOutsideGrantedResourceOrWithoutPermissionsClosesSession() throws {
+        for permission: IrohaConnectPermissions? in [nil, .init(methods: ["sign_raw"], events: [], resources: ["another.example"])] {
+            let f = try make(connected: true, permissions: permission)
+            XCTAssertThrowsError(try f.request()); XCTAssertTrue(f.engine.isClosed)
+            XCTAssertNil(f.engine.pendingRequest); XCTAssertNil(f.engine.approvedAccount)
+        }
+    }
+    func testEmptySigningMessageNeverCreatesAConsentRequest() throws {
+        let f = try make(connected: true)
+        XCTAssertThrowsError(try f.receive(.signRequest(.raw(domain: "fixture.example", bytes: Data()))))
+        XCTAssertTrue(f.engine.isClosed); XCTAssertNil(f.engine.pendingRequest)
+    }
+    func testClosedSessionRejectsFurtherInputWithoutReopening() throws {
+        let f = try make(connected: true); _ = f.engine.close()
+        XCTAssertThrowsError(try f.open()); XCTAssertTrue(f.engine.isClosed)
+        XCTAssertThrowsError(try f.engine.rejectPendingSignature(now: f.now)); XCTAssertNil(f.engine.approvedAccount)
+    }
+}

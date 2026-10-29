@@ -1,6 +1,7 @@
 // This file is part of the SORA network and Polkaswap app.
 // SPDX-License-Identifier: Apache-2.0
 
+import NexusTransferCodec
 import SoraFoundation
 import SoraKeystore
 import UIKit
@@ -19,6 +20,7 @@ final class NexusScreenBehaviorTests: XCTestCase {
     private var oldAnimations = true
     private var reader: NexusScreenReader!
     private var selected: AccountItem!
+    private var directories = [URL]()
 
     override func setUp() {
         super.setUp()
@@ -56,6 +58,7 @@ final class NexusScreenBehaviorTests: XCTestCase {
         UIView.setAnimationsEnabled(oldAnimations)
         previousWindow?.makeKeyAndVisible()
         LocalizationManager.shared.selectedLocalization = previousLanguage
+        directories.forEach { try? FileManager.default.removeItem(at: $0) }; directories = []
         super.tearDown()
     }
     private func account(_ configuration: NexusNetworkConfiguration) throws -> NetworkAccount {
@@ -64,12 +67,12 @@ final class NexusScreenBehaviorTests: XCTestCase {
             address: try IrohaAddressCodec.encode(publicKeyHex: String(repeating: "03", count: 32),
                                                  chainDiscriminant: configuration.i105Discriminant))
     }
-    private func open(_ configuration: NexusNetworkConfiguration? = nil) throws -> NexusNetworkDetailViewController {
+    private func open(_ configuration: NexusNetworkConfiguration? = nil, coordinator: NexusTransactionCoordinator? = nil) throws -> NexusNetworkDetailViewController {
         let configuration = try configuration ?? XCTUnwrap(NexusNetworkConfiguration.taira)
         let account = try account(configuration)
         reader.account = account.address
         let controller = NexusNetworkDetailViewController(account: account, configuration: configuration,
-            coordinator: nil, readClient: reader, mutationUnavailableReason: "Fixture journal unavailable")
+            coordinator: coordinator, readClient: reader, mutationUnavailableReason: "Fixture journal unavailable", faucetService: ScreenNoFaucet())
         navigation.pushViewController(controller, animated: false)
         controller.loadViewIfNeeded()
         window.layoutIfNeeded()
@@ -195,12 +198,15 @@ final class NexusScreenBehaviorTests: XCTestCase {
 private final class NexusScreenReader: NexusToriiReading {
     var account = ""
     var balanceFailure = false
+    var balanceCancellation = false
+    var historyDelay: UInt64 = 0
     var historyFailures = 0
     var paged = false
     var repeatsSourceID = false
     private(set) var balanceReads = 0
     private(set) var historyCursors: [String?] = []
     func xorAssetDefinition(configuration: NexusNetworkConfiguration) async throws -> NexusAssetDefinition {
+        if balanceCancellation { throw CancellationError() }
         if balanceFailure { throw NexusToriiError.invalidResponse }
         return NexusAssetDefinition(id: NexusAssetDefinitionIdentity.tairaXorDefinitionID)
     }
@@ -213,6 +219,7 @@ private final class NexusScreenReader: NexusToriiReading {
     }
     func transferHistoryPage(account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String, cursor: String?) async throws -> NexusCursorHistoryPage {
         historyCursors.append(cursor)
+        if historyDelay > 0 { try await Task.sleep(nanoseconds: historyDelay) }
         if historyFailures > 0 { historyFailures -= 1; throw NexusToriiError.invalidResponse }
         let first = NexusTransferHistoryItem(transactionHash: "first-transaction", timestampMilliseconds: 1_700_000_000_000,
             amount: try PIQuantity("1.25"), sender: account, receiver: "recipient")
@@ -225,4 +232,147 @@ private final class NexusScreenReader: NexusToriiReading {
     func status(hash: String, configuration: NexusNetworkConfiguration) async throws -> NexusPipelineStatus { throw NexusToriiError.invalidResponse }
     func hasAuthoritativeCommittedTransaction(account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String, transactionHash: String) async throws -> Bool { false }
     func committedXorTransfers(account: String, configuration: NexusNetworkConfiguration, assetDefinitionID: String, transactionHash: String) async throws -> [NexusTransferHistoryItem] { [] }
+}
+
+extension NexusScreenBehaviorTests {
+    private func pendingFixture(
+        states: [NexusPendingState] = [.rejected], asset: String = NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+        foreignWallet: Bool = false, includesHash: Bool = true
+    ) async throws -> (NexusTransactionCoordinator, NexusPendingTransactionStore, URL) {
+        let configuration = try XCTUnwrap(NexusNetworkConfiguration.taira)
+        let boundAccount = try account(configuration)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        directories.append(directory)
+        let pending = try NexusPendingTransactionStore(baseURL: directory)
+        for (index, state) in states.enumerated() {
+            let row = NexusPendingTransaction(
+                id: UUID(), idempotencyKey: UUID(), walletId: foreignWallet ? "other-wallet" : selected.address,
+                networkId: .taira, chainId: configuration.chainId,
+                tairaDeployment: NexusPendingTairaDeploymentIdentity.admitted(for: configuration),
+                signingNetworkId: TairaClient.networkLiteral,
+                sender: boundAccount.address,
+                receiver: try IrohaAddressCodec.encode(publicKeyHex: String(repeating: "04", count: 32), chainDiscriminant: configuration.i105Discriminant),
+                assetDefinitionID: asset, amount: try PIQuantity("\(index + 1).25"), fee: try PIQuantity("0.01"),
+                createdAt: Date(timeIntervalSince1970: 100), updatedAt: Date(timeIntervalSince1970: TimeInterval(200 + index)),
+                hash: includesHash ? String(format: "%064x", index + 1) : nil,
+                state: state, terminalBlockHeight: nil, errorClass: nil, historyReconciledAt: nil)
+            try await pending.put(row)
+        }
+        let model = NexusTransactionCoordinator(readClient: reader, submissionClient: ScreenNoSubmission(),
+            signer: UnavailableNexusTransactionSigner(), finalityReader: UnavailableNexusFinalityReader(), pendingStore: pending)
+        return (model, pending, directory)
+    }
+    func testCurrentAssetPendingRowShowsExactAmountAndRetainedStatus() async throws {
+        let (coordinator, _, _) = try await pendingFixture()
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { controller.tableView.numberOfRows(inSection: 1) == 1 && self.content(controller, section: 1)?.text?.hasPrefix("1.25 XOR") == true }
+        XCTAssertEqual(content(controller, section: 1)?.text, "1.25 XOR · \(WalletUX.status(.rejected))")
+        XCTAssertEqual(content(controller, section: 1)?.secondaryText, WalletUX.statusDetail(.rejected))
+    }
+    func testSelectingPendingRowShowsItsExactTransactionIdentifier() async throws {
+        let (coordinator, _, _) = try await pendingFixture()
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 0, section: 1))
+        let alert = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
+        XCTAssertEqual(alert.title, WalletUX.status(.rejected))
+        XCTAssertTrue(alert.message?.contains(String(format: "%064x", 1)) == true)
+    }
+    func testFailedPreSubmissionRowDoesNotInventATransactionIdentifier() async throws {
+        let (coordinator, _, _) = try await pendingFixture(states: [.failedBeforeSubmission], includesHash: false)
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        controller.tableView(controller.tableView, didSelectRowAt: IndexPath(row: 0, section: 1))
+        let alert = try XCTUnwrap(controller.presentedViewController as? UIAlertController)
+        XCTAssertEqual(alert.message, WalletUX.statusDetail(.failedBeforeSubmission))
+    }
+    func testPendingRowsArePresentedNewestFirst() async throws {
+        let (coordinator, _, _) = try await pendingFixture(states: [.rejected, .expired])
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { controller.tableView.numberOfRows(inSection: 1) == 2 }
+        XCTAssertTrue(content(controller, section: 1)?.text?.hasPrefix("2.25 XOR") == true)
+        XCTAssertTrue(content(controller, section: 1, row: 1)?.text?.hasPrefix("1.25 XOR") == true)
+    }
+    func testPendingTransfersForAnotherWalletAreNotShownOnThisAccount() async throws {
+        let (coordinator, _, _) = try await pendingFixture(foreignWallet: true)
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 1), 0)
+    }
+    func testUnreadablePendingJournalKeepsReadOnlyBalanceAndExplainsRecovery() async throws {
+        let (coordinator, _, directory) = try await pendingFixture()
+        try Data("broken journal".utf8).write(to: directory.appendingPathComponent("SORA/PendingTransactions/nexus-v1.json"))
+        let controller = try open(coordinator: coordinator)
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        XCTAssertEqual(content(controller, section: 1)?.text, "Recovery required")
+        XCTAssertEqual(controller.navigationItem.rightBarButtonItem?.isEnabled, false)
+    }
+    func testPullToRefreshReplacesAnUnavailableBalanceWithAFreshVerifiedRead() async throws {
+        reader.balanceFailure = true
+        let controller = try open()
+        await waitUntil { self.content(controller, section: 0)?.text == "Unavailable XOR" }
+        reader.balanceFailure = false; controller.refreshControl?.sendActions(for: .valueChanged)
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        XCTAssertFalse(controller.refreshControl?.isRefreshing ?? true)
+        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 2), 2)
+    }
+    func testForegroundNotificationRefreshesTheVisibleNetworkScreen() async throws {
+        let controller = try open()
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        let previousReads = reader.balanceReads
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        await waitUntil { self.reader.balanceReads > previousReads }
+        XCTAssertEqual(content(controller, section: 0)?.text, "12.500000001 XOR")
+    }
+    func testForegroundNotificationDoesNotReloadAnOffscreenRetainedController() async throws {
+        let controller = try open()
+        await waitUntil { self.content(controller, section: 0)?.text == "12.500000001 XOR" }
+        navigation.popViewController(animated: false)
+        await waitUntil { controller.view.window == nil }
+        let previousReads = reader.balanceReads
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(reader.balanceReads, previousReads)
+    }
+    func testDisablingTairaRevokesTheDetailAtItsNextAppearance() throws {
+        let controller = try open()
+        SettingsManager.shared.isTairaEnabled = false
+        controller.viewWillAppear(false)
+        XCTAssertFalse(navigation.viewControllers.contains { $0 === controller })
+        XCTAssertFalse(controller.navigationItem.rightBarButtonItem?.isEnabled ?? false)
+    }
+    func testWalletChangeDuringHistoryReadCannotPublishTheOldAccountHistory() async throws {
+        reader.historyDelay = 80_000_000
+        let controller = try open()
+        await waitUntil { !self.reader.historyCursors.isEmpty }
+        SelectedWalletSettings.shared.commitInternalValue(nil)
+        await waitUntil { !self.navigation.viewControllers.contains { $0 === controller } }
+        XCTAssertEqual(controller.tableView.numberOfRows(inSection: 2), 0)
+    }
+    func testCancellationDoesNotMislabelTheBalanceAsUnavailable() async throws {
+        reader.balanceCancellation = true
+        let controller = try open()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNotEqual(content(controller, section: 0)?.text, "Unavailable XOR")
+        XCTAssertTrue(reader.historyCursors.isEmpty)
+        XCTAssertFalse(controller.refreshControl?.isRefreshing ?? true)
+    }
+}
+
+private struct ScreenNoSubmission: NexusToriiSubmitting {
+    func submit(signedNorito: Data, idempotencyKey: UUID, expectedHash: String,
+                configuration: NexusNetworkConfiguration) async throws -> NexusToriiSubmissionResult {
+        XCTFail("A read-only screen must never submit a transaction")
+        throw NexusToriiError.invalidResponse
+    }
+}
+
+private struct ScreenNoFaucet: TairaFaucetServing {
+    func hasPending(account: String) async throws -> Bool { false }
+    func request(account: NetworkAccount, configuration: NexusNetworkConfiguration,
+                 contextIsCurrent: @escaping @Sendable () async -> Bool,
+                 progress: @escaping @Sendable (TairaFaucetService.Phase) async -> Void) async throws -> TairaFaucetClient.Outcome {
+        XCTFail("Refreshing a screen cannot request faucet funds")
+        throw NexusToriiError.invalidResponse
+    }
 }

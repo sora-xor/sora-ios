@@ -283,3 +283,80 @@ private final class NodePersistenceRegistry: ChainRegistryProtocol {
   func performColdBoot() {}
   func syncUp() {}
 }
+
+@MainActor final class CustomNodePersistenceBoundaryTests: XCTestCase {
+    private func run(_ fixture: CustomNodePersistenceFixture, name: String = "Replacement") async {
+        fixture.interactor.updateCustomNode(url: fixture.replacement.url, name: name)
+        for _ in 0..<400 {
+            if fixture.output.finished { break }
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        XCTAssertTrue(fixture.output.finished)
+    }
+    func testEditingTheSelectedNodeReplacesBothCatalogEntryAndSelection() async throws {
+        let f = CustomNodePersistenceFixture(edit: true, selectedOld: true); await run(f)
+        let saved = try XCTUnwrap(f.chains.read())
+        XCTAssertEqual(saved.selectedNode, f.replacement)
+        XCTAssertEqual(saved.customNodes, [f.other, f.replacement]); XCTAssertEqual(f.output.chains, [saved])
+        XCTAssertEqual(f.events.updates.first?.updatedChains, [saved])
+    }
+    func testEditingAnUnselectedNodePreservesTheSelectedEndpoint() async throws {
+        let f = CustomNodePersistenceFixture(edit: true, selectedOld: false); await run(f)
+        let saved = try XCTUnwrap(f.chains.read()); XCTAssertEqual(saved.selectedNode, f.other)
+        XCTAssertEqual(saved.customNodes, [f.other, f.replacement])
+    }
+    func testEditingCanKeepAnExistingURLWithoutTreatingItAsAnAddedDuplicate() async throws {
+        let f = CustomNodePersistenceFixture(edit: true); f.storeDuplicate()
+        await run(f); XCTAssertTrue(f.output.errors.isEmpty); XCTAssertEqual(try f.chains.read()?.customNodes, [f.other, f.replacement])
+    }
+    func testAddingAnExistingURLIsRejectedBeforeAnyChainMutation() async throws {
+        let f = CustomNodePersistenceFixture(edit: false); f.storeDuplicate(); await run(f)
+        XCTAssertEqual(f.output.errors.count, 1); XCTAssertNil(try f.chains.read()); XCTAssertTrue(f.events.updates.isEmpty)
+    }
+    func testFailedNetworkProbeDoesNotSaveOrBroadcastTheNewNode() async throws {
+        let f = CustomNodePersistenceFixture(edit: false); f.network.fail = true; await run(f)
+        XCTAssertEqual(f.output.errors.count, 1); XCTAssertNil(try f.chains.read()); XCTAssertTrue(f.events.updates.isEmpty)
+    }
+    func testFailedRepositorySaveDoesNotPublishASuccessfulCatalog() async {
+        let f = CustomNodePersistenceFixture(edit: true); f.chains.fail = true; await run(f)
+        XCTAssertTrue(f.output.chains.isEmpty); XCTAssertEqual(f.output.errors.count, 1); XCTAssertTrue(f.events.updates.isEmpty)
+    }
+    func testAddingAnotherNodeKeepsTheCurrentSelectionAndExistingCatalog() async throws {
+        let f = CustomNodePersistenceFixture(edit: false, selectedOld: true); await run(f)
+        let saved = try XCTUnwrap(f.chains.read()); XCTAssertEqual(saved.selectedNode, f.old)
+        XCTAssertEqual(saved.customNodes, [f.old, f.other, f.replacement])
+        XCTAssertEqual(f.output.mainThreads, [true]); XCTAssertEqual(f.network.urls, [f.replacement.url])
+    }
+    func testFailedEditCanBeRetriedWithTheCorrectedName() async throws {
+        let f = CustomNodePersistenceFixture(edit: true, selectedOld: true)
+        f.chains.fail = true; await run(f); XCTAssertTrue(f.output.chains.isEmpty)
+        f.chains.fail = false; f.output.errors.removeAll(); await run(f, name: "Retried name")
+        let saved = try XCTUnwrap(f.chains.read()); XCTAssertEqual(saved.customNodes?.count, 2)
+        XCTAssertFalse(saved.customNodes?.contains(f.old) ?? true)
+        XCTAssertEqual(saved.customNodes?.first(where: { $0.url == f.replacement.url })?.name, "Retried name")
+        XCTAssertEqual(f.events.updates.count, 1)
+    }
+}
+@MainActor private final class CustomNodePersistenceFixture {
+    let old = ChainNodeModel(url: URL(string: "wss://old.example.invalid/rpc")!, name: "Old", apikey: nil)
+    let other = ChainNodeModel(url: URL(string: "wss://other.example.invalid/rpc")!, name: "Other", apikey: nil)
+    let replacement = ChainNodeModel(url: URL(string: "wss://replacement.example.invalid/Rpc?Network=Fixture")!, name: "Replacement", apikey: nil)
+    let chains = NodePersistenceRepository(), nodes = InMemoryDataProviderRepository<ChainNodeModel>(), events = NodePersistenceEvents(), output = CustomNodePersistenceOutput(), network = CustomNodePersistenceNetwork()
+    let interactor: CustomNodeInteractor
+    init(edit: Bool, selectedOld: Bool = false) {
+        let chain = ChainModel(chainId: "isolated-test-chain", name: "Fixture", nodes: [], addressPrefix: 42, icon: nil, selectedNode: selectedOld ? old : other, customNodes: [old, other], iosMinAppVersion: nil)
+        interactor = CustomNodeInteractor(settings: InMemorySettingsManager(), eventCenter: events, operationManager: OperationManager(), repository: AnyDataProviderRepository(chains), nodeRepository: AnyDataProviderRepository(nodes), substrateOperationFactory: network, chain: chain, mode: edit ? .edit(node: old) : .add, signingRouteProbe: { _ in XCTFail("Non-SORA fixture must not use signing route"); return .missing }, genesisOperationFactory: { _ in ClosureOperation { chain.chainId } })
+        interactor.presenter = output
+    }
+    func storeDuplicate() { let node = replacement; let operation = nodes.saveOperation({ [node] }, { [] }); operation.start(); XCTAssertNoThrow(try operation.result?.get()) }
+}
+private final class CustomNodePersistenceNetwork: SubstrateOperationFactoryProtocol {
+    var fail = false, urls = [URL]()
+    func fetchChainOperation(_ url: URL) -> BaseOperation<String> { urls.append(url); let fail = fail; return ClosureOperation { if fail { throw URLError(.cannotConnectToHost) }; return "Fixture" } }
+}
+private final class CustomNodePersistenceOutput: CustomNodeInteractorOutputProtocol {
+    var chains = [ChainModel](), errors = [AddConnectionError](), mainThreads = [Bool]()
+    var finished: Bool { !chains.isEmpty || !errors.isEmpty }
+    func didCompleteAdding(in chain: ChainModel) { mainThreads.append(Thread.isMainThread); chains.append(chain) }
+    func didReceive(error: AddConnectionError) { mainThreads.append(Thread.isMainThread); errors.append(error) }
+}

@@ -44,7 +44,7 @@ class SwapMarketSourcer: SwapMarketSourcerProtocol {
     }
 
     func getMarketSource(at index: Int) -> LiquiditySourceType? {
-        guard let marketSources = marketSources, index < marketSources.count else {
+        guard let marketSources = marketSources, marketSources.indices.contains(index) else {
             return nil
         }
         return marketSources[index]

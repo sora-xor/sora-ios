@@ -225,3 +225,156 @@ private final class MenuRouteBalances: AssetProviderProtocol {
 private actor MenuRouteFiat: FiatServiceProtocol {
   func getFiat() async -> [PIExactFiatData] { [] }
 }
+
+@MainActor final class ProfileLoginActionBoundaryTests: XCTestCase {
+    private func make(biometry: Bool? = nil) throws -> ProfileLoginActionFixture { try ProfileLoginActionFixture(biometry: biometry) }
+    private func invoke(_ title: String, in alert: UIAlertController) throws {
+        let action = try XCTUnwrap(alert.actions.first { $0.title == title })
+        let block = try XCTUnwrap(action.value(forKey: "handler"))
+        unsafeBitCast(block as AnyObject, to: (@convention(block) (UIAlertAction) -> Void).self)(action)
+    }
+    private func submit(_ f: ProfileLoginActionFixture, pin: String = "123456") throws -> UIAlertController {
+        try f.items()[0].onTap?()
+        let prompt = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+        prompt.textFields?.first?.text = pin
+        try invoke(WalletUX.text("Continue"), in: prompt)
+        return prompt
+    }
+    private func wait(_ predicate: () -> Bool) async { let end = Date().addingTimeInterval(10); while !predicate() && Date() < end { try? await Task.sleep(nanoseconds: 10_000_000) }; XCTAssertTrue(predicate()) }
+    func testReloadPresentsSeparatePinAndBiometrySettings() throws {
+        let f = try make(), items = try f.items()
+        XCTAssertEqual(items.count, 2); XCTAssertNotNil(items[0].onTap); XCTAssertNil(items[0].onSwitch)
+        XCTAssertNil(items[1].onTap); XCTAssertNotNil(items[1].onSwitch)
+        XCTAssertEqual(f.view.navigationItem.title, R.string.localizable.settingsLoginTitle(preferredLanguages: ["en"]))
+    }
+    func testMissingBiometryPreferenceDisplaysOff() throws {
+        let f = try make(); guard case .switcher(.off) = try f.items()[1].rightItem else { return XCTFail("Missing preference must be off") }
+        XCTAssertNil(f.settings.biometryEnabled)
+    }
+    func testEnabledBiometryPreferenceDisplaysOn() throws {
+        let f = try make(biometry: true); guard case .switcher(.on) = try f.items()[1].rightItem else { return XCTFail("Enabled preference must be on") }
+    }
+    func testDisablingBiometryWritesOnlyTheInjectedSettings() throws {
+        let f = try make(biometry: true); try f.items()[1].onSwitch?(false)
+        XCTAssertEqual(f.settings.biometryEnabled, false); XCTAssertEqual(f.auth.requests, [])
+    }
+    func testEnablingBiometryDoesNotOpenAPinEditor() throws {
+        let f = try make(biometry: false); try f.items()[1].onSwitch?(true)
+        XCTAssertEqual(f.settings.biometryEnabled, true); XCTAssertTrue(f.host.shown.isEmpty); XCTAssertTrue(f.state.authorizations.isEmpty)
+    }
+    func testPinChoiceRequestsCurrentPinWithSecureNumericInput() throws {
+        let f = try make(); try f.items()[0].onTap?(); let alert = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+        XCTAssertEqual(alert.title, WalletUX.text("Enter your PIN")); XCTAssertEqual(alert.textFields?.count, 1)
+        XCTAssertTrue(alert.textFields?.first?.isSecureTextEntry == true); XCTAssertEqual(alert.textFields?.first?.keyboardType, .numberPad)
+        XCTAssertTrue(f.auth.requests.isEmpty); XCTAssertTrue(f.state.authorizations.isEmpty)
+    }
+    func testCancellingPinPromptClearsEnteredTextWithoutAuthenticating() throws {
+        let f = try make(); try f.items()[0].onTap?(); let alert = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+        alert.textFields?.first?.text = "private-entry"; try invoke(WalletUX.text("Cancel"), in: alert)
+        XCTAssertTrue((alert.textFields?.first?.text ?? "").isEmpty); XCTAssertTrue(f.auth.requests.isEmpty)
+    }
+    func testSuccessfulPinAuthenticationPassesTheExactGrantToTheEditorOnMain() async throws {
+        let f = try make(); let prompt = try submit(f); await wait { f.state.authorizations.count == 1 }
+        XCTAssertEqual(f.auth.requests, ["123456"]); XCTAssertEqual(f.auth.mainThreads, [false])
+        XCTAssertTrue(f.state.authorizations.first === f.auth.authorization); XCTAssertEqual(f.state.mainThreads, [true])
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController)
+        XCTAssertEqual(container.modalPresentationStyle, .overFullScreen); XCTAssertTrue(container.children.first === f.state.editor)
+        XCTAssertTrue((prompt.textFields?.first?.text ?? "").isEmpty)
+    }
+    func testWrongPinShowsSafeFailureAndNeverConstructsTheEditor() async throws {
+        let f = try make(); f.auth.failure = WalletRetainedPinGate.Failure.incorrectPin(attemptsBeforeWait: 2)
+        _ = try submit(f, pin: "999999"); await wait { f.host.shown.count == 2 }
+        let failure = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+        XCTAssertEqual(failure.title, WalletUX.text("PIN not changed")); XCTAssertTrue(failure.message?.contains("2") == true)
+        XCTAssertFalse(failure.message?.contains("999999") ?? true); XCTAssertTrue(f.state.authorizations.isEmpty)
+        XCTAssertTrue(f.host.mainThreads.allSatisfy { $0 })
+    }
+    func testUnexpectedAuthenticationFailureDoesNotExposePrivateErrorText() async throws {
+        let f = try make(); f.auth.failure = NSError(domain: "fixture", code: 1, userInfo: [NSLocalizedDescriptionKey: "SECRET-KEY-MATERIAL"])
+        _ = try submit(f); await wait { f.host.shown.count == 2 }
+        let failure = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+        XCTAssertFalse(failure.message?.contains("SECRET-KEY-MATERIAL") ?? true); XCTAssertTrue(f.state.authorizations.isEmpty)
+    }
+    func testMissingEditorAfterSuccessfulAuthenticationDoesNotPresentAnEmptyContainer() async throws {
+        let f = try make(); f.state.editor = nil; _ = try submit(f); await wait { f.state.authorizations.count == 1 }
+        XCTAssertEqual(f.host.shown.count, 1)
+    }
+    func testMissingPresentingControllerDoesNotAuthenticateOrCreateAHiddenPrompt() throws {
+        let f = try make(); f.state.host = nil; try f.items()[0].onTap?()
+        XCTAssertTrue(f.host.shown.isEmpty); XCTAssertTrue(f.auth.requests.isEmpty)
+    }
+    func testRetainedSettingsRowsCannotChangePreferencesAfterPresenterRelease() throws {
+        let f = try make(biometry: false); let items = try f.items(); weak var released = f.presenter
+        f.view.presenter = nil; f.presenter = nil; XCTAssertNil(released)
+        items[0].onTap?(); items[1].onSwitch?(true)
+        XCTAssertEqual(f.settings.biometryEnabled, false); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testRetainedPinPromptCannotAuthenticateAfterPresenterRelease() throws {
+        let f = try make(); try f.items()[0].onTap?(); let prompt = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+        f.view.presenter = nil; f.presenter = nil; prompt.textFields?.first?.text = "123456"
+        try invoke(WalletUX.text("Continue"), in: prompt); XCTAssertTrue(f.auth.requests.isEmpty)
+    }
+    func testAuthenticationCannotPresentAnEditorAfterThePresenterIsReleased() async throws {
+        let f = try make(); let gate = DispatchSemaphore(value: 0); f.auth.gate = gate
+        defer { gate.signal() }; _ = try submit(f); await wait { f.auth.requests.count == 1 }
+        let unexpectedEditor = expectation(description: "Released presenter cannot create an editor")
+        unexpectedEditor.isInverted = true
+        f.state.didCreateEditor = { unexpectedEditor.fulfill() }
+        weak var released = f.presenter
+        f.view.presenter = nil; f.presenter = nil
+        XCTAssertNil(released)
+        gate.signal(); await wait { f.auth.finished }
+        await fulfillment(of: [unexpectedEditor], timeout: 1)
+        XCTAssertTrue(f.state.authorizations.isEmpty); XCTAssertEqual(f.host.shown.count, 1)
+    }
+    func testLocalizationRefreshKeepsTheExistingSettingsSections() throws {
+        let f = try make(); f.presenter?.applyLocalization()
+        XCTAssertEqual(try f.items().count, 2); XCTAssertTrue(f.auth.requests.isEmpty); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+}
+@MainActor private final class ProfileLoginActionFixture {
+    let settings = InMemorySettingsManager(), host = ProfileLoginActionHost(), state = ProfileLoginActionState(), view = ProfileLoginView()
+    let auth: ProfileLoginActionAuth
+    var presenter: ProfileLoginPresenter?
+    init(biometry: Bool?) throws {
+        settings.biometryEnabled = biometry; auth = try ProfileLoginActionAuth(); state.host = host
+        let state = state, auth = auth
+        presenter = ProfileLoginPresenter(environment: ProfileLoginEnvironment(settings: settings,
+            presentingController: { state.host }, authenticate: { try auth.authenticate($0) },
+            makeEditor: { grant in state.authorizations.append(grant); state.mainThreads.append(Thread.isMainThread); state.didCreateEditor?(); return state.editor }))
+        presenter?.localizationManager = LocalizationManager(localization: "en")!
+        presenter?.view = view; view.presenter = presenter; view.loadViewIfNeeded()
+    }
+    private func all<T: UIView>(_ type: T.Type, _ root: UIView) -> [T] { ((root as? T).map { [$0] } ?? []) + root.subviews.flatMap { all(type, $0) } }
+    func items() throws -> [AppSettingsItem] {
+        let table = try XCTUnwrap(all(SoramitsuTableView.self, view.view).first)
+        return try XCTUnwrap(table.sora.sections.first?.rows.first as? AppSettingsCardItem).menuItems
+    }
+}
+private final class ProfileLoginActionHost: UIViewController {
+    var shown = [UIViewController](), mainThreads = [Bool]()
+    override func present(_ controller: UIViewController, animated: Bool, completion: (() -> Void)? = nil) { shown.append(controller); mainThreads.append(Thread.isMainThread); completion?() }
+}
+@MainActor private final class ProfileLoginActionState {
+    var didCreateEditor: (() -> Void)?
+    var host: UIViewController?, editor: UIViewController? = UIViewController(), authorizations = [WalletOwnerPIN.Authorization](), mainThreads = [Bool]()
+}
+private final class ProfileLoginActionAuth: @unchecked Sendable {
+    let authorization: WalletOwnerPIN.Authorization
+    private let lock = NSLock(); private var values = [String](), threads = [Bool](), completed = false
+    var failure: Error?, gate: DispatchSemaphore?
+    var requests: [String] { lock.lock(); defer { lock.unlock() }; return values }
+    var mainThreads: [Bool] { lock.lock(); defer { lock.unlock() }; return threads }
+    var finished: Bool { lock.lock(); defer { lock.unlock() }; return completed }
+    init() throws {
+        let keys = InMemoryKeychain(), settings = InMemorySettingsManager()
+        try keys.saveKey(Data("123456".utf8), with: KeystoreTag.pincode.rawValue)
+        let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }, credentialRepairPending: { false })
+        authorization = try WalletOwnerPIN(keystore: keys, settings: settings, recoveryGate: gate).authenticateCurrent("123456", accounts: [])
+    }
+    func authenticate(_ pin: String) throws -> WalletOwnerPIN.Authorization {
+        lock.lock(); values.append(pin); threads.append(Thread.isMainThread); lock.unlock()
+        gate?.wait(); defer { lock.lock(); completed = true; lock.unlock() }
+        if let failure { throw failure }; return authorization
+    }
+}

@@ -41,7 +41,9 @@ final class WalletContactOperationFactory {
 
 extension WalletContactOperationFactory: WalletContactOperationFactoryProtocol {
     func saveByAddressOperation(_ address: String) -> CompoundOperationWrapper<Void> {
-        let fetchOperation = repository.fetchOperation(by: address,
+        let identifier = ContactItem(peerAddress: address, peerName: nil,
+                                     targetAddress: targetAddress, updatedAt: 0).identifier
+        let fetchOperation = repository.fetchOperation(by: identifier,
                                                        options: RepositoryFetchOptions())
 
         let currentTargetAddress = targetAddress

@@ -29,6 +29,8 @@ final class PoolRepositoryFactory {
         for filter: NSPredicate? = nil,
         sortDescriptors: [NSSortDescriptor] = []
     ) -> CoreDataRepository<PoolInfo, CDPoolInfo> {
-        return storageFacade.createRepository()
+        let mapper = AnyCoreDataMapper(CodableCoreDataMapper<PoolInfo, CDPoolInfo>(
+            entityIdentifierFieldName: #keyPath(CDPoolInfo.poolId)))
+        return storageFacade.createRepository(filter: filter, sortDescriptors: sortDescriptors, mapper: mapper)
     }
 }

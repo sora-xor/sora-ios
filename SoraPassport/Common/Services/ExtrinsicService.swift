@@ -3011,6 +3011,14 @@ final class Sora2PendingSubmissionReconciler {
         account: String,
         transactionHash: String
     ) async throws -> Sora2IndexedExecution? {
+        try await indexedExecutionFromPI(account: account, transactionHash: transactionHash, client: PIIndexerClient())
+    }
+
+    static func indexedExecutionFromPI(
+        account: String,
+        transactionHash: String,
+        client: PIIndexerClient
+    ) async throws -> Sora2IndexedExecution? {
         guard
             let normalized = Sora2PendingSubmissionStore.normalizedHash(
                 transactionHash
@@ -3018,7 +3026,7 @@ final class Sora2PendingSubmissionReconciler {
         else {
             return nil
         }
-        let read = try await PIIndexerClient()
+        let read = try await client
             .qualifiedHistoryByTransactionHashes(
                 address: account,
                 transactionHashes: ["0x\(normalized)"]

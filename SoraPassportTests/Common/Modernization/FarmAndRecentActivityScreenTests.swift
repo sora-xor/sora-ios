@@ -174,3 +174,171 @@ private final class RecentScreenAssets: AssetProviderProtocol {
     var adds = 0; var removes = 0
     func getBalances(with assetIds: [String]) -> [BalanceData] { [] }; func add(observer: AssetProviderObserverProtocol) { adds += 1 }; func remove(observer: AssetProviderObserverProtocol) { removes += 1 }
 }
+
+@MainActor final class PoolDetailsValueLifecycleTests: XCTestCase {
+    private func pool(_ base: String = "base", reserves: Decimal? = 100) -> PoolInfo {
+        PoolInfo(baseAssetId: base, targetAssetId: "target", poolId: base, accountId: "local",
+            baseAssetPooledByAccount: 5, targetAssetPooledByAccount: 10, baseAssetPooledTotal: 100, targetAssetPooledTotal: 200,
+            totalIssuances: 10, baseAssetReserves: reserves, targetAssetReserves: 200, accountPoolBalance: 1)
+    }
+    private func price(_ value: String, asset: String = "base") -> [PIExactFiatData] {
+        [PIExactFiatData(id: asset, priceUsd: try! PIQuantity(value))]
+    }
+    private func wait(_ predicate: () -> Bool) async {
+        for _ in 0..<200 { if predicate() { return }; try? await Task.sleep(nanoseconds: 5_000_000) }
+        XCTAssertTrue(predicate())
+    }
+    private func requests(_ count: Int, in fiat: PoolValueFiat) async {
+        for _ in 0..<200 { if await fiat.count >= count { return }; try? await Task.sleep(nanoseconds: 5_000_000) }
+        let actual = await fiat.count; XCTAssertGreaterThanOrEqual(actual, count)
+    }
+    private func apyRequests(_ count: Int, in apy: PoolValueAPY) async {
+        for _ in 0..<200 { if await apy.count >= count { return }; try? await Task.sleep(nanoseconds: 5_000_000) }
+        let actual = await apy.count; XCTAssertGreaterThanOrEqual(actual, count)
+    }
+    private func fixture(_ pool: PoolInfo) -> (PoolDetailsItemService, PoolValueFiat, PoolValueAPY, NotificationCenter) {
+        let fiat = PoolValueFiat(), apy = PoolValueAPY(), center = NotificationCenter()
+        let source = PoolDetailsItemService(poolInfo: pool, apyService: apy, fiatService: fiat,
+            detailsFactory: DetailViewModelFactory(assetManager: PoolValueAssets()), notificationCenter: center)
+        return (source, fiat, apy, center)
+    }
+    func testTVLUsesTheBaseReserveAndItsExactPrice() async {
+        let p = pool(); let (source, fiat, _, _) = fixture(p)
+        await fiat.set(price("2.5")); source.setup(with: p)
+        await wait { !source.tvlText.isEmpty }
+        XCTAssertEqual(source.tvlText, "$" + Decimal(500).formatNumber() + " TVL")
+        XCTAssertFalse(source.tvlUnavailable)
+    }
+    func testMissingPriceFinishesLoadingWithoutInventingZeroTVL() async {
+        let p = pool(); let (source, _, _, _) = fixture(p)
+        source.setup(with: p); await wait { source.tvlUnavailable }
+        XCTAssertEqual(source.tvlText, "")
+    }
+    func testUnrelatedPriceCannotValueThisPool() async {
+        let p = pool(); let (source, fiat, _, _) = fixture(p)
+        await fiat.set(price("100", asset: "other")); source.setup(with: p)
+        await wait { source.tvlUnavailable }; XCTAssertEqual(source.tvlText, "")
+    }
+    func testKnownPriceWithEmptyReservesDisplaysZeroTVL() async {
+        let p = pool(reserves: nil); let (source, fiat, _, _) = fixture(p)
+        await fiat.set(price("2")); source.setup(with: p)
+        await wait { !source.tvlText.isEmpty }
+        XCTAssertEqual(source.tvlText, "$" + Decimal.zero.formatNumber() + " TVL")
+    }
+    func testPriceNotificationClearsAValueWhosePriceBecameUnavailable() async {
+        let p = pool(); let (source, fiat, _, center) = fixture(p)
+        await fiat.set(price("2")); source.setup(with: p); await wait { !source.tvlText.isEmpty }
+        await fiat.set([]); center.post(name: PICatalogs.pricesDidChange, object: nil)
+        await wait { source.tvlUnavailable }; XCTAssertEqual(source.tvlText, "")
+    }
+    func testPriceNotificationUsesTheMostRecentlyConfiguredPool() async {
+        let first = pool(), second = pool("new", reserves: 10)
+        let (source, fiat, _, center) = fixture(first)
+        await fiat.set(price("2") + price("3", asset: "new"))
+        source.setup(with: first); await wait { !source.tvlText.isEmpty }
+        source.setup(with: second); await wait { source.tvlText == "$" + Decimal(60).formatNumber() + " TVL" }
+        await fiat.set(price("100") + price("4", asset: "new"))
+        center.post(name: PICatalogs.pricesDidChange, object: nil)
+        await wait { source.tvlText == "$" + Decimal(80).formatNumber() + " TVL" }
+    }
+    func testLatePriceFromPreviousPoolCannotOverwriteCurrentTVL() async {
+        let first = pool(), second = pool("new", reserves: 10)
+        let (source, fiat, _, _) = fixture(first)
+        await fiat.suspend(); source.setup(with: first); await requests(1, in: fiat)
+        source.setup(with: second); await requests(2, in: fiat)
+        await fiat.complete(1, price("3", asset: "new")); await wait { !source.tvlText.isEmpty }
+        let current = source.tvlText
+        await fiat.complete(0, price("100")); try? await Task.sleep(nanoseconds: 30_000_000)
+        XCTAssertEqual(source.tvlText, current); XCTAssertFalse(source.tvlUnavailable)
+    }
+    func testLatePriceRefreshCannotReplaceANewerReadOfTheSamePool() async {
+        let p = pool(); let (source, fiat, _, center) = fixture(p)
+        await fiat.suspend(); source.setup(with: p); await requests(1, in: fiat)
+        center.post(name: PICatalogs.pricesDidChange, object: nil); await requests(2, in: fiat)
+        await fiat.complete(1, price("3")); await wait { !source.tvlText.isEmpty }
+        await fiat.complete(0, []); try? await Task.sleep(nanoseconds: 30_000_000)
+        XCTAssertEqual(source.tvlText, "$" + Decimal(600).formatNumber() + " TVL"); XCTAssertFalse(source.tvlUnavailable)
+    }
+    func testSlowAPYDoesNotBlockThePoolValue() async {
+        let p = pool(); let (source, fiat, apy, _) = fixture(p)
+        await fiat.set(price("2")); await apy.suspend(); source.setup(with: p)
+        await wait { !source.tvlText.isEmpty }; XCTAssertTrue(source.details.isEmpty)
+        await apyRequests(1, in: apy); await apy.complete(0, nil)
+        await wait { !source.details.isEmpty }
+    }
+    func testSlowPriceDoesNotBlockAPYAndPoolShareDetails() async {
+        let p = pool(); let (source, fiat, _, _) = fixture(p)
+        await fiat.suspend(); source.setup(with: p)
+        await wait { !source.details.isEmpty }; XCTAssertEqual(source.tvlText, "")
+        await requests(1, in: fiat); await fiat.complete(0, [])
+        await wait { source.tvlUnavailable }
+    }
+    func testLateAPYForOldPoolCannotReplaceCurrentDetails() async {
+        let first = pool(), second = pool("new")
+        let (source, _, apy, _) = fixture(first)
+        await apy.suspend(); source.setup(with: first); await apyRequests(1, in: apy)
+        source.setup(with: second); await apyRequests(2, in: apy)
+        await apy.complete(1, Decimal(string: "0.25")); await wait { !source.details.isEmpty }
+        let current = source.details.map { $0.assetAmountText.text }
+        await apy.complete(0, Decimal(string: "0.99")); try? await Task.sleep(nanoseconds: 30_000_000)
+        XCTAssertEqual(source.details.map { $0.assetAmountText.text }, current)
+        XCTAssertTrue(source.details.contains { $0.title == "Your NEW pooled" })
+    }
+    func testPublicationsArriveOnMainForBoundLabels() async {
+        let p = pool(); let (source, fiat, _, _) = fixture(p)
+        await fiat.set(price("2")); let published = expectation(description: "main value")
+        let token = source.tvlTextPublisher.dropFirst().sink { text in
+            if !text.isEmpty { XCTAssertTrue(Thread.isMainThread); published.fulfill() }
+        }
+        source.setup(with: p); await fulfillment(of: [published], timeout: 2)
+        withExtendedLifetime(token) {}
+    }
+    func testDiscardedServiceStopsObservingPriceNotifications() async {
+        let p = pool(); let fiat = PoolValueFiat(), apy = PoolValueAPY(), center = NotificationCenter()
+        var source: PoolDetailsItemService? = PoolDetailsItemService(poolInfo: p, apyService: apy, fiatService: fiat,
+            detailsFactory: DetailViewModelFactory(assetManager: PoolValueAssets()), notificationCenter: center)
+        weak var retained = source
+        source?.setup(with: p); await requests(1, in: fiat)
+        source = nil; await wait { retained == nil }
+        let before = await fiat.count; center.post(name: PICatalogs.pricesDidChange, object: nil)
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        let after = await fiat.count; XCTAssertEqual(after, before)
+    }
+}
+private actor PoolValueFiat: FiatServiceProtocol {
+    var values = [PIExactFiatData](), waiting = false, count = 0
+    var pending = [CheckedContinuation<[PIExactFiatData], Never>?]()
+    func set(_ values: [PIExactFiatData]) { self.values = values }
+    func suspend() { waiting = true }
+    func complete(_ index: Int, _ value: [PIExactFiatData]) { let c = pending[index]; pending[index] = nil; c?.resume(returning: value) }
+    func getFiat() async -> [PIExactFiatData] {
+        count += 1
+        if !waiting { return values }
+        return await withCheckedContinuation { pending.append($0) }
+    }
+}
+private actor PoolValueAPY: APYServiceProtocol {
+    var count = 0, waiting = false
+    var pending = [CheckedContinuation<Decimal?, Never>?]()
+    func setup(factory: PolkaswapNetworkOperationFactoryProtocol) {}
+    func suspend() { waiting = true }
+    func complete(_ index: Int, _ value: Decimal?) { let c = pending[index]; pending[index] = nil; c?.resume(returning: value) }
+    func getApy(for baseAssetId: String, targetAssetId: String) async -> Decimal? {
+        count += 1
+        if !waiting { return nil }
+        return await withCheckedContinuation { pending.append($0) }
+    }
+}
+private final class PoolValueAssets: AssetManagerProtocol {
+    static var networkAssets: [AssetInfo] = []
+    let assets = ["base", "target", "new", WalletAssetId.pswap.rawValue].map {
+        AssetInfo(id: $0, symbol: $0.uppercased(), chainId: "", precision: 18, icon: nil, displayName: $0, visible: true)
+    }
+    func assetInfo(for identifier: String) -> AssetInfo? { assets.first { $0.assetId == identifier } }
+    func getAssetList() -> [AssetInfo]? { assets }
+    func updateAssetList(_ list: [AssetInfo]) {}
+    func saveAssetList(_ list: [AssetInfo]) {}
+    func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset] { list }
+    func visibleCount() -> UInt { UInt(assets.count) }
+    func setup(for accountSettings: SelectedWalletSettings) {}
+}

@@ -191,6 +191,9 @@ final class PolkamarktViewController: WalletTableViewController {
 
     private let walletContext: CommonWalletContextProtocol
     private let client: PIIndexerClient
+    private let makePendingStore: () throws -> PolkamarktPendingStore
+    private let makeCoordinator: (PolkamarktPendingStore) -> PolkamarktTransactionCoordinator?
+    private let mutationsAllowed: () -> Bool
     private var markets: [PIMarket] = []
     private var visibleMarkets: [PIMarket] = []
     private var positions: [PIAccountPosition] = []
@@ -211,9 +214,18 @@ final class PolkamarktViewController: WalletTableViewController {
         searchResultsController: nil
     )
 
-    init(walletContext: CommonWalletContextProtocol, client: PIIndexerClient = PIIndexerClient()) {
+    init(
+        walletContext: CommonWalletContextProtocol,
+        client: PIIndexerClient = PIIndexerClient(),
+        pendingStore: @escaping () throws -> PolkamarktPendingStore = { try PolkamarktPendingStore() },
+        coordinator: ((PolkamarktPendingStore) -> PolkamarktTransactionCoordinator?)? = nil,
+        mutationsAllowed: @escaping () -> Bool = { SettingsManager.shared.polkamarktMutationsEnabled }
+    ) {
         self.walletContext = walletContext
         self.client = client
+        makePendingStore = pendingStore
+        makeCoordinator = coordinator ?? { PolkamarktTransactionCoordinator(walletContext: walletContext, pendingStore: $0) }
+        self.mutationsAllowed = mutationsAllowed
         super.init(style: .insetGrouped)
     }
 
@@ -359,11 +371,8 @@ final class PolkamarktViewController: WalletTableViewController {
                     let candidateMarketIds = claimReviewCandidateMarketIds
                     var pendingReadCompleted = false
                     do {
-                        let pendingStore = try PolkamarktPendingStore()
-                        let coordinator = PolkamarktTransactionCoordinator(
-                            walletContext: walletContext,
-                            pendingStore: pendingStore
-                        )
+                        let pendingStore = try makePendingStore()
+                        let coordinator = makeCoordinator(pendingStore)
                         let pending: [PolkamarktPendingMutation]
                         if let coordinator {
                             pending = try await
@@ -391,8 +400,7 @@ final class PolkamarktViewController: WalletTableViewController {
                         if shouldObservePending {
                             clearClaimReview()
                         } else if
-                            SettingsManager.shared
-                                .polkamarktMutationsEnabled,
+                            mutationsAllowed(),
                             let coordinator,
                             !candidateMarketIds.isEmpty
                         {
@@ -574,16 +582,13 @@ final class PolkamarktViewController: WalletTableViewController {
                     return
                 }
                 do {
-                    let pendingStore = try PolkamarktPendingStore()
+                    let pendingStore = try makePendingStore()
                     let current = try await pendingStore.all()
                     let values: [PolkamarktPendingMutation]
                     if PolkamarktPendingObservationPolicy
                         .requiresObservation(current, account: account)
                     {
-                        if let coordinator = PolkamarktTransactionCoordinator(
-                            walletContext: walletContext,
-                            pendingStore: pendingStore
-                        ) {
+                        if let coordinator = makeCoordinator(pendingStore) {
                             values = try await coordinator.reconcilePending(
                                 account: account
                             )
@@ -726,7 +731,7 @@ final class PolkamarktViewController: WalletTableViewController {
         )
         var items = [filterItem]
         if batchClaimMarketIds.count > 1,
-           SettingsManager.shared.polkamarktMutationsEnabled {
+           mutationsAllowed() {
             items.append(
                 UIBarButtonItem(
                     title: "Claim",
@@ -800,7 +805,7 @@ final class PolkamarktViewController: WalletTableViewController {
 
     @objc private func presentBatchClaim() {
         guard
-            SettingsManager.shared.polkamarktMutationsEnabled,
+            mutationsAllowed(),
             let account = Self.selectedAccount
         else {
             return
@@ -851,7 +856,7 @@ final class PolkamarktViewController: WalletTableViewController {
         present(alert, animated: true)
     }
 
-    private func submitBatchClaim(
+    func submitBatchClaim(
         authorization: PolkamarktClaimAuthorization
     ) {
         guard canPresentCatalogMutationResult(
@@ -866,11 +871,8 @@ final class PolkamarktViewController: WalletTableViewController {
                 return
             }
             do {
-                let pendingStore = try PolkamarktPendingStore()
-                guard let coordinator = PolkamarktTransactionCoordinator(
-                    walletContext: walletContext,
-                    pendingStore: pendingStore
-                ) else {
+                let pendingStore = try makePendingStore()
+                guard let coordinator = makeCoordinator(pendingStore) else {
                     throw PolkamarktRuntimeError.unavailable
                 }
                 let pending = try await coordinator.submitBatchClaim(
@@ -1127,11 +1129,8 @@ final class PolkamarktViewController: WalletTableViewController {
         marketDataFromCache: Bool
     ) {
         do {
-            let pendingStore = try PolkamarktPendingStore()
-            let coordinator = PolkamarktTransactionCoordinator(
-                walletContext: walletContext,
-                pendingStore: pendingStore
-            )
+            let pendingStore = try makePendingStore()
+            let coordinator = makeCoordinator(pendingStore)
             let controller = PolkamarktMarketViewController(
                 market: market,
                 client: client,

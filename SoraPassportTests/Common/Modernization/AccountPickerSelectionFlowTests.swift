@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import Foundation
+import SoraFoundation
+import SoraUIKit
 import RobinHood
 import UIKit
 import XCTest
@@ -319,12 +321,14 @@ private final class PickerFlowView: UIViewController, ChangeAccountViewProtocol 
   var controller: UIViewController { self }
   var presenter: ChangeAccountPresenterProtocol?
   var models = [AccountMenuItem](), busy = [Bool](), errors = 0, dismissals = 0
+  var usesSystemDismissal = false
   func update(with accountViewModels: [AccountMenuItem]) { models = accountViewModels }
   func setSwitchingAccount(_ switching: Bool) { busy.append(switching) }
   func showAccountSwitchError() { errors += 1 }
   override func dismiss(animated: Bool, completion: (() -> Void)? = nil) {
     dismissals += 1
-    completion?()
+    if usesSystemDismissal { super.dismiss(animated: animated, completion: completion) }
+    else { completion?() }
   }
 }
 private final class PickerFlowRoutes: ChangeAccountWireframeProtocol {
@@ -469,4 +473,245 @@ private final class PickerFlowRepository: DataProviderRepositoryProtocol {
     ClosureOperation { XCTFail("unexpected mutation") }
   }
   func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { self.rows.count } }
+}
+
+@MainActor
+final class AccountPickerScreenCoverageTests: RootActionFixtureTests {
+    private func open() -> (ChangeAccountViewController, PickerScreenPresenter, UINavigationController) {
+        let presenter = PickerScreenPresenter(), view = ChangeAccountViewController()
+        view.presenter = presenter; view.localizationManager = LocalizationManager(localization: "en")
+        let navigation = UINavigationController(rootViewController: view)
+        mount(navigation); view.loadViewIfNeeded(); window.layoutIfNeeded()
+        return (view, presenter, navigation)
+    }
+    private func invoke(_ item: UIBarButtonItem?) throws {
+        let item = try XCTUnwrap(item), action = try XCTUnwrap(item.action)
+        _ = (item.target as? NSObject)?.perform(action)
+    }
+    func testLoadingAndAppearanceRequestFreshAccountRows() {
+        let (view, presenter, _) = open(); let count = presenter.reloads
+        XCTAssertGreaterThan(count, 0); view.viewWillAppear(false)
+        XCTAssertEqual(presenter.reloads, count + 1)
+    }
+    func testDisappearanceEndsAccountUpdates() {
+        let (view, presenter, _) = open(); view.viewWillDisappear(false); XCTAssertEqual(presenter.ends, 1)
+    }
+    func testEditModeUpdatesBarActionAndPresenter() throws {
+        let (view, presenter, _) = open(); _ = view.perform(NSSelectorFromString("onEdit"))
+        XCTAssertEqual(view.navigationItem.leftBarButtonItem?.title, R.string.localizable.commonDone(preferredLanguages: ["en"]))
+        XCTAssertEqual(presenter.modes.last, "edit")
+        XCTAssertTrue(all(SoramitsuButton.self, view.view).contains { $0.sora.title == R.string.localizable.backupAccountTitle(preferredLanguages: ["en"]) })
+    }
+    func testDoneButtonReturnsToAccountSelection() throws {
+        let (view, presenter, _) = open(); _ = view.perform(NSSelectorFromString("onEdit"))
+        try invoke(view.navigationItem.leftBarButtonItem)
+        XCTAssertEqual(presenter.modes, ["edit", "view"])
+        XCTAssertEqual(view.navigationItem.leftBarButtonItem?.title, R.string.localizable.commonEdit(preferredLanguages: ["en"]))
+        XCTAssertTrue(all(SoramitsuButton.self, view.view).contains { $0.sora.title == R.string.localizable.accountAdd(preferredLanguages: ["en"]) })
+    }
+    func testActionButtonForwardsExactlyOnePresenterAction() throws {
+        let (view, presenter, _) = open(); _ = view.perform(NSSelectorFromString("onAction")); XCTAssertEqual(presenter.actions, 1)
+    }
+    func testSwitchProgressDisablesRowsAndProtectsTheModal() throws {
+        let (view, _, navigation) = open(); _ = view.perform(NSSelectorFromString("onEdit"))
+        view.setSwitchingAccount(true)
+        XCTAssertTrue(view.isModalInPresentation); XCTAssertTrue(navigation.isModalInPresentation)
+        XCTAssertFalse(try XCTUnwrap(all(UITableView.self, view.view).first).isUserInteractionEnabled)
+        XCTAssertFalse(try XCTUnwrap(view.navigationItem.leftBarButtonItem).isEnabled)
+        XCTAssertFalse(try XCTUnwrap(all(UIView.self, view.view).first { $0.accessibilityIdentifier == "wallet-account-switch-progress" }).isHidden)
+        XCTAssertTrue(try XCTUnwrap(all(UIActivityIndicatorView.self, view.view).first { $0.accessibilityIdentifier == "wallet-account-switch-spinner" }).isAnimating)
+    }
+    func testSwitchCompletionRestoresInteractionAndStopsProgress() throws {
+        let (view, _, navigation) = open(); _ = view.perform(NSSelectorFromString("onEdit"))
+        view.setSwitchingAccount(true); view.setSwitchingAccount(false)
+        XCTAssertFalse(view.isModalInPresentation); XCTAssertFalse(navigation.isModalInPresentation)
+        XCTAssertTrue(try XCTUnwrap(all(UITableView.self, view.view).first).isUserInteractionEnabled)
+        XCTAssertTrue(try XCTUnwrap(view.navigationItem.leftBarButtonItem).isEnabled)
+        XCTAssertTrue(try XCTUnwrap(all(UIView.self, view.view).first { $0.accessibilityIdentifier == "wallet-account-switch-progress" }).isHidden)
+        XCTAssertFalse(try XCTUnwrap(all(UIActivityIndicatorView.self, view.view).first { $0.accessibilityIdentifier == "wallet-account-switch-spinner" }).isAnimating)
+    }
+    func testSwitchFailureExplainsThatTheOriginalAccountRemainsSelected() async throws {
+        let (view, _, _) = open(); view.showAccountSwitchError(); await settle()
+        XCTAssertEqual(try alert(view).title, "Couldn’t switch accounts")
+        XCTAssertEqual(try alert(view).message, "Your current account is still selected. Please try again.")
+        XCTAssertEqual(try alert(view).actions.map(\.title), ["OK"])
+    }
+    func testEmptySnapshotRemovesEveryAccountRow() throws {
+        let (view, _, _) = open(); view.update(with: [])
+        let table = try XCTUnwrap(all(UITableView.self, view.view).first)
+        XCTAssertEqual(table.numberOfRows(inSection: 0), 0)
+    }
+    func testAccountRowsKeepTheirExactTitlesAndSelection() throws {
+        let (view, _, _) = open()
+        let models = (0..<3).map { AccountMenuItem(title: "Wallet \($0)", image: nil, isSelected: $0 == 1, isMultiselectionMode: false, onTap: {}, onMore: {}) }
+        view.update(with: models)
+        let table = try XCTUnwrap(all(UITableView.self, view.view).first)
+        window.layoutIfNeeded(); view.view.layoutIfNeeded(); table.layoutIfNeeded()
+        XCTAssertEqual(table.numberOfRows(inSection: 0), 3)
+        XCTAssertTrue(texts(view).contains("Wallet 0")); XCTAssertTrue(texts(view).contains("Wallet 1"))
+    }
+    func testLargeAccountSnapshotKeepsTheActionBelowAViewportBoundTable() throws {
+        let (view, _, _) = open()
+        view.update(with: (0..<40).map { AccountMenuItem(title: "Wallet \($0)", image: nil, isSelected: false, isMultiselectionMode: false, onTap: {}, onMore: {}) })
+        let table = try XCTUnwrap(all(UITableView.self, view.view).first)
+        window.layoutIfNeeded(); view.view.layoutIfNeeded(); table.layoutIfNeeded()
+        XCTAssertEqual(table.numberOfRows(inSection: 0), 40)
+        XCTAssertGreaterThan(table.bounds.height, 0)
+        XCTAssertLessThanOrEqual(table.bounds.height, view.view.bounds.height)
+        XCTAssertGreaterThan(table.contentSize.height, table.bounds.height)
+    }
+    func testLanguageChangeUpdatesTheAccountTitleAndAction() {
+        let (view, _, _) = open(); view.localizationManager?.selectedLocalization = "ja"; view.applyLocalization()
+        XCTAssertEqual(view.navigationItem.title, R.string.localizable.commonAccount(preferredLanguages: ["ja"]))
+    }
+    func testModeMetadataKeepsTheAddIconOutOfBackupMode() {
+        XCTAssertNotNil(ChangeAccountViewController.Mode.view.actionIcon)
+        XCTAssertNil(ChangeAccountViewController.Mode.edit.actionIcon)
+        XCTAssertEqual(ChangeAccountViewController.Mode.view.actionTitle, R.string.localizable.accountAdd(preferredLanguages: ["en"]))
+        XCTAssertEqual(ChangeAccountViewController.Mode.edit.actionTitle, R.string.localizable.backupAccountTitle(preferredLanguages: ["en"]))
+    }
+}
+
+private final class PickerScreenPresenter: ChangeAccountPresenterProtocol {
+    weak var view: ChangeAccountViewProtocol?
+    var reloads = 0, ends = 0, actions = 0
+    var modes = [String](), selections = [Int](), edits = [Int]()
+    func onAction() { actions += 1 }
+    func set(mode: ChangeAccountViewController.Mode) { modes.append(mode == .edit ? "edit" : "view") }
+    func reload() { reloads += 1 }
+    func selectItem(at index: Int) { selections.append(index) }
+    func editItem(at index: Int) { edits.append(index) }
+    func endUpdating() { ends += 1 }
+}
+
+@MainActor
+final class AccountPickerRetainedRouteCoverageTests: RootActionFixtureTests {
+    private var fixtures = [PickerFlowFixture]()
+    override func tearDown() async throws {
+        fixtures.forEach { $0.repository.releaseAll() }; fixtures = []
+        try await super.tearDown()
+    }
+    private func open(restore: @escaping ChangeAccountPresenter.RetainedRestore = { _, _, _, _ in XCTFail("Restoration requires an explicit choice") }) async -> PickerFlowFixture {
+        let f = PickerFlowFixture(); fixtures.append(f); f.view.usesSystemDismissal = true
+        let retained = RetainedKeychainWallet(address: "retained-public-fixture", publicKey: Data(repeating: 8, count: 32), cryptoType: .sr25519, networkType: Chain.sora.addressType(), derivationPath: nil, hasPhrase: true)
+        f.subject = ChangeAccountPresenter(settingsManager: f.settings, eventCenter: f.events,
+            accountRepository: AnyDataProviderRepository(f.repository), operationManager: OperationManager(), serviceCoordinator: f.services,
+            capabilityProbe: { _, completed in completed(.checking) }, retainedWallets: { _ in [retained] }, retainedRestore: restore)
+        f.subject.view = f.view; f.subject.wireframe = f.routes; mount(f.view)
+        f.subject.reload(); await wait { f.view.models.count == 3 }; return f
+    }
+    private func start(_ f: PickerFlowFixture) async throws {
+        f.subject.onAction(); await wait { f.view.presentedViewController != nil }
+        try await choose("Restore wallets found on this iPhone", f.view)
+    }
+    func testRetainedWalletsOfferAnExplicitChoiceInsteadOfImmediatelyRestoring() async throws {
+        let f = await open(); f.subject.onAction(); await wait { f.view.presentedViewController != nil }
+        XCTAssertEqual(try alert(f.view).actions.map(\.title), ["Restore wallets found on this iPhone", "Create or import an account", "Cancel"])
+        XCTAssertEqual(f.routes.starts, 0)
+    }
+    func testRetainedChoiceCanBeCancelledWithoutChangingSelection() async throws {
+        let f = await open(); f.subject.onAction(); await wait { f.view.presentedViewController != nil }
+        try await choose("Cancel", f.view); XCTAssertEqual(f.routes.starts, 0); XCTAssertTrue(f.settings.saves.isEmpty)
+    }
+    func testCreateOrImportChoiceKeepsTheExistingAddAccountRoute() async throws {
+        let f = await open(); f.subject.onAction(); await wait { f.view.presentedViewController != nil }
+        try await choose("Create or import an account", f.view); XCTAssertEqual(f.routes.starts, 1)
+    }
+    func testRetainedRestoreUsesAfterSetupAuthorityAndDisablesInteractionWhileBusy() async throws {
+        var captured: ((Bool) -> Void)?, capturedController: UIViewController?, capturedScope: WalletRetainedPinGate.Scope?
+        let f = await open { controller, scope, busy, _ in captured = busy; capturedController = controller; capturedScope = scope; busy(true) }
+        try await start(f); XCTAssertTrue(capturedController === f.view); XCTAssertEqual(capturedScope, .afterSetup)
+        XCTAssertFalse(f.view.view.isUserInteractionEnabled); captured?(false); XCTAssertTrue(f.view.view.isUserInteractionEnabled)
+    }
+    func testCompleteRetainedRestoreRefreshesTheExactRepositorySnapshot() async throws {
+        var finish: ((WalletRetainedWalletRestoreFlow.Outcome) -> Void)?
+        let f = await open { _, _, _, completion in finish = completion }; try await start(f)
+        f.repository.rows.append(PickerFlowFixture.account(8)); finish?(.restored(count: 1, failed: 0))
+        await wait { f.view.models.count == 4 }; XCTAssertEqual(f.view.models.last?.title, "Wallet 8")
+        XCTAssertNil(f.view.presentedViewController)
+    }
+    func testPartialRestoreKeepsNewRowsButWaitsForAcknowledgementBeforeReload() async throws {
+        var finish: ((WalletRetainedWalletRestoreFlow.Outcome) -> Void)?
+        let f = await open { _, _, _, completion in finish = completion }; try await start(f)
+        f.repository.rows.append(PickerFlowFixture.account(8)); finish?(.restored(count: 1, failed: 2))
+        XCTAssertEqual(f.view.models.count, 3); XCTAssertEqual(try alert(f.view).title, "Some wallets were restored")
+        XCTAssertTrue(try alert(f.view).message?.contains("Restored: 1. Not restored: 2.") == true)
+        try await choose("OK", f.view); await wait { f.view.models.count == 4 }
+    }
+    func testFailedRetainedRestoreShowsItsReasonAndKeepsTheSelectedAccount() async throws {
+        let f = await open { _, _, _, complete in complete(.nothingRestored(message: "Ownership PIN was rejected")) }
+        try await start(f); XCTAssertEqual(try alert(f.view).title, "Wallet restore")
+        XCTAssertEqual(try alert(f.view).message, "Ownership PIN was rejected")
+        XCTAssertEqual(f.settings.currentAccount?.address, "public-picker-0"); XCTAssertEqual(f.view.models.count, 3)
+    }
+    func testCommittedRowsNeedingPinSetupShowTheExactRecoveryMessage() async throws {
+        let f = await open { _, _, _, complete in complete(.setupRequired(count: 1, message: "Saved wallet needs PIN setup")) }
+        try await start(f); XCTAssertEqual(try alert(f.view).message, "Saved wallet needs PIN setup")
+        XCTAssertTrue(f.settings.saves.isEmpty)
+    }
+    func testAddActionWithoutAViewDoesNotStartRetainedDiscoveryOrNavigation() async {
+        let f = await open(); f.subject.view = nil; f.subject.onAction(); await settle(); XCTAssertEqual(f.routes.starts, 0)
+    }
+    func testExportActionWithoutAViewDoesNotPresent() async {
+        let f = await open(); f.subject.set(mode: .edit); f.subject.selectItem(at: 1); f.subject.view = nil
+        f.subject.onAction(); XCTAssertTrue(f.routes.exports.isEmpty)
+    }
+}
+
+@MainActor
+final class PortfolioAccountSwitcherCoverageTests: XCTestCase {
+    private func wait(_ predicate: () -> Bool) async {
+        for _ in 0..<200 { if predicate() { return }; try? await Task.sleep(nanoseconds: 10_000_000) }
+        XCTAssertTrue(predicate())
+    }
+    private func make() -> (PortfolioAccountSwitcher, PickerFlowFixture, OperationQueue) {
+        let fixture = PickerFlowFixture(), queue = OperationQueue(); queue.maxConcurrentOperationCount = 1
+        return (PortfolioAccountSwitcher(repository: AnyDataProviderRepository(fixture.repository), settings: fixture.settings, eventCenter: fixture.events, operationQueue: queue), fixture, queue)
+    }
+    func testSelectedWalletIdTracksTheScopedDurableSelection() {
+        let (switcher, f, _) = make(); XCTAssertEqual(switcher.selectedWalletId, "public-picker-0")
+        f.settings.currentAccount = f.repository.rows[2]; XCTAssertEqual(switcher.selectedWalletId, "public-picker-2")
+        f.settings.currentAccount = nil; XCTAssertNil(switcher.selectedWalletId)
+    }
+    func testUnknownWalletReturnsFalseWithoutSavingOrPublishingAnEvent() async {
+        let (switcher, f, _) = make(); var results = [Bool]()
+        switcher.switchTo(walletId: "unknown") { results.append($0) }; await wait { !results.isEmpty }
+        XCTAssertEqual(results, [false]); XCTAssertTrue(f.settings.saves.isEmpty); XCTAssertNil(f.events.completion)
+    }
+    func testRequestedWalletUsesItsRepositoryIdentityAndWaitsForDurableSave() async {
+        let (switcher, f, _) = make(); var results = [Bool]()
+        switcher.switchTo(walletId: "public-picker-2") { results.append($0) }; await wait { !f.settings.saves.isEmpty }
+        XCTAssertEqual(f.settings.saves.map(\.address), ["public-picker-2"])
+        XCTAssertTrue(results.isEmpty); XCTAssertNil(f.events.completion)
+    }
+    func testSuccessfulSelectionWaitsForAllEventObserversBeforeReportingSuccess() async {
+        let (switcher, f, _) = make(); var results = [Bool]()
+        switcher.switchTo(walletId: "public-picker-1") { results.append($0) }; await wait { f.settings.pending != nil }
+        f.settings.finish(.success(f.repository.rows[1])); await wait { f.events.completion != nil }
+        XCTAssertTrue(results.isEmpty); XCTAssertEqual(switcher.selectedWalletId, "public-picker-1")
+        f.events.completion?(); XCTAssertEqual(results, [true])
+    }
+    func testFailedSelectionReportsFalseWithoutPublishingTheChangeEvent() async {
+        let (switcher, f, _) = make(); var results = [Bool]()
+        switcher.switchTo(walletId: "public-picker-1") { results.append($0) }; await wait { f.settings.pending != nil }
+        f.settings.finish(.failure(PickerFlowFailure.offline)); await wait { !results.isEmpty }
+        XCTAssertEqual(results, [false]); XCTAssertNil(f.events.completion); XCTAssertEqual(switcher.selectedWalletId, "public-picker-0")
+    }
+    func testEmptyRepositoryCannotInventASelection() async {
+        let (switcher, f, _) = make(); f.repository.rows = []; var results = [Bool]()
+        switcher.switchTo(walletId: "public-picker-0") { results.append($0) }; await wait { !results.isEmpty }
+        XCTAssertEqual(results, [false]); XCTAssertTrue(f.settings.saves.isEmpty)
+    }
+    func testSuspendedQueueDoesNotStartAccountSavingBeforeRepositoryRead() async {
+        let (switcher, f, queue) = make(); queue.isSuspended = true
+        switcher.switchTo(walletId: "public-picker-1") { _ in }
+        try? await Task.sleep(nanoseconds: 30_000_000); XCTAssertTrue(f.settings.saves.isEmpty)
+        queue.isSuspended = false; await wait { f.settings.pending != nil }
+        f.settings.finish(.failure(PickerFlowFailure.offline))
+    }
+    func testCompletionIsDeliveredOnMainThread() async {
+        let (switcher, _, _) = make(); var completed = false
+        switcher.switchTo(walletId: "unknown") { _ in XCTAssertTrue(Thread.isMainThread); completed = true }
+        await wait { completed }
+    }
 }

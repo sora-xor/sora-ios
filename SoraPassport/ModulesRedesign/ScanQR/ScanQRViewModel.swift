@@ -68,6 +68,16 @@ private final class IrohaConnectOrInvoiceMatcher: WalletQRMatcherProtocol {
     }
 }
 
+struct ScanQRPhotoAccess {
+    var status: () -> PHAuthorizationStatus
+    var request: (@escaping (PHAuthorizationStatus) -> Void) -> Void
+
+    static var live: ScanQRPhotoAccess {
+        .init(status: { PHPhotoLibrary.authorizationStatus() },
+              request: { PHPhotoLibrary.requestAuthorization($0) })
+    }
+}
+
 final class ScanQRViewModel: NSObject {
     enum ScanState {
         case initializing(accessRequested: Bool)
@@ -99,6 +109,9 @@ final class ScanQRViewModel: NSObject {
     private var isOpeningIrohaConnect = false
     private var activeLookupID: UUID?
     private var hasCaptureSession = false
+    private let photoAccess: ScanQRPhotoAccess
+    private var photoPermissionRequest: UUID?
+    private var photoExtractionRequest: UUID?
     
     
     var qrExtractionService: WalletQRExtractionServiceProtocol?
@@ -108,7 +121,7 @@ final class ScanQRViewModel: NSObject {
          localSearchEngine: InvoiceLocalSearchEngineProtocol?,
          qrScanServiceFactory: WalletQRCaptureServiceFactoryProtocol,
          qrCoderFactory: WalletQRCoderFactoryProtocol,
-         wireframe: ScanQRWireframe = ScanQRWireframe(),
+         wireframe: ScanQRWireframeProtocol = ScanQRWireframe(),
          qrEncoder: WalletQREncoderProtocol,
          sharingFactory: AccountShareFactoryProtocol,
          assetManager: AssetManagerProtocol?,
@@ -118,8 +131,10 @@ final class ScanQRViewModel: NSObject {
          providerFactory: BalanceProviderFactory,
          feeProvider: FeeProviderProtocol,
          marketCapService: MarketCapServiceProtocol,
-         completion: ((ScanQRResult) -> Void)?) {
+         completion: ((ScanQRResult) -> Void)?,
+         photoAccess: ScanQRPhotoAccess = .live) {
         self.networkService = networkService
+        self.photoAccess = photoAccess
         self.localSearchEngine = localSearchEngine
         self.qrExtractionService = WalletQRExtractionService(processingQueue: .global())
         self.completion = completion
@@ -344,15 +359,20 @@ final class ScanQRViewModel: NSObject {
     }
     
     func presentImageGallery(from view: ControllerBackedProtocol?) {
-        let photoAuthorizationStatus = PHPhotoLibrary.authorizationStatus()
+        guard photoPermissionRequest == nil else { return }
+        let photoAuthorizationStatus = photoAccess.status()
         switch photoAuthorizationStatus {
         case .notDetermined:
-            PHPhotoLibrary.requestAuthorization({ [weak self] (newStatus) in
+            let request = UUID()
+            photoPermissionRequest = request
+            photoAccess.request({ [weak self, weak view] (newStatus) in
                 DispatchQueue.main.async {
-                    if newStatus ==  PHAuthorizationStatus.authorized {
-                        self?.presentGallery(from: view)
+                    guard let self, self.photoPermissionRequest == request else { return }
+                    self.photoPermissionRequest = nil
+                    if newStatus == .authorized || newStatus == .limited {
+                        self.presentGallery(from: view)
                     } else {
-                        self?.didFail(with: ImageGalleryError.accessDeniedNow)
+                        self.didFail(with: ImageGalleryError.accessDeniedNow)
                     }
                 }
             })
@@ -383,21 +403,27 @@ final class ScanQRViewModel: NSObject {
                 invoiceMatcher: invoiceMatcher
             )
 
+            let request = UUID()
+            photoExtractionRequest = request
             qrExtractionService?.extract(from: image,
                                          using: matcher,
                                          dispatchCompletionIn: .main) { [weak self] result in
+                // A gallery extraction can finish after its scanner was closed.
+                // Such a result must not open a connection or present an alert.
+                guard let self, self.photoExtractionRequest == request else { return }
+                self.photoExtractionRequest = nil
                 switch result {
                 case let .success(code):
-                    if self?.handleIrohaConnect(code: code) == true {
+                    if self.handleIrohaConnect(code: code) == true {
                         return
                     }
                     if let recieverInfo = invoiceMatcher.receiverInfo {
-                        self?.handleMatched(receiverInfo: recieverInfo)
+                        self.handleMatched(receiverInfo: recieverInfo)
                     } else {
-                        self?.handleFailedMatching(for: code)
+                        self.handleFailedMatching(for: code)
                     }
                 case .failure(let error):
-                    self?.handleQRService(error: error)
+                    self.handleQRService(error: error)
                 }
             }
         }
@@ -467,6 +493,8 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
     }
 
     func prepareDismiss() {
+        photoPermissionRequest = nil
+        photoExtractionRequest = nil
         activeLookupID = nil
         if case .processing(_, let operation) = scanState {
             operation.cancel()

@@ -9,6 +9,14 @@ import SoraKeystore
 /// Presentation evidence only. Every signing operation still performs its own
 /// authentication, lifecycle and production identity checks.
 enum WalletAccountCapability {
+    typealias SendPreflight = @MainActor (UIViewController?, String?, @escaping @MainActor () -> Void) -> Void
+
+    /// Shared default for the send-entry presenters. The asynchronous identity
+    /// and capability checks remain inside `preflightSend`.
+    static let liveSendPreflight: SendPreflight = { controller, expectedAddress, proceed in
+        preflightSend(from: controller, expectedAddress: expectedAddress, proceed: proceed)
+    }
+
     enum State: Equatable {
         case checking, signing, watchOnly, missingKeys, invalidKeys, repairPending, unavailable
 

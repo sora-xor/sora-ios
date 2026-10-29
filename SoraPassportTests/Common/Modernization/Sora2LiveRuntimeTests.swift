@@ -5066,3 +5066,196 @@ final class LocalTransactionHistoryTests: XCTestCase {
         XCTAssertEqual(rows.map { $0.base.txHash }, ["0x63"])
     }
 }
+
+final class BoundedRPCProtocolBoundaryTests: XCTestCase {
+    private func engine(_ source: MetadataTestEngine = MetadataTestEngine()) -> Sora2BoundedHTTPJSONRPCEngine {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RPCStubProtocol.self]
+        return Sora2BoundedHTTPJSONRPCEngine(sourceEngine: source, session: URLSession(configuration: configuration))
+    }
+
+    func testReconnectingWrapperFollowsSourceWithoutQueuingReplayRequests() throws {
+        let source = MetadataTestEngine()
+        let transport = engine(source)
+        let changed = try XCTUnwrap(URL(string: "wss://changed.test/rpc"))
+        transport.reconnect(url: changed)
+        XCTAssertEqual(source.url, changed)
+        XCTAssertEqual(transport.url, changed)
+        XCTAssertTrue(transport.pendingEngineRequests.isEmpty)
+        transport.url = nil
+        XCTAssertNil(source.url)
+        XCTAssertNil(transport.url)
+    }
+
+    func testFixedNodeRemainsPinnedWhenLegacyCallerRequestsReconnect() throws {
+        let original = try XCTUnwrap(URL(string: "wss://archive.test/rpc"))
+        let transport = Sora2BoundedHTTPJSONRPCEngine(nodeURL: original)
+        transport.reconnect(url: try XCTUnwrap(URL(string: "wss://different.test")))
+        XCTAssertEqual(transport.url, original)
+        transport.url = nil
+        XCTAssertEqual(transport.url, original)
+        XCTAssertTrue(transport.pendingEngineRequests.isEmpty)
+    }
+
+    func testWrappingAnAlreadyBoundedTransportPreservesItsIdentity() {
+        let transport = engine()
+        XCTAssertTrue(Sora2BoundedHTTPJSONRPCEngine.wrapping(transport) === transport)
+    }
+
+    func testSubscribeRejectsBeforeDeliveringAnyUpdate() {
+        XCTAssertThrowsError(try engine().subscribe(
+            "state_subscribeStorage", params: [String](),
+            updateClosure: { (_: String) in XCTFail("HTTP must not open a subscription") },
+            failureClosure: { _, _ in XCTFail("Synchronous rejection must not call the asynchronous failure handler") }
+        )) { error in
+            guard case Sora2BoundedHTTPJSONRPCError.subscriptionsUnavailable = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+    }
+
+    func testAddingLegacySubscriptionReportsTerminalUnsubscription() {
+        var failures = 0
+        let subscription = JSONRPCSubscription<String>(
+            requestId: 17, requestData: Data(), requestOptions: JSONRPCOptions(),
+            updateClosure: { _ in XCTFail("No HTTP subscription update is possible") },
+            failureClosure: { error, unsubscribed in
+                failures += 1
+                XCTAssertTrue(unsubscribed)
+                guard case Sora2BoundedHTTPJSONRPCError.subscriptionsUnavailable = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        )
+        engine().addSubscription(subscription)
+        XCTAssertEqual(failures, 1)
+    }
+
+    func testUnsubscribeIsRejectedForUnknownAndPreviouslyIssuedIdentifiers() {
+        let transport = engine()
+        for identifier in [UInt16(0), transport.generateRequestId(), UInt16.max] {
+            XCTAssertThrowsError(try transport.unsubsribe(identifier)) { error in
+                guard case Sora2BoundedHTTPJSONRPCError.subscriptionsUnavailable = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        }
+    }
+
+    func testUnreviewedMethodIsRejectedBeforeTransport() {
+        RPCStubProtocol.reset { _, _ in XCTFail("Unreviewed methods must never reach HTTP"); return nil }
+        XCTAssertThrowsError(try engine().callMethod(
+            "author_insertKey", params: ["test"], options: JSONRPCOptions(),
+            completion: { (_: Result<String, Error>) in XCTFail("Method validation must reject synchronously") }
+        )) { error in
+            guard case Sora2BoundedHTTPJSONRPCError.methodNotAllowed = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+        XCTAssertTrue(RPCStubProtocol.hosts().isEmpty)
+    }
+
+    func testSubmissionRejectsMissingEmptyAndMultipleExtrinsicsBeforeTransport() {
+        RPCStubProtocol.reset { _, _ in XCTFail("Malformed submission must never reach HTTP"); return nil }
+        let transport = engine()
+        let payloads: [[String]?] = [nil, [], ["0x00", "0x01"], ["0x"], ["0x0"], ["0xAA"], ["0xgg"]]
+        for payload in payloads {
+            XCTAssertThrowsError(try transport.callMethod(
+                SoraPassport.RPCMethod.submitExtrinsic, params: payload, options: JSONRPCOptions(),
+                completion: { (_: Result<String, Error>) in XCTFail("Invalid payload must reject synchronously") }
+            )) { error in
+                guard case Sora2BoundedHTTPJSONRPCError.invalidResponse = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        }
+        XCTAssertTrue(RPCStubProtocol.hosts().isEmpty)
+    }
+
+    func testSubmissionRejectsNonStringParametersBeforeTransport() {
+        XCTAssertThrowsError(try engine().callMethod(
+            SoraPassport.RPCMethod.submitExtrinsic, params: [42], options: JSONRPCOptions(),
+            completion: { (_: Result<String, Error>) in XCTFail("Incorrect parameter type must reject synchronously") }
+        )) { error in
+            guard case Sora2BoundedHTTPJSONRPCError.invalidResponse = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+    }
+
+    func testDisconnectCancelsEveryOutstandingRequestWithDistinctIdentifiers() async throws {
+        let started = expectation(description: "HTTP request started")
+        let completed = expectation(description: "Cancelled request completed once")
+        started.expectedFulfillmentCount = 2
+        completed.expectedFulfillmentCount = 2
+        BoundedRPCHeldProtocol.onStart = { started.fulfill() }
+        defer { BoundedRPCHeldProtocol.onStart = nil }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [BoundedRPCHeldProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let transport = Sora2BoundedHTTPJSONRPCEngine(nodeURL: try XCTUnwrap(URL(string: "https://held.test")), session: session)
+        let identifiers = try (0..<2).map { _ in
+            try transport.callMethod(SoraPassport.RPCMethod.getHead, params: [String](), options: JSONRPCOptions()) { (result: Result<String, Error>) in
+                if case .success = result { XCTFail("A disconnected request cannot succeed") }
+                completed.fulfill()
+            }
+        }
+        XCTAssertEqual(Set(identifiers).count, 2)
+        XCTAssertFalse(identifiers.contains(0))
+        XCTAssertFalse(identifiers.contains(transport.generateRequestId()))
+        await fulfillment(of: [started], timeout: 5)
+        transport.disconnectIfNeeded()
+        await fulfillment(of: [completed], timeout: 5)
+        XCTAssertTrue(transport.pendingEngineRequests.isEmpty)
+        XCTAssertNotEqual(transport.generateRequestId(), 0)
+        transport.disconnectIfNeeded()
+    }
+
+    func testRuntimeProofCacheEvictsOldestVersionAndPersistsOnlyBoundedProofs() throws {
+        let suite = "bounded-runtime-proof-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let cache = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        let hash = String(repeating: "a", count: 64)
+        for spec in 133...181 {
+            cache.store(metadataSHA256: hash, node: "https://metadata.test/", specVersion: UInt32(spec), transactionVersion: 131)
+        }
+        XCTAssertNil(cache.metadataSHA256(node: "https://metadata.test/", specVersion: 133, transactionVersion: 131))
+        XCTAssertEqual(cache.metadataSHA256(node: "https://metadata.test/", specVersion: 134, transactionVersion: 131), hash)
+        let persisted = try XCTUnwrap(defaults.dictionary(forKey: Sora2LiveRuntimeIdentityCache.persistenceKey))
+        XCTAssertEqual(persisted.count, Sora2LiveRuntimeIdentityCache.maximumEntries)
+        let reloaded = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        XCTAssertNil(reloaded.metadataSHA256(node: "https://metadata.test/", specVersion: 133, transactionVersion: 131))
+        XCTAssertEqual(reloaded.metadataSHA256(node: "https://metadata.test/", specVersion: 181, transactionVersion: 131), hash)
+    }
+
+    func testRuntimeProofEvictionBreaksTiesByTransactionVersionThenNode() {
+        let cache = Sora2LiveRuntimeIdentityCache()
+        let hash = String(repeating: "b", count: 64)
+        for index in 0..<48 {
+            cache.store(metadataSHA256: hash, node: String(format: "https://node%02d.test/", index), specVersion: 133, transactionVersion: 132)
+        }
+        cache.store(metadataSHA256: hash, node: "https://older.test/", specVersion: 133, transactionVersion: 131)
+        XCTAssertNil(cache.metadataSHA256(node: "https://older.test/", specVersion: 133, transactionVersion: 131))
+        cache.store(metadataSHA256: hash, node: "https://z-last.test/", specVersion: 133, transactionVersion: 132)
+        XCTAssertNil(cache.metadataSHA256(node: "https://node00.test/", specVersion: 133, transactionVersion: 132))
+        XCTAssertEqual(cache.metadataSHA256(node: "https://node01.test/", specVersion: 133, transactionVersion: 132), hash)
+        XCTAssertEqual(cache.metadataSHA256(node: "https://z-last.test/", specVersion: 133, transactionVersion: 132), hash)
+    }
+
+    func testMalformedPersistedProofKeysAreIgnoredWithoutLosingValidProofs() throws {
+        let suite = "malformed-runtime-proof-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let hash = String(repeating: "c", count: 64)
+        defaults.set([
+            "missing-separator": hash,
+            "133:131 https://valid.test/": hash,
+            "133:131 https://bad-hash.test/": "not-a-hash",
+            "133:131:4 https://invalid.test/": hash,
+            "133:0 https://invalid.test/": hash,
+            "invalid:131 https://invalid.test/": hash
+        ], forKey: Sora2LiveRuntimeIdentityCache.persistenceKey)
+        let cache = Sora2LiveRuntimeIdentityCache(defaults: defaults)
+        XCTAssertEqual(cache.metadataSHA256(node: "https://valid.test/", specVersion: 133, transactionVersion: 131), hash)
+        XCTAssertNil(cache.metadataSHA256(node: "https://bad-hash.test/", specVersion: 133, transactionVersion: 131))
+        XCTAssertNil(cache.metadataSHA256(node: "https://invalid.test/", specVersion: 133, transactionVersion: 131))
+    }
+}
+
+private final class BoundedRPCHeldProtocol: URLProtocol {
+    static var onStart: (() -> Void)?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.onStart?() }
+    override func stopLoading() {}
+}

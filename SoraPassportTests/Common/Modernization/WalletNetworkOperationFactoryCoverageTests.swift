@@ -22,7 +22,7 @@ extension WalletNetworkOperationFactoryCoverageTests {
     }
     func testPendingSwapHistoryKeepsTheReviewedAmountsAndMarket() throws {
         let history = try pendingHistory(product(.swap))
-        let call = try pendingCall(history, as: RuntimeCall<SwapCall>.self)
+        let call = try JSONDecoder.scaleCompatible(snakeCase: true).decode(RuntimeCall<SwapCall>.self, from: XCTUnwrap(history.call))
         XCTAssertEqual(call.args.inputAssetId.value, xor); XCTAssertEqual(call.args.outputAssetId.value, val)
         XCTAssertEqual(call.args.amount[.desiredInput]?.desired, BigUInt("1000000000000000000"))
         XCTAssertEqual(call.args.amount[.desiredInput]?.slip, BigUInt("1990000000000000000"))
@@ -108,16 +108,16 @@ final class WalletNetworkOperationFactoryCoverageTests: XCTestCase {
     private func asset(_ id: String, precision: Int16 = 18) -> WalletAsset {
         WalletAsset(identifier: id, name: LocalizableResource { _ in id }, symbol: id, precision: precision)
     }
-    private func make(assets: [WalletAsset]? = nil, accountSigner: SigningWrapperProtocol? = nil) throws -> (WalletNetworkOperationFactory, FactoryExtrinsics) {
+    private func make(assets: [WalletAsset]? = nil, accountSigner: SigningWrapperProtocol? = nil, engine: JSONRPCEngine? = nil, runtime: SoraPassport.RuntimeCodingServiceProtocol? = nil, storage: AnyDataProviderRepository<ChainStorageItem>? = nil) throws -> (WalletNetworkOperationFactory, FactoryExtrinsics) {
         let service = FactoryExtrinsics()
         let signer = accountSigner ?? FactoryNoSigner()
         return (WalletNetworkOperationFactory(
-            engine: FactoryNoEngine(),
+            engine: engine ?? FactoryNoEngine(),
             requestFactory: StorageRequestFactory(remoteFactory: StorageKeyFactory(), operationManager: OperationManager()),
-            runtimeService: FactoryNoRuntime(),
+            runtimeService: runtime ?? FactoryNoRuntime(),
             accountSettings: WalletAccountSettings(accountId: receiver, assets: assets ?? [asset(xor), asset(val, precision: 6)]),
             cryptoType: .sr25519, accountSigner: signer, extrinsicService: service, dummySigner: signer,
-            chainStorage: AnyDataProviderRepository(FactoryEmptyStorage()),
+            chainStorage: storage ?? AnyDataProviderRepository(FactoryEmptyStorage()),
             localStorageIdFactory: try ChainStorageIdFactory(chain: .sora)), service)
     }
     private func transfer(amount: Decimal = 1, asset: String? = nil, destination: String? = nil,
@@ -822,4 +822,162 @@ private final class FactoryLifecycleSigner: LifecycleSigningWrapperProtocol {
     init(account: AccountItem) { signingAccount = account }
     func sign(_ originalData: Data) throws -> IRSignatureProtocol { XCTFail("No real signing in factory transport tests"); throw FactoryBoundaryError.unexpected }
     func sign(_ originalData: Data, lifecycleLease: WalletLifecycleLease) throws -> IRSignatureProtocol { XCTFail("No real signing in factory transport tests"); throw FactoryBoundaryError.unexpected }
+}
+
+extension WalletNetworkOperationFactoryCoverageTests {
+    func testGenesisReadRequestsTheCanonicalZeroBlock() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = #""0xgenesis-fixture""#
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createGenesisHashOperation()))
+        XCTAssertEqual(result, "0xgenesis-fixture")
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.getBlockHash])
+        XCTAssertEqual(engine.parameters, [["0x00000000"]])
+    }
+    func testBlockHashReadPreservesEveryBigEndianHeightByte() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = #""0xblock-fixture""#
+        for height: UInt32 in [0x01020304, UInt32.max] {
+            _ = try await run(CompoundOperationWrapper(targetOperation: factory.createBlockHashOperation(height)))
+        }
+        XCTAssertEqual(engine.parameters, [["0x01020304"], ["0xffffffff"]])
+    }
+    func testFreeBalanceReadPreservesValuesAboveFloatingPointPrecision() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = #"{"balance":"900719925474099312345678901"}"#
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createFreeBalanceOperation(accountId: "bound-account", assetId: val)))
+        XCTAssertEqual(result.balance, BigUInt("900719925474099312345678901"))
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.freeBalance])
+        XCTAssertEqual(engine.parameters, [["bound-account", val]])
+    }
+    func testFreeBalanceReadFailureDoesNotBecomeAZeroBalance() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.failure = FactoryBoundaryError.offline
+        do {
+            _ = try await run(CompoundOperationWrapper(targetOperation: factory.createFreeBalanceOperation(accountId: "account", assetId: xor)))
+            XCTFail("A failed read must remain unavailable")
+        } catch { guard case FactoryBoundaryError.offline = error else { return XCTFail("Unexpected error: \(error)") } }
+    }
+    func testNonceReadUsesTheBoundAccountWhenNoOverrideIsProvided() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = "4294967295"
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createExtrinsicNonceFetchOperation(.sora)))
+        XCTAssertEqual(result, UInt32.max)
+        XCTAssertEqual(engine.methods, [SoraPassport.RPCMethod.getExtrinsicNonce])
+        XCTAssertEqual(engine.parameters, [[try SS58AddressFactory().address(fromAccountId: Data(repeating: 3, count: 32), type: SNAddressType(chain: .sora))]])
+    }
+    func testNonceOverrideUsesTheExplicitPublicAccountInsteadOfTheBoundOne() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        engine.response = "17"
+        let key = Data(repeating: 7, count: 32)
+        let result = try await run(CompoundOperationWrapper(targetOperation: factory.createExtrinsicNonceFetchOperation(.sora, accountId: key)))
+        XCTAssertEqual(result, 17)
+        XCTAssertEqual(engine.parameters, [[try SS58AddressFactory().address(fromAccountId: key, type: SNAddressType(chain: .sora))]])
+    }
+    func testInvalidNonceAccountFailsBeforeAnyRPCRequest() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        for count in [0, 1, 3, 20, 31, 33] {
+            do {
+                _ = try await run(CompoundOperationWrapper(targetOperation:
+                    factory.createExtrinsicNonceFetchOperation(.sora, accountId: Data(repeating: 1, count: count))))
+                XCTFail("Malformed account bytes must not reach the node")
+            } catch {
+                guard case WalletNetworkOperationFactoryError.invalidContext = error else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+                XCTAssertTrue(engine.methods.isEmpty)
+            }
+        }
+    }
+    func testCachedUpgradedFlagPreservesBothBooleanValues() async throws {
+        let repository = InMemoryDataProviderRepository<ChainStorageItem>()
+        let key = try ChainStorageIdFactory(chain: .sora).createIdentifier(for: StorageKeyFactory().updatedDualRefCount())
+        let (factory, _) = try make(storage: AnyDataProviderRepository(repository))
+        for value in [true, false] {
+            let item = ChainStorageItem(identifier: key, data: Data([value ? 1 : 0]))
+            _ = try await run(CompoundOperationWrapper(targetOperation: repository.saveOperation({ [item] }, { [] })))
+            let result = try await run(factory.createUpgradedInfoFetchOperation())
+            XCTAssertEqual(result, value)
+        }
+    }
+    func testMissingCachedUpgradeFlagRemainsUnknown() async throws {
+        let (factory, _) = try make()
+        let result = try await run(factory.createUpgradedInfoFetchOperation())
+        XCTAssertNil(result)
+    }
+    func testUnreadableCachedUpgradeFlagCannotBecomeTrue() async throws {
+        let repository = InMemoryDataProviderRepository<ChainStorageItem>()
+        let key = try ChainStorageIdFactory(chain: .sora).createIdentifier(for: StorageKeyFactory().updatedDualRefCount())
+        let item = ChainStorageItem(identifier: key, data: Data())
+        _ = try await run(CompoundOperationWrapper(targetOperation: repository.saveOperation({ [item] }, { [] })))
+        let (factory, _) = try make(storage: AnyDataProviderRepository(repository))
+        do { _ = try await run(factory.createUpgradedInfoFetchOperation()); XCTFail("Truncated SCALE storage is not an upgraded flag") }
+        catch { XCTAssertNotNil(error) }
+    }
+    func testAccountInfoRuntimeFailureCannotStartAnUnqualifiedStorageRead() async throws {
+        let engine = FactoryReadEngine(), runtime = FactoryFailedRuntime()
+        let (factory, _) = try make(engine: engine, runtime: runtime)
+        do { _ = try await run(factory.createAccountInfoFetchOperation(Data(repeating: 3, count: 32))); XCTFail("No coder factory means no account decoding") }
+        catch { XCTAssertTrue(engine.methods.isEmpty); XCTAssertEqual(runtime.reads, 1) }
+    }
+    func testDirectFeeOperationBuildsTheReviewedTransferWithoutSigningOrSubmitting() async throws {
+        let (factory, service) = try make()
+        service.rawFee = "123456789012345678901"
+        let operation = factory.createExtrinsicFeeServiceOperation(asset: val, amount: 9007199254740993, receiver: receiver, chain: .sora)
+        let fee = try await run(CompoundOperationWrapper(targetOperation: operation))
+        XCTAssertEqual(fee, service.rawFee)
+        XCTAssertEqual(service.estimateCount, 1); XCTAssertEqual(service.submitCount, 0)
+        XCTAssertEqual(service.builders.first?.calls.count, 1)
+    }
+    func testDirectFeeOperationPropagatesTheEstimatorFailureWithoutSubmitting() async throws {
+        let (factory, service) = try make()
+        service.failure = FactoryBoundaryError.offline
+        let operation = factory.createExtrinsicFeeServiceOperation(asset: val, amount: 1, receiver: receiver, chain: .sora)
+        do { _ = try await run(CompoundOperationWrapper(targetOperation: operation)); XCTFail("Failed estimate must not report a fee") }
+        catch { guard case FactoryBoundaryError.offline = error else { return XCTFail("Unexpected error: \(error)") } }
+        XCTAssertEqual(service.submitCount, 0)
+    }
+    func testDirectFeeOperationRejectsMalformedReceiverWithoutSigning() async throws {
+        let (factory, service) = try make()
+        let operation = factory.createExtrinsicFeeServiceOperation(asset: val, amount: 1, receiver: "not hex", chain: .sora)
+        do { _ = try await run(CompoundOperationWrapper(targetOperation: operation)); XCTFail("Malformed receiver cannot produce a fee") }
+        catch { XCTAssertTrue(service.builders.isEmpty); XCTAssertEqual(service.submitCount, 0) }
+    }
+    func testUsableBalanceRejectsInvalidAccountTextWithoutCrashingOrSendingRPC() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        for address in ["", "not an ss58 address", "0x03"] {
+            do { _ = try await run(CompoundOperationWrapper(targetOperation: factory.createUsableBalanceOperation(accountId: address, assetId: xor))); XCTFail("Invalid account accepted") }
+            catch { XCTAssertTrue(engine.methods.isEmpty) }
+        }
+    }
+    func testUsableBalanceRejectsMalformedAssetWithoutAnEmptyMethodRPC() async throws {
+        let engine = FactoryReadEngine(), (factory, _) = try make(engine: engine)
+        let address = try SS58AddressFactory().address(fromAccountId: Data(repeating: 3, count: 32), type: 69)
+        do { _ = try await run(CompoundOperationWrapper(targetOperation: factory.createUsableBalanceOperation(accountId: address, assetId: "0xzz"))); XCTFail("Invalid asset accepted") }
+        catch { XCTAssertTrue(engine.methods.isEmpty) }
+    }
+}
+
+private final class FactoryReadEngine: JSONRPCEngine {
+    var url: URL? = URL(string: "wss://factory-read.test")
+    var pendingEngineRequests: [JSONRPCRequest] { [] }
+    var response = "null", failure: Error?
+    private(set) var methods: [String] = [], parameters: [[String]] = []
+    func callMethod<P: Codable, T: Decodable>(_ method: String, params: P?, options: JSONRPCOptions, completion closure: ((Result<T, Error>) -> Void)?) throws -> UInt16 {
+        methods.append(method); parameters.append(params as? [String] ?? [])
+        let result = Result<T, Error> { if let failure { throw failure }; return try JSONDecoder.scaleCompatible(snakeCase: false).decode(T.self, from: Data(response.utf8)) }
+        closure?(result)
+        return UInt16(methods.count)
+    }
+    func subscribe<P: Codable, T: Decodable>(_ method: String, params: P?, updateClosure: @escaping (T) -> Void, failureClosure: @escaping (Error, Bool) -> Void) throws -> UInt16 { XCTFail("Read operations cannot subscribe"); throw FactoryBoundaryError.unexpected }
+    func cancelForIdentifier(_ identifier: UInt16) {}
+    func generateRequestId() -> UInt16 { 1 }
+    func addSubscription(_ subscription: JSONRPCSubscribing) { XCTFail("Read operations cannot subscribe") }
+    func connectIfNeeded() {}; func disconnectIfNeeded() {}; func unsubsribe(_ identifier: UInt16) throws {}
+}
+private final class FactoryFailedRuntime: SoraPassport.RuntimeCodingServiceProtocol {
+    private(set) var reads = 0
+    func fetchCoderFactoryOperation(with timeout: TimeInterval, closure: SoraPassport.RuntimeMetadataClosure?) -> BaseOperation<RuntimeCoderFactoryProtocol> {
+        reads += 1
+        return ClosureOperation { throw FactoryBoundaryError.offline }
+    }
 }

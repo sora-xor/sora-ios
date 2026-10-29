@@ -34,6 +34,7 @@ final class AppEventService {
     private var viewController: AppEventDisplayLogic?
     private var windowShowed = false
     private var window: UIWindow?
+    private var hideWorkItem: DispatchWorkItem?
     private var isStopped: Bool = false
     private let throttler = Throttler(minimumDelay: 0.3)
 
@@ -42,65 +43,68 @@ final class AppEventService {
     }
     
     deinit {
+        hideWorkItem?.cancel()
         window = nil
     }
 }
 
 extension AppEventService {
     func showToasterIfNeeded(viewController: AppEventDisplayLogic, isNeedHide: Bool = true, isNeedForceUpdate: Bool = false) {
-        guard !windowShowed else { return }
+        guard !windowShowed || isNeedForceUpdate else { return }
         throttler.throttle { [weak self] in
-            guard !(self?.isStopped ?? false) else { return }
-            
-            self?.viewController = viewController
-            
-            guard (!(self?.windowShowed ?? false)) || isNeedForceUpdate else { return  }
-            
-            let completion: (Bool) -> Void = { [weak self] isNeedHide1 in
-                self?.window = SilentWindow(root: viewController)
+            guard let self, !isStopped else { return }
+            guard !windowShowed || isNeedForceUpdate else { return }
+            let show: (Bool) -> Void = { [weak self] shouldHide in
+                guard let self, !isStopped else { return }
+                self.viewController = viewController
+                window = SilentWindow(root: viewController)
+                windowShowed = true
                 viewController.show()
-                
-                self?.windowShowed = true
-
-                if isNeedHide1 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        self?.hideToasterIfNeeded()
-                    }
+                hideWorkItem?.cancel()
+                if shouldHide, case let .after(delay) = hideMode {
+                    let work = DispatchWorkItem { [weak self] in self?.hideToasterIfNeeded() }
+                    hideWorkItem = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + max(0, delay), execute: work)
                 }
             }
-            
             if isNeedForceUpdate {
-                self?.hideToasterIfNeeded(with: isNeedHide, completion: completion)
-                return
+                hideToasterIfNeeded(with: isNeedHide, completion: show)
+            } else {
+                show(isNeedHide)
             }
-
-            completion(isNeedHide)
         }
     }
-    
+
     func hideToasterIfNeeded(with isNeedHide: Bool = true, completion: ((Bool) -> Void)? = nil) {
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
         throttler.throttle { [weak self] in
-            self?.viewController?.hide { [weak self] in
-                if self?.windowShowed == false {
-                    self?.window = nil
-                }
+            guard let self else { return }
+            windowShowed = false
+            let hiddenWindow = window
+            let finish = { [weak self] in
+                guard let self else { return }
+                hiddenWindow?.isHidden = true
+                hiddenWindow?.rootViewController = nil
+                if window === hiddenWindow { window = nil }
                 completion?(isNeedHide)
             }
-            self?.windowShowed = false
+            if let viewController {
+                viewController.hide(completion: finish)
+            } else {
+                finish()
+            }
         }
     }
-    
+
     func start() {
         isStopped = false
-        
-        guard let viewController = viewController else { return }
+        guard let viewController else { return }
         showToasterIfNeeded(viewController: viewController)
     }
-    
+
     func stop(with completion: (() -> Void)? = nil) {
-        hideToasterIfNeeded { [weak self] _ in
-            self?.isStopped = true
-        }
+        isStopped = true
+        hideToasterIfNeeded { _ in completion?() }
     }
 }
-

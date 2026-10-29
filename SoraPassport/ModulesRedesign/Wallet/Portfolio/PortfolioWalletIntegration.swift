@@ -251,17 +251,27 @@ extension PortfolioStatusBackdrop: SoramitsuObserver {
 @MainActor
 final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
     private let repository: AnyDataProviderRepository<AccountItem>
+    private let settings: SelectedWalletSettingsProtocol
+    private let eventCenter: EventCenterProtocol
+    private let operationQueue: OperationQueue
 
     init(repository: AnyDataProviderRepository<AccountItem> = AnyDataProviderRepository(
         UserDataStorageFacade.shared.createRepository(filter: nil, sortDescriptors: [],
-                                                      mapper: AnyCoreDataMapper(AccountItemMapper())))) {
+                                                      mapper: AnyCoreDataMapper(AccountItemMapper()))),
+         settings: SelectedWalletSettingsProtocol = SelectedWalletSettings.shared,
+         eventCenter: EventCenterProtocol = EventCenter.shared,
+         operationQueue: OperationQueue = OperationManagerFacade.sharedDefaultQueue) {
         self.repository = repository
+        self.settings = settings
+        self.eventCenter = eventCenter
+        self.operationQueue = operationQueue
     }
 
-    var selectedWalletId: String? { SelectedWalletSettings.shared.currentAccount?.address }
+    var selectedWalletId: String? { settings.currentAccount?.address }
 
     func switchTo(walletId: String, completion: @escaping (Bool) -> Void) {
         let operation = repository.fetchAllOperation(with: RepositoryFetchOptions())
+        let settings = self.settings, eventCenter = self.eventCenter
         operation.completionBlock = {
             let accounts = (try? operation.extractNoCancellableResultData()) ?? []
             DispatchQueue.main.async {
@@ -269,11 +279,11 @@ final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
                     completion(false)
                     return
                 }
-                SelectedWalletSettings.shared.performSave(value: account) { result in
+                settings.performSave(value: account) { result in
                     DispatchQueue.main.async {
                         switch result {
                         case .success:
-                            EventCenter.shared.notify(with: SelectedAccountChanged(), completionOnMain: {
+                            eventCenter.notify(with: SelectedAccountChanged(), completionOnMain: {
                                 completion(true)
                             })
                         case .failure:
@@ -283,7 +293,7 @@ final class PortfolioAccountSwitcher: PortfolioAccountSwitching {
                 }
             }
         }
-        OperationManagerFacade.sharedDefaultQueue.addOperation(operation)
+        operationQueue.addOperation(operation)
     }
 }
 
