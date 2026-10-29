@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import BigInt
 import Foundation
+import sorawallet
 import IrohaCrypto
 import RobinHood
 import SoraFoundation
@@ -471,9 +472,18 @@ private final class FacadeRuntime: SoraPassport.RuntimeCodingServiceProtocol {
 private final class FacadeEngine: JSONRPCEngine {
     var url: URL?; var pendingEngineRequests: [JSONRPCRequest] { [] }
     var values = [String: String](), failures = Set<String>(), failAll = false
+    var pairEnabled = false, pairFailure = false, pairRequests = 0
     private let lock = NSLock(); private var records = [[String]]()
     var queries: [[String]] { lock.lock(); defer { lock.unlock() }; return records }
     func callMethod<P: Codable, T: Decodable>(_ method: String, params: P?, options: JSONRPCOptions, completion closure: ((Result<T, Swift.Error>) -> Void)?) throws -> UInt16 {
+        if method == SoraPassport.RPCMethod.isPairEnabled {
+            lock.lock(); pairRequests += 1; lock.unlock()
+            let result = Result<T, Swift.Error> {
+                if pairFailure { throw FacadeFailure.offline }
+                return try JSONDecoder().decode(T.self, from: Data((pairEnabled ? "true" : "false").utf8))
+            }
+            DispatchQueue.global().async { closure?(result) }; return 1
+        }
         let parameters = try JSONDecoder().decode([String].self, from: JSONEncoder().encode(params))
         lock.lock(); records.append(parameters); lock.unlock()
         let result = Result<T, Swift.Error> {
@@ -498,4 +508,152 @@ private struct FacadeRemoteHistory: WalletRemoteHistoryItemProtocol {
     var identifier: String { id }; var itemBlockNumber: UInt64 { 1 }; var itemExtrinsicIndex: UInt16 { 0 }
     var extrinsicHash: String? { id }; var itemTimestamp: Int64 { 100 }; var label: WalletRemoteHistorySourceLabel { .extrinsics }
     func createTransactionForAddress(_ address: String, networkType: SNAddressType, asset: WalletAsset, addressFactory: SS58AddressFactoryProtocol) -> AssetTransactionData? { transaction }
+}
+
+final class HistoryFilterBoundaryTests: XCTestCase {
+    private let xor = WalletAssetId.xor.rawValue, val = WalletAssetId.val.rawValue
+    private func row(_ path: KmmCallCodingPath, _ values: [String: String] = [:]) -> TxHistoryItem {
+        TxHistoryItem(id: "0x" + String(repeating: "11", count: 32), blockHash: "0x" + String(repeating: "22", count: 32), module: path.moduleName,
+            method: path.callName, timestamp: "100", networkFee: "7", success: true,
+            data: values.map { TxHistoryItemParam(paramName: $0.key, paramValue: $0.value) }, nestedData: nil)
+    }
+    private func requestedFilter(asset: String?) throws -> HistoryService.HistoryFilter? {
+        var captured: HistoryService.HistoryFilter?
+        var received = false
+        let done = expectation(description: "remote history request carries its asset predicate")
+        let service = HistoryService(operationManager: OperationManager(), address: "fixture", assets: [],
+            localStorage: BoundaryHistoryStorage(), readRemote: { _, _, _, filter in
+                captured = filter; received = true
+                return .init(items: [], endReached: true)
+            }, readJournal: { [] })
+        service.getHistory(count: 10, assetId: asset) { result in
+            switch result { case .success(let rows): XCTAssertTrue(rows.isEmpty); case .failure(let error): XCTFail("Unexpected fixture read failure: \(error)") }; done.fulfill()
+        }
+        wait(for: [done], timeout: 2)
+        XCTAssertTrue(received)
+        return captured
+    }
+    private func matches(_ asset: String, _ row: TxHistoryItem) throws -> Bool {
+        try XCTUnwrap(requestedFilter(asset: asset))(row).boolValue
+    }
+    func testUnfilteredHistoryDoesNotInstallAnAssetPredicate() throws { XCTAssertNil(try requestedFilter(asset: nil)) }
+    func testEverySupportedTransferSpellingFiltersOnItsAssetId() throws {
+        for path: KmmCallCodingPath in [.transfer, .adarTransfer, .transferKeepAlive] {
+            let item = row(path, ["assetId": val]); XCTAssertTrue(try matches(val, item)); XCTAssertFalse(try matches(xor, item))
+        }
+    }
+    func testReferralOperationsAppearOnlyInTheXorAssetHistory() throws {
+        for path: KmmCallCodingPath in [.bondReferralBalance, .unbondReferralBalance, .setReferral] {
+            XCTAssertTrue(try matches(xor, row(path))); XCTAssertFalse(try matches(val, row(path)))
+        }
+    }
+    func testSwapsAppearInBothInputAndOutputAssetsButNotUnrelatedAssets() throws {
+        let item = row(.swap, ["baseAssetId": xor, "targetAssetId": val])
+        XCTAssertTrue(try matches(xor, item)); XCTAssertTrue(try matches(val, item)); XCTAssertFalse(try matches("unrelated", item))
+    }
+    func testLiquidityDepositsAndWithdrawalsAppearInBothConstituentAssets() throws {
+        for path: KmmCallCodingPath in [.depositLiquidity, .withdrawLiquidity] {
+            let item = row(path, ["baseAssetId": xor, "targetAssetId": val])
+            XCTAssertTrue(try matches(xor, item)); XCTAssertTrue(try matches(val, item)); XCTAssertFalse(try matches("unrelated", item))
+        }
+    }
+    func testAtomicAndOrdinaryLiquidityBatchesUseTheirOuterAssetParameters() throws {
+        for path: KmmCallCodingPath in [.batchUtility, .batchAllUtility] {
+            let item = row(path, ["input_asset_a": xor, "input_asset_b": val])
+            XCTAssertTrue(try matches(xor, item)); XCTAssertTrue(try matches(val, item)); XCTAssertFalse(try matches("unrelated", item))
+        }
+    }
+    func testRewardClaimsUseTheRewardAssetParameter() throws {
+        let item = row(.getRewards, ["assetId": val]); XCTAssertTrue(try matches(val, item)); XCTAssertFalse(try matches(xor, item))
+    }
+    func testFarmDepositsAndWithdrawalsMatchAllThreeQualifiedAssets() throws {
+        for path: KmmCallCodingPath in [.farmDeposit, .farmWithdraw] {
+            let item = row(path, ["assetId": val, "baseAssetId": xor, "rewardAssetId": "reward"])
+            for asset in [xor, val, "reward"] { XCTAssertTrue(try matches(asset, item)) }
+            XCTAssertFalse(try matches("unrelated", item))
+        }
+    }
+    func testMissingAssetParametersAndUnknownCallsDoNotMatchAnAsset() throws {
+        for path: KmmCallCodingPath in [.transfer, .swap, .depositLiquidity, .withdrawLiquidity, .batchUtility, .getRewards, .farmDeposit, .farmWithdraw, .init(moduleName: "unknown", callName: "unknown")] {
+            XCTAssertFalse(try matches(xor, row(path)))
+        }
+    }
+    private func service(fails: Bool = false) -> HistoryService {
+        HistoryService(operationManager: OperationManager(), address: "fixture", assets: [], localStorage: BoundaryHistoryStorage(),
+            readRemote: { address, count, page, _ in
+                XCTAssertEqual(address, "fixture"); XCTAssertEqual(count, 10)
+                if fails { throw URLError(.timedOut) }
+                return .init(items: [], endReached: page == 2, mayOmitIncomingTransfers: true, cachedAt: Date(timeIntervalSince1970: 100))
+            }, readJournal: { [] })
+    }
+    func testLegacyHistoryCompletionDeliversAnAuthoritativeEmptySuccessOnce() async {
+        let s = service(), done = expectation(description: "history callback")
+        s.getHistory(count: 10, assetId: nil) { result in
+            do { XCTAssertTrue(try result.get().isEmpty) } catch { XCTFail("Unexpected history failure: \(error)") }; done.fulfill()
+        }
+        await fulfillment(of: [done], timeout: 2)
+    }
+    func testLegacyHistoryCompletionPropagatesReadFailure() async {
+        let s = service(fails: true), done = expectation(description: "history error callback")
+        s.getHistory(count: 10, assetId: nil) { result in
+            guard case .failure(let e) = result else { XCTFail("Failure became success"); done.fulfill(); return }
+            XCTAssertEqual((e as? URLError)?.code, .timedOut); done.fulfill()
+        }
+        await fulfillment(of: [done], timeout: 2)
+    }
+    func testLegacyPageCompletionPreservesPaginationAndStaleReadQualification() async {
+        let s = service(), done = expectation(description: "page callback")
+        s.getPageHistory(count: 10, page: 2, assetId: nil) { result in
+            do {
+                let p = try result.get(); XCTAssertTrue(p.transactions.isEmpty); XCTAssertTrue(p.endReached)
+                XCTAssertTrue(p.mayOmitIncomingTransfers); XCTAssertEqual(p.cachedAt, Date(timeIntervalSince1970: 100))
+            } catch { XCTFail("Unexpected page failure: \(error)") }; done.fulfill()
+        }
+        await fulfillment(of: [done], timeout: 2)
+    }
+    func testLegacyPageCompletionPropagatesReadFailure() async {
+        let s = service(fails: true), done = expectation(description: "page error callback")
+        s.getPageHistory(count: 10, page: 2, assetId: nil) { result in
+            guard case .failure(let e) = result else { XCTFail("Failure became success"); done.fulfill(); return }
+            XCTAssertEqual((e as? URLError)?.code, .timedOut); done.fulfill()
+        }
+        await fulfillment(of: [done], timeout: 2)
+    }
+}
+private final class BoundaryHistoryStorage: LocalTransactionStorageProtocol { var transactions: [String: [Transaction]] = [:] }
+
+extension WalletFacadeFlowTests {
+    private func pair(_ f: FacadeFixture, dex: String? = "0", base: String? = nil) -> TransferInfo {
+        TransferInfo(source: base ?? f.xor, destination: f.val, amount: AmountDecimal(value: 1), asset: f.xor, details: "", fees: [], context: dex.map { [TransactionContextKeys.dex: $0] })
+    }
+    func testLiquidityPairCreationRejectsInvalidDexIdentifiersBeforeStorageReads() throws {
+        let f = try FacadeFixture()
+        for dex: String? in [nil, "", "-1", "4294967296", "x"] { XCTAssertThrowsError(try f.facade.createLiquidityPairIfNeeded(pair(f, dex: dex))) }
+        XCTAssertTrue(f.engine.queries.isEmpty)
+    }
+    func testAnInitializedLiquidityPoolDoesNotCreateAnotherPair() throws {
+        let f = try FacadeFixture(); try f.pool()
+        XCTAssertNil(try f.facade.createLiquidityPairIfNeeded(pair(f)))
+        XCTAssertEqual(f.engine.queries, [[try f.propertiesKey()]])
+    }
+    func testFailedPoolReadCannotBeMistakenForAnAbsentPool() throws {
+        let f = try FacadeFixture(); f.engine.failAll = true
+        XCTAssertThrowsError(try f.facade.createLiquidityPairIfNeeded(pair(f)))
+        XCTAssertEqual(f.engine.queries.count, 1)
+    }
+    func testPairLookupFailureCannotLaunchInitialization() throws {
+        let f = try FacadeFixture(); f.engine.pairFailure = true
+        XCTAssertThrowsError(try f.facade.createLiquidityPairIfNeeded(pair(f)))
+        XCTAssertEqual(f.engine.pairRequests, 1)
+    }
+    func testMissingConcreteExtrinsicFactoryCannotInitializeAnUnregisteredPair() throws {
+        let f = try FacadeFixture(); f.engine.pairEnabled = false
+        XCTAssertThrowsError(try f.facade.createLiquidityPairIfNeeded(pair(f)))
+        XCTAssertEqual(f.engine.pairRequests, 1)
+    }
+    func testMissingConcreteExtrinsicFactoryCannotInitializeARegisteredPair() throws {
+        let f = try FacadeFixture(); f.engine.pairEnabled = true
+        XCTAssertThrowsError(try f.facade.createLiquidityPairIfNeeded(pair(f)))
+        XCTAssertEqual(f.engine.pairRequests, 1)
+    }
 }

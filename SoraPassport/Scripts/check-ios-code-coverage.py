@@ -140,7 +140,7 @@ def main():
     parser.add_argument("--app-manifest", type=Path, action="append", default=[], help="source hashes captured before each test build; required when merging")
     parser.add_argument("--write-source-manifest", type=Path, help="capture source hashes before building, then exit")
     parser.add_argument("--codec-report", type=Path, help="SwiftPM llvm-cov JSON output")
-    parser.add_argument("--minimum", type=float, default=80)
+    parser.add_argument("--minimum", type=float, default=90.01)
     parser.add_argument("--output", type=Path, help="write auditable per-file summary JSON")
     args = parser.parse_args()
     if not 0 <= args.minimum <= 100:

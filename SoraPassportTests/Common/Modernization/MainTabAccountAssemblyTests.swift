@@ -617,3 +617,165 @@ private final class TabEventOutput: MainTabBarInteractorOutputProtocol {
     func didUpdateWalletInfo() { calls.append("wallet") }; func didRequestImportAccount() { calls.append("import") }; func didRequestMigration(with service: MigrationServiceProtocol) { migration = service; calls.append("migration") }
     func didEndMigration() { calls.append("migration-ended") }; func didEndTransaction() { calls.append("transaction-ended") }; func didLanguageChange() { calls.append("language") }; func didReceiveWalletAssetList() { calls.append("assets") }
 }
+
+@MainActor
+final class MainTabFactoryRouteCoverageTests: XCTestCase {
+    private var window: UIWindow?
+    private var previousWindow: UIWindow?
+    private var animations = true
+
+    override func setUp() {
+        super.setUp()
+        previousWindow = UIApplication.shared.windows.first(where: \.isKeyWindow)
+        animations = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+    }
+    override func tearDown() {
+        if let tab = window?.rootViewController as? MainTabBarViewController { tab.middleButtonHadler = nil }
+        window?.rootViewController?.dismiss(animated: false)
+        window?.isHidden = true; window?.rootViewController = nil; window = nil
+        previousWindow?.makeKeyAndVisible(); previousWindow = nil
+        UIView.setAnimationsEnabled(animations)
+        super.tearDown()
+    }
+    private func mount(_ tab: MainTabBarViewController) async {
+        // The tab's route is under test; its account pages have their own lifecycle suites.
+        tab.viewControllers = [UIViewController()]
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        let window = scene.map(UIWindow.init(windowScene:)) ?? UIWindow(frame: UIScreen.main.bounds)
+        window.frame = scene?.coordinateSpace.bounds ?? UIScreen.main.bounds
+        window.rootViewController = tab; window.makeKeyAndVisible(); self.window = window
+        await settle()
+    }
+    private func settle() async { try? await Task.sleep(nanoseconds: 70_000_000) }
+    private func disclaimer(_ tab: MainTabBarViewController) throws -> SwapDisclaimerViewModel {
+        let controller = try XCTUnwrap(tab.presentedViewController?.children.first as? SwapDisclaimerViewController)
+        return try XCTUnwrap(controller.viewModel as? SwapDisclaimerViewModel)
+    }
+    func testInitialSwapShowsDisclaimerBeforeConsent() async throws {
+        let f = try RebuildFixture(), tab = try f.open(); await mount(tab)
+        tab.middleButtonHadler?(); await settle()
+        XCTAssertNotNil(try disclaimer(tab)); XCTAssertEqual(f.disclaimerMarks, 0)
+    }
+    func testInitialSwapUsesSavedConsentAndPresentsTheSwapScreen() async throws {
+        let f = try RebuildFixture(); f.hasDisclaimer = true
+        let tab = try f.open(); await mount(tab); tab.middleButtonHadler?(); await settle()
+        let navigation = try XCTUnwrap(tab.presentedViewController?.children.first as? UINavigationController)
+        XCTAssertTrue(navigation.viewControllers.first is PolkaswapViewController)
+        XCTAssertEqual(f.disclaimerMarks, 0)
+    }
+    func testInitialDisclaimerAcceptanceRecordsConsentAndOpensPreparedSwap() async throws {
+        let f = try RebuildFixture(), tab = try f.open(); await mount(tab)
+        tab.middleButtonHadler?(); await settle(); let model = try disclaimer(tab)
+        tab.dismiss(animated: false); await settle(); model.completion?(); await settle()
+        XCTAssertEqual(f.disclaimerMarks, 1)
+        let navigation = try XCTUnwrap(tab.presentedViewController?.children.first as? UINavigationController)
+        XCTAssertTrue(navigation.viewControllers.first is PolkaswapViewController)
+    }
+    func testChangedAccountCannotInvokeInitialSwapCallback() throws {
+        let f = try RebuildFixture(), tab = try f.open(); defer { tab.middleButtonHadler = nil }
+        f.selected = try f.account(byte: 0x65); tab.middleButtonHadler?()
+        XCTAssertNil(tab.presentedViewController); XCTAssertEqual(f.disclaimerMarks, 0)
+    }
+    func testRecoveryCannotInvokeInitialSwapCallback() throws {
+        let f = try RebuildFixture(), tab = try f.open(); defer { tab.middleButtonHadler = nil }
+        f.recovery = true; tab.middleButtonHadler?(); XCTAssertNil(tab.presentedViewController)
+    }
+    func testDisconnectedInitialSwapDoesNotPresentAnIncompleteScreen() throws {
+        let f = try RebuildFixture(), tab = try f.open(); defer { tab.middleButtonHadler = nil }
+        f.hasConnection = false; tab.middleButtonHadler?(); XCTAssertNil(tab.presentedViewController)
+    }
+    func testAccountChangeAfterDisclaimerDoesNotApproveOrPresentSwap() async throws {
+        let f = try RebuildFixture(), tab = try f.open(); await mount(tab)
+        tab.middleButtonHadler?(); await settle(); let model = try disclaimer(tab)
+        tab.dismiss(animated: false); await settle(); f.selected = try f.account(byte: 0x65)
+        model.completion?(); XCTAssertEqual(f.disclaimerMarks, 0); XCTAssertNil(tab.presentedViewController)
+    }
+    func testRecoveryAfterDisclaimerDoesNotApproveOrPresentSwap() async throws {
+        let f = try RebuildFixture(), tab = try f.open(); await mount(tab)
+        tab.middleButtonHadler?(); await settle(); let model = try disclaimer(tab)
+        tab.dismiss(animated: false); await settle(); f.recovery = true
+        model.completion?(); XCTAssertEqual(f.disclaimerMarks, 0); XCTAssertNil(tab.presentedViewController)
+    }
+    func testWalletAndActivityTabTitlesFollowTheScopedLanguage() throws {
+        let f = try RebuildFixture(), tab = try f.open(); defer { tab.middleButtonHadler = nil }
+        f.language.selectedLocalization = "ja"
+        XCTAssertEqual(tab.viewControllers?[0].tabBarItem.title, R.string.localizable.walletTitle(preferredLanguages: ["ja"]))
+        XCTAssertEqual(tab.viewControllers?[3].tabBarItem.title, R.string.localizable.commonActivity(preferredLanguages: ["ja"]))
+    }
+    func testMoreMenuTitleFollowsTheInjectedLanguage() throws {
+        let f = try RebuildFixture()
+        let settings = try WalletPrimitiveFactory(keystore: f.keys).createAccountSettings(for: XCTUnwrap(f.selected), assetManager: f.assets)
+        let controller = try XCTUnwrap(MainTabBarViewFactory.createMoreMenuController(for: f.language, walletContext: f.contextFactory.context, assetsProvider: TabRouteBalances(), accountSettings: settings, assetManager: f.assets, fiatService: RebuildFiat(), selectedAccount: f.selected))
+        f.language.selectedLocalization = "ja"
+        XCTAssertEqual(controller.tabBarItem.title, R.string.localizable.commonMore(preferredLanguages: ["ja"]))
+    }
+    func testMissingAccountPreventsMoreMenuAndActivityConstruction() throws {
+        let f = try RebuildFixture()
+        let settings = try WalletPrimitiveFactory(keystore: f.keys).createAccountSettings(for: XCTUnwrap(f.selected), assetManager: f.assets)
+        XCTAssertNil(MainTabBarViewFactory.createMoreMenuController(for: f.language, walletContext: f.contextFactory.context, assetsProvider: TabRouteBalances(), accountSettings: settings, assetManager: f.assets, fiatService: RebuildFiat(), selectedAccount: nil))
+        XCTAssertNil(MainTabBarViewFactory.createActivityController(with: f.assets, assetInfos: f.assets.assets, localizationManager: f.language, selectedAccount: nil))
+    }
+    func testSwapContainerTitleFollowsTheInjectedLanguage() throws {
+        let f = try RebuildFixture()
+        let controller = try XCTUnwrap(MainTabBarViewFactory.createSwapController(walletContext: f.contextFactory.context, assetManager: f.assets, assetsProvider: TabRouteBalances(), localizationManager: f.language, connection: f.engine, fiatService: RebuildFiat(), marketCapService: RebuildMarket()))
+        f.language.selectedLocalization = "ja"
+        XCTAssertEqual(controller.tabBarItem.title, R.string.localizable.commonAssets(preferredLanguages: ["ja"]))
+    }
+    func testMissingConnectionPreventsSwapConstruction() throws {
+        let f = try RebuildFixture()
+        XCTAssertNil(MainTabBarViewFactory.createSwapController(walletContext: f.contextFactory.context, assetManager: f.assets, assetsProvider: TabRouteBalances(), localizationManager: f.language, connection: nil, fiatService: RebuildFiat(), marketCapService: RebuildMarket()))
+    }
+    func testConnectionLostDuringGraphConstructionReturnsScreensNotReady() throws {
+        let f = try RebuildFixture(); var environment = f.environment(); var reads = 0
+        environment.connection = { reads += 1; return reads == 1 ? f.engine : nil }
+        XCTAssertThrowsError(try MainTabBarViewFactory.createViewOrThrow(environment: environment)) { XCTAssertEqual($0 as? WalletOpeningError, .screensNotReady) }
+    }
+    func testRuntimeLostDuringGraphConstructionReturnsScreensNotReady() throws {
+        let f = try RebuildFixture(); var environment = f.environment(); var reads = 0
+        environment.runtime = { reads += 1; return reads == 1 ? f.runtime : nil }
+        XCTAssertThrowsError(try MainTabBarViewFactory.createViewOrThrow(environment: environment)) { XCTAssertEqual($0 as? WalletOpeningError, .screensNotReady) }
+    }
+}
+
+@MainActor
+final class MainTabReloadCoverageTests: XCTestCase {
+    private func denied(_ change: (RebuildFixture) -> Void, expectedContextCalls: Int = 0) throws {
+        let f = try RebuildFixture(), original = f.host.viewControllers!
+        let context = f.route.walletContext; change(f)
+        MainTabBarViewFactory.reloadWalletView(on: f.host, wireframe: f.route, environment: f.environment())
+        XCTAssertEqual(f.contextFactory.calls, expectedContextCalls)
+        XCTAssertTrue(f.route.walletContext === context)
+        XCTAssertEqual(f.host.viewControllers?.count, original.count)
+        for (index, controller) in original.enumerated() { XCTAssertTrue(f.host.viewControllers?[index] === controller) }
+    }
+    func testNoAccountPreservesThePreviousWallet() throws { try denied { $0.selected = nil } }
+    func testInvalidAddressPreservesThePreviousWallet() throws { try denied { $0.selected = $0.invalidAccount() } }
+    func testMissingAssetsPreservesThePreviousWallet() throws { try denied { $0.assets.available = false } }
+    func testMissingConnectionPreservesThePreviousWallet() throws { try denied { $0.hasConnection = false } }
+    func testContextFailurePreservesThePreviousWallet() throws { try denied({ $0.contextFactory.failure = true }, expectedContextCalls: 1) }
+    func testRuntimeFailurePreservesThePreviousWallet() throws { try denied({ $0.hasRuntime = false }, expectedContextCalls: 1) }
+    func testSuccessfulReloadReplacesOnlyTheWalletAndPublishesItsNewContext() throws {
+        let f = try RebuildFixture(), old = f.host.viewControllers!
+        MainTabBarViewFactory.reloadWalletView(on: f.host, wireframe: f.route, environment: f.environment())
+        XCTAssertEqual(f.assetPreparations, 1); XCTAssertEqual(f.contextFactory.calls, 1)
+        XCTAssertTrue(f.route.walletContext === f.contextFactory.context); XCTAssertEqual(f.apy.count, 1)
+        let navigation = try XCTUnwrap(f.host.viewControllers?.first as? UINavigationController)
+        XCTAssertTrue(navigation.viewControllers.first is RedesignWalletViewController)
+        XCTAssertEqual(f.host.viewControllers?.count, old.count)
+        for index in 1..<old.count { XCTAssertTrue(f.host.viewControllers?[index] === old[index]) }
+    }
+    func testReloadedWalletTitleFollowsItsScopedLanguage() throws {
+        let f = try RebuildFixture()
+        MainTabBarViewFactory.reloadWalletView(on: f.host, wireframe: f.route, environment: f.environment())
+        f.language.selectedLocalization = "ja"
+        XCTAssertEqual(f.host.viewControllers?.first?.tabBarItem.title, R.string.localizable.walletTitle(preferredLanguages: ["ja"]))
+    }
+}
+
+private final class TabRouteBalances: AssetProviderProtocol {
+    func getBalances(with assetIds: [String]) -> [BalanceData] { [] }
+    func unavailableBalanceAssetIds(among assetIds: [String]) -> Set<String> { [] }
+    func add(observer: AssetProviderObserverProtocol) {}
+    func remove(observer: AssetProviderObserverProtocol) {}
+}

@@ -253,3 +253,159 @@ private final class OptionsRouteHost: UIViewController, AccountOptionsViewProtoc
   func showLoading() {}
   func hideLoading() {}
 }
+
+// These route tests exercise real navigation stack semantics without a visible
+// window. Complete transitions synchronously before simulating authorization.
+private final class OptionsRouteNavigation: UINavigationController {
+  override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+    super.pushViewController(viewController, animated: false)
+  }
+  override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
+    super.setViewControllers(viewControllers, animated: false)
+  }
+}
+
+@MainActor
+final class AccountOptionsAuthorizationRouteTests: XCTestCase {
+  private enum Route: CaseIterable { case phrase, seed, json }
+  @MainActor private final class Fixture {
+    let host = OptionsRouteHost()
+    let destination = UIViewController()
+    lazy var navigation = OptionsRouteNavigation(rootViewController: host)
+    var requests = [(Route, AccountItem)]()
+    var authorization = [AuthorizationCompletionBlock]()
+    var factoryAvailable = true
+    lazy var route = AccountOptionsWireframe(localizationManager: LocalizationManager.shared,
+      environment: AccountOptionsRouteEnvironment(
+        authorize: { [unowned self] _, completion in self.authorization.append(completion) },
+        passphrase: { [unowned self] in self.make(.phrase, $0) },
+        rawSeed: { [unowned self] in self.make(.seed, $0) },
+        json: { [unowned self] in self.make(.json, $0) }))
+    let account = AccountItem(address: "isolated-route-wallet", cryptoType: .sr25519, networkType: 69,
+      username: "Private fixture", publicKeyData: Data(repeating: 1, count: 32),
+      settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: false)
+    func make(_ kind: Route, _ account: AccountItem) -> UIViewController? {
+      requests.append((kind, account)); return factoryAvailable ? destination : nil
+    }
+    func show(_ kind: Route) throws -> AccountWarningViewController {
+      _ = navigation
+      switch kind {
+      case .phrase: route.showPassphrase(from: host, account: account)
+      case .seed: route.showRawSeed(from: host, account: account)
+      case .json: route.showJson(account: account, from: host)
+      }
+      let warning = try XCTUnwrap(navigation.topViewController as? AccountWarningViewController)
+      XCTAssertTrue(authorization.isEmpty, "Disclosure must precede authorization")
+      XCTAssertTrue(requests.isEmpty, "Secrets cannot be assembled before consent")
+      warning.completion?()
+      XCTAssertEqual(authorization.count, 1)
+      return warning
+    }
+  }
+  private func assertAllowed(_ kind: Route) throws {
+    let f = Fixture(); let warning = try f.show(kind)
+    f.authorization[0](true)
+    XCTAssertEqual(f.requests.map(\.0), [kind])
+    XCTAssertEqual(f.requests.first?.1.address, f.account.address)
+    XCTAssertEqual(f.navigation.viewControllers.count, 2)
+    XCTAssertTrue(f.navigation.topViewController === f.destination)
+    XCTAssertFalse(f.navigation.viewControllers.contains { $0 === warning })
+    XCTAssertTrue(f.navigation.viewControllers.first === f.host)
+  }
+  private func assertDenied(_ kind: Route) throws {
+    let f = Fixture(); let warning = try f.show(kind)
+    f.authorization[0](false)
+    XCTAssertTrue(f.requests.isEmpty)
+    XCTAssertTrue(f.navigation.topViewController === warning)
+  }
+  private func assertFactoryFailure(_ kind: Route) throws {
+    let f = Fixture(); f.factoryAvailable = false; let warning = try f.show(kind)
+    f.authorization[0](true)
+    XCTAssertEqual(f.requests.map(\.0), [kind])
+    XCTAssertTrue(f.navigation.topViewController === warning)
+  }
+  func testAuthorizedPhraseReplacesOnlyTheDisclosureWithTheExactAccount() throws { try assertAllowed(.phrase) }
+  func testAuthorizedSeedReplacesOnlyTheDisclosureWithTheExactAccount() throws { try assertAllowed(.seed) }
+  func testAuthorizedJsonReplacesOnlyTheDisclosureWithTheExactAccount() throws { try assertAllowed(.json) }
+  func testDeniedPhraseDoesNotBuildASecretScreen() throws { try assertDenied(.phrase) }
+  func testDeniedSeedDoesNotBuildASecretScreen() throws { try assertDenied(.seed) }
+  func testDeniedJsonDoesNotBuildASecretScreen() throws { try assertDenied(.json) }
+  func testUnavailablePhraseFactoryPreservesTheDisclosure() throws { try assertFactoryFailure(.phrase) }
+  func testUnavailableSeedFactoryPreservesTheDisclosure() throws { try assertFactoryFailure(.seed) }
+  func testUnavailableJsonFactoryPreservesTheDisclosure() throws { try assertFactoryFailure(.json) }
+  func testAuthorizationAfterNavigatingAwayCannotRemoveTheNewScreen() throws {
+    for kind in Route.allCases {
+      let f = Fixture(); _ = try f.show(kind)
+      let replacement = UIViewController()
+      f.navigation.setViewControllers([f.host, replacement], animated: false)
+      f.authorization[0](true)
+      XCTAssertTrue(f.navigation.topViewController === replacement)
+      XCTAssertTrue(f.requests.isEmpty)
+    }
+  }
+  func testAuthorizationAfterRemovingTheOptionsHostDoesNotOpenSecrets() throws {
+    for kind in Route.allCases {
+      let f = Fixture(); _ = try f.show(kind)
+      let replacement = UIViewController()
+      f.navigation.setViewControllers([replacement], animated: false)
+      XCTAssertNil(f.host.navigationController)
+      f.authorization[0](true)
+      XCTAssertTrue(f.navigation.topViewController === replacement)
+      XCTAssertTrue(f.requests.isEmpty)
+    }
+  }
+  func testDuplicateAuthorizationCompletionCannotReplaceTheExportScreen() throws {
+    let f = Fixture(); _ = try f.show(.json)
+    f.authorization[0](true); f.authorization[0](true)
+    XCTAssertEqual(f.requests.count, 1)
+    XCTAssertTrue(f.navigation.topViewController === f.destination)
+  }
+  func testDeniedLogoutDoesNotPresentConfirmationOrDeleteTheWallet() {
+    let f = Fixture(); var deletions = 0
+    f.route.showLogout(from: f.host, isNeedCustomNodeText: false) { deletions += 1 }
+    XCTAssertEqual(f.authorization.count, 1)
+    f.authorization[0](false)
+    XCTAssertTrue(f.host.shown.isEmpty)
+    XCTAssertEqual(deletions, 0)
+  }
+  func testAuthorizedLogoutStillRequiresTheDestructiveConfirmation() throws {
+    let f = Fixture(); var deletions = 0
+    f.route.showLogout(from: f.host, isNeedCustomNodeText: false) { deletions += 1 }
+    f.authorization[0](true)
+    let alert = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+    XCTAssertEqual(alert.preferredStyle, .alert)
+    XCTAssertEqual(alert.actions.map(\.style), [.cancel, .destructive])
+    XCTAssertEqual(deletions, 0)
+    let action = try XCTUnwrap(alert.actions.last)
+    let block = try XCTUnwrap(action.value(forKey: "handler"))
+    unsafeBitCast(block as AnyObject, to: (@convention(block) (UIAlertAction) -> Void).self)(action)
+    XCTAssertEqual(deletions, 1)
+  }
+  func testLogoutWithCustomNodesAddsTheRemovalExplanation() throws {
+    let normal = Fixture(), custom = Fixture()
+    normal.route.showLogout(from: normal.host, isNeedCustomNodeText: false, completionBlock: nil)
+    custom.route.showLogout(from: custom.host, isNeedCustomNodeText: true, completionBlock: nil)
+    normal.authorization[0](true); custom.authorization[0](true)
+    let normalAlert = try XCTUnwrap(normal.host.shown.last as? UIAlertController)
+    let customAlert = try XCTUnwrap(custom.host.shown.last as? UIAlertController)
+    let normalMessage = try XCTUnwrap(normalAlert.message)
+    XCTAssertTrue(customAlert.message?.hasPrefix(normalMessage + "\n\n") == true)
+    XCTAssertEqual(normalAlert.title, customAlert.title)
+  }
+  func testCancellingLogoutHasNoDeletionHandler() throws {
+    let f = Fixture(); var deletions = 0
+    f.route.showLogout(from: f.host, isNeedCustomNodeText: false) { deletions += 1 }
+    f.authorization[0](true)
+    let alert = try XCTUnwrap(f.host.shown.last as? UIAlertController)
+    let cancel = try XCTUnwrap(alert.actions.first { $0.style == .cancel })
+    XCTAssertNil(cancel.value(forKey: "handler"))
+    XCTAssertEqual(deletions, 0)
+  }
+  func testAuthorizedLogoutWithoutAHostCannotDeleteAutomatically() {
+    let f = Fixture(); var deletions = 0
+    f.route.showLogout(from: nil, isNeedCustomNodeText: false) { deletions += 1 }
+    f.authorization[0](true)
+    XCTAssertEqual(deletions, 0)
+    XCTAssertTrue(f.host.shown.isEmpty)
+  }
+}

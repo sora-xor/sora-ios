@@ -5,8 +5,10 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import SoraFoundation
+import SoraKeystore
 import SoraUIKit
 import SSFUtils
+import SSFCloudStorage
 import UIKit
 import XCTest
 @testable import SoraPassport
@@ -234,7 +236,7 @@ private final class RouteFees: FeeProviderProtocol {
 }
 private final class RouteAssets: AssetManagerProtocol {
     static var networkAssets: [AssetInfo] = []
-    let assets = [AssetInfo(id: WalletAssetId.xor.rawValue, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true),
+    var assets = [AssetInfo(id: WalletAssetId.xor.rawValue, symbol: "XOR", chainId: "", precision: 18, icon: nil, displayName: "SORA", visible: true),
         AssetInfo(id: WalletAssetId.val.rawValue, symbol: "VAL", chainId: "", precision: 18, icon: nil, displayName: "Validator", visible: true),
         AssetInfo(id: "custom-zero", symbol: "ZERO", chainId: "", precision: 18, icon: nil, displayName: "Zero asset", visible: false),
         AssetInfo(id: "custom-unknown", symbol: "UNKNOWN", chainId: "", precision: 18, icon: nil, displayName: "Unread asset", visible: false)]
@@ -473,7 +475,7 @@ private final class ExplorePageFixture {
     func farmPage() -> ExploreFarmsPageViewModel { ExploreFarmsPageViewModel(wireframe: wireframe, farmsViewModelsService: farmModels, accountPoolsService: route.pools) }
     func searchPage() -> ExploreSearchPageViewModel { ExploreSearchPageViewModel(wireframe: wireframe, assetViewModelsService: assetModels, poolViewModelsService: poolModels, farmsViewModelsService: farmModels) }
 }
-private final class ExplorePageHost: ControllerBackedProtocol { let controller = UIViewController() }
+private final class ExplorePageHost: UIViewController, ControllerBackedProtocol {}
 private final class ExplorePageRoute: ExploreWireframeProtocol {
     var assets: [String] = [], pools: [PoolInfo] = [], farms: [Farm] = [], controllers: [UIViewController?] = []
     func showAssetDetails(on controller: UIViewController?, assetId: String) { assets.append(assetId); controllers.append(controller) }
@@ -597,5 +599,582 @@ final class EditFlowCoverageTests: XCTestCase {
         let row = EnabledItem(); let a = EnabledSection(items: [.enabled(row)]), b = EnabledSection(items: [.enabled(row)])
         XCTAssertNotEqual(a, b); XCTAssertEqual(Set([a, a, b]).count, 2); b.id = a.id; XCTAssertEqual(a, b)
         XCTAssertTrue(row.cellType == EnabledCell.self); XCTAssertFalse(row.clipsToBounds); _ = row.backgroundColor
+    }
+}
+
+@MainActor
+final class PresentationRouteCoverageTests: XCTestCase {
+    private var previousAccount: AccountItem?
+    override func setUp() { super.setUp(); previousAccount = SelectedWalletSettings.shared.currentAccount }
+    override func tearDown() { SelectedWalletSettings.shared.commitInternalValue(previousAccount); super.tearDown() }
+    private func make() throws -> RouteFixture { let f = try RouteFixture(); SelectedWalletSettings.shared.commitInternalValue(f.account); return f }
+    private func presented<T: UIViewController>(_ type: T.Type, _ f: RouteFixture) throws -> T {
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController)
+        XCTAssertEqual(container.modalPresentationStyle, .overFullScreen)
+        let navigation = try XCTUnwrap(container.children.first as? UINavigationController)
+        return try XCTUnwrap(navigation.viewControllers.first as? T)
+    }
+    private func transaction() -> Transaction {
+        SetReferrerTransaction(base: TransactionBase(txHash: "route-hash", blockHash: "route-block", fee: Amount(value: 1), status: .success, timestamp: "1700000000"), who: "referrer-address", isMyReferrer: true, tokenId: WalletAssetId.xor.rawValue)
+    }
+    func testAmountAssetPickerContainsExactlyTheAllowedIdentifiers() throws {
+        let f = try make(); var selected: String?
+        InputAssetAmountWireframe().showChoiceBaseAsset(on: f.host, assetManager: f.assets, fiatService: f.fiat, assetViewModelFactory: f.assetFactory, assetsProvider: f.balances, assetIds: [WalletAssetId.val.rawValue], marketCapService: f.market) { selected = $0 }
+        let view = try presented(ProductListViewController.self, f); let model = try XCTUnwrap(view.viewModel as? SelectAssetViewModel)
+        XCTAssertEqual(model.assetIds, [WalletAssetId.val.rawValue]); XCTAssertNil(selected)
+        model.selectionCompletion?(WalletAssetId.val.rawValue); XCTAssertEqual(selected, WalletAssetId.val.rawValue)
+    }
+    func testAmountConfirmationPushesTheExactReviewedAmountRecipientAndFee() throws {
+        let f = try make(); let nav = UINavigationController(rootViewController: f.host); let amount = try XCTUnwrap(Decimal(string: "1.000000000000000001"))
+        InputAssetAmountWireframe().showConfirmSendingAsset(on: nav, assetId: WalletAssetId.val.rawValue, walletService: WalletService(operationFactory: f.network), assetManager: f.assets, fiatService: f.fiat, recipientAddress: "recipient-address", firstAssetAmount: amount, fee: Decimal(string: "0.002")!, assetsProvider: f.balances)
+        let view = try XCTUnwrap(nav.topViewController as? ConfirmViewController); let model = try XCTUnwrap(view.viewModel as? ConfirmSendingViewModel)
+        XCTAssertEqual(model.assetId, WalletAssetId.val.rawValue); XCTAssertEqual(model.firstAssetAmount, amount); XCTAssertEqual(model.recipientAddress, "recipient-address"); XCTAssertEqual(model.fee, Decimal(string: "0.002")); XCTAssertTrue(model.view === view)
+        XCTAssertEqual(nav.viewControllers.count, 2); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testQRScannerRouteBuildsTheScannerWithoutStartingCapture() throws {
+        let f = try make(); var received = false
+        GenerateQRWireframe(controller: f.host).showScanQR(on: f.host, networkFacade: f.network, assetManager: f.assets, qrEncoder: f.encoder, sharingFactory: RouteShare(), assetsProvider: f.balances, providerFactory: f.provider, feeProvider: f.fees, marketCapService: f.market) { _ in received = true }
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController)
+        let view = try XCTUnwrap(container.children.first as? ScanQRViewController); let model = try XCTUnwrap(view.viewModel as? ScanQRViewModel)
+        XCTAssertTrue(model.view === view); XCTAssertFalse(received); XCTAssertTrue(f.encoder.infos.isEmpty)
+    }
+    func testQRScannerRouteRequiresASelectedWallet() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil)
+        GenerateQRWireframe(controller: f.host).showScanQR(on: f.host, networkFacade: f.network, assetManager: f.assets, qrEncoder: f.encoder, sharingFactory: RouteShare(), assetsProvider: f.balances, providerFactory: f.provider, feeProvider: f.fees, marketCapService: f.market) { _ in XCTFail("No scan was started") }
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testQRSendRouteDoesNotOpenWithoutASelectedWallet() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil)
+        GenerateQRWireframe(controller: f.host).showSend(on: f.host, selectedTokenId: WalletAssetId.val.rawValue, selectedAddress: "recipient", fiatService: f.fiat, assetManager: f.assets, providerFactory: f.provider, networkFacade: f.network, assetsProvider: f.balances, qrEncoder: f.encoder, sharingFactory: RouteShare(), marketCapService: f.market)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testLiquidityAssetPickerKeepsAllowedTokensAndSelectionCallback() throws {
+        let f = try make(); var selected: String?
+        LiquidityWireframe().showChoiсeBaseAsset(on: f.host, assetManager: f.assets, fiatService: f.fiat, assetViewModelFactory: f.assetFactory, assetsProvider: f.balances, assetIds: [WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue], marketCapService: f.market) { selected = $0 }
+        let view = try presented(ProductListViewController.self, f); let model = try XCTUnwrap(view.viewModel as? SelectAssetViewModel)
+        XCTAssertEqual(model.assetIds, [WalletAssetId.xor.rawValue, WalletAssetId.val.rawValue]); model.selectionCompletion?(WalletAssetId.val.rawValue); XCTAssertEqual(selected, WalletAssetId.val.rawValue)
+    }
+    func testLiquiditySlippageRouteKeepsTheReviewedToleranceUntilDone() throws {
+        let f = try make(); let nav = UINavigationController(rootViewController: f.host); var selected: PolkaswapSlippage?
+        let expected = try XCTUnwrap(PolkaswapSlippage(basisPoints: 125))
+        LiquidityWireframe().showSlippageTolerance(on: nav, currentLocale: expected) { selected = $0 }
+        let view = try XCTUnwrap(nav.topViewController as? SlippageToleranceViewController)
+        let model = try XCTUnwrap(view.viewModel as? SlippageToleranceViewModel)
+        XCTAssertEqual(model.currentValue, expected); XCTAssertTrue(model.view === view); XCTAssertNil(selected)
+        model.doneButtonTapped(); XCTAssertEqual(selected, expected)
+    }
+    func testLiquidityMarketRoutePreservesAllowedMarketsAndSelection() throws {
+        let f = try make(); let nav = UINavigationController(rootViewController: f.host); var selected: LiquiditySourceType?
+        LiquidityWireframe().showChoiсeMarket(on: nav, selectedMarket: .xyk, markets: [.xyk, .smart]) { selected = $0 }
+        let view = try XCTUnwrap(nav.topViewController as? ChoiceMarketViewController); let model = try XCTUnwrap(view.viewModel as? ChoiceMarketViewModel)
+        XCTAssertEqual(model.markets, [.xyk, .smart]); XCTAssertEqual(model.selectedMarket, .xyk); XCTAssertTrue(model.view === view)
+        model.selectedMarket = .smart; XCTAssertEqual(selected, .smart)
+    }
+    func testSupplyConfirmationPreservesBothExactAmountsAndFeeReviewCallback() throws {
+        let f = try make(); let nav = UINavigationController(rootViewController: f.host); var changes = 0
+        let first = Decimal(string: "1.000000000000000001")!, second = Decimal(string: "2.000000000000000003")!
+        LiquidityWireframe().showSupplyLiquidityConfirmation(on: nav, baseAssetId: WalletAssetId.xor.rawValue, targetAssetId: WalletAssetId.val.rawValue, fiatService: f.fiat, poolsService: f.pools, assetManager: f.assets, firstAssetAmount: first, secondAssetAmount: second, slippageTolerance: .defaultValue, details: [], transactionType: .liquidityAdd, fee: 3, operationFactory: f.network) { changes += 1 }
+        let view = try XCTUnwrap(nav.topViewController as? ConfirmViewController); let model = try XCTUnwrap(view.viewModel as? ConfirmSupplyLiquidityViewModel)
+        XCTAssertEqual(model.firstAssetAmount, first); XCTAssertEqual(model.secondAssetAmount, second); XCTAssertEqual(model.fee, 3); XCTAssertEqual(model.transactionType, .liquidityAdd); XCTAssertEqual(model.baseAssetId, WalletAssetId.xor.rawValue); XCTAssertTrue(model.view === view)
+        XCTAssertEqual(changes, 0); model.feeChangeHandler(); XCTAssertEqual(changes, 1)
+    }
+    func testRemovalConfirmationPreservesPoolAndCompletionCallbacks() throws {
+        let f = try make(); let nav = UINavigationController(rootViewController: f.host); var changes = 0, completions = 0
+        LiquidityWireframe().showRemoveLiquidityConfirmation(on: nav, poolInfo: f.pool, poolsService: f.pools, assetManager: f.assets, firstAssetAmount: 2, secondAssetAmount: 4, slippageTolerance: .defaultValue, details: [], fee: 3, operationFactory: f.network, feeChangeHandler: { changes += 1 }, completionHandler: { completions += 1 })
+        let view = try XCTUnwrap(nav.topViewController as? ConfirmViewController); let model = try XCTUnwrap(view.viewModel as? ConfirmRemoveLiquidityViewModel)
+        XCTAssertEqual(model.poolInfo.identifier, f.pool.identifier); XCTAssertEqual(model.firstAssetAmount, 2); XCTAssertEqual(model.secondAssetAmount, 4); XCTAssertEqual(model.fee, 3); XCTAssertTrue(model.view === view)
+        XCTAssertEqual(completions, 0); model.feeChangeHandler(); model.completionHandler?(); XCTAssertEqual(changes, 1); XCTAssertEqual(completions, 1)
+    }
+    func testReferrerFactoryBindsThePresenterToItsView() throws {
+        let view = try XCTUnwrap(ReferralViewFactory.createReferrerView(with: "referrer-address") as? YourReferrerViewController)
+        let presenter = try XCTUnwrap(view.presenter as? YourReferrerPresenter); XCTAssertTrue(presenter.view === view)
+    }
+    func testFriendsReferrerRoutePushesOnlyWhenNavigationExists() throws {
+        let f = try make(); let route = FriendsWireframe(walletContext: WalletContextMock(), assetManager: f.assets)
+        route.showReferrerScreen(from: f.host, referrer: "referrer-address"); XCTAssertTrue(f.host.shown.isEmpty)
+        let nav = UINavigationController(rootViewController: f.host); route.showReferrerScreen(from: f.host, referrer: "referrer-address")
+        XCTAssertTrue(nav.topViewController is YourReferrerViewController); XCTAssertEqual(nav.viewControllers.count, 2)
+    }
+    func testFriendsStackReplacementDropsStaleInputControllers() throws {
+        let f = try make(); let stale = UIViewController(); let nav = RouteStackNavigationController(rootViewController: f.host); nav.pushViewController(stale, animated: false)
+        FriendsWireframe(walletContext: WalletContextMock(), assetManager: f.assets).setViewControllers(from: stale, currentController: f.host, referrer: "referrer-address")
+        XCTAssertEqual(nav.requestedAnimation, true)
+        XCTAssertEqual(nav.viewControllers.count, 2); XCTAssertTrue(nav.viewControllers.first === f.host); XCTAssertTrue(nav.topViewController is YourReferrerViewController); XCTAssertFalse(nav.viewControllers.contains(stale))
+    }
+    func testFriendsStackReplacementRequiresTheExistingFriendsScreen() throws {
+        let f = try make(); let nav = UINavigationController(rootViewController: f.host)
+        FriendsWireframe(walletContext: WalletContextMock(), assetManager: f.assets).setViewControllers(from: f.host, currentController: nil, referrer: "referrer-address")
+        XCTAssertEqual(nav.viewControllers.count, 1)
+    }
+    func testFriendsSharingPresentsTheSystemShareSheetWithExcludedTargets() throws {
+        let f = try make(); FriendsWireframe(walletContext: WalletContextMock(), assetManager: f.assets).showActivityViewController(from: f.host, shareText: "Public referral link")
+        let view = try XCTUnwrap(f.host.shown.last as? UIActivityViewController)
+        XCTAssertEqual(view.excludedActivityTypes, [.airDrop, .postToFacebook])
+    }
+    func testReferralActivityFactoryBindsTheModelAndCompletion() throws {
+        let f = try make(); var closes = 0
+        let view = try XCTUnwrap(ReferralViewFactory.createActivityDetailsView(assetManager: f.assets, model: transaction(), completion: { closes += 1 }) as? ActivityDetailsViewController)
+        let model = try XCTUnwrap(view.viewModel as? ActivityDetailsViewModel); XCTAssertTrue(model.view === view)
+        model.completion?(); XCTAssertEqual(closes, 1)
+    }
+    func testReferralActivityFactoryRequiresASelectedWallet() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil)
+        XCTAssertNil(ReferralViewFactory.createActivityDetailsView(assetManager: f.assets, model: transaction(), completion: nil))
+    }
+    func testFriendsActivityRoutePassesDismissalToBothContainerAndModel() throws {
+        let f = try make(); var closes = 0
+        FriendsWireframe(walletContext: WalletContextMock(), assetManager: f.assets).showActivityDetails(from: f.host, model: transaction(), completion: { closes += 1 })
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController); let view = try XCTUnwrap(container.children.first as? ActivityDetailsViewController)
+        XCTAssertNotNil((view.viewModel as? ActivityDetailsViewModel)?.completion); container.completionHandler?(); XCTAssertEqual(closes, 1)
+    }
+    func testFriendsActivityRouteWithoutHostDoesNotPresentElsewhere() throws {
+        let f = try make(); FriendsWireframe(walletContext: WalletContextMock(), assetManager: f.assets).showActivityDetails(from: nil, model: transaction(), completion: nil)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+}
+
+extension RouteHost: RedesignWalletViewProtocol {}
+
+@MainActor
+final class AdditionalRouteCoverageTests: XCTestCase {
+    private var previous: AccountItem?
+    override func setUp() { super.setUp(); previous = SelectedWalletSettings.shared.currentAccount }
+    override func tearDown() { SelectedWalletSettings.shared.commitInternalValue(previous); super.tearDown() }
+    private func make() throws -> RouteFixture { let f = try RouteFixture(); SelectedWalletSettings.shared.commitInternalValue(f.account); return f }
+    private func contacts(_ f: RouteFixture, completion: ((ScanQRResult) -> Void)? = nil) {
+        let provider = SingleValueProvider<[SearchData]>(targetIdentifier: "route-contacts", source: AnySingleValueProviderSource { CompoundOperationWrapper(targetOperation: ClosureOperation<[SearchData]?> { [] }) }, repository: AnyDataProviderRepository(RouteContactsCache()), updateTrigger: DataProviderEventTrigger.onInitialization)
+        InputAssetAmountWireframe().showSelectAddress(on: f.host, assetId: WalletAssetId.val.rawValue, dataProvider: provider, walletService: WalletService(operationFactory: f.network), networkFacade: f.network, assetManager: f.assets, qrEncoder: f.encoder, sharingFactory: RouteShare(), assetsProvider: f.balances, providerFactory: f.provider, feeProvider: f.fees, marketCapService: f.market, completion: completion)
+    }
+    private func screen<T: UIViewController>(_ type: T.Type, _ f: RouteFixture) throws -> T {
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController)
+        XCTAssertEqual(container.modalPresentationStyle, .overFullScreen)
+        let nav = try XCTUnwrap(container.children.first as? UINavigationController)
+        return try XCTUnwrap(nav.viewControllers.first as? T)
+    }
+    func testAddressPickerBindsItsControllerAndPassesTheChosenContactBack() throws {
+        let f = try make(); var result: ScanQRResult?; contacts(f) { result = $0 }
+        let view = try screen(ContactsViewController.self, f); let model = try XCTUnwrap(view.viewModel as? ContactsViewModel)
+        XCTAssertTrue(model.view === view); XCTAssertNil(result)
+        model.completion?(ScanQRResult(firstName: "Chosen contact")); XCTAssertEqual(result?.firstName, "Chosen contact")
+    }
+    func testAddressPickerRequiresASelectedAccount() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil); contacts(f)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testWalletEditRoutePreservesTheSharedServiceAndCompletion() throws {
+        let f = try make(); let service = EditViewService(poolsService: f.pools); var done = 0
+        f.walletRoute.showEditView(from: f.host, poolsService: f.pools, editViewService: service, completion: { done += 1 })
+        let view = try screen(EditViewController.self, f); let model = try XCTUnwrap(view.viewModel as? EditViewModel)
+        XCTAssertTrue(model.editViewService === service); XCTAssertTrue(model.view === view); XCTAssertEqual(done, 0)
+        model.completion?(); XCTAssertEqual(done, 1)
+    }
+    func testWalletEditRouteWithNoHostDoesNotPresentElsewhere() throws {
+        let f = try make(); f.walletRoute.showEditView(from: nil, poolsService: f.pools, editViewService: EditViewService(poolsService: f.pools), completion: nil)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testAssetActivityRouteBindsDetailsForTheSelectedWallet() throws {
+        let f = try make(); let transaction = SetReferrerTransaction(base: TransactionBase(txHash: "route-activity", blockHash: "block", fee: Amount(value: 1), status: .success, timestamp: "1700000000"), who: "referrer", isMyReferrer: true, tokenId: WalletAssetId.xor.rawValue)
+        f.assetRoute().showActivityDetails(model: transaction)
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController); let view = try XCTUnwrap(container.children.first as? ActivityDetailsViewController)
+        XCTAssertTrue((view.viewModel as? ActivityDetailsViewModel)?.view === view); XCTAssertEqual(container.modalPresentationStyle, .overFullScreen)
+    }
+    func testAssetActivityRouteRequiresASelectedWallet() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil)
+        f.assetRoute().showActivityDetails(model: SetReferrerTransaction(base: TransactionBase(txHash: "route-activity", blockHash: "block", fee: Amount(value: 1), status: .success, timestamp: "1700000000"), who: "referrer", isMyReferrer: true, tokenId: WalletAssetId.xor.rawValue))
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+}
+
+private final class RouteContactsCache: DataProviderRepositoryProtocol {
+    typealias Model = SingleValueProviderObject
+    func fetchAllOperation(with _: RepositoryFetchOptions) -> BaseOperation<[Model]> { ClosureOperation { [] } }
+    func saveOperation(_ updates: @escaping () throws -> [Model], _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> { ClosureOperation { _ = try updates(); _ = try deletions() } }
+    func saveBatchOperation(_ updates: @escaping () throws -> [Model], _ deletions: @escaping () throws -> [String]) -> BaseOperation<Void> { saveOperation(updates, deletions) }
+    func fetchOperation(by ids: @escaping () throws -> [String], options _: RepositoryFetchOptions) -> BaseOperation<[Model]> { ClosureOperation { _ = try ids(); return [] } }
+    func fetchOperation(by id: @escaping () throws -> String, options _: RepositoryFetchOptions) -> BaseOperation<Model?> { ClosureOperation { _ = try id(); return nil } }
+    func fetchOperation(by _: RepositorySliceRequest, options: RepositoryFetchOptions) -> BaseOperation<[Model]> { fetchAllOperation(with: options) }
+    func replaceOperation(_ models: @escaping () throws -> [Model]) -> BaseOperation<Void> { saveOperation(models, { [] }) }
+    func deleteAllOperation() -> BaseOperation<Void> { ClosureOperation {} }
+    func fetchCountOperation() -> BaseOperation<Int> { ClosureOperation { 0 } }
+}
+
+@MainActor
+final class TransactionResultRouteCoverageTests: XCTestCase {
+    private var previous: AccountItem?
+    private var previousWindow: UIWindow?
+    override func setUp() {
+        super.setUp(); previous = SelectedWalletSettings.shared.currentAccount
+        previousWindow = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first { $0.isKeyWindow }
+    }
+    override func tearDown() { SelectedWalletSettings.shared.commitInternalValue(previous); previousWindow?.makeKeyAndVisible(); super.tearDown() }
+    private func make() throws -> RouteFixture { let f = try RouteFixture(); SelectedWalletSettings.shared.commitInternalValue(f.account); return f }
+    private var transaction: Transaction { SetReferrerTransaction(base: TransactionBase(txHash: "confirmed-route", blockHash: "block", fee: Amount(value: 1), status: .success, timestamp: "1700000000"), who: "referrer", isMyReferrer: true, tokenId: WalletAssetId.xor.rawValue) }
+    private func assertDetails(_ f: RouteFixture) throws -> (BlurViewController, ActivityDetailsViewModel) {
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController)
+        let view = try XCTUnwrap(container.children.first as? ActivityDetailsViewController)
+        let model = try XCTUnwrap(view.viewModel as? ActivityDetailsViewModel)
+        XCTAssertTrue(model.view === view); XCTAssertEqual(container.modalPresentationStyle, .overFullScreen)
+        return (container, model)
+    }
+    func testOrdinaryConfirmationDetailsCarryBothDismissalCallbacks() throws {
+        let f = try make(); var done = 0
+        ConfirmWireframe().showActivityDetails(on: f.host, model: transaction, assetManager: f.assets, completion: { done += 1 })
+        let (container, model) = try assertDetails(f); XCTAssertEqual(done, 0); model.completion?(); container.completionHandler?(); XCTAssertEqual(done, 2)
+    }
+    func testClaimConfirmationDetailsCarryBothDismissalCallbacks() throws {
+        let f = try make(); var done = 0
+        ConfirmTransactionWireframe().showActivityDetails(on: f.host, model: transaction, assetManager: f.assets, completion: { done += 1 })
+        let (container, model) = try assertDetails(f); XCTAssertEqual(done, 0); model.completion?(); container.completionHandler?(); XCTAssertEqual(done, 2)
+    }
+    func testOrdinaryConfirmationDetailsRequireASelectedWallet() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil)
+        ConfirmWireframe().showActivityDetails(on: f.host, model: transaction, assetManager: f.assets, completion: nil)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testClaimConfirmationDetailsRequireASelectedWallet() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil)
+        ConfirmTransactionWireframe().showActivityDetails(on: f.host, model: transaction, assetManager: f.assets, completion: nil)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testOrdinaryProgressWindowAppearsAboveTheWalletThenIsReleased() throws {
+        let route = ConfirmWireframe(); defer { route.hideActivityIndicator() }
+        route.showActivityIndicator(); let window = try XCTUnwrap(route.activityIndicatorWindow)
+        XCTAssertEqual(window.windowLevel, .alert); XCTAssertFalse(window.isHidden); XCTAssertTrue(window.rootViewController is ActivityIndicatorViewController)
+        route.hideActivityIndicator(); XCTAssertNil(route.activityIndicatorWindow); XCTAssertTrue(window.isHidden)
+    }
+    func testClaimProgressWindowAppearsAboveTheWalletThenIsReleased() throws {
+        let route = ConfirmTransactionWireframe(); defer { route.hideActivityIndicator() }
+        route.showActivityIndicator(); let window = try XCTUnwrap(route.activityIndicatorWindow)
+        XCTAssertEqual(window.windowLevel, .alert); XCTAssertFalse(window.isHidden); XCTAssertTrue(window.rootViewController is ActivityIndicatorViewController)
+        route.hideActivityIndicator(); XCTAssertNil(route.activityIndicatorWindow); XCTAssertTrue(window.isHidden)
+    }
+    func testOrdinaryProgressCanBeClosedBeforeItWasShown() { let route = ConfirmWireframe(); route.hideActivityIndicator(); XCTAssertNil(route.activityIndicatorWindow) }
+    func testClaimProgressCanBeClosedBeforeItWasShown() { let route = ConfirmTransactionWireframe(); route.hideActivityIndicator(); XCTAssertNil(route.activityIndicatorWindow) }
+}
+
+extension RouteHost: AccountCreateViewProtocol {
+    func set(mnemonic: [String]) {}
+    func set(backupDerivationPath: String) {}
+    func showLoading() {}
+    func hideLoading() {}
+}
+
+@MainActor
+final class CreationRouteCoverageTests: XCTestCase {
+    private var previous: AccountItem?
+    override func setUp() { super.setUp(); previous = SelectedWalletSettings.shared.currentAccount; SelectedWalletSettings.shared.commitInternalValue(nil) }
+    override func tearDown() { SelectedWalletSettings.shared.commitInternalValue(previous); super.tearDown() }
+    private var words: [String] { Array(repeating: "abandon", count: 11) + ["about"] }
+    private var request: AccountCreationRequest { .init(username: "Public fixture", type: .sora, derivationPath: "//fixture", cryptoType: .sr25519) }
+    private func metadata(valid: Bool = true) -> AccountCreationMetadata { .init(mnemonic: valid ? words : ["invalid"], availableNetworks: [.sora], defaultNetwork: .sora, availableCryptoTypes: [.sr25519], defaultCryptoType: .sr25519) }
+    func testNewAccountConfirmationPushesTheExactMnemonicQuiz() throws {
+        let host = RouteHost(); let nav = UINavigationController(rootViewController: host)
+        AccountCreateWireframe().confirm(from: host, request: request, metadata: metadata())
+        let view = try XCTUnwrap(nav.topViewController as? ConfirmPassphraseViewController); let model = try XCTUnwrap(view.viewModel as? ConfirmPassphraseViewModel)
+        XCTAssertEqual(model.mnemonic, words); XCTAssertTrue(model.view === view); XCTAssertTrue(model.interactor is AccountConfirmInteractor)
+    }
+    func testAddAccountConfirmationPreservesNameAndCompletionPolicy() throws {
+        let host = RouteHost(); let nav = UINavigationController(rootViewController: host); let route = AddCreationWireframe(); var done = 0
+        route.isNeedSetupName = false; route.endAddingBlock = { done += 1 }; route.confirm(from: host, request: request, metadata: metadata())
+        let view = try XCTUnwrap(nav.topViewController as? ConfirmPassphraseViewController); let model = try XCTUnwrap(view.viewModel as? ConfirmPassphraseViewModel)
+        let destination = try XCTUnwrap(model.wireframe as? ConfirmPassphraseWireframe)
+        XCTAssertEqual(model.mnemonic, words); XCTAssertTrue(model.interactor is AddAccountConfirmInteractor); XCTAssertFalse(destination.isNeedSetupName); XCTAssertEqual(done, 0)
+        destination.endAddingBlock?(); XCTAssertEqual(done, 1)
+    }
+    func testInvalidNewAccountMnemonicDoesNotLeaveTheCreationScreen() {
+        let host = RouteHost(); let nav = UINavigationController(rootViewController: host)
+        AccountCreateWireframe().confirm(from: host, request: request, metadata: metadata(valid: false))
+        XCTAssertEqual(nav.viewControllers.count, 1)
+    }
+    func testInvalidAddAccountMnemonicDoesNotLeaveTheCreationScreen() {
+        let host = RouteHost(); let nav = UINavigationController(rootViewController: host)
+        AddCreationWireframe().confirm(from: host, request: request, metadata: metadata(valid: false))
+        XCTAssertEqual(nav.viewControllers.count, 1)
+    }
+    func testNewAccountBackupPasswordRouteBindsItsPresenterWithoutCreatingAnAccount() throws {
+        let host = RouteHost(); let nav = UINavigationController(rootViewController: host); let mnemonic = try IRMnemonicCreator().mnemonic(fromList: words.joined(separator: " "))
+        AccountCreateWireframe().setupBackupAccountPassword(on: host, account: OpenBackupAccount(name: "Public fixture", address: "public-address"), createAccountRequest: request, createAccountService: RouteNoAccountCreation(), mnemonic: mnemonic)
+        let view = try XCTUnwrap(nav.topViewController as? SetupPasswordViewController); let model = try XCTUnwrap(view.viewModel as? SetupPasswordPresenter)
+        XCTAssertTrue(model.view === view); XCTAssertTrue(model.wireframe is SetupPasswordWireframe)
+    }
+    func testAddAccountBackupPasswordRouteBindsItsPresenterWithoutCreatingAnAccount() throws {
+        let host = RouteHost(); let nav = UINavigationController(rootViewController: host); let mnemonic = try IRMnemonicCreator().mnemonic(fromList: words.joined(separator: " "))
+        AddCreationWireframe().setupBackupAccountPassword(on: host, account: OpenBackupAccount(name: "Public fixture", address: "public-address"), createAccountRequest: request, createAccountService: RouteNoAccountCreation(), mnemonic: mnemonic)
+        let view = try XCTUnwrap(nav.topViewController as? SetupPasswordViewController); let model = try XCTUnwrap(view.viewModel as? SetupPasswordPresenter)
+        XCTAssertTrue(model.view === view); XCTAssertTrue(model.wireframe is SetupPasswordWireframe)
+    }
+    func testNewAccountPinSetupIsPresentedAsANonClosableModal() throws {
+        let host = RouteHost(); AccountCreateWireframe().proceed(on: host)
+        let container = try XCTUnwrap(host.shown.last as? BlurViewController); XCTAssertFalse(container.isClosable)
+        XCTAssertEqual(container.modalPresentationStyle, .overFullScreen); let pin = try XCTUnwrap(container.children.first as? PincodeViewController)
+        XCTAssertTrue(pin.presenter is SetupPincodePresenter)
+    }
+    func testAddingWithoutAnExistingCompletionPresentsPinSetup() throws {
+        let host = RouteHost(); AddCreationWireframe().proceed(on: host)
+        let container = try XCTUnwrap(host.shown.last as? BlurViewController); XCTAssertEqual(container.modalPresentationStyle, .overFullScreen)
+        XCTAssertTrue(container.children.first is PincodeViewController)
+    }
+    func testFinishingAccountAdditionDismissesTheFlowAndInvokesCompletionOnce() {
+        let host = RouteHost(); let nav = RouteDismissNavigationController(rootViewController: host); let route = AddCreationWireframe(); var done = 0
+        route.endAddingBlock = { done += 1 }; route.isNeedSetupName = true; route.proceed(on: host)
+        XCTAssertEqual(nav.dismissals, 1); XCTAssertEqual(done, 1); XCTAssertTrue(host.shown.isEmpty)
+    }
+}
+private final class RouteNoAccountCreation: CreateAccountServiceProtocol {
+    func createAccount(request: AccountCreationRequest, mnemonic: IRMnemonicProtocol, completion: @escaping (Result<AccountItem, Swift.Error>?) -> Void) { XCTFail("Navigation must not create an account") }
+}
+private final class RouteDismissNavigationController: UINavigationController {
+    var dismissals = 0
+    override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) { dismissals += 1; completion?() }
+}
+
+
+@MainActor
+final class SendPreflightRouteCoverageTests: XCTestCase {
+    private var previous: AccountItem?
+    override func setUp() { super.setUp(); previous = SelectedWalletSettings.shared.currentAccount }
+    override func tearDown() { SelectedWalletSettings.shared.commitInternalValue(previous); super.tearDown() }
+    private func make() throws -> RouteFixture { let f = try RouteFixture(); SelectedWalletSettings.shared.commitInternalValue(f.account); return f }
+    private func send(_ route: RedesignWalletWireframe, _ f: RouteFixture) {
+        route.showSend(on: f.host, selectedTokenId: WalletAssetId.val.rawValue, selectedAddress: "public-recipient", fiatService: f.fiat, assetManager: f.assets, providerFactory: f.provider, networkFacade: f.network, assetsProvider: f.balances, qrEncoder: f.encoder, sharingFactory: RouteShare(), marketCapService: f.market)
+    }
+    private func send(_ route: GenerateQRWireframe, _ f: RouteFixture) {
+        route.showSend(on: f.host, selectedTokenId: WalletAssetId.val.rawValue, selectedAddress: "scanned-recipient", fiatService: f.fiat, assetManager: f.assets, providerFactory: f.provider, networkFacade: f.network, assetsProvider: f.balances, qrEncoder: f.encoder, sharingFactory: RouteShare(), marketCapService: f.market)
+    }
+    private func confirm(_ route: GenerateQRWireframe, _ f: RouteFixture) {
+        route.showConfirmSendingAsset(on: f.host, assetId: WalletAssetId.val.rawValue, walletService: WalletService(operationFactory: f.network), assetManager: f.assets, fiatService: f.fiat, recipientAddress: "scanned-recipient", firstAssetAmount: Decimal(string: "1.000000000000000001")!, fee: Decimal(string: "0.002")!, assetsProvider: f.balances)
+    }
+    private func asset(_ f: RouteFixture, _ preflight: @escaping WalletAccountCapability.SendPreflight) -> AssetDetailsWireframe {
+        let route = AssetDetailsWireframe(accountId: f.account.publicKeyData.toHex(), address: f.account.address, assetManager: f.assets, fiatService: f.fiat, eventCenter: RouteEvents(), assetInfo: f.assets.assets[1], providerFactory: f.provider, networkFacade: f.network, polkaswapNetworkFacade: PolkaswapNetworkOperationFactory(engine: f.engine), assetsProvider: f.balances, marketCapService: f.market, qrEncoder: f.encoder, sharingFactory: RouteShare(), farmingService: f.farms, feeProvider: f.fees, sendPreflight: preflight)
+        route.controller = f.host; return route
+    }
+    private func screen<T: UIViewController>(_ type: T.Type, _ f: RouteFixture) throws -> T {
+        let container = try XCTUnwrap(f.host.shown.last as? BlurViewController); XCTAssertEqual(container.modalPresentationStyle, .overFullScreen)
+        let nav = try XCTUnwrap(container.children.first as? UINavigationController); return try XCTUnwrap(nav.viewControllers.first as? T)
+    }
+    func testWalletSendWaitsForCapabilityEvidenceBeforePresenting() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = RedesignWalletWireframe(feeProvider: f.fees, sendPreflight: gate.check)
+        send(route, f); XCTAssertEqual(gate.calls, 1); XCTAssertTrue(gate.controller === f.host); XCTAssertNil(gate.expectedAddress); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testApprovedWalletSendPreservesTheRecipientAndBindsItsEditor() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = RedesignWalletWireframe(feeProvider: f.fees, sendPreflight: gate.check)
+        send(route, f); gate.approve?()
+        let view = try screen(InputAssetAmountViewController.self, f); let model = try XCTUnwrap(view.viewModel as? InputAssetAmountViewModel)
+        XCTAssertEqual(model.selectedAddress, "public-recipient"); XCTAssertTrue(model.view === view)
+    }
+    func testAssetSendRequiresTheAddressBoundToTheDetailsScreen() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = asset(f, gate.check); route.showSend()
+        XCTAssertEqual(gate.expectedAddress, f.account.address); XCTAssertTrue(gate.controller === f.host); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testApprovedAssetSendStartsWithNoUnrelatedRecipient() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = asset(f, gate.check); route.showSend(); gate.approve?()
+        let view = try screen(InputAssetAmountViewController.self, f); let model = try XCTUnwrap(view.viewModel as? InputAssetAmountViewModel)
+        XCTAssertNil(model.selectedAddress); XCTAssertTrue(model.view === view)
+    }
+    func testQRSendUsesTheRequestedHostForCapabilityChecks() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = GenerateQRWireframe(controller: nil, sendPreflight: gate.check)
+        send(route, f); XCTAssertTrue(gate.controller === f.host); XCTAssertNil(gate.expectedAddress); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testApprovedQRSendPreservesTheScannedRecipient() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = GenerateQRWireframe(controller: f.host, sendPreflight: gate.check)
+        send(route, f); gate.approve?()
+        let view = try screen(InputAssetAmountViewController.self, f); let model = try XCTUnwrap(view.viewModel as? InputAssetAmountViewModel)
+        XCTAssertEqual(model.selectedAddress, "scanned-recipient"); XCTAssertTrue(model.view === view)
+    }
+    func testQRConfirmationWaitsForCapabilityEvidence() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = GenerateQRWireframe(controller: f.host, sendPreflight: gate.check)
+        confirm(route, f); XCTAssertEqual(gate.calls, 1); XCTAssertTrue(gate.controller === f.host); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testApprovedQRConfirmationKeepsExactAmountFeeAndAsset() throws {
+        let f = try make(); let gate = RouteSendGate(); let route = GenerateQRWireframe(controller: f.host, sendPreflight: gate.check)
+        confirm(route, f); gate.approve?()
+        let view = try screen(ConfirmViewController.self, f); let model = try XCTUnwrap(view.viewModel as? ConfirmSendingViewModel)
+        XCTAssertEqual(model.assetId, WalletAssetId.val.rawValue); XCTAssertEqual(model.recipientAddress, "scanned-recipient")
+        XCTAssertEqual(model.firstAssetAmount, Decimal(string: "1.000000000000000001")); XCTAssertEqual(model.fee, Decimal(string: "0.002")); XCTAssertTrue(model.view === view)
+    }
+    func testTheDefaultWalletGateRefusesAnAbsentAccount() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil); send(RedesignWalletWireframe(feeProvider: f.fees), f)
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testTheDefaultQRGateRefusesAnAbsentAccount() throws {
+        let f = try make(); SelectedWalletSettings.shared.commitInternalValue(nil); let route = GenerateQRWireframe(controller: f.host)
+        send(route, f); confirm(route, f); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testTheDefaultAssetGateRefusesSelectionChangesAwayFromItsBoundAccount() throws {
+        let f = try make(); let route = f.assetRoute(); SelectedWalletSettings.shared.commitInternalValue(nil); route.showSend()
+        XCTAssertTrue(f.host.shown.isEmpty)
+    }
+}
+
+@MainActor
+private final class RouteSendGate {
+    var calls = 0; weak var controller: UIViewController?; var expectedAddress: String?; var approve: (@MainActor () -> Void)?
+    func check(_ controller: UIViewController?, _ expectedAddress: String?, _ proceed: @escaping @MainActor () -> Void) {
+        calls += 1; self.controller = controller; self.expectedAddress = expectedAddress; approve = proceed
+    }
+}
+
+@MainActor
+final class ReferralFactoryAssemblyCoverageTests: XCTestCase {
+    private func dependencies(_ f: RouteFixture) -> ReferralAssemblyDependencies {
+        .init(settings: InMemorySettingsManager(), keystore: InMemoryKeychain(), connection: { f.engine },
+              runtime: { ReferralRouteRuntime() }, selectedAccount: { f.account }, assetManager: { f.assets })
+    }
+    private func reward(_ f: RouteFixture, _ output: ReferralRouteOutput, _ deps: ReferralAssemblyDependencies,
+                        type: InputRewardAmountType = .bond) -> UIViewController? {
+        ReferralViewFactory.createInputRewardAmountView(with: Decimal(string: "0.25")!, bondedAmount: Decimal(string: "2.6")!,
+            type: type, walletContext: WalletContextMock(), delegate: output, dependencies: deps)
+    }
+    func testInputLinkFactoryBindsPresenterInteractorViewAndDelegate() throws {
+        let f = try RouteFixture(), output = ReferralRouteOutput()
+        let view = try XCTUnwrap(ReferralViewFactory.createInputLinkView(with: output, dependencies: dependencies(f)) as? InputLinkViewController)
+        let presenter = try XCTUnwrap(view.presenter as? InputLinkPresenter)
+        let interactor = try XCTUnwrap(presenter.interactor as? InputLinkInteractor)
+        XCTAssertTrue(presenter.view === view); XCTAssertTrue(presenter.output === output); XCTAssertTrue(interactor.presenter === presenter)
+        XCTAssertTrue(interactor.isCurrentUserAddress(with: f.account.address))
+        XCTAssertEqual(interactor.getAccountId(from: f.account.address), f.account.publicKeyData)
+        XCTAssertFalse(interactor.isCurrentUserAddress(with: "invalid-referrer"))
+    }
+    func testInputLinkFactoryRejectsAMissingConnection() throws {
+        let f = try RouteFixture(); var deps = dependencies(f); deps.connection = { nil }
+        XCTAssertNil(ReferralViewFactory.createInputLinkView(with: ReferralRouteOutput(), dependencies: deps))
+    }
+    func testInputLinkFactoryRejectsAMissingRuntime() throws {
+        let f = try RouteFixture(); var deps = dependencies(f); deps.runtime = { nil }
+        XCTAssertNil(ReferralViewFactory.createInputLinkView(with: ReferralRouteOutput(), dependencies: deps))
+    }
+    func testInputLinkFactoryRejectsAMissingAccount() throws {
+        let f = try RouteFixture(); var deps = dependencies(f); deps.selectedAccount = { nil }
+        XCTAssertNil(ReferralViewFactory.createInputLinkView(with: ReferralRouteOutput(), dependencies: deps))
+    }
+    func testInputLinkFactoryDoesNotRetainTheNavigationDelegate() throws {
+        let f = try RouteFixture(); var output: ReferralRouteOutput? = ReferralRouteOutput()
+        let view = try XCTUnwrap(ReferralViewFactory.createInputLinkView(with: XCTUnwrap(output), dependencies: dependencies(f)) as? InputLinkViewController)
+        let presenter = try XCTUnwrap(view.presenter as? InputLinkPresenter); weak var weakOutput = output; output = nil
+        XCTAssertNil(weakOutput); XCTAssertNil(presenter.output)
+    }
+    func testBondFactoryKeepsFeeAndStartsWithoutBondedInvitations() throws {
+        let f = try RouteFixture(), output = ReferralRouteOutput()
+        let view = try XCTUnwrap(reward(f, output, dependencies(f)) as? InputRewardAmountViewController)
+        let presenter = try XCTUnwrap(view.presenter as? InputRewardAmountPresenter)
+        XCTAssertTrue(presenter.view === view); XCTAssertTrue(presenter.output === output)
+        presenter.received(100)
+        let model = try XCTUnwrap(presenter.viewModel)
+        XCTAssertEqual(model.fee, Decimal(string: "0.25")); XCTAssertEqual(model.feeSymbol, "XOR")
+        XCTAssertEqual(model.bondedAmount, 0); XCTAssertEqual(model.buttonTitle, InputRewardAmountType.bond.buttonTitle)
+        XCTAssertTrue(model.delegate === presenter)
+    }
+    func testUnbondFactoryKeepsOnlyCompletePreviouslyBondedInvitations() throws {
+        let f = try RouteFixture(), output = ReferralRouteOutput()
+        let view = try XCTUnwrap(reward(f, output, dependencies(f), type: .unbond) as? InputRewardAmountViewController)
+        let presenter = try XCTUnwrap(view.presenter as? InputRewardAmountPresenter); presenter.received(100)
+        let model = try XCTUnwrap(presenter.viewModel)
+        XCTAssertEqual(model.bondedAmount, Decimal(string: "2.5")); XCTAssertEqual(model.fee, Decimal(string: "0.25"))
+        XCTAssertEqual(model.buttonTitle, InputRewardAmountType.unbond.buttonTitle)
+    }
+    func testRewardFactoryRejectsAMissingConnection() throws {
+        let f = try RouteFixture(); var deps = dependencies(f); deps.connection = { nil }
+        XCTAssertNil(reward(f, ReferralRouteOutput(), deps))
+    }
+    func testRewardFactoryRejectsAMissingRuntime() throws {
+        let f = try RouteFixture(); var deps = dependencies(f); deps.runtime = { nil }
+        XCTAssertNil(reward(f, ReferralRouteOutput(), deps))
+    }
+    func testRewardFactoryRejectsAMissingAccount() throws {
+        let f = try RouteFixture(); var deps = dependencies(f); deps.selectedAccount = { nil }
+        XCTAssertNil(reward(f, ReferralRouteOutput(), deps))
+    }
+    func testRewardFactoryRejectsACatalogWithoutAFeeAsset() throws {
+        let f = try RouteFixture(); f.assets.assets.removeAll { $0.isFeeAsset }
+        XCTAssertNil(reward(f, ReferralRouteOutput(), dependencies(f)))
+    }
+}
+
+private final class ReferralRouteOutput: InputLinkPresenterOutput, InputRewardAmountPresenterOutput {
+    func setupReferrer(_ referrer: String) { XCTFail("No referrer submission is part of assembly") }
+    func showAlert(withSuccess isSuccess: Bool) {}
+    func showTransactionDetails(from controller: UIViewController?, result: Result<String, Error>, peerAddress: String, completion: (() -> Void)?) { XCTFail("No transaction is part of assembly") }
+    func moveForward(controller: UIViewController?) {}
+    func updateReferral(balance: Decimal) { XCTFail("No reward submission is part of assembly") }
+    func showTransactionDetails(from controller: UIViewController?, result: Result<String, Error>, fee: Decimal, amount: Decimal, type: ReferralBondTransaction.ReferralTransactionType, completion: (() -> Void)?) { XCTFail("No transaction is part of assembly") }
+}
+
+private final class ReferralRouteRuntime: RuntimeProviderProtocol {
+    let chainId = PIIndexerClient.soraMainnetGenesis
+    var snapshot: RuntimeSnapshot? { nil }
+    func setup() {}
+    func setupHot() {}
+    func replaceTypesUsage(_ usage: SoraPassport.ChainModel.TypesUsage) {}
+    func cleanup() {}
+    func fetchCoderFactoryOperation(with timeout: TimeInterval, closure: SoraPassport.RuntimeMetadataClosure?) -> BaseOperation<RuntimeCoderFactoryProtocol> {
+        ClosureOperation { throw CancellationError() }
+    }
+}
+
+private final class RouteStackNavigationController: UINavigationController {
+    var requestedAnimation: Bool?
+    override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
+        requestedAnimation = animated
+        super.setViewControllers(viewControllers, animated: false)
+    }
+}
+
+@MainActor
+final class IrohaCoordinatorRoutingCoverageTests: RootActionFixtureTests {
+    private var malformedLaunch: URL { URL(string: "iroha://connect?v=1")! }
+    private func expectBlocked(from host: UIViewController) async throws {
+        XCTAssertTrue(IrohaConnectCoordinator.shared.handle(malformedLaunch, in: window))
+        await wait { host.presentedViewController is UIAlertController }
+        let alert = try XCTUnwrap(host.presentedViewController as? UIAlertController)
+        XCTAssertEqual(alert.title, "IrohaConnect request blocked")
+        XCTAssertFalse(try XCTUnwrap(alert.message).isEmpty)
+        XCTAssertEqual(alert.actions.map(\.title), ["OK"])
+        XCTAssertFalse(alert.actions.contains { $0.style == .destructive })
+    }
+    func testUnrecognizedLinksNeverPresentAConnectionOrError() async {
+        let host = UIViewController(); mount(host)
+        for value in ["https://connect?v=1", "iroha://unrelated?v=1", "wallet://connect?v=1"] {
+            XCTAssertFalse(IrohaConnectCoordinator.shared.handle(URL(string: value)!, in: window))
+        }
+        await settle()
+        XCTAssertNil(host.presentedViewController)
+    }
+    func testAcceptedSchemeWithoutAWindowDoesNotStartPresentation() async {
+        let host = UIViewController(); mount(host)
+        XCTAssertTrue(IrohaConnectCoordinator.shared.handle(malformedLaunch, in: nil))
+        await settle()
+        XCTAssertNil(host.presentedViewController)
+    }
+    func testMalformedConnectRequestShowsAnExplanationBeforeWalletAccess() async throws {
+        let host = UIViewController(); mount(host)
+        try await expectBlocked(from: host)
+    }
+    func testMalformedConnectRequestUsesTheVisibleNavigationController() async throws {
+        let root = UIViewController(), top = UIViewController()
+        let navigation = UINavigationController(rootViewController: root)
+        navigation.pushViewController(top, animated: false); mount(navigation)
+        try await expectBlocked(from: top)
+        XCTAssertTrue(navigation.topViewController === top)
+    }
+    func testMalformedConnectRequestUsesTheSelectedTab() async throws {
+        let hidden = UIViewController(), selected = UIViewController()
+        let tabs = UITabBarController(); tabs.viewControllers = [hidden, selected]; tabs.selectedIndex = 1
+        mount(tabs)
+        try await expectBlocked(from: selected)
+        // UIKit forwards presentation through the tab container, so even an
+        // inactive child's presentedViewController can resolve to that alert.
+        XCTAssertTrue(tabs.selectedViewController === selected)
+        XCTAssertNil(hidden.viewIfLoaded?.window)
+    }
+    func testMalformedConnectRequestUsesTheFrontmostModal() async throws {
+        let host = UIViewController(), modal = UIViewController(); mount(host)
+        host.present(modal, animated: false); await settle()
+        try await expectBlocked(from: modal)
+        XCTAssertTrue(host.presentedViewController === modal)
+    }
+    func testBackgroundWithNoActiveConnectionDoesNotPresentAnError() async {
+        let host = UIViewController(); mount(host)
+        IrohaConnectCoordinator.shared.applicationDidEnterBackground()
+        await settle(); XCTAssertNil(host.presentedViewController)
     }
 }

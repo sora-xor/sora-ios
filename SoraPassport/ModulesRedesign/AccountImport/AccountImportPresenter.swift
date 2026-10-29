@@ -58,7 +58,18 @@ final class AccountImportPresenter {
     private func currentValidationReview() -> ValidationReview? {
         guard let sourceType = selectedSourceType, let cryptoType = selectedCryptoType,
               let networkType = selectedNetworkType, let sourceViewModel, let usernameViewModel else { return nil }
-        return ValidationReview(sourceType: sourceType, cryptoType: cryptoType, networkType: networkType,
+        // A keystore declares its signing scheme. Bind validation to that
+        // declaration before validateAccount updates the visible selection.
+        let reviewedCrypto: CryptoType
+        if sourceType == .keystore,
+           let data = sourceViewModel.inputHandler.value.data(using: .utf8),
+           let definition = try? JSONDecoder().decode(KeystoreDefinition.self, from: data),
+           let declared = try? AccountImportJsonFactory().createInfo(from: definition).cryptoType {
+            reviewedCrypto = declared
+        } else {
+            reviewedCrypto = cryptoType
+        }
+        return ValidationReview(sourceType: sourceType, cryptoType: reviewedCrypto, networkType: networkType,
                                 source: sourceViewModel.inputHandler.value, username: usernameViewModel.inputHandler.value,
                                 password: passwordViewModel?.inputHandler.value ?? "",
                                 derivationPath: derivationPathViewModel?.inputHandler.value ?? "", expectedAddress: expectedAddress)

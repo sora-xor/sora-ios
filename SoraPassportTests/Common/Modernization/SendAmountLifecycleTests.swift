@@ -109,21 +109,24 @@ final class SendAmountLifecycleTests: XCTestCase {
     }
 }
 @MainActor private final class SendAmountFee {
+    var sequence = [Decimal]()
     var fee: Decimal = 1; var hold = false; var requests: [TransferInfo] = []; var pending: [CheckedContinuation<Decimal, Error>] = []
-    func estimate(_ info: TransferInfo) async throws -> Decimal { requests.append(info); if hold { return try await withCheckedThrowingContinuation { pending.append($0) } }; return fee }
+    func estimate(_ info: TransferInfo) async throws -> Decimal { requests.append(info); if hold { return try await withCheckedThrowingContinuation { pending.append($0) } }; return sequence.isEmpty ? fee : sequence.removeFirst() }
     func completeAll() { let values = pending; pending.removeAll(); values.forEach { $0.resume(returning: fee) } }
 }
 private final class SendAmountView: UIViewController, InputAssetAmountViewProtocol {
-    var controller: UIViewController { self }; var enabled = false; var balance = ""; var amount = ""; var symbol = ""; var recipient = ""; var alerts: [UIViewController] = []
+    var controller: UIViewController { self }; var enabled = false; var balance = ""; var amount = ""; var symbol = ""; var recipient = ""; var alerts: [UIViewController] = []; var focuses = 0
     func updateFirstAsset(balance: String) { self.balance = balance }; func updateFirstAsset(symbol: String, image: UIImage?) { self.symbol = symbol }; func updateFirstAsset(fiatText: String) {}
     func updateRecipientView(with address: String) { recipient = address }; func updateFirstAsset(state: InputFieldState, amountColor: SoramitsuColor, fiatColor: SoramitsuColor) {}
-    func set(firstAmountText: String) { amount = firstAmountText }; func setupButton(isEnabled: Bool) { enabled = isEnabled }; func focusFirstField() {}; func updateWarinignView(model: WarningViewModel) {}
+    func set(firstAmountText: String) { amount = firstAmountText }; func setupButton(isEnabled: Bool) { enabled = isEnabled }; func focusFirstField() { focuses += 1 }; func updateWarinignView(model: WarningViewModel) {}
     override func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)? = nil) { alerts.append(viewControllerToPresent); completion?() }
 }
 private final class SendAmountRoutes: InputAssetAmountWireframeProtocol {
     var confirmations: [(String, String, Decimal, Decimal)] = []
-    func showChoiceBaseAsset(on controller: UIViewController?, assetManager: AssetManagerProtocol, fiatService: FiatServiceProtocol, assetViewModelFactory: AssetViewModelFactory, assetsProvider: AssetProviderProtocol?, assetIds: [String], marketCapService: MarketCapServiceProtocol, completion: @escaping (String) -> Void) {}
-    func showSelectAddress(on controller: UIViewController?, assetId: String, dataProvider: SingleValueProvider<[SearchData]>, walletService: WalletServiceProtocol, networkFacade: WalletNetworkOperationFactoryProtocol, assetManager: AssetManagerProtocol, qrEncoder: WalletQREncoderProtocol, sharingFactory: AccountShareFactoryProtocol, assetsProvider: AssetProviderProtocol?, providerFactory: BalanceProviderFactory, feeProvider: FeeProviderProtocol, marketCapService: MarketCapServiceProtocol, completion: ((ScanQRResult) -> Void)?) {}
+    var assetChoices = [String](), addressAsset: String?
+    var chooseAsset: ((String) -> Void)?, chooseAddress: ((ScanQRResult) -> Void)?
+    func showChoiceBaseAsset(on controller: UIViewController?, assetManager: AssetManagerProtocol, fiatService: FiatServiceProtocol, assetViewModelFactory: AssetViewModelFactory, assetsProvider: AssetProviderProtocol?, assetIds: [String], marketCapService: MarketCapServiceProtocol, completion: @escaping (String) -> Void) { assetChoices = assetIds; chooseAsset = completion }
+    func showSelectAddress(on controller: UIViewController?, assetId: String, dataProvider: SingleValueProvider<[SearchData]>, walletService: WalletServiceProtocol, networkFacade: WalletNetworkOperationFactoryProtocol, assetManager: AssetManagerProtocol, qrEncoder: WalletQREncoderProtocol, sharingFactory: AccountShareFactoryProtocol, assetsProvider: AssetProviderProtocol?, providerFactory: BalanceProviderFactory, feeProvider: FeeProviderProtocol, marketCapService: MarketCapServiceProtocol, completion: ((ScanQRResult) -> Void)?) { addressAsset = assetId; chooseAddress = completion }
     func showConfirmSendingAsset(on controller: UINavigationController?, assetId: String, walletService: WalletServiceProtocol, assetManager: AssetManagerProtocol, fiatService: FiatServiceProtocol, recipientAddress: String, firstAssetAmount: Decimal, fee: Decimal, assetsProvider: AssetProviderProtocol?) { confirmations.append((assetId, recipientAddress, firstAssetAmount, fee)) }
 }
 private actor SendAmountFiat: FiatServiceProtocol { func getFiat() async -> [PIExactFiatData] { [] } }
@@ -143,3 +146,69 @@ private final class SendAmountAssets: AssetManagerProtocol {
 private struct SendAmountCoder: WalletQREncoderProtocol { func encode(receiverInfo: ReceiveInfo) throws -> Data { Data() } }
 private struct SendAmountShare: AccountShareFactoryProtocol { func createSources(for receiveInfo: ReceiveInfo, qrImage: UIImage) -> [Any] { [] } }
 private final class SendAmountMarket: MarketCapServiceProtocol { func getMarketCap(for assets: [String]) async -> Set<MarketCapInfo> { [] } }
+
+extension SendAmountLifecycleTests {
+    func testAssetPickerReceivesAvailableAssetsAndUpdatesTheSelectedToken() async {
+        let f = make(); f.model.inputedFirstAmount = 4; f.model.choiceBaseAssetButtonTapped()
+        XCTAssertEqual(f.route.assetChoices, [xor, val]); f.route.chooseAsset?(val); await pause()
+        XCTAssertEqual(f.model.firstAssetId, val); XCTAssertEqual(f.view.symbol, "VAL"); XCTAssertEqual(f.model.inputedFirstAmount, 0)
+    }
+    func testMissingFiatServiceDoesNotOpenAnIncompleteAssetPicker() {
+        let f = make(); f.model.fiatService = nil; f.model.choiceBaseAssetButtonTapped()
+        XCTAssertNil(f.route.chooseAsset); XCTAssertTrue(f.route.assetChoices.isEmpty)
+    }
+    func testAddressPickerUsesTheCurrentAssetAndReturnsTheExactSelectedRecipient() {
+        let f = make(asset: val); f.model.selectAddress()
+        XCTAssertEqual(f.route.addressAsset, val); f.route.chooseAddress?(.init(firstName: sender, receiverInfo: nil))
+        XCTAssertEqual(f.model.selectedAddress, sender); XCTAssertEqual(f.view.recipient, sender); XCTAssertEqual(f.view.focuses, 1)
+    }
+    func testInvoiceSelectionAlsoChangesTheRequestedAsset() async {
+        let f = make(); f.model.selectAddress()
+        f.route.chooseAddress?(.init(firstName: recipient, receiverInfo: .init(accountId: recipient, assetId: val, amount: nil, details: nil)))
+        await pause(); XCTAssertEqual(f.model.firstAssetId, val); XCTAssertEqual(f.view.symbol, "VAL"); XCTAssertEqual(f.view.focuses, 1)
+    }
+    func testClearingRecipientImmediatelyDisablesReview() {
+        let f = make(); f.model.inputedFirstAmount = 2; XCTAssertTrue(f.view.enabled)
+        f.model.selectedAddress = nil; XCTAssertEqual(f.view.recipient, ""); XCTAssertFalse(f.view.enabled)
+        f.model.reviewButtonTapped(); XCTAssertTrue(f.fee.requests.isEmpty)
+    }
+    func testUnknownTokenCannotReuseAnotherTokensMetadataForReview() async {
+        let f = make(); f.model.firstAssetId = "unknown-token"; f.model.inputedFirstAmount = 2
+        f.model.reviewButtonTapped(); await pause(); XCTAssertFalse(f.view.enabled); XCTAssertTrue(f.route.confirmations.isEmpty)
+    }
+    func testAccountDisappearingBeforeTheReviewTaskStartsCannotRequestAFee() async {
+        let f = make(); f.model.inputedFirstAmount = 2; f.model.reviewButtonTapped()
+        SelectedWalletSettings.shared.commitInternalValue(nil)
+        await wait { !f.view.alerts.isEmpty }; XCTAssertTrue(f.fee.requests.isEmpty); XCTAssertTrue(f.route.confirmations.isEmpty)
+    }
+    func testRecipientChangeDuringFeeCalculationCannotOpenAnOldReview() async {
+        let f = make(); f.fee.hold = true; f.model.inputedFirstAmount = 2; f.model.reviewButtonTapped()
+        await wait { f.fee.pending.count == 1 }; f.model.selectedAddress = sender; f.fee.completeAll()
+        await wait { !f.view.alerts.isEmpty }; XCTAssertTrue(f.route.confirmations.isEmpty)
+    }
+    func testSelectedWalletChangeDuringFeeCalculationCannotOpenAnOldReview() async {
+        let f = make(); f.fee.hold = true; f.model.inputedFirstAmount = 2; f.model.reviewButtonTapped()
+        await wait { f.fee.pending.count == 1 }; SelectedWalletSettings.shared.commitInternalValue(nil); f.fee.completeAll()
+        await wait { !f.view.alerts.isEmpty }; XCTAssertTrue(f.route.confirmations.isEmpty)
+    }
+    func testMaximumSendRecomputesItsAmountWhenTheAdjustedFeeChanges() async {
+        let f = make(); f.fee.sequence = [1, 2, 2]; f.model.didSelect(variant: 1); f.model.reviewButtonTapped()
+        await wait { !f.route.confirmations.isEmpty }
+        XCTAssertEqual(f.fee.requests.map { $0.amount.decimalValue }, [10, 9, 8])
+        XCTAssertEqual(f.route.confirmations.first?.2, 8); XCTAssertEqual(f.route.confirmations.first?.3, 2)
+    }
+    func testMaximumSendRejectsAZeroFeeForTheAdjustedAmount() async {
+        let f = make(); f.fee.sequence = [1, 0]; f.model.didSelect(variant: 1); f.model.reviewButtonTapped()
+        await wait { !f.view.alerts.isEmpty }; XCTAssertTrue(f.route.confirmations.isEmpty)
+        XCTAssertEqual(f.fee.requests.map { $0.amount.decimalValue }, [10, 9])
+    }
+    func testMaximumSendDoesNotApproveAnUnstableFeeAfterItsBoundedRetries() async {
+        let f = make(); f.fee.sequence = [1, 2, 3, 4]; f.model.didSelect(variant: 1); f.model.reviewButtonTapped()
+        await wait { !f.view.alerts.isEmpty }; XCTAssertTrue(f.route.confirmations.isEmpty)
+        XCTAssertEqual(f.fee.requests.count, 4)
+    }
+    func testFeeLargerThanAvailableXorCannotApproveANonFeeAssetSend() async {
+        let f = make(asset: val, values: [xor: Decimal(string: "0.5")!, val: 10]); f.model.inputedFirstAmount = 2
+        f.model.reviewButtonTapped(); await wait { !f.view.alerts.isEmpty }; XCTAssertTrue(f.route.confirmations.isEmpty)
+    }
+}

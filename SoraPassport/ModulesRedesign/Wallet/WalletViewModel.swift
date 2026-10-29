@@ -90,7 +90,8 @@ final class RedesignWalletViewModel {
     private var networkAccounts: [NetworkAccount] = []
     private var networkBalances: [String: NetworkRowBalance] = [:]
     private var networkRowsTask: Task<Void, Never>?
-    private let nexusReadClient: NexusToriiReading = NexusToriiReadClient()
+    private let nexusReadClient: NexusToriiReading
+    private let selectedNetworkAccounts: @MainActor () -> [NetworkAccount]
     
     init(wireframe: RedesignWalletWireframeProtocol?,
          providerFactory: BalanceProviderFactory,
@@ -110,7 +111,9 @@ final class RedesignWalletViewModel {
          walletContext: CommonWalletContextProtocol,
          editViewService: EditViewServiceProtocol,
          poolsViewModelService: PoolsItemService,
-         marketCapService: MarketCapServiceProtocol) {
+         marketCapService: MarketCapServiceProtocol,
+         selectedNetworkAccounts: @escaping @MainActor () -> [NetworkAccount] = { WalletNetworkAccounts.selectedWallet() },
+         nexusReadClient: NexusToriiReading = NexusToriiReadClient()) {
         self.wireframe = wireframe
         self.accountId = accountId
         self.address = address
@@ -129,6 +132,8 @@ final class RedesignWalletViewModel {
         self.walletContext = walletContext
         self.editViewService = editViewService
         self.marketCapService = marketCapService
+        self.selectedNetworkAccounts = selectedNetworkAccounts
+        self.nexusReadClient = nexusReadClient
         self.poolsViewModelService = poolsViewModelService
         self.eventCenter.add(observer: self, dispatchIn: .main)
     }
@@ -368,7 +373,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     /// otherwise they open SORA2's flow exactly as before.
     @MainActor
     private func startNetworkAction(_ action: WalletNetworkAction, sora2: @escaping () -> Void) {
-        let accounts = WalletNetworkAccounts.selectedWallet()
+        let accounts = selectedNetworkAccounts()
         guard
             accounts.contains(where: { $0.networkId == .sora2 }),
             accounts.contains(where: { $0.networkId != .sora2 }),
@@ -440,7 +445,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     @MainActor
     func refreshNetworkRows() {
         networkRowsTask?.cancel()
-        let accounts = WalletNetworkAccounts.selectedWallet()
+        let accounts = selectedNetworkAccounts()
         networkBalances = networkBalances.filter { key, _ in accounts.contains { $0.id == key } }
         networkAccounts = accounts
         applyNetworkRows()

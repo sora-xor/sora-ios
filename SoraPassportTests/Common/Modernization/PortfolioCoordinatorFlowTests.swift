@@ -386,3 +386,274 @@ final class PortfolioCoordinatorFlowTests: XCTestCase {
   func showManageWallets(from: UIViewController) {}
   func showManageAssets(from: UIViewController) {}
 }
+
+extension PortfolioCoordinatorFlowTests {
+    private func boundHome(_ f: PortfolioCoordinatorFixture) -> PortfolioHome {
+        let home = PortfolioHome(dataSource: f.source, preferences: f.preferences)
+        home.attach(host: f.host, router: f.router, switcher: f.switcher)
+        home.viewModel.update()
+        return home
+    }
+    private func homeRow(_ home: PortfolioHome, lens: PortfolioLens, key: String) throws -> PortfolioRow {
+        home.lensItem.onSelect?(lens)
+        return try XCTUnwrap(home.listItem.model?.rows.first { $0.key == key })
+    }
+    func testHomeWalletLinkScopesAllRenderedBalancesToThatWallet() throws {
+        let f = make(), home = boundHome(f)
+        home.listItem.onLink?(try homeRow(home, lens: .wallets, key: "B"))
+        XCTAssertEqual(home.viewModel.state.scope, .wallet("B")); XCTAssertTrue(f.router.routes.isEmpty)
+    }
+    func testHomeNetworkLinkOpensTheMatchingNetwork() throws {
+        let f = make(), home = boundHome(f)
+        home.listItem.onLink?(try homeRow(home, lens: .networks, key: PortfolioNetwork.taira.rawValue))
+        XCTAssertEqual(f.router.routes, [.network(.taira, send: false)])
+    }
+    func testHomeTokenLinkDoesNotInventANavigationAction() throws {
+        let f = make(), home = boundHome(f)
+        home.listItem.onLink?(try homeRow(home, lens: .tokens, key: PortfolioFixtures.xor.id))
+        XCTAssertTrue(f.host.shown.isEmpty); XCTAssertTrue(f.router.routes.isEmpty)
+    }
+    func testHomeMoveActionChoosesASpendableHoldingAndTheOtherWalletOnItsNetwork() throws {
+        let f = make(), home = boundHome(f)
+        home.listItem.onRowAction?(try homeRow(home, lens: .tokens, key: PortfolioFixtures.xor.id), .move)
+        let sheet = try shown(PortfolioMoveSheet.self, f)
+        XCTAssertEqual(sheet.destinations.map(\.walletId), ["B"]); XCTAssertEqual(sheet.availability, .send)
+    }
+    func testHomeSwapActionPrefersTheSora2Holding() throws {
+        let f = make(), home = boundHome(f)
+        home.listItem.onRowAction?(try homeRow(home, lens: .tokens, key: PortfolioFixtures.xor.id), .swap)
+        let sheet = try shown(PortfolioSwapSheet.self, f)
+        XCTAssertTrue(sheet.isSelectedWallet); XCTAssertEqual(sheet.targets.map(\.symbol), ["VAL", "PSWAP", "XSTUSD"])
+    }
+    func testHomeTokenActionWithNoExplicitChoiceOpensItsDetailInTheCurrentNavigation() throws {
+        let f = make(), home = boundHome(f), navigation = UINavigationController(rootViewController: f.host)
+        home.listItem.onRowAction?(try homeRow(home, lens: .tokens, key: PortfolioFixtures.xor.id), nil)
+        XCTAssertTrue(navigation.topViewController is PortfolioDetailViewController)
+        XCTAssertEqual(navigation.viewControllers.count, 2)
+    }
+    func testHomeInlineSendAndReceiveDoNotBypassTheirDedicatedRoutes() throws {
+        let f = make(), home = boundHome(f), row = try homeRow(home, lens: .tokens, key: PortfolioFixtures.xor.id)
+        home.listItem.onRowAction?(row, .send); home.listItem.onRowAction?(row, .receive)
+        XCTAssertTrue(f.router.routes.isEmpty); XCTAssertTrue(f.host.shown.isEmpty)
+    }
+    func testHomeQuickActionUsesTheBoundCoordinator() {
+        let f = make(), home = boundHome(f)
+        home.heroItem.onQuickAction?(.send)
+        XCTAssertFalse(f.host.shown.isEmpty)
+    }
+}
+
+@MainActor
+final class PortfolioTableBindingCoverageTests: RootActionFixtureTests {
+    private var fixtures = [PortfolioCoordinatorFixture]()
+    private var formatLocale: Locale!
+    override func setUp() { super.setUp(); formatLocale = PortfolioFormat.locale }
+    override func tearDown() async throws {
+        fixtures.forEach { $0.close() }; fixtures = []; PortfolioFormat.locale = formatLocale
+        try await super.tearDown()
+    }
+    private func make() -> (PortfolioHome, SoramitsuTableView, UIViewController, PortfolioTableBinding) {
+        let f = PortfolioCoordinatorFixture(sample: true, snapshot: PortfolioFixtures.snapshot()); fixtures.append(f)
+        let home = PortfolioHome(dataSource: f.source, preferences: f.preferences)
+        let table = SoramitsuTableView(type: .plain), host = UIViewController()
+        host.loadViewIfNeeded(); host.view.addSubview(table); table.frame = host.view.bounds
+        let binding = PortfolioTableBinding(home: home, tableView: table, host: host)
+        return (home, table, host, binding)
+    }
+    func testBindingConnectsTheTableScrollDelegateAndNoninteractiveBackdrop() throws {
+        let (_, table, host, binding) = make()
+        XCTAssertTrue(table.scrollViewDelegate === binding)
+        let backdrop = try XCTUnwrap(host.view.subviews.first { $0 is PortfolioStatusBackdrop })
+        XCTAssertFalse(backdrop.isUserInteractionEnabled); XCTAssertFalse(backdrop.isAccessibilityElement)
+    }
+    func testSafeAreaChangeWithoutAWindowDoesNotInventATopInset() {
+        let (home, _, _, binding) = make(); home.heroItem.topInset = 17
+        binding.safeAreaDidChange(); XCTAssertEqual(home.heroItem.topInset, 17)
+    }
+    func testSafeAreaChangeUsesTheWindowInsetInsteadOfTheNavigationBar() {
+        let (home, _, host, binding) = make(); let navigation = UINavigationController(rootViewController: host)
+        mount(navigation); binding.safeAreaDidChange()
+        XCTAssertEqual(home.heroItem.topInset, window.safeAreaInsets.top)
+        let before = home.heroItem.topInset; binding.safeAreaDidChange(); XCTAssertEqual(home.heroItem.topInset, before)
+    }
+    func testVisibleSkyIsEnabledOnlyWhileItRemainsInsideTheViewport() {
+        let (home, table, host, binding) = make(); mount(host); binding.safeAreaDidChange()
+        table.contentOffset = .zero; binding.scrollViewDidScroll(table); XCTAssertTrue(home.heroItem.isSkyVisible)
+        table.contentOffset.y = home.heroItem.topInset + PortfolioTheme.Sky.height
+        binding.scrollViewDidScroll(table); XCTAssertFalse(home.heroItem.isSkyVisible)
+    }
+    func testDetachedHostNeverLeavesTheSkyAnimationRunning() {
+        let (home, table, _, binding) = make(); home.heroItem.isSkyVisible = true
+        binding.scrollViewDidScroll(table); XCTAssertFalse(home.heroItem.isSkyVisible)
+    }
+    func testBackdropAppearsExactlyWhenTheCardReachesStatusChrome() throws {
+        let (_, table, host, binding) = make(); mount(host)
+        let backdrop = try XCTUnwrap(host.view.subviews.compactMap { $0 as? PortfolioStatusBackdrop }.first)
+        table.contentOffset.y = PortfolioTheme.Sky.height - PortfolioTheme.Sky.cardOverlap
+        binding.scrollViewDidScroll(table); XCTAssertFalse(backdrop.isShown)
+        table.contentOffset.y += 1; binding.scrollViewDidScroll(table); XCTAssertTrue(backdrop.isShown)
+        table.contentOffset.y = 0; binding.scrollViewDidScroll(table); XCTAssertFalse(backdrop.isShown)
+    }
+    func testHeightChangeCallbackDoesNotKeepAReleasedTableAlive() {
+        let f = PortfolioCoordinatorFixture(sample: true, snapshot: PortfolioFixtures.snapshot()); fixtures.append(f)
+        let home = PortfolioHome(dataSource: f.source, preferences: f.preferences), host = UIViewController()
+        weak var observed: SoramitsuTableView?
+        var binding: PortfolioTableBinding?
+        autoreleasepool {
+            let table = SoramitsuTableView(type: .plain); observed = table
+            binding = PortfolioTableBinding(home: home, tableView: table, host: host)
+        }
+        XCTAssertNil(observed); XCTAssertNotNil(binding)
+        home.listItem.onHeightChange?()
+    }
+    func testBackdropRepeatedVisibilityRequestsRemainIdempotent() {
+        let backdrop = PortfolioStatusBackdrop(frame: CGRect(x: 0, y: 0, width: 390, height: 54))
+        backdrop.setShown(true, animated: false); let count = backdrop.subviews.count
+        backdrop.setShown(true, animated: true); XCTAssertTrue(backdrop.isShown); XCTAssertEqual(backdrop.subviews.count, count)
+        backdrop.setShown(false, animated: false); backdrop.setShown(false, animated: true); XCTAssertFalse(backdrop.isShown)
+    }
+    func testBackdropPaletteRefreshRebuildsTheBackgroundWithoutChangingVisibility() throws {
+        let backdrop = PortfolioStatusBackdrop(frame: CGRect(x: 0, y: 0, width: 390, height: 54))
+        backdrop.setShown(true, animated: false); let old = try XCTUnwrap(backdrop.subviews.first)
+        backdrop.styleDidChange(options: .palette)
+        XCTAssertTrue(backdrop.isShown); XCTAssertFalse(backdrop.subviews.contains { $0 === old })
+        XCTAssertEqual(backdrop.subviews.count, 2)
+    }
+    func testBackdropEffectsRefreshPreservesTheHiddenState() throws {
+        let backdrop = PortfolioStatusBackdrop(frame: .zero); let old = try XCTUnwrap(backdrop.subviews.first)
+        backdrop.styleDidChange(options: .effects)
+        XCTAssertFalse(backdrop.isShown); XCTAssertFalse(backdrop.subviews.contains { $0 === old })
+    }
+}
+
+@MainActor
+final class PortfolioDetailActionCoverageTests: XCTestCase {
+    @MainActor private final class Fixture {
+        var snapshot = PortfolioFixtures.snapshot()
+        var available = true
+        var requests = [(String, String?)]()
+        var actions = [(PortfolioActionPlan.Action, String)]()
+        var swaps = [String?]()
+        let token: PortfolioToken
+        let initial: String
+        lazy var controller: PortfolioDetailViewController = {
+            let controller = PortfolioDetailViewController(tokenId: token.id, holdingId: initial) { [unowned self] tokenId, holdingId in
+                self.requests.append((tokenId, holdingId))
+                return self.available ? PortfolioDetailPresenter.model(tokenId: tokenId, selectedHoldingId: holdingId,
+                    snapshot: self.snapshot, scope: .allWallets, walletSlots: [:]) : nil
+            }
+            controller.onAction = { [weak self] action, holding in self?.actions.append((action, holding)) }
+            controller.onPolkaswap = { [weak self] in self?.swaps.append($0) }
+            controller.loadViewIfNeeded()
+            return controller
+        }()
+        init(token: PortfolioToken = PortfolioFixtures.xor, wallet: String = "A", network: PortfolioNetwork = .sora2) {
+            self.token = token; initial = "\(wallet)|\(network.rawValue)|\(token.id)"
+        }
+        var model: PortfolioDetailModel {
+            PortfolioDetailPresenter.model(tokenId: token.id, selectedHoldingId: requests.last?.1 ?? initial,
+                snapshot: snapshot, scope: .allWallets, walletSlots: [:])!
+        }
+    }
+    private func views<T: UIView>(_ type: T.Type, _ view: UIView) -> [T] {
+        ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { views(type, $0) }
+    }
+    func testSelectedHoldingPrimaryActionKeepsItsExactIdentity() throws {
+        let f = Fixture(); let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).first)
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(f.actions.map(\.0), [.swap])
+        XCTAssertEqual(f.actions.map(\.1), [f.initial])
+        XCTAssertTrue(f.swaps.isEmpty)
+    }
+    func testSelectedHoldingSecondaryActionsDispatchTheirOwnKinds() throws {
+        let f = Fixture(); let buttons = views(PortfolioSecondaryButton.self, f.controller.view)
+        XCTAssertEqual(buttons.count, 2)
+        for button in buttons { XCTAssertTrue(button.isEnabled); button.sendActions(for: .touchUpInside) }
+        XCTAssertEqual(f.actions.map(\.0), [.send, .move])
+        XCTAssertEqual(f.actions.map(\.1), [f.initial, f.initial])
+    }
+    func testPolkaswapCardUsesItsDedicatedRouteAndSoraHolding() throws {
+        let f = Fixture(); let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).last)
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(f.swaps.count, 1)
+        XCTAssertEqual(f.swaps.first!, f.model.polkaswap.holdingId)
+        XCTAssertTrue(f.actions.isEmpty)
+    }
+    func testNontradableTokenExplainsItsRouteAndOffersSoraReceive() throws {
+        let f = Fixture(token: PortfolioFixtures.meme)
+        let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).last)
+        let reason = try XCTUnwrap(f.model.polkaswap.action.reason)
+        XCTAssertTrue(views(UILabel.self, f.controller.view).contains { $0.text == reason })
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(f.actions.map(\.0), [.receiveOnSora2])
+        XCTAssertEqual(f.actions.map(\.1), [f.initial])
+        XCTAssertTrue(f.swaps.isEmpty)
+    }
+    func testUnavailableSecondaryActionCarriesItsReasonAndDisabledAppearance() throws {
+        let f = Fixture(token: PortfolioFixtures.meme)
+        let action = try XCTUnwrap(f.model.panel?.secondary.first { !$0.isEnabled })
+        let button = try XCTUnwrap(views(PortfolioSecondaryButton.self, f.controller.view).first { $0.accessibilityLabel == action.title })
+        XCTAssertFalse(button.isEnabled)
+        XCTAssertTrue(button.accessibilityTraits.contains(.notEnabled))
+        XCTAssertEqual(button.accessibilityHint, action.reason)
+        XCTAssertEqual(button.alpha, 0.45, accuracy: 0.001)
+        button.isHighlighted = true; XCTAssertEqual(button.alpha, 0.45, accuracy: 0.001)
+        XCTAssertFalse(button.isHighlighted, "Disabled controls do not accept highlighted state")
+        button.isHighlighted = false; XCTAssertEqual(button.alpha, 0.45, accuracy: 0.001)
+        XCTAssertTrue(f.actions.isEmpty)
+    }
+    func testHoldingRowSelectionRebuildsActionsForTheNewWallet() throws {
+        let f = Fixture(); let rows = views(PortfolioDetailHoldingRow.self, f.controller.view)
+        let holding = try XCTUnwrap(f.model.holdings.first { $0.id != f.initial && $0.network == .sora2 })
+        let row = try XCTUnwrap(rows.first { $0.accessibilityLabel == holding.accessibilityLabel })
+        row.sendActions(for: .touchUpInside)
+        XCTAssertEqual(f.requests.last?.1, holding.id)
+        let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).first)
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(f.actions.map(\.1), [holding.id])
+        XCTAssertEqual(views(PortfolioDetailHoldingRow.self, f.controller.view).filter { $0.accessibilityTraits.contains(.selected) }.count, 1)
+    }
+    func testRetappingTheSelectedHoldingDoesNotRebuildTheScreen() throws {
+        let f = Fixture(); let row = try XCTUnwrap(views(PortfolioDetailHoldingRow.self, f.controller.view).first { $0.accessibilityTraits.contains(.selected) })
+        let before = f.requests.count
+        row.sendActions(for: .touchUpInside)
+        XCTAssertEqual(f.requests.count, before)
+    }
+    func testPaletteUpdateRereadsTheCurrentModel() {
+        let f = Fixture(); _ = f.controller
+        let before = f.requests.count
+        f.controller.styleDidChange(options: .palette)
+        XCTAssertEqual(f.requests.count, before + 1)
+        XCTAssertEqual(f.requests.last?.1, f.initial)
+    }
+    func testEffectsOnlyUpdateDoesNotReloadHoldings() {
+        let f = Fixture(); _ = f.controller
+        let before = f.requests.count
+        f.controller.styleDidChange(options: .effects)
+        XCTAssertEqual(f.requests.count, before)
+    }
+    func testMissingTokenReturnsToThePreviousScreen() {
+        let f = Fixture(); let root = UIViewController()
+        let navigation = UINavigationController(rootViewController: root)
+        navigation.pushViewController(f.controller, animated: false)
+        f.available = false
+        f.controller.reload()
+        XCTAssertTrue(navigation.topViewController === root)
+    }
+    func testHoldingHighlightReturnsToNormalOpacity() throws {
+        let f = Fixture(); let row = try XCTUnwrap(views(PortfolioDetailHoldingRow.self, f.controller.view).first)
+        row.isHighlighted = true; XCTAssertEqual(row.alpha, 0.7, accuracy: 0.001)
+        row.isHighlighted = false; XCTAssertEqual(row.alpha, 1, accuracy: 0.001)
+    }
+    func testUnavailablePrimaryActionDisplaysWhyItCannotRun() throws {
+        let f = Fixture(token: PortfolioFixtures.meme)
+        f.snapshot = PortfolioSnapshot(wallets: f.snapshot.wallets,
+            holdings: [PortfolioFixtures.holding("A", .sora2, PortfolioFixtures.meme, "10", transferable: "0")],
+            networks: f.snapshot.networks, swapsAvailable: true, swapDisclaimerAccepted: true, liveNetworks: [.sora2])
+        let button = try XCTUnwrap(views(PortfolioPrimaryButton.self, f.controller.view).first)
+        XCTAssertFalse(button.isEnabled)
+        let reason = try XCTUnwrap(f.model.panel?.primary.reason)
+        XCTAssertTrue(views(UILabel.self, f.controller.view).contains { $0.text == reason })
+        XCTAssertTrue(button.accessibilityTraits.contains(.notEnabled))
+    }
+}

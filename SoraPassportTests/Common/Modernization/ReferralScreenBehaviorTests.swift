@@ -166,6 +166,7 @@ private final class ReferralInteractorRecorder: FriendsInteractorInputProtocol {
 }
 
 private final class ReferralRouteRecorder: FriendsWireframeProtocol {
+    var transactions = [Transaction]()
     var linkEntries = 0
     var amounts: [(fee: Decimal, balance: Decimal)] = []
     var referrers: [String] = []
@@ -178,6 +179,52 @@ private final class ReferralRouteRecorder: FriendsWireframeProtocol {
     }
     func showActivityViewController(from controller: UIViewController, shareText: String) { shared.append(shareText) }
     func showReferrerScreen(from controller: UIViewController, referrer: String) { referrers.append(referrer) }
-    func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?) { completion?() }
+    func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?) { transactions.append(model); completion?() }
     func setViewControllers(from controller: UIViewController?, currentController: UIViewController?, referrer: String) { forwarded.append(referrer) }
 }
+
+extension ReferralScreenBehaviorTests {
+    func testReferrerSubmissionOpensDetailsWithTheExactPeerAndPendingHash() throws {
+        let (presenter, view, _, route) = make(); var completed = 0
+        presenter.showTransactionDetails(from: view, result: .success("0xfeed"), peerAddress: "exact-referrer", completion: { completed += 1 })
+        let transaction = try XCTUnwrap(route.transactions.last as? SetReferrerTransaction)
+        XCTAssertEqual(transaction.base.txHash, "0xfeed"); XCTAssertEqual(transaction.base.status, .pending)
+        XCTAssertEqual(transaction.base.fee.decimalValue, 0); XCTAssertEqual(transaction.who, "exact-referrer")
+        XCTAssertTrue(transaction.isMyReferrer); XCTAssertEqual(transaction.tokenId, WalletAssetId.xor.rawValue)
+        XCTAssertEqual(completed, 1)
+    }
+    func testRejectedReferrerSubmissionDoesNotInventAHashOrAConfirmedStatus() throws {
+        let (presenter, view, _, route) = make()
+        presenter.showTransactionDetails(from: view, result: .failure(ReferralRouteFailure.rejected), peerAddress: "referrer", completion: nil)
+        let transaction = try XCTUnwrap(route.transactions.last as? SetReferrerTransaction)
+        XCTAssertEqual(transaction.base.txHash, ""); XCTAssertEqual(transaction.base.status, .failed)
+        XCTAssertEqual(transaction.who, "referrer")
+    }
+    func testBondSubmissionKeepsTheAmountFeeAndDirectionTogether() throws {
+        let (presenter, view, _, route) = make(); var completed = 0
+        presenter.showTransactionDetails(from: view, result: .success("0xbond"), fee: 7, amount: 3, type: .bond, completion: { completed += 1 })
+        let transaction = try XCTUnwrap(route.transactions.last as? ReferralBondTransaction)
+        XCTAssertEqual(transaction.base.txHash, "0xbond"); XCTAssertEqual(transaction.base.status, .pending)
+        XCTAssertEqual(transaction.base.fee.decimalValue, 7); XCTAssertEqual(transaction.amount.decimalValue, 3)
+        XCTAssertEqual(transaction.type, .bond); XCTAssertEqual(completed, 1)
+    }
+    func testRejectedUnbondKeepsItsAttemptedAmountWithoutClaimingItWasReturned() throws {
+        let (presenter, view, _, route) = make()
+        presenter.showTransactionDetails(from: view, result: .failure(ReferralRouteFailure.rejected), fee: 5, amount: 2, type: .unbond, completion: nil)
+        let transaction = try XCTUnwrap(route.transactions.last as? ReferralBondTransaction)
+        XCTAssertEqual(transaction.base.txHash, ""); XCTAssertEqual(transaction.base.status, .failed)
+        XCTAssertEqual(transaction.base.fee.decimalValue, 5); XCTAssertEqual(transaction.amount.decimalValue, 2)
+        XCTAssertEqual(transaction.type, .unbond)
+    }
+    func testDetachedReferralScreenDoesNotPresentInvitationOrLinkFlows() {
+        let (presenter, _, _, route) = make(); presenter.view = nil
+        presenter.didSelectAction(.startInvite); presenter.didSelectAction(.enterLink); presenter.enterLinkButtonTapped()
+        XCTAssertEqual(route.linkEntries, 0); XCTAssertTrue(route.amounts.isEmpty); XCTAssertTrue(route.referrers.isEmpty)
+    }
+    func testDetachedReferralScreenDoesNotPresentShareOrRewardFlows() {
+        let (presenter, _, _, route) = make(); presenter.view = nil
+        presenter.shareButtonTapped(with: "public-referral-link"); presenter.changeBoundedAmount(to: .unbond)
+        XCTAssertTrue(route.shared.isEmpty); XCTAssertTrue(route.amounts.isEmpty)
+    }
+}
+private enum ReferralRouteFailure: Error { case rejected }

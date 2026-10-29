@@ -143,6 +143,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
             let lifecycleLease = try? lifecycleOperation
                 .extractNoCancellableResultData()
             guard let self else {
+                (try? importOperation.extractNoCancellableResultData())?.discard()
                 lifecycleLease?.release()
                 return
             }

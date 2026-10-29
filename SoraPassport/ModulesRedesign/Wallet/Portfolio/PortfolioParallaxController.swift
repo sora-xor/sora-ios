@@ -32,7 +32,10 @@ final class PortfolioParallaxController {
     var onRender: ((CGFloat, CGFloat) -> Void)?
 
     private let layers: [Layer]
-    private let manager = CMMotionManager()
+    typealias MotionPolicy = (enabled: Bool, reduceMotion: Bool, lowPower: Bool)
+
+    private let manager: CMMotionManager
+    private let motionPolicy: () -> MotionPolicy
     private var baseline = PortfolioTilt.Baseline()
     private var smooth = PortfolioTilt.Smooth2D(tauMs: PortfolioTilt.Constants.phoneSmoothTauMs)
     private var link: CADisplayLink?
@@ -45,8 +48,14 @@ final class PortfolioParallaxController {
     /// A fixed deflection injected for screenshots in non-production builds.
     private var injected: (x: Double, y: Double)?
 
-    init(layers: [Layer]) {
+    init(layers: [Layer], manager: CMMotionManager = CMMotionManager(),
+         motionPolicy: @escaping () -> MotionPolicy = {
+             let fx = FxPolicy.current
+             return (fx.tier == .full, fx.reduceMotion, ProcessInfo.processInfo.isLowPowerModeEnabled)
+         }) {
         self.layers = layers
+        self.manager = manager
+        self.motionPolicy = motionPolicy
     }
 
     deinit {
@@ -56,10 +65,10 @@ final class PortfolioParallaxController {
     }
 
     var gate: PortfolioTilt.Gate {
-        let fx = FxPolicy.current
-        return PortfolioTilt.Gate(enabled: fx.tier == .full,
-                                  reduceMotion: fx.reduceMotion,
-                                  lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
+        let policy = motionPolicy()
+        return PortfolioTilt.Gate(enabled: policy.enabled,
+                                  reduceMotion: policy.reduceMotion,
+                                  lowPower: policy.lowPower,
                                   hidden: !appActive,
                                   heroVisible: heroVisible)
     }
@@ -136,7 +145,10 @@ final class PortfolioParallaxController {
             reference = nil
             manager.deviceMotionUpdateInterval = 1.0 / 60.0
             manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-                guard let self, let attitude = motion?.attitude else { return }
+                // CoreMotion may already have queued a sample when updates stop.
+                // A late callback must not restart rendering after the surface closes.
+                guard let self, self.started, self.gate.isOpen,
+                      let attitude = motion?.attitude else { return }
                 // Rotation since the first sample about the device's own axes (no gimbal problem upright).
                 guard let reference = self.reference else {
                     self.reference = attitude.copy() as? CMAttitude

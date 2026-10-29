@@ -19,16 +19,22 @@ import Foundation
 
 public final class SubqueryFiatInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
     private let baseUrl: URL
+    private let catalog: () async throws -> [PIAsset]
 
-    public init(baseUrl: URL) {
+    public convenience init(baseUrl: URL) {
+        self.init(baseUrl: baseUrl) { try await PICatalogs.assets.values() }
+    }
+
+    init(baseUrl: URL, catalog: @escaping () async throws -> [PIAsset]) {
         self.baseUrl = baseUrl
+        self.catalog = catalog
         super.init()
     }
 
     override public func execute() async throws -> ResultType {
         // The shared catalog reads the reviewed production PI only.
         try PIIndexerClient.validateProductionEndpoint(baseUrl)
-        let values = try await PICatalogs.assets.values().map(\.fiatData)
+        let values = try await catalog().map(\.fiatData)
         guard let result = values as? ResultType else {
             throw PIIndexerError.invalidResponse
         }

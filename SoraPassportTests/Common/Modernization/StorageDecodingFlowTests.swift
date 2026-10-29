@@ -228,3 +228,105 @@ final class StorageDecodingFlowTests: XCTestCase {
 
 }
 private enum LocalStorageFailure: Swift.Error { case offline }
+
+extension StorageDecodingFlowTests {
+    private func remoteFactory() -> StorageRequestFactory {
+        StorageRequestFactory(remoteFactory: StorageKeyFactory(), operationManager: OperationManager())
+    }
+    func testRemoteDoubleMapBindsBothKeyPartsAndTheRequestedBlock() async throws {
+        let engine = StorageQueryFixtureEngine(), first = Data(repeating: 7, count: 32), second = Data(repeating: 8, count: 32)
+        engine.value = Data(repeating: 0, count: 48)
+        let asset = AssetId(wrappedValue: WalletAssetId.val.rawValue), block = Data(repeating: 9, count: 32)
+        let wrapper: CompoundOperationWrapper<[StorageResponse<JSON>]> = remoteFactory().queryItems(engine: engine,
+            keyParams1: { [first, second] }, keyParams2: { [asset, asset] }, factory: { try Self.coder.get() }, storagePath: .tokens, at: block)
+        let rows = try await run(wrapper)
+        let expected = try [first, second].map { try StorageKeyFactory().accountsKey(account: $0, asset: Data(hexStringSSF: WalletAssetId.val.rawValue)) }
+        XCTAssertEqual(rows.map(\.key), expected)
+        XCTAssertTrue(rows.allSatisfy { $0.data == engine.value && $0.value != nil })
+        XCTAssertEqual(engine.blocks, [block.toHex(includePrefix: true)])
+        XCTAssertEqual(engine.pages, [expected.map { $0.toHex(includePrefix: true) }])
+    }
+    func testRemoteDoubleMapConvenienceUsesLatestBlockWithoutInventingABlockHash() async throws {
+        let engine = StorageQueryFixtureEngine(); engine.value = Data(repeating: 0, count: 48)
+        let wrapper: CompoundOperationWrapper<[StorageResponse<JSON>]> = remoteFactory().queryItems(engine: engine,
+            keyParams1: { [Data(repeating: 7, count: 32)] }, keyParams2: { [AssetId(wrappedValue: WalletAssetId.val.rawValue)] },
+            factory: { try Self.coder.get() }, storagePath: .tokens)
+        let rows = try await run(wrapper)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(engine.blocks, [nil])
+    }
+    func testRemoteDoubleMapRejectsFirstKeyFailureBeforeRPC() async {
+        let engine = StorageQueryFixtureEngine()
+        let wrapper: CompoundOperationWrapper<[StorageResponse<JSON>]> = remoteFactory().queryItems(engine: engine,
+            keyParams1: { () throws -> [Data] in throw LocalStorageFailure.offline }, keyParams2: { [AssetId(wrappedValue: WalletAssetId.val.rawValue)] },
+            factory: { try Self.coder.get() }, storagePath: .tokens)
+        do { _ = try await run(wrapper); XCTFail("Missing key must fail") } catch { XCTAssertTrue(error is LocalStorageFailure) }
+        XCTAssertTrue(engine.pages.isEmpty)
+    }
+    func testRemoteDoubleMapRejectsSecondKeyFailureBeforeRPC() async {
+        let engine = StorageQueryFixtureEngine()
+        let wrapper: CompoundOperationWrapper<[StorageResponse<JSON>]> = remoteFactory().queryItems(engine: engine,
+            keyParams1: { [Data(repeating: 7, count: 32)] }, keyParams2: { () throws -> [AssetId] in throw LocalStorageFailure.offline },
+            factory: { try Self.coder.get() }, storagePath: .tokens)
+        do { _ = try await run(wrapper); XCTFail("Missing key must fail") } catch { XCTAssertTrue(error is LocalStorageFailure) }
+        XCTAssertTrue(engine.pages.isEmpty)
+    }
+    func testRemoteDoubleMapRejectsRuntimeFailureBeforeRPC() async {
+        let engine = StorageQueryFixtureEngine()
+        let wrapper: CompoundOperationWrapper<[StorageResponse<JSON>]> = remoteFactory().queryItems(engine: engine,
+            keyParams1: { [Data(repeating: 7, count: 32)] }, keyParams2: { [AssetId(wrappedValue: WalletAssetId.val.rawValue)] },
+            factory: { throw LocalStorageFailure.offline }, storagePath: .tokens)
+        do { _ = try await run(wrapper); XCTFail("Missing runtime must fail") } catch { XCTAssertTrue(error is LocalStorageFailure) }
+        XCTAssertTrue(engine.pages.isEmpty)
+    }
+    func testRemoteDoubleMapRejectsMismatchedParameterCountsBeforeRPC() async {
+        let engine = StorageQueryFixtureEngine()
+        let wrapper: CompoundOperationWrapper<[StorageResponse<JSON>]> = remoteFactory().queryItems(engine: engine,
+            keyParams1: { [Data(repeating: 7, count: 32)] }, keyParams2: { [] as [AssetId] },
+            factory: { try Self.coder.get() }, storagePath: .tokens)
+        do { _ = try await run(wrapper); XCTFail("Mismatched keys must fail") } catch {}
+        XCTAssertTrue(engine.pages.isEmpty)
+    }
+    func testRemoteStoragePaginatesWithoutLosingRequestedOrder() async throws {
+        let engine = StorageQueryFixtureEngine(); engine.value = bytes(17)
+        let keys = (0..<1_001).map { Data([UInt8($0 & 255), UInt8($0 >> 8)]) }
+        let wrapper: CompoundOperationWrapper<[StorageResponse<Value>]> = remoteFactory().queryItems(engine: engine,
+            keys: { keys }, factory: { try Self.coder.get() }, storagePath: .totalIssuance)
+        let rows = try await run(wrapper)
+        XCTAssertEqual(engine.pages.map(\.count), [1_000, 1]); XCTAssertEqual(rows.map(\.key), keys)
+        XCTAssertEqual(rows.compactMap(\.value).map(\.value), Array(repeating: BigUInt(17), count: 1_001))
+    }
+    func testRemoteStorageFailureCannotBecomeAnEmptySuccessfulRead() async {
+        let engine = StorageQueryFixtureEngine(); engine.failure = LocalStorageFailure.offline
+        let wrapper: CompoundOperationWrapper<[StorageResponse<Value>]> = remoteFactory().queryItems(engine: engine,
+            keys: { [Data([1])] }, factory: { try Self.coder.get() }, storagePath: .totalIssuance)
+        do { _ = try await run(wrapper); XCTFail("RPC failure must propagate") } catch { XCTAssertTrue(error is LocalStorageFailure) }
+        XCTAssertEqual(engine.pages.count, 1)
+    }
+}
+private final class StorageQueryFixtureEngine: JSONRPCEngine {
+    var url: URL? = URL(string: "wss://storage-query.fixture.invalid")
+    var pendingEngineRequests: [JSONRPCRequest] { [] }
+    var value = Data(), failure: Error?
+    private(set) var pages = [[String]](), blocks = [String?]()
+    func callMethod<P: Codable, T: Decodable>(_ method: String, params: P?, options: JSONRPCOptions, completion closure: ((Result<T, Error>) -> Void)?) throws -> UInt16 {
+        XCTAssertEqual(method, SoraPassport.RPCMethod.queryStorageAt)
+        let encoded = try JSONEncoder().encode(params)
+        let request = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [Any])
+        let keys = try XCTUnwrap(request.first as? [String])
+        pages.append(keys); blocks.append(request.count > 1 ? request[1] as? String : nil)
+        let result = Result<T, Error> {
+            if let failure { throw failure }
+            let changes = keys.reversed().map { [$0, value.toHex(includePrefix: true)] }
+            let response: [[String: Any]] = [["block": "0x" + String(repeating: "09", count: 32), "changes": changes]]
+            return try JSONDecoder.scaleCompatible(snakeCase: false).decode(T.self, from: JSONSerialization.data(withJSONObject: response))
+        }
+        closure?(result)
+        return UInt16(pages.count)
+    }
+    func subscribe<P: Codable, T: Decodable>(_ method: String, params: P?, updateClosure: @escaping (T) -> Void, failureClosure: @escaping (Error, Bool) -> Void) throws -> UInt16 { XCTFail("Storage queries must not subscribe"); throw LocalStorageFailure.offline }
+    func cancelForIdentifier(_ identifier: UInt16) {}
+    func generateRequestId() -> UInt16 { 1 }
+    func addSubscription(_ subscription: JSONRPCSubscribing) { XCTFail("Storage queries must not subscribe") }
+    func connectIfNeeded() {}; func disconnectIfNeeded() {}; func unsubsribe(_ identifier: UInt16) throws {}
+}

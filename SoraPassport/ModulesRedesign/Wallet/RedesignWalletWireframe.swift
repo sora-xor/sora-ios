@@ -108,9 +108,12 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     
     let feeProvider: FeeProviderProtocol
-    
-    init(feeProvider: FeeProviderProtocol) {
+    private let sendPreflight: WalletAccountCapability.SendPreflight
+
+    init(feeProvider: FeeProviderProtocol,
+         sendPreflight: @escaping WalletAccountCapability.SendPreflight = WalletAccountCapability.liveSendPreflight) {
         self.feeProvider = feeProvider
+        self.sendPreflight = sendPreflight
     }
 
     @MainActor
@@ -317,7 +320,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                   qrEncoder: WalletQREncoderProtocol,
                   sharingFactory: AccountShareFactoryProtocol,
                   marketCapService: MarketCapServiceProtocol) {
-        WalletAccountCapability.preflightSend(from: controller) { [self] in
+        sendPreflight(controller, nil) { [self] in
             let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
                                                       selectedAddress: selectedAddress,
                                                       fiatService: fiatService,

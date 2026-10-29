@@ -67,8 +67,8 @@ xcodebuild test -project SoraPassport.xcodeproj -scheme SoraPassport \
 
 ```
 
-The complete production line-coverage gate runs the app unit suite, the ordinary
-UI launch test, and the app-owned NexusTransferCodec package. Use a disposable
+The complete production line-coverage gate runs the app unit, integration, and UI
+test targets, plus the app-owned NexusTransferCodec package. Use a disposable
 simulator and an output directory that does not already exist:
 
 ```sh
@@ -77,7 +77,7 @@ simulator and an output directory that does not already exist:
   /absolute/path/new-coverage-result
 ```
 
-The gate requires at least **80% of executable production source lines**. It
+The gate requires at least **90.01% of executable production source lines**. It
 includes unexecuted app UI and debug code and the first-party codec; it excludes
 test targets, third-party dependencies, and generated `R.swift` output. Each
 executable source line counts once, including lines that appear in overlapping
@@ -86,10 +86,25 @@ denominator, percentage, and every file's counts. The original `.xcresult`, logs
 source hashes, raw line data, and codec report remain beside it for review.
 
 A test failure or missing/incompatible coverage fails the command. A passing test
-suite below 80% also returns a failing exit status. Keep production sources frozen
-during measurement; the runner compares their hashes after both suites. Existing
-opt-in live and device-evidence tests keep their admission requirements. Use the
-`test` action for complete Xcode metadata; `test-without-building` can omit it.
+suite below 90.01% also returns a failing exit status. Keep production sources frozen
+during measurement; the runner compares their hashes after the app and codec runs.
+Use the `test` action for complete Xcode metadata; `test-without-building` can omit it.
+
+The integration target includes three read-only live-node tests: both
+`AssetsInfoProviderTests` cases and `JSONRPCTests.testNeedsMigration`. They use
+`wss://mof2.sora.org` and require a reachable node with the expected RPC methods;
+they do not require funds or submit transactions, and failures fail the run. The
+scheme retains its six existing `JSONRPCPoolXYKTests` exclusions because those
+fixtures depend on a historical funded account and storage layout.
+
+Existing live-network, visual-fixture, simulator-upgrade, and physical-device
+evidence tests retain their explicit admission requirements. Without opt-in
+environment settings, the UI target runs its ordinary launch test and records
+four setup-dependent skips. The two visual tests require separately prepared
+empty or sample-wallet simulators; the historical upgrade test requires its
+public-fixture prepare/launch/verify harness. Physical migration evidence requires
+the protected controller and a production-IPA-derived installation and cannot be
+qualified by this simulator coverage run.
 
 Choose an available simulator name if yours differs. Debug simulator signing uses
 Xcode's local ad-hoc identity so tests can access Keychain.

@@ -501,3 +501,129 @@ private extension Data {
         map { String(format: "%02x", $0) }.joined()
     }
 }
+
+extension IrohaConnectTests {
+    private func proof(_ values: [String] = ["example.app", "https://example.app/sign-in", "Sign in to the public fixture", "2026-10-28T00:00:00Z", "public-nonce"]) -> IrohaConnectSignInProof {
+        .init(domain: values[0], uri: values[1], statement: values[2], issuedAt: values[3], nonce: values[4])
+    }
+    func testApprovalRoundTripPreservesTheEntireSignInProofAndSignature() throws {
+        let fixture = try makeFixture(), key = Data(repeating: 2, count: 32), signature = Data(repeating: 3, count: 64)
+        let permissions = IrohaConnectPermissions(methods: ["sign_raw"], events: [], resources: ["example.app"])
+        let bytes = try IrohaConnectWire.encodeApprove(sid: fixture.sid, sequence: 2, walletKey: key,
+            accountId: "public-fixture-account", permissions: permissions, proof: proof(), signature: signature)
+        let decoded = try IrohaConnectWire.decodeFrame(bytes)
+        XCTAssertEqual(decoded.sid, fixture.sid); XCTAssertEqual(decoded.sequence, 2); XCTAssertEqual(decoded.direction, 1)
+        XCTAssertEqual(decoded.kind, .control(.approve(walletPublicKey: key, accountId: "public-fixture-account",
+            permissions: permissions, proof: proof(), signature: signature)))
+    }
+    func testApprovalSignaturePreimageBindsEverySignInProofField() throws {
+        let fixture = try makeFixture(), launch = try IrohaConnectLaunch.parse(fixture.url, receivedAt: fixture.receivedAt)
+        let original = ["example.app", "https://example.app/sign-in", "Sign in to the public fixture", "2026-10-28T00:00:00Z", "public-nonce"]
+        func preimage(_ proof: IrohaConnectSignInProof?) throws -> Data {
+            try IrohaConnectWire.approvalPreimage(launch: launch, walletKey: Data(repeating: 2, count: 32),
+                accountId: "public-fixture-account", permissions: nil, proof: proof)
+        }
+        let expected = try preimage(proof(original)); XCTAssertNotEqual(expected, try preimage(nil))
+        for index in original.indices {
+            var changed = original; changed[index] += "-changed"
+            XCTAssertNotEqual(expected, try preimage(proof(changed)), "Proof field \(index) must be signed")
+        }
+    }
+    func testApprovalRejectsAnOversizedProofFieldDuringDecode() throws {
+        let fixture = try makeFixture()
+        for (index, limit) in [(0, 512), (1, 4096), (2, 8192), (3, 256), (4, 512)] {
+            var fields = ["example.app", "https://example.app/sign-in", "Statement", "2026-10-28", "nonce"]
+            fields[index] = String(repeating: "x", count: limit + 1)
+            let bytes = try IrohaConnectWire.encodeApprove(sid: fixture.sid, sequence: 1,
+                walletKey: Data(repeating: 2, count: 32), accountId: "fixture", permissions: nil,
+                proof: proof(fields), signature: Data(repeating: 3, count: 64))
+            XCTAssertThrowsError(try IrohaConnectWire.decodeFrame(bytes))
+        }
+    }
+    func testCloseFramePreservesReasonRoleCodeAndRetryPolicy() throws {
+        let fixture = try makeFixture()
+        for retryable in [false, true] {
+            let decoded = try IrohaConnectWire.decodeFrame(IrohaConnectWire.encodeClose(sid: fixture.sid,
+                sequence: 42, code: 409, reason: "Public fixture closed", retryable: retryable))
+            XCTAssertEqual(decoded.sequence, 42); XCTAssertEqual(decoded.direction, 1)
+            XCTAssertEqual(decoded.kind, .control(.close(who: 1, code: 409, reason: "Public fixture closed", retryable: retryable)))
+        }
+    }
+    func testCloseFrameRejectsAnOversizedReasonAndTruncatedPayload() throws {
+        let fixture = try makeFixture()
+        let large = IrohaConnectWire.encodeClose(sid: fixture.sid, sequence: 2, code: 400,
+            reason: String(repeating: "x", count: 4097), retryable: false)
+        XCTAssertThrowsError(try IrohaConnectWire.decodeFrame(large))
+        let valid = IrohaConnectWire.encodeClose(sid: fixture.sid, sequence: 2, code: 400, reason: "Closed", retryable: false)
+        XCTAssertThrowsError(try IrohaConnectWire.decodeFrame(Data(valid.dropLast())))
+    }
+    func testPongPreservesTheMaximumNonceWithoutNarrowing() throws {
+        let fixture = try makeFixture()
+        let decoded = try IrohaConnectWire.decodeFrame(IrohaConnectWire.encodePong(sid: fixture.sid, sequence: 3, nonce: UInt64.max))
+        XCTAssertEqual(decoded.kind, .control(.pong(UInt64.max))); XCTAssertEqual(decoded.sequence, 3)
+    }
+    func testWireRejectsFramesAboveTheProtocolSizeLimit() {
+        XCTAssertThrowsError(try IrohaConnectWire.decodeFrame(Data(repeating: 0, count: IrohaConnectFrame.maximumBytes + 1)))
+    }
+    func testNetworkLiteralRejectsInvalidLengthMarkerAndChecksum() throws {
+        for length in [0, 1, 31, 33] {
+            XCTAssertThrowsError(try IrohaConnectNetworkLiteral(bytes: Data(repeating: 1, count: length)))
+        }
+        XCTAssertThrowsError(try IrohaConnectNetworkLiteral(bytes: Data(repeating: 2, count: 32)))
+        XCTAssertThrowsError(try IrohaConnectNetworkLiteral(IrohaConnectLaunch.tairaNetworkId.lowercased()))
+        XCTAssertThrowsError(try IrohaConnectNetworkLiteral(String(IrohaConnectLaunch.tairaNetworkId.dropLast()) + "0"))
+        let literal = try IrohaConnectNetworkLiteral(bytes: Data(repeating: 1, count: 32))
+        XCTAssertEqual(try IrohaConnectNetworkLiteral(literal.literal), literal)
+    }
+    private func changingQuery(_ name: String, value: String?) throws -> URL {
+        var parts = URLComponents(url: try makeFixture().url, resolvingAgainstBaseURL: false)!
+        parts.queryItems = parts.queryItems?.map { $0.name == name ? URLQueryItem(name: name, value: value) : $0 }
+        return try XCTUnwrap(parts.url)
+    }
+    func testLaunchRejectsEmptyMissingAndWhitespaceQueryValues() throws {
+        for value in [nil, "", " wallet", "wallet "] as [String?] {
+            XCTAssertThrowsError(try IrohaConnectLaunch.parse(changingQuery("role", value: value)))
+        }
+        var parts = URLComponents(url: try makeFixture().url, resolvingAgainstBaseURL: false)!
+        parts.queryItems?.removeAll { $0.name == "relay" }
+        XCTAssertThrowsError(try IrohaConnectLaunch.parse(XCTUnwrap(parts.url)))
+    }
+    func testLaunchRejectsAllZeroAgreementKeysAndNonces() throws {
+        for (name, length) in [("app_pk", 32), ("nonce", 16)] {
+            XCTAssertThrowsError(try IrohaConnectLaunch.parse(changingQuery(name, value: Data(repeating: 0, count: length).base64URL)))
+        }
+    }
+    func testLaunchRejectsPaddedOrShortTokensBeforeAnyConnection() throws {
+        for name in ["token", "relay"] {
+            for value in [Data(repeating: 1, count: 32).base64EncodedString(), Data(repeating: 1, count: 31).base64URL, "a+b/"] {
+                XCTAssertThrowsError(try IrohaConnectLaunch.parse(changingQuery(name, value: value)))
+            }
+        }
+    }
+    func testLaunchRequiresAnExactTrustedHttpsOrigin() throws {
+        for node in ["http://taira.sora.org", "https://taira.sora.org/path", "https://user@taira.sora.org", "https://taira.sora.org?x=1", "https://taira.sora.org#fragment", "https://untrusted.invalid"] {
+            XCTAssertThrowsError(try IrohaConnectLaunch.parse(changingQuery("node", value: node)))
+        }
+    }
+    func testLaunchRejectsUnpinnedMinamotoBuildConfiguration() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bundle")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let plist = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "test.unpinned.connect"], format: .xml, options: 0)
+        try plist.write(to: directory.appendingPathComponent("Info.plist"))
+        let bundle = try XCTUnwrap(Bundle(url: directory))
+        XCTAssertThrowsError(try IrohaConnectLaunch.parse(changingQuery("node", value: "https://minamoto.sora.org"), bundle: bundle)) {
+            XCTAssertEqual($0 as? IrohaConnectError, .unsupportedNetwork)
+        }
+    }
+    func testPermissionsRejectEventsAndInvalidResourceScopes() {
+        let bad = [IrohaConnectPermissions(methods: [], events: ["transfer"], resources: nil),
+            .init(methods: ["sign_raw"], events: [], resources: nil),
+            .init(methods: ["sign_raw"], events: [], resources: []),
+            .init(methods: ["sign_transaction"], events: [], resources: ["example.app"])]
+        for permissions in bad { XCTAssertThrowsError(try permissions.validate()) }
+        for resources in [[""], [" domain"], ["domain\n"], ["same", "same"], [String(repeating: "a", count: 257)], (0...32).map { "domain-\($0)" }] {
+            XCTAssertThrowsError(try IrohaConnectPermissions(methods: ["sign_raw"], events: [], resources: resources).validate())
+        }
+    }
+}

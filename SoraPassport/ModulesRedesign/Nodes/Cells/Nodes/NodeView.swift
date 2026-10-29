@@ -58,7 +58,7 @@ final class NodeView: UIControl {
         }
     }()
 
-    private var moreButton: UIButton = {
+    private lazy var moreButton: UIButton = {
         UIButton().then {
             $0.setImage(R.image.iconMenuVertical(), for: .normal)
             $0.addTarget(self, action: #selector(onMoreTap), for: .touchUpInside)
@@ -143,27 +143,27 @@ final class NodeView: UIControl {
         let favorite = UIAction(
             title: R.string.localizable.commonCopyAddress(preferredLanguages: .currentLocale),
             image: UIImage(systemName: "doc.on.doc.fill")
-        ) { [unowned self] _ in
-            guard let node = node else { return }
-            onCopy?(node.node)
+        ) { [weak self] _ in
+            guard let self, let node = self.node else { return }
+            self.onCopy?(node.node)
         }
 
 
         let share = UIAction(
             title: R.string.localizable.selectNodeCustomNodeEditNode(preferredLanguages: .currentLocale),
             image: UIImage(systemName: "pencil")
-        ) { [unowned self] action in
-            guard let node = node else { return }
-            onEdit?(node.node)
+        ) { [weak self] action in
+            guard let self, let node = self.node else { return }
+            self.onEdit?(node.node)
         }
 
         let delete = UIAction(
             title: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
             image: UIImage(systemName: "trash.fill"),
             attributes: [.destructive]
-        ) { [unowned self] action in
-            guard let node = node else { return }
-            onRemove?(node.node)
+        ) { [weak self] action in
+            guard let self, let node = self.node else { return }
+            self.onRemove?(node.node)
          }
 
          return UIContextMenuConfiguration(identifier: nil,

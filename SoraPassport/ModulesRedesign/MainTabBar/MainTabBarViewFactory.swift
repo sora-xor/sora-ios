@@ -180,26 +180,32 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     
     static func reloadWalletView(on view: MainTabBarViewProtocol,
                                  wireframe: MainTabBarWireframeProtocol) {
-        let localizationManager = LocalizationManager.shared
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
+        reloadWalletView(on: view, wireframe: wireframe, environment: .app)
+    }
+
+    static func reloadWalletView(on view: MainTabBarViewProtocol,
+                                 wireframe: MainTabBarWireframeProtocol,
+                                 environment: WalletTabAssemblyEnvironment) {
+        let localizationManager = environment.localizationManager
+        let assetManager = environment.assetManager()
+        environment.prepareAssets(assetManager)
         
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+        let primitiveFactory = WalletPrimitiveFactory(keystore: environment.keystore())
         
         guard
-            let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+            let selectedAccount = environment.selectedAccount(),
             let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+            let connection = environment.connection() else {
             return
         }
         
         let farmingService = DemeterFarmingService(
             operationFactory: DemeterFarmingOperationFactory(engine: connection),
-            fiatService: FiatService.shared,
+            fiatService: environment.fiatService,
             assetManager: assetManager
         )
         
-        guard let walletContext = try? WalletContextFactory().createContext(connection: connection,
+        guard let walletContext = try? environment.contextFactory().createContext(connection: connection,
                                                                             assetManager: assetManager,
                                                                             accountSettings: accountSettings,
                                                                             demeterFarmingService: farmingService) else {
@@ -224,10 +230,10 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         let poolViewModelsfactory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
-                                           fiatService: FiatService.shared)
+                                           fiatService: environment.fiatService)
         
-        let poolsViewModelService = PoolsItemService(marketCapService: MarketCapService.shared,
-                                           fiatService: FiatService.shared,
+        let poolsViewModelService = PoolsItemService(marketCapService: environment.marketCapService,
+                                           fiatService: environment.fiatService,
                                            poolViewModelsFactory: poolViewModelsfactory)
         poolsService.appendDelegate(delegate: poolsViewModelService)
         
@@ -245,7 +251,13 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     accountSettings: accountSettings,
                                                                     farmingService: farmingService,
                                                                     feeProvider: feeProvider,
-                                                                    localizationManager: localizationManager) else {
+                                                                    localizationManager: localizationManager,
+                                                                    connection: connection,
+                                                                    runtimeRegistry: environment.runtime(),
+                                                                    fiatService: environment.fiatService,
+                                                                    marketCapService: environment.marketCapService,
+                                                                    selectedAccount: selectedAccount,
+                                                                    configureAPY: environment.configureAPY) else {
             return
         }
         

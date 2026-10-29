@@ -270,3 +270,90 @@ private final class ScannerScreenEvents: ScanQRViewModelProtocol {
     func handleDismiss() { calls.append("handleDismiss") }
     func activateImport() { calls.append("import") }
 }
+
+extension ScannerLifecycleTests {
+    private func selectImage(_ extractor: ScannerImageExtraction) {
+        model.qrExtractionService = extractor
+        model.imagePickerController(UIImagePickerController(), didFinishPickingMediaWithInfo: [.originalImage: UIImage()])
+    }
+    func testImageSelectionExtractsAnInvoiceAndUsesTheSameRecipientLookup() async {
+        await activate(); let extraction = ScannerImageExtraction(); selectImage(extraction)
+        XCTAssertEqual(extraction.images, 1); extraction.finish(.success("photo-recipient")); await settle()
+        XCTAssertEqual(network.queries, ["photo-recipient"])
+        network.completions[0](.success([found("photo-recipient")])); await settle()
+        XCTAssertEqual(results.first?.receiverInfo?.accountId, "photo-recipient")
+    }
+    func testImageSelectionUsesLocalContactsWithoutANetworkRequest() async {
+        create(local: ScannerLocal()); await activate(); let extraction = ScannerImageExtraction(); selectImage(extraction)
+        extraction.finish(.success("local-photo")); await settle()
+        XCTAssertTrue(network.queries.isEmpty); XCTAssertEqual(results.first?.firstName, "Local recipient")
+    }
+    func testImageWithoutAMatchedInvoiceShowsExtractionErrorInsteadOfLookingUpRawText() async {
+        await activate(); let extraction = ScannerImageExtraction(); extraction.runMatcher = false; selectImage(extraction)
+        extraction.finish(.success("not-an-invoice")); await settle()
+        XCTAssertEqual(screen.alerts.count, 1); XCTAssertTrue(network.queries.isEmpty)
+    }
+    func testImageExtractionFailuresShowOneActionableErrorAndKeepTheScannerUsable() async {
+        await activate()
+        for error in [WalletQRExtractionServiceError.invalidImage, .detectorUnavailable, .noFeatures] {
+            let extraction = ScannerImageExtraction(); selectImage(extraction); extraction.finish(.failure(error)); await settle()
+        }
+        XCTAssertEqual(screen.alerts.count, 3); XCTAssertTrue(network.queries.isEmpty)
+        guard case .active = model.scanState else { return XCTFail("Extraction failure stopped scanning") }
+    }
+    func testImagePickerCancellationAndMissingImageDoNotStartExtraction() async {
+        await activate(); let extraction = ScannerImageExtraction(); model.qrExtractionService = extraction
+        model.imagePickerControllerDidCancel(UIImagePickerController())
+        model.imagePickerController(UIImagePickerController(), didFinishPickingMediaWithInfo: [:])
+        XCTAssertEqual(extraction.images, 0); XCTAssertTrue(network.queries.isEmpty); XCTAssertTrue(screen.alerts.isEmpty)
+    }
+    func testPhotoExtractionAfterDismissalCannotStartARecipientLookup() async {
+        await activate(); let extraction = ScannerImageExtraction(); selectImage(extraction)
+        model.prepareDismiss(); extraction.finish(.success("late-photo")); await settle()
+        XCTAssertTrue(network.queries.isEmpty); XCTAssertTrue(results.isEmpty)
+    }
+    func testMissingExtractionServiceDoesNotAskForPhotoAccess() {
+        model.qrExtractionService = nil; model.activateImport()
+        XCTAssertEqual(screen.settingsPrompts, 0); XCTAssertTrue(screen.alerts.isEmpty)
+    }
+    func testGalleryPreviouslyDeniedOffersSettingsButOtherPermissionStatesDoNot() async {
+        for error in [ImageGalleryError.accessRestricted, .accessDeniedNow, .unknownAuthorizationStatus, .accessDeniedPreviously] {
+            capture.delegate?.qrCapture(service: capture, didReceive: error)
+        }
+        await settle(); XCTAssertEqual(screen.settingsPrompts, 1); XCTAssertTrue(screen.alerts.isEmpty)
+    }
+    func testUnknownCaptureErrorDoesNotInventACameraPermissionFailure() async {
+        capture.delegate?.qrCapture(service: capture, didReceive: NSError(domain: "fixture", code: 1))
+        await settle(); XCTAssertEqual(screen.settingsPrompts, 0); XCTAssertTrue(screen.alerts.isEmpty)
+    }
+    func testRestrictedCameraMarksThePermissionAttemptWithoutOfferingSettings() async {
+        capture.delegate?.qrCapture(service: capture, didReceive: WalletQRCaptureServiceError.deviceAccessRestricted)
+        await settle(); XCTAssertEqual(screen.settingsPrompts, 0)
+        guard case .initializing(let asked) = model.scanState else { return XCTFail("Unexpected camera state") }; XCTAssertTrue(asked)
+    }
+    func testShowMyQrDismissesTheScannerWhenItsReceiveScreenIsAlreadyUnderneath() {
+        model.showMyQrCode(); XCTAssertEqual(screen.dismissals, 1); XCTAssertTrue(results.isEmpty)
+    }
+    func testConnectCodeStopsCaptureAndIgnoresAnotherCodeDuringDismissal() async throws {
+        await activate()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene); let previous = scene.windows.first { $0.isKeyWindow }
+        window.rootViewController = screen; screen.loadViewIfNeeded(); window.isHidden = false; screen.completeDismissal = false
+        defer { window.isHidden = true; window.rootViewController = nil; previous?.makeKeyAndVisible() }
+        XCTAssertTrue(capture.matcher?.match(code: "iroha://connect") == true)
+        capture.delegate?.qrCapture(service: capture, didMatch: "iroha://connect"); await settle()
+        XCTAssertEqual(screen.dismissals, 1); XCTAssertEqual(capture.stops, 1); XCTAssertTrue(network.queries.isEmpty)
+        capture.delegate?.qrCapture(service: capture, didMatch: "iroha://connect"); await settle(); XCTAssertEqual(screen.dismissals, 1)
+    }
+}
+private final class ScannerImageExtraction: WalletQRExtractionServiceProtocol {
+    var images = 0, runMatcher = true
+    private var matcher: WalletQRMatcherProtocol?, queue: DispatchQueue?, completion: ((Result<String, Error>) -> Void)?
+    func extract(from image: UIImage, using matcher: WalletQRMatcherProtocol, dispatchCompletionIn queue: DispatchQueue?, completionBlock: @escaping (Result<String, Error>) -> Void) {
+        images += 1; self.matcher = matcher; self.queue = queue; completion = completionBlock
+    }
+    func finish(_ result: Result<String, Error>) {
+        if case let .success(code) = result, runMatcher { _ = matcher?.match(code: code) }
+        let callback = completion; (queue ?? .main).async { callback?(result) }
+    }
+}

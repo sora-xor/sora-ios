@@ -568,13 +568,23 @@ final class NexusSendViewController: UIViewController {
 }
 
 /// QR scanning only fills the draft. Network/address admission still happens at review.
-private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+final class WalletAddressScanner: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "sora.wallet.qr-camera")
     private let completion: (String) -> Void
+    private let requestCameraAccess: (@escaping (Bool) -> Void) -> Void
+    private let makeCameraInput: () -> AVCaptureDeviceInput?
     private var preview: AVCaptureVideoPreviewLayer?
     private var received = false
-    init(completion: @escaping (String) -> Void) {
+    init(
+        requestCameraAccess: @escaping (@escaping (Bool) -> Void) -> Void = { AVCaptureDevice.requestAccess(for: .video, completionHandler: $0) },
+        makeCameraInput: @escaping () -> AVCaptureDeviceInput? = {
+            AVCaptureDevice.default(for: .video).flatMap { try? AVCaptureDeviceInput(device: $0) }
+        },
+        completion: @escaping (String) -> Void
+    ) {
+        self.requestCameraAccess = requestCameraAccess
+        self.makeCameraInput = makeCameraInput
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
     }
@@ -584,7 +594,7 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         title = WalletUX.text("Scan receive address")
         view.backgroundColor = WalletUX.page
         navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) })
-        AVCaptureDevice.requestAccess(for: .video) { [weak self] allowed in
+        requestCameraAccess { [weak self] allowed in
             DispatchQueue.main.async {
                 guard let self, self.view.window != nil else { return }
                 allowed ? self.startCamera() : self.showUnavailable()
@@ -600,8 +610,7 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         queue.async { [session] in session.stopRunning() }
     }
     private func startCamera() {
-        guard let device = AVCaptureDevice.default(for: .video),
-              let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) else {
+        guard let input = makeCameraInput(), session.canAddInput(input) else {
             showUnavailable(); return
         }
         session.addInput(input)
@@ -628,7 +637,10 @@ private final class WalletAddressScanner: UIViewController, AVCaptureMetadataOut
         ])
     }
     func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
-        guard !received, let value = (metadataObjects.first as? AVMetadataMachineReadableCodeObject)?.stringValue else { return }
+        acceptScannedAddress((metadataObjects.first as? AVMetadataMachineReadableCodeObject)?.stringValue)
+    }
+    func acceptScannedAddress(_ value: String?) {
+        guard !received, let value else { return }
         received = true
         dismiss(animated: true) { [completion] in completion(value) }
     }

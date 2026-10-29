@@ -383,3 +383,146 @@ private final class ReuseImageLoader: WalletImageViewModelProtocol {
   func complete(_ image: UIImage?) { callback?(image, nil) }
   func cancel() {}
 }
+
+@MainActor final class NodeContextMenuLifecycleTests: XCTestCase {
+    private func node(_ name: String = "Local fixture") -> ChainNodeModel {
+        ChainNodeModel(url: URL(string: "wss://example.invalid/\(name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!, name: name, apikey: nil)
+    }
+    private func actions(_ view: NodeView) throws -> [UIAction] {
+        let configuration = try XCTUnwrap(view.contextMenuInteraction(UIContextMenuInteraction(delegate: view), configurationForMenuAtLocation: .zero))
+        let block = try XCTUnwrap(configuration.value(forKey: "actionProvider"))
+        let provider = unsafeBitCast(block as AnyObject, to: (@convention(block) ([UIMenuElement]) -> UIMenu?).self)
+        let menu = try XCTUnwrap(provider([]))
+        return menu.children.compactMap { $0 as? UIAction }
+    }
+    private func perform(_ action: UIAction) {
+        let control = UIButton(type: .system)
+        control.addAction(action, for: .touchUpInside)
+        control.sendActions(for: .touchUpInside)
+    }
+    func testMoreButtonTargetsItsOwningRowRatherThanTheViewType() throws {
+        let view = NodeView()
+        let button = try XCTUnwrap(view.subviews.compactMap { $0 as? UIButton }.first)
+        XCTAssertTrue(button.allTargets.contains { ($0.base as AnyObject) === view })
+        XCTAssertEqual(button.actions(forTarget: view, forControlEvent: .touchUpInside), ["onMoreTap"])
+    }
+    func testMenuSeparatesCopyEditAndDestructiveRemoval() throws {
+        let view = NodeView(); view.updateView(model: NodeViewModel(node: node(), isSelected: false, isCustom: true))
+        let menu = try actions(view)
+        XCTAssertEqual(menu.map(\.title), [R.string.localizable.commonCopyAddress(preferredLanguages: .currentLocale),
+            R.string.localizable.selectNodeCustomNodeEditNode(preferredLanguages: .currentLocale),
+            R.string.localizable.commonRemove(preferredLanguages: .currentLocale)])
+        XCTAssertFalse(menu[0].attributes.contains(.destructive)); XCTAssertFalse(menu[1].attributes.contains(.destructive))
+        XCTAssertTrue(menu[2].attributes.contains(.destructive))
+    }
+    func testCopyActionDeliversTheExactNodeWithoutEditingOrRemoving() throws {
+        let view = NodeView(); let expected = node(); var copied = [ChainNodeModel](), edits = 0, removals = 0
+        view.updateView(model: NodeViewModel(node: expected, isSelected: true, isCustom: true))
+        view.onCopy = { copied.append($0) }; view.onEdit = { _ in edits += 1 }; view.onRemove = { _ in removals += 1 }
+        perform(try actions(view)[0])
+        XCTAssertEqual(copied, [expected]); XCTAssertEqual(edits, 0); XCTAssertEqual(removals, 0)
+    }
+    func testEditActionDeliversTheExactNodeWithoutRemoving() throws {
+        let view = NodeView(); let expected = node(); var edited = [ChainNodeModel](), removals = 0
+        view.updateView(model: NodeViewModel(node: expected, isSelected: false, isCustom: true))
+        view.onEdit = { edited.append($0) }; view.onRemove = { _ in removals += 1 }
+        perform(try actions(view)[1]); XCTAssertEqual(edited, [expected]); XCTAssertEqual(removals, 0)
+    }
+    func testRemoveActionDeliversOnlyTheChosenNode() throws {
+        let view = NodeView(); let expected = node(); var removed = [ChainNodeModel]()
+        view.updateView(model: NodeViewModel(node: expected, isSelected: false, isCustom: true))
+        view.onRemove = { removed.append($0) }
+        perform(try actions(view)[2]); XCTAssertEqual(removed, [expected])
+    }
+    func testUnboundMenuActionsCannotInventANode() throws {
+        let view = NodeView(); var calls = 0
+        view.onCopy = { _ in calls += 1 }; view.onEdit = { _ in calls += 1 }; view.onRemove = { _ in calls += 1 }
+        try actions(view).forEach(perform); XCTAssertEqual(calls, 0)
+    }
+    func testRetainedMenuActionsAreHarmlessAfterTheirRowIsReleased() throws {
+        var view: NodeView? = NodeView(); weak var retained = view; var calls = 0
+        view?.updateView(model: NodeViewModel(node: node(), isSelected: false, isCustom: true))
+        view?.onCopy = { _ in calls += 1 }; view?.onEdit = { _ in calls += 1 }; view?.onRemove = { _ in calls += 1 }
+        let menu = try actions(XCTUnwrap(view)); view = nil
+        XCTAssertNil(retained); menu.forEach(perform); XCTAssertEqual(calls, 0)
+    }
+    func testReboundRowMenuUsesTheCurrentModelAndCallback() throws {
+        let view = NodeView(); var oldCalls = 0, current = [ChainNodeModel]()
+        view.updateView(model: NodeViewModel(node: node("Old"), isSelected: false, isCustom: true)); view.onCopy = { _ in oldCalls += 1 }
+        let expected = node("Current")
+        view.updateView(model: NodeViewModel(node: expected, isSelected: true, isCustom: true)); view.onCopy = { current.append($0) }
+        perform(try actions(view)[0]); XCTAssertEqual(current, [expected]); XCTAssertEqual(oldCalls, 0)
+    }
+}
+
+@MainActor final class AlertDispatchBoundaryTests: XCTestCase {
+    private func invoke(_ action: UIAlertAction) throws {
+        let block = try XCTUnwrap(action.value(forKey: "handler"))
+        unsafeBitCast(block as AnyObject, to: (@convention(block) (UIAlertAction) -> Void).self)(action)
+    }
+    private func alert(_ host: AlertDispatchHost) throws -> UIAlertController { try XCTUnwrap(host.presented.last as? UIAlertController) }
+    func testCloseCompletionWaitsForTheExplicitCloseAction() throws {
+        let host = AlertDispatchHost(), route = AlertDispatchRoute(); var closed = 0
+        route.present(message: "Message", title: "Title", closeAction: "Close", from: host) { closed += 1 }
+        let shown = try alert(host)
+        XCTAssertEqual(shown.title, "Title"); XCTAssertEqual(shown.message, "Message")
+        XCTAssertEqual(shown.actions.map(\.style), [.cancel]); XCTAssertEqual(closed, 0)
+        try invoke(XCTUnwrap(shown.actions.first)); XCTAssertEqual(closed, 1)
+    }
+    func testBackgroundSimpleAlertPresentsOnMain() async throws {
+        let host = AlertDispatchHost(), route = AlertDispatchRoute(), shown = expectation(description: "main simple alert")
+        host.didPresent = { shown.fulfill() }
+        DispatchQueue.global().async { route.present(message: "Offline", title: "Read failed", closeAction: "OK", from: host) }
+        await fulfillment(of: [shown], timeout: 2)
+        XCTAssertEqual(host.onMain, [true]); XCTAssertEqual(try alert(host).message, "Offline")
+    }
+    func testBackgroundAlertWithCompletionKeepsItsCloseHandler() async throws {
+        let host = AlertDispatchHost(), route = AlertDispatchRoute(), shown = expectation(description: "main completion alert")
+        var closed = false; host.didPresent = { shown.fulfill() }
+        DispatchQueue.global().async { route.present(message: "Retry", title: "Notice", closeAction: "Done", from: host) { closed = true } }
+        await fulfillment(of: [shown], timeout: 2)
+        XCTAssertEqual(host.onMain, [true]); XCTAssertFalse(closed)
+        try invoke(XCTUnwrap(try alert(host).actions.first)); XCTAssertTrue(closed)
+    }
+    func testBackgroundStaticPresenterAlsoReturnsToMain() async throws {
+        let host = AlertDispatchHost(), shown = expectation(description: "main static alert"); host.didPresent = { shown.fulfill() }
+        DispatchQueue.global().async { UIAlertController.present(message: "Message", title: "Title", closeAction: "Close", with: host) }
+        await fulfillment(of: [shown], timeout: 2)
+        XCTAssertEqual(host.onMain, [true]); XCTAssertEqual(try alert(host).actions.map(\.title), ["Close"])
+    }
+    func testBackgroundActionSheetPreservesAllActionStyles() async throws {
+        let host = AlertDispatchHost(), route = AlertDispatchRoute(), shown = expectation(description: "main action sheet")
+        host.didPresent = { shown.fulfill() }
+        let model = AlertPresentableViewModel(title: "Actions", message: "Choose", actions: [
+            AlertPresentableAction(title: "Inspect"), AlertPresentableAction(title: "Remove", style: .destructive),
+            AlertPresentableAction(title: "Cancel", style: .cancel)], closeAction: nil)
+        DispatchQueue.global().async { route.present(viewModel: model, style: .actionSheet, from: host) }
+        await fulfillment(of: [shown], timeout: 2)
+        let presented = try alert(host)
+        XCTAssertEqual(host.onMain, [true]); XCTAssertEqual(presented.preferredStyle, .actionSheet)
+        XCTAssertEqual(presented.actions.map(\.style), [.default, .destructive, .cancel])
+    }
+    func testModelActionInvokesOnlyTheSelectedHandler() throws {
+        let host = AlertDispatchHost(), route = AlertDispatchRoute(); var events = [String]()
+        route.present(viewModel: AlertPresentableViewModel(title: nil, message: nil, actions: [
+            AlertPresentableAction(title: "One") { events.append("one") },
+            AlertPresentableAction(title: "Two", style: .destructive) { events.append("two") }], closeAction: "Close"), style: .alert, from: host)
+        let presented = try alert(host); XCTAssertEqual(presented.actions.count, 3); XCTAssertTrue(events.isEmpty)
+        try invoke(presented.actions[1]); XCTAssertEqual(events, ["two"])
+        XCTAssertNil(presented.actions[2].value(forKey: "handler"))
+    }
+    func testActionWithoutAHandlerIsSafeToChoose() throws {
+        let host = AlertDispatchHost(), route = AlertDispatchRoute()
+        route.present(viewModel: AlertPresentableViewModel(title: "Information", message: nil,
+            actions: [AlertPresentableAction(title: "Understood")], closeAction: nil), style: .alert, from: host)
+        let presented = try alert(host); try invoke(XCTUnwrap(presented.actions.first))
+        XCTAssertEqual(host.presented.count, 1); XCTAssertEqual(presented.actions.count, 1)
+    }
+}
+private final class AlertDispatchRoute: AlertPresentable {}
+private final class AlertDispatchHost: UIViewController, ControllerBackedProtocol {
+    var presented = [UIViewController](), onMain = [Bool](), didPresent: (() -> Void)?
+    override func present(_ controller: UIViewController, animated: Bool, completion: (() -> Void)? = nil) {
+        presented.append(controller); onMain.append(Thread.isMainThread); completion?(); didPresent?()
+    }
+}

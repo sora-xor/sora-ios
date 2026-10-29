@@ -36,7 +36,7 @@ final class PolkamarktAccountScreenTests: XCTestCase {
         UIView.setAnimationsEnabled(animations); previousWindow?.makeKeyAndVisible(); try await super.tearDown()
     }
     private func wait(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
-        for _ in 0..<250 { if condition() { return }; try? await Task.sleep(nanoseconds:10_000_000) }; XCTFail("Account screen did not finish its local read",file:file,line:line)
+        for _ in 0..<1000 { if condition() { return }; try? await Task.sleep(nanoseconds:10_000_000) }; XCTFail("Account screen did not finish its local read",file:file,line:line)
     }
     private func catalog() async -> PolkamarktViewController {
         let client = PIIndexerClient(session:session,historyShapeMemory:PIHistoryShapeMemory(),cacheDirectory:directory,retryPause:{ _ in })
@@ -86,6 +86,7 @@ final class PolkamarktAccountScreenTests: XCTestCase {
         let detail = PolkamarktMarketViewController(market: market, client: client, coordinator: fixture.subject, pendingStore: try PolkamarktPendingStore(baseURL: fixture.directory), account: fixture.account.address, marketDataFromCache: false, mutationsAllowed: allowsMutations)
         navigation = UINavigationController(rootViewController: detail); window.rootViewController = navigation; window.makeKeyAndVisible(); detail.loadViewIfNeeded()
         await wait { detail.tableView.tableHeaderView is PolkamarktLineChartView && PIStubIndexerProtocol.requests.contains("MobilePolkamarktTrades") }
+        await wait { detail.refreshControl?.isRefreshing != true }
         return detail
     }
     private func alert(_ controller: UIViewController) async throws -> UIAlertController {
@@ -156,7 +157,10 @@ final class PolkamarktAccountScreenTests: XCTestCase {
         let a = try await alert(d); XCTAssertEqual(a.title, "Claims paused")
     }
     func testUnclaimableOpenMarketDoesNotOfferASubmission() async throws {
-        let d = try await interactiveDetail(); d.presentClaims()
+        let d = try await interactiveDetail()
+        XCTAssertEqual(cell(d, 0).detailTextLabel?.text, "OPEN")
+        XCTAssertEqual(cell(d, 1, 2).accessoryType, .none)
+        d.presentClaims()
         XCTAssertNil(d.presentedViewController); XCTAssertEqual(fixture.extrinsics.preparedSubmitCount, 0)
     }
     func testClaimOperationFailureIsPresentedAndReloadsFinalizedState() async throws {
@@ -197,6 +201,7 @@ final class PolkamarktAccountScreenTests: XCTestCase {
     }
 }
 private final class AccountMarketIndexer {
+    var positionCount = 1
     var owner = "", emptyPositions = false, positionOverride = [String:Any](), failures = Set<String>(), otherMarketTrade = false
     private func market(_ id: Int = 42) -> [String:Any] { ["id":"market-\(id)","marketId":id,"title":"Runtime-backed market","status":"Open","updatedAtBlock":900,"timestamp":100,"liquidityUSD":"123.45","volumeUSD":"456.78","probability":"20","mechanism":"DynamicParimutuel"] }
     func respond(_ request: PIStubIndexerProtocol.Request) -> PIStubIndexerProtocol.Response {
@@ -205,7 +210,7 @@ private final class AccountMarketIndexer {
         let name: String; let rows: [[String:Any]]
         switch request.operation {
         case "MobilePolkamarktMarkets": name = "markets"; rows = [market()]
-        case "MobilePolkamarktPositions": name = "accountPositions"; rows = emptyPositions ? [] : [["id":"position-42","account":owner,"marketId":42,"market":market(),"status":"Open","outcome":"Yes","shares":"12.5","yesShares":"12","noShares":"2","marketValueUsd":"9.25","unrealizedPnlUsd":"-0.25","realizedPnlUsd":"1.5"].merging(positionOverride){_,v in v}]
+        case "MobilePolkamarktPositions": name = "accountPositions"; rows = emptyPositions ? [] : (0..<positionCount).map { offset in ["id":"position-\(42 + offset)","account":owner,"marketId":42 + offset,"market":market(42 + offset),"status":"Open","outcome":"Yes","shares":"12.5","yesShares":"12","noShares":"2","marketValueUsd":"9.25","unrealizedPnlUsd":"-0.25","realizedPnlUsd":"1.5"].merging(positionOverride){_,v in v} }
         case "MobilePolkamarktTrades": name = "accountTrades"; let id = otherMarketTrade ? 43 : 42; rows = [["id":"trade-1","account":owner,"marketId":id,"marketIds":otherMarketTrade ? [43] : [42,43],"market":market(id),"side":"buy","outcome":"yes","shares":"9007199254740993","blockNumber":900,"blockHash":"0x"+String(repeating:"ab",count:32),"extrinsicHash":"0x"+String(repeating:"cd",count:32)]]
         case "MobilePolkamarktSnapshots": name = "marketSnapshots"; rows = [["id":"snapshot-1","marketId":42,"timestamp":100,"blockHeight":900,"type":"DEFAULT","priceYes":"0.2"]]
         case "MobilePolkamarktSignals": return .init(body:#"{"data":{"polkamarktSignals":{"totalVolumeUsd":"100","activeMarkets":1,"activeAccounts":1,"liquidityUsd":"10","liquiditySeries":[],"answerBreakdown":[]}}}"#)
@@ -275,7 +280,7 @@ private final class RuntimeScreenServer {
     let block = "0x" + String(repeating: "ab", count: 32)
     var owner = "", claimOwner: String?, market: String?, metadataHex = "", genesis = PIIndexerClient.soraMainnetGenesis
     var stateId = 42, kusd = "10000", xor = "20000", yesShares = "2000", noShares = "1500", claimMissing = false
-    var buyOverrides = [String: Any](), sellOverrides = [String: Any]()
+    var buyOverrides = [String: Any](), sellOverrides = [String: Any](), claimOverrides = [String: Any]()
     private let lock = NSLock(); private var recorded = [String]()
     var methods: [String] { lock.lock(); defer { lock.unlock() }; return recorded }
     func response(_ request: URLRequest) throws -> Data {
@@ -302,7 +307,7 @@ private final class RuntimeScreenServer {
         case PolkamarktRuntimeContract.RPC.quoteSell:
             result = ["marketId": 42, "outcome": "No", "sharesIn": "1000", "grossCollateralOut": "556", "feeAmount": "1", "collateralOut": "555"].merging(sellOverrides) { _, new in new }
         case PolkamarktRuntimeContract.RPC.claimable:
-            result = claimMissing ? NSNull() : ["marketId": params[1], "account": claimOwner ?? owner, "status": "Open", "resolutionOutcome": NSNull(), "yesShares": yesShares, "noShares": noShares, "netCollateralPaid": "900", "traderPayout": "0", "claimablePayout": "0", "creatorFees": "0", "isCreator": false]
+            result = claimMissing ? NSNull() : ["marketId": params[1], "account": claimOwner ?? owner, "status": "Open", "resolutionOutcome": NSNull(), "yesShares": yesShares, "noShares": noShares, "netCollateralPaid": "900", "traderPayout": "0", "claimablePayout": "0", "creatorFees": "0", "isCreator": false].merging(claimOverrides) { _, new in new }
         case SoraPassport.RPCMethod.freeBalance:
             result = ["balance": (params[1] as? String) == WalletAssetId.xor.rawValue ? xor : kusd]
         default: throw RuntimeScreenFailure.unexpected
@@ -447,3 +452,231 @@ private final class RuntimeScreenFarms: DemeterFarmingServiceProtocol {
 }
 
 private final class RuntimeScreenWeakController { weak var value: UIViewController?; init(_ value: UIViewController) { self.value = value } }
+
+extension PolkamarktAccountScreenTests {
+    private func claimableDetail(trader: String, creator: String, isCreator: Bool) async throws -> PolkamarktMarketViewController {
+        fixture.server.market = fixture.markets["Resolved500"]!
+        fixture.server.claimOverrides = ["status": "Resolved", "resolutionOutcome": "Yes", "traderPayout": trader,
+            "claimablePayout": trader, "creatorFees": creator, "isCreator": isCreator]
+        return try await interactiveDetail()
+    }
+    func testResolvedTraderClaimReviewsTheExactPayoutAndFinalizedCheckpoint() async throws {
+        let d = try await claimableDetail(trader: "1234567890123456789", creator: "0", isCreator: false)
+        d.presentClaims(); let a = try await alert(d)
+        XCTAssertTrue(a.message?.contains("Trader payout · 1.234567 KUSD") == true)
+        XCTAssertTrue(a.message?.contains(fixture.server.block) == true)
+        XCTAssertEqual(a.actions.map(\.title), ["Claim trader payout", "Cancel"])
+        XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testResolvedCreatorFeesAreReviewedSeparatelyFromTheTraderPayout() async throws {
+        let d = try await claimableDetail(trader: "2000000000000000000", creator: "3000000000000000000", isCreator: true)
+        d.presentClaims(); let a = try await alert(d)
+        XCTAssertTrue(a.message?.contains("Trader payout · 2 KUSD") == true)
+        XCTAssertTrue(a.message?.contains("Creator fees · 3 KUSD") == true)
+        XCTAssertEqual(a.actions.map(\.title), ["Claim trader payout", "Claim creator fees", "Cancel"])
+        XCTAssertEqual(cell(d,1,2).accessoryType, .disclosureIndicator)
+    }
+    func testCreatorOnlyClaimDoesNotOfferAnEmptyTraderClaim() async throws {
+        let d = try await claimableDetail(trader: "0", creator: "3000000000000000000", isCreator: true)
+        d.tableView(d.tableView, didSelectRowAt: IndexPath(row: 2, section: 1)); let a = try await alert(d)
+        XCTAssertEqual(a.actions.map(\.title), ["Claim creator fees", "Cancel"])
+        XCTAssertFalse(a.message?.contains("Trader payout ·") == true)
+    }
+    func testNonCreatorCannotSeeAClaimActionForAnotherCreatorsFees() async throws {
+        let d = try await claimableDetail(trader: "2000000000000000000", creator: "3000000000000000000", isCreator: false)
+        d.presentClaims(); let a = try await alert(d)
+        XCTAssertEqual(a.actions.map(\.title), ["Claim trader payout", "Cancel"])
+        XCTAssertFalse(a.message?.contains("Creator fees ·") == true)
+    }
+    private func recordPending(action: String, market: UInt32 = 42, state: PolkamarktPendingState,
+                               age: TimeInterval = 0, account: String? = nil) async throws {
+        let store = try PolkamarktPendingStore(baseURL: fixture.directory), time = Date().addingTimeInterval(age)
+        var value = PolkamarktPendingMutation(id: UUID(), account: account ?? fixture.account.address, action: action,
+            marketIds: [market], createdAt: time, updatedAt: time, extrinsicHash: nil, state: .preparing, finalizedBlock: nil, errorClass: nil)
+        try await store.put(value)
+        if state == .failedBeforeSubmission { value.state = state; value.errorClass = "fixture_preparation_failed"; try await store.put(value); return }
+        value.state = .signedBeforeTransport; value.extrinsicHash = "0x" + String(repeating: "cd", count: 32); try await store.put(value)
+        value.state = .submitted; try await store.put(value)
+        value.state = state; value.finalizedBlock = 399; try await store.put(value)
+    }
+    func testDetailDisplaysDurableTerminalStatesNewestFirstWithoutRestartingSubmission() async throws {
+        try await recordPending(action: "buy", state: .failedBeforeSubmission, age: -60)
+        try await recordPending(action: "sell", state: .finalized)
+        let d = try await interactiveDetail(); await wait { d.tableView.numberOfRows(inSection: 3) == 2 }
+        XCTAssertEqual(cell(d,3,0).textLabel?.text, "sell"); XCTAssertEqual(cell(d,3,0).detailTextLabel?.text, "finalized")
+        XCTAssertEqual(cell(d,3,1).detailTextLabel?.text, "failedBeforeSubmission")
+        XCTAssertEqual(cell(d,3,0).selectionStyle, .none); XCTAssertNil(d.navigationItem.prompt)
+        XCTAssertEqual(fixture.extrinsics.preparedSubmitCount, 0)
+    }
+    func testDetailDoesNotDisplayAnotherWalletsOrAnotherMarketsTerminalMutation() async throws {
+        try await recordPending(action: "buy", market: 43, state: .failedBeforeSubmission)
+        try await recordPending(action: "sell", state: .failedBeforeSubmission, account: "other-wallet")
+        let d = try await interactiveDetail(); await wait { d.refreshControl?.isRefreshing != true }
+        XCTAssertEqual(cell(d,3).textLabel?.text, "No pending transaction")
+    }
+    func testRejectedTerminalMutationIsVisibleWithoutEnablingRowSelection() async throws {
+        try await recordPending(action: "buy", state: .rejected)
+        let d = try await interactiveDetail(); await wait { self.cell(d,3).textLabel?.text == "buy" }
+        XCTAssertEqual(cell(d,3).detailTextLabel?.text, "rejected"); XCTAssertEqual(cell(d,3).selectionStyle, .none)
+    }
+    func testCorruptPendingJournalShowsRecoveryRequiredAndDisablesTrading() async throws {
+        let journal = fixture.directory.appendingPathComponent("SORA/PendingTransactions/polkamarkt-v1.json")
+        try Data("invalid journal".utf8).write(to: journal)
+        let d = try await interactiveDetail()
+        await wait { self.cell(d,3).textLabel?.text == "Recovery required" }
+        XCTAssertFalse(d.navigationItem.rightBarButtonItem?.isEnabled ?? true)
+        XCTAssertTrue(cell(d,3).detailTextLabel?.text?.contains("protected pending-transaction journal") == true)
+    }
+    func testTradeForAnotherAccountNeverStartsPreparationOrPresentsAResult() async throws {
+        let d = try await interactiveDetail(), quote = try await fixture.quote(input: BigUInt("1000000000000000000"))
+        d.submitTrade(PolkamarktTradeRequest(account: "another-account", marketId: 42, outcome: .yes, side: .buy,
+            input: quote.input, minimumOutput: quote.minimumOutput, confirmedCloseBlock: quote.closeBlock,
+            confirmedMarketFee: quote.marketFee, maximumNetworkFee: quote.networkFee))
+        XCTAssertNil(d.presentedViewController); XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+}
+
+extension PolkamarktAccountScreenTests {
+    private func reviewedCatalog(allowed: @escaping () -> Bool = { true }, coordinatorAvailable: Bool = true,
+                                 storeFailure: Bool = false) async -> PolkamarktViewController {
+        server.positionCount = 2
+        fixture.server.claimOverrides = ["status": "Resolved", "resolutionOutcome": "Yes", "traderPayout": "2000000000000000000", "claimablePayout": "2000000000000000000"]
+        let client = PIIndexerClient(session: session, historyShapeMemory: PIHistoryShapeMemory(), cacheDirectory: directory, retryPause: { _ in })
+        let f = fixture!
+        let c = PolkamarktViewController(walletContext: f.context, client: client,
+            pendingStore: { if storeFailure { throw RuntimeScreenFailure.offline }; return try PolkamarktPendingStore(baseURL: f.directory) },
+            coordinator: { _ in coordinatorAvailable ? f.subject : nil }, mutationsAllowed: allowed)
+        navigation = UINavigationController(rootViewController: c); window.rootViewController = navigation; window.makeKeyAndVisible(); c.loadViewIfNeeded()
+        await wait { c.tableView.numberOfRows(inSection: 1) == 2 && c.refreshControl?.isRefreshing != true }
+        // Positions are assigned before the authoritative review completes; allow that bounded local read to settle.
+        if allowed() && coordinatorAvailable && !storeFailure && !f.server.claimMissing {
+            await wait { c.navigationItem.rightBarButtonItems?.contains { $0.title == "Claim" } == true }
+        }
+        return c
+    }
+    private func openBatchReview(_ c: PolkamarktViewController) async throws -> UIAlertController {
+        let item = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first { $0.title == "Claim" })
+        _ = c.perform(try XCTUnwrap(item.action))
+        await wait { c.presentedViewController is UIAlertController }
+        return try XCTUnwrap(c.presentedViewController as? UIAlertController)
+    }
+    func testCatalogReviewsEveryClaimAtOneFinalizedCheckpointBeforeSigning() async throws {
+        let c = await reviewedCatalog(), alert = try await openBatchReview(c)
+        XCTAssertTrue(alert.message?.contains("Market 42 · 2 KUSD") == true)
+        XCTAssertTrue(alert.message?.contains("Market 43 · 2 KUSD") == true)
+        XCTAssertTrue(alert.message?.contains(fixture.server.block) == true)
+        XCTAssertEqual(alert.actions.map(\.title), ["Cancel", "Review and sign"])
+        XCTAssertEqual(alert.actions.last?.style, .destructive); XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testCatalogWithoutMutationAdmissionRetainsReadOnlyPositions() async {
+        let c = await reviewedCatalog(allowed: { false })
+        XCTAssertEqual(c.navigationItem.rightBarButtonItems?.map(\.title), ["Filters"])
+        XCTAssertEqual(c.tableView.numberOfRows(inSection: 1), 2)
+        _ = c.perform(NSSelectorFromString("presentBatchClaim")); XCTAssertNil(c.presentedViewController)
+    }
+    func testCatalogCannotReviewClaimsWithoutACoordinator() async {
+        let c = await reviewedCatalog(coordinatorAvailable: false)
+        XCTAssertEqual(c.navigationItem.rightBarButtonItems?.map(\.title), ["Filters"])
+        XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testUnreadableCatalogJournalKeepsClaimControlsUnavailable() async {
+        let c = await reviewedCatalog(storeFailure: true)
+        XCTAssertEqual(c.navigationItem.rightBarButtonItems?.map(\.title), ["Filters"])
+        XCTAssertEqual(c.tableView.numberOfRows(inSection: 1), 2)
+    }
+    func testMissingAuthoritativeClaimablesNeverEnableCatalogClaims() async {
+        fixture.server.claimMissing = true
+        let c = await reviewedCatalog()
+        XCTAssertEqual(c.navigationItem.rightBarButtonItems?.map(\.title), ["Filters"])
+    }
+    func testCatalogClaimReviewRechecksMutationAdmissionAtTheTap() async throws {
+        var enabled = true; let c = await reviewedCatalog(allowed: { enabled })
+        let item = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first { $0.title == "Claim" })
+        enabled = false; _ = c.perform(try XCTUnwrap(item.action))
+        XCTAssertNil(c.presentedViewController); XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testCatalogClaimReviewCannotUseThePreviousSelectedWallet() async throws {
+        let c = await reviewedCatalog(), item = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first { $0.title == "Claim" })
+        SelectedWalletSettings.shared.commitInternalValue(nil); _ = c.perform(try XCTUnwrap(item.action))
+        XCTAssertNil(c.presentedViewController); XCTAssertEqual(content(c, 1)?.text, "Connect a SORA2 wallet to see positions")
+    }
+    func testCatalogRefreshReplacesTheReviewedPayoutBeforeAnotherClaim() async throws {
+        let c = await reviewedCatalog()
+        fixture.server.claimOverrides["traderPayout"] = "3000000000000000000"
+        fixture.server.claimOverrides["claimablePayout"] = "3000000000000000000"
+        c.refreshControl?.sendActions(for: .valueChanged)
+        await wait { c.navigationItem.rightBarButtonItems?.contains { $0.title == "Claim" } == true }
+        let a = try await openBatchReview(c); XCTAssertTrue(a.message?.contains("Market 42 · 3 KUSD") == true)
+    }
+    func testScopedCatalogOpensDetailsUsingTheSameLocalCoordinator() async throws {
+        let c = await reviewedCatalog()
+        c.tableView(c.tableView, didSelectRowAt: IndexPath(row: 0, section: 1))
+        await wait { self.navigation.topViewController !== c }
+        let d = try XCTUnwrap(navigation.topViewController as? PolkamarktMarketViewController)
+        await wait { d.tableView(d.tableView, numberOfRowsInSection: 1) == 3 }
+        XCTAssertEqual(cell(d, 1, 2).textLabel?.text, "Claimable")
+        XCTAssertTrue(cell(d, 1, 2).detailTextLabel?.text?.contains("2") == true)
+    }
+    func testCatalogMenuCanSelectAndClearCategoryFilters() async throws {
+        let c = await reviewedCatalog(allowed: { false })
+        let menu = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first?.menu)
+        let categories = try XCTUnwrap(menu.children.last as? UIMenu)
+        let category = try XCTUnwrap(categories.children.compactMap { $0 as? UIAction }.last)
+        let button = UIButton(); button.addAction(category, for: .touchUpInside); button.sendActions(for: .touchUpInside)
+        await wait { c.tableView.numberOfRows(inSection: 2) == 0 }
+        let current = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first?.menu?.children.last as? UIMenu)
+        XCTAssertEqual(current.title, category.title)
+        let all = try XCTUnwrap(current.children.first as? UIAction), reset = UIButton()
+        reset.addAction(all, for: .touchUpInside); reset.sendActions(for: .touchUpInside)
+        await wait { c.tableView.numberOfRows(inSection: 2) == 1 }
+    }
+    func testCatalogMineFilterReflectsTheSelectedWalletAndCanBeCleared() async throws {
+        let c = await reviewedCatalog(allowed: { false })
+        let action = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first?.menu?.children.first as? UIAction)
+        let button = UIButton(); button.addAction(action, for: .touchUpInside); button.sendActions(for: .touchUpInside)
+        await wait { c.tableView.numberOfRows(inSection: 2) == 0 }
+        let selected = try XCTUnwrap(c.navigationItem.rightBarButtonItems?.first?.menu?.children.first as? UIAction)
+        XCTAssertEqual(selected.state, .on)
+        let reset = UIButton(); reset.addAction(selected, for: .touchUpInside); reset.sendActions(for: .touchUpInside)
+        await wait { c.tableView.numberOfRows(inSection: 2) == 1 }
+    }
+}
+
+extension PolkamarktAccountScreenTests {
+    private func reviewedBatchAuthorization() async throws -> PolkamarktClaimAuthorization {
+        let review = try await fixture.subject.authoritativeClaimables(account: fixture.account.address, marketIds: [42, 43])
+        return try PolkamarktClaimValidator.reviewedTraderAuthorization(claims: review.claims, account: review.account,
+            source: .reviewedPositions, finalizedBlockHash: review.finalizedBlockHash)
+    }
+    func testCatalogClaimSubmissionReportsAnUnavailableCoordinatorWithoutSigning() async throws {
+        let c = await reviewedCatalog(coordinatorAvailable: false), authorization = try await reviewedBatchAuthorization()
+        c.submitBatchClaim(authorization: authorization)
+        await wait { c.presentedViewController is UIAlertController }
+        let alert = try XCTUnwrap(c.presentedViewController as? UIAlertController)
+        XCTAssertEqual(alert.title, "Claims not completed"); XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testCatalogClaimSubmissionReportsJournalFailureWithoutSigning() async throws {
+        let c = await reviewedCatalog(storeFailure: true), authorization = try await reviewedBatchAuthorization()
+        c.submitBatchClaim(authorization: authorization)
+        await wait { c.presentedViewController is UIAlertController }
+        XCTAssertEqual((c.presentedViewController as? UIAlertController)?.title, "Claims not completed")
+        XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testCatalogClaimSubmissionRejectsAStaleAccountBeforeOpeningTheJournal() async throws {
+        let c = await reviewedCatalog(), authorization = try await reviewedBatchAuthorization()
+        SelectedWalletSettings.shared.commitInternalValue(nil); c.submitBatchClaim(authorization: authorization)
+        XCTAssertNil(c.presentedViewController); XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testCatalogDoesNotSubmitAReviewedClaimAfterItsViewIsDetached() async throws {
+        let c = await reviewedCatalog(), authorization = try await reviewedBatchAuthorization()
+        window.rootViewController = nil; c.submitBatchClaim(authorization: authorization)
+        XCTAssertNil(c.presentedViewController); XCTAssertEqual(fixture.extrinsics.prepareCount, 0)
+    }
+    func testOpeningACatalogMarketReportsJournalFailureInsteadOfShowingAnUnsafeDetail() async {
+        let c = await reviewedCatalog(storeFailure: true)
+        c.tableView(c.tableView, didSelectRowAt: IndexPath(row: 0, section: 2))
+        await wait { c.presentedViewController is UIAlertController }
+        XCTAssertEqual((c.presentedViewController as? UIAlertController)?.title, "Market unavailable")
+        XCTAssertTrue(navigation.topViewController === c)
+    }
+}

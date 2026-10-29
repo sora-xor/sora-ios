@@ -890,6 +890,10 @@ enum RetainedKeychainWalletDiscovery {
             prepared.discard()
             throw AccountCreateError.retainedKeyConflict
         }
+        // The factory proves newly supplied material. Here it came from
+        // retained Keychain items, so it cannot authorize initial PIN setup.
+        // The restore flow attaches the separately verified owner-PIN grant.
+        prepared.restrictToRetainedOwnership(nil)
         return prepared
     }
 }

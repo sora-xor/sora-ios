@@ -723,3 +723,151 @@ private final class ScreenClaimRecorder: ClaimRewardsViewModelProtocol {
     func networkFeeInfoButtonTapped() {}
     func viewDidLoad() {}
 }
+
+@MainActor
+final class PolkaswapScreenInteractionCoverageTests: RootActionFixtureTests {
+    private func open(swap: Bool = true) -> (PolkaswapViewController, PolkaswapInteractionModel) {
+        let model = PolkaswapInteractionModel(); model.isSwap = swap
+        let controller = PolkaswapViewController(viewModel: model); mount(UINavigationController(rootViewController: controller))
+        return (controller, model)
+    }
+    private func assets(_ controller: UIViewController) throws -> InputAssetsView { try XCTUnwrap(all(InputAssetsView.self, controller.view).first) }
+    private func options(_ controller: UIViewController) throws -> OptionsView { try XCTUnwrap(all(OptionsView.self, controller.view).first) }
+    private func review(_ controller: UIViewController) throws -> SoramitsuButton {
+        try XCTUnwrap(all(SoramitsuButton.self, controller.view).first { $0.sora.title == R.string.localizable.review(preferredLanguages: ["en"]) })
+    }
+    private func detail(_ title: String, icon: UIImage? = nil, fiat: String? = nil) -> DetailViewModel {
+        DetailViewModel(title: title, rewardAssetImage: icon,
+            assetAmountText: SoramitsuTextItem(text: "2 XOR", fontData: FontType.textS, textColor: .fgPrimary),
+            fiatAmountText: fiat.map { SoramitsuTextItem(text: $0, fontData: FontType.textS, textColor: .fgSecondary) })
+    }
+    func testFirstAndSecondTokenChoicesRouteIndependently() throws {
+        let (controller, model) = open(), assets = try assets(controller)
+        try XCTUnwrap(assets.firstAsset.sora.assetChoiceHandler)(); try XCTUnwrap(assets.secondAsset.sora.assetChoiceHandler)()
+        XCTAssertEqual(model.choices, ["base", "target"])
+    }
+    func testSlippageAndMarketActionsRouteToTheMatchingEditor() throws {
+        let (controller, model) = open(), options = try options(controller)
+        options.slipageButton.sendActions(for: .touchUpInside); options.marketButton.sendActions(for: .touchUpInside)
+        XCTAssertEqual(model.slippageRequests, 1); XCTAssertEqual(model.marketRequests, 1)
+    }
+    func testReviewActionRunsOnlyTheReviewRoute() async throws {
+        let (controller, model) = open(); controller.setupButton(isEnabled: true); await settle()
+        try review(controller).sendActions(for: .touchUpInside)
+        XCTAssertEqual(model.reviewRequests, 1); XCTAssertTrue(model.choices.isEmpty)
+    }
+    func testPoolScreenHidesTheMarketAndProvidesThePoolInformationAction() throws {
+        let (controller, model) = open(swap: false), options = try options(controller)
+        XCTAssertTrue(options.marketButton.isHidden); XCTAssertTrue(options.marketLabel.isHidden)
+        XCTAssertNotNil(controller.navigationItem.leftBarButtonItem)
+        controller.infoTapped(); XCTAssertEqual(model.informationRequests, 1)
+    }
+    func testPoolMiddleButtonDoesNotRotateThePair() throws {
+        let (controller, model) = open(swap: false), assets = try assets(controller)
+        assets.middleButton.sendActions(for: .touchUpInside)
+        XCTAssertEqual(model.middleRequests, 1); XCTAssertEqual(assets.middleButton.transform, .identity)
+    }
+    func testAppearanceRefreshesTheModelWithoutReloadingTheScreen() {
+        let (controller, model) = open(); let appearances = model.appearances
+        controller.viewWillAppear(false)
+        XCTAssertEqual(model.loads, 1); XCTAssertEqual(model.appearances, appearances + 1)
+    }
+    func testDetailReplacementRemovesOldRowsAndTheirInfoActions() throws {
+        let (controller, _) = open(); var oldTaps = 0, currentTaps = 0
+        let first = detail("Old fee"), current = detail("Current fee")
+        first.infoHandler = { oldTaps += 1 }; current.infoHandler = { currentTaps += 1 }
+        controller.update(details: [first]); controller.update(details: [current])
+        let rows = all(DetailView.self, controller.view)
+        XCTAssertEqual(rows.count, 1); XCTAssertEqual(rows.first?.titleLabel.sora.text, "Current fee")
+        try XCTUnwrap(rows.first).infoButton.sendActions(for: .touchUpInside)
+        XCTAssertEqual(currentTaps, 1); XCTAssertEqual(oldTaps, 0)
+    }
+    func testDetailWithoutFiatOrInformationDoesNotLeaveEmptyAccessoriesVisible() throws {
+        let (controller, _) = open(); controller.update(details: [detail("Network fee")])
+        let row = try XCTUnwrap(all(DetailView.self, controller.view).first)
+        XCTAssertTrue(row.assetImageView.isHidden); XCTAssertTrue(row.fiatValueLabel.isHidden); XCTAssertTrue(row.infoButton.isHidden)
+    }
+    func testDetailWithRewardImageAndFiatDisplaysBoth() throws {
+        let (controller, _) = open(); let model = detail("Reward", icon: UIImage(), fiat: "$1")
+        model.infoHandler = {}; controller.update(details: [model])
+        let row = try XCTUnwrap(all(DetailView.self, controller.view).first)
+        XCTAssertFalse(row.assetImageView.isHidden); XCTAssertFalse(row.fiatValueLabel.isHidden); XCTAssertFalse(row.infoButton.isHidden)
+        XCTAssertEqual(row.fiatValueLabel.attributedText?.string, "$1")
+    }
+    func testEmptyDetailRefreshRemovesAllPriorRows() {
+        let (controller, _) = open(); controller.update(details: [detail("Old"), detail("Second")]); controller.update(details: [])
+        XCTAssertTrue(all(DetailView.self, controller.view).isEmpty)
+    }
+    func testKeyboardNotificationsKeepTheFormAboveTheKeyboard() throws {
+        let (controller, _) = open(); let container = try XCTUnwrap(all(ScrollableContainerView.self, controller.view).first)
+        let data = [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: CGRect(x: 0, y: 500, width: 390, height: 240))]
+        NotificationCenter.default.post(name: UIResponder.keyboardWillShowNotification, object: nil, userInfo: data)
+        XCTAssertEqual(container.stackView.layoutMargins.bottom, 240)
+        NotificationCenter.default.post(name: UIResponder.keyboardWillHideNotification, object: nil, userInfo: data)
+        XCTAssertEqual(container.stackView.layoutMargins.bottom, 0); XCTAssertEqual(container.stackView.layoutMargins.top, 16)
+    }
+    func testMalformedKeyboardNotificationPreservesExistingMargins() throws {
+        let (controller, _) = open(); let container = try XCTUnwrap(all(ScrollableContainerView.self, controller.view).first)
+        container.stackView.layoutMargins.bottom = 99
+        NotificationCenter.default.post(name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.post(name: UIResponder.keyboardWillHideNotification, object: nil)
+        XCTAssertEqual(container.stackView.layoutMargins.bottom, 99)
+    }
+    func testAccessoryPercentagesForwardTheExactDecimalFractions() throws {
+        let (controller, model) = open(), assets = try assets(controller)
+        let accessory = try XCTUnwrap(assets.firstAsset.textField.inputAccessoryView as? InputAccessoryView)
+        XCTAssertTrue(assets.secondAsset.textField.inputAccessoryView === accessory)
+        all(SoramitsuButton.self, accessory).forEach { $0.sendActions(for: .touchUpInside) }
+        XCTAssertEqual(model.percentages, [Decimal(string: "0.25")!, Decimal(string: "0.5")!, Decimal(string: "0.75")!, 1])
+    }
+    func testAccessoryVisibilityFollowsTheFocusedAssetEligibility() async throws {
+        let (controller, _) = open(), assets = try assets(controller)
+        let accessory = try XCTUnwrap(assets.firstAsset.textField.inputAccessoryView)
+        controller.setAccessoryView(isHidden: true); await settle(); XCTAssertTrue(accessory.isHidden)
+        controller.setAccessoryView(isHidden: false); await settle(); XCTAssertFalse(accessory.isHidden)
+    }
+    func testProgrammaticFocusChoosesTheRequestedAmountField() async throws {
+        let (controller, model) = open(), assets = try assets(controller)
+        controller.focus(field: .one); await settle(); XCTAssertTrue(assets.firstAsset.textField.isFirstResponder); XCTAssertEqual(model.focusedField, .one)
+        controller.focus(field: .two); await settle(); XCTAssertTrue(assets.secondAsset.textField.isFirstResponder); XCTAssertEqual(model.focusedField, .two)
+        controller.view.endEditing(true)
+    }
+    func testReviewAndMarketLoadingPlaceholdersReturnToNormalTogether() async throws {
+        let (controller, _) = open(), options = try options(controller), review = try review(controller)
+        controller.update(isNeedLoadingState: true); controller.setupMarketButton(isLoadingState: true); await settle()
+        XCTAssertEqual(review.sora.loadingPlaceholder.type, .shimmer); XCTAssertEqual(options.marketButton.sora.loadingPlaceholder.type, .shimmer)
+        controller.update(isNeedLoadingState: false); controller.setupMarketButton(isLoadingState: false); await settle()
+        XCTAssertEqual(review.sora.loadingPlaceholder.type, .none); XCTAssertEqual(options.marketButton.sora.loadingPlaceholder.type, .none)
+    }
+    func testTwoIndependentWarningsKeepTheirOwnMessageAndVisibility() async throws {
+        let (controller, _) = open()
+        controller.updateWarinignView(model: WarningViewModel(descriptionText: "Balance warning", isHidden: false, containterBackgroundColor: .bgSurface, contentColor: .statusError))
+        controller.updateFirstLiquidityWarinignView(model: WarningViewModel(descriptionText: "First pool", isHidden: true, containterBackgroundColor: .bgSurface, contentColor: .fgSecondary))
+        await settle(); let warnings = all(WarningView.self, controller.view)
+        let balance = try XCTUnwrap(warnings.first { $0.descriptionLabel.sora.text == "Balance warning" })
+        let pool = try XCTUnwrap(warnings.first { $0.descriptionLabel.sora.text == "First pool" })
+        XCTAssertFalse(balance.isHidden); XCTAssertTrue(pool.isHidden)
+    }
+}
+
+private final class PolkaswapInteractionModel: LiquidityViewModelProtocol {
+    var title: String? = "Swap fixture", imageName: String?
+    var isSwap = true
+    var actionButtonImage: UIImage? { nil }
+    var inputedFirstAmount: Decimal = 0, inputedSecondAmount: Decimal = 0
+    lazy var middleButtonActionHandler: (() -> Void)? = { [weak self] in self?.middleRequests += 1 }
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?, reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
+    var focusedField: FocusedField = .one
+    var choices = [String](), percentages = [Decimal]()
+    var loads = 0, appearances = 0, middleRequests = 0, slippageRequests = 0, marketRequests = 0, reviewRequests = 0, informationRequests = 0
+    func viewDidLoad() { loads += 1 }
+    func viewWillAppear() { appearances += 1 }
+    func infoButtonTapped() { informationRequests += 1 }
+    func choiсeBaseAssetButtonTapped() { choices.append("base") }
+    func choiсeTargetAssetButtonTapped() { choices.append("target") }
+    func changeSlippageTolerance() { slippageRequests += 1 }
+    func changeMarket() { marketRequests += 1 }
+    func reviewButtonTapped() { reviewRequests += 1 }
+    func recalculate(field: FocusedField) {}
+    func didSelect(variant: Decimal) { percentages.append(variant) }
+}

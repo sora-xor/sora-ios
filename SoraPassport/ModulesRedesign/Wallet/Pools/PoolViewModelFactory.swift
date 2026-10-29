@@ -81,7 +81,7 @@ extension PoolViewModelFactory {
                              targetAssetImage: RemoteSerializer.shared.image(with: targetAssetInfo.icon ?? ""),
                              rewardAssetImage: RemoteSerializer.shared.image(with: rewardAssetInfo.icon ?? ""),
                              mode: mode,
-                             isFavorite: true,
+                             isFavorite: pool.isFavorite,
                              deltaArributedText: deltaArributedText,
                              farmedRewardAssetsImages: farmedRewardAssetsImages)
     }
