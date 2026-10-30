@@ -93,7 +93,10 @@ extension WebSocketEngine: WebSocketDelegate {
         if let data = string.data(using: .utf8) {
             process(data: data)
         } else {
-            logger?.warning("Unsupported text event: \(string)")
+            // Like a response that fails to parse: the size at warning
+            // level, the text at debug level only.
+            logger?.warning("Unsupported text event of \(string.utf8.count) bytes")
+            logger?.debug("Unsupported text event: \(string)")
         }
     }
 
