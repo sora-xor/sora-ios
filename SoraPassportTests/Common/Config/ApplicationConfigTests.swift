@@ -81,6 +81,25 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertFalse(project.contains("pod install"))
     }
 
+    func testUnusedFirebaseMessagingIsNotLinked() throws {
+        // Nothing receives push: no push entitlement and no remote-notification
+        // background mode, so FirebaseMessaging had nothing to do but fetch an
+        // FCM token at launch.
+        let root = try repositoryRoot()
+        let entitlements = try String(contentsOf: root.appendingPathComponent("SoraPassport/SoraPassport.entitlements"))
+        XCTAssertFalse(entitlements.contains("aps-environment"))
+        let backgroundModes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+        XCTAssertFalse(backgroundModes.contains("remote-notification"))
+
+        let project = try String(contentsOf: root.appendingPathComponent("SoraPassport.xcodeproj/project.pbxproj"))
+        XCTAssertFalse(project.contains("FirebaseMessaging"))
+        for product in ["FirebaseCore", "FirebaseAnalyticsCore", "FirebaseCrashlytics"] {
+            XCTAssertTrue(project.contains("productName = \(product);"), product)
+        }
+        XCTAssertNil(NSClassFromString("FIRMessaging"), "The app links no FirebaseMessaging code")
+        XCTAssertNil(Bundle.main.url(forResource: "Firebase_FirebaseMessaging", withExtension: "bundle"))
+    }
+
     func testNodeFailoverTriesEveryCandidateBeforeOneOutageAlert() throws {
         let mainnet = configuredChain(custom: [additionalNode])
         let nodes = SoraNodeConnectionPolicy.candidates(for: mainnet)

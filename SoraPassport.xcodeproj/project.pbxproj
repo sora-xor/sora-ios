@@ -528,7 +528,6 @@
 		16E76BA08804A88456CCE452 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9A099EF5C37C027FFB73219A /* SnapKit */; };
 		16EC319D94003CC287C1CB65 /* AccountImportInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FAB225CAC44E00775559 /* AccountImportInteractor.swift */; };
 		1749F318923970281DB9DF19 /* SecurityLayerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84530A46223BEF3F00AD7598 /* SecurityLayerPresenter.swift */; };
-		17610AEEE4851E3AC5E7D167 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 7B5415C2980B8EE3EB8C0F71 /* FirebaseMessaging */; };
 		17684EE206D4CDE62EBBEB85 /* TokenExchangeInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02BBD83521CB863500C7A1E3 /* TokenExchangeInfo.swift */; };
 		1773718864FA1F6EAC3DD56A /* UserStorageVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66128C0AC6A007F98EB /* UserStorageVersion.swift */; };
 		17CE2DBE1C382AC2D82B57DA /* ExploreAssetCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364BF2212B1C639600758323 /* ExploreAssetCell.swift */; };
@@ -1171,7 +1170,6 @@
 		3B779AB0BC405C9AA9D74ED9 /* ContactsViewModel-Legacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FDE2BA07518005A44BC /* ContactsViewModel-Legacy.swift */; };
 		3BD4D794D62EBE8F3C0B520E /* CoingeckoPriceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3006F26FB7FF800F239D7 /* CoingeckoPriceSource.swift */; };
 		3CADE4F33F4ADDED2384D28B /* UserDataStorageFacade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9A325C9800E00775559 /* UserDataStorageFacade.swift */; };
-		3D00B806416B8624748CB563 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 013F0A55657CA981B8F3B20B /* FirebaseMessaging */; };
 		3DA66E8381E3322A6D7077E5 /* Int+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497F1B25F7C44D00FD4F14 /* Int+Hex.swift */; };
 		3DCDA282BF5CE8555B7437ED /* CountdownTimerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840F2088237EDB0D00EBE714 /* CountdownTimerFactory.swift */; };
 		3E22DE826D1A364208D0105F /* Debouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF5A729157D6D00D0DCCF /* Debouncer.swift */; };
@@ -1358,7 +1356,6 @@
 		5A706189399DF57903E1E209 /* BackupedAccountsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366A78002A30DC9A00A6DDF9 /* BackupedAccountsViewController.swift */; };
 		5A76C912A587A49310E2F472 /* EnabledSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */; };
 		5A7E097B731C062AF8CA8DB0 /* PriceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3010326FDF41D00F239D7 /* PriceData.swift */; };
-		5A8C3F6FEFC67A769B787683 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 8BA8297A2896CE5962B777B2 /* FirebaseMessaging */; };
 		5AD479E4C18E620E77AE1866 /* InputSendInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD1D2A02CF63003C71A4 /* InputSendInfoView.swift */; };
 		5AF6C08C970EE42434935040 /* SoraWalletBinary in Frameworks */ = {isa = PBXBuildFile; productRef = 1D14102BE3C008EE322D810C /* SoraWalletBinary */; };
 		5B06B842BBB06A77E3FCFBBC /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C325C9815C00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift */; };
@@ -4266,7 +4263,6 @@
 				EE37A1A24019F9B8364FF90E /* FirebaseCore in Frameworks */,
 				BBC8978B4D79243BF08CE8AF /* FirebaseAnalyticsCore in Frameworks */,
 				39B1CAF12158A54530FB15E8 /* FirebaseCrashlytics in Frameworks */,
-				17610AEEE4851E3AC5E7D167 /* FirebaseMessaging in Frameworks */,
 				56BD8DA71FC0AE944CCC4251 /* Reachability in Frameworks */,
 				6908D8878403DBE7A2632058 /* Starscream in Frameworks */,
 				FB2D9C35FA6B03364A557B18 /* SwiftyBeaver in Frameworks */,
@@ -7961,7 +7957,6 @@
 				3B7A62042C6C75B3BCBEB91B /* FirebaseCore */,
 				D2013D053EA70DB1E75C8B21 /* FirebaseAnalyticsCore */,
 				9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */,
-				7B5415C2980B8EE3EB8C0F71 /* FirebaseMessaging */,
 				68CD823ED020DFB7E8B72D00 /* Reachability */,
 				E8858BBEAB92EECD0E628B34 /* Starscream */,
 				DB2E54768CEB5CD794CA198C /* SwiftyBeaver */,
@@ -12445,11 +12440,6 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		A77A00000000000000000002 /* NexusTransferCodec */ = {isa = XCSwiftPackageProductDependency; package = A77A00000000000000000003 /* XCLocalSwiftPackageReference "NexusTransferCodec" */; productName = NexusTransferCodec; };
-		013F0A55657CA981B8F3B20B /* FirebaseMessaging */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseMessaging;
-		};
 		02C1E5BCE01E9F8CE6DC8BC5 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
@@ -12755,11 +12745,6 @@
 			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = SSFUtils;
 		};
-		7B5415C2980B8EE3EB8C0F71 /* FirebaseMessaging */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseMessaging;
-		};
 		7C5B6902B522C2F32E92466E /* Then */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */;
@@ -12789,11 +12774,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
-		};
-		8BA8297A2896CE5962B777B2 /* FirebaseMessaging */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseMessaging;
 		};
 		8C2FBB9A62FABBCD386434A5 /* Reachability */ = {
 			isa = XCSwiftPackageProductDependency;
