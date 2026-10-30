@@ -106,7 +106,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         if !DeepLinkService.shared.handle(url: url) {
-            Logger.shared.warning("Can't continue activity for url \(url)")
+            Logger.shared.warning("Can't continue activity for url \(Logger.redacted(url))")
         }
     }
 }

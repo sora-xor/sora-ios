@@ -72,7 +72,7 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
             let path = url.path
             let range = NSRange(location: 0, length: (path as NSString).length)
 
-            logger?.debug("Trying to match \(pattern) against \(path) in range \(range)")
+            logger?.debug("Trying to match \(pattern) against the link path")
 
             if regularExpression.firstMatch(in: path, range: range) == nil {
                 logger?.debug("No matching found")
@@ -81,7 +81,7 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
 
             let code = url.lastPathComponent
 
-            logger?.debug("Code found \(code)")
+            logger?.debug("Invitation code found")
 
             save(code: code)
 
