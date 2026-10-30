@@ -68,8 +68,13 @@ protocol AccountOptionsWireframeProtocol: Loadable {
     func back(from view: AccountOptionsViewProtocol?)
     func dismissAfterDeletion(from view: AccountOptionsViewProtocol?)
     func showLogout(from view: AccountOptionsViewProtocol?, isNeedCustomNodeText: Bool, completionBlock: (() -> Void)?)
+    /// Shows the backup password screen, which reads the wallet secret only
+    /// under `authorization`, or under one `reauthorize` asks for once it
+    /// has lapsed or been used.
     func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
                                     account: OpenBackupAccount,
+                                    authorization: AccountOptionsCloudBackupAuthorization,
+                                    reauthorize: @escaping AccountOptionsCloudBackupReauthorization,
                                     completion: @escaping () -> Void)
     func authorizeCloudBackup(from view: AccountOptionsViewProtocol?,
                               completion: @escaping AuthorizationCompletionBlock)

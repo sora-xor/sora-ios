@@ -11439,6 +11439,8 @@ final class WalletModernizationTests: XCTestCase {
                 passphrase: scenario == "wrong-phrase" ? otherPhrase : phrase, cryptoType: "sr25519",
                 substrateDerivationPath: scenario == "wrong-path" ? "//other" : ""), cloudStorageService: cloud,
                 entryPoint: .profile, keystore: keys,
+                cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization(accountAddress: account.address,
+                    selectedAddress: { account.address }, eventCenter: EventCenter(), notificationCenter: NotificationCenter()),
                 currentAccount: { scenario == "switched-account" ? otherAccount : account },
                 lifecycleCoordinator: coordinator, recoveryGate: gate)
             presenter.view = view; presenter.wireframe = wireframe
@@ -11492,7 +11494,10 @@ final class WalletModernizationTests: XCTestCase {
             defer { cloud.complete(.failure(WalletCloudBackupWriteError.verificationFailed)) }
             let presenter = SetupPasswordPresenter(account: OpenBackupAccount(address: edAccount.address,
                 cryptoType: "ed25519", substrateDerivationPath: ""), cloudStorageService: cloud,
-                entryPoint: .profile, keystore: retainedKeys, currentAccount: { edAccount },
+                entryPoint: .profile, keystore: retainedKeys,
+                cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization(accountAddress: edAccount.address,
+                    selectedAddress: { edAccount.address }, eventCenter: EventCenter(), notificationCenter: NotificationCenter()),
+                currentAccount: { edAccount },
                 lifecycleCoordinator: coordinator, recoveryGate: gate)
             presenter.view = view; presenter.wireframe = wireframe
             let ended = expectation(description: "retained Ed25519 backup completes")

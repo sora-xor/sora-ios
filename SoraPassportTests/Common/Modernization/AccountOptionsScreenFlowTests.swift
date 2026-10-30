@@ -215,7 +215,10 @@ final class AccountOptionsScreenFlowTests: XCTestCase {
     let host = OptionsRouteHost()
     route().setupBackupAccountPassword(
       on: host, account: OpenBackupAccount(name: "Fixture", address: "public-test-wallet"),
-      completion: {})
+      authorization: AccountOptionsCloudBackupAuthorization(
+        accountAddress: "public-test-wallet", selectedAddress: { nil }, eventCenter: EventCenter(),
+        notificationCenter: NotificationCenter()),
+      reauthorize: { $0(nil) }, completion: {})
     let blur = try XCTUnwrap(host.shown.first as? BlurViewController)
     XCTAssertEqual(blur.modalPresentationStyle, .overFullScreen)
     let nav = try XCTUnwrap(blur.children.first as? UINavigationController)

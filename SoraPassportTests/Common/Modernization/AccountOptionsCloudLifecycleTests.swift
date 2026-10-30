@@ -38,7 +38,12 @@ final class AccountOptionsCloudLifecycleTests: XCTestCase {
     }
     private func signIn(_ f: Fixture) async -> OpenBackupAccount? {
         let result = await prepare(f, f.interactor.makeCloudBackupAuthorization())
-        guard case let .ready(value)? = result else { return nil }; return value
+        guard case let .ready(value, _)? = result else { return nil }; return value
+    }
+    private func passwordAuthorization(_ f: Fixture) async throws -> AccountOptionsCloudBackupAuthorization {
+        let result = await prepare(f, f.interactor.makeCloudBackupAuthorization())
+        guard case let .ready(_, authorization)? = result else { throw OptionsFailure.offline }
+        return authorization
     }
     private func deleteCloudBackup(_ f: Fixture, _ authorization: AccountOptionsCloudBackupAuthorization) async -> Error? {
         let done = expectation(description: "delete completion"); var result: Error?
@@ -105,6 +110,28 @@ final class AccountOptionsCloudLifecycleTests: XCTestCase {
         let reads = f.keystore.reads; XCTAssertGreaterThan(reads, 0)
         let second = await prepare(f, authorization)
         XCTAssertTrue(asksAgain(second)); XCTAssertEqual(f.keystore.reads, reads); XCTAssertEqual(f.cloud.signIns, 1)
+    }
+    func testThePasswordScreenGetsOneMoreReadForThisAccount() async throws {
+        let f = try make(); let next = try await passwordAuthorization(f)
+        XCTAssertEqual(next.accountAddress, f.account.address)
+        XCTAssertThrowsError(try next.require(for: otherWallet().address)) { XCTAssertEqual($0 as? AccountOptionsCloudBackupError, .authorizationRequired) }
+        XCTAssertNoThrow(try next.require(for: f.account.address)); XCTAssertNoThrow(try next.redeem(for: f.account.address))
+        XCTAssertThrowsError(try next.redeem(for: f.account.address)) { XCTAssertEqual($0 as? AccountOptionsCloudBackupError, .authorizationRequired) }
+    }
+    func testLeavingTheAppBeforeThePasswordIsSavedLapsesThePasswordScreenRead() async throws {
+        let f = try make(); let next = try await passwordAuthorization(f); leaveApp(f)
+        XCTAssertThrowsError(try next.require(for: f.account.address)) { XCTAssertEqual($0 as? AccountOptionsCloudBackupError, .authorizationRequired) }
+    }
+    func testAnotherSelectedWalletLapsesThePasswordScreenRead() async throws {
+        let f = try make(); let next = try await passwordAuthorization(f); f.selection.currentAccount = otherWallet()
+        XCTAssertThrowsError(try next.require(for: f.account.address)) { XCTAssertEqual($0 as? AccountOptionsCloudBackupError, .authorizationRequired) }
+    }
+    func testSelectionChangeLapsesThePasswordScreenReadEvenForTheSameWallet() async throws {
+        let f = try make(); let next = try await passwordAuthorization(f)
+        let delivered = expectation(description: "selection change delivered")
+        f.events.notify(with: SelectedAccountChanged(), completionOnMain: { delivered.fulfill() })
+        await fulfillment(of: [delivered], timeout: 1)
+        XCTAssertThrowsError(try next.require(for: f.account.address)) { XCTAssertEqual($0 as? AccountOptionsCloudBackupError, .authorizationRequired) }
     }
     func testLeavingTheAppAfterAuthorizationKeepsTheCloudBackup() async throws {
         let f = try make(); ApplicationConfig.shared.backupedAccountAddresses = [f.account.address]

@@ -118,9 +118,15 @@ private final class OptionsInteractor: AccountOptionsInteractorInputProtocol {
     var backedUp = false, deferCloud = false; var deleteError: Error?; var cloudAccount: OpenBackupAccount?; var cloudCompletion: ((AccountOptionsCloudBackupPreparation) -> Void)?
     // `lapses` makes that many operations report a lapsed authorization first.
     var signIns = 0, lapses = 0; var grants: [AccountOptionsCloudBackupAuthorization] = [], authorizations: [AccountOptionsCloudBackupAuthorization] = []
+    // What a prepared backup hands to the backup password screen.
+    var passwordGrants: [AccountOptionsCloudBackupAuthorization] = []
     func makeCloudBackupAuthorization() -> AccountOptionsCloudBackupAuthorization {
         let grant = AccountOptionsCloudBackupAuthorization(accountAddress: currentAccount.address, selectedAddress: { nil }, eventCenter: EventCenter(), notificationCenter: NotificationCenter())
         grants.append(grant); return grant
+    }
+    func passwordGrant() -> AccountOptionsCloudBackupAuthorization {
+        let grant = AccountOptionsCloudBackupAuthorization(accountAddress: currentAccount.address, selectedAddress: { nil }, eventCenter: EventCenter(), notificationCenter: NotificationCenter())
+        passwordGrants.append(grant); return grant
     }
     func checkCurrentAccountBackedup() async -> Bool { backedUp }
     func deleteBackup(authorization: AccountOptionsCloudBackupAuthorization, completion: @escaping (Error?) -> Void) {
@@ -129,7 +135,7 @@ private final class OptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
     func signInToGoogleIfNeeded(authorization: AccountOptionsCloudBackupAuthorization, completion: ((AccountOptionsCloudBackupPreparation) -> Void)?) {
         signIns += 1; authorizations.append(authorization); cloudCompletion = completion
-        if lapses > 0 { lapses -= 1; completion?(.authorizationRequired) } else if !deferCloud { completion?(cloudAccount.map(AccountOptionsCloudBackupPreparation.ready) ?? .unavailable) }
+        if lapses > 0 { lapses -= 1; completion?(.authorizationRequired) } else if !deferCloud { completion?(cloudAccount.map { .ready($0, passwordGrant()) } ?? .unavailable) }
     }
 }
 private final class OptionsViewSpy: UIViewController, AccountOptionsViewProtocol {
@@ -154,7 +160,8 @@ private final class OptionsRoute: AccountOptionsWireframeProtocol {
     func back(from view: AccountOptionsViewProtocol?) { routes.append("back") }
     func dismissAfterDeletion(from view: AccountOptionsViewProtocol?) { routes.append("dismissAfterDeletion") }
     func showLogout(from view: AccountOptionsViewProtocol?, isNeedCustomNodeText: Bool, completionBlock: (() -> Void)?) { customNodeWarnings.append(isNeedCustomNodeText); confirmation = completionBlock }
-    func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?, account: OpenBackupAccount, completion: @escaping () -> Void) { routes.append("backup"); backupAccounts.append(account); backupCompletion = completion }
+    var backupAuthorizations: [AccountOptionsCloudBackupAuthorization] = []; var reauthorize: AccountOptionsCloudBackupReauthorization?
+    func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?, account: OpenBackupAccount, authorization: AccountOptionsCloudBackupAuthorization, reauthorize: @escaping AccountOptionsCloudBackupReauthorization, completion: @escaping () -> Void) { routes.append("backup"); backupAccounts.append(account); backupAuthorizations.append(authorization); self.reauthorize = reauthorize; backupCompletion = completion }
     // Answers at once unless `authorizationResult` is nil; then the owner has not answered yet.
     var authorizationResult: Bool? = true; var authorizationRequests = 0; var pendingAuthorization: AuthorizationCompletionBlock?
     func authorizeCloudBackup(from view: AccountOptionsViewProtocol?, completion: @escaping AuthorizationCompletionBlock) {
@@ -183,8 +190,9 @@ final class AccountOptionsPresenterLifecycleTests: XCTestCase {
     func testCloudBackupStartsLoadingBeforeAuthorizationCompletes() async {
         let (p, i, v, r) = fixture(); i.deferCloud = true
         p.createBackup(); XCTAssertEqual(v.loading, 1); XCTAssertEqual(v.hidden, 0); XCTAssertTrue(r.routes.isEmpty)
-        i.cloudCompletion?(.ready(OpenBackupAccount(address: i.currentAccount.address))); await settle()
+        i.cloudCompletion?(.ready(OpenBackupAccount(address: i.currentAccount.address), i.passwordGrant())); await settle()
         XCTAssertEqual(v.hidden, 1); XCTAssertEqual(r.routes, ["backup"]); XCTAssertEqual(r.backupAccounts.map(\.address), [i.currentAccount.address])
+        XCTAssertTrue(r.backupAuthorizations.first === i.passwordGrants.first)
     }
     func testCancelledCloudAuthorizationStopsLoadingWithoutAPasswordScreen() async {
         let (p, _, v, r) = fixture(); p.createBackup(); await settle()
@@ -197,6 +205,24 @@ final class AccountOptionsPresenterLifecycleTests: XCTestCase {
         XCTAssertTrue(ApplicationConfig.shared.backupedAccountAddresses.contains(i.currentAccount.address))
         let alert = try XCTUnwrap(v.alertModels.first); XCTAssertEqual(alert.actions.count, 1); XCTAssertNotNil(alert.closeAction)
         alert.actions[0].handler?(); XCTAssertEqual(r.routes, ["backup"])
+        XCTAssertEqual(i.passwordGrants.count, 1); XCTAssertTrue(r.backupAuthorizations.first === i.passwordGrants.first)
+    }
+    func testPasswordScreenReadsUnderThePreparedAuthorizationAndAsksAgainThroughTheWalletAuthorization() async throws {
+        let (p, i, _, r) = fixture(); i.cloudAccount = OpenBackupAccount(address: i.currentAccount.address)
+        p.createBackup(); await settle()
+        XCTAssertEqual(r.routes, ["backup"]); XCTAssertEqual(r.authorizationRequests, 1); XCTAssertEqual(i.grants.count, 1)
+        XCTAssertEqual(i.passwordGrants.count, 1); XCTAssertTrue(r.backupAuthorizations.first === i.passwordGrants.first)
+        let reauthorize = try XCTUnwrap(r.reauthorize)
+        var renewed: [AccountOptionsCloudBackupAuthorization?] = []
+        reauthorize { renewed.append($0) }
+        XCTAssertEqual(r.authorizationRequests, 2); XCTAssertEqual(i.grants.count, 2)
+        XCTAssertEqual(renewed.count, 1); XCTAssertTrue(renewed.first.flatMap { $0 } === i.grants.last)
+        XCTAssertEqual(i.grants.last?.accountAddress, i.currentAccount.address)
+        r.authorizationResult = false
+        reauthorize { renewed.append($0) }
+        XCTAssertEqual(r.authorizationRequests, 3); XCTAssertEqual(i.grants.count, 2, "A refused PIN binds nothing")
+        XCTAssertEqual(renewed.count, 2); XCTAssertNil(renewed.last.flatMap { $0 })
+        XCTAssertEqual(i.signIns, 1, "Asking again never repeats Google sign-in or the phrase read")
     }
     func testPasswordCompletionReflectsTheActualSavedBackupMarker() async {
         for saved in [false, true] {
