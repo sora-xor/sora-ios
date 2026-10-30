@@ -45,8 +45,13 @@ protocol AccountOptionsInteractorInputProtocol: AnyObject {
     var currentAccount: AccountItem { get }
     var accountHasEntropy: Bool { get }
     func checkCurrentAccountBackedup() async -> Bool
-    func deleteBackup(completion: @escaping (Error?) -> Void)
-    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?)
+    /// Binds a wallet authorization that has just succeeded to this account,
+    /// the selected wallet and the foreground session. Call it only then.
+    func makeCloudBackupAuthorization() -> AccountOptionsCloudBackupAuthorization
+    func deleteBackup(authorization: AccountOptionsCloudBackupAuthorization,
+                      completion: @escaping (Error?) -> Void)
+    func signInToGoogleIfNeeded(authorization: AccountOptionsCloudBackupAuthorization,
+                                completion: ((AccountOptionsCloudBackupPreparation) -> Void)?)
 }
 
 protocol AccountOptionsInteractorOutputProtocol: AnyObject {
@@ -66,6 +71,8 @@ protocol AccountOptionsWireframeProtocol: Loadable {
     func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
                                     account: OpenBackupAccount,
                                     completion: @escaping () -> Void)
+    func authorizeCloudBackup(from view: AccountOptionsViewProtocol?,
+                              completion: @escaping AuthorizationCompletionBlock)
 }
 
 extension AccountOptionsWireframeProtocol {

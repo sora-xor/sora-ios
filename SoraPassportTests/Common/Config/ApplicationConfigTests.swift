@@ -138,6 +138,44 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertThrowsError(try pool.setupConnection(for: configuredChain(chainId: "other-genesis")))
     }
 
+    func testLogRedactionDropsCredentialsQueryFragmentAndPath() {
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://alice:s3cret@node.example.com/ws")), "wss://node.example.com")
+        XCTAssertEqual(Logger.redacted(URL(string: "https://alice@sora.org")), "https://sora.org")
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://node.example.com/ws?apikey=0123456789abcdef")), "wss://node.example.com")
+        XCTAssertEqual(Logger.redacted(URL(string: "https://app.sora.org/#/send?to=cnTQ1kbv&amount=10")), "https://app.sora.org")
+        XCTAssertEqual(Logger.redacted(URL(string: "https://sora.org/join/12345678")), "https://sora.org")
+    }
+
+    func testLogRedactionKeepsPortAndIPv6Host() {
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://node.example.com:9944/ws")), "wss://node.example.com:9944")
+        XCTAssertEqual(Logger.redacted(URL(string: "ws://user:pass@10.0.0.2:9944/?token=t#frag")), "ws://10.0.0.2:9944")
+        XCTAssertEqual(Logger.redacted(URL(string: "ws://[::1]:9944/rpc?apikey=k")), "ws://[::1]:9944")
+        XCTAssertEqual(Logger.redacted(URL(string: "wss://[2001:db8::1]/ws#seed")), "wss://[2001:db8::1]")
+    }
+
+    func testLogRedactionOfMissingOrInvalidURL() {
+        XCTAssertEqual(Logger.redacted(nil), "<redacted>")
+        XCTAssertEqual(Logger.redacted(URL(string: "")), "<redacted>")
+        // A URL without a scheme or a host keeps nothing.
+        XCTAssertEqual(Logger.redacted(URL(string: "join/12345678?seed=abandon")), "<redacted>")
+        XCTAssertEqual(Logger.redacted(URL(string: "mailto:alice@example.com")), "<redacted>")
+        XCTAssertEqual(Logger.redacted(URL(string: "file:///var/mobile/wallet.json")), "<redacted>")
+    }
+
+    func testReleaseBuildsLogWarningsAndErrorsOnly() {
+        // The test bundle has no F_* flags; the host app's configuration
+        // name tells which flags the app's logger was built with.
+        let levels = Logger.shared.log.destinations.map(\.minLevel)
+        let configuration = Bundle.main.object(forInfoDictionaryKey: "AppConfigName") as? String
+        if configuration == "Release" {
+            XCTAssertEqual(levels, [.warning], "Release logs carry no info, debug or verbose messages")
+        } else if configuration == "Dev" {
+            XCTAssertEqual(levels, [.verbose])
+        } else {
+            XCTAssertEqual(levels, [.info])
+        }
+    }
+
     func testChainSyncKeepsNodesAndSavedChoiceWithoutRemoteWhitelist() throws {
         let repository = NodeTestRepository()
         let requestedWhitelist = expectation(description: "Optional whitelist starts after local chain is saved")

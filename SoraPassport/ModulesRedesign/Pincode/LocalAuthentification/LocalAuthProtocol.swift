@@ -35,8 +35,19 @@ protocol LocalAuthInteractorOutputProtocol: AnyObject {
     func didCompleteAuth()
     func didUnexpectedFail()
     func setupPinCodeSymbols(with count: Int)
+    /// Biometry did not start: a wallet still needs an owner binding, which
+    /// the typed PIN creates.
+    func didRequireOwnerPinEntry()
 }
 
 extension LocalAuthInteractorOutputProtocol {
     func setupPinCodeSymbols(with count: Int) {}
+    func didRequireOwnerPinEntry() {}
+}
+
+extension LocalAuthInteractor {
+    /// The PIN screens' title after `didRequireOwnerPinEntry()`.
+    static var ownerPinEntryTitle: String {
+        WalletUX.text("Enter your PIN. SORA needs it once to protect the wallets on this iPhone.")
+    }
 }

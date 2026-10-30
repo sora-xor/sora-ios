@@ -24,15 +24,44 @@ final class CredentialAndQRCodeScreenTests: XCTestCase {
     }
     func testSetupPasswordRequiresLengthMatchingAndAcknowledgement() {
         let (item, events) = model(); XCTAssertFalse(item.isButtonEnable)
-        events.send(.passwordChanged("12345")); events.send(.confirmPasswordChanged("12345")); events.send(.checkViewChanged(true)); XCTAssertFalse(item.isButtonEnable)
-        events.send(.passwordChanged("123456")); XCTAssertFalse(item.isButtonEnable)
-        events.send(.confirmPasswordChanged("123456")); XCTAssertTrue(item.isButtonEnable)
+        events.send(.passwordChanged("fixture-pas")); events.send(.confirmPasswordChanged("fixture-pas")); events.send(.checkViewChanged(true)); XCTAssertFalse(item.isButtonEnable)
+        events.send(.passwordChanged("fixture-pass")); XCTAssertFalse(item.isButtonEnable)
+        events.send(.confirmPasswordChanged("fixture-pass")); XCTAssertTrue(item.isButtonEnable)
         events.send(.checkViewChanged(false)); XCTAssertFalse(item.isButtonEnable)
     }
+    func testSetupPasswordRefusesLongButPredictablePasswords() {
+        let item = SetupPasswordItem(); let events = PassthroughSubject<SetupPasswordItem.Input, Never>(); var refusals: [BackupPasswordPolicy.Violation] = []
+        item.transform(input: events.eraseToAnyPublisher()).sink { if case .lowSecurityPassword(let violation) = $0 { refusals.append(violation) } }.store(in: &subscriptions)
+        events.send(.checkViewChanged(true))
+        let predictable: [(String, BackupPasswordPolicy.Violation)] = [("aaaaaaaaaaaa", .repeatedCharacter), ("123456789012", .sequence), ("abcdefghijkl", .sequence), ("Password1234", .commonPassword)]
+        for (password, violation) in predictable {
+            events.send(.passwordChanged(password)); events.send(.confirmPasswordChanged(password))
+            XCTAssertFalse(item.isButtonEnable, password); XCTAssertEqual(refusals.last, violation, password)
+        }
+        events.send(.passwordChanged("public fixture")); events.send(.confirmPasswordChanged("public fixture")); XCTAssertTrue(item.isButtonEnable)
+    }
+    func testBackupPasswordPolicyAcceptsLongUnpredictablePasswords() {
+        for password in ["public fixture", "correct horse battery staple", "Tr0ub4dor&3x", "  quiet river stone  ", "パスワードは十二文字以上です"] {
+            XCTAssertNil(BackupPasswordPolicy.violation(for: password), password)
+            XCTAssertNoThrow(try BackupPasswordPolicy.validate(password), password)
+        }
+    }
+    func testBackupPasswordPolicyRejectsShortRepeatedSequentialAndCommonPasswords() {
+        let refused: [(String, BackupPasswordPolicy.Violation)] = [
+            ("", .tooShort), ("123456", .tooShort), ("Tr0ub4dor&3", .tooShort), ("    padded    ", .tooShort),
+            ("aaaaaaaaaaaa", .repeatedCharacter), ("AAAAAAaaaaaa", .repeatedCharacter), ("777777777777", .repeatedCharacter),
+            ("123456789012", .sequence), ("abcdefghijkl", .sequence), ("LKJIHGFEDCBA", .sequence), ("098765432109", .sequence), ("xyzabcdefghi", .sequence),
+            ("password1234", .commonPassword), ("Qwerty123456", .commonPassword), (" 1qaz2wsx3edc ", .commonPassword),
+        ]
+        for (password, violation) in refused {
+            XCTAssertEqual(BackupPasswordPolicy.violation(for: password), violation, password)
+            XCTAssertThrowsError(try BackupPasswordPolicy.validate(password), password) { XCTAssertEqual($0 as? BackupPasswordPolicy.Violation, violation) }
+        }
+    }
     func testSetupPasswordClearingEitherFieldRevokesReadinessImmediately() {
-        let (item, events) = model(); events.send(.passwordChanged("fixture")); events.send(.confirmPasswordChanged("fixture")); events.send(.checkViewChanged(true))
+        let (item, events) = model(); events.send(.passwordChanged("public fixture")); events.send(.confirmPasswordChanged("public fixture")); events.send(.checkViewChanged(true))
         XCTAssertTrue(item.isButtonEnable); events.send(.passwordChanged("")); XCTAssertFalse(item.isButtonEnable)
-        events.send(.passwordChanged("fixture")); XCTAssertTrue(item.isButtonEnable); events.send(.confirmPasswordChanged("")); XCTAssertFalse(item.isButtonEnable)
+        events.send(.passwordChanged("public fixture")); XCTAssertTrue(item.isButtonEnable); events.send(.confirmPasswordChanged("")); XCTAssertFalse(item.isButtonEnable)
     }
     func testSetupPasswordRejectsSubmissionWhileInvalid() {
         let (item, events) = model(); var submitted: [String] = []; item.setupPasswordButtonTapped = { submitted.append($0) }
@@ -41,24 +70,24 @@ final class CredentialAndQRCodeScreenTests: XCTestCase {
     }
     func testSetupPasswordSubmitsExactlyTheValidatedText() {
         let (item, events) = model(); var submitted: [String] = []; item.setupPasswordButtonTapped = { submitted.append($0) }
-        events.send(.passwordChanged(" fixture ")); events.send(.confirmPasswordChanged(" fixture ")); events.send(.checkViewChanged(true)); events.send(.setupPasswordButtonTapped)
-        XCTAssertEqual(submitted, [" fixture "])
+        events.send(.passwordChanged(" public fixture ")); events.send(.confirmPasswordChanged(" public fixture ")); events.send(.checkViewChanged(true)); events.send(.setupPasswordButtonTapped)
+        XCTAssertEqual(submitted, [" public fixture "])
     }
     func testReplacingThePasswordInputStreamDisconnectsThePreviousStream() {
         let (item, old) = model(); let current = PassthroughSubject<SetupPasswordItem.Input, Never>()
         item.transform(input: current.eraseToAnyPublisher()).sink { _ in }.store(in: &subscriptions)
-        current.send(.passwordChanged("fixture")); current.send(.confirmPasswordChanged("fixture")); current.send(.checkViewChanged(true))
+        current.send(.passwordChanged("public fixture")); current.send(.confirmPasswordChanged("public fixture")); current.send(.checkViewChanged(true))
         XCTAssertTrue(item.isButtonEnable); old.send(.passwordChanged("")); XCTAssertTrue(item.isButtonEnable)
     }
     func testAttachingAPreviouslyValidatedModelToANewCellClearsTheOldSecret() async throws {
         let (item, events) = model(); var submitted: [String] = []; item.setupPasswordButtonTapped = { submitted.append($0) }
-        events.send(.passwordChanged("old-secret")); events.send(.confirmPasswordChanged("old-secret")); events.send(.checkViewChanged(true)); XCTAssertTrue(item.isButtonEnable)
+        events.send(.passwordChanged("old-secret-fixture")); events.send(.confirmPasswordChanged("old-secret-fixture")); events.send(.checkViewChanged(true)); XCTAssertTrue(item.isButtonEnable)
         let cell = SetupPasswordCell(style: .default, reuseIdentifier: nil); cell.set(item: item, context: nil); await settle()
         XCTAssertTrue(descendants(InputField.self, in: cell).allSatisfy { ($0.textField.text ?? "").isEmpty })
         XCTAssertFalse(item.isButtonEnable); XCTAssertFalse(cell.continueButton.isEnabled)
         cell.continueButton.sendActions(for: .touchUpInside); XCTAssertTrue(submitted.isEmpty)
     }
-    private func fill(_ cell: SetupPasswordCell, password: String = "fixture") async throws {
+    private func fill(_ cell: SetupPasswordCell, password: String = "public fixture") async throws {
         let fields = descendants(InputField.self, in: cell); XCTAssertEqual(fields.count, 2)
         for field in fields { field.textField.text = password; field.textField.sendActions(for: .editingChanged) }
         try XCTUnwrap(descendants(CheckView.self, in: cell).first).onActivate?(); await settle()
@@ -72,6 +101,17 @@ final class CredentialAndQRCodeScreenTests: XCTestCase {
         XCTAssertTrue(fields.allSatisfy { $0.sora.state == .success })
         fields[1].textField.text = "wrong"; fields[1].textField.sendActions(for: .editingChanged); await settle()
         XCTAssertFalse(cell.continueButton.isEnabled); XCTAssertEqual(fields[1].sora.state, .fail)
+    }
+    func testPasswordCellExplainsWhyALongPasswordIsStillRefused() async throws {
+        let cell = SetupPasswordCell(style: .default, reuseIdentifier: nil); let item = SetupPasswordItem(); var submitted = 0; item.setupPasswordButtonTapped = { _ in submitted += 1 }
+        cell.set(item: item, context: nil)
+        let field = try XCTUnwrap(descendants(InputField.self, in: cell).first)
+        XCTAssertEqual(field.sora.descriptionLabelText, R.string.localizable.backupPasswordPolicyRequirements(preferredLanguages: .currentLocale))
+        try await fill(cell, password: "123456789012")
+        XCTAssertEqual(field.sora.state, .fail); XCTAssertEqual(field.sora.descriptionLabelText, BackupPasswordPolicy.guidance(for: .sequence, preferredLanguages: .currentLocale))
+        XCTAssertFalse(cell.continueButton.isEnabled); cell.continueButton.sendActions(for: .touchUpInside); XCTAssertEqual(submitted, 0)
+        try await fill(cell, password: "correct horse battery staple")
+        XCTAssertEqual(field.sora.state, .success); XCTAssertEqual(field.sora.descriptionLabelText, BackupPasswordPolicy.guidance(for: nil, preferredLanguages: .currentLocale))
     }
     func testRebindingPasswordCellCannotSubmitThroughTheOldModel() async throws {
         let cell = SetupPasswordCell(style: .default, reuseIdentifier: nil); let old = SetupPasswordItem(); let current = SetupPasswordItem()

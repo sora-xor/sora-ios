@@ -25,16 +25,30 @@ final class ExportAndNetworkPickerScreenTests: XCTestCase {
         XCTAssertTrue(fields.allSatisfy { $0.textField.isSecureTextEntry && $0.textField.textContentType == .newPassword }); XCTAssertNotNil(view.navigationItem.title); XCTAssertFalse((button.sora.title ?? "").isEmpty)
     }
     func testExportValidatesBothPasswordsAndCanRecoverFromMismatch() {
-        let (_, _, fields, button) = export(); edit(fields, first: "fixture", second: "wrong")
+        let (_, _, fields, button) = export(); edit(fields, first: "public fixture", second: "wrong")
         XCTAssertFalse(button.isEnabled); XCTAssertEqual(fields[1].sora.state, .fail); XCTAssertFalse((fields[1].sora.descriptionLabelText ?? "").isEmpty)
-        edit(fields, first: "fixture", second: "fixture"); XCTAssertTrue(button.isEnabled); XCTAssertEqual(fields[1].sora.state, .success); XCTAssertEqual(fields[1].sora.descriptionLabelText, "")
+        edit(fields, first: "public fixture", second: "public fixture"); XCTAssertTrue(button.isEnabled); XCTAssertEqual(fields[1].sora.state, .success); XCTAssertEqual(fields[1].sora.descriptionLabelText, "")
         edit(fields, first: "", second: ""); XCTAssertFalse(button.isEnabled)
     }
     func testExportActionRejectsEmptyOrMismatchingCurrentInputs() {
         let (view, model, fields, _) = export(); view.downloadTapped(); edit(fields, first: "one", second: "two"); view.downloadTapped(); XCTAssertTrue(model.passwords.isEmpty)
     }
     func testExportActionPassesTheExactMatchingPasswordToItsPresenter() {
-        let (view, model, fields, _) = export(); edit(fields, first: " fixture ", second: " fixture "); view.downloadTapped(); XCTAssertEqual(model.passwords, [" fixture "])
+        let (view, model, fields, _) = export(); edit(fields, first: " public fixture ", second: " public fixture "); view.downloadTapped(); XCTAssertEqual(model.passwords, [" public fixture "])
+    }
+    func testExportExplainsAndRefusesShortRepeatedSequentialAndCommonPasswords() {
+        let (view, model, fields, button) = export()
+        XCTAssertEqual(fields[0].sora.descriptionLabelText, R.string.localizable.backupPasswordPolicyRequirements(preferredLanguages: view.localizationManager?.preferredLocalizations))
+        let refused: [(String, BackupPasswordPolicy.Violation)] = [("fixture-pas", .tooShort), ("bbbbbbbbbbbb", .repeatedCharacter), ("abcdefghijkl", .sequence), ("qwerty123456", .commonPassword)]
+        for (password, violation) in refused {
+            edit(fields, first: password, second: password); view.downloadTapped()
+            XCTAssertFalse(button.isEnabled, password); XCTAssertEqual(fields[0].sora.state, .fail, password)
+            XCTAssertEqual(fields[0].sora.descriptionLabelText, BackupPasswordPolicy.guidance(for: violation, preferredLanguages: view.localizationManager?.preferredLocalizations), password)
+        }
+        XCTAssertTrue(model.passwords.isEmpty)
+        edit(fields, first: "fixture-pass", second: "fixture-pass"); XCTAssertTrue(button.isEnabled); XCTAssertEqual(fields[0].sora.state, .success)
+        XCTAssertEqual(fields[0].sora.descriptionLabelText, BackupPasswordPolicy.guidance(for: nil, preferredLanguages: view.localizationManager?.preferredLocalizations))
+        view.downloadTapped(); XCTAssertEqual(model.passwords, ["fixture-pass"])
     }
     func testExportPresenterOnlySharesTheReturnedFileAndDoesNotGenerateAnotherOne() {
         let presenter = AccountExportPresenter(); let source = ExportScreenSource(); let route = ExportScreenRoute(); presenter.interactor = source; presenter.wireframe = route
@@ -96,8 +110,19 @@ final class ExportAndNetworkPickerScreenTests: XCTestCase {
 private final class ExportScreenPresenter: AccountExportPresenterProtocol { var passwords: [String] = []; func exportWith(password: String) { passwords.append(password) } }
 private final class ExportScreenSource: AccountExportInteractorInputProtocol { var passwords: [String] = []; var url: NSURL?; func exportToFileWith(password: String) -> NSURL? { passwords.append(password); return url } }
 private final class ExportScreenRoute: AccountExportWireframeProtocol { var urls: [NSURL] = []; func showShareFile(url: NSURL, in viewController: AccountExportViewProtocol?) { urls.append(url) } }
+private final class ExportShareHost: UIViewController, AccountExportViewProtocol {
+    var shown = [UIViewController]()
+    override func present(_ viewControllerToPresent: UIViewController, animated: Bool, completion: (() -> Void)? = nil) { shown.append(viewControllerToPresent); completion?() }
+}
 
 final class AccountExportFileBoundaryTests: XCTestCase {
+    private let exportPassword = "public fixture"
+    private func exportStore() throws -> AccountExportFileStore {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return AccountExportFileStore(temporaryDirectory: root)
+    }
     private func accounts(_ count: Int = 2) throws -> (InMemoryKeychain, InMemorySettingsManager, [AccountItem]) {
         let keys = InMemoryKeychain(), settings = InMemorySettingsManager(); var accounts: [AccountItem] = []
         for index in 0..<count {
@@ -107,8 +132,9 @@ final class AccountExportFileBoundaryTests: XCTestCase {
         }
         return (keys, settings, accounts)
     }
-    private func interactor(_ keys: InMemoryKeychain, _ settings: InMemorySettingsManager, _ accounts: [AccountItem]) -> AccountExportInteractor {
-        AccountExportInteractor(keystore: keys, settings: settings, accounts: accounts)
+    private func interactor(_ keys: InMemoryKeychain, _ settings: InMemorySettingsManager, _ accounts: [AccountItem],
+                            _ store: AccountExportFileStore = AccountExportFileStore()) -> AccountExportInteractor {
+        AccountExportInteractor(keystore: keys, settings: settings, accounts: accounts, fileStore: store)
     }
     private func decodeBatch(_ data: Data, password: String?) throws -> (EncodedAccounts, [KeystoreDefinition]) {
         let envelope = try JSONDecoder().decode(EncodedAccounts.self, from: data)
@@ -131,26 +157,76 @@ final class AccountExportFileBoundaryTests: XCTestCase {
         }
     }
     func testEmptyExportDoesNotCreateAFile() {
-        XCTAssertNil(interactor(InMemoryKeychain(), InMemorySettingsManager(), []).exportToFileWith(password: "fixture"))
+        XCTAssertNil(interactor(InMemoryKeychain(), InMemorySettingsManager(), []).exportToFileWith(password: exportPassword))
     }
     func testSingleAccountFileCanRestoreTheSamePublicIdentity() throws {
         let (keys, settings, values) = try accounts(1), expected = values[0]
-        let url = try XCTUnwrap(interactor(keys, settings, values).exportToFileWith(password: "fixture")) as URL
+        let url = try XCTUnwrap(interactor(keys, settings, values).exportToFileWith(password: exportPassword)) as URL
         defer { try? FileManager.default.removeItem(at: url) }
         XCTAssertEqual(url.lastPathComponent, expected.address + ".json")
         let definition = try JSONDecoder().decode(KeystoreDefinition.self, from: Data(contentsOf: url))
-        try assertRestores([definition], accounts: values, password: "fixture")
+        try assertRestores([definition], accounts: values, password: exportPassword)
     }
     func testBatchFileContainsOrderedMetadataAndIndividuallyRestorableAccounts() throws {
         let (keys, settings, values) = try accounts()
-        let url = try XCTUnwrap(interactor(keys, settings, values).exportToFileWith(password: "fixture")) as URL
+        let url = try XCTUnwrap(interactor(keys, settings, values).exportToFileWith(password: exportPassword)) as URL
         defer { try? FileManager.default.removeItem(at: url) }
         XCTAssertTrue(url.lastPathComponent.hasPrefix("batch_exported_account_")); XCTAssertEqual(url.pathExtension, "json")
-        let (envelope, definitions) = try decodeBatch(Data(contentsOf: url), password: "fixture")
+        let (envelope, definitions) = try decodeBatch(Data(contentsOf: url), password: exportPassword)
         XCTAssertEqual(envelope.accounts.map(\.address), values.map(\.address)); XCTAssertEqual(envelope.accounts.map(\.meta.name), values.map(\.username))
         XCTAssertTrue(envelope.accounts.allSatisfy { !$0.meta.genesisHash.isEmpty && $0.meta.whenCreated == 0 })
         XCTAssertEqual(envelope.encoding.content, ["batch-pkcs8"]); XCTAssertEqual(envelope.encoding.version, "3")
-        try assertRestores(definitions, accounts: values, password: "fixture")
+        try assertRestores(definitions, accounts: values, password: exportPassword)
+    }
+    func testExportIsProtectedExcludedFromBackupAndKeptOutOfDocuments() throws {
+        let (keys, settings, values) = try accounts(1), store = try exportStore()
+        let url = try XCTUnwrap(interactor(keys, settings, values, store).exportToFileWith(password: exportPassword)) as URL
+        XCTAssertEqual(url.lastPathComponent, values[0].address + ".json")
+        XCTAssertEqual(url.deletingLastPathComponent().standardizedFileURL.path, store.directory.standardizedFileURL.path)
+        XCTAssertEqual(try FileProtectionMetadata.protectionClass(at: url, fileManager: .default), .complete)
+        for item in [url, store.directory] {
+            XCTAssertEqual(try URL(fileURLWithPath: item.path).resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup, true, item.lastPathComponent)
+        }
+        let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
+        let production = AccountExportFileStore().directory
+        XCTAssertEqual(production.deletingLastPathComponent().standardizedFileURL.path, FileManager.default.temporaryDirectory.standardizedFileURL.path)
+        XCTAssertFalse(production.standardizedFileURL.path.hasPrefix(documents.standardizedFileURL.path))
+    }
+    func testStaleExportIsRemovedWhenTheScreenOpensAndBeforeTheNextExport() throws {
+        let (keys, settings, values) = try accounts(1), store = try exportStore()
+        func leaveStaleExport() throws -> URL {
+            try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+            let url = store.directory.appendingPathComponent("batch_exported_account_0.json")
+            try Data("public fixture".utf8).write(to: url); return url
+        }
+        let beforeOpening = try leaveStaleExport(), exporter = interactor(keys, settings, values, store)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: beforeOpening.path))
+        let beforeExport = try leaveStaleExport()
+        let url = try XCTUnwrap(exporter.exportToFileWith(password: exportPassword)) as URL
+        XCTAssertFalse(FileManager.default.fileExists(atPath: beforeExport.path))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.directory.path), [url.lastPathComponent])
+    }
+    func testExportRefusesWeakPasswordsBeforeWritingAnything() throws {
+        let (keys, settings, values) = try accounts(), store = try exportStore()
+        for exporter in [interactor(keys, settings, values, store), interactor(keys, settings, [values[0]], store)] {
+            for password in ["fixture", "123456", "fixture-pas", "aaaaaaaaaaaa", "123456789012", "abcdefghijkl", "password1234"] {
+                XCTAssertNil(exporter.exportToFileWith(password: password), password)
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.directory.path))
+    }
+    func testShortLegacyPasswordsStillImportExistingJSONExportsAndDriveBackups() throws {
+        // Files made under the old six-character rule must stay importable:
+        // the creation policy is never applied on import or restore.
+        let legacy = "123456"; XCTAssertEqual(BackupPasswordPolicy.violation(for: legacy), .tooShort)
+        let (keys, _, values) = try accounts(), wrapper = KeystoreExportWrapper(keystore: keys)
+        let single = try wrapper.export(account: values[0], password: legacy)
+        try assertRestores([JSONDecoder().decode(KeystoreDefinition.self, from: single)], accounts: [values[0]], password: legacy)
+        try assertRestores(decodeBatch(wrapper.export(accounts: values, password: legacy), password: legacy).1, accounts: values, password: legacy)
+        // A Google Drive backup carries the same JSON; restore opens it with the legacy password.
+        let driveJSON = try XCTUnwrap(String(data: single, encoding: .utf8))
+        XCTAssertFalse(try WalletCloudBackupRecoveryService.extractJSONSecret(driveJSON, password: legacy, account: values[0]).isEmpty)
+        XCTAssertThrowsError(try WalletCloudBackupRecoveryService.extractJSONSecret(driveJSON, password: "1234567", account: values[0]))
     }
     func testPasswordlessBatchUsesTheDocumentedEmptyPasswordAndKeepsEveryAccount() throws {
         let (keys, _, values) = try accounts()
@@ -166,12 +242,12 @@ final class AccountExportFileBoundaryTests: XCTestCase {
     }
     func testSingleAccountWithNoRecoverableMaterialCannotExportAFile() throws {
         let (_, settings, values) = try accounts(1)
-        XCTAssertNil(interactor(InMemoryKeychain(), settings, values).exportToFileWith(password: "fixture"))
+        XCTAssertNil(interactor(InMemoryKeychain(), settings, values).exportToFileWith(password: exportPassword))
     }
     func testBatchFailsAsAWholeWhenOneAccountHasNoRecoverableMaterial() throws {
         let (keys, settings, values) = try accounts()
         for tag in try keys.allKeyIdentifiers() where tag.contains(values[1].address) { try keys.deleteKey(for: tag) }
-        XCTAssertNil(interactor(keys, settings, values).exportToFileWith(password: "fixture"))
+        XCTAssertNil(interactor(keys, settings, values).exportToFileWith(password: exportPassword))
     }
     func testExportPreservesTheSourceSecretsByteForByte() throws {
         let (keys, _, values) = try accounts(); let tags = try keys.allKeyIdentifiers()
@@ -180,8 +256,40 @@ final class AccountExportFileBoundaryTests: XCTestCase {
         XCTAssertEqual(Set(try keys.allKeyIdentifiers()), Set(tags))
         for (tag, bytes) in before { XCTAssertEqual(try keys.fetchKey(for: tag), bytes) }
     }
-    func testFileWriterReportsAnUnavailableSubdirectoryWithoutCreatingIt() {
-        XCTAssertNil(Data("public fixture".utf8).saveToFile(name: UUID().uuidString + "/fixture.json"))
+    func testFileWriterReportsAnUnavailableSubdirectoryWithoutCreatingIt() throws {
+        let store = try exportStore(), nested = UUID().uuidString
+        for name in [nested + "/fixture.json", "..", ".", ""] {
+            XCTAssertThrowsError(try store.write(Data("public fixture".utf8), name: name), name)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.directory.appendingPathComponent(nested).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.directory.path))
+    }
+    func testExportFileStoreReplacesItsExportAndRemovesOnlyItsOwnFiles() throws {
+        let store = try exportStore(), outside = store.directory.deletingLastPathComponent().appendingPathComponent("outside.json")
+        try Data("public fixture".utf8).write(to: outside)
+        let first = try store.write(Data("first public fixture".utf8), name: "first.json")
+        XCTAssertEqual(try Data(contentsOf: first), Data("first public fixture".utf8))
+        XCTAssertEqual(try FileProtectionMetadata.protectionClass(at: first, fileManager: .default), .complete)
+        XCTAssertEqual(try URL(fileURLWithPath: first.path).resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup, true)
+        let second = try store.write(Data("second public fixture".utf8), name: "second.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path)); XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+        store.remove(outside); XCTAssertTrue(FileManager.default.fileExists(atPath: outside.path))
+        store.remove(second); XCTAssertFalse(FileManager.default.fileExists(atPath: second.path))
+        _ = try store.write(Data("third public fixture".utf8), name: "third.json"); store.removeAll()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.directory.path)); XCTAssertTrue(FileManager.default.fileExists(atPath: outside.path))
+    }
+    @MainActor
+    func testFinishingTheShareSheetRemovesTheExportWhetherSharedOrCancelled() throws {
+        let store = try exportStore(), route = AccountExportWireframe(localizationManager: LocalizationManager.shared, fileStore: store)
+        for completed in [false, true] {
+            let url = try store.write(Data("public fixture".utf8), name: "fixture.json"), host = ExportShareHost()
+            route.showShareFile(url: url as NSURL, in: host)
+            let activity = try XCTUnwrap(host.shown.last as? UIActivityViewController); XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+            activity.completionWithItemsHandler?(completed ? UIActivity.ActivityType.copyToPasteboard : nil, completed, nil, nil)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: url.path), "completed: \(completed)")
+        }
+        let unshown = try store.write(Data("public fixture".utf8), name: "fixture.json")
+        route.showShareFile(url: unshown as NSURL, in: nil); XCTAssertFalse(FileManager.default.fileExists(atPath: unshown.path))
     }
 }
 

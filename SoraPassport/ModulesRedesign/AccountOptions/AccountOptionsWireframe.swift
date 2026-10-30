@@ -139,6 +139,19 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         }
     }
 
+    /// Creating or deleting a Google Drive backup asks for the same fresh
+    /// wallet authorization (PIN or biometrics) as the local exports above.
+    /// Google sign-in and the backup password never stand in for it.
+    @MainActor
+    func authorizeCloudBackup(from view: AccountOptionsViewProtocol?,
+                              completion: @escaping AuthorizationCompletionBlock) {
+        guard view != nil else {
+            completion(false)
+            return
+        }
+        environment.authorize(self, completion)
+    }
+
     @MainActor
     private func canReplaceWarning(_ warning: UIViewController, from view: AccountOptionsViewProtocol?) -> Bool {
         guard let navigation = view?.controller.navigationController else { return false }

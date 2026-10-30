@@ -60,6 +60,10 @@ final class Logger {
             destination.minLevel = .verbose
         #elseif F_TEST
             destination.minLevel = .info
+        #elseif F_RELEASE
+            // Release builds (TestFlight and App Store) keep warnings and
+            // errors only.
+            destination.minLevel = .warning
         #else
             destination.minLevel = .info
         #endif
@@ -107,5 +111,26 @@ extension Logger: LoggerProtocol {
                    file: file,
                    function: function,
                    line: line)
+    }
+}
+
+extension Logger {
+    /// A URL reduced to scheme, host and port for a log message. User info,
+    /// path, query and fragment can hold node credentials, API keys,
+    /// addresses, amounts or connect tokens, so they are never logged. A URL
+    /// without a scheme or a host is logged as `<redacted>`.
+    static func redacted(_ url: URL?) -> String {
+        guard let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
+              let scheme = components.scheme,
+              let host = components.encodedHost, !host.isEmpty else {
+            return "<redacted>"
+        }
+
+        // An IPv6 literal keeps its brackets, so the port stays unambiguous.
+        let authority = host.contains(":") && !host.hasPrefix("[") ? "[\(host)]" : host
+        let port = components.port.map { ":\($0)" } ?? ""
+
+        return "\(scheme)://\(authority)\(port)"
     }
 }

@@ -318,6 +318,9 @@ extension CloudStorageService {
     ///   field must decrypt. The encryption is authenticated
     ///   (XSalsa20-Poly1305), so a wrong password cannot decrypt.
     ///
+    /// An oversized file, or a field that `EncryptionService` rejects as
+    /// malformed before key derivation, is `incorectJson`, not a password error.
+    ///
     /// The caller must still check that the restored phrase, seed or JSON
     /// derives `address` before saving anything.
     public static func openBackup(
@@ -326,6 +329,9 @@ extension CloudStorageService {
         expectedAddress: String? = nil,
         encryptionService: EncryptionServiceProtocol = EncryptionService()
     ) throws -> OpenBackupAccount {
+        guard !data.isEmpty, data.count <= EncryptionService.maximumBackupBytes else {
+            throw CloudStorageServiceError.incorectJson
+        }
         guard let account = try? JSONDecoder().decode(EcryptedBackupAccount.self, from: data) else {
             throw CloudStorageServiceError.incorectJson
         }
@@ -335,10 +341,19 @@ extension CloudStorageService {
 
         func decrypt(_ value: String?) throws -> String? {
             guard let value, !value.isEmpty else { return nil }
-            guard let decrypted = try? encryptionService.getDecrypted(from: value, password: password) else {
+            let decrypted: String?
+            do {
+                decrypted = try encryptionService.getDecrypted(from: value, password: password)
+            } catch CloudStorageServiceError.incorectJson {
+                // Malformed or outside the scrypt bounds: no password can open it.
+                throw CloudStorageServiceError.incorectJson
+            } catch {
                 throw CloudStorageServiceError.incorectPassword
             }
-            return decrypted
+            guard let plaintext = decrypted else {
+                throw CloudStorageServiceError.incorectPassword
+            }
+            return plaintext
         }
 
         if let keyVerifier = account.keyVerifier, !keyVerifier.isEmpty {

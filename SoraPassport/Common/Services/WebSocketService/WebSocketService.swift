@@ -117,7 +117,7 @@ final class WebSocketService: WebSocketServiceProtocol {
         let engine = engineFactory.createEngine(for: settings.url, autoconnect: isActive)
         engine.delegate = self
         self.engine = engine
-        Logger.shared.info("start socket connected: \(settings.url)")
+        Logger.shared.info("start socket connected: \(Logger.redacted(settings.url))")
     }
 }
 

@@ -7,7 +7,7 @@ import SoraUIKit
 
 final class ChangeAccountTests: XCTestCase {
     @MainActor
-    func testExportRequiresSixCharactersEvenWhenTheActionIsCalledDirectly() throws {
+    func testExportRequiresTheBackupPasswordPolicyEvenWhenTheActionIsCalledDirectly() throws {
         let presenter = ExportPasswordPresenterSpy()
         let view = AccountExportViewController()
         view.presenter = presenter
@@ -26,18 +26,21 @@ final class ChangeAccountTests: XCTestCase {
             confirmation.textField.sendActions(for: .editingChanged)
         }
 
-        edit("12345")
-        XCTAssertFalse(button.isEnabled)
-        XCTAssertEqual(password.sora.state, .fail)
-        XCTAssertFalse((password.sora.descriptionLabelText ?? "").isEmpty)
-        view.downloadTapped()
-        XCTAssertTrue(presenter.passwords.isEmpty)
+        // Six characters were enough before; eleven still are not.
+        for refused in ["123456", "fixture-pas", "123456789012"] {
+            edit(refused)
+            XCTAssertFalse(button.isEnabled, refused)
+            XCTAssertEqual(password.sora.state, .fail, refused)
+            XCTAssertFalse((password.sora.descriptionLabelText ?? "").isEmpty, refused)
+            view.downloadTapped()
+            XCTAssertTrue(presenter.passwords.isEmpty, refused)
+        }
 
-        edit("123456")
+        edit("fixture-pass")
         XCTAssertTrue(button.isEnabled)
         XCTAssertEqual(password.sora.state, .success)
         view.downloadTapped()
-        XCTAssertEqual(presenter.passwords, ["123456"])
+        XCTAssertEqual(presenter.passwords, ["fixture-pass"])
     }
 
     func testUnsupportedNetworkImportExplainsHowToProceed() {

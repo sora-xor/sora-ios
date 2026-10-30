@@ -24,14 +24,21 @@ final class AuthorizationPresenter {
     private var verificationPinLength: Int?
     private var isCheckingPin = false
     private var isLoadingPinLength = false
+    private var isOwnerPinRequired = false
     
     var inputedPinCode: String = "" {
         didSet {
-            view?.setupTitleLabel(text: R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized)
+            view?.setupTitleLabel(text: verifyTitle)
             view?.resetTitleColor()
             view?.updateInputedCircles(with: inputedPinCode.count)
             view?.setupDeleteButton(isHidden: inputedPinCode.isEmpty)
         }
+    }
+
+    /// Says why Face ID or Touch ID did not start this time.
+    private var verifyTitle: String {
+        isOwnerPinRequired ? LocalAuthInteractor.ownerPinEntryTitle
+            : R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized
     }
     private func requestPinLength() {
         isLoadingPinLength = true
@@ -123,9 +130,16 @@ extension AuthorizationPresenter: LocalAuthInteractorOutputProtocol {
             view?.setupTitleLabel(text: "PIN unavailable. Unlock your iPhone, then tap a number to retry.")
             return
         }
-        view?.setupTitleLabel(text: R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized)
+        view?.setupTitleLabel(text: verifyTitle)
         verificationPinLength = count
         view?.updatePinCodeSymbolsCount(with: count)
+    }
+
+    func didRequireOwnerPinEntry() {
+        isOwnerPinRequired = true
+        view?.didChangeAccessoryState(enabled: false)
+        guard verificationPinLength != nil, !isCheckingPin else { return }
+        view?.setupTitleLabel(text: verifyTitle)
     }
 
     func didChangeState(from state: LocalAuthInteractor.LocalAuthState) {}

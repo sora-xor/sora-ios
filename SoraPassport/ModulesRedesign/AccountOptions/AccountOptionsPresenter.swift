@@ -102,6 +102,64 @@ final class AccountOptionsPresenter {
             self.view?.present(viewModel: viewModel, style: .alert, from: self.view)
         }
     }
+
+    /// Creating or deleting the Google Drive backup starts only after the
+    /// same fresh wallet authorization as the local exports, so cancelling
+    /// or failing it changes nothing. The authorization is bound to this
+    /// account; if it lapses before the operation runs, it is asked for
+    /// once more.
+    private func authorizeCloudBackup(then operation: @escaping (AccountOptionsCloudBackupAuthorization) -> Void) {
+        wireframe.authorizeCloudBackup(from: view) { [weak self] isAuthorized in
+            guard let self, isAuthorized else { return }
+            operation(self.interactor.makeCloudBackupAuthorization())
+        }
+    }
+
+    private func createBackup(askingAgainIfLapsed: Bool) {
+        authorizeCloudBackup { [weak self] authorization in
+            guard let self else { return }
+            self.view?.showLoading()
+            ApplicationConfig.shared.updateAvailableBackupedAccounts(account: self.interactor.currentAccount)
+            self.interactor.signInToGoogleIfNeeded(authorization: authorization) { [weak self] preparation in
+                guard let self else { return }
+                switch preparation {
+                case let .ready(account):
+                    self.handle(account)
+                case .unavailable:
+                    self.handle(nil)
+                case .authorizationRequired:
+                    self.view?.hideLoading()
+                    if askingAgainIfLapsed {
+                        self.createBackup(askingAgainIfLapsed: false)
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteBackup(askingAgainIfLapsed: Bool) {
+        authorizeCloudBackup { [weak self] authorization in
+            guard let self else { return }
+            self.view?.showLoading()
+            self.interactor.deleteBackup(authorization: authorization) { [weak self] error in
+                self?.view?.hideLoading()
+                guard let error = error else {
+                    self?.backupState = .notBackedUp
+                    return
+                }
+                if (error as? AccountOptionsCloudBackupError) == .authorizationRequired {
+                    if askingAgainIfLapsed {
+                        self?.deleteBackup(askingAgainIfLapsed: false)
+                    }
+                    return
+                }
+                self?.view?.present(message: nil,
+                                    title: error.localizedDescription,
+                                    closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                                    from: self?.view)
+            }
+        }
+    }
 }
 
 extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
@@ -134,26 +192,11 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
     
     func deleteBackup() {
-        view?.showLoading()
-        interactor.deleteBackup { [weak self] error in
-            self?.view?.hideLoading()
-            guard let error = error else {
-                self?.backupState = .notBackedUp
-                return
-            }
-            self?.view?.present(message: nil,
-                                title: error.localizedDescription,
-                                closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-                                from: self?.view)
-        }
+        deleteBackup(askingAgainIfLapsed: true)
     }
     
     func createBackup() {
-        view?.showLoading()
-        ApplicationConfig.shared.updateAvailableBackupedAccounts(account: interactor.currentAccount)
-        interactor.signInToGoogleIfNeeded { [weak self] account in
-            self?.handle(account)
-        }
+        createBackup(askingAgainIfLapsed: true)
     }
     
     func doLogout() {
