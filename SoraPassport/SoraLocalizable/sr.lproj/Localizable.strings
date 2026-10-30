@@ -1010,6 +1010,9 @@
 "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN." = "SORA ће на овом iPhone-у почети испочетка. Сачувани кључеви новчаника се не бришу. Сваки новчаник можеш касније вратити његовом фразом за опоравак или резервном копијом на Google Drive. Новчаници са сачуваним власничким PIN-ом могу да се врате и преко Додај налог тим PIN-ом.";
 "Restore a historical wallet" = "Врати стари новчаник";
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "За фразу од 3, 6 или 9 речи унеси SORA адресу новчаника који желиш да вратиш. Фраза и путања извођења морају одговарати овој адреси пре него што се сачува било који кључ.";
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "Фразу краћу од 12 речи много је лакше погодити. Након враћања направи нови новчаник са фразом од 24 речи и пребаци своја средства у њега.";
+"Move your funds to a new wallet" = "Пребаци своја средства у нови новчаник";
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "Фраза за опоравак овог новчаника има мање од 12 речи, па ју је много лакше погодити. Направи нови новчаник са фразом од 24 речи и пребаци своја средства у њега.";
 "SORA wallet address" = "Адреса SORA новчаника";
 "Advanced options" = "Напредне могућности";
 "Key type" = "Врста кључа";

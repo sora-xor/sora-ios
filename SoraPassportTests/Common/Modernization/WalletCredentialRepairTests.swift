@@ -20,7 +20,11 @@ final class WalletCredentialRepairTests: XCTestCase {
         lazy var coordinator = WalletLifecycleCoordinator(recoveryGate: gate)
         lazy var service = WalletCredentialRepair(keystore: keys, settings: settings,
             recoveryGate: gate, lifecycleCoordinator: coordinator, activeSnapshot: { nil })
-        let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        let phrase: String
+
+        init(phrase: String = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about") {
+            self.phrase = phrase
+        }
 
         func prepared(_ type: CryptoType = .sr25519, path: String = "//repair") throws -> PreparedAccount {
             let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: phrase)
@@ -438,6 +442,17 @@ final class CredentialRepairScreenCoverageTests: RootActionFixtureTests {
         XCTAssertEqual(restored.map(\.address), [try f.prepared().account.address]); try f.assertWorking(XCTUnwrap(restored.first))
         XCTAssertEqual(try material(c).text, ""); XCTAssertTrue(all(UITextField.self, c.view).allSatisfy { ($0.text ?? "").isEmpty })
         XCTAssertEqual(try status(c).text, "Wallet credentials repaired."); XCTAssertTrue(try button("wallet-repair-retry", c).isHidden)
+    }
+    func testShortPhraseRepairWarnsBeforeItContinues() async throws {
+        let f = WalletCredentialRepairTests.Fixture(phrase: "abandon abandon ability"); var restored = [AccountItem]()
+        let c = try open(f) { restored.append($0) }
+        c.setSuppliedMaterial(source: .phrase, text: f.phrase, derivationPath: "//repair", backupPassword: "unused")
+        try field("wallet-repair-pin", c).text = "246810"; c.confirmRepair()
+        await wait { c.presentedViewController is UIAlertController }
+        XCTAssertEqual(try alert(c).title, WalletShortPhraseWarning.title); XCTAssertEqual(try alert(c).message, WalletShortPhraseWarning.message)
+        XCTAssertTrue(restored.isEmpty); XCTAssertEqual(try status(c).text, "Wallet credentials repaired.")
+        try await choose("OK", c)
+        XCTAssertEqual(restored.map(\.address), [try f.prepared().account.address]); try f.assertWorking(XCTUnwrap(restored.first))
     }
     func testChangingSourceClearsPriorMaterialAndShowsOnlyRelevantFields() throws {
         let f = WalletCredentialRepairTests.Fixture(); let c = try open(f)

@@ -59,6 +59,13 @@ protocol AccountImportInteractorOutputProtocol: AnyObject {
     func didCompleteAccountImport()
     func didReceiveAccountImport(error: Swift.Error)
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?)
+    /// A Google Drive backup is being restored from a 3-, 6- or 9-word phrase (see
+    /// `WalletShortPhraseWarning`). Sent on the main queue before the import completes or fails.
+    func didRestoreShortPhraseWallet()
+}
+
+extension AccountImportInteractorOutputProtocol {
+    func didRestoreShortPhraseWallet() {}
 }
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
@@ -94,7 +101,8 @@ extension AccountImportWireframeProtocol {
         guard let view else { completion(nil); return }
         view.resetFocus()
         let alert = UIAlertController(title: WalletUX.text("Restore a historical wallet"),
-            message: WalletUX.text("For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved."),
+            message: WalletUX.text("For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved.")
+                + "\n\n" + WalletShortPhraseWarning.restoreNotice,
             preferredStyle: .alert)
         alert.addTextField {
             $0.placeholder = WalletUX.text("SORA wallet address")
@@ -109,5 +117,31 @@ extension AccountImportWireframeProtocol {
             completion(address?.isEmpty == false ? address : nil)
         })
         view.controller.present(alert, animated: true)
+    }
+}
+
+/// The 3-, 6- and 9-word phrases App Store 3.8.6 accepted hold 32, 64 or 96 bits of entropy
+/// instead of at least 128, so their keys are far easier to guess. Restoring one says so and
+/// recommends moving the funds to a new 24-word wallet.
+enum WalletShortPhraseWarning {
+    static var restoreNotice: String {
+        WalletUX.text("A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it.")
+    }
+
+    static var title: String { WalletUX.text("Move your funds to a new wallet") }
+
+    static var message: String {
+        WalletUX.text("This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it.")
+    }
+
+    /// Shows the warning over `controller`. `acknowledged` runs once it is closed, or at once
+    /// when nothing on screen can show it, so a finished restore never waits on the alert.
+    static func present(from controller: UIViewController?, acknowledged: @escaping () -> Void) {
+        var top = controller
+        while let presented = top?.presentedViewController { top = presented }
+        guard let top, top.viewIfLoaded?.window != nil else { acknowledged(); return }
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default) { _ in acknowledged() })
+        top.present(alert, animated: true)
     }
 }

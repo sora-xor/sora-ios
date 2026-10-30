@@ -31,6 +31,8 @@ final class EnterPasswordViewModel {
     private var interactor: AccountImportInteractorInputProtocol
     private var errorText = ""
     private var isImporting = false
+    /// This import is restoring a 3-, 6- or 9-word phrase; success shows the warning first.
+    private var restoredShortPhrase = false
     private let selectedAccount: OpenBackupAccount?
     private var backedUpAccounts: [OpenBackupAccount]
     private weak var view: EnterPasswordViewProtocol?
@@ -72,6 +74,7 @@ final class EnterPasswordViewModel {
     private func checkPassword(password: String) {
         guard !isImporting, let selectedAccount else { return }
         isImporting = true
+        restoredShortPhrase = false
         errorText = ""
         reload()
         view?.showLoading()
@@ -98,11 +101,26 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
         }
         ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
         
-        wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: backedUpAccounts)
+        let wireframe = wireframe, accounts = backedUpAccounts
+        let openSuccess: () -> Void = {
+            wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: accounts)
+        }
+        if restoredShortPhrase {
+            restoredShortPhrase = false
+            wireframe?.presentShortPhraseWarning(acknowledged: openSuccess)
+        } else {
+            openSuccess()
+        }
+    }
+    
+    func didRestoreShortPhraseWallet() {
+        guard isImporting else { return }
+        restoredShortPhrase = true
     }
     
     func didReceiveAccountImport(error: Error) {
         isImporting = false
+        restoredShortPhrase = false
         errorText = error.localizedDescription
         view?.hideLoading()
         reload()

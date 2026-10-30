@@ -1010,6 +1010,9 @@
 "SORA will start fresh on this iPhone. Wallet keys saved on this iPhone are not deleted. You can restore any wallet later with its recovery phrase or Google Drive backup. Wallets with a saved ownership PIN can also be restored from Add account with that PIN." = "SORA rozpocznie od nowa na tym iPhonie. Zapisane klucze portfeli nie zostaną usunięte. Każdy portfel można później przywrócić za pomocą jego frazy odzyskiwania lub kopii w Google Drive. Portfele z zapisanym PIN właściciela można również przywrócić w sekcji Dodaj konto za pomocą tego PIN.";
 "Restore a historical wallet" = "Przywróć dawny portfel";
 "For a 3-, 6-, or 9-word phrase, enter the SORA address of the wallet you want to restore. The phrase and derivation path must match this address before any keys are saved." = "Dla frazy złożonej z 3, 6 lub 9 słów wpisz adres SORA portfela do przywrócenia. Fraza i ścieżka wyprowadzania muszą odpowiadać temu adresowi przed zapisaniem jakichkolwiek kluczy.";
+"A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it." = "Frazę krótszą niż 12 słów znacznie łatwiej odgadnąć. Po przywróceniu utwórz nowy portfel z frazą złożoną z 24 słów i przenieś do niego swoje środki.";
+"Move your funds to a new wallet" = "Przenieś środki do nowego portfela";
+"This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it." = "Fraza odzyskiwania tego portfela ma mniej niż 12 słów, dlatego znacznie łatwiej ją odgadnąć. Utwórz nowy portfel z frazą złożoną z 24 słów i przenieś do niego swoje środki.";
 "SORA wallet address" = "Adres portfela SORA";
 "Advanced options" = "Opcje zaawansowane";
 "Key type" = "Typ klucza";
