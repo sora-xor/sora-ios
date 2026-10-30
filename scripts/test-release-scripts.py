@@ -56,6 +56,9 @@ if 'archive' in args:
     project = pathlib.Path(args[args.index('-project')+1]) / 'project.pbxproj'
     with open(os.environ['CALLS'] + '.project', 'w') as log:
         log.write(project.read_text())
+    stage = project.parent.parent
+    with open(os.environ['CALLS'] + '.modes', 'w') as log:
+        log.write(json.dumps([oct(stage.stat().st_mode & 0o777), oct(stage.parent.stat().st_mode & 0o777)]))
     write_app(pathlib.Path(args[args.index('-archivePath')+1]) / 'Products/Applications/SoraPassport.app')
     if os.environ.get('SIMULATE_PIN_DRIFT'):
         pathlib.Path('Package.resolved').write_text('changed by build')
@@ -120,6 +123,12 @@ sys.stdout.buffer.write(plistlib.dumps(entitlements))
         self.assertEqual((self.repo / "SoraPassport.xcodeproj/project.pbxproj").read_text(), self.project_text)
         self.assertNotEqual(self.invocations()[0][self.invocations()[0].index("-project")+1],
                             str(self.repo / "SoraPassport.xcodeproj"))
+
+    def test_staged_copy_is_a_normal_checkout_inside_a_private_directory(self):
+        # The gate's self-tests expect the repository root not to be mode 0700.
+        self.assertEqual(self.archive().returncode, 0)
+        root, parent = json.loads(Path(str(self.calls) + ".modes").read_text())
+        self.assertEqual((root, parent), ("0o755", "0o700"))
 
     def test_missing_version_or_build_prevents_archive(self):
         for key, value in [("SORA_MARKETING_VERSION", ""), ("SORA_BUILD_NUMBER", ""), ("SORA_BUILD_NUMBER", "42")]:

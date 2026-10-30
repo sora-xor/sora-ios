@@ -40,8 +40,13 @@ options="${SORA_EXPORT_OPTIONS_PLIST:-$repo_root/SoraPassport/Configs/ExportOpti
 # one every 3.9.x TestFlight upload used: the modernization gate build phase
 # runs its source-gate lints, because the full production-promotion mode needs
 # Nexus signing and qualification receipts that this release does not ship.
-stage="$(mktemp -d "${TMPDIR:-/tmp}/sora-archive-source.XXXXXX")"
-trap 'rm -rf "$stage"; require_clean' EXIT
+stage_parent="$(mktemp -d "${TMPDIR:-/tmp}/sora-archive-source.XXXXXX")"
+trap 'rm -rf "$stage_parent"; require_clean' EXIT
+# mktemp's directory is private (0700). The copy inside it gets a checkout's
+# usual 0755, because the gate's self-tests expect a repository root that is
+# not private.
+stage="$stage_parent/source"
+mkdir -m 755 "$stage"
 git archive --format=tar HEAD | tar -x -C "$stage"
 /usr/bin/python3 - "$stage/SoraPassport.xcodeproj/project.pbxproj" <<'PY'
 import sys
