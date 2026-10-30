@@ -83,7 +83,12 @@ final class WalletUXVisualAcceptanceTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.jp.soramitsu.sora.dev.flex")
         app.activate()
-        if app.staticTexts["Enter Pin Code"].waitForExistence(timeout: 5) {
+        // A wallet without its owner PIN binding shows the explanation instead.
+        let pinPrompt = app.staticTexts.matching(NSPredicate(format: "label IN %@", [
+            "Enter Pin Code",
+            "Enter your PIN. SORA needs it once to protect the wallets on this iPhone."
+        ])).firstMatch
+        if pinPrompt.waitForExistence(timeout: 5) {
             let pin = try XCTUnwrap(ProcessInfo.processInfo.environment["SORA_UX_SAMPLE_PIN"])
             for digit in pin { app.staticTexts[String(digit)].tap() }
         }

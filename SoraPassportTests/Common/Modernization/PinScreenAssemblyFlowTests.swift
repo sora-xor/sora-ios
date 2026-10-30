@@ -254,23 +254,40 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
         let output: AuthBoundaryOutput; let biometry: AuthBoundaryBiometry
     }
     private func fixture(pin: String? = "123456", enabled: Bool? = true, type: AvailableBiometryType = .touchId,
-                         failCount: Int = 0, accounts: @escaping () throws -> [AccountItem] = { [] }) throws -> Fixture {
-        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager(), output = AuthBoundaryOutput(), biometry = AuthBoundaryBiometry()
+                         failCount: Int = 0, accounts: @escaping () throws -> [AccountItem] = { [] },
+                         store: InMemoryKeychainManager = InMemoryKeychainManager(),
+                         settings: InMemorySettingsManager = InMemorySettingsManager(),
+                         ownerKeys: KeystoreProtocol? = nil) throws -> Fixture {
+        let output = AuthBoundaryOutput(), biometry = AuthBoundaryBiometry()
         if let pin { try store.keychain.saveKey(Data(pin.utf8), with: KeystoreTag.pincode.rawValue) }
         settings.biometryEnabled = enabled; settings.failInputPinCount = failCount; biometry.availableBiometryType = type
-        let gate = WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }, credentialRepairPending: { false })
         let subject = LocalAuthInteractor(secretManager: store, settingsManager: settings, biometryAuth: biometry,
-            locale: Locale(identifier: "en"), ownerPINKeystore: store.keychain, recoveryGate: gate, accounts: accounts)
+            locale: Locale(identifier: "en"), ownerPINKeystore: ownerKeys ?? store.keychain, recoveryGate: gate(settings), accounts: accounts)
         subject.presenter = output
         return Fixture(subject: subject, store: store, settings: settings, output: output, biometry: biometry)
     }
-    private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
-        let deadline = Date().addingTimeInterval(3)
+    private func gate(_ settings: InMemorySettingsManager) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(settings: settings, unresolvedMigrationJournal: { false }, unresolvedWalletCommitJournal: { false }, credentialRepairPending: { false })
+    }
+    /// A real wallet whose keys are in `store`, so it is proven exactly as on a
+    /// device. `bound` adds the owner binding that 3.9.1 and later write.
+    private func wallet(in store: InMemoryKeychainManager, settings: InMemorySettingsManager, bound: Bool) throws -> AccountItem {
+        try AccountCreationHelper.createAccountFromMnemonic(cryptoType: .sr25519, keychain: store.keychain, settings: settings)
+        let account = try XCTUnwrap(settings.currentAccount)
+        if bound {
+            try store.keychain.saveKey(JSONEncoder().encode(WalletOwnerPIN.Binding(pin: "123456")),
+                                       with: account.address + WalletOwnerPIN.bindingSuffix)
+        }
+        return account
+    }
+    private func waitUntil(timeout: TimeInterval = 3, _ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
+        let deadline = Date().addingTimeInterval(timeout)
         while !predicate() && Date() < deadline { try? await Task.sleep(nanoseconds: 5_000_000) }
         XCTAssertTrue(predicate(), file: file, line: line)
     }
-    private func authenticate(_ f: Fixture, pin: String = "123456") async {
-        f.subject.process(pin: pin); await waitUntil { f.subject.state != .checkingPincode }
+    /// A typed PIN that creates owner bindings runs scrypt; allow for it.
+    private func authenticate(_ f: Fixture, pin: String = "123456", timeout: TimeInterval = 3) async {
+        f.subject.process(pin: pin); await waitUntil(timeout: timeout) { f.subject.state != .checkingPincode }
     }
     func testCooldownScheduleAndLastChanceAreExplicitForEveryAttempt() {
         let minutes = [0, 0, 0, 1, 5, 15, 30, 30, 30, 30, 30]
@@ -369,6 +386,139 @@ final class LocalAuthLifecycleBoundaryTests: XCTestCase {
         let f = try fixture(); await authenticate(f); f.subject.process(pin: "000000")
         XCTAssertEqual(f.subject.state, .completed); XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.output.wrong, 0)
     }
+
+    // MARK: Owner bindings from builds that never wrote them (3.8.6, internal 3.9.1/3.9.2)
+
+    func testMissingOwnerBindingAsksForTheTypedPinInsteadOfBiometry() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings)
+        let before = try store.keychain.allKeyIdentifiers()
+        f.subject.startAuth(completion: nil); await waitUntil { f.output.ownerPinRequests == 1 }
+        XCTAssertEqual(f.subject.state, .waitingPincode); XCTAssertEqual(f.biometry.requests, 0)
+        XCTAssertEqual(f.output.completions, 0); XCTAssertEqual(f.output.failures, 0)
+        XCTAssertEqual(try store.keychain.allKeyIdentifiers(), before, "Deciding writes nothing")
+        f.subject.startAuth(completion: nil); await waitUntil { f.output.ownerPinRequests == 2 }
+        XCTAssertEqual(f.biometry.requests, 0, "A manual biometric request is not accepted either")
+    }
+    func testTypedPinCreatesTheOwnerBindingAndTheNextUnlockUsesBiometryAgain() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings)
+        f.subject.startAuth(completion: nil); await waitUntil { f.output.ownerPinRequests == 1 }
+        await authenticate(f, timeout: 60); XCTAssertEqual(f.output.completions, 1)
+        let owner = WalletOwnerPIN(keystore: store.keychain, settings: settings, recoveryGate: gate(settings))
+        XCTAssertTrue(try owner.hasBindings(accounts: [account]))
+        XCTAssertEqual(try owner.verifyRetained("123456", addresses: [account.address]), [account.address],
+                       "Welcome back can restore this wallet with its PIN after a reinstall")
+        let next = try fixture(accounts: { [account] }, store: store, settings: settings)
+        next.subject.startAuth(completion: nil); await waitUntil { next.biometry.requests == 1 }
+        next.biometry.complete(true); await waitUntil { next.output.completions == 1 }
+        XCTAssertEqual(next.subject.state, .completed); XCTAssertEqual(next.output.ownerPinRequests, 0)
+    }
+    func testWalletsWithOwnerBindingsKeepTheBiometricUnlock() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: true)
+        let f = try fixture(failCount: 2, accounts: { [account] }, store: store, settings: settings)
+        f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        XCTAssertEqual(f.subject.state, .checkingBiometry)
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }
+        XCTAssertEqual(f.subject.state, .completed); XCTAssertEqual(f.settings.failInputPinCount, 0)
+        XCTAssertEqual(f.output.ownerPinRequests, 0)
+    }
+    func testUnreadableOwnerBindingAsksForTheTypedPin() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: true)
+        let keys = AuthBoundaryReadFaultKeychain(base: store.keychain, failing: account.address + WalletOwnerPIN.bindingSuffix)
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings, ownerKeys: keys)
+        f.subject.startAuth(completion: nil); await waitUntil { f.output.ownerPinRequests == 1 }
+        XCTAssertEqual(f.subject.state, .waitingPincode); XCTAssertEqual(f.biometry.requests, 0)
+        XCTAssertEqual(f.output.failures, 0)
+        keys.failing = nil; await authenticate(f, timeout: 60)
+        XCTAssertEqual(f.output.completions, 1); XCTAssertEqual(f.output.wrong, 0)
+    }
+    func testUnprovenWatchOnlyWalletDoesNotHoldBackBiometry() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        // No signing key on this iPhone: a typed PIN would not bind it either.
+        let account = try wallet(in: InMemoryKeychainManager(), settings: settings, bound: false)
+        settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings)
+        f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }
+        XCTAssertEqual(f.output.ownerPinRequests, 0)
+    }
+    func testDisabledBiometryNeedsNoOwnerPinExplanation() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        let f = try fixture(enabled: false, accounts: { [account] }, store: store, settings: settings)
+        f.subject.startAuth(completion: nil); await waitUntil { f.subject.state == .waitingPincode }
+        XCTAssertEqual(f.biometry.requests, 0); XCTAssertEqual(f.output.ownerPinRequests, 0)
+    }
+    func testMalformedOwnerBindingKeepsTheBiometricUnlock() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        // authenticateCurrent rejects this record, so a typed PIN could not
+        // replace it: asking for one would only lock the user out.
+        try store.keychain.saveKey(Data("not a binding".utf8), with: account.address + WalletOwnerPIN.bindingSuffix)
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings)
+        f.subject.startAuth(completion: nil); await waitUntil { f.biometry.requests == 1 }
+        f.biometry.complete(true); await waitUntil { f.output.completions == 1 }
+        XCTAssertEqual(f.output.ownerPinRequests, 0)
+    }
+    func testOwnerBindingQueryIsReadOnlyAndCountsAnyBindingRecord() throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        let owner = WalletOwnerPIN(keystore: store.keychain, settings: settings, recoveryGate: gate(settings))
+        let tag = account.address + WalletOwnerPIN.bindingSuffix
+        let snapshot: () throws -> [String: Data] = {
+            try Dictionary(uniqueKeysWithValues: store.keychain.allKeyIdentifiers().map { ($0, try store.keychain.fetchKey(for: $0)) })
+        }
+        let before = try snapshot()
+        XCTAssertFalse(try owner.hasBindings(accounts: [account])); XCTAssertTrue(try owner.hasBindings(accounts: []))
+        XCTAssertEqual(try snapshot(), before)
+        let valid = try JSONEncoder().encode(WalletOwnerPIN.Binding(pin: "654321"))
+        for record in [Data(#"{"version":2,"salt":"","verifier":""}"#.utf8), Data("not a binding".utf8), valid] {
+            try store.keychain.saveKey(record, with: tag)
+            XCTAssertTrue(try owner.hasBindings(accounts: [account]))
+        }
+        let unreadable = WalletOwnerPIN(keystore: AuthBoundaryReadFaultKeychain(base: store.keychain, failing: tag),
+                                        settings: settings, recoveryGate: gate(settings))
+        XCTAssertThrowsError(try unreadable.hasBindings(accounts: [account]))
+    }
+    func testNormalUnlockScreenExplainsTheOneTypedPinAndHidesBiometry() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings)
+        let presenter = InputPincodePresenter(), view = PinPresenterView(), route = PinPresenterRoute()
+        presenter.view = view; presenter.wireframe = route; presenter.interactor = f.subject; f.subject.presenter = presenter
+        let explanation = LocalAuthInteractor.ownerPinEntryTitle
+        presenter.start(); await waitUntil { view.titles.last == explanation && view.accessory.last == false }
+        XCTAssertEqual(f.biometry.requests, 0)
+        "000000".forEach { presenter.padButtonTapped(with: String($0)) }
+        await waitUntil { view.errors == 1 }; view.errorCompletion?(true)
+        XCTAssertEqual(view.titles.last, explanation, "The explanation stays after a wrong PIN")
+        "123456".forEach { presenter.padButtonTapped(with: String($0)) }
+        await waitUntil(timeout: 60) { route.routes == ["main"] }
+        XCTAssertTrue(try store.keychain.checkKey(for: account.address + WalletOwnerPIN.bindingSuffix))
+    }
+    func testLockAndAuthorizationScreenExplainsTheOneTypedPinToo() async throws {
+        let store = InMemoryKeychainManager(), settings = InMemorySettingsManager()
+        let account = try wallet(in: store, settings: settings, bound: false)
+        let f = try fixture(accounts: { [account] }, store: store, settings: settings)
+        let presenter = AuthorizationPresenter(), view = PinPresenterView(), route = PinAssemblyRoute()
+        presenter.view = view; presenter.wireframe = route; presenter.interactor = f.subject; f.subject.presenter = presenter
+        let explanation = LocalAuthInteractor.ownerPinEntryTitle
+        presenter.start(); await waitUntil { view.titles.last == explanation && view.accessory.last == false }
+        XCTAssertEqual(f.biometry.requests, 0)
+        "00".forEach { presenter.padButtonTapped(with: String($0)) }
+        XCTAssertEqual(view.titles.last, explanation, "Typing keeps the explanation")
+        "0000".forEach { presenter.padButtonTapped(with: String($0)) }
+        await waitUntil { view.errors == 1 }; view.errorCompletion?(true)
+        XCTAssertEqual(view.titles.last, explanation, "The explanation stays after a wrong PIN")
+        "123456".forEach { presenter.padButtonTapped(with: String($0)) }
+        await waitUntil(timeout: 60) { route.results == [true] }
+        XCTAssertTrue(try store.keychain.checkKey(for: account.address + WalletOwnerPIN.bindingSuffix))
+    }
 }
 private enum AuthBoundaryFailure: Error { case unavailable }
 private final class AuthBoundaryBiometry: BiometryAuthProtocol {
@@ -380,9 +530,24 @@ private final class AuthBoundaryBiometry: BiometryAuthProtocol {
     func complete(_ result: Bool) { delivery?(result) }
 }
 private final class AuthBoundaryOutput: LocalAuthInteractorOutputProtocol {
-    var wrong = 0, lastChance = 0, completions = 0, failures = 0
+    var wrong = 0, lastChance = 0, completions = 0, failures = 0, ownerPinRequests = 0
     var lengths: [Int] = [], blocks: [Date] = [], states: [LocalAuthInteractor.LocalAuthState] = []
     func didEnterWrongPincode() { wrong += 1 }; func blockUserInputUntil(date: Date) { blocks.append(date) }
     func reachedLastChancePinInput() { lastChance += 1 }; func didChangeState(from state: LocalAuthInteractor.LocalAuthState) { states.append(state) }
     func didCompleteAuth() { completions += 1 }; func didUnexpectedFail() { failures += 1 }; func setupPinCodeSymbols(with count: Int) { lengths.append(count) }
+    func didRequireOwnerPinEntry() { ownerPinRequests += 1 }
+}
+/// Fails every read of one tag the way an unavailable Keychain does.
+private final class AuthBoundaryReadFaultKeychain: KeystoreProtocol {
+    let base: InMemoryKeychain; var failing: String?
+    init(base: InMemoryKeychain, failing: String) { self.base = base; self.failing = failing }
+    private func admit(_ identifier: String) throws {
+        if identifier == failing { throw KeystoreSystemError(status: errSecInteractionNotAllowed) }
+    }
+    func addKey(_ key: Data, with identifier: String) throws { try base.addKey(key, with: identifier) }
+    func updateKey(_ key: Data, with identifier: String) throws { try base.updateKey(key, with: identifier) }
+    func fetchKey(for identifier: String) throws -> Data { try admit(identifier); return try base.fetchKey(for: identifier) }
+    func checkKey(for identifier: String) throws -> Bool { try admit(identifier); return try base.checkKey(for: identifier) }
+    func allKeyIdentifiers() throws -> [String] { try base.allKeyIdentifiers() }
+    func deleteKey(for identifier: String) throws { try base.deleteKey(for: identifier) }
 }

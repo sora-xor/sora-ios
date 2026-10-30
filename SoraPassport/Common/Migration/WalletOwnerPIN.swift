@@ -309,6 +309,19 @@ final class WalletOwnerPIN {
         try Self.synchronized { try !pendingSetupIntents(accounts: accounts).isEmpty }
     }
 
+    /// Read-only. Biometry never binds; a typed PIN binds every proven account
+    /// (authenticateCurrent). False while one has no binding record at all.
+    /// Any record counts: a malformed one is authenticateCurrent's to reject,
+    /// and a typed PIN cannot replace it. Unproven rows never count; Keychain
+    /// read errors are thrown.
+    func hasBindings(accounts: [AccountItem]) throws -> Bool {
+        try Self.synchronized {
+            let unbound = try accounts.filter { try !keystore.checkKey(for: $0.address + Self.bindingSuffix) }
+            guard !unbound.isEmpty else { return true }
+            return try proven(unbound).isEmpty
+        }
+    }
+
     /// Routing-only preflight. A missing app PIN does not prove ownership of
     /// retained signing rows. The writer repeats these checks under its lease.
     func validateInitialSetupEligibility(accounts: [AccountItem]) throws {

@@ -1289,3 +1289,4 @@
 "Close" = "閉じる";
 "Use Taira for testnet balances and activity. You can create and copy your Nexus production address before the production network launches. Testnet funds have no monetary value." = "テストネットの残高と履歴は Taira で確認できます。SORA Nexus の本番アドレスは、本番ネットワークの開始前から作成・コピーできます。テストネットの資金に金銭的な価値はありません。";
 "Only SORA2 is available for this account. To add other networks, import this wallet using its recovery phrase in Accounts." = "このアカウントで使えるのは SORA2 のみです。他のネットワークを追加するには、アカウント画面でリカバリーフレーズを使ってこのウォレットをインポートしてください。";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "PIN を入力してください。この iPhone のウォレットを保護するため、SORA は一度だけ PIN を必要とします。";

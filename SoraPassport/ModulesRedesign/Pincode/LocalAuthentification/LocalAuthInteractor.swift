@@ -149,6 +149,12 @@ class LocalAuthInteractor {
         }
     }
 
+    /// Welcome back restores a wallet with its PIN only through its owner
+    /// binding. A read error asks for the PIN too; it never skips it.
+    private func needsOwnerPinBinding() -> Bool {
+        (try? ownerPIN.hasBindings(accounts: accounts())) != true
+    }
+
     private func processBiometryAuth(result: Bool) {
         guard state == .checkingBiometry else {
             return
@@ -215,15 +221,23 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
     func startAuth(completion: (() -> Void)?) {
         guard state == .waitingPincode else { return }
         state = .checkingBiometry
+        let biometryEnabled = settingsManager.biometryEnabled == true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 try self.ownerPIN.prepareAuthentication(currentAccounts: self.accounts)
+                let needsOwnerPin = biometryEnabled && self.needsOwnerPinBinding()
                 self.secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
                     completionQueue: DispatchQueue.main) { [weak self] secret in
                     guard let self, self.state == .checkingBiometry else { return }
                     // Upgrading a four-digit PIN requires its actual entry.
                     guard secret?.toUTF8String()?.count == 6 else {
                         self.state = .waitingPincode
+                        return
+                    }
+                    // Biometry would leave the wallet without an owner binding.
+                    guard !needsOwnerPin else {
+                        self.state = .waitingPincode
+                        self.presenter?.didRequireOwnerPinEntry()
                         return
                     }
                     self.performBiometryAuth(completion: completion)
