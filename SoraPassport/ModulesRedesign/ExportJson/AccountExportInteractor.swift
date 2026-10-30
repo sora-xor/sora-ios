@@ -16,6 +16,7 @@
 // limitations under the License.
 
 import UIKit
+import IrohaCrypto
 import SSFUtils
 import RobinHood
 import SoraKeystore
@@ -155,5 +156,88 @@ struct AccountExportFileStore {
         // Read back through a fresh URL so a cached value cannot pass.
         let stored = try URL(fileURLWithPath: url.path).resourceValues(forKeys: [.isExcludedFromBackupKey])
         guard stored.isExcludedFromBackup == true else { throw Failure.protectionNotApplied }
+    }
+}
+
+/// JSON exports made before 3.9.2. Those versions wrote each export to the
+/// top level of Documents, as `<address>.json` or
+/// `batch_exported_account_<time>.json`, and never removed it, so it kept
+/// the default protection class and went into device backups.
+///
+/// The app never reads them again and does not share Documents with Files,
+/// but an owner may still rely on one, so they are never deleted, moved or
+/// rewritten. Each launch only gives them complete file protection and
+/// excludes them from device backups.
+enum LegacyAccountExportFiles {
+    private static let batchPrefix = "batch_exported_account_"
+
+    /// The legacy exports directly in `documents`: regular files named after
+    /// a valid SS58 address or a batch export, with the `json` extension.
+    /// Folders, links and other files are never included.
+    static func exports(in documents: URL, fileManager: FileManager = .default) -> [URL] {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey]
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: documents,
+            includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+        let addressFactory = SS58AddressFactory()
+        return entries.filter { url in
+            guard url.pathExtension == "json",
+                  let values = try? url.resourceValues(forKeys: keys),
+                  values.isRegularFile == true, values.isSymbolicLink != true else {
+                return false
+            }
+            let stem = url.deletingPathExtension().lastPathComponent
+            return isBatchExportStem(stem) || isAddress(stem, factory: addressFactory)
+        }
+    }
+
+    /// Protects every legacy export in `documents` and returns the ones that
+    /// could not be protected now, for example while the device is locked.
+    /// Repeating it is harmless, so a later launch simply tries again.
+    @discardableResult
+    static func protect(in documents: URL, fileManager: FileManager = .default) -> [URL] {
+        exports(in: documents, fileManager: fileManager).filter { !protect($0, fileManager: fileManager) }
+    }
+
+    /// Changes attributes only; the file's bytes are never read or written.
+    private static func protect(_ url: URL, fileManager: FileManager) -> Bool {
+        do {
+            if (try? FileProtectionMetadata.protectionClass(at: url, fileManager: fileManager)) != .complete {
+                try FileProtectionMetadata.setProtectionClass(.complete, at: url, fileManager: fileManager)
+            }
+            if (try? URL(fileURLWithPath: url.path).resourceValues(forKeys: [.isExcludedFromBackupKey]))?
+                .isExcludedFromBackup != true {
+                var target = url
+                var values = URLResourceValues()
+                values.isExcludedFromBackup = true
+                try target.setResourceValues(values)
+            }
+            // Read back through a fresh URL so a cached value cannot pass.
+            let stored = try URL(fileURLWithPath: url.path).resourceValues(forKeys: [.isExcludedFromBackupKey])
+            let protection = try FileProtectionMetadata.protectionClass(at: url, fileManager: fileManager)
+            return stored.isExcludedFromBackup == true && protection == .complete
+        } catch {
+            // The file name contains the exported account address; never log it.
+            return false
+        }
+    }
+
+    /// A valid SS58 address, checksum included: `type(fromAddress:)` alone
+    /// checks only the length and the network prefix.
+    private static func isAddress(_ stem: String, factory: SS58AddressFactory) -> Bool {
+        guard let type = try? factory.type(fromAddress: stem) else { return false }
+        return (try? factory.accountId(fromAddress: stem, type: type.uint16Value)) != nil
+    }
+
+    /// `batch_exported_account_` followed by the export time in seconds
+    /// since 1970, as `Date().timeIntervalSince1970` printed it.
+    private static func isBatchExportStem(_ stem: String) -> Bool {
+        guard stem.hasPrefix(batchPrefix) else { return false }
+        let time = stem.dropFirst(batchPrefix.count)
+        return !time.isEmpty && time.allSatisfy { $0.isASCII && ($0.isNumber || $0 == ".") } && Double(time) != nil
     }
 }

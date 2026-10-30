@@ -71,9 +71,28 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             #endif
 
             setupLanguage()
+            protectLegacyAccountExports(application)
         }
 
         return true
+    }
+
+    /// JSON exports from before 3.9.2 stay in Documents but get complete file
+    /// protection and no device backup (`LegacyAccountExportFiles`). That
+    /// needs the device unlocked; a launch while it is locked leaves them for
+    /// the next launch.
+    private func protectLegacyAccountExports(_ application: UIApplication) {
+        guard application.isProtectedDataAvailable,
+              let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        DispatchQueue.global(qos: .utility).async {
+            let unprotected = LegacyAccountExportFiles.protect(in: documents)
+            if !unprotected.isEmpty {
+                // A count only: the file names contain account addresses.
+                Logger.shared.warning("Could not protect \(unprotected.count) legacy JSON export file(s)")
+            }
+        }
     }
 
     /// A missing theme key also means an existing user's System choice.
