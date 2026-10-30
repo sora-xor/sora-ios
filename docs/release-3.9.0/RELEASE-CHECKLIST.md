@@ -31,23 +31,34 @@ Human and operations actions for the release. Each task adds its items here.
 
 ### Archive
 
-- [ ] Archive with plain `xcodebuild archive` (or Xcode Organizer). No
-      qualification mode variables are needed any more.
-- [ ] Pass `-onlyUsePackageVersionsFromResolvedFile` to `xcodebuild archive`
-      and confirm `git status` shows no change to
-      `Package.resolved` afterwards, so the archive uses the pinned
-      dependency versions tested locally.
-- [ ] Pass the build number explicitly: `CURRENT_PROJECT_VERSION` must be
-      greater than `2026091402` (format `YYYYMMDDNN`, e.g. `2026101001`).
-      `MARKETING_VERSION` must be `3.9.0`.
-- [ ] Signing continuity, so existing users keep Keychain access to their
-      wallets. Check the signed archive:
-      - bundle ID `co.jp.soramitsu.sora`
+- [ ] Archive with `scripts/archive-app-store.sh` from a clean checkout:
+      `SORA_MARKETING_VERSION=3.9.2 SORA_BUILD_NUMBER=<YYYYMMDDNN>
+      SORA_ARCHIVE_PATH=... SORA_EXPORT_PATH=... scripts/archive-app-store.sh`.
+      The build number must be above every earlier upload (highest so far:
+      `2026102901`). The script archives a copy of HEAD whose only change is
+      the modernization gate build phase in `--lint-ios-migration-release-source-gate`
+      mode, as every 3.9.x TestFlight upload did (the full promotion mode
+      needs Nexus signing receipts this release does not ship). It passes
+      `-onlyUsePackageVersionsFromResolvedFile` and fails if any
+      `Package.resolved` changed during the build.
+- [ ] The script stops unless both the archive and the exported IPA keep
+      signing continuity, so existing users keep Keychain access to their
+      wallets:
+      - bundle ID `co.jp.soramitsu.sora`, the requested version and build
       - team `YLWWUD25VZ`
       - `application-identifier` `YLWWUD25VZ.co.jp.soramitsu.sora`
-      - no new `keychain-access-groups` entitlement
+      - no `keychain-access-groups` or app-group entitlement
         (`SoraPassport/SoraPassport.entitlements` is an empty dictionary,
         as in 3.8.6)
+      - distribution signing (`get-task-allow` false) on the export, and no
+        migration-evidence harness in the binary
+- [ ] Dependencies changed in 3.9.2: Kingfisher 6.3.1 → 7.12.0 (ships its
+      privacy manifest); the Starscream fork is vendored at
+      `VendorPackages/fearless-starscream` (its GitHub repository was removed,
+      so clean checkouts could not resolve packages; sources byte-identical to
+      4.0.12 plus upstream's privacy manifest, see `UPSTREAM.json`); Apple
+      swift-* packages moved within their ranges, including swift-crypto
+      5.0.3 (CVE-2026-86983).
 - [ ] Check that `Payload/SoraPassport.app/Frameworks/` has no `*.a` files
       and no static-library frameworks.
 
