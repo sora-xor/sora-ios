@@ -408,4 +408,23 @@ final class AccountOptionsAuthorizationRouteTests: XCTestCase {
     XCTAssertEqual(deletions, 0)
     XCTAssertTrue(f.host.shown.isEmpty)
   }
+  func testCloudBackupAsksForTheSameWalletAuthorizationAsTheExports() {
+    let f = Fixture(); var results = [Bool]()
+    f.route.authorizeCloudBackup(from: f.host) { results.append($0) }
+    XCTAssertEqual(f.authorization.count, 1)
+    XCTAssertTrue(results.isEmpty, "Nothing is authorized before the owner answers")
+    f.authorization[0](false)
+    f.route.authorizeCloudBackup(from: f.host) { results.append($0) }
+    XCTAssertEqual(f.authorization.count, 2)
+    f.authorization[1](true)
+    XCTAssertEqual(results, [false, true])
+    XCTAssertTrue(f.requests.isEmpty)
+    XCTAssertTrue(f.host.shown.isEmpty)
+  }
+  func testCloudBackupAuthorizationWithoutAnOptionsScreenAuthorizesNothing() {
+    let f = Fixture(); var results = [Bool]()
+    f.route.authorizeCloudBackup(from: nil) { results.append($0) }
+    XCTAssertTrue(f.authorization.isEmpty)
+    XCTAssertEqual(results, [false])
+  }
 }
