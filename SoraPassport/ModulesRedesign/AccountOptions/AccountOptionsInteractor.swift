@@ -189,7 +189,9 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                 // Google sign-in can take the owner out of the app, and an
                 // existing Google session is accepted without asking. The
                 // phrase is read only while the wallet authorization holds.
-                try authorization.redeem(for: account.address)
+                // The backup password screen reads the secret again to
+                // encrypt it, under the rest of the same authorization.
+                let passwordAuthorization = try authorization.redeemForBackupPassword(for: account.address)
                 var material = try WalletBackupMaterial.load(
                     for: account, keystore: keystore, recoveryGate: recoveryGate
                 )
@@ -207,7 +209,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                     substrateDerivationPath: material.derivationPath ?? ""
                 )
                 try recoveryGate.requireAuthorizedLifecycleContinuation()
-                await MainActor.run { completion?(.ready(backup)) }
+                await MainActor.run { completion?(.ready(backup, passwordAuthorization)) }
             } catch AccountOptionsCloudBackupError.authorizationRequired {
                 await MainActor.run { completion?(.authorizationRequired) }
             } catch {
@@ -476,18 +478,32 @@ final class AccountOptionsCloudBackupAuthorization {
     let accountAddress: String
     private let selectedAddressWhenGiven: String?
     private let selectedAddress: () -> String?
+    private let eventCenter: EventCenterProtocol
     private let notificationCenter: NotificationCenter
     private let lock = NSLock()
     private var hasLapsed = false
     private var backgroundObserver: NSObjectProtocol?
 
-    init(accountAddress: String,
-         selectedAddress: @escaping () -> String?,
-         eventCenter: EventCenterProtocol,
-         notificationCenter: NotificationCenter = .default) {
+    convenience init(accountAddress: String,
+                     selectedAddress: @escaping () -> String?,
+                     eventCenter: EventCenterProtocol,
+                     notificationCenter: NotificationCenter = .default) {
+        self.init(accountAddress: accountAddress,
+                  selectedAddressWhenGiven: selectedAddress(),
+                  selectedAddress: selectedAddress,
+                  eventCenter: eventCenter,
+                  notificationCenter: notificationCenter)
+    }
+
+    private init(accountAddress: String,
+                 selectedAddressWhenGiven: String?,
+                 selectedAddress: @escaping () -> String?,
+                 eventCenter: EventCenterProtocol,
+                 notificationCenter: NotificationCenter) {
         self.accountAddress = accountAddress
         self.selectedAddress = selectedAddress
-        selectedAddressWhenGiven = selectedAddress()
+        self.selectedAddressWhenGiven = selectedAddressWhenGiven
+        self.eventCenter = eventCenter
         self.notificationCenter = notificationCenter
         // Not `willResignActive`: Face ID and system alerts resign the app
         // without leaving it.
@@ -524,6 +540,25 @@ final class AccountOptionsCloudBackupAuthorization {
         try admit(accountAddress, redeeming: true)
     }
 
+    /// Like `redeem(for:)`, and returns the authorization for the rest of the
+    /// same backup: the backup password screen reads the wallet secret once
+    /// more to encrypt it. The returned authorization holds under this one's
+    /// conditions (this account, the wallet selected when this one was given,
+    /// the same foreground session) and also allows one operation.
+    func redeemForBackupPassword(for accountAddress: String) throws -> AccountOptionsCloudBackupAuthorization {
+        // Bound before this one is used up, so a background or selection
+        // change that arrives in between lapses at least one of the two.
+        let next = AccountOptionsCloudBackupAuthorization(
+            accountAddress: self.accountAddress,
+            selectedAddressWhenGiven: selectedAddressWhenGiven,
+            selectedAddress: selectedAddress,
+            eventCenter: eventCenter,
+            notificationCenter: notificationCenter
+        )
+        try redeem(for: accountAddress)
+        return next
+    }
+
     private func admit(_ accountAddress: String, redeeming: Bool) throws {
         let currentSelection = self.selectedAddress()
         lock.lock()
@@ -557,8 +592,9 @@ enum AccountOptionsCloudBackupError: Error, Equatable {
 /// What the Google Drive backup flow has for the backup password screen
 /// once Google sign-in is done.
 enum AccountOptionsCloudBackupPreparation {
-    /// The verified backup of the account.
-    case ready(OpenBackupAccount)
+    /// The verified backup of the account, and the authorization the backup
+    /// password screen needs to read the wallet secret for it.
+    case ready(OpenBackupAccount, AccountOptionsCloudBackupAuthorization)
     /// No backup can be made now: Google sign-in was refused or failed, or
     /// the account has no verified recovery phrase.
     case unavailable
@@ -566,6 +602,11 @@ enum AccountOptionsCloudBackupPreparation {
     /// so it was not read. The owner has to authorize again.
     case authorizationRequired
 }
+
+/// Asks the owner for the wallet authorization again and completes with a
+/// new one for the same account, or with nil when it is refused.
+typealias AccountOptionsCloudBackupReauthorization =
+    (@escaping (AccountOptionsCloudBackupAuthorization?) -> Void) -> Void
 
 enum WalletPendingDeletionPreflightError: LocalizedError, Equatable {
     case nexusJournalUnavailable

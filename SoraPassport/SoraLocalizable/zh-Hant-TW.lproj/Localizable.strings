@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "請至少使用 12 個字元，且不要使用單一重複字元、簡單序列（例如 123456789012 或 abcdefghijkl）或常見密碼。";
+"backup.password.policy.repeated" = "由同一字元重複組成的密碼太容易被猜到。請選擇較難預測的密碼。";
+"backup.password.policy.sequence" = "123456789012 或 abcdefghijkl 這類簡單序列太容易被猜到。請選擇較難預測的密碼。";
+"backup.password.policy.common" = "這是最常見的密碼之一，太容易被猜到。請選擇較難預測的密碼。";
+"backup.password.policy.fulfilled" = "已符合最低要求。密碼越長、越難預測就越安全。";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "無法重新設定此 iPhone";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "復原操作絕不會刪除此 iPhone 鑰匙圈中的錢包金鑰。";
 "Enter your PIN" = "輸入您的 PIN";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "請輸入您的 PIN。SORA 需要您輸入一次 PIN，以保護此 iPhone 上的錢包。";
 "PIN" = "PIN";
 "Cancel" = "取消";
 "Continue" = "繼續";

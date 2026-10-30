@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Tối thiểu sáu ký tự. Tùy chọn, để bảo mật tốt hơn, hãy bao gồm các chữ cái viết hoa, số và các ký tự không phải bảng chữ cái.";
 "backup.password.mandatory.reqs.fulfilled" = "Yêu cầu bắt buộc đối với mật khẩu được đáp ứng";
 "backup.password.title.2" = "Đặt mật khẩu mã hóa bản sao lưu bản sao lưu Google. Bạn sẽ cần nhập thông tin này khi khôi phục ví của mình.";
+"backup.password.policy.requirements" = "Hãy dùng ít nhất 12 ký tự. Tránh dùng một ký tự lặp lại, các dãy đơn giản như 123456789012 hoặc abcdefghijkl và mật khẩu phổ biến.";
+"backup.password.policy.repeated" = "Mật khẩu chỉ gồm một ký tự lặp lại quá dễ đoán. Hãy chọn mật khẩu khó đoán hơn.";
+"backup.password.policy.sequence" = "Các dãy đơn giản như 123456789012 hoặc abcdefghijkl quá dễ đoán. Hãy chọn mật khẩu khó đoán hơn.";
+"backup.password.policy.common" = "Đây là một trong những mật khẩu phổ biến nhất và quá dễ đoán. Hãy chọn mật khẩu khó đoán hơn.";
+"backup.password.policy.fulfilled" = "Đã đáp ứng yêu cầu tối thiểu. Mật khẩu dài hơn và khó đoán hơn sẽ mạnh hơn.";
 "edit.view" = "Chỉnh sửa dạng xem";
 "common.enabled" = "Đã bật";
 "common.disabled" = "Đã tắt";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Không thể thiết lập lại iPhone này";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Quá trình khôi phục không bao giờ xóa khóa ví khỏi Chuỗi khóa của iPhone này.";
 "Enter your PIN" = "Nhập mã PIN của bạn";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Nhập mã PIN của bạn. SORA cần mã PIN một lần để bảo vệ các ví trên iPhone này.";
 "PIN" = "PIN";
 "Cancel" = "Hủy";
 "Continue" = "Tiếp tục";

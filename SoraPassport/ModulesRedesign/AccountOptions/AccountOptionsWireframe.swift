@@ -83,10 +83,14 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
     
     @MainActor func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
                                     account: OpenBackupAccount,
+                                    authorization: AccountOptionsCloudBackupAuthorization,
+                                    reauthorize: @escaping AccountOptionsCloudBackupReauthorization,
                                     completion: @escaping () -> Void) {
         guard let setupPasswordView = SetupPasswordViewFactory.createView(
             with: account,
             entryPoint: .profile,
+            cloudBackupAuthorization: authorization,
+            reauthorizeCloudBackup: reauthorize,
             completion: completion)?.controller else { return }
         
         let containerView = BlurViewController()

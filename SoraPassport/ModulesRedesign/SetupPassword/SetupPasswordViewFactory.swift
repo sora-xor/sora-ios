@@ -27,6 +27,8 @@ final class SetupPasswordViewFactory {
                            createAccountService: CreateAccountServiceProtocol? = nil,
                            mnemonic: IRMnemonicProtocol? = nil,
                            entryPoint: EntryPoint,
+                           cloudBackupAuthorization: AccountOptionsCloudBackupAuthorization? = nil,
+                           reauthorizeCloudBackup: AccountOptionsCloudBackupReauthorization? = nil,
                            completion: (() -> Void)? = nil) -> SetupPasswordViewProtocol? {
         let view = SetupPasswordViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view,
@@ -38,6 +40,8 @@ final class SetupPasswordViewFactory {
                                                mnemonic: mnemonic,
                                                entryPoint: entryPoint,
                                                keystore: Keychain(),
+                                               cloudBackupAuthorization: cloudBackupAuthorization,
+                                               reauthorizeCloudBackup: reauthorizeCloudBackup,
                                                completion: completion)
         viewModel.view = view
         let wireframe = SetupPasswordWireframe(currentController: view)

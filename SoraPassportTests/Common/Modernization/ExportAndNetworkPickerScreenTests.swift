@@ -291,6 +291,69 @@ final class AccountExportFileBoundaryTests: XCTestCase {
         let unshown = try store.write(Data("public fixture".utf8), name: "fixture.json")
         route.showShareFile(url: unshown as NSURL, in: nil); XCTAssertFalse(FileManager.default.fileExists(atPath: unshown.path))
     }
+    private func legacyDocuments() throws -> URL {
+        let documents = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: documents) }
+        return documents
+    }
+    private func isExcludedFromBackup(_ url: URL) -> Bool {
+        (try? URL(fileURLWithPath: url.path).resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup == true
+    }
+    private func legacyAddress(_ byte: UInt8) throws -> String {
+        try SS58AddressFactory().address(fromAccountId: Data(repeating: byte, count: 32), type: Chain.sora.addressType())
+    }
+    func testLegacyDocumentsExportsGetCompleteProtectionAndNoBackupButAreNeverChanged() throws {
+        let documents = try legacyDocuments(), files = FileManager.default
+        // The names 3.9.1 and earlier gave single and batch exports in Documents.
+        let legacy = [documents.appendingPathComponent(try legacyAddress(7) + ".json"): Data("single public fixture".utf8),
+                      documents.appendingPathComponent("batch_exported_account_1686812345.123456.json"): Data("batch public fixture".utf8),
+                      documents.appendingPathComponent("batch_exported_account_1700000000.0.json"): Data("second batch fixture".utf8)]
+        for (url, data) in legacy { try data.write(to: url) }
+        XCTAssertEqual(Set(LegacyAccountExportFiles.exports(in: documents).map(\.lastPathComponent)), Set(legacy.keys.map(\.lastPathComponent)))
+        XCTAssertEqual(LegacyAccountExportFiles.protect(in: documents), [])
+        for (url, data) in legacy {
+            XCTAssertEqual(try Data(contentsOf: url), data, url.lastPathComponent)
+            XCTAssertEqual(try FileProtectionMetadata.protectionClass(at: url, fileManager: files), .complete, url.lastPathComponent)
+            XCTAssertTrue(isExcludedFromBackup(url), url.lastPathComponent)
+        }
+        // The next launch finds nothing left to do, and every file is still there.
+        XCTAssertEqual(LegacyAccountExportFiles.protect(in: documents), [])
+        XCTAssertEqual(Set(try files.contentsOfDirectory(atPath: documents.path)), Set(legacy.keys.map(\.lastPathComponent)))
+        for (url, data) in legacy { XCTAssertEqual(try Data(contentsOf: url), data, url.lastPathComponent) }
+    }
+    func testOnlyRegularTopLevelFilesWithLegacyExportNamesAreProtected() throws {
+        let documents = try legacyDocuments(), outside = try legacyDocuments(), files = FileManager.default
+        let address = try legacyAddress(7)
+        var damaged = Array(address); damaged[damaged.count - 1] = damaged.last == "z" ? "y" : "z"
+        // Same length and network prefix as a real address; only the checksum is wrong.
+        XCTAssertNotNil(try? SS58AddressFactory().type(fromAddress: String(damaged)))
+        XCTAssertNil(try? SS58AddressFactory().accountId(fromAddress: String(damaged), type: 69), "The fixture must fail the SS58 checksum")
+        var untouched: [URL] = []
+        for name in ["notes.json", String(damaged) + ".json", address + ".txt", address + ".json.bak", "batch_exported_account_.json",
+                     "batch_exported_account_12a.json", "batch_exported_account_1.2.3.json", "batch_exported_accounts_1.0.json"] {
+            let url = documents.appendingPathComponent(name); try Data("public fixture".utf8).write(to: url); untouched.append(url)
+        }
+        // A folder named like an export, an export in a subfolder, and a link to a file outside Documents.
+        let folder = documents.appendingPathComponent(try legacyAddress(8) + ".json", isDirectory: true)
+        try files.createDirectory(at: folder, withIntermediateDirectories: true)
+        let nested = documents.appendingPathComponent("WalletSetAside", isDirectory: true).appendingPathComponent(address + ".json")
+        try files.createDirectory(at: nested.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("nested public fixture".utf8).write(to: nested)
+        let target = outside.appendingPathComponent("target.json"); try Data("outside public fixture".utf8).write(to: target)
+        let link = documents.appendingPathComponent(try legacyAddress(9) + ".json")
+        try files.createSymbolicLink(at: link, withDestinationURL: target)
+        untouched += [folder, nested, target]
+        XCTAssertEqual(LegacyAccountExportFiles.exports(in: documents), [])
+        XCTAssertEqual(LegacyAccountExportFiles.protect(in: documents), [])
+        for url in untouched {
+            XCTAssertTrue(files.fileExists(atPath: url.path), url.lastPathComponent)
+            XCTAssertFalse(isExcludedFromBackup(url), url.lastPathComponent)
+            XCTAssertNotEqual(try? FileProtectionMetadata.protectionClass(at: url, fileManager: files), .complete, url.lastPathComponent)
+        }
+        XCTAssertEqual(try files.destinationOfSymbolicLink(atPath: link.path), target.path)
+        XCTAssertEqual(LegacyAccountExportFiles.exports(in: documents.appendingPathComponent("missing", isDirectory: true)), [])
+    }
 }
 
 extension AccountExportFileBoundaryTests {

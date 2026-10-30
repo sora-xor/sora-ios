@@ -852,6 +852,11 @@
 "backup.password.requirments" = "מינימום שישה תווים. לחלופין, לאבטחה טובה יותר, כלול אותיות רישיות, מספרים ותווים שאינם אלפביתיים.";
 "backup.password.mandatory.reqs.fulfilled" = "דרישת חובה למילוי הסיסמה";
 "backup.password.title.2" = "הגדרת סיסמה תצפין את גיבוי הגוגל שלך. יהיה עליך להזין זאת בעת שחזור הארנק.";
+"backup.password.policy.requirements" = "יש להשתמש ב-12 תווים לפחות, ולא בתו יחיד שחוזר על עצמו, ברצף פשוט כמו 123456789012 או abcdefghijkl או בסיסמה נפוצה.";
+"backup.password.policy.repeated" = "סיסמה שמורכבת מתו אחד שחוזר על עצמו קלה מדי לניחוש. יש לבחור סיסמה פחות צפויה.";
+"backup.password.policy.sequence" = "רצפים פשוטים כמו 123456789012 או abcdefghijkl קלים מדי לניחוש. יש לבחור סיסמה פחות צפויה.";
+"backup.password.policy.common" = "זו אחת הסיסמאות הנפוצות ביותר והיא קלה מדי לניחוש. יש לבחור סיסמה פחות צפויה.";
+"backup.password.policy.fulfilled" = "הסיסמה עומדת בדרישות המינימום. סיסמה ארוכה יותר ופחות צפויה חזקה יותר.";
 "edit.view" = "ערוך תצוגה";
 "common.enabled" = "מופעל";
 "common.disabled" = "מושבת";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "לא ניתן היה להגדיר את ה-iPhone הזה מחדש";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "השחזור לעולם אינו מוחק מפתחות ארנק מצרור המפתחות של ה-iPhone הזה.";
 "Enter your PIN" = "יש להזין את קוד ה-PIN";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "יש להזין את קוד ה-PIN. SORA צריכה אותו פעם אחת כדי להגן על הארנקים ב-iPhone הזה.";
 "PIN" = "PIN";
 "Cancel" = "ביטול";
 "Continue" = "המשך";

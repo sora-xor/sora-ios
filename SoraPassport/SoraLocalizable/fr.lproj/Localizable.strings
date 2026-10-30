@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six caractères. Pour une meilleure sécurité, inclure des lettres majuscules, des nombres et des caractères spéciaux.";
 "backup.password.mandatory.reqs.fulfilled" = "Critères de sécurité obligatoires remplis";
 "backup.password.title.2" = "Définir un mot de passe va encrypter votre sauvegarde. Vous aurez besoin d'entrer le mot de passe pour restaurer votre portefeuille";
+"backup.password.policy.requirements" = "Utilisez au moins 12 caractères. Évitez un seul caractère répété, les suites simples comme 123456789012 ou abcdefghijkl et les mots de passe courants.";
+"backup.password.policy.repeated" = "Un seul caractère répété est trop facile à deviner. Choisissez un mot de passe moins prévisible.";
+"backup.password.policy.sequence" = "Les suites simples comme 123456789012 ou abcdefghijkl sont trop faciles à deviner. Choisissez un mot de passe moins prévisible.";
+"backup.password.policy.common" = "Ce mot de passe est l’un des plus courants et trop facile à deviner. Choisissez un mot de passe moins prévisible.";
+"backup.password.policy.fulfilled" = "Exigences minimales remplies. Un mot de passe plus long et moins prévisible est plus sûr.";
 "edit.view" = "Modifier la vue";
 "common.enabled" = "Activé";
 "common.disabled" = "Désactivé";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Impossible de configurer à nouveau cet iPhone";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "La récupération ne supprime jamais les clés du portefeuille du trousseau de cet iPhone.";
 "Enter your PIN" = "Saisissez votre PIN";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Saisissez votre PIN. SORA en a besoin une seule fois pour protéger les portefeuilles de cet iPhone.";
 "PIN" = "PIN";
 "Cancel" = "Annuler";
 "Continue" = "Continuer";

@@ -853,6 +853,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Bruk minst 12 tegn. Unngå ett og samme tegn gjentatt, enkle sekvenser som 123456789012 eller abcdefghijkl og vanlige passord.";
+"backup.password.policy.repeated" = "Ett og samme tegn gjentatt er for lett å gjette. Velg et mindre forutsigbart passord.";
+"backup.password.policy.sequence" = "Enkle sekvenser som 123456789012 eller abcdefghijkl er for lette å gjette. Velg et mindre forutsigbart passord.";
+"backup.password.policy.common" = "Dette er et av de vanligste passordene og er for lett å gjette. Velg et mindre forutsigbart passord.";
+"backup.password.policy.fulfilled" = "Oppfyller minstekravene. Et lengre og mindre forutsigbart passord er sterkere.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -924,6 +929,7 @@
 "Could not set up this iPhone again" = "Kunne ikke konfigurere denne iPhonen på nytt";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Gjenoppretting sletter aldri lommeboknøkler fra nøkkelringen på denne iPhonen.";
 "Enter your PIN" = "Skriv inn PIN-koden din";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Skriv inn PIN-koden din. SORA trenger den én gang for å beskytte lommebøkene på denne iPhonen.";
 "PIN" = "PIN";
 "Cancel" = "Avbryt";
 "Continue" = "Fortsett";

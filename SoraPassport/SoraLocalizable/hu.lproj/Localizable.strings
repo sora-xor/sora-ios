@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Használj legalább 12 karaktert, és ne használj egyetlen ismétlődő karakterből álló jelszót, olyan egyszerű sorozatot, mint a 123456789012 vagy az abcdefghijkl, illetve gyakori jelszót.";
+"backup.password.policy.repeated" = "Az egyetlen ismétlődő karakterből álló jelszót túl könnyű kitalálni. Válassz kevésbé kiszámítható jelszót.";
+"backup.password.policy.sequence" = "Az olyan egyszerű sorozatokat, mint a 123456789012 vagy az abcdefghijkl, túl könnyű kitalálni. Válassz kevésbé kiszámítható jelszót.";
+"backup.password.policy.common" = "Ez az egyik leggyakoribb jelszó, ezért túl könnyű kitalálni. Válassz kevésbé kiszámítható jelszót.";
+"backup.password.policy.fulfilled" = "Megfelel a minimális követelményeknek. A hosszabb, kevésbé kiszámítható jelszó erősebb.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Az iPhone újbóli beállítása sikertelen";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "A helyreállítás soha nem törli a tárcakulcsokat az iPhone Kulcskarikájából.";
 "Enter your PIN" = "Add meg a PIN-kódodat";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Add meg a PIN-kódodat. A SORA-nak csak egyszer van rá szüksége, hogy megvédje az ezen az iPhone-on lévő tárcákat.";
 "PIN" = "PIN";
 "Cancel" = "Mégse";
 "Continue" = "Folytatás";

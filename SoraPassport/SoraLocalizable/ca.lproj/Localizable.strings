@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Fes servir com a mínim 12 caràcters. Evita un sol caràcter repetit, les seqüències simples com 123456789012 o abcdefghijkl i les contrasenyes habituals.";
+"backup.password.policy.repeated" = "Un sol caràcter repetit és massa fàcil d'endevinar. Tria una contrasenya menys previsible.";
+"backup.password.policy.sequence" = "Les seqüències simples com 123456789012 o abcdefghijkl són massa fàcils d'endevinar. Tria una contrasenya menys previsible.";
+"backup.password.policy.common" = "Aquesta és una de les contrasenyes més habituals i és massa fàcil d'endevinar. Tria una contrasenya menys previsible.";
+"backup.password.policy.fulfilled" = "Compleix els requisits mínims. Una contrasenya més llarga i menys previsible és més segura.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "No s'ha pogut tornar a configurar aquest iPhone";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "La recuperació no suprimeix mai claus de la cartera del clauer d'aquest iPhone.";
 "Enter your PIN" = "Introdueix el PIN";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Introdueix el PIN. SORA el necessita una vegada per protegir les carteres d'aquest iPhone.";
 "PIN" = "PIN";
 "Cancel" = "Cancel·la";
 "Continue" = "Continua";

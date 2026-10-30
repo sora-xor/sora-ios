@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Користи најмање 12 знакова. Избегавај један знак који се понавља, једноставне низове као што су 123456789012 или abcdefghijkl и уобичајене лозинке.";
+"backup.password.policy.repeated" = "Лозинку од једног знака који се понавља превише је лако погодити. Изабери мање предвидиву лозинку.";
+"backup.password.policy.sequence" = "Једноставне низове као што су 123456789012 или abcdefghijkl превише је лако погодити. Изабери мање предвидиву лозинку.";
+"backup.password.policy.common" = "Ово је једна од најчешћих лозинки и превише ју је лако погодити. Изабери мање предвидиву лозинку.";
+"backup.password.policy.fulfilled" = "Испуњава минималне захтеве. Дужа и мање предвидива лозинка је јача.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Није могуће поново подесити овај iPhone";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Опоравак никада не брише кључеве новчаника из Привеска за кључеве овог iPhone-а.";
 "Enter your PIN" = "Унеси свој PIN";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Унеси свој PIN. Потребан је само једном да би SORA заштитила новчанике на овом iPhone-у.";
 "PIN" = "PIN";
 "Cancel" = "Откажи";
 "Continue" = "Настави";
