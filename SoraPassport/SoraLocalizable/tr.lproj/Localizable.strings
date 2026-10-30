@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "En az 12 karakter kullanın. Tek bir karakterin tekrarından, 123456789012 veya abcdefghijkl gibi basit dizilerden ve yaygın parolalardan kaçının.";
+"backup.password.policy.repeated" = "Tek bir karakterin tekrarından oluşan bir parola çok kolay tahmin edilir. Daha az tahmin edilebilir bir parola seçin.";
+"backup.password.policy.sequence" = "123456789012 veya abcdefghijkl gibi basit diziler çok kolay tahmin edilir. Daha az tahmin edilebilir bir parola seçin.";
+"backup.password.policy.common" = "Bu, en yaygın parolalardan biridir ve çok kolay tahmin edilir. Daha az tahmin edilebilir bir parola seçin.";
+"backup.password.policy.fulfilled" = "Asgari gereksinimleri karşılıyor. Daha uzun ve daha az tahmin edilebilir bir parola daha güçlüdür.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Bu iPhone yeniden ayarlanamadı";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Kurtarma, bu iPhone'un Anahtar Zinciri'ndeki cüzdan anahtarlarını asla silmez.";
 "Enter your PIN" = "PIN'inizi girin";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "PIN'inizi girin. SORA'nın bu iPhone'daki cüzdanları korumak için PIN'inize bir kez ihtiyacı var.";
 "PIN" = "PIN";
 "Cancel" = "İptal";
 "Continue" = "Devam et";

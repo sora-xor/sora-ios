@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum altı simvol. İsteğe bağlı olaraq, daha yaxşı təhlükəsizlik üçün böyük hərflər, rəqəmlər və qeyri-əlifba simvolları daxil edin.";
 "backup.password.mandatory.reqs.fulfilled" = "Parol üçün məcburi tələb yerinə yetirildi";
 "backup.password.title.2" = "Parolun təyin edilməsi Google ehtiyat nüsxənizi şifrələyəcək. Pul kisəsini bərpa edərkən bunu daxil etməlisiniz.";
+"backup.password.policy.requirements" = "Ən azı 12 simvoldan istifadə edin. Tək simvolun təkrarından, 123456789012 və ya abcdefghijkl kimi sadə ardıcıllıqlardan və geniş yayılmış parollardan çəkinin.";
+"backup.password.policy.repeated" = "Tək simvolun təkrarından ibarət parolu təxmin etmək çox asandır. Daha çətin təxmin edilən parol seçin.";
+"backup.password.policy.sequence" = "123456789012 və ya abcdefghijkl kimi sadə ardıcıllıqları təxmin etmək çox asandır. Daha çətin təxmin edilən parol seçin.";
+"backup.password.policy.common" = "Bu, ən çox yayılmış parollardan biridir və onu təxmin etmək çox asandır. Daha çətin təxmin edilən parol seçin.";
+"backup.password.policy.fulfilled" = "Minimum tələblərə cavab verir. Daha uzun və daha çətin təxmin edilən parol daha güclüdür.";
 "edit.view" = "Görünüşü redaktə edin";
 "common.enabled" = "Aktivdir";
 "common.disabled" = "Əlil";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Bu iPhone-u yenidən qurmaq mümkün olmadı";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Bərpa bu iPhone-un Açar zəncirindən pulqabı açarlarını heç vaxt silmir.";
 "Enter your PIN" = "PIN-inizi daxil edin";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "PIN-inizi daxil edin. SORA bu iPhone-dakı pulqabıları qorumaq üçün ona bir dəfə ehtiyac duyur.";
 "PIN" = "PIN";
 "Cancel" = "Ləğv et";
 "Continue" = "Davam et";

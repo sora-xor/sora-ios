@@ -978,6 +978,7 @@
 "Done" = "Done";
 "Edit details" = "Edit details";
 "Enter a recipient address and the amount you want to send." = "Enter a recipient address and the amount you want to send.";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Enter your PIN. SORA needs it once to protect the wallets on this iPhone.";
 "Expanded" = "Expanded";
 "Expired" = "Expired";
 "Finalized network history" = "Finalized network history";

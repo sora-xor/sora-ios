@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Käytä vähintään 12 merkkiä. Vältä yhden merkin toistoa, yksinkertaisia sarjoja, kuten 123456789012 tai abcdefghijkl, ja yleisiä salasanoja.";
+"backup.password.policy.repeated" = "Yhden merkin toisto on liian helppo arvata. Valitse vaikeammin arvattava salasana.";
+"backup.password.policy.sequence" = "Yksinkertaiset sarjat, kuten 123456789012 tai abcdefghijkl, ovat liian helppoja arvata. Valitse vaikeammin arvattava salasana.";
+"backup.password.policy.common" = "Tämä on yksi yleisimmistä salasanoista, ja se on liian helppo arvata. Valitse vaikeammin arvattava salasana.";
+"backup.password.policy.fulfilled" = "Täyttää vähimmäisvaatimukset. Pidempi ja vaikeammin arvattava salasana on vahvempi.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "Tätä iPhonea ei voitu ottaa uudelleen käyttöön";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Palautus ei koskaan poista lompakon avaimia tämän iPhonen Avainnipusta.";
 "Enter your PIN" = "Anna PIN-koodisi";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Anna PIN-koodisi. SORA tarvitsee sen kerran suojatakseen tämän iPhonen lompakot.";
 "PIN" = "PIN";
 "Cancel" = "Peruuta";
 "Continue" = "Jatka";

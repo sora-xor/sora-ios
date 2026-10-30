@@ -852,6 +852,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Gunakan sekurang-kurangnya 12 aksara. Elakkan satu aksara yang diulang, jujukan mudah seperti 123456789012 atau abcdefghijkl dan kata laluan yang biasa digunakan.";
+"backup.password.policy.repeated" = "Satu aksara yang diulang terlalu mudah diteka. Pilih kata laluan yang lebih sukar diramal.";
+"backup.password.policy.sequence" = "Jujukan mudah seperti 123456789012 atau abcdefghijkl terlalu mudah diteka. Pilih kata laluan yang lebih sukar diramal.";
+"backup.password.policy.common" = "Ini ialah salah satu kata laluan yang paling biasa digunakan dan terlalu mudah diteka. Pilih kata laluan yang lebih sukar diramal.";
+"backup.password.policy.fulfilled" = "Memenuhi keperluan minimum. Kata laluan yang lebih panjang dan lebih sukar diramal adalah lebih kukuh.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";
@@ -927,6 +932,7 @@
 "Could not set up this iPhone again" = "iPhone ini tidak dapat disediakan semula";
 "Recovery never deletes wallet keys from this iPhone's Keychain." = "Pemulihan tidak pernah memadam kunci dompet daripada Rantai Kunci iPhone ini.";
 "Enter your PIN" = "Masukkan PIN anda";
+"Enter your PIN. SORA needs it once to protect the wallets on this iPhone." = "Masukkan PIN anda. SORA memerlukannya satu kali untuk melindungi dompet pada iPhone ini.";
 "PIN" = "PIN";
 "Cancel" = "Batal";
 "Continue" = "Teruskan";
