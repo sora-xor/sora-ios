@@ -24,9 +24,12 @@ import SoraUIKit
 final class AccountExportWireframe: AccountExportWireframeProtocol, AuthorizationPresentable {
 
     private(set) var localizationManager: LocalizationManagerProtocol
+    private let fileStore: AccountExportFileStore
 
-    init(localizationManager: LocalizationManagerProtocol) {
+    init(localizationManager: LocalizationManagerProtocol,
+         fileStore: AccountExportFileStore = AccountExportFileStore()) {
         self.localizationManager = localizationManager
+        self.fileStore = fileStore
     }
 
     @MainActor
@@ -61,9 +64,10 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         let interactor = AccountExportInteractor(
             keystore: Keychain(),
             settings: SettingsManager.shared,
-            accounts: accounts
+            accounts: accounts,
+            fileStore: fileStore
         )
-        let wireframe = AccountExportWireframe(localizationManager: self.localizationManager)
+        let wireframe = AccountExportWireframe(localizationManager: self.localizationManager, fileStore: fileStore)
 
         view.presenter = presenter
         presenter.view = view
@@ -78,14 +82,22 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
     }
 
     func showShareFile(url: NSURL, in viewController: AccountExportViewProtocol?) {
+        let fileURL = url as URL
+        let fileStore = self.fileStore
+        guard let controller = viewController?.controller else {
+            fileStore.remove(fileURL)
+            return
+        }
         let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
 
         activityViewController.completionWithItemsHandler = { (_, completed: Bool, _, _) in
+            // Shared or cancelled, the share sheet is done with the encrypted file.
+            fileStore.remove(fileURL)
             if completed {
                 viewController?.controller.navigationController?.popViewController(animated: true)
             }
         }
 
-        viewController?.controller.present(activityViewController, animated: true)
+        controller.present(activityViewController, animated: true)
     }
 }

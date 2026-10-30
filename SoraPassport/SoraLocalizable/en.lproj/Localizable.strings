@@ -851,6 +851,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "Use at least 12 characters, not a single repeated character, a simple sequence such as 123456789012 or abcdefghijkl, or a common password.";
+"backup.password.policy.repeated" = "A single repeated character is too easy to guess. Choose a less predictable password.";
+"backup.password.policy.sequence" = "Simple sequences such as 123456789012 or abcdefghijkl are too easy to guess. Choose a less predictable password.";
+"backup.password.policy.common" = "This is one of the most common passwords and is too easy to guess. Choose a less predictable password.";
+"backup.password.policy.fulfilled" = "Meets the minimum requirements. A longer, less predictable password is stronger.";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";

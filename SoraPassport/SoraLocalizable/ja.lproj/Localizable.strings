@@ -851,6 +851,11 @@
 "backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
 "backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
 "backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.policy.requirements" = "12文字以上で設定してください。同じ文字の繰り返し、123456789012 や abcdefghijkl のような単純な並び、よく使われるパスワードは使用できません。";
+"backup.password.policy.repeated" = "同じ文字の繰り返しは推測されやすいため使用できません。推測されにくいパスワードを設定してください。";
+"backup.password.policy.sequence" = "123456789012 や abcdefghijkl のような単純な並びは推測されやすいため使用できません。推測されにくいパスワードを設定してください。";
+"backup.password.policy.common" = "よく使われているパスワードは推測されやすいため使用できません。推測されにくいパスワードを設定してください。";
+"backup.password.policy.fulfilled" = "最低限の条件を満たしています。長く推測されにくいパスワードほど安全です。";
 "edit.view" = "Edit view";
 "common.enabled" = "Enabled";
 "common.disabled" = "Disabled";

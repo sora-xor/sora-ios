@@ -92,6 +92,10 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 self.view?.hideLoading()
             }
             do {
+                // A leaked Drive backup can be guessed offline, so refuse a
+                // weak password before any wallet is created or encrypted,
+                // whatever the screen allowed.
+                try BackupPasswordPolicy.validate(password)
                 let account: AccountItem
                 if self.entryPoint == .profile {
                     guard let current = self.currentAccount() else {
@@ -137,7 +141,10 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                     self.wireframe?.showSetupPinCode()
                 }
             } catch {
-                self.wireframe?.present(message: WalletCloudBackupWriteError.userMessage(for: error),
+                let message = (error as? BackupPasswordPolicy.Violation).map {
+                    BackupPasswordPolicy.guidance(for: $0, preferredLanguages: .currentLocale)
+                } ?? WalletCloudBackupWriteError.userMessage(for: error)
+                self.wireframe?.present(message: message,
                     title: "Backup not saved",
                     closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
                     from: self.view)

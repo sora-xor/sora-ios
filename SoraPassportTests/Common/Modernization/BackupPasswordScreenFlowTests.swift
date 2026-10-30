@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import Combine
+import IrohaCrypto
+import SSFCloudStorage
+import SoraKeystore
 import SoraUIKit
 import UIKit
 import XCTest
@@ -124,6 +127,97 @@ final class BackupPasswordScreenFlowTests: XCTestCase {
     view = nil
     await settle()
     XCTAssertNil(reference)
+  }
+  func testPresenterRefusesAWeakPasswordBeforeCreatingOrEncryptingAWallet() async throws {
+    let mnemonic = try IRMnemonicCreator(language: .english)
+      .mnemonic(fromEntropy: Data(repeating: 33, count: 16))
+    let gate = WalletRecoveryCapabilityGate(
+      settings: InMemorySettingsManager(),
+      unresolvedMigrationJournal: { false },
+      unresolvedWalletCommitJournal: { false })
+    // The screen already refuses these. The presenter must too: before the
+    // onboarding wallet is created or the profile account is read, so before
+    // anything is encrypted or uploaded.
+    let refused: [(String, EntryPoint, BackupPasswordPolicy.Violation)] = [
+      ("123456", .onboarding, .tooShort),
+      ("aaaaaaaaaaaa", .onboarding, .repeatedCharacter),
+      ("123456789012", .profile, .sequence),
+      ("password1234", .profile, .commonPassword),
+    ]
+    for (password, entryPoint, violation) in refused {
+      let cloud = BackupPasswordCloudSpy()
+      let creator = BackupPasswordCreatorSpy()
+      let view = BackupPasswordViewSpy()
+      let route = BackupPasswordRouteSpy()
+      var accountReads = 0
+      let presenter = SetupPasswordPresenter(
+        account: OpenBackupAccount(address: ""),
+        cloudStorageService: cloud,
+        createAccountRequest: AccountCreationRequest(
+          username: "Public fixture", type: .sora, derivationPath: "", cryptoType: .sr25519),
+        createAccountService: creator,
+        mnemonic: mnemonic,
+        entryPoint: entryPoint,
+        keystore: InMemoryKeychain(),
+        currentAccount: {
+          accountReads += 1
+          return nil
+        },
+        lifecycleCoordinator: WalletLifecycleCoordinator(recoveryGate: gate),
+        recoveryGate: gate)
+      presenter.view = view
+      presenter.wireframe = route
+      let ended = expectation(description: password)
+      view.onHide = { ended.fulfill() }
+      presenter.backupAccount(with: password)
+      await fulfillment(of: [ended], timeout: 10)
+      withExtendedLifetime(presenter) {}
+      XCTAssertEqual(view.shows, 1, password)
+      XCTAssertEqual(creator.calls, 0, password)
+      XCTAssertEqual(accountReads, 0, password)
+      XCTAssertEqual(cloud.saves, 0, password)
+      XCTAssertEqual(route.pinSetups, 0, password)
+      XCTAssertEqual(
+        route.messages,
+        [BackupPasswordPolicy.guidance(for: violation, preferredLanguages: .currentLocale)],
+        password)
+    }
+  }
+}
+private final class BackupPasswordCloudSpy: CloudStorageServiceProtocol {
+  var isUserAuthorized = true
+  var saves = 0
+  func signInIfNeeded() async throws -> CloudStorageAccountState { .authorized }
+  func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
+  func saveBackup(account: OpenBackupAccount, password: String) async throws { saves += 1 }
+  func importBackup(account: OpenBackupAccount, password: String) async throws -> OpenBackupAccount { account }
+  func deleteBackup(account: OpenBackupAccount) async throws {}
+  func disconnect() {}
+}
+private final class BackupPasswordCreatorSpy: CreateAccountServiceProtocol {
+  var calls = 0
+  func createAccount(
+    request: AccountCreationRequest, mnemonic: IRMnemonicProtocol,
+    completion: @escaping (Result<AccountItem, Error>?) -> Void
+  ) {
+    calls += 1
+    completion(nil)
+  }
+}
+private final class BackupPasswordViewSpy: UIViewController, SetupPasswordViewProtocol {
+  var viewModel: SetupPasswordPresenterProtocol?
+  var shows = 0
+  var onHide: (() -> Void)?
+  func showLoading() { shows += 1 }
+  func hideLoading() { onHide?() }
+}
+private final class BackupPasswordRouteSpy: SetupPasswordWireframeProtocol {
+  var activityIndicatorWindow: UIWindow?
+  var messages: [String] = []
+  var pinSetups = 0
+  func showSetupPinCode() { pinSetups += 1 }
+  func present(message: String?, title: String?, closeAction: String?, from view: ControllerBackedProtocol?) {
+    messages.append(message ?? "")
   }
 }
 private final class PasswordScreenModel: SetupPasswordPresenterProtocol {
