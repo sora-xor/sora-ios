@@ -56,7 +56,7 @@ let package = Package(
         .package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7"),
         .package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0"),
         .package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3"),
-        .package(url: "https://github.com/soramitsu/fearless-starscream", exact: "4.0.12"),
+        .package(path: "../fearless-starscream"),
         .package(path: "../GoogleSignIn-iOS"),
         .package(path: "../google-api-objectivec-client-for-rest"),
         .package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0"),

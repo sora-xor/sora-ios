@@ -8247,7 +8247,7 @@
 				64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */,
 				25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */,
-				3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */,
+				3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */,
 				6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */,
 				8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */,
 				AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */,
@@ -12330,6 +12330,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "VendorPackages/shared-features-spm";
 		};
+		3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/fearless-starscream;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -12347,14 +12351,6 @@
 			requirement = {
 				kind = exactVersion;
 				version = 4.5.0;
-			};
-		};
-		3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/soramitsu/fearless-starscream.git";
-			requirement = {
-				kind = exactVersion;
-				version = 4.0.12;
 			};
 		};
 		5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */ = {
@@ -12410,7 +12406,7 @@
 			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
 			requirement = {
 				kind = exactVersion;
-				version = 6.3.1;
+				version = 7.12.0;
 			};
 		};
 		AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
@@ -12496,7 +12492,7 @@
 		};
 		11A72198A6A877678A68CF40 /* Starscream */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			package = 3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */;
 			productName = Starscream;
 		};
 		11ECB54AC166C12F312FE794 /* SSFCloudStorage */ = {
@@ -12701,12 +12697,12 @@
 		};
 		614A9425263D85BD29F57F8B /* Starscream */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			package = 3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */;
 			productName = Starscream;
 		};
 		65D72B5BCB0A03340F9A4A7E /* Starscream */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			package = 3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */;
 			productName = Starscream;
 		};
 		6780E17402514A5AFCE81B32 /* SSFStorageQueryKitFixed */ = {
@@ -12981,7 +12977,7 @@
 		};
 		E8858BBEAB92EECD0E628B34 /* Starscream */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			package = 3A88E0425D19F5A82627748F /* XCLocalSwiftPackageReference "fearless-starscream" */;
 			productName = Starscream;
 		};
 		E8D2B50532E8E2EBDBC77136 /* Lottie */ = {

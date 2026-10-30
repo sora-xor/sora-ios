@@ -2049,11 +2049,13 @@ if [ -e "${jose_manifest}" ] ||
     exit 1
 fi
 
-if [ "$(/usr/bin/grep -Fc 'exact: "' "${xnetworking_manifest}")" != "9" ] ||
+if [ "$(/usr/bin/grep -Fc 'exact: "' "${xnetworking_manifest}")" != "8" ] ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7")' "${xnetworking_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0")' "${xnetworking_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3")' "${xnetworking_manifest}" ||
-   ! /usr/bin/grep -Fq '.package(url: "https://github.com/soramitsu/fearless-starscream", exact: "4.0.12")' "${xnetworking_manifest}" ||
+   ! /usr/bin/grep -Fq '.package(path: "../fearless-starscream")' "${xnetworking_manifest}" ||
+   [ ! -f "${root}/VendorPackages/fearless-starscream/UPSTREAM.json" ] ||
+   [ -L "${root}/VendorPackages/fearless-starscream" ] ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0")' "${xnetworking_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1")' "${xnetworking_manifest}" ||
    ! /usr/bin/grep -Fq '.package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", exact: "2.1.1")' "${xnetworking_manifest}" ||
@@ -2184,9 +2186,9 @@ project_local_package_count="$(
 project_vendored_local_count="$(
     /usr/bin/grep -c 'relativePath = .*VendorPackages/' "${project}"
 )"
-if [ "${project_remote_package_count}" != "14" ] ||
+if [ "${project_remote_package_count}" != "13" ] ||
    [ "${project_exact_requirement_count}" != "${project_remote_package_count}" ] ||
-   [ "${project_local_package_count}" != "10" ] ||
+   [ "${project_local_package_count}" != "11" ] ||
    [ "${project_vendored_local_count}" != "${project_local_package_count}" ] ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/NexusTransferCodec;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/google-api-objectivec-client-for-rest";' "${project}" ||
@@ -2197,7 +2199,8 @@ if [ "${project_remote_package_count}" != "14" ] ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/FireMock;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = VendorPackages/SoraFoundation;' "${project}" ||
    ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/GoogleSignIn-iOS";' "${project}" ||
-   ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/shared-features-spm";' "${project}"; then
+   ! /usr/bin/grep -Fq 'relativePath = "VendorPackages/shared-features-spm";' "${project}" ||
+   ! /usr/bin/grep -Fq 'relativePath = VendorPackages/fearless-starscream;' "${project}"; then
     echo "error: Xcode package references contain a dynamic requirement or local substitution"
     exit 1
 fi
@@ -2212,7 +2215,8 @@ for reviewed_local_package in \
     VendorPackages/FireMock \
     VendorPackages/SoraFoundation \
     VendorPackages/GoogleSignIn-iOS \
-    VendorPackages/shared-features-spm
+    VendorPackages/shared-features-spm \
+    VendorPackages/fearless-starscream
 do
     if [ ! -d "${root}/${reviewed_local_package}" ] ||
        [ -L "${root}/${reviewed_local_package}" ]; then
