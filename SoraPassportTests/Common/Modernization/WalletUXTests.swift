@@ -1407,13 +1407,13 @@ final class WalletUXTests: XCTestCase {
                 wireframe.authorizationWindow?.isHidden = true
                 wireframe.authorizationWindow?.rootViewController = nil
             }
-            var date = Date(timeIntervalSince1970: 1_000)
+            var uptime: TimeInterval = 1_000
             let lifecycle = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
-                keystore: store.keychain, pincodeDelay: 300, currentDate: { date })
+                keystore: store.keychain, pincodeDelay: 300, uptime: { uptime })
             let presenter = SecurityLayerPresenter()
             presenter.wireframe = wireframe; presenter.interactor = lifecycle; lifecycle.presenter = presenter
             lifecycle.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
-            date.addTimeInterval(301)
+            uptime += 301
             lifecycle.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
             lifecycle.didReceiveDidBecomeActive(notification: Notification(name: UIApplication.didBecomeActiveNotification))
             await drainPINCallbacks()

@@ -3129,14 +3129,14 @@ final class WalletKeySafetyTests: XCTestCase {
         let keychain = InMemoryKeychain()
         try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
         let settings = InMemorySettingsManager()
-        var date = Date(timeIntervalSince1970: 1_000)
+        var uptime: TimeInterval = 1_000
         let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
-            keystore: keychain, pincodeDelay: 300, currentDate: { date })
+            keystore: keychain, pincodeDelay: 300, uptime: { uptime })
         let output = SecurityLayerOutputSpy()
         interactor.presenter = output
         func backgroundAndReturn() {
             interactor.didReceiveWillResignActive(notification: Notification(name: UIApplication.willResignActiveNotification))
-            date.addTimeInterval(301)
+            uptime += 301
             interactor.didReceiveWillEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
         }
         WalletPendingPinSetup.begin(settings)
@@ -3155,6 +3155,167 @@ final class WalletKeySafetyTests: XCTestCase {
         wireframe.showAuthorization()
         XCTAssertNil(wireframe.authorizationWindow)
         XCTAssertEqual(pinScreens, 0)
+    }
+
+    private static let resumeCheckAccount = AccountItem(address: "resume-check-wallet", cryptoType: .sr25519,
+        networkType: Chain.sora.addressType(), username: "Resume", publicKeyData: Data(repeating: 7, count: 32),
+        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []), order: 0, isSelected: true)
+    /// The app PIN itself, then the selected wallet's PIN-setup state.
+    private static let unreadableResumeTags = [KeystoreTag.pincode.rawValue,
+                                               WalletOwnerPIN.setupPrefix + resumeCheckAccount.address]
+
+    /// The resume check for a selected wallet with an app PIN. Reads of
+    /// `failingTag` fail until the test sets `interactor.keystore = keychain`.
+    private func makeResumeCheck(failingTag: String, uptime: @escaping () -> TimeInterval,
+                                 protectedDataAvailable: @escaping () -> Bool)
+        -> (SecurityLayerInteractor, SecurityLayerOutputSpy, InMemoryKeychain, NotificationCenter) {
+        let keychain = InMemoryKeychain()
+        try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
+        let settings = InMemorySettingsManager()
+        settings.set(value: Self.resumeCheckAccount, for: SettingsKey.selectedAccount.rawValue)
+        let center = NotificationCenter()
+        let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(), settings: settings,
+            keystore: AuxiliaryReadFailureKeychain(keychain, blockedSuffixes: [failingTag]), pincodeDelay: 300,
+            uptime: uptime, isProtectedDataAvailable: protectedDataAvailable, notificationCenter: center)
+        let output = SecurityLayerOutputSpy()
+        interactor.presenter = output
+        interactor.setup()
+        return (interactor, output, keychain, center)
+    }
+
+    /// Once protected data is available, a PIN state that still cannot be
+    /// read asks for the PIN, once, and removes the cover: the PIN screen
+    /// handles its own Keychain and recovery errors. The user is never left
+    /// behind the cover.
+    func testAnUnreadablePinStateWithProtectedDataAvailableAsksForThePinOnce() {
+        let resign = Notification(name: UIApplication.willResignActiveNotification)
+        let foreground = Notification(name: UIApplication.willEnterForegroundNotification)
+        let active = Notification(name: UIApplication.didBecomeActiveNotification)
+        for failingTag in Self.unreadableResumeTags {
+            // Back from the background, or from only being inactive.
+            for throughForeground in [true, false] {
+                let label = "\(failingTag), through foreground: \(throughForeground)"
+                var uptime: TimeInterval = 1_000
+                let (interactor, output, _, center) = makeResumeCheck(failingTag: failingTag,
+                    uptime: { uptime }, protectedDataAvailable: { true })
+
+                interactor.didReceiveWillResignActive(notification: resign)
+                uptime += 301
+                if throughForeground {
+                    interactor.didReceiveWillEnterForeground(notification: foreground)
+                }
+                interactor.didReceiveDidBecomeActive(notification: active)
+                let expected: [SecurityLayerOutputSpy.Event] = throughForeground
+                    ? [.cover, .authorize, .uncover] : [.cover, .uncover, .authorize]
+                XCTAssertEqual(output.events, expected, label)
+
+                // Decided once: later events ask for nothing more.
+                center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                interactor.didReceiveWillEnterForeground(notification: foreground)
+                interactor.didReceiveDidBecomeActive(notification: active)
+                XCTAssertEqual(output.authorizationRequests, 1, label)
+            }
+        }
+    }
+
+    /// Before protected data is available (the phone not unlocked yet) the
+    /// Keychain cannot answer: only the privacy cover shows and the timed-out
+    /// check stays pending. The unlock notification, or else the next return,
+    /// asks for the PIN, whether or not the Keychain answers by then.
+    func testAKeychainErrorBeforeTheUnlockKeepsTheCoverThenAsksForThePin() {
+        let resign = Notification(name: UIApplication.willResignActiveNotification)
+        let foreground = Notification(name: UIApplication.willEnterForegroundNotification)
+        let active = Notification(name: UIApplication.didBecomeActiveNotification)
+        for failingTag in Self.unreadableResumeTags {
+            for keychainRecovers in [true, false] {
+                for viaUnlock in [true, false] {
+                    let label = "\(failingTag), Keychain recovers: \(keychainRecovers), via unlock: \(viaUnlock)"
+                    var uptime: TimeInterval = 1_000
+                    var protectedDataAvailable = false
+                    let (interactor, output, keychain, center) = makeResumeCheck(failingTag: failingTag,
+                        uptime: { uptime }, protectedDataAvailable: { protectedDataAvailable })
+
+                    interactor.didReceiveWillResignActive(notification: resign)
+                    uptime += 301
+                    interactor.didReceiveWillEnterForeground(notification: foreground)
+                    interactor.didReceiveDidBecomeActive(notification: active)
+                    XCTAssertEqual(output.events, [.cover], label)
+
+                    if keychainRecovers {
+                        interactor.keystore = keychain
+                    }
+                    protectedDataAvailable = true
+                    if viaUnlock {
+                        center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                        XCTAssertEqual(output.events, [.cover, .uncover, .authorize], label)
+                    } else {
+                        // Leaving again keeps the first absence's start: a short
+                        // second absence still asks for the PIN on return.
+                        interactor.didReceiveWillResignActive(notification: resign)
+                        uptime += 10
+                        interactor.didReceiveWillEnterForeground(notification: foreground)
+                        interactor.didReceiveDidBecomeActive(notification: active)
+                        XCTAssertEqual(output.events, [.cover, .cover, .authorize, .uncover], label)
+                    }
+
+                    // Decided once: later events ask for nothing more.
+                    center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                    interactor.didReceiveWillEnterForeground(notification: foreground)
+                    interactor.didReceiveDidBecomeActive(notification: active)
+                    XCTAssertEqual(output.authorizationRequests, 1, label)
+                }
+            }
+        }
+    }
+
+    /// The time away runs on the continuous clock: it counts device sleep and
+    /// setting the date back does not move it, so a wall-clock rollback
+    /// cannot stretch the unlocked interval. A reading before the start (a
+    /// reset clock) asks for the PIN, and an unlock while away settles
+    /// nothing early.
+    func testTheResumePinTimeoutRunsOnTheContinuousClockSoSettingTheDateBackCannotExtendIt() {
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        let continuous = TimeInterval(mach_continuous_time()) *
+            TimeInterval(timebase.numer) / TimeInterval(timebase.denom) / 1_000_000_000
+        XCTAssertEqual(SecurityLayerInteractor.continuousUptime(), continuous, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(SecurityLayerInteractor.continuousUptime(),
+                                    ProcessInfo.processInfo.systemUptime - 1)
+
+        let keychain = InMemoryKeychain()
+        try? keychain.addKey(Data("111111".utf8), with: KeystoreTag.pincode.rawValue)
+        let center = NotificationCenter()
+        var uptime: TimeInterval = 1_000
+        let interactor = SecurityLayerInteractor(applicationHandler: ApplicationHandler(),
+            settings: InMemorySettingsManager(), keystore: keychain, pincodeDelay: 300,
+            uptime: { uptime }, notificationCenter: center)
+        let output = SecurityLayerOutputSpy()
+        interactor.presenter = output
+        interactor.setup()
+        let resign = Notification(name: UIApplication.willResignActiveNotification)
+        let foreground = Notification(name: UIApplication.willEnterForegroundNotification)
+        let active = Notification(name: UIApplication.didBecomeActiveNotification)
+        func away(_ seconds: TimeInterval) {
+            interactor.didReceiveWillResignActive(notification: resign)
+            uptime += seconds
+            interactor.didReceiveWillEnterForeground(notification: foreground)
+            interactor.didReceiveDidBecomeActive(notification: active)
+        }
+        away(299)
+        XCTAssertEqual(output.authorizationRequests, 0)
+        away(301)
+        XCTAssertEqual(output.authorizationRequests, 1)
+        // A reading before the start is a reset clock, not a short absence.
+        away(-3_600)
+        XCTAssertEqual(output.authorizationRequests, 2)
+
+        // Unlocking the phone 60 seconds in does not settle the absence as short.
+        interactor.didReceiveWillResignActive(notification: resign)
+        uptime += 60
+        center.post(name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+        uptime += 241
+        interactor.didReceiveWillEnterForeground(notification: foreground)
+        XCTAssertEqual(output.authorizationRequests, 3)
     }
 
     /// A read error while the shared gate probed the migration namespace
@@ -3404,11 +3565,14 @@ private final class PinSetupOutputSpy: PinSetupInteractorOutputProtocol {
     func didReceiveConfigError(_ error: Error) { errors.append(error) }
 }
 
+/// Records the privacy cover and PIN decisions in order.
 private final class SecurityLayerOutputSpy: SecurityLayerInteractorOutputProtocol {
-    var authorizationRequests = 0
-    func didDecideSecurePresentation() {}
-    func didDecideUnsecurePresentation() {}
-    func didDecideRequestAuthorization() { authorizationRequests += 1 }
+    enum Event { case cover, uncover, authorize }
+    private(set) var events: [Event] = []
+    var authorizationRequests: Int { events.filter { $0 == .authorize }.count }
+    func didDecideSecurePresentation() { events.append(.cover) }
+    func didDecideUnsecurePresentation() { events.append(.uncover) }
+    func didDecideRequestAuthorization() { events.append(.authorize) }
 }
 
 /// Records the 1.x upgrade's import request; the test completes it.
