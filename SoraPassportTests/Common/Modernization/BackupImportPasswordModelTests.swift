@@ -118,6 +118,7 @@ import XCTest
     f.model.didCompleteAccountImport()
     XCTAssertFalse(f.view.loading)
     XCTAssertEqual(f.routes.warnings.count, 1)
+    XCTAssertEqual(f.routes.warnedWallets, ["public-one"])
     XCTAssertTrue(f.routes.addresses.isEmpty)
     f.routes.warnings.first?()
     XCTAssertEqual(f.routes.addresses, ["public-one"])
@@ -188,12 +189,15 @@ private final class BackupPasswordView: EnterPasswordViewProtocol {
 }
 private final class BackupPasswordRoutes: EnterPasswordWireframeProtocol {
   var activityIndicatorWindow: UIWindow?
-  var addresses = [String](), accounts = [[OpenBackupAccount]](), warnings = [() -> Void]()
+  var addresses = [String](), accounts = [[OpenBackupAccount]](), warnings = [() -> Void](), warnedWallets = [String]()
   func openSuccessImport(importedAccountAddress: String, accounts: [OpenBackupAccount]) {
     addresses.append(importedAccountAddress)
     self.accounts.append(accounts)
   }
-  func presentShortPhraseWarning(acknowledged: @escaping () -> Void) { warnings.append(acknowledged) }
+  func presentShortPhraseWarning(name: String?, address: String, acknowledged: @escaping () -> Void) {
+    warnedWallets.append(address)
+    warnings.append(acknowledged)
+  }
 }
 private final class BackupPasswordImporter: AccountImportInteractorInputProtocol {
   var requests = [AccountImportBackedupRequest]()

@@ -18,6 +18,7 @@
 import UIKit
 import IrohaCrypto
 import SoraFoundation
+import SoraKeystore
 import RobinHood
 
 protocol AccountImportViewProtocol: ControllerBackedProtocol {
@@ -122,8 +123,19 @@ extension AccountImportWireframeProtocol {
 
 /// The 3-, 6- and 9-word phrases App Store 3.8.6 accepted hold 32, 64 or 96 bits of entropy
 /// instead of at least 128, so their keys are far easier to guess. Restoring one says so and
-/// recommends moving the funds to a new 24-word wallet.
+/// recommends moving the funds to a new 24-word wallet, and so does the first launch that finds
+/// such a wallet already on this iPhone. Each wallet is warned until one warning is closed.
 enum WalletShortPhraseWarning {
+    /// The entropy of a 3-, 6- or 9-word phrase. Such a wallet keeps it beside the seed that
+    /// proves its keys, as App Store 3.8.6 stored it.
+    static let shortEntropyByteCounts: Set<Int> = [4, 8, 12]
+
+    /// Wallets whose warning was closed on this iPhone.
+    static var warnedAddresses: Set<String> {
+        get { Set(ApplicationConfig.shared.shortPhraseWarnedAddresses) }
+        set { ApplicationConfig.shared.shortPhraseWarnedAddresses = newValue.sorted() }
+    }
+
     static var restoreNotice: String {
         WalletUX.text("A phrase with fewer than 12 words is much easier to guess. After restoring, create a new wallet with a 24-word phrase and move your funds to it.")
     }
@@ -134,14 +146,53 @@ enum WalletShortPhraseWarning {
         WalletUX.text("This wallet's recovery phrase has fewer than 12 words, which makes it much easier to guess. Create a new wallet with a 24-word phrase and move your funds to it.")
     }
 
-    /// Shows the warning over `controller`. `acknowledged` runs once it is closed, or at once
+    /// Shows the warning for the wallet at `address` over `controller` and records the wallet as
+    /// warned when the alert is closed. `acknowledged` runs then, or at once (nothing recorded)
     /// when nothing on screen can show it, so a finished restore never waits on the alert.
-    static func present(from controller: UIViewController?, acknowledged: @escaping () -> Void) {
+    static func present(from controller: UIViewController?, name: String?, address: String,
+                        acknowledged: @escaping () -> Void) {
         var top = controller
         while let presented = top?.presentedViewController { top = presented }
         guard let top, top.viewIfLoaded?.window != nil else { acknowledged(); return }
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default) { _ in acknowledged() })
+        let wallet = [name ?? "", address].filter { !$0.isEmpty }.joined(separator: "\n")
+        let alert = UIAlertController(title: title, message: message + "\n\n" + wallet, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WalletUX.text("OK"), style: .default) { _ in
+            warnedAddresses.insert(address)
+            acknowledged()
+        })
         top.present(alert, animated: true)
+    }
+
+    /// Warns the wallets one after another; each alert follows the previous one's closing.
+    static func presentInTurn(_ wallets: [AccountItem], from controller: UIViewController?) {
+        guard let wallet = wallets.first else { return }
+        present(from: controller, name: wallet.username, address: wallet.address) {
+            presentInTurn(Array(wallets.dropFirst()), from: controller)
+        }
+    }
+
+    /// The wallets in `accounts` whose own entropy is that of a 3-, 6- or 9-word phrase and that
+    /// are not in `warned`. The entropy is read only for its length and wiped at once.
+    static func unwarnedWallets(_ accounts: [AccountItem], keystore: KeystoreProtocol,
+                                warned: Set<String>) -> [AccountItem] {
+        accounts.filter { account in
+            guard !warned.contains(account.address),
+                  var entropy = try? keystore.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+            else { return false }
+            defer { entropy.resetBytes(in: entropy.startIndex ..< entropy.endIndex) }
+            return shortEntropyByteCounts.contains(entropy.count)
+        }
+    }
+
+    /// `unwarnedWallets` for every account row on this iPhone, in wallet order. Nothing while a
+    /// recovery or migration holds the wallet lifecycle. Call from a background queue.
+    static func unwarnedWalletsOnThisPhone() -> [AccountItem] {
+        do {
+            try WalletRecoveryCapabilityGate.shared.requireAuthorizedLifecycleContinuation()
+            let accounts = try WalletAccountAddresses.accounts().sorted { ($0.order, $0.address) < ($1.order, $1.address) }
+            return unwarnedWallets(accounts, keystore: Keychain(), warned: warnedAddresses)
+        } catch {
+            return []
+        }
     }
 }

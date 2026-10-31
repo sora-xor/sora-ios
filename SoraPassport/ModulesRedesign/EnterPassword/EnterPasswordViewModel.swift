@@ -107,7 +107,8 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
         }
         if restoredShortPhrase {
             restoredShortPhrase = false
-            wireframe?.presentShortPhraseWarning(acknowledged: openSuccess)
+            wireframe?.presentShortPhraseWarning(name: selectedAccount.name, address: selectedAccount.address,
+                                                 acknowledged: openSuccess)
         } else {
             openSuccess()
         }

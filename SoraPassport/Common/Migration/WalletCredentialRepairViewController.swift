@@ -289,7 +289,8 @@ final class WalletCredentialRepairViewController: UIViewController {
                             guard let self else { return }
                             self.onSuccess(self.account)
                         }
-                        WalletShortPhraseWarning.present(from: self) { [weak self] in
+                        WalletShortPhraseWarning.present(from: self, name: self.account.username,
+                                                         address: self.account.address) { [weak self] in
                             self?.continueAfterShortPhraseWarning()
                         }
                     } else {
